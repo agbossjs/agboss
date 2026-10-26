@@ -1,4 +1,4 @@
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 /** One panelist's score of the candidate, with its reason. */
 export class ScoreDto {

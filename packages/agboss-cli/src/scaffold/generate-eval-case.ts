@@ -1,5 +1,5 @@
 import { dirname, join, normalize } from "node:path/posix";
-import type { EvalCaseDraft } from "agboss/internal";
+import type { EvalCaseDraft } from "@agboss/core/internal";
 import ts from "typescript";
 import { closestName } from "../cli/did-you-mean.js";
 import { applicationModuleOf } from "./application-graph.js";

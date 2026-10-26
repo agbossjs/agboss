@@ -3,7 +3,7 @@ import {
   type EvalCaseReport,
   type EvalRunReport,
   type EvalRunResult,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 import type { CommandContext } from "../cli/context.js";
 
 /**

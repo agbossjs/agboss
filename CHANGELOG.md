@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the `agboss` and `agboss-cli` packages, one section per release, in the
+All notable changes to the `@agboss/core` and `@agboss/cli` packages, one section per release, in the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) form; versions follow
 [Semantic Versioning](https://semver.org/) (before 1.0 a minor release may break the API).
 
@@ -26,7 +26,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   the generated `.agboss/types.d.ts`, every assembly rule reported at once before any model call
   (#272, #270, #299); outdated values tracked on the path scope (#271).
 - **Components** — `@Agent` (its own tool loop), `@Router` decided by a model or by code (#280),
-  `@Action`, `@Tool`, `@WorkflowStart` / `@WorkflowFinish`, DTO classes (`agboss/dto`) for every
+  `@Action`, `@Tool`, `@WorkflowStart` / `@WorkflowFinish`, DTO classes (`@agboss/core/dto`) for every
   value that crosses a boundary.
 - **Parallel work** — parallel launches and joins (#273), quorums with arbiters (#279), child
   workflows (#263), recursion with `ThisWorkflow` and `maxDepth`, the tree's and the instance's
@@ -51,7 +51,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
 - **Testing** — `testWith(App)` with scripted models, the virtual clock, deterministic ids, class
   matchers, recorded runs and unit runners for every component kind (#262, #313); tool-call
   trajectories on results, records and `JudgeInput`, and one record per step (#395).
-- **Eval suites** — `@EvalSuite` (`agboss/eval`) with typed cases, trajectory checks and code or
+- **Eval suites** — `@EvalSuite` (`@agboss/core/eval`) with typed cases, trajectory checks and code or
   model judges under a declared cascade; `agboss eval run --suite <name> --runs <k> --report
 <run.json>` runs each case k times on the application and reports pass@k / pass^k per case, the
   unstable ones flagged, into a run artifact (`agboss.eval-run`); `agboss check` assembles the suites;
@@ -92,7 +92,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   Both draw each contract the snapshots declare as an edge consumer → producer, and list the
   problems `agboss check --federation` finds between them — the same check — with their blast
   radius, and who calls an application whose latest eval run lost pass^k (#401).
-- **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
+- **The CLI** (`@agboss/cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`
   (`agboss eval` lists its subcommands `run` / `score` and exits 2).
@@ -104,7 +104,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
 
 ### Added
 
-- A placeholder published to npm to reserve the `agboss` name; it holds no framework code.
+- A placeholder published to npm to reserve the `@agboss/core` and `@agboss/cli` names; it holds no framework code.
 
 [Unreleased]: https://github.com/agbossjs/agboss/commits/main
-[0.0.1]: https://www.npmjs.com/package/agboss/v/0.0.1
+[0.0.1]: https://www.npmjs.com/package/@agboss/core/v/0.0.1

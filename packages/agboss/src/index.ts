@@ -1,7 +1,7 @@
 /**
  * `agboss` — the authoring API (#195): the component decorators and dependency injection, the
  * flow DSL and workflow settings, environments, observers, `createApp`, the errors and the public
- * types. Focused entries: `agboss/dto`, `/units`, `/models`, `/testing`, and the integrations
+ * types. Focused entries: `@agboss/core/dto`, `/units`, `/models`, `/testing`, and the integrations
  * `/mcp`, `/rag`, `/a2a`, `/memory`.
  *
  * Importing it has no side effects beyond the `Symbol.metadata` polyfill decorators need: tracing,

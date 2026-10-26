@@ -1,4 +1,4 @@
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 /** The order read from the customer's message: what the credit-limit router decides on. */
 export class CreditOrderDto {

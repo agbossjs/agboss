@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { EditorialPlanDto } from "../dtos/editorial-plan.dto.js";
 import { FactCheckDto } from "../dtos/fact-check.dto.js";
 

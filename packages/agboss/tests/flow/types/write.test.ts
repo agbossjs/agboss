@@ -32,7 +32,7 @@ describe("#270 AC13: the generated file", () => {
     });
 
     expect(result).toMatchObject({ status: FlowTypesStatus.Written, outFile: typesOf(directory) });
-    expect(readFileSync(typesOf(directory), "utf8")).toContain('declare module "agboss" {');
+    expect(readFileSync(typesOf(directory), "utf8")).toContain('declare module "@agboss/core" {');
     expect(result.notes).toHaveLength(1);
   });
 
@@ -60,7 +60,7 @@ describe("#270 AC13: the generated file", () => {
 
     expect(result.status).toBe(FlowTypesStatus.Written);
     expect(readFileSync(typesOf(directory), "utf8")).toContain(
-      'import type { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";',
+      'import type { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";',
     );
   });
 

@@ -8,9 +8,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { ExecutionHistoryStatus, ToolCallStatus, type ExecutionHistoryRecord } from "agboss";
-import type { EvalRunReport } from "agboss/eval";
-import { exportedRecordLine } from "agboss/internal";
+import { ExecutionHistoryStatus, ToolCallStatus, type ExecutionHistoryRecord } from "@agboss/core";
+import type { EvalRunReport } from "@agboss/core/eval";
+import { exportedRecordLine } from "@agboss/core/internal";
 import {
   historyRecordOf,
   toolCallOf,

@@ -1,5 +1,5 @@
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import { DeskA2AAgent } from "../a2a/desk.a2a-agent.js";
 import { DeskCallDto, DeskReplyDto } from "../dtos/desk-call.dto.js";
 

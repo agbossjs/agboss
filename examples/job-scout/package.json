@@ -27,12 +27,12 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "agboss": "0.1.0",
+    "@agboss/core": "0.1.0",
     "unpdf": "^1.8.1",
     "zod": "^4.6.5",
     "@modelcontextprotocol/server-filesystem": "^2026.8.31"
   },
   "devDependencies": {
-    "agboss-cli": "0.1.0"
+    "@agboss/cli": "0.1.0"
   }
 }

@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { HelplineAgent } from "../src/helpline/agents/helpline.agent.js";
 import { PolicyFilesServer } from "../src/helpline/mcp/policy-files.server.js";

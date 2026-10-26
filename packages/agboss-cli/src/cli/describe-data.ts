@@ -1,4 +1,4 @@
-import { resolveTools, type AssembledWorkflow } from "agboss";
+import { resolveTools, type AssembledWorkflow } from "@agboss/core";
 import {
   childLines,
   contractsOf,
@@ -20,7 +20,7 @@ import {
   type DescribedEnvironment,
   versionOf,
   workflowSnapshotOf,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 
 /**
  * `agboss describe --json`'s `application` (#268 AC4): its tree, each contract's implementation by

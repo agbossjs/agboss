@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** Sends an offer to the candidate (a service: the I/O). */
 @Injectable()

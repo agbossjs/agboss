@@ -4,8 +4,8 @@
  * external request, and every artifact value escaped.
  */
 import { createHash } from "node:crypto";
-import { ComponentKind } from "agboss";
-import { CheckStatus } from "agboss/eval";
+import { ComponentKind } from "@agboss/core";
+import { CheckStatus } from "@agboss/core/eval";
 import { describe, expect, it } from "vitest";
 import { renderEvalReportPage } from "../../src/eval/html/report-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";

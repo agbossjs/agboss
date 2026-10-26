@@ -19,8 +19,8 @@ ls -d "$WORKSPACE_ROOT/agboss" "$WORKSPACE_ROOT/agboss-examples" "$WORKSPACE_ROO
 ### CI Artifact vs. Local Tarball Provenance (`agbossjs/agboss-examples`)
 
 - **Candidate validation workflow (`Smoke CI` — `.github/workflows/smoke.yml`):** Validates all 7 example projects (`01`..`07`), `verify:package`, and `verify:published -- --from-packed` on every PR/push and uploads the lightweight JSON/Markdown proof artifact `agboss-release-proof-<framework_sha>` (`.packed/manifest.json`, `.packed/package-verification.json`, `.packed/published-verification.json`, `.packed/last-run.json`, `proof-results.json`, `proof-report.md`; does not include `.packed/*.tgz`).
-- **Downloadable tarball archive workflow (`Packed Release Candidate Verification` — `.github/workflows/packed-release.yml`):** Uploads `packed-release-proof-<framework_sha>`, which includes all JSON/Markdown proof files **plus** the downloadable `.packed/agboss-0.1.0.tgz` and `.packed/agboss-cli-0.1.0.tgz` archives.
-- **Exact tarballs published by the owner in Phase 4:** In Phase 2 Step 2.2, the owner packs and verifies `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` directly from `FINAL_MAIN_FRAMEWORK_SHA` (`sourceCommit` in `.packed/manifest.json`), and in Phase 4 publishes those exact verified `.tgz` files (rather than re-packing via `npm publish --workspace=...`).
+- **Downloadable tarball archive workflow (`Packed Release Candidate Verification` — `.github/workflows/packed-release.yml`):** Uploads `packed-release-proof-<framework_sha>`, which includes all JSON/Markdown proof files **plus** the downloadable `.packed/agboss-core-0.1.0.tgz` and `.packed/agboss-cli-0.1.0.tgz` archives.
+- **Exact tarballs published by the owner in Phase 4:** In Phase 2 Step 2.2, the owner packs and verifies `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-core-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` directly from `FINAL_MAIN_FRAMEWORK_SHA` (`sourceCommit` in `.packed/manifest.json`), and in Phase 4 publishes those exact verified `.tgz` files (rather than re-packing via `npm publish --workspace=...`).
 
 ---
 
@@ -114,10 +114,10 @@ Execute the eight phases below **in strict chronological order**. Every command 
     test "$(git rev-parse HEAD)" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
     npm ci && \
     make check && \
-    npm audit --omit=dev -w agboss
+    npm audit --omit=dev -w @agboss/core
   ```
-- **Expected outcome:** `make check` passes (`0` lint/type/test/doc/root-allowlist errors) and `npm audit --omit=dev -w agboss` reports `found 0 vulnerabilities`.
-- **Failure / stop condition:** Stop if `make check` or `npm audit --omit=dev -w agboss` fails.
+- **Expected outcome:** `make check` passes (`0` lint/type/test/doc/root-allowlist errors) and `npm audit --omit=dev -w @agboss/core` reports `found 0 vulnerabilities`.
+- **Failure / stop condition:** Stop if `make check` or `npm audit --omit=dev -w @agboss/core` fails.
 
 ### Step 2.2 — Pack Final Release Tarballs, Assert `sourceCommit`, & Run Full RC Verification Suite (`01`..`07`)
 
@@ -146,7 +146,7 @@ Execute the eight phases below **in strict chronological order**. Every command 
   - `verify:package` prints `All package verification checks PASSED`.
   - `verify:published -- --from-packed --version 0.1.0` prints `SOURCE: LOCAL_PACKED_RELEASE_CANDIDATE` and `Clean environment verification PASSED`.
   - `collect-results.mjs --provenance rc --require-p1` prints `Overall Gate: PASSED, P0: PASSED, P1: PASSED, Package: PASSED`.
-  - `.packed/manifest.json` records `sourceCommit` (`$FINAL_MAIN_FRAMEWORK_SHA`), `examplesSourceCommit`, and the exact `sha256` and `sha512` (`integrity`) hashes for `.packed/agboss-0.1.0.tgz` (`packages.agboss`) and `.packed/agboss-cli-0.1.0.tgz` (`packages.agbossCli`).
+  - `.packed/manifest.json` records `sourceCommit` (`$FINAL_MAIN_FRAMEWORK_SHA`), `examplesSourceCommit`, and the exact `sha256` and `sha512` (`integrity`) hashes for `.packed/agboss-core-0.1.0.tgz` (`packages.agboss`) and `.packed/agboss-cli-0.1.0.tgz` (`packages.agbossCli`).
 - **Failure / stop condition:** Stop immediately if `sourceCommit` does not match `$FINAL_MAIN_FRAMEWORK_SHA`, if any gate in `proof-results.json` is not `PASSED`, or if `git status --short` in `agboss-examples` is non-empty after `install:packed:restore`.
 
 ---
@@ -170,11 +170,11 @@ Execute the eight phases below **in strict chronological order**. Every command 
 
 ---
 
-## Phase 4 — Publish Exact Verified Tarballs (`agboss-0.1.0.tgz` First, Then `agboss-cli-0.1.0.tgz`)
+## Phase 4 — Publish Exact Verified Tarballs (`agboss-core-0.1.0.tgz` First, Then `agboss-cli-0.1.0.tgz`)
 
-> **Why publish the exact `.packed/*.tgz` files:** Publishing `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` guarantees byte-for-byte identity (`sha256` and `sha512` `integrity`) between the tarballs validated across all 7 examples in Phase 2 and the artifacts uploaded to `registry.npmjs.org`.
+> **Why publish the exact `.packed/*.tgz` files:** Publishing `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-core-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` guarantees byte-for-byte identity (`sha256` and `sha512` `integrity`) between the tarballs validated across all 7 examples in Phase 2 and the artifacts uploaded to `registry.npmjs.org`.
 >
-> **Why `agboss` must be published before `agboss-cli`:** `packages/agboss-cli/package.json` declares `"agboss": "0.1.0"` in `dependencies`. Publishing `agboss-0.1.0.tgz` first ensures `agboss@0.1.0` is resolvable on `registry.npmjs.org` as soon as `agboss-cli@0.1.0` is installed by consumers.
+> **Why `@agboss/core` must be published before `@agboss/cli`:** `packages/agboss-cli/package.json` declares `"@agboss/core": "0.1.0"` in `dependencies`. Publishing `agboss-core-0.1.0.tgz` first ensures `@agboss/core@0.1.0` is resolvable on `registry.npmjs.org` as soon as `@agboss/cli@0.1.0` is installed by consumers.
 
 ### Step 4.1 — Verify npm Account Identity, Tarball Provenance/Checksums & Dry-Run
 
@@ -184,14 +184,14 @@ Execute the eight phases below **in strict chronological order**. Every command 
   set -euo pipefail
   cd "$WORKSPACE_ROOT/agboss-examples"
 
-  # 1. Confirm npm account identity & collaborator write permissions on both unscoped packages
+  # 1. Confirm npm account identity & collaborator write permissions on both scoped packages
   npm whoami && \
-    npm access list collaborators agboss && \
-    npm access list collaborators agboss-cli
+    npm access list collaborators @agboss/core && \
+    npm access list collaborators @agboss/cli
 
   # 2. Confirm 0.1.0 is NOT yet published on registry.npmjs.org
-  npm view agboss versions dist-tags deprecated --json && \
-    npm view agboss-cli versions dist-tags deprecated --json
+  npm view @agboss/core versions dist-tags deprecated --json && \
+    npm view @agboss/cli versions dist-tags deprecated --json
 
   # 3. Verify .packed/manifest.json provenance (sourceCommit, examplesSourceCommit, name, version) and recompute sha256 + sha512 integrity of both .tgz files
   node -e '
@@ -203,8 +203,8 @@ Execute the eight phases below **in strict chronological order**. Every command 
     assert.equal(manifest.sourceCommit, expectedSha, "manifest.sourceCommit mismatch");
     assert.ok(manifest.examplesSourceCommit && manifest.examplesSourceCommit.length === 40, "manifest.examplesSourceCommit missing");
     for (const [key, expectedName, tgzPath] of [
-      ["agboss", "agboss", ".packed/agboss-0.1.0.tgz"],
-      ["agbossCli", "agboss-cli", ".packed/agboss-cli-0.1.0.tgz"],
+      ["agboss", "@agboss/core", ".packed/agboss-core-0.1.0.tgz"],
+      ["agbossCli", "@agboss/cli", ".packed/agboss-cli-0.1.0.tgz"],
     ]) {
       const pkg = manifest.packages[key];
       assert.equal(pkg.name, expectedName);
@@ -219,17 +219,17 @@ Execute the eight phases below **in strict chronological order**. Every command 
   '
 
   # 4. Run dry-run publish against the exact verified .tgz files
-  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz" --access public --tag latest --dry-run && \
+  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-core-0.1.0.tgz" --access public --tag latest --dry-run && \
     npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz" --access public --tag latest --dry-run
   ```
 - **Expected outcome:**
-  - `npm whoami` prints the authorized maintainer username with read-write access to both `agboss` and `agboss-cli`.
+  - `npm whoami` prints the authorized maintainer username with read-write access to both `@agboss/core` and `@agboss/cli`.
   - `versions` lists `["0.0.0-stage", "0.0.1"]` and does **not** contain `"0.1.0"`.
-  - The provenance/checksum script prints `VERIFIED .packed/agboss-0.1.0.tgz` and `VERIFIED .packed/agboss-cli-0.1.0.tgz` with matching `sourceCommit`, `sha256`, and `sha512` `integrity`.
+  - The provenance/checksum script prints `VERIFIED .packed/agboss-core-0.1.0.tgz` and `VERIFIED .packed/agboss-cli-0.1.0.tgz` with matching `sourceCommit`, `sha256`, and `sha512` `integrity`.
   - Both `npm publish ... --dry-run` commands exit `0` against the `.packed/*.tgz` archives.
 - **Failure / stop condition:** Stop if `npm whoami` fails (run `npm login`), if collaborator permissions are missing, if `0.1.0` already exists on npm, if any checksum/provenance assertion fails, or if `--dry-run` reports errors.
 
-### Step 4.2 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-0.1.0.tgz` First & Verify Registry `dist.integrity`
+### Step 4.2 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-core-0.1.0.tgz` First & Verify Registry `dist.integrity`
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
@@ -238,16 +238,16 @@ Execute the eight phases below **in strict chronological order**. Every command 
   cd "$WORKSPACE_ROOT/agboss-examples"
 
   # If your npm account requires a 2FA OTP code, append --otp=<code> or authenticate via web prompt:
-  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz" --access public --tag latest && \
-    test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
-    test "$(npm view agboss@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
-    npm view agboss@0.1.0 version dist-tags dist.integrity deprecated --json
+  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-core-0.1.0.tgz" --access public --tag latest && \
+    test "$(npm view @agboss/core@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view @agboss/core@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
+    npm view @agboss/core@0.1.0 version dist-tags dist.integrity deprecated --json
   ```
 - **Expected outcome:**
-  - `npm view agboss@0.1.0 version` returns `"0.1.0"` and `dist-tags.latest` is `"0.1.0"`.
-  - `npm view agboss@0.1.0 dist.integrity` exactly matches `packages.agboss.integrity` in `.packed/manifest.json`.
-  - `deprecated` is undefined/empty on `agboss@0.1.0`.
-- **Failure / stop condition:** **STOP IMMEDIATELY** if `npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz"` fails, if `npm view agboss@0.1.0 version` does not resolve to `"0.1.0"`, if `dist.integrity` does not match `.packed/manifest.json`, or if `deprecated` is non-empty on `agboss@0.1.0`. Do **not** publish `agboss-cli-0.1.0.tgz` until `agboss@0.1.0` is confirmed live with matching integrity.
+  - `npm view @agboss/core@0.1.0 version` returns `"0.1.0"` and `dist-tags.latest` is `"0.1.0"`.
+  - `npm view @agboss/core@0.1.0 dist.integrity` exactly matches `packages.agboss.integrity` in `.packed/manifest.json`.
+  - `deprecated` is undefined/empty on `@agboss/core@0.1.0`.
+- **Failure / stop condition:** **STOP IMMEDIATELY** if `npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-core-0.1.0.tgz"` fails, if `npm view @agboss/core@0.1.0 version` does not resolve to `"0.1.0"`, if `dist.integrity` does not match `.packed/manifest.json`, or if `deprecated` is non-empty on `@agboss/core@0.1.0`. Do **not** publish `agboss-cli-0.1.0.tgz` until `@agboss/core@0.1.0` is confirmed live with matching integrity.
 
 ### Step 4.3 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-cli-0.1.0.tgz` Second & Verify Registry `dist.integrity`
 
@@ -258,29 +258,24 @@ Execute the eight phases below **in strict chronological order**. Every command 
   cd "$WORKSPACE_ROOT/agboss-examples"
 
   npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz" --access public --tag latest && \
-    test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
-    test "$(npm view agboss-cli@0.1.0 version)" = "0.1.0" && \
-    test "$(npm view agboss@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
-    test "$(npm view agboss-cli@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agbossCli.integrity")" && \
-    test -z "$(npm view agboss@0.1.0 deprecated)" && \
-    test -z "$(npm view agboss-cli@0.1.0 deprecated)" && \
-    npm view agboss dist-tags --json && \
-    npm view agboss-cli dist-tags --json
+    test "$(npm view @agboss/core@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view @agboss/cli@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view @agboss/core@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
+    test "$(npm view @agboss/cli@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agbossCli.integrity")" && \
+    test -z "$(npm view @agboss/core@0.1.0 deprecated)" && \
+    test -z "$(npm view @agboss/cli@0.1.0 deprecated)" && \
+    npm view @agboss/core dist-tags --json && \
+    npm view @agboss/cli dist-tags --json
   ```
 - **Expected outcome:**
-  - Both `npm view agboss@0.1.0 version` and `npm view agboss-cli@0.1.0 version` output `0.1.0`.
+  - Both `npm view @agboss/core@0.1.0 version` and `npm view @agboss/cli@0.1.0 version` output `0.1.0`.
   - Both `dist.integrity` values on `registry.npmjs.org` exactly match `.packed/manifest.json` (`packages.agboss.integrity` and `packages.agbossCli.integrity`).
   - Both `dist-tags` objects show `"latest": "0.1.0"`.
   - Both `deprecated` checks on `@0.1.0` return empty output.
 - **Failure / stop condition:** **STOP IMMEDIATELY** if `agboss-cli-0.1.0.tgz` fails to publish, if `dist.integrity` does not match `.packed/manifest.json`, if `dist-tags.latest` is not `0.1.0` on both packages, or if either `0.1.0` version is marked deprecated.
 
-> **Optional Legacy Placeholder Note (`0.0.1` / `@agboss/core` / `@agboss/cli`):**
-> In npm, deprecation metadata is **per-version**. Publishing `agboss@0.1.0` and `agboss-cli@0.1.0` automatically makes `latest` (`0.1.0`) undeprecated, while `agboss@0.0.1` retains its historical per-version deprecation notice. No `npm deprecate` command is required for `agboss@0.1.0` or `agboss-cli@0.1.0`. If the owner optionally wishes to update the deprecation message on the legacy scoped placeholders `@agboss/core@0.0.1` and `@agboss/cli@0.0.1` so they point to unscoped `agboss` and `agboss-cli`, the owner may manually run:
->
-> ```bash
-> npm deprecate "@agboss/core@*" "Deprecated placeholder: install unscoped 'agboss' instead (npm install agboss)."
-> npm deprecate "@agboss/cli@*" "Deprecated placeholder: install unscoped 'agboss-cli' instead (npm install -D agboss-cli)."
-> ```
+> **Cleanup of Legacy Unscoped Packages (`agboss` / `agboss-cli`):**
+> After `@agboss/core@0.1.0` and `@agboss/cli@0.1.0` are published and verified, unpublish `agboss@0.1.0` and `agboss-cli@0.1.0` (within npm's 72-hour window) and deprecate any remaining unscoped versions so consumers are directed to `@agboss/core` and `@agboss/cli`.
 
 ---
 
@@ -397,12 +392,12 @@ Execute the eight phases below **in strict chronological order**. Every command 
   set -euo pipefail
 
   # 1. Verify live npm registry metadata and integrity
-  test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
-    test "$(npm view agboss-cli@0.1.0 version)" = "0.1.0" && \
-    test "$(npm view agboss dist-tags.latest)" = "0.1.0" && \
-    test "$(npm view agboss-cli dist-tags.latest)" = "0.1.0" && \
-    test -z "$(npm view agboss@0.1.0 deprecated)" && \
-    test -z "$(npm view agboss-cli@0.1.0 deprecated)"
+  test "$(npm view @agboss/core@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view @agboss/cli@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view @agboss/core dist-tags.latest)" = "0.1.0" && \
+    test "$(npm view @agboss/cli dist-tags.latest)" = "0.1.0" && \
+    test -z "$(npm view @agboss/core@0.1.0 deprecated)" && \
+    test -z "$(npm view @agboss/cli@0.1.0 deprecated)"
 
   # 2. Verify live GitHub Release
   gh release view v0.1.0 -R agbossjs/agboss
@@ -416,7 +411,7 @@ Execute the eight phases below **in strict chronological order**. Every command 
     test -d "$TMP_PUBLIC_TEST" && \
     case "$TMP_PUBLIC_TEST" in *agboss-public-verify.*) ;; *) echo "Unsafe temp path: $TMP_PUBLIC_TEST" >&2; exit 1 ;; esac && \
     cd "$TMP_PUBLIC_TEST" && \
-    npx --yes agboss@0.1.0 create public-verify-app --yes && \
+    npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create public-verify-app --yes && \
     cd "$TMP_PUBLIC_TEST/public-verify-app" && \
     npm run check && \
     cd /tmp && \
@@ -426,7 +421,7 @@ Execute the eight phases below **in strict chronological order**. Every command 
   - `npm view` confirms `0.1.0` (`latest`) with empty `deprecated` for both packages.
   - `gh release view v0.1.0` displays the published GitHub Release.
   - `https://agboss.dev` serves `data-release-mode="published"` and `v0.1.0`.
-  - `npx --yes agboss@0.1.0 create public-verify-app --yes && cd public-verify-app && npm run check` succeeds end to end from the public npm registry, and the guarded temporary directory is cleanly removed.
+  - `npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create public-verify-app --yes && cd public-verify-app && npm run check` succeeds end to end from the public npm registry, and the guarded temporary directory is cleanly removed.
 - **Failure / stop condition:** If any check fails, execution halts immediately (`set -euo pipefail`); investigate before announcing the release externally.
 
 ---
@@ -438,15 +433,15 @@ The following Markdown is saved in `.github/RELEASE_NOTES_v0.1.0.md` and can be 
 ```markdown
 # AGBoss v0.1.0 — First Public Framework & CLI Release
 
-**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework and static graph compiler for building multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). It combines constructor dependency injection (`@Application`, `@Injectable`), narrow `@Dto` data contracts (`agboss/dto`), compile-time Path Scope workflow verification (`agboss check`), declarative saga compensation (`compensateWith` / `committedBy`), pre-call FinOps budgets (`@Budget`), deterministic testing (`agboss/testing`), and 13 bundled AI coding-agent skill guides (`SKILL.md` + `references/01..13`).
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework and static graph compiler for building multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). It combines constructor dependency injection (`@Application`, `@Injectable`), narrow `@Dto` data contracts (`@agboss/core/dto`), compile-time Path Scope workflow verification (`agboss check`), declarative saga compensation (`compensateWith` / `committedBy`), pre-call FinOps budgets (`@Budget`), deterministic testing (`@agboss/core/testing`), and 13 bundled AI coding-agent skill guides (`SKILL.md` + `references/01..13`).
 
 ---
 
 ## Versioning & Package Note (`0.0.1` → `0.1.0`)
 
-- **`0.1.0` is the first substantive public release** of the `agboss` runtime and `agboss-cli` command-line toolkit.
+- **`0.1.0` is the first substantive public release** of the `@agboss/core` runtime and `@agboss/cli` command-line toolkit.
 - Earlier `0.0.1` entries on `registry.npmjs.org` were initial package-name reservation placeholders containing no framework code, and `v0.0.2` appeared only in early pre-release documentation drafts before the v2 architecture was consolidated into `0.1.0`.
-- Canonical packages on npm are unscoped **`agboss`** (`dependencies`) and **`agboss-cli`** (`devDependencies`).
+- Canonical packages on npm are scoped **`@agboss/core`** (`dependencies`) and **`@agboss/cli`** (`devDependencies`) under the official `agboss` npm organization.
 
 ---
 
@@ -462,26 +457,26 @@ The following Markdown is saved in `.github/RELEASE_NOTES_v0.1.0.md` and can be 
 
 ### Option 1 — Create a new project
 
-npx agboss create my-app
+npm exec --yes --package=@agboss/cli -- agboss create my-app
 cd my-app
 npm install
 
 ### Option 2 — Add to an existing project
 
-npm install agboss
-npm install -D agboss-cli
+npm install @agboss/core
+npm install -D @agboss/cli
 npx agboss check
 
 ---
 
 ## Key Capabilities in `v0.1.0`
 
-- **Application Container & Constructor DI (`agboss`):** `@Application` wires workflows, typed environment contracts (`secret()`, `env()`, `env.optional()`), custom DI providers, mandatory `@Budget` classes (`Application`, `Tenant`, and `Execution` scopes), `@PiiPolicy`, `@InputGuardrail` / `@OutputGuardrail`, `@ToolInterceptor`, `@HealthCheck` (`app.checkLiveness()` / `app.checkReadiness()`), and `createApp(App)` lifecycle hooks.
+- **Application Container & Constructor DI (`@agboss/core`):** `@Application` wires workflows, typed environment contracts (`secret()`, `env()`, `env.optional()`), custom DI providers, mandatory `@Budget` classes (`Application`, `Tenant`, and `Execution` scopes), `@PiiPolicy`, `@InputGuardrail` / `@OutputGuardrail`, `@ToolInterceptor`, `@HealthCheck` (`app.checkLiveness()` / `app.checkReadiness()`), and `createApp(App)` lifecycle hooks.
 - **Path Scope Flow DSL & Static Compiler (`agboss check`):** Chain-per-line `HarnessDSL` (`start(Start).returns(Dto).toAgent(Agent).toFinish(Finish)`, `.chooseOne(route())`, `.switch(caseOf())`, `.toParallelAgents()`, `.joinQuorum()`) backed by generated `.agboss/types.d.ts` (`Produced<Dto, Producer>`). Catches missing inputs (`[input.missing-on-path]`), stale review-loop values (`[input.outdated-on-path]`), sibling invalidation (`[launch.branch-outdates-sibling]`), and uncompensated side effects (`[flow.uncompensated-action]`) before any model call executes.
 - **Declarative Sagas, Quorums & Human Pauses:** `@Action({ compensateWith, committedBy })` with automatic LIFO rollback on failure, cancellation, or quorum `Surplus`; `@Arbiter` quorum joins; and durable two-phase human-in-the-loop pauses (`@ChannelRole`, `@ReplyInterpreter`, `@Channel`, `app.resume({ pauseId, decision })`).
 - **Multi-Instance Durability & Distributed Work-Stealing:** 10 pluggable repository contracts with built-in in-memory and SQLite WAL implementations (`Sqlite*Repository`), 30-second fenced execution leases, crash recovery sweeps, cross-instance `app.cancel(threadId)`, and `ChildPlacement.AnyInstance` distributed child workflow work-stealing.
-- **MCP, RAG & Signed Agent Mesh (`agboss/mcp`, `agboss/rag`, `agboss/a2a`):** Typed `@McpServer` / `@McpTool` wrappers, `@Rag` knowledge bases, `@A2AExpose` / `@A2AAgent` cross-service calls with signed JWS envelopes (`agboss-mesh`), `agboss check --federation`, and the read-only `agboss hub` visualizer.
-- **Testing & Multi-Run Evaluation (`agboss/testing`, `agboss/eval`):** `testWith(App)` with scripted models, `VirtualClock`, `TestConcurrency.inOrder`, 10 component unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testGuardrail`, `testPii`, `testToolInterceptor`, `testRag`, `testJudge`, `testCompaction`), and `@EvalSuite` (`agboss eval run`, `pass@k` / `pass^k`, `--baseline --fail-on-regression`, `--chaos`, `--metamorphic`, Cohen's κ calibration, and `agboss eval show --html` / `agboss eval ui`).
+- **MCP, RAG & Signed Agent Mesh (`@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`):** Typed `@McpServer` / `@McpTool` wrappers, `@Rag` knowledge bases, `@A2AExpose` / `@A2AAgent` cross-service calls with signed JWS envelopes (`agboss-mesh`), `agboss check --federation`, and the read-only `agboss hub` visualizer.
+- **Testing & Multi-Run Evaluation (`@agboss/core/testing`, `@agboss/core/eval`):** `testWith(App)` with scripted models, `VirtualClock`, `TestConcurrency.inOrder`, 10 component unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testGuardrail`, `testPii`, `testToolInterceptor`, `testRag`, `testJudge`, `testCompaction`), and `@EvalSuite` (`agboss eval run`, `pass@k` / `pass^k`, `--baseline --fail-on-regression`, `--chaos`, `--metamorphic`, Cohen's κ calibration, and `agboss eval show --html` / `agboss eval ui`).
 - **13 Bundled AI Coding-Agent Skills:** Auto-synced into `.claude/skills/agboss/` on `agboss check` (`01-composition-and-architecture.md` through `13-migrating-from-langgraph.md`).
 
 ---

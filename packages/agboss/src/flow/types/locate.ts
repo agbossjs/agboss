@@ -6,7 +6,7 @@ import type { LoadedModule } from "../analyse/rules/context.js";
  * Where a class can be imported from (#272 S2): the loaded project modules that export it under
  * its own name (`moduleNamespace[Cls.name] === Cls`). A class exported from several modules (its
  * own file and a barrel) is imported from the file it was declared in when that is known, else from
- * a package entry (`agboss/dto`, kept in the given order), else from the first file that is not an
+ * a package entry (`@agboss/core/dto`, kept in the given order), else from the first file that is not an
  * `index` barrel, by path.
  */
 

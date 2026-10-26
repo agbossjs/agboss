@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** The reviewer's verdict "rewrite it": what to change in the draft. */
 export class ChangesRequestedDto {

@@ -1,4 +1,4 @@
-import { testExecutionContext, toolOf } from "agboss/testing";
+import { testExecutionContext, toolOf } from "@agboss/core/testing";
 import { describe, expect, it, vi } from "vitest";
 import { FIT_QUESTION, mapLimited, type FitJudge } from "../src/helpers/fit.helper.js";
 import { GreenhouseJobs } from "../src/tools/greenhouse-jobs.tool.js";

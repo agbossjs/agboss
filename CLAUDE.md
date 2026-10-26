@@ -8,8 +8,8 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
 - Node 22+, TypeScript (strict, fully typed — see `QUALITY.md` → Types), ESM
 - `@langchain/langgraph` (graph, and each agent's own loop as a subgraph), `@langchain/core`
   (messages, prompts, tools, test fakes), `zod` (inside the framework only — workflows use DTO
-  classes, `agboss/dto`)
-- LLM access: **model providers** (#266) — `@ModelProvider` classes (`agboss/models`) listed only in
+  classes, `@agboss/core/dto`)
+- LLM access: **model providers** (#266) — `@ModelProvider` classes (`@agboss/core/models`) listed only in
   `@Application({ providers })`; none listed → the built-in `OpenRouterModelProvider` (chat) +
   `DecisionsModelProvider` (decision models), one listed → the list is complete. A workflow and its
   components name models only: every model of the application resolves to exactly one listed
@@ -48,7 +48,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `agboss/models`), `cache`.
+    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -87,7 +87,7 @@ and `rag index [--rag <name>]` cover every workflow of the application. `eval` i
 `createApp` builds it — each case `--runs` times, its history written and its turns run on one thread
 with the case's contexts, the checks under the cascade, pass@k / pass^k per case, `unstable` for pass@k
 without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `schemaVersion`; its types
-`EvalRunReport` & co. public in `agboss/eval`); `--baseline <run.json>` compares each case with the
+`EvalRunReport` & co. public in `@agboss/core/eval`); `--baseline <run.json>` compares each case with the
 same case of an earlier artifact (`CaseComparison`: `Regressed` = pass^k there and not now,
 `FlakyOnBaseline` quarantined, `Changed` = another `caseHash`, not compared; `New`, `Removed`,
 `Improved`, `Unchanged`), and with `--fail-on-regression` a regression is exit 5 (`quality`,
@@ -98,7 +98,7 @@ exits 2); `agboss eval run … --html <file>` and `agboss eval show <run.json> [
 render a run artifact — `show` reads a saved one, runs nothing — as its table and one self-contained
 HTML page (inline style and script, no request, a CSP by hash; header, summary, the baseline diff
 when the artifact has one, unstable cases with the node where their attempts part ways
-(`attemptDivergenceOf`, `agboss/internal`), cases with their expectation, attempt dots, each run's
+(`attemptDivergenceOf`, `@agboss/core/internal`), cases with their expectation, attempt dots, each run's
 checks and timeline — #397 PR 2: `schemaVersion` 2 adds each run's `trace` (`EvalExecutionTrace`,
 the last turn's record cut down and masked: steps with `inputHash`, model calls, tool calls,
 guardrail decisions, judge verdicts; handled errors, pauses, undo actions, children, the output) and
@@ -137,7 +137,7 @@ the variants only then); `agboss generate eval-case <name> --from-execution <exe
 <name>] [--tenant <id>]` (#396 PR 8) drafts a case from a kept execution (#401) into its suite —
 its input as the turn, its contexts, the thread's earlier finished turns as `history`, the calls it
 ran as `tools.required`, masked as kept, its classes imported; the draft is `evalCaseDraftOf`
-(`agboss/internal`; `agboss eval ui`'s "save as golden case" calls it too, #397 PR 5); `agboss hub show <path…> [--html <file>]` (#401 PR 3,
+(`@agboss/core/internal`; `agboss eval ui`'s "save as golden case" calls it too, #397 PR 5); `agboss hub show <path…> [--html <file>]` (#401 PR 3,
 `agboss-cli/src/hub/`) reads many applications' files — `describe --json` envelopes, `agboss.eval-run`
 artifacts, `agboss.execution-record` exports, each by its marker (`hub.input-schema`,
 `hub.duplicate-application`) — into the mesh: the applications, the calls between them seen in the
@@ -154,7 +154,7 @@ problems with their blast radius — the same `checkFederation` over each applic
 and who calls an application whose latest eval run lost pass^k (#401 PR 7); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
-(`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
+(`@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
 dev` on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
 `langgraph.json` of its own.
 `agboss describe` (#268 PR 2)
@@ -191,7 +191,7 @@ no model key): `npm run check` (`agboss check --strict --cassettes` on its offli
 cassette `tests/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
 #439; replayed by `tests/desk-cassette.test.ts`) against its prompts and schemas — and on its
 application's twelve workflows `--federation` against the desk's fresh `describe --json`, then
-`--models` on `test`, then `eslint .` with `agboss/eslint`, then `npm run eval:check` — the desk's
+`--models` on `test`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
 run records:check` — the desk keeps its executions (`executionRecordRetention`, #401, in
@@ -242,7 +242,7 @@ service, one agent and a router:
 
 ```ts file=src/desk/tools/order-status.dto.ts
 // tools/order-status.dto.ts — data crossing a tool boundary are DTO classes, one decorator per field
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 export class OrderQuery {
   @Text({ prompt: "the order id" })
@@ -257,7 +257,7 @@ export class OrderInfo {
 
 ```ts file=src/desk/services/order-book.service.ts
 // services/order-book.service.ts — a service: does the I/O, created by the container
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class OrderBook {
@@ -269,7 +269,7 @@ export class OrderBook {
 
 ```ts file=src/desk/tools/order-status.tool.ts
 // tools/order-status.tool.ts — `deps` lists the constructor's dependencies, in order (compiler-checked)
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { OrderBook } from "../services/order-book.service.js";
 import { OrderInfo, OrderQuery } from "./order-status.dto.js";
 
@@ -296,7 +296,7 @@ export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
 ```ts file=src/desk/agents/support.agent.ts
 // agents/support.agent.ts — the agent's own loop: its model, prompt and tools. No input/output:
 // a text agent — it reads the message (WorkflowStartTextDto) and answers text
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { OrderStatus } from "../tools/order-status.tool.js";
 
 @Agent({
@@ -315,8 +315,8 @@ You answer questions about orders. Look every order up with order-status-tool; n
 
 ```ts file=src/desk/workflow-starts/chat.workflow-start.ts
 // workflow-starts/chat.workflow-start.ts — where a run starts: its input DTO
-import { WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({
   name: "chat-workflow-start",
@@ -328,8 +328,8 @@ export class ChatWorkflowStart {}
 
 ```ts file=src/desk/workflow-finishes/chat.workflow-finish.ts
 // workflow-finishes/chat.workflow-finish.ts — where a run finishes: its output DTO
-import { WorkflowFinish } from "agboss";
-import { WorkflowFinishTextDto } from "agboss/dto";
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({
   name: "chat-workflow-finish",
@@ -341,8 +341,8 @@ export class ChatWorkflowFinish {}
 
 ```ts file=src/desk/workflow-finishes/hand-over.workflow-finish.ts
 // workflow-finishes/hand-over.workflow-finish.ts — a second finish: the message, handed over as is
-import { WorkflowFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({
   name: "hand-over-workflow-finish",
@@ -355,8 +355,8 @@ export class HandOverWorkflowFinish {}
 ```ts file=src/desk/routers/main.router.ts
 // routers/main.router.ts — `prompt` says how to choose, `routes` what each choice means, `input`
 // what it decides on
-import { DecidedBy, Router } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { DecidedBy, Router } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "../agents/support.agent.js";
 import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-finish.js";
 
@@ -381,8 +381,8 @@ export class MainRouter {}
 
 ```ts file=src/desk/desk.workflow.ts
 // desk.workflow.ts — the module: the paths (`flow`), defaults, memory, providers; money: the application's budgets
-import { Workflow, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "./agents/support.agent.js";
 import { MainRouter } from "./routers/main.router.js";
 import { OrderBook } from "./services/order-book.service.js";
@@ -414,8 +414,8 @@ export class DeskWorkflow {}
 
 ```ts file=src/desk/config/budget.config.ts
 // config/budget.config.ts — every budget of the application, one template: what it limits, how much
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({
   name: "application-daily-budget",
@@ -447,7 +447,7 @@ export class ExecutionBudget implements BudgetHandler {
 // desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
 // the built-in in-memory defaults and the built-in OpenRouter + Decisions model providers), budgets,
 // the defaults of every workflow and the environment contract (`environments/` next to this file)
-import { Application } from "agboss";
+import { Application } from "@agboss/core";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 import { DeskWorkflow } from "./desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
@@ -467,7 +467,7 @@ The test drives it by script — the whole application, no model, no network:
 
 ```ts file=tests/desk.test.ts
 import { expect } from "vitest";
-import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
+import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { DeskApplication } from "../src/desk/desk.application.js";
 import { MainRouter } from "../src/desk/routers/main.router.js";
 import { SupportAgent } from "../src/desk/agents/support.agent.js";
@@ -507,7 +507,7 @@ test("a service is replaced by a mock", async ({ app, mockLlm, mockOf }) => {
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { include: ["tests/**/*.test.ts"], setupFiles: ["agboss/testing/setup"] },
+  test: { include: ["tests/**/*.test.ts"], setupFiles: ["@agboss/core/testing/setup"] },
 });
 ```
 
@@ -766,8 +766,8 @@ OfferDraftDto })` (`[io.ambiguous-cycle]`, #299); a node reads the earlier versi
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction } from "agboss";
-import { Flag, Text, oneOf } from "agboss/dto";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction } from "@agboss/core";
+import { Flag, Text, oneOf } from "@agboss/core/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -846,8 +846,8 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Flag, Text, WorkflowStartTextDto, listOf, optional } from "agboss/dto";
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Flag, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
 
 export class CompanyDto {
   @Text({ prompt: "the company's name" })
@@ -948,8 +948,8 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, start, toAction } from "agboss";
-import { Flag, Text, WorkflowStartTextDto, listOf, oneOf } from "agboss/dto";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, start, toAction } from "@agboss/core";
+import { Flag, Text, WorkflowStartTextDto, listOf, oneOf } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -1043,9 +1043,9 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "agboss";
-import { Integer, Text, listOf, optional } from "agboss/dto";
-import { minutes, seconds } from "agboss/units";
+import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "@agboss/core";
+import { Integer, Text, listOf, optional } from "@agboss/core/dto";
+import { minutes, seconds } from "@agboss/core/units";
 
 export class CandidateDto {
   @Text({ prompt: "the candidate" })
@@ -1305,7 +1305,7 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   (`agboss/no-component-state`) flags `this.x = …` outside the constructor of any component.
 
 <!-- snippet-context
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 interface RedisClient {
   sAdd(key: string, member: string): Promise<number>;
 }
@@ -1328,7 +1328,7 @@ export class SeenJobsRepository {
 }
 ```
 
-- **Data are DTO classes** (`agboss/dto`): `@Text`, `@Integer`, `@Flag`, `@OneOf`,
+- **Data are DTO classes** (`@agboss/core/dto`): `@Text`, `@Integer`, `@Flag`, `@OneOf`,
   `@ListOf`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
   `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { limit })` (an input: the current value and the
   earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
@@ -1473,11 +1473,11 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `[compaction.invalid-setting]`, `[compaction.decision-model]`,
   `[compaction.uncompacted-turns-invalid]` at assembly. Tests: `mockLlm(ConversationCompaction)
 .thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) — unscripted, a fixed
-  summary. `@Agent({ memoryStrategy })` (`agboss/memory`, `extends BaseMemoryStrategy`) replaces
+  summary. `@Agent({ memoryStrategy })` (`@agboss/core/memory`, `extends BaseMemoryStrategy`) replaces
   what one agent sees of that memory.
 
 <!-- snippet-context
-import { Agent, Compaction, CompactionStrategy, TurnLimit } from "agboss";
+import { Agent, Compaction, CompactionStrategy, TurnLimit } from "@agboss/core";
 -->
 
 ```ts
@@ -1526,7 +1526,7 @@ export class ArchiveAgent {}
   its `start`, else `400 a2a.unknown-start` with several); `agboss describe --json` lists both sides
   under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`);
   `agboss check --federation <snapshot…>` (#398 PR 4; files or folders of neighbours' `describe
---json`, no network; `checkFederation` in `agboss/internal`) compares every consumed contract whose
+--json`, no network; `checkFederation` in `@agboss/core/internal`) compares every consumed contract whose
   target is among them, structurally — `[federation.missing-target]`,
   `[federation.incompatible-schema]` with its blast radius (the consumer's workflows and tools),
   `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own
@@ -1560,7 +1560,7 @@ export class ArchiveAgent {}
   `[application.pii-instance-key]` (S94); logs and traces mask with a key of the instance.
 
 <!-- snippet-context
-import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "agboss";
+import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "@agboss/core";
 -->
 
 ```ts
@@ -1620,8 +1620,8 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
   `testGuardrail(G)` takes no `model`.
 
 <!-- snippet-context
-import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";
-import { OneOf } from "agboss/dto";
+import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
+import { OneOf } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
   @OneOf({ values: ["en", "he"] })
   locale!: "en" | "he";
@@ -1690,7 +1690,7 @@ does not compile). Tests run on `test` — no `test.environment.ts` fails the te
 dev's addresses:
 
 ```ts file=src/desk/environments/dev.environment.ts
-import { env } from "agboss";
+import { env } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -1711,7 +1711,7 @@ there is no separate token), typed by the contract through `.agboss/types.d.ts`,
 prints as `***` everywhere and only `.reveal()` gives the value:
 
 ```ts file=src/desk/services/audit.service.ts
-import { ApplicationContext, Injectable } from "agboss";
+import { ApplicationContext, Injectable } from "@agboss/core";
 
 @Injectable({ deps: [ApplicationContext] })
 export class AuditService {
@@ -1766,14 +1766,14 @@ assembly (a `JudgeModel` reached through a service throws it when called); it wo
 quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testJudge(J)`
 takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
 `openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
-(an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `agboss/eval`):**
+(an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `@agboss/core/eval`):**
 `@EvalSuite({ name: "-eval-suite", description, start, checks, cascade, cases })` — `checks` in
 order (`checkTrajectory()`, `judgedBy(Judge)`), `cascade: EvalCascade.StopAtFirstFailure | RunAll`
 required (skipped checks are `CheckStatus.Skipped`); `evalCase({ name, tenant?, execution?, history?:
 [pastTurn(Start, input, Finish, output)], turns: [turn(input)], tools?: { required: [toolCall(Tool,
 partial)], forbidden: [Tool], invariants: [toolInvariant(Tool, (input) => …)] }, judges?, variants? })`,
 typed by the start's input, the application's contexts and each tool's input. Assembled on its
-application by `checkEvalSuite` (`agboss/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
+application by `checkEvalSuite` (`@agboss/core/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
 `[name.kind-suffix]`
 (name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]` (an
 eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
@@ -1843,8 +1843,8 @@ askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn o
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
 
 <!-- snippet-context
-import { ExecutionContext, Injectable, PiiAction, TenantContext } from "agboss";
-import { OneOf, Text } from "agboss/dto";
+import { ExecutionContext, Injectable, PiiAction, TenantContext } from "@agboss/core";
+import { OneOf, Text } from "@agboss/core/dto";
 -->
 
 ```ts
@@ -1917,8 +1917,8 @@ ModelProvider | Project | StepSlots, status, reason?, duration }`) — the proje
   `close()`.
 
 <!-- snippet-context
-import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "agboss";
-import { seconds } from "agboss/units";
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 @Injectable()
 export class CrmClient {
   ping(): Promise<boolean> {
@@ -2015,18 +2015,18 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
 
 ### Testing
 
-- The whole application: `testWith(Application, options?)` from `agboss/testing` — the only form
+- The whole application: `testWith(Application, options?)` from `@agboss/core/testing` — the only form
   (`testWith(Workflow)` does not compile, #261); one workflow is tested through its start with
   `app.execute`. Each test assembles the application anew on the implementations it lists (else
   the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
   executes nothing). Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf` (budgets
   too), `mcpOf`,
-  `recoverApp`, `clock` — the test's `VirtualClock` (`agboss/testing`), the application's `Clock`
+  `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
   `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
   one's work before the next, without real waiting; deterministic ids — `thread-1`, `thread-2`, …,
   `execution-1`, … in the order made, per test and shared by its instances (`SequentialIdGenerator`,
-  `agboss/testing`, #313), unless the application lists its own `IdGenerator` — and, with
+  `@agboss/core/testing`, #313), unless the application lists its own `IdGenerator` — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
   one clock: a lease, a pause resumed on the other instance, a rate-limit slot — the in-memory
   defaults are shared; listed SQLite stores on `sqlitePath: ":memory:"` are **not**, each instance
@@ -2050,7 +2050,7 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `toHaveHandledError(E, { at, by })`, and the call
   matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
   `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
-  Vitest's own on anything else (`setupFiles: ["agboss/testing/setup"]`). Errors only the real way:
+  Vitest's own on anything else (`setupFiles: ["@agboss/core/testing/setup"]`). Errors only the real way:
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
@@ -2091,7 +2091,7 @@ executionContext, execution }` as `testExecutionContext` takes them (checked by 
 
 An example (and any project) imports only the public entries: the root `agboss` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
-types), `agboss/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`), and
+types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`), and
 the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` and the builders of
 its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a
 project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
@@ -2156,7 +2156,7 @@ Components):
   command `agboss`.
 - Getting something for a component is `…Of` (`schemaOf`, `modelOf`); attaching is
   `<verb>(what).on(target)`; storage contracts are `…Repository` with Spring Data method names.
-- **Values with units** — `usd(0.5)`, `seconds(30)`, `minutes(5)` (`agboss/units`), no `Ms` /
+- **Values with units** — `usd(0.5)`, `seconds(30)`, `minutes(5)` (`@agboss/core/units`), no `Ms` /
   `Usd` in names; every timeout is one (`timeout: seconds(5)`), a join's waiting limit is its
   `deadline`.
 - **`Workflow…` is the definition, `Execution…` one execution** (#268 AC10): `@Workflow`,
@@ -2196,7 +2196,7 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
   file-scope `/* eslint-disable */`, ever. Tests must assert (`requireAssertions`) and must not fake
   framework failures (e.g. an interrupt by its name). The repo root is allow-listed
   (`.root-allowlist`): notes and specs go to Issues / Wiki.
-- Tests never call a real LLM. An application is tested with `agboss/testing` (`testWith`: models
+- Tests never call a real LLM. An application is tested with `@agboss/core/testing` (`testWith`: models
   by script, MCP servers stubbed, network blocked); units use fakes from `@langchain/core/utils/testing`.
 - Read existing code before planning — the spec may be stale, the code is not.
 - **No specs, plans or docs as files.** Specs and implementation plans → GitHub Issues (bodies via
@@ -2211,9 +2211,9 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
 ## Layout
 
 ```
-packages/agboss/        the framework (npm package `agboss`; builds to dist/; no command — see -cli)
+packages/agboss/        the framework (npm package `@agboss/core`; builds to dist/; no command — see -cli)
   src/
-    index.ts        the root entry `agboss` (public/: components, flow, observers, app) + errors.ts
+    index.ts        the root entry `@agboss/core` (public/: components, flow, observers, app) + errors.ts
     application/    @Application, createApp(App) → app.execute / resume / cancel / close / checkLiveness /
                     checkReadiness over every workflow,
                     the application's assembly rules, its one container
@@ -2226,10 +2226,10 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     execution in run/run-budgets.ts)
     health/         @HealthCheck, HealthCheckResult, HealthReport + the rules (health-check.ts, in the
                     root import); the probes, loaded on first use (application-health.ts, #300)
-    testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
+    testing/        `@agboss/core/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
-    dto/            `agboss/dto`: field decorators, DTO schemas and validation, standard/ DTOs
-    units/          `agboss/units`: usd(), seconds(), minutes(), kilobytes()
+    dto/            `@agboss/core/dto`: field decorators, DTO schemas and validation, standard/ DTOs
+    units/          `@agboss/core/units`: usd(), seconds(), minutes(), kilobytes()
     workflow.ts     the assembled workflow type
     config/         typed config schema, profiles (YAML overlays), defaults resolution
     rag/            knowledge-base contract (RagConnector) + reference SQLite FTS5 connector
@@ -2248,17 +2248,17 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
     federation/     `agboss check --federation` (#398 PR 4): the snapshots read, the contracts compared
                     (federation.ts) and JSON Schemas compared structurally (schema-compat.ts), through agboss/internal
-    eval/           `agboss/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
+    eval/           `@agboss/core/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
                     assembly (check-suite.ts, through agboss/internal); run/ — `agboss eval run`'s
                     runner (run-suite.ts) and its artifact (report.ts); eval.ts, golden, replay, compare —
                     the CLI's eval, golden, replay and compare (through agboss/internal)
-    eslint/         `agboss/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
+    eslint/         `@agboss/core/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
                     `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` — for the eslint.config.js `agboss
                     create` writes and for this repo's own config (so lint runs on the build)
-    internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
+    internal.ts     `@agboss/core/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
   schema/           profile.schema.json (YAML autocomplete)
-packages/agboss-cli/    the `agboss` / `agboss` command (#205; depends on agboss, same version)
+packages/agboss-cli/    the `agboss` command (#205, npm package `@agboss/cli`; depends on @agboss/core, same version)
   src/
     cli/            main.ts → run-cli.ts (argv → exit code 0/1/2 usage/3 project/4 conflict/5 quality, --json
                     envelope), commands.ts (one option schema per command: parser + help), terminal helpers
@@ -2288,7 +2288,7 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
-                public-entries, eslint-agboss-plugin: `agboss/eslint` on the repo's files),
+                public-entries, eslint-agboss-plugin: `@agboss/core/eslint` on the repo's files),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
 ../<repo>.wiki  GitHub Wiki working copy (separate git repo, never inside this repo)

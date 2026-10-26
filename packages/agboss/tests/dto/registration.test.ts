@@ -88,6 +88,6 @@ describe("DTO registration (#118)", () => {
         settings: {},
         isPrivate: false,
       });
-    }).toThrow(/dto\.no-metadata: .*agboss\/dto/);
+    }).toThrow(/dto\.no-metadata: .*@agboss\/core\/dto/);
   });
 });

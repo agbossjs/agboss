@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { EditorialPlanDto } from "../dtos/editorial-plan.dto.js";
 
 /** Where a review finishes when a critic failed: the plan, reviewed no further. */

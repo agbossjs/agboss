@@ -5,7 +5,7 @@ import {
   type OnExecutionEnd,
   type OnToolEnd,
   type ToolEndEvent,
-} from "agboss";
+} from "@agboss/core";
 import { DeskWorkflow } from "../desk.workflow.js";
 import { DeskMetricsService } from "../services/desk-metrics.service.js";
 

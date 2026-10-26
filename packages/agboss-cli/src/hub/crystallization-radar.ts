@@ -1,4 +1,4 @@
-import { ComponentKind, type ChildExecutionRecord, type ExecutionStepRecord } from "agboss";
+import { ComponentKind, type ChildExecutionRecord, type ExecutionStepRecord } from "@agboss/core";
 import type { SuiteHealth } from "./derived-health.js";
 import type { HubRecord } from "./hub-inputs.js";
 

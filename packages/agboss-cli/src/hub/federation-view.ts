@@ -3,7 +3,7 @@ import {
   federationMemberOf,
   type FederationMember,
   type FederationProblem,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import type { SuiteHealth } from "./derived-health.js";
 import type { DescribedApplication } from "./hub-inputs.js";
 import type { ObservedEdge } from "./observed-calls.js";

@@ -1,4 +1,4 @@
-import { A2AExpose } from "agboss/a2a";
+import { A2AExpose } from "@agboss/core/a2a";
 import { DeskWorkflowStart } from "../workflow-starts/desk.workflow-start.js";
 
 /**

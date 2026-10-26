@@ -1,12 +1,12 @@
 /**
- * `agboss/testing` — test a workflow without models and without the network: `testWith`
+ * `@agboss/core/testing` — test a workflow without models and without the network: `testWith`
  * (Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf`, `mcpOf`, `recoverApp`,
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
  * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
  * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`) and the matchers
- * (register them with `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer
+ * (register them with `setupFiles: ["@agboss/core/testing/setup"]`). Vitest is an optional peer
  * dependency.
  * Wiki → Testing.
  */

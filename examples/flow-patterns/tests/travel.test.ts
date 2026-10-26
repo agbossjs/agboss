@@ -1,6 +1,6 @@
 import { expect } from "vitest";
-import { CompensationReason } from "agboss";
-import { testWith } from "agboss/testing";
+import { CompensationReason } from "@agboss/core";
+import { testWith } from "@agboss/core/testing";
 import { BookFlightAction } from "../src/travel/actions/book-flight.action.js";
 import { BookHotelAction } from "../src/travel/actions/book-hotel.action.js";
 import { CancelFlightAction } from "../src/travel/actions/cancel-flight.action.js";

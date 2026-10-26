@@ -74,7 +74,7 @@ const jsonLines = (entries: Readonly<Record<string, string>>, indent: string): s
 function packageJsonOf(spec: WorkflowSpec, project: Names, workflow: Names): FileToWrite {
   const scripts = { ...workflowScripts(workflow), ...APPLICATION_SCRIPTS };
   const dependencies = {
-    agboss: `^${cli.dependencies.agboss ?? cli.version}`,
+    "@agboss/core": `^${cli.dependencies["@agboss/core"] ?? cli.version}`,
     zod: cli.dependencies.zod ?? "latest",
     ...(spec.mcp.kind === "filesystem"
       ? { [FILESYSTEM_SERVER_PACKAGE]: filesystemServerVersion() }
@@ -105,7 +105,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
     packageJsonOf(spec, project, workflow),
     { path: "tsconfig.json", content: render("project/tsconfig.json.tmpl", {}) },
     { path: "vitest.config.ts", content: render("project/vitest.config.ts.tmpl", {}) },
-    // `npm run lint` (#388): typescript-eslint and the AGBoss rules (`agboss/eslint`)
+    // `npm run lint` (#388): typescript-eslint and the AGBoss rules (`@agboss/core/eslint`)
     { path: "eslint.config.js", content: render("project/eslint.config.js.tmpl", {}) },
     { path: ".env.example", content: render("project/env.example.tmpl", {}) },
     { path: ".gitignore", content: render("project/gitignore.tmpl", {}) },

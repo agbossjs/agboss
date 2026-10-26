@@ -3,7 +3,7 @@ import type {
   EvalModelCallTrace,
   EvalStepTrace,
   EvalToolCallTrace,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 import { durationText, usdText } from "./format.js";
 import { element, type HtmlChild, type HtmlElement } from "./html.js";
 import { valueView } from "./value-view.js";

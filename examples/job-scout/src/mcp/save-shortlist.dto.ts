@@ -1,4 +1,4 @@
-import { Integer, ListOf, Text } from "agboss/dto";
+import { Integer, ListOf, Text } from "@agboss/core/dto";
 
 /** One job the user chose, copied from the list shown. */
 export class ChosenJob {

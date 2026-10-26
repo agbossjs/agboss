@@ -3,8 +3,8 @@
  * them: a stable case, an unstable one (passed, failed a check, hit a limit) and a failing one (a
  * turn that paused, a check the cascade skipped).
  */
-import { CheckStatus, EvalCascade } from "agboss/eval";
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
+import { CheckStatus, EvalCascade } from "@agboss/core/eval";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
 
 const passedRun = (run: number): EvalRunResult => ({
   run,

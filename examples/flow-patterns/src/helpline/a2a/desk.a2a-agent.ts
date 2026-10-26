@@ -1,6 +1,6 @@
-import { ExecutionContext } from "agboss";
-import { A2AAgent, A2AClient } from "agboss/a2a";
-import { usd } from "agboss/units";
+import { ExecutionContext } from "@agboss/core";
+import { A2AAgent, A2AClient } from "@agboss/core/a2a";
+import { usd } from "@agboss/core/units";
 import { DeskCallDto, DeskReplyDto } from "../dtos/desk-call.dto.js";
 
 /**

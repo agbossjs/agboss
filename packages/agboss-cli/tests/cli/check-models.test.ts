@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applicationOf } from "agboss/internal";
+import { applicationOf } from "@agboss/core/internal";
 import { checkApplicationModels } from "../../src/cli/check-models.js";
 import { COMMANDS } from "../../src/cli/usage.js";
 import { PricedApplication } from "../../../agboss/tests/models/fixtures/priced.workflow.js";

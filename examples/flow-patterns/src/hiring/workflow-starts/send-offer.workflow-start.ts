@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { OfferRequestDto } from "../dtos/offer.dto.js";
 
 /** Where sending an offer starts: the candidate and the role. */

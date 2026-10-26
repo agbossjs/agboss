@@ -1,4 +1,4 @@
-import { Workflow, start, toFinish } from "agboss";
+import { Workflow, start, toFinish } from "@agboss/core";
 import { BookFlightAction } from "./actions/book-flight.action.js";
 import { BookHotelAction } from "./actions/book-hotel.action.js";
 import { TripFlightDto, TripHotelDto, TripRequestDto } from "./dtos/trip.dto.js";

@@ -1,5 +1,11 @@
 import { describe, expect } from "vitest";
-import { failWith, ModelFailure, replyWith, testWith, type ModelRequest } from "agboss/testing";
+import {
+  failWith,
+  ModelFailure,
+  replyWith,
+  testWith,
+  type ModelRequest,
+} from "@agboss/core/testing";
 import { VendorCheckerAgent } from "../src/vendor/agents/vendor-checker.agent.js";
 import { VendorFinderAgent } from "../src/vendor/agents/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../src/vendor/agents/vendor-ranker.agent.js";

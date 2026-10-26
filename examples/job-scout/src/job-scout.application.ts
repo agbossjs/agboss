@@ -10,9 +10,9 @@ import {
   SqliteMeshRequestRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
-} from "agboss";
-import { DecisionsModelProvider } from "agboss/models";
-import { hours } from "agboss/units";
+} from "@agboss/core";
+import { DecisionsModelProvider } from "@agboss/core/models";
+import { hours } from "@agboss/core/units";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,

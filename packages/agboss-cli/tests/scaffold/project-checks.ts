@@ -60,7 +60,7 @@ export const eslintOf = (project: string, folders: readonly string[]): Ran =>
 
 /**
  * The project's own `npm run lint` (#388): `eslint .` in its folder, on the `eslint.config.js`
- * `agboss create` wrote — typescript-eslint and the AGBoss rules, from `agboss/eslint`.
+ * `agboss create` wrote — typescript-eslint and the AGBoss rules, from `@agboss/core/eslint`.
  */
 export const lintOf = (project: string): Ran =>
   run(bin("eslint/bin/eslint.js"), [".", "--max-warnings", "0"], project);

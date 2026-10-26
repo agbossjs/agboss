@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { ChangesRequestedDto } from "../dtos/changes-requested.dto.js";
 import { OfferDraftDto } from "../dtos/offer-draft.dto.js";
 

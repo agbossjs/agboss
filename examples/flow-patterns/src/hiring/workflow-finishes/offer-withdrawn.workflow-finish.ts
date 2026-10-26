@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { OfferRequestDto } from "../dtos/offer.dto.js";
 
 /** The offer could not be made: its steps were undone (or handed to a person) — the request. */

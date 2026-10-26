@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** The user's shortlist as saved (empty when nothing is saved yet). */
 export class ShortlistContent {

@@ -1,4 +1,4 @@
-import { WorkflowFinish, type FinishHandler, type InputOf, type OutputOf } from "agboss";
+import { WorkflowFinish, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { FlightBookingDto } from "../dtos/flight-booking.dto.js";
 import { OffsiteBookingDto } from "../dtos/offsite-booking.dto.js";
 import { VenueBookingDto } from "../dtos/venue-booking.dto.js";

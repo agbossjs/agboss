@@ -1,4 +1,10 @@
-import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import {
+  Action,
+  ExecutionContext,
+  type ActionHandler,
+  type InputOf,
+  type OutputOf,
+} from "@agboss/core";
 import { OfferConfirmedDto, OfferLetterSentDto, RegisteredOfferDto } from "../dtos/offer.dto.js";
 import { AtsClientService } from "../services/ats-client.service.js";
 

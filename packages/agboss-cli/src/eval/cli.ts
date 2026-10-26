@@ -1,4 +1,4 @@
-import { evaluate, goldenFile, goldenFromRecent, replay, saveGolden } from "agboss/internal";
+import { evaluate, goldenFile, goldenFromRecent, replay, saveGolden } from "@agboss/core/internal";
 import "dotenv/config";
 import {
   requiredText,

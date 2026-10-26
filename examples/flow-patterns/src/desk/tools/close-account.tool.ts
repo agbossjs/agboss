@@ -1,4 +1,4 @@
-import { Tool, type ToolHandler } from "agboss";
+import { Tool, type ToolHandler } from "@agboss/core";
 import { AccountClosedDto, AccountClosureDto } from "../dtos/account-closure.dto.js";
 
 /** Closes an account — on the desk's agent so a model can ask; its interceptor blocks every call. */

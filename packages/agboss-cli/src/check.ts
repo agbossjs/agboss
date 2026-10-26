@@ -1,4 +1,4 @@
-import { applicationWarningsOf, type AssembledApplication } from "agboss/internal";
+import { applicationWarningsOf, type AssembledApplication } from "@agboss/core/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { environmentProblems } from "./cli/check-environment.js";

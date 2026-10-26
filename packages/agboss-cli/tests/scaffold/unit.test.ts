@@ -13,7 +13,7 @@ import { planProject } from "../../src/scaffold/project.js";
 import { addImport, addToArray } from "../../src/scaffold/wire.js";
 import { applyChanges } from "../../src/scaffold/write.js";
 
-const agent = `import { Agent } from "agboss";
+const agent = `import { Agent } from "@agboss/core";
 import { KIMI } from "../models.js";
 
 @Agent({

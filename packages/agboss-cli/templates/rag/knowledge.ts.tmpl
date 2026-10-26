@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { Rag, SqliteFtsConnector } from "agboss/rag";
+import { Rag, SqliteFtsConnector } from "@agboss/core/rag";
 
 /** Full-text search (SQLite FTS5, BM25) over {{folder}}/ — swap for your own RagConnector any time. */
 @Rag({ name: "{{kebab}}-rag", description: "{{title}} — the notes in {{folder}}/", topK: 3 })

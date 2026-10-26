@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** The data on the send-offer path (#339): the request, then what each step returned. */
 

@@ -6,9 +6,9 @@ import { join } from "node:path";
 const SCRIPT = /(?<![\w./-])scripts\/[\w.-]*\w/g;
 const NPM_RUN = /\bnpm run ([\w:.-]+)/g;
 const MAKE = /(?<![\w-])make ([a-z][\w-]*)/g;
-// `agb <command>` anywhere in code; `agboss <command>` only as a command (line start, npx)
+// `agb <command>` anywhere in code; `agboss <command>` only as a command (line start, npx, npm exec --)
 const GC =
-  /(?:(?<![\w./@-])agb|(?<=^\s*|npx\s+)agboss) ([a-z][\w:-]*)((?: +(?:[^\s`'"|;#·—]+))*)/gm;
+  /(?:(?<![\w./@-])agb|(?<=^\s*|npx\s+|--\s+|@agboss\/cli(?:@\S+)?\s+)agboss) ([a-z][\w:-]*)((?: +(?:[^\s`'"|;#·—]+))*)/gm;
 
 const scriptsOf = (dir) => {
   const manifest = join(dir, "package.json");

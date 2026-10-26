@@ -8,7 +8,7 @@ export default defineConfig({
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
     // the workflow matchers (toFollowPath, toFinishWith, …)
-    setupFiles: ["agboss/testing/setup"],
+    setupFiles: ["@agboss/core/testing/setup"],
     // the shortlist MCP server writes to a temp folder in tests, never to ~/job-scout
     env: { JOB_SCOUT_DIR: join(tmpdir(), "job-scout-tests") },
     coverage: {

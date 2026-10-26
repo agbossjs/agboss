@@ -1,4 +1,4 @@
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 /** The flight buyer's answer: the flights, and whether they were booked (their purchase approved). */
 export class FlightBookingDto {

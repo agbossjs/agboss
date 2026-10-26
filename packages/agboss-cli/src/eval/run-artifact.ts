@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { EvalRunReport } from "agboss/eval";
-import { evalRunReportOf } from "agboss/internal";
+import type { EvalRunReport } from "@agboss/core/eval";
+import { evalRunReportOf } from "@agboss/core/internal";
 import type { CommandContext } from "../cli/context.js";
 import { CliError } from "../cli/errors.js";
 

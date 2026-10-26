@@ -1,4 +1,4 @@
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 /** `npm run chat` (no --env): the public Greenhouse API; records in `.agboss/job-scout.sqlite` (git-ignored) unless AGBOSS_SQLITE_PATH says otherwise. */

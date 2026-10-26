@@ -4,7 +4,7 @@ import {
   type EvalCasePasses,
   type EvalRunComparison,
   type EvalRunReport,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 import { element, type HtmlElement } from "./html.js";
 import { caseAnchor, factsOf, sectionOf, type ReportSection } from "./sections.js";
 

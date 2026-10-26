@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { PanelReviewDto } from "../dtos/panel-review.dto.js";
 
 /** Where a panel finishes: the review of the counted scores. */

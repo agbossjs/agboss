@@ -1,4 +1,4 @@
-import { OneOf, Text } from "agboss/dto";
+import { OneOf, Text } from "@agboss/core/dto";
 
 /** `read_text_file` of the filesystem server: which file. */
 export class PolicyFileRead {

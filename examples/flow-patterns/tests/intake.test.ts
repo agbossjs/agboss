@@ -1,6 +1,13 @@
 import { describe, expect } from "vitest";
-import { BranchStatus } from "agboss";
-import { failWith, ModelFailure, replyWith, step, TestConcurrency, testWith } from "agboss/testing";
+import { BranchStatus } from "@agboss/core";
+import {
+  failWith,
+  ModelFailure,
+  replyWith,
+  step,
+  TestConcurrency,
+  testWith,
+} from "@agboss/core/testing";
 import { FastScreenAgent } from "../src/intake/agents/fast-screen.agent.js";
 import { LegalCheckAgent } from "../src/intake/agents/legal-check.agent.js";
 import { FastScreenDto, LegalReviewDto } from "../src/intake/dtos/intake.dto.js";

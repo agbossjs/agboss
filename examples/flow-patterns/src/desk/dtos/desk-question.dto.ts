@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** A customer's question to the help desk. */
 export class DeskQuestionDto {

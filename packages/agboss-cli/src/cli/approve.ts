@@ -1,5 +1,5 @@
-import { type App, type ExecutionOutput } from "agboss";
-import type { ToolCallApprovalDecisionDto } from "agboss/dto";
+import { type App, type ExecutionOutput } from "@agboss/core";
+import type { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
 
 /** Asks the human a question; undefined when input ended (Ctrl+D). */
 export type Ask = (question: string) => Promise<string | undefined>;

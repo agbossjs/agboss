@@ -1,10 +1,10 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 import {
   A2ACallerResolution,
   A2ARoute,
   type A2ACallerRequest,
   type A2ACallerResolver,
-} from "agboss/a2a";
+} from "@agboss/core/a2a";
 import type { DeskWorkflowStart } from "../workflow-starts/desk.workflow-start.js";
 
 /** The addresses of this host: the desk serves its neighbours on the same machine only. */

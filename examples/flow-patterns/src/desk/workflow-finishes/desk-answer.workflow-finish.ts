@@ -1,5 +1,5 @@
-import { WorkflowFinish } from "agboss";
-import { WorkflowFinishTextDto } from "agboss/dto";
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 /** The desk's answer. */
 @WorkflowFinish({

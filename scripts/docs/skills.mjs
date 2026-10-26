@@ -63,7 +63,7 @@ function sourceCodesOf(repo) {
   return codes;
 }
 
-/** Every name a public entry exports, from the API reports (`agboss/internal` is not public). */
+/** Every name a public entry exports, from the API reports (`@agboss/core/internal` is not public). */
 function exportedNamesOf(repo) {
   const dir = join(repo, "packages/agboss/api");
   const names = new Set();

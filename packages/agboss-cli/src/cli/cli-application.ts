@@ -1,4 +1,4 @@
-import type { AssembledWorkflow, Class, Environment } from "agboss";
+import type { AssembledWorkflow, Class, Environment } from "@agboss/core";
 import {
   applicationOf,
   environmentFor,
@@ -7,7 +7,7 @@ import {
   startsOfApplication,
   type ApplicationStart,
   type AssembledApplication,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import { applicationPathOf, type ApplicationPath } from "./application-path.js";
 import { loadOptions, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";

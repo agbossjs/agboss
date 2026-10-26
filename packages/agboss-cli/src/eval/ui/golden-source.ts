@@ -1,4 +1,4 @@
-import { ApplicationLoadError, openExecutionHistory } from "agboss/internal";
+import { ApplicationLoadError, openExecutionHistory } from "@agboss/core/internal";
 import { applicationPathOf } from "../../cli/application-path.js";
 import { loadCliApplication } from "../../cli/cli-application.js";
 import { textOption, type CommandContext } from "../../cli/context.js";

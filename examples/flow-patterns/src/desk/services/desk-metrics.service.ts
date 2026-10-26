@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** Where the desk's observer counts — a metrics client in production; here, the line it would send. */
 @Injectable()

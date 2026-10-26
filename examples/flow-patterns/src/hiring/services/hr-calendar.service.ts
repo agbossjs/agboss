@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** The HR calendar did not answer, or refused. */
 export class CalendarUnavailableError extends Error {

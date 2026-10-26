@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ToolCallDecision } from "agboss";
-import { ModelProviderMessageRole, type ModelProviderRequest } from "agboss/models";
-import { testCompaction, testGuardrail, testTool, testToolInterceptor } from "agboss/testing";
+import { ToolCallDecision } from "@agboss/core";
+import { ModelProviderMessageRole, type ModelProviderRequest } from "@agboss/core/models";
+import { testCompaction, testGuardrail, testTool, testToolInterceptor } from "@agboss/core/testing";
 import { CaseNotesCompaction } from "../src/desk/compactions/case-notes.compaction.js";
 import { NoCredentialsGuardrail } from "../src/desk/guardrails/no-credentials.guardrail.js";
 import { DeskAuditToolInterceptor } from "../src/desk/tool-interceptors/desk-audit.tool-interceptor.js";

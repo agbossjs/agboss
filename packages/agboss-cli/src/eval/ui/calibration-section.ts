@@ -1,4 +1,4 @@
-import type { EvalCalibration, EvalJudgeCalibration, EvalRaterAgreement } from "agboss/eval";
+import type { EvalCalibration, EvalJudgeCalibration, EvalRaterAgreement } from "@agboss/core/eval";
 import { element, type HtmlElement } from "../html/html.js";
 import { sectionOf } from "../html/sections.js";
 

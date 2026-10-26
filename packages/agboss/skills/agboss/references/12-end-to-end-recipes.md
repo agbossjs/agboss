@@ -20,7 +20,7 @@ A draft is reviewed until approved; the reviewer compares it with the earlier ve
 may rewrite it at most twice; an approved offer above a limit waits for a person, below it is sent.
 
 ```ts file=src/offers/offer.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class OfferRequestDto {
   @Text({ prompt: "the candidate's name" })
@@ -52,7 +52,7 @@ export class OfferMailedDto {
 ```
 
 ```ts file=src/offers/services/offer-mailer.service.ts
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 export class MailerUnavailableError extends Error {}
 
@@ -65,8 +65,8 @@ export class OfferMailerService {
 ```
 
 ```ts file=src/offers/offer.components.ts
-import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "agboss";
-import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "agboss";
+import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
 import { LetterApprovedDto, LetterChangesDto, OfferLetterDto, OfferMailedDto, OfferRequestDto } from "./offer.dto.js";
 import { OfferMailerService } from "./services/offer-mailer.service.js";
 
@@ -151,7 +151,7 @@ export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
 ```
 
 ```ts file=src/offers/offer-letter.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, route, start, toFinish } from "agboss";
+import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, route, start, toFinish } from "@agboss/core";
 import {
   LetterEditorAgent,
   LetterReviewerAgent,
@@ -202,8 +202,8 @@ export class OfferLetterWorkflow {}
 ```
 
 ```ts file=src/offers/offers.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { OfferLetterWorkflow } from "./offer-letter.workflow.js";
 
 @Budget({ name: "offers-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
@@ -239,7 +239,7 @@ export class OffersApplication {}
 
 ```ts file=tests/offers/offer-letter.test.ts
 import { expect } from "vitest";
-import { replyWith, testWith } from "agboss/testing";
+import { replyWith, testWith } from "@agboss/core/testing";
 import { OffersApplication } from "../../src/offers/offers.application.js";
 import {
   LetterEditorAgent,
@@ -304,7 +304,7 @@ assess the shortlist and any two accepted reviews are enough; the buyer — the 
 approves the order before it is placed.
 
 ```ts file=src/sourcing/sourcing.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class SupplierDto {
   @Text({ prompt: "the supplier's name" })
@@ -361,8 +361,8 @@ export class PurchaseSummaryDto {
 
 ```ts file=src/sourcing/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
 import { SupplierDto, SupplierScoreDto, SupplierUncheckedDto } from "./sourcing.dto.js";
 
 @WorkflowStart({ name: "supplier-check-workflow-start", description: "A supplier to check", input: SupplierDto })
@@ -413,8 +413,8 @@ export class SupplierCheckWorkflow {}
 
 ```ts file=src/sourcing/channels/purchase-approval.channel.ts
 // the role: what it approves and who answers; its implementation is infrastructure
-import { Channel, ChannelOf, ChannelOutcome, ChannelRole, Injectable, PauseAnswerer } from "agboss";
-import type { ChannelAsk } from "agboss";
+import { Channel, ChannelOf, ChannelOutcome, ChannelRole, Injectable, PauseAnswerer } from "@agboss/core";
+import type { ChannelAsk } from "@agboss/core";
 import { PurchaseOrderDto } from "../sourcing.dto.js";
 
 @ChannelRole({
@@ -449,9 +449,9 @@ export class BuyerInboxPurchaseApprovalChannel extends PurchaseApprovalChannel {
 ```
 
 ```ts file=src/sourcing/sourcing.components.ts
-import { Agent, Arbiter, DecidedBy, ExecutionContext, OnAnswer, Tool, WorkflowFinish, WorkflowStart, listOf, oneOf } from "agboss";
-import type { ArbiterAnswerOf, ToolHandler } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Arbiter, DecidedBy, ExecutionContext, OnAnswer, Tool, WorkflowFinish, WorkflowStart, listOf, oneOf } from "@agboss/core";
+import type { ArbiterAnswerOf, ToolHandler } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { PurchaseApprovalChannel } from "./channels/purchase-approval.channel.js";
 import {
   PurchaseOrderDto,
@@ -567,9 +567,9 @@ export class PurchaseUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/sourcing/sourcing.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, start, toFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
-import { minutes } from "agboss/units";
+import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, start, toFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { minutes } from "@agboss/core/units";
 import {
   PriceReviewAgent,
   PurchaseAgent,
@@ -633,8 +633,8 @@ export const environment: SourcingEnvironment = { sqlitePath: ":memory:" };
 ```
 
 ```ts file=src/sourcing/sourcing.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, SqliteCheckpointSaver, SqlitePausedExecutionRepository, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, SqliteCheckpointSaver, SqlitePausedExecutionRepository, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { BuyerInboxPurchaseApprovalChannel, BuyerInboxService } from "./channels/purchase-approval.channel.js";
 import { SourcingEnvironment } from "./environments/app.environment.js";
 import { SourcingWorkflow } from "./sourcing.workflow.js";
@@ -673,8 +673,8 @@ export class SourcingApplication {}
 
 ```ts file=tests/sourcing/sourcing.test.ts
 import { expect } from "vitest";
-import { ExecutionStatus } from "agboss";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { ExecutionStatus } from "@agboss/core";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { SourcingApplication } from "../../src/sourcing/sourcing.application.js";
 import {
   PlacePurchaseTool,
@@ -732,8 +732,8 @@ An agent searches a knowledge base over MCP and asks the billing application ove
 streams the answer as it is written.
 
 ```ts file=src/helpdesk/mcp/kb.server.ts
-import { Text } from "agboss/dto";
-import { McpServer, McpServerClient } from "agboss/mcp";
+import { Text } from "@agboss/core/dto";
+import { McpServer, McpServerClient } from "@agboss/core/mcp";
 
 export class KbSearchDto {
   @Text({ prompt: "words to search the knowledge base for" })
@@ -761,9 +761,9 @@ export class KbServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=src/helpdesk/mcp/search-kb.mcp.ts
-import { ExecutionContext, type ToolHandler } from "agboss";
-import { McpTool } from "agboss/mcp";
-import { kilobytes, seconds } from "agboss/units";
+import { ExecutionContext, type ToolHandler } from "@agboss/core";
+import { McpTool } from "@agboss/core/mcp";
+import { kilobytes, seconds } from "@agboss/core/units";
 import { KbArticleDto, KbSearchDto, KbServer } from "./kb.server.js";
 
 @McpTool({
@@ -789,10 +789,10 @@ export class SearchKbTool implements ToolHandler<KbSearchDto, KbArticleDto> {
 ```
 
 ```ts file=src/helpdesk/a2a/billing-desk.a2a-agent.ts
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
-import { A2AAgent, A2AClient } from "agboss/a2a";
-import { seconds, usd } from "agboss/units";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
+import { A2AAgent, A2AClient } from "@agboss/core/a2a";
+import { seconds, usd } from "@agboss/core/units";
 
 export class BillingQuestionDto {
   @Text({ prompt: "the question for the billing desk" })
@@ -846,8 +846,8 @@ export class AskBillingTool implements ToolHandler<BillingQuestionDto, BillingAn
 ```
 
 ```ts file=src/helpdesk/helpdesk.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { AskBillingTool, BillingDeskA2AAgent } from "./a2a/billing-desk.a2a-agent.js";
 import { KbServer } from "./mcp/kb.server.js";
 import { SearchKbTool } from "./mcp/search-kb.mcp.js";
@@ -886,8 +886,8 @@ export class HelpdeskWorkflow {}
 
 ```ts file=src/helpdesk/a2a/helpdesk.a2a-caller-resolver.ts
 // who calls over A2A: the API gateway in front authenticated the caller and named its tenant
-import { Injectable } from "agboss";
-import { A2ACallerResolution, type A2ACallerRequest, type A2ACallerResolver } from "agboss/a2a";
+import { Injectable } from "@agboss/core";
+import { A2ACallerResolution, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
 import type { HelpdeskWorkflowStart } from "../helpdesk.workflow.js";
 
 @Injectable()
@@ -904,9 +904,9 @@ export class HelpdeskA2aCallerResolver implements A2ACallerResolver<typeof Helpd
 ```
 
 ```ts file=src/helpdesk/helpdesk.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
-import { A2AExpose } from "agboss/a2a";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+import { A2AExpose } from "@agboss/core/a2a";
+import { usd, type Usd } from "@agboss/core/units";
 import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
 import { HelpdeskWorkflow, HelpdeskWorkflowStart } from "./helpdesk.workflow.js";
 
@@ -951,8 +951,8 @@ The caller streams the text as it arrives and serves the same workflow to A2A ca
 
 ```ts file=src/helpdesk/server.ts
 import { createServer } from "node:http";
-import { createApp } from "agboss";
-import { a2aHttpListener } from "agboss/a2a";
+import { createApp } from "@agboss/core";
+import { a2aHttpListener } from "@agboss/core/a2a";
 import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
 import { HelpdeskA2AExpose, HelpdeskApplication } from "./helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "./helpdesk.workflow.js";
@@ -984,7 +984,7 @@ createServer(listener).listen(8080);
 
 ```ts file=tests/helpdesk/helpdesk.test.ts
 import { expect } from "vitest";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { AskBillingTool, BillingDeskA2AAgent } from "../../src/helpdesk/a2a/billing-desk.a2a-agent.js";
 import { HelpdeskApplication } from "../../src/helpdesk/helpdesk.application.js";
 import { HelpdeskAgent, HelpdeskWorkflowFinish, HelpdeskWorkflowStart } from "../../src/helpdesk/helpdesk.workflow.js";
@@ -1019,8 +1019,8 @@ funds that is undone when a later step fails, SQLite stores, readiness probes, u
 tests. Production also needs `main.ts` with the probes and the Kubernetes manifest of reference 09.
 
 ```ts file=src/loans/contexts/lender.context.ts
-import { TenantContext } from "agboss";
-import { Decimal, OneOf } from "agboss/dto";
+import { TenantContext } from "@agboss/core";
+import { Decimal, OneOf } from "@agboss/core/dto";
 
 export class LenderTenantContext extends TenantContext {
   @OneOf({ values: ["standard", "enterprise"] })
@@ -1032,7 +1032,7 @@ export class LenderTenantContext extends TenantContext {
 ```
 
 ```ts file=src/loans/environments/app.environment.ts
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class LoansEnvironment {
   sqlitePath!: string;
@@ -1043,7 +1043,7 @@ export class LoansEnvironment {
 ```
 
 ```ts file=src/loans/environments/prod.environment.ts
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { LoansEnvironment } from "./app.environment.js";
 
 export const environment: LoansEnvironment = {
@@ -1074,8 +1074,8 @@ import {
   RetryPolicy,
   type NoRequestFields,
   type OpenRouterFields,
-} from "agboss/models";
-import { minutes, seconds, usd } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "loans-backup-model-provider",
@@ -1130,7 +1130,7 @@ export class LoansOpenRouterModelProvider extends OpenRouterProvider {
 ```
 
 ```ts file=src/loans/safety/loans.safety.ts
-import { InputGuardrail, PiiAction, PiiKind, PiiPolicy, pii } from "agboss";
+import { InputGuardrail, PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
 
 @PiiPolicy({
   name: "applicant-pii-policy",
@@ -1156,7 +1156,7 @@ export class OutOfScopeGuardrail {}
 ```
 
 ```ts file=src/loans/loans.dto.ts
-import { Decimal, Flag, Integer, Text } from "agboss/dto";
+import { Decimal, Flag, Integer, Text } from "@agboss/core/dto";
 
 export class LoanApplicationDto {
   @Text({ prompt: "the applicant's message, with their id and income" })
@@ -1199,7 +1199,7 @@ export class LoanOfferSentDto {
 ```
 
 ```ts file=src/loans/services/loans.services.ts
-import { ApplicationContext, Injectable } from "agboss";
+import { ApplicationContext, Injectable } from "@agboss/core";
 
 export class LedgerUnavailableError extends Error {}
 
@@ -1236,9 +1236,9 @@ export class FundsLedgerService {
 ```
 
 ```ts file=src/loans/loans.components.ts
-import { Action, Agent, ExecutionContext, HealthCheck, HealthCheckResult, SpendRecorder, Tool, WorkflowFinish, WorkflowStart } from "agboss";
-import type { ActionHandler, HealthCheckHandler, InputOf, OutputOf, ToolHandler } from "agboss";
-import { seconds, usd } from "agboss/units";
+import { Action, Agent, ExecutionContext, HealthCheck, HealthCheckResult, SpendRecorder, Tool, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import type { ActionHandler, HealthCheckHandler, InputOf, OutputOf, ToolHandler } from "@agboss/core";
+import { seconds, usd } from "@agboss/core/units";
 import { CreditScore, CreditScoreQuery, FundsReservationDto, LoanApplicationDto, LoanDecisionDto, LoanOfferSentDto } from "./loans.dto.js";
 import { CreditBureauService, FundsLedgerService } from "./services/loans.services.js";
 
@@ -1350,7 +1350,7 @@ export class FundsLedgerHealthCheck implements HealthCheckHandler {
 ```
 
 ```ts file=src/loans/loan.workflow.ts
-import { StepFailedError, Workflow, start, toAction } from "agboss";
+import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
 import {
   LoanNotOfferedWorkflowFinish,
   LoanOfferedWorkflowFinish,
@@ -1389,8 +1389,8 @@ export class LoanWorkflow {}
 ```
 
 ```ts file=src/loans/config/budget.config.ts
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { LenderTenantContext } from "../contexts/lender.context.js";
 
 @Budget({ name: "loans-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
@@ -1427,9 +1427,9 @@ import {
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
-} from "agboss";
-import { DecisionsModelProvider } from "agboss/models";
-import { seconds } from "agboss/units";
+} from "@agboss/core";
+import { DecisionsModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
 import { LenderDailyBudget, LoansApplicationBudget, LoansExecutionBudget } from "./config/budget.config.js";
 import { LenderTenantContext } from "./contexts/lender.context.js";
 import { LoansEnvironment } from "./environments/app.environment.js";
@@ -1471,9 +1471,9 @@ Unit tests — one component on its own container:
 
 ```ts file=tests/loans/loans.unit.test.ts
 import { expect, it } from "vitest";
-import { Injectable } from "agboss";
-import { decideWith, override, testGuardrail, testPii, testTool } from "agboss/testing";
-import { seconds } from "agboss/units";
+import { Injectable } from "@agboss/core";
+import { decideWith, override, testGuardrail, testPii, testTool } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
 import { CreditScoreTool } from "../../src/loans/loans.components.js";
 import { ApplicantPiiPolicy, OutOfScopeGuardrail } from "../../src/loans/safety/loans.safety.js";
 import { CreditBureauService } from "../../src/loans/services/loans.services.js";
@@ -1516,8 +1516,8 @@ Integration tests — the whole application, models by script:
 
 ```ts file=tests/loans/loans.test.ts
 import { expect } from "vitest";
-import { CompensationReason, GuardrailBlockedError, HealthStatus, nameOf } from "agboss";
-import { callTool, decideWith, replyWith, testWith } from "agboss/testing";
+import { CompensationReason, GuardrailBlockedError, HealthStatus, nameOf } from "@agboss/core";
+import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing";
 import { LoansApplication } from "../../src/loans/loans.application.js";
 import {
   CreditScoreTool,

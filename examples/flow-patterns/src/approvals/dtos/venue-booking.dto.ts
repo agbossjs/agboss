@@ -1,4 +1,4 @@
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 /** The venue buyer's answer: the venue, and whether it was booked (its purchase approved). */
 export class VenueBookingDto {

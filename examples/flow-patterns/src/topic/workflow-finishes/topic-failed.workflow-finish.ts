@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { TopicFailedDto } from "../dtos/topic-failed.dto.js";
 
 /** The topic could not be researched: a finish reachable from a side path (no FailFast for its siblings). */

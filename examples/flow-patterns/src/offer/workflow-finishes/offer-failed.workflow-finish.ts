@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { OfferDraftDto } from "../dtos/offer-draft.dto.js";
 
 /** Where a run finishes when no draft was approved: the last draft. */

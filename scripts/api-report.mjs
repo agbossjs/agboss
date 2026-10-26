@@ -18,9 +18,11 @@ const at = process.argv.indexOf("--reports");
 const REPORTS = at === -1 ? join(PKG, "api") : resolve(process.argv[at + 1] ?? "");
 const pkg = JSON.parse(readFileSync(join(PKG, "package.json"), "utf8"));
 
+const baseName = pkg.name.startsWith("@") ? pkg.name.split("/")[0].slice(1) : pkg.name;
+
 /** `"."` → `agboss`, `"./testing/setup"` → `agboss-testing-setup`. */
 const reportName = (subpath) =>
-  subpath === "." ? pkg.name : `${pkg.name}-${subpath.slice(2).replaceAll("/", "-")}`;
+  subpath === "." ? baseName : `${baseName}-${subpath.slice(2).replaceAll("/", "-")}`;
 
 const temp = mkdtempSync(join(tmpdir(), "agboss-api-"));
 if (write) mkdirSync(REPORTS, { recursive: true });

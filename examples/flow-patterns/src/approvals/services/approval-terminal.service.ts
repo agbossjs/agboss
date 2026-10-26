@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /**
  * The terminal an approval is asked in: its standard error, where `agboss run` asks for the answer

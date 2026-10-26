@@ -11,9 +11,14 @@ import {
   GuardrailSide,
   PauseResolution,
   ToolCallStatus,
-} from "agboss";
-import { CaseComparison, CheckStatus } from "agboss/eval";
-import type { EvalExecutionTrace, EvalRunReport, EvalRunResult, EvalStepTrace } from "agboss/eval";
+} from "@agboss/core";
+import { CaseComparison, CheckStatus } from "@agboss/core/eval";
+import type {
+  EvalExecutionTrace,
+  EvalRunReport,
+  EvalRunResult,
+  EvalStepTrace,
+} from "@agboss/core/eval";
 import { artifactOf, caseOf } from "./artifacts.js";
 
 /** One step of a trace; the agent's carries a model call, a tool call, a guardrail and a judge. */

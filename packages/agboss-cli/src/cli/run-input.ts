@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { WorkflowStartTextDto } from "agboss/dto";
-import { startInputIssuesOf, type ApplicationStart } from "agboss/internal";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { startInputIssuesOf, type ApplicationStart } from "@agboss/core/internal";
 import { textOption, type CommandContext } from "./context.js";
 import { usageError } from "./errors.js";
 

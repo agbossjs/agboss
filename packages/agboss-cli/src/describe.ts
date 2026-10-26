@@ -3,7 +3,7 @@ import {
   describeApplication,
   describedEnvironmentFor,
   environmentOwnerOf,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { textOption, type CommandHandler } from "./cli/context.js";
 import { applicationData, describeData } from "./cli/describe-data.js";

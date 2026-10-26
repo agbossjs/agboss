@@ -1,5 +1,5 @@
-import type { EvalRunReport } from "agboss/eval";
-import { kilobytes, type Bytes } from "agboss/units";
+import type { EvalRunReport } from "@agboss/core/eval";
+import { kilobytes, type Bytes } from "@agboss/core/units";
 import { renderEvalReportPage, TimelineDetail, type ReportPageOptions } from "./report-page.js";
 
 /**

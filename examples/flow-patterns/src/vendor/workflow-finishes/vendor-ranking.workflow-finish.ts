@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { VendorRankingDto } from "../dtos/vendor-ranking.dto.js";
 
 /** Where a screening finishes: the ranking. */

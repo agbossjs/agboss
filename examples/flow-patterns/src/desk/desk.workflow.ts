@@ -1,4 +1,4 @@
-import { Workflow, start } from "agboss";
+import { Workflow, start } from "@agboss/core";
 import { DeskA2aCallerResolver } from "./a2a/desk.a2a-caller-resolver.js";
 import { DeskAgent } from "./agents/desk.agent.js";
 import { CaseNotesCompaction } from "./compactions/case-notes.compaction.js";

@@ -168,7 +168,7 @@ export default tseslint.config(
     },
   },
   {
-    // the `agboss` CLI (#205) is built on the framework's entries, `agboss/internal` included
+    // the `agboss` CLI (#205) is built on the framework's entries, `@agboss/core/internal` included
     files: ["packages/agboss-cli/src/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: cliImportPatterns() }] },
   },

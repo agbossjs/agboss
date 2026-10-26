@@ -1,5 +1,5 @@
-import { Agent } from "agboss";
-import { Reasoning, ReasoningEffort } from "agboss/models";
+import { Agent } from "@agboss/core";
+import { Reasoning, ReasoningEffort } from "@agboss/core/models";
 import { ReadShortlist } from "../mcp/read-shortlist.mcp.js";
 import { SaveShortlist } from "../mcp/save-shortlist.mcp.js";
 import { KIMI } from "../config/settings.js";

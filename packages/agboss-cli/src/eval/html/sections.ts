@@ -1,4 +1,4 @@
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
 import { element, type HtmlChild, type HtmlElement } from "./html.js";
 
 /**

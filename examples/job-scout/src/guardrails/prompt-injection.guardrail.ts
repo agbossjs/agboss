@@ -1,4 +1,4 @@
-import { InputGuardrail } from "agboss";
+import { InputGuardrail } from "@agboss/core";
 
 /**
  * What every model of the workflow reads is checked first (#120): an attempt to override the

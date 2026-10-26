@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { OfferLetterDto, OfferLetterSentDto } from "../dtos/offer.dto.js";
 import { SendOfferLetterTool } from "../tools/send-offer-letter.tool.js";
 

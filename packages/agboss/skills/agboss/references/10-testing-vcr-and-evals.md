@@ -12,10 +12,10 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                                          |
 | one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction` |
 | real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                                          |
-| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                         |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                   |
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
-`vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
+`vitest.config.ts` registers the matchers: `setupFiles: ["@agboss/core/testing/setup"]`. A project made by
 `npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
 (unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
 `*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
@@ -26,7 +26,7 @@ A candidate screening: two agents score in parallel, a code arbiter checks each 
 agent decides (judged, guarded, with a knowledge base in context), a code router saves a hire.
 
 ```ts file=src/screening/dtos/screening.dto.ts
-import { Integer, OneOf, Text } from "agboss/dto";
+import { Integer, OneOf, Text } from "@agboss/core/dto";
 
 export class CandidateDto {
   @Text({ prompt: "the candidate's name" })
@@ -78,9 +78,9 @@ export class ArchiveEntryDto {
 
 ```ts file=src/screening/components.ts
 // one class per file in a project; together here for brevity
-import { Action, DecidedBy, Decision, ExecutionContext, Injectable, Judge, JudgeModel, JudgeVerdict, OutputGuardrail, PiiAction, PiiKind, PiiPolicy, Router, Tool, pii } from "agboss";
-import type { ActionHandler, InputOf, JudgeHandler, JudgeInput, OutputOf, Route, RouterHandler, ToolHandler } from "agboss";
-import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+import { Action, DecidedBy, Decision, ExecutionContext, Injectable, Judge, JudgeModel, JudgeVerdict, OutputGuardrail, PiiAction, PiiKind, PiiPolicy, Router, Tool, pii } from "@agboss/core";
+import type { ActionHandler, InputOf, JudgeHandler, JudgeInput, OutputOf, Route, RouterHandler, ToolHandler } from "@agboss/core";
+import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 import { ArchiveEntryDto, ArchiveQueryDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
 import { RejectedWorkflowFinish } from "./finishes.js";
 
@@ -212,7 +212,7 @@ export class HireRouter implements RouterHandler<HireRouter> {
 ```
 
 ```ts file=src/screening/agents.ts
-import { Agent, RagMode } from "agboss";
+import { Agent, RagMode } from "@agboss/core";
 import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
 import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge, ShortReasonJudge } from "./components.js";
 
@@ -254,7 +254,7 @@ export class VerdictAgent {}
 
 ```ts file=src/screening/arbiters.ts
 // a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
-import { Arbiter, DecidedBy, OnAnswer } from "agboss";
+import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
 import { CultureAgent, SkillsAgent } from "./agents.js";
 import { CultureReportDto, SkillsReportDto } from "./dtos/screening.dto.js";
 
@@ -273,7 +273,7 @@ export class HasNotesArbiter {
 ```
 
 ```ts file=src/screening/finishes.ts
-import { WorkflowFinish, WorkflowStart } from "agboss";
+import { WorkflowFinish, WorkflowStart } from "@agboss/core";
 import { CandidateDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
 
 @WorkflowStart({ name: "screening-workflow-start", description: "A candidate", input: CandidateDto })
@@ -287,8 +287,8 @@ export class RejectedWorkflowFinish {}
 ```
 
 ```ts file=src/screening/screening.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, route, start, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, route, start, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./agents.js";
 import { HasNotesArbiter } from "./arbiters.js";
 import { CandidateArchiveService, ContactPiiPolicy, HireRouter, HiringStoreService, SaveHireAction } from "./components.js";
@@ -356,8 +356,8 @@ export class ScreeningApplication {}
 ## The whole application: `testWith(App)`
 
 <!-- snippet-context
-import { QuorumNotReachedError } from "agboss";
-import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from "agboss/testing";
+import { QuorumNotReachedError } from "@agboss/core";
+import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
@@ -479,8 +479,8 @@ url, headers })`. The app is built first and the caller resolver taken from its 
 `A2ACallerRejectedError` on the client (reference 04):
 
 <!-- snippet-context
-import { A2ACallerRejectedError, A2AClient, A2AStatus, type A2ACallerResolver } from "agboss/a2a";
-import { replyWith, testWith } from "agboss/testing";
+import { A2ACallerRejectedError, A2AClient, A2AStatus, type A2ACallerResolver } from "@agboss/core/a2a";
+import { replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { SkillsAgent } from "./src/screening/agents.js";
 import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
@@ -548,7 +548,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   whose step fails (`QualityGateError`, a blocked call, a guardrail, a limit) are in
   `result.toolCalls` and its `steps` entry (with `error`) when a side path takes the failure, and in
   the `ChildExecutionRecord` (`toolCalls`, `steps`) of a child it ends.
-- The trajectory matchers (`ToolCallMatchers`, registered by `agboss/testing/setup` as
+- The trajectory matchers (`ToolCallMatchers`, registered by `@agboss/core/testing/setup` as
   `toolCallMatchers`) read the root's `result.toolCalls`: `toHaveCalledTools([A, B])` passes when
   each was called at least once, in any order and whatever its status (`.not`: none of them was);
   `toHaveToolCallMatching(Tool, expected)` when some call matches — `expected` a
@@ -566,8 +566,8 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   (`AgentAnswerInvalidError` after the third).
 
 <!-- snippet-context
-import { ToolCallStatus, toolCallsOf } from "agboss";
-import { callTool, decideWith, replyWith, testWith } from "agboss/testing";
+import { ToolCallStatus, toolCallsOf } from "@agboss/core";
+import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
@@ -612,9 +612,9 @@ execution that fails has no result: assert the undo through the mocked service, 
 automatic undo through `rejects.toFailWith(CompensationFailedError, { cause })`.
 
 ```ts file=src/rental/rental.ts
-import { Action, ExecutionContext, Injectable, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, ExecutionContext, Injectable, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class RentalRequestDto {
   @Text({ prompt: "the customer" })
@@ -724,8 +724,8 @@ export class RentalWorkflow {}
 ```
 
 ```ts file=src/rental/rental.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { RentalWorkflow } from "./rental.js";
 
 @Budget({ name: "rental-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
@@ -761,8 +761,8 @@ export class RentalApplication {}
 
 ```ts file=tests/rental.test.ts
 import { expect } from "vitest";
-import { CompensationFailedError, CompensationReason, CompensationStatus, StepFailedError } from "agboss";
-import { testWith } from "agboss/testing";
+import { CompensationFailedError, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
+import { testWith } from "@agboss/core/testing";
 import { RentalApplication } from "../src/rental/rental.application.js";
 import {
   CancelCarAction,
@@ -832,7 +832,7 @@ retries, the rate limit, the breaker and the accounting around it are the framew
 
 ```ts file=tests/bedrock.model-provider.test.ts
 import { expect, it } from "vitest";
-import { TenantContext } from "agboss";
+import { TenantContext } from "@agboss/core";
 import {
   ModelCost,
   ModelProvider,
@@ -841,9 +841,9 @@ import {
   type ModelProviderHandler,
   type ModelProviderRequest,
   type ModelProviderResponse,
-} from "agboss/models";
-import { testExecutionContext } from "agboss/testing";
-import { minutes, seconds } from "agboss/units";
+} from "@agboss/core/models";
+import { testExecutionContext } from "@agboss/core/testing";
+import { minutes, seconds } from "@agboss/core/units";
 
 class FakeSdk {
   invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
@@ -896,9 +896,9 @@ runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder`
 work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
 
 <!-- snippet-context
-import { Injectable } from "agboss";
-import { decideWith, override, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter, testTool } from "agboss/testing";
-import { seconds } from "agboss/units";
+import { Injectable } from "@agboss/core";
+import { decideWith, override, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter, testTool } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { HasNotesArbiter } from "./src/screening/arbiters.js";
@@ -1012,9 +1012,9 @@ to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `to
 output DTO. A method the class does not have is a `TestSetupError`.
 
 <!-- snippet-context
-import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "agboss";
-import { ListOf, Text } from "agboss/dto";
-import { testToolInterceptor } from "agboss/testing";
+import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
+import { testToolInterceptor } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 export class CityTenantContext extends TenantContext {
   @ListOf(Text)
@@ -1068,8 +1068,8 @@ a summary cut at `summaryMaxTokens` was asked again; none for `CompactionStrateg
 survives compaction is an eval case.
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy } from "agboss";
-import { replyWith, testCompaction } from "agboss/testing";
+import { Compaction, CompactionStrategy } from "@agboss/core";
+import { replyWith, testCompaction } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 @Compaction({
   name: "conversation-compaction",
@@ -1118,7 +1118,7 @@ import { HiredWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/fin
 ```ts
 // src/screening/screening.integration.test.ts — real models once, then replayed with no key or network
 import { expect } from "vitest";
-import { VCRMode, testWith } from "agboss/testing";
+import { VCRMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(ScreeningApplication, {
   vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VCRMode.REPLAY : VCRMode.AUTO },
@@ -1229,14 +1229,14 @@ snapshot among them checks that a changed export got a new version
    case's `variants` too — a case whose rewording calls other tools (or misses a required call)
    depends on the wording: tighten the tool descriptions or move the choice to a code `@Router`.
 
-## Eval suites: `@EvalSuite` (`agboss/eval`)
+## Eval suites: `@EvalSuite` (`@agboss/core/eval`)
 
 The loops before it (the section above) are free; a suite is the first one that spends money —
 reach it only once Loop 0 and Loop 1 are green.
 
 An eval suite declares what a live-model run must do, case by case: one class per file in
 `eval-suites/<name>.eval-suite.ts`, its `name` ending with `-eval-suite` and its class with
-`EvalSuite`. The entry `agboss/eval` holds the decorator and the builders only — nothing runs at
+`EvalSuite`. The entry `@agboss/core/eval` holds the decorator and the builders only — nothing runs at
 import. A case is one thread: `history` (past turns written into it, not run — what memory and its
 compaction read), then `turns` run in order through the suite's `start`; the checks judge the last
 turn. Every value is typed: a turn by the start's input, `tenant` / `execution` by the application's
@@ -1259,7 +1259,7 @@ import {
   toolCall,
   toolInvariant,
   turn,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 
 @EvalSuite({
   name: "screening-eval-suite",
@@ -1399,7 +1399,7 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --baseline 
 
 - `--save-baseline <baseline.json>` writes a compact, git-diff-friendly baseline snapshot (`kind: "agboss.eval-baseline"`, `schemaVersion: 1`, per-case `caseId`, `caseHash`, `runs`, `passed`, `passAtK`, `passHatK`, `flaky`, `avgSpendUsd`, `verdictSummary`) meant for `eval/baseline/main-baseline.json`, while full run artifacts (`--report`) stay in gitignored `.agboss/eval/`.
 - The baseline passed to `--baseline` is either a compact baseline snapshot (`--save-baseline`) or a full run artifact (`--report` of a run of `main`; its type `EvalRunReport`, public in
-  `agboss/eval` with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`), read before anything runs: another
+  `@agboss/core/eval` with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`), read before anything runs: another
   `kind`, another `schemaVersion`, a missing field (`eval.run-invalid`), no file
   (`eval.run-not-found`) or a run of another suite (`eval.run-invalid`) — exit 2. `--fail-on-regression` needs `--baseline`.
 - Each case is compared by name — `CaseComparison`: `Regressed` (pass^k on the baseline, not now),
@@ -1420,7 +1420,7 @@ npx agboss eval calibrate --report main.json        # labels from eval/labels/<s
 npx agboss eval calibrate --report main.json --labels labels/refunds.jsonl
 ```
 
-- A label is one JSON line (`EvalLabel`, public in `agboss/eval`): `{ "runId": "refund-within-policy#2",
+- A label is one JSON line (`EvalLabel`, public in `@agboss/core/eval`): `{ "runId": "refund-within-policy#2",
 "executionId": "…", "judge": "answer-grounded-judge", "labeler": "anna", "passed": false,
 "score": 2, "failureTags": ["invents-fee"], "note": "…" }` — `runId` is the case and its run as the
   artifact numbers them (`<case>#<run>`), `executionId` the run's last execution (the one its judges
@@ -1444,7 +1444,7 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --chaos 0.2
 npx agboss eval run --suite screening-eval-suite --chaos 0.2 --chaos-seed 7 --chaos-failures rate-limited,timeout
 ```
 
-- `ChaosFailure` (`agboss/eval`, a set of its own — never a `ModelFailure`): `RateLimited`
+- `ChaosFailure` (`@agboss/core/eval`, a set of its own — never a `ModelFailure`): `RateLimited`
   (`rate-limited`: a 429), `Timeout` (`timeout`), `TruncatedResponse` (`truncated-response`: the answer
   cut at its token limit — `finish_reason: "length"`, its text and its tool calls' arguments cut
   short). `--chaos-failures` defaults to all three.

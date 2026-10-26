@@ -1,5 +1,10 @@
-import type { AppDeps } from "agboss";
-import { compareBundleProfiles, formatComparison, goldenFile, loadGolden } from "agboss/internal";
+import type { AppDeps } from "@agboss/core";
+import {
+  compareBundleProfiles,
+  formatComparison,
+  goldenFile,
+  loadGolden,
+} from "@agboss/core/internal";
 import {
   requiredText,
   textOption,

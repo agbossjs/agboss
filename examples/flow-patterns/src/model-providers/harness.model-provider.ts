@@ -6,8 +6,8 @@ import {
   type ModelProviderHandler,
   type ModelProviderRequest,
   type ModelProviderResponse,
-} from "agboss/models";
-import { minutes, seconds, usd } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
 
 const USAGE = { inputTokens: 1000, outputTokens: 100 };
 

@@ -1,5 +1,5 @@
-import { DecidedBy, Router } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { DecidedBy, Router } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderIntakeAgent } from "../agents/order-intake.agent.js";
 import { NoOrderWorkflowFinish } from "../workflow-finishes/no-order.workflow-finish.js";
 

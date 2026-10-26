@@ -1,5 +1,5 @@
-import { action, route, start, toFinish, Workflow } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { action, route, start, toFinish, Workflow } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeCardAction } from "./actions/charge-card.action.js";
 import { ApprovalAgent } from "./agents/approval.agent.js";
 import { OrderIntakeAgent } from "./agents/order-intake.agent.js";

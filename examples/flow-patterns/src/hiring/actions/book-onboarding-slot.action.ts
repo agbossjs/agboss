@@ -1,4 +1,10 @@
-import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import {
+  Action,
+  ExecutionContext,
+  type ActionHandler,
+  type InputOf,
+  type OutputOf,
+} from "@agboss/core";
 import { OnboardingSlotDto, RegisteredOfferDto } from "../dtos/offer.dto.js";
 import { HrCalendarService } from "../services/hr-calendar.service.js";
 import { ConfirmOfferAction } from "./confirm-offer.action.js";

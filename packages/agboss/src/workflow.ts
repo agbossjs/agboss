@@ -25,7 +25,7 @@ export interface WorkflowServices {
   readonly router: (name: string) => RouterEngine;
   /**
    * The application's context levels (#261, framework wiring — `RuntimeContexts` is internal,
-   * `agboss/internal`): its `ApplicationContext` (with the environment) and
+   * `@agboss/core/internal`): its `ApplicationContext` (with the environment) and
    * the declared context classes; absent = a workflow on its own (eval, replay), its own defaults.
    */
   readonly contexts?: RuntimeContexts;

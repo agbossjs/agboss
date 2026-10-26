@@ -1,5 +1,5 @@
-import { Agent } from "agboss";
-import { RagMode } from "agboss/rag";
+import { Agent } from "@agboss/core";
+import { RagMode } from "@agboss/core/rag";
 import { DeskQuestionDto } from "../dtos/desk-question.dto.js";
 import { NoCredentialsGuardrail } from "../guardrails/no-credentials.guardrail.js";
 import { NoPromisesGuardrail } from "../guardrails/no-promises.guardrail.js";

@@ -1,4 +1,4 @@
-import { CassetteMissingError, testWith, VCRMode } from "agboss/testing";
+import { CassetteMissingError, testWith, VCRMode } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";

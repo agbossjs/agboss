@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { CandidateDto } from "../dtos/candidate.dto.js";
 
 /** Where a panel starts: the candidate. */

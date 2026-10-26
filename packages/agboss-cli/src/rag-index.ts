@@ -1,6 +1,6 @@
-import type { AssembledWorkflow, Environment } from "agboss";
-import { describeServices, standaloneContexts } from "agboss/internal";
-import type { IndexReport, RagConnector } from "agboss/rag";
+import type { AssembledWorkflow, Environment } from "@agboss/core";
+import { describeServices, standaloneContexts } from "@agboss/core/internal";
+import type { IndexReport, RagConnector } from "@agboss/core/rag";
 import {
   applicationEnvironment,
   assembleApplication,

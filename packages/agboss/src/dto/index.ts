@@ -1,5 +1,5 @@
 /**
- * `agboss/dto` — data shapes as classes, one field decorator per field (Wiki → Components,
+ * `@agboss/core/dto` — data shapes as classes, one field decorator per field (Wiki → Components,
  * Standard DTOs). zod stays inside the framework.
  */
 import "../polyfills/symbol-metadata.js";

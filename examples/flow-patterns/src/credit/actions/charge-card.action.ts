@@ -1,4 +1,4 @@
-import { Action, optional, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Action, optional, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { ChargeResultDto } from "../dtos/charge-result.dto.js";
 import { CreditApprovalDto } from "../dtos/credit-approval.dto.js";
 import { CreditOrderDto } from "../dtos/credit-order.dto.js";

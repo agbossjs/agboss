@@ -1,5 +1,5 @@
-import { WorkflowStartTextDto } from "agboss/dto";
-import { WorkflowStart } from "agboss";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { WorkflowStart } from "@agboss/core";
 
 /** Where a turn of the chat starts: the job seeker's message. */
 @WorkflowStart({

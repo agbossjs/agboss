@@ -1,4 +1,4 @@
-import { Tool, type ToolHandler } from "agboss";
+import { Tool, type ToolHandler } from "@agboss/core";
 import { ResumeReader } from "../services/resume-reader.service.js";
 import { ResumeRequest, ResumeText } from "./read-resume.dto.js";
 

@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** The ATS did not answer, or refused: an undo that meets it hands the offer to a person. */
 export class AtsUnavailableError extends Error {

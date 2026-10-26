@@ -1,5 +1,5 @@
-import { Workflow, provide, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, provide, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ConversationCompaction } from "./compactions/conversation.compaction.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
 import { PersonalDataGuardrail } from "./guardrails/personal-data.guardrail.js";

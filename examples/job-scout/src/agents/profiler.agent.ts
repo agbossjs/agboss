@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { ReadResume } from "../tools/read-resume.tool.js";
 import { KIMI } from "../config/settings.js";
 

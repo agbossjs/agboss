@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { FastScreenDto } from "../dtos/intake.dto.js";
 
 /** Where the quick screen's group finishes: its verdict. */

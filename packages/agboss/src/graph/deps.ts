@@ -72,7 +72,7 @@ export interface GraphDeps<TName extends string> {
   readonly observer?: ExecutionObserverManager;
   /**
    * The application's context levels (#261, framework wiring: `RuntimeContexts` is internal,
-   * `agboss/internal`); absent = a workflow run on its own (eval, replay).
+   * `@agboss/core/internal`); absent = a workflow run on its own (eval, replay).
    */
   readonly contexts?: RuntimeContexts;
   /**

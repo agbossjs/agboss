@@ -1,5 +1,5 @@
 /**
- * `agboss/models` — model providers: `@ModelProvider` classes (`OpenAiCompatibleProvider`,
+ * `@agboss/core/models` — model providers: `@ModelProvider` classes (`OpenAiCompatibleProvider`,
  * `OpenRouterProvider`, `DecisionsModelProvider`, or a transport's `complete(request)`, #385),
  * what each model costs, how it reasons and caches, retries, rate limits and circuit breakers, and
  * the fail-fast check of settings against models.

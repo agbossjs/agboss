@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** One section of the manuscript: what a section reviewer reads (the item of its run). */
 export class SectionDto {

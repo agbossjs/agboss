@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { Class } from "agboss";
+import type { Class } from "@agboss/core";
 import { CliError } from "./errors.js";
 
 /**
@@ -81,7 +81,7 @@ export function studioEntryText(
   return [
     "// Written by `agboss studio` (#268) on every run — not edited, not committed (.agboss/ is",
     "// git-ignored). Every workflow of the application; a child is drawn inside its parent.",
-    'import { studioOf } from "agboss/internal";',
+    'import { studioOf } from "@agboss/core/internal";',
     `import { ${applicationExport} } from ${JSON.stringify(importSpecifierOf(folder, source.file))};`,
     "",
     `const studio = await studioOf(${applicationExport}${options});`,

@@ -1,5 +1,11 @@
 import { describe, expect } from "vitest";
-import { failWith, ModelFailure, replyWith, testWith, type ModelRequest } from "agboss/testing";
+import {
+  failWith,
+  ModelFailure,
+  replyWith,
+  testWith,
+  type ModelRequest,
+} from "@agboss/core/testing";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { MergeAgent } from "../src/topic/agents/merge.agent.js";
 import { ResearcherAgent } from "../src/topic/agents/researcher.agent.js";

@@ -2,9 +2,9 @@
  * The terminal's approval loop of `agboss run` / `agboss chat`: a paused run asks in the terminal and
  * continues in the same process — on a real app (`testWith`), its models scripted.
  */
-import { executeUnchecked } from "agboss/internal";
-import { ExecutionStatus } from "agboss";
-import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
+import { executeUnchecked } from "@agboss/core/internal";
+import { ExecutionStatus } from "@agboss/core";
+import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { describe, expect, vi } from "vitest";
 import {
   ChatStart,

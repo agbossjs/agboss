@@ -1,4 +1,4 @@
-import { renderTemplate } from "agboss/internal";
+import { renderTemplate } from "@agboss/core/internal";
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path/posix";
 import { ScaffoldError } from "./errors.js";

@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** Where the recruiter hears about offers that could not be made (a service: the I/O). */
 @Injectable()

@@ -1,4 +1,4 @@
-import { toolOf } from "agboss/testing";
+import { toolOf } from "@agboss/core/testing";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

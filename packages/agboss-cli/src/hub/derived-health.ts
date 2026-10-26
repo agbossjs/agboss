@@ -1,4 +1,4 @@
-import { ExecutionHistoryStatus, type ExecutionHistoryRecord } from "agboss";
+import { ExecutionHistoryStatus, type ExecutionHistoryRecord } from "@agboss/core";
 import type { HubEvalRun } from "./hub-inputs.js";
 
 /**

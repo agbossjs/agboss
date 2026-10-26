@@ -1,5 +1,5 @@
-import { Workflow, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeskA2AAgent } from "./a2a/desk.a2a-agent.js";
 import { HelplineAgent } from "./agents/helpline.agent.js";
 import { PolicyFilesServer } from "./mcp/policy-files.server.js";

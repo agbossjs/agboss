@@ -1,4 +1,4 @@
-import { ChannelOf, ChannelRole, PauseAnswerer } from "agboss";
+import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
 import { PurchaseOrder } from "../tools/place-purchase.dto.js";
 
 /**

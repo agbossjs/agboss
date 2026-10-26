@@ -1,4 +1,4 @@
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 /** What `close-account-tool` takes — a call the desk's interceptor never lets through. */
 export class AccountClosureDto {

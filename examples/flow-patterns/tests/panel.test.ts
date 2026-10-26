@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
-import { BranchVerdict } from "agboss";
-import { decideWith, replyWith, testWith, type ModelRequest } from "agboss/testing";
+import { BranchVerdict } from "@agboss/core";
+import { decideWith, replyWith, testWith, type ModelRequest } from "@agboss/core/testing";
 import { CultureScoreAgent } from "../src/panel/agents/culture-score.agent.js";
 import { HireScoreAgent } from "../src/panel/agents/hire-score.agent.js";
 import { ScoreSummaryAgent } from "../src/panel/agents/score-summary.agent.js";

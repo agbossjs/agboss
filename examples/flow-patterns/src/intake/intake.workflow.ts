@@ -1,5 +1,5 @@
-import { group, start, Workflow } from "agboss";
-import { seconds } from "agboss/units";
+import { group, start, Workflow } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import { CandidateDto } from "../panel/dtos/candidate.dto.js";
 import { FastScreenAgent } from "./agents/fast-screen.agent.js";
 import { LegalCheckAgent } from "./agents/legal-check.agent.js";

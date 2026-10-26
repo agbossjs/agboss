@@ -20,7 +20,7 @@ export function recordField(metadata: DecoratorMetadataObject | undefined, spec:
   if (metadata === undefined) {
     throw new DtoError(
       "dto.no-metadata",
-      `field "${spec.name}": decorator metadata is missing — import "agboss/dto" before declaring DTOs`,
+      `field "${spec.name}": decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
     );
   }
   ownTable(metadata).set(spec.name, spec);

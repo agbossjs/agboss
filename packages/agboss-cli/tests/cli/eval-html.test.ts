@@ -7,10 +7,10 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus } from "agboss/eval";
+import { CheckStatus } from "@agboss/core/eval";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "../eval-html/artifacts.js";
 import { stepOf, traceOf } from "../eval-html/traced-artifacts.js";
-import { ComponentKind, ToolCallStatus } from "agboss";
+import { ComponentKind, ToolCallStatus } from "@agboss/core";
 import { envelope, agboss } from "./agboss.js";
 
 const APPLICATION = new URL("../../../agboss/tests/flow/fixtures/evals.fixture.ts", import.meta.url)

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { EvalLabel } from "agboss/eval";
-import { calibrateJudges, evalLabelsOf } from "agboss/internal";
+import type { EvalLabel } from "@agboss/core/eval";
+import { calibrateJudges, evalLabelsOf } from "@agboss/core/internal";
 import {
   requiredText,
   textOption,

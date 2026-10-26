@@ -9,7 +9,7 @@ import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { TestContextOptions } from "../execution-context.js";
 
 /**
- * What every unit runner of `agboss/testing` takes (#262 S55, S62, S89): the component is created
+ * What every unit runner of `@agboss/core/testing` takes (#262 S55, S62, S89): the component is created
  * by a container of its own — its `deps` resolved, the classes in `overrides` replaced — on an
  * application context with `environment` and a `VirtualClock`; its calls run for the tenant and with
  * the execution values given — `tenantContext` / `tenant`, `executionContext` / `execution`, as

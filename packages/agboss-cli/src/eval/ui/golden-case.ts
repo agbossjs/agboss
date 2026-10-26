@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
-import type { OpenedExecutionHistory } from "agboss/internal";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
+import type { OpenedExecutionHistory } from "@agboss/core/internal";
 import { CliError } from "../../cli/errors.js";
 import { ScaffoldConflictError, ScaffoldError } from "../../scaffold/errors.js";
 import { evalSuiteSourceOf, planEvalCase } from "../../scaffold/generate-eval-case.js";

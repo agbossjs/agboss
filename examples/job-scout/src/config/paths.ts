@@ -1,4 +1,4 @@
-import { InjectionToken } from "agboss";
+import { InjectionToken } from "@agboss/core";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";

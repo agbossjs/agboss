@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { keepWiring } from "../../src/scaffold/keep-wiring.js";
 
 const path = "src/desk/routers/main.router.ts";
-const router = (imports: string, routes: string): string => `import { Router } from "agboss";
+const router = (imports: string, routes: string): string => `import { Router } from "@agboss/core";
 ${imports}
 @Router({
   name: "main",
@@ -35,7 +35,7 @@ describe("#237: keepWiring", () => {
 
   it("a property the template does not write is added back; nothing lost → the file as generated", () => {
     const agent = (extra: string): string =>
-      `import { Agent } from "agboss";\nimport { Grounded } from "../judges/grounded.judge.js";\n@Agent({\n  name: "a",\n  tools: [],${extra}\n})\nexport class A {}\n`;
+      `import { Agent } from "@agboss/core";\nimport { Grounded } from "../judges/grounded.judge.js";\n@Agent({\n  name: "a",\n  tools: [],${extra}\n})\nexport class A {}\n`;
     const regenerated = { path: "a.agent.ts", content: agent("") };
 
     const { file, kept } = keepWiring(agent("\n  judges: [Grounded],"), regenerated);

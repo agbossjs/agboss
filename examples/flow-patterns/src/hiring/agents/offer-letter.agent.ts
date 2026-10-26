@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { OfferLetterDto, OfferRequestDto } from "../dtos/offer.dto.js";
 
 /** Writes the offer letter from the request. */

@@ -1,4 +1,4 @@
-import type { EvalCaseExpectation } from "agboss/eval";
+import type { EvalCaseExpectation } from "@agboss/core/eval";
 import { element, type HtmlElement } from "./html.js";
 import { factsOf } from "./sections.js";
 

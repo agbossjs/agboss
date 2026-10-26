@@ -1,4 +1,4 @@
-import { Injectable, type CompactionTurn } from "agboss";
+import { Injectable, type CompactionTurn } from "@agboss/core";
 
 /**
  * Where `case-notes-compaction` keeps a thread's old turns (#382): one line per turn here; a real

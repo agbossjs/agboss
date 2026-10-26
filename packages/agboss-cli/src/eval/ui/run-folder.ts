@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EvalRunReport } from "agboss/eval";
-import { evalRunReportOf } from "agboss/internal";
+import type { EvalRunReport } from "@agboss/core/eval";
+import { evalRunReportOf } from "@agboss/core/internal";
 
 /**
  * The run artifacts of a folder (#397 PR 3: what `agboss eval ui` serves): every `*.json` directly

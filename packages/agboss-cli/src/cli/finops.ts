@@ -1,4 +1,9 @@
-import { COST_CATEGORIES, type CostLine, type CostReport, type CostSource } from "agboss/internal";
+import {
+  COST_CATEGORIES,
+  type CostLine,
+  type CostReport,
+  type CostSource,
+} from "@agboss/core/internal";
 
 /** How each call was priced: tokens × price table, exact price from the API, or the tool's own report. */
 const BASIS: Readonly<Record<CostSource, (line: CostLine) => string>> = {

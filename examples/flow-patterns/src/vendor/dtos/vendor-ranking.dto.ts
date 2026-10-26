@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** The vendors, best first, and the ones left out. */
 export class VendorRankingDto {

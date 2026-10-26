@@ -12,13 +12,14 @@ import { z } from "zod";
 const repo = new URL("../../../../", import.meta.url).pathname;
 const pkg = z
   .object({
+    name: z.string(),
     exports: z.record(z.string(), z.unknown()),
     deprecatedExports: z.record(z.string(), z.string()),
     internalExports: z.array(z.string()),
   })
   .parse(JSON.parse(readFileSync(join(repo, "packages/agboss/package.json"), "utf8")));
 const specifier = (subpath: string): string =>
-  subpath === "." ? "agboss" : `agboss/${subpath.slice(2)}`;
+  subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
 const deprecated = Object.keys(pkg.deprecatedExports).map(specifier);
 const internal = pkg.internalExports.map(specifier);
 const current = Object.keys(pkg.exports)
@@ -61,12 +62,12 @@ const walk = (dir: string): string[] =>
 
 describe("the examples' import allowlist (#195)", () => {
   it("allows exactly the public entries of package.json#exports", async () => {
-    expect(current).toEqual(expect.arrayContaining(["agboss", "agboss/dto"]));
+    expect(current).toEqual(expect.arrayContaining(["@agboss/core", "@agboss/core/dto"]));
     expect(await restrictedImports(current)).toEqual([]);
   }, 60_000);
 
   it("rejects the deprecated entries (pointing to agboss migrate imports) and deep imports", async () => {
-    const messages = await restrictedImports([...deprecated, "agboss/dist/index.js"]);
+    const messages = await restrictedImports([...deprecated, "@agboss/core/dist/index.js"]);
 
     expect(messages).toHaveLength(deprecated.length + 1);
     expect(messages.slice(0, deprecated.length)).toEqual(
@@ -77,8 +78,8 @@ describe("the examples' import allowlist (#195)", () => {
     expect(messages.at(-1)).toContain("No deep imports");
   }, 60_000);
 
-  it("#205: rejects agboss/internal, the entry only the agboss CLI is built on", async () => {
-    expect(internal).toEqual(["agboss/internal"]);
+  it("#205: rejects @agboss/core/internal, the entry only the agboss CLI is built on", async () => {
+    expect(internal).toEqual(["@agboss/core/internal"]);
     expect(await restrictedImports(internal)).toEqual([
       expect.stringContaining("No deep imports") as unknown,
     ]);

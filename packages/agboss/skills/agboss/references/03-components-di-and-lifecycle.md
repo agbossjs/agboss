@@ -17,7 +17,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                        |
 | `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                            |
 | `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                                      |
-| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)                                                      | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                                             |
+| `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                                             |
 | `@Compaction` (`compactions/<name>/<name>.compaction.ts` (+ `<name>.prompt.md`))                | none; `Custom`: `CompactionHandler`: `compact(input)`       | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`; `Custom`: `turnsBetweenCompactions`, `deps`                                                                                                                                                                                                                            |
 | `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                | code: `InputGuardrailHandler` / `OutputGuardrailHandler`    | `name`, `description`, `decidedBy`; model: `model`, `prompt`, `refusalMessage`; code: `deps`                                                                                                                                                                                                                                                                               |
 | `@ReplyInterpreter` (`reply-interpreters/<name>/<name>.reply-interpreter.ts`)                   | —                                                           | `name` (`-reply-interpreter`), `model`, `prompt` / `promptUrls`, `decision`                                                                                                                                                                                                                                                                                                |
@@ -42,7 +42,7 @@ One class per file in a project; here a few small classes share a file for brevi
 
 ```ts file=src/desk/environments/app.environment.ts
 // environments/app.environment.ts — the contract: declared fields only, never a value
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   openRouterApiKey?: Secret; // read by the built-in model providers; tests leave it out
@@ -54,7 +54,7 @@ export class AppEnvironment {
 
 ```ts file=src/desk/environments/dev.environment.ts
 // environments/dev.environment.ts — one file per environment; `--env dev` (the default) picks it
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -74,7 +74,7 @@ export const environment: AppEnvironment = { crmUrl: "http://crm.test", crmRetri
 ```
 
 ```ts file=src/desk/dtos/desk.dto.ts
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 export class CustomerQueryDto {
   @Text({ prompt: "the customer's email" })
@@ -97,7 +97,7 @@ export class DeskAnswerDto {
 
 ```ts file=src/desk/services/crm-client.service.ts
 // services/crm-client.service.ts — a service with lifecycle hooks; config from ApplicationContext
-import { ApplicationContext, Injectable, type OnDestroy, type OnStart } from "agboss";
+import { ApplicationContext, Injectable, type OnDestroy, type OnStart } from "@agboss/core";
 
 @Injectable({ deps: [ApplicationContext] })
 export class CrmClientService implements OnStart, OnDestroy {
@@ -126,8 +126,8 @@ export class CrmClientService implements OnStart, OnDestroy {
 
 ```ts file=src/desk/tools/customer-lookup.tool.ts
 // tools/customer-lookup.tool.ts — the execution and the spend come through the constructor
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "agboss";
-import { kilobytes, seconds, usd } from "agboss/units";
+import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { kilobytes, seconds, usd } from "@agboss/core/units";
 import { CustomerDto, CustomerQueryDto } from "../dtos/desk.dto.js";
 import { CrmClientService } from "../services/crm-client.service.js";
 
@@ -157,7 +157,7 @@ export class CustomerLookupTool implements ToolHandler<CustomerQueryDto, Custome
 
 ```ts file=src/desk/rag/help-center.rag.ts
 // rag/help-center.rag.ts — a knowledge base: any class implementing RagConnector
-import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 
 @Rag({ name: "help-center-rag", description: "Help-center articles", topK: 3 })
 export class HelpCenterRag implements RagConnector {
@@ -170,7 +170,7 @@ export class HelpCenterRag implements RagConnector {
 
 ```ts file=src/desk/compactions/conversation.compaction.ts
 // compactions/conversation.compaction.ts — what happens to turns older than the window
-import { Compaction, CompactionStrategy } from "agboss";
+import { Compaction, CompactionStrategy } from "@agboss/core";
 
 @Compaction({
   name: "conversation-compaction",
@@ -195,7 +195,7 @@ runs when a model's would — every `turnsBetweenCompactions` turns older than t
 next turn reads its thread; a `compact()` that throws or gives no summary is `CompactionError`.
 
 <!-- snippet-context
-import { Injectable, type CompactionTurn } from "agboss";
+import { Injectable, type CompactionTurn } from "@agboss/core";
 @Injectable()
 export class KnowledgeGraphService {
   saveFactsAndSummarize(
@@ -217,7 +217,7 @@ import {
   ExecutionContext,
   type CompactionHandler,
   type CompactionInput,
-} from "agboss";
+} from "@agboss/core";
 
 @Compaction({
   name: "graph-memory-compaction",
@@ -244,7 +244,7 @@ export class GraphMemoryCompaction implements CompactionHandler {
 
 ```ts file=src/desk/judges/cites-source.judge.ts
 // judges/cites-source.judge.ts — runs on the agent's answer, as its DTO
-import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
+import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { DeskAnswerDto } from "../dtos/desk.dto.js";
 
 @Judge({
@@ -270,9 +270,9 @@ export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
 
 ```ts file=src/desk/agents/support.agent.ts
 // agents/support.agent.ts — every model setting in one place; the prompt in a file next to it
-import { Agent, RagMode, TokenLimit } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
-import { Reasoning, ReasoningEffort } from "agboss/models";
+import { Agent, RagMode, TokenLimit } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { Reasoning, ReasoningEffort } from "@agboss/core/models";
 import { ConversationCompaction } from "../compactions/conversation.compaction.js";
 import { DeskAnswerDto } from "../dtos/desk.dto.js";
 import { CitesSourceJudge } from "../judges/cites-source.judge.js";
@@ -306,8 +306,8 @@ search-help-center-rag-tool, and cite every claim as [source].
 
 ```ts file=src/desk/health/crm.health-check.ts
 // health/crm.health-check.ts — a readiness component of the project
-import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import { CrmClientService } from "../services/crm-client.service.js";
 
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClientService] })
@@ -325,7 +325,7 @@ export class CrmHealthCheck implements HealthCheckHandler {
 
 ```ts file=src/desk/infrastructure/prefixed-id-generator.ts
 // infrastructure/prefixed-id-generator.ts — replaced by inheritance: list it in the application
-import { IdGenerator, Injectable } from "agboss";
+import { IdGenerator, Injectable } from "@agboss/core";
 
 @Injectable()
 export class PrefixedIdGenerator extends IdGenerator {
@@ -340,9 +340,9 @@ export class PrefixedIdGenerator extends IdGenerator {
 ```
 
 ```ts file=src/desk/desk.workflow.ts
-import { Workflow, start } from "agboss";
-import { WorkflowFinish, WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, start } from "@agboss/core";
+import { WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "./agents/support.agent.js";
 import { DeskAnswerDto } from "./dtos/desk.dto.js";
 import { CrmClientService } from "./services/crm-client.service.js";
@@ -371,8 +371,8 @@ export class DeskWorkflow {}
 ```
 
 ```ts file=src/desk/desk.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { DeskWorkflow } from "./desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { CrmHealthCheck } from "./health/crm.health-check.js";
@@ -473,8 +473,8 @@ Injected like any dependency, read only while a step runs (outside → `Executio
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
-import { Judge, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "agboss";
-import { Integer, Text } from "agboss/dto";
+import { Judge, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
 export class OfferDto {
   @Integer({ prompt: "the salary offered" })
   salary!: number;
@@ -512,7 +512,7 @@ import { DeskAnswerDto } from "./src/desk/dtos/desk.dto.js";
 -->
 
 ```ts
-import { Arbiter, DecidedBy, OnAnswer } from "agboss";
+import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
 
 @Arbiter({ name: "has-answer-arbiter", decidedBy: DecidedBy.Code })
 export class HasAnswerArbiter {
@@ -534,8 +534,8 @@ or a tool removes an inherited one (`[tool-interceptor.exclude-not-inherited]`; 
 one is `[tool-interceptor.not-an-interceptor]`).
 
 <!-- snippet-context
-import { TenantContext } from "agboss";
-import { ListOf, Text } from "agboss/dto";
+import { TenantContext } from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
 export class JobScoutTenantContext extends TenantContext {
   @ListOf(Text)
   allowedCities!: string[];
@@ -550,7 +550,7 @@ import {
   type BeforeToolCall,
   type ToolCallContext,
   type ToolCallResultContext,
-} from "agboss";
+} from "@agboss/core";
 
 @ToolInterceptor({
   name: "tenant-scope-tool-interceptor",
@@ -617,9 +617,9 @@ export class AuditToolInterceptor implements AfterToolCall {
   `maxTokens`, `reasoning`, `cache`), `defaults.router.model`, `defaults.guardrail.model`,
   `defaults.tools` (`maxToolCalls`, `maxResultSize`). `npx agboss describe` prints where each value came from.
 - **Reasoning** is `Reasoning.modelDecides()`, `Reasoning.on({ effort: ReasoningEffort.High })`,
-  `Reasoning.on({ budget: { tokens: 2000 } })` or `Reasoning.off()` (`agboss/models`); there is no
+  `Reasoning.on({ budget: { tokens: 2000 } })` or `Reasoning.off()` (`@agboss/core/models`); there is no
   `thinking` option.
-- **Units** (`agboss/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
+- **Units** (`@agboss/core/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
   retention; `usd()` for money (`Usd`); `kilobytes()` for sizes. A bare number does not compile.
 - **Prompts**: `prompt` inline or `promptUrls` (files next to the component), `{{variables}}` from
   `promptVariables` checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
@@ -634,7 +634,7 @@ export class AuditToolInterceptor implements AfterToolCall {
 ## Running the application
 
 <!-- snippet-context
-import { createApp } from "agboss";
+import { createApp } from "@agboss/core";
 import { DeskApplication } from "./src/desk/desk.application.js";
 import { DeskWorkflowStart } from "./src/desk/desk.workflow.js";
 -->
@@ -685,8 +685,8 @@ never a model call — and optionally the action after which nothing undoes it a
 goes after a failure is reference 02, section 8; the tests reference 10.
 
 <!-- snippet-context
-import { Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Text } from "agboss/dto";
+import { Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class SeatRequestDto {
   @Text({ prompt: "the flight and the passenger" })
   request!: string;
@@ -707,7 +707,7 @@ export class TicketIssuedWorkflowFinish {}
 -->
 
 ```ts
-import { Action, ExecutionContext, Injectable, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Action, ExecutionContext, Injectable, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 
 @Injectable()
 export class AirlineService {

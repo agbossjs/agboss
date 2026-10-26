@@ -1,5 +1,5 @@
 /**
- * `agboss/internal` — the framework internals the `agboss` CLI (packages/agboss-cli) is built
+ * `@agboss/core/internal` — the framework internals the `agboss` CLI (packages/agboss-cli) is built
  * on (#205): environment and model checks, describe data, golden sets, replay, the template renderer.
  *
  * Not public API: no semver promise, and examples and projects may not import it (the lint allowlist

@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus, type EvalLabel, type EvalRunResult } from "agboss/eval";
+import { CheckStatus, type EvalLabel, type EvalRunResult } from "@agboss/core/eval";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
 import { agboss, envelope } from "./agboss.js";
 

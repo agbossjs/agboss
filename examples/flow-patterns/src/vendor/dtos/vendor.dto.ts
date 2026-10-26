@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** One vendor to check: what the screening's finder lists, the item of each child execution. */
 export class VendorDto {

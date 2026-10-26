@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { ExecutionContext, type ToolHandler } from "agboss";
-import { McpTool } from "agboss/mcp";
-import { kilobytes, seconds } from "agboss/units";
+import { ExecutionContext, type ToolHandler } from "@agboss/core";
+import { McpTool } from "@agboss/core/mcp";
+import { kilobytes, seconds } from "@agboss/core/units";
 import { PolicyFileContent, PolicyTopic } from "./policy-files.dto.js";
 import { POLICIES_DIR, PolicyFilesServer } from "./policy-files.server.js";
 

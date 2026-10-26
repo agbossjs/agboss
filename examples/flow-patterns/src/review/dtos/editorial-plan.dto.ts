@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** What the second wave reviews: the sections that need work, from the first wave's reviews. */
 export class EditorialPlanDto {

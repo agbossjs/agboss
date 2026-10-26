@@ -1,5 +1,5 @@
-import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { WorkflowFinishTextDto } from "agboss/dto";
+import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 /** What an answer that says where the order is names. */
 const WHEREABOUTS = /\b(shipped|archived|delayed|delivered)\b/iu;

@@ -1,5 +1,5 @@
 /**
- * #388 S2: `agboss/eslint` — the lint rules a project's ESLint config loads (the one `agboss create`
+ * #388 S2: `@agboss/core/eslint` — the lint rules a project's ESLint config loads (the one `agboss create`
  * writes) — as a public entry: its plugin flags component state and direct time, naming the rule,
  * and `FLOW_CHAIN_RULE` is the framework's one-call-per-line options. Linted here from the source,
  * outside any config of the repository.
@@ -35,7 +35,7 @@ describe("#388 S2: the agboss/eslint entry", () => {
   it("flags state kept on a component and direct time, each with its rule", () => {
     const found = findings(
       [
-        'import { Injectable } from "agboss";',
+        'import { Injectable } from "@agboss/core";',
         "@Injectable()",
         "export class SeenService {",
         "  private last = 0;",
@@ -58,7 +58,7 @@ describe("#388 S2: the agboss/eslint entry", () => {
   it("leaves the constructor, a class without a component decorator and a local Date alone", () => {
     const found = findings(
       [
-        'import { Injectable } from "agboss";',
+        'import { Injectable } from "@agboss/core";',
         "@Injectable()",
         "export class SeenService {",
         "  private readonly at: number;",

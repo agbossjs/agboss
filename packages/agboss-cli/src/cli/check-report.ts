@@ -1,4 +1,4 @@
-import { EnvironmentError } from "agboss";
+import { EnvironmentError } from "@agboss/core";
 import {
   describedLimitsOf,
   environmentOwnerOf,
@@ -10,7 +10,7 @@ import {
   type AssembledApplication,
   type ProcessVariable,
   type WorstCaseRow,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 
 /**
  * The report of `agboss check` (#268 AC5) — the same rule as the start log (#261): only what the

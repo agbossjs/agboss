@@ -1,4 +1,4 @@
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 /**
  * job-scout's environment contract (#261): declared fields only — the values are in each

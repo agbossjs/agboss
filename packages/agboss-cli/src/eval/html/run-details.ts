@@ -1,4 +1,4 @@
-import type { EvalCheckResult, EvalRunResult } from "agboss/eval";
+import type { EvalCheckResult, EvalRunResult } from "@agboss/core/eval";
 import { attemptStatusOf } from "./attempts.js";
 import { usdText } from "./format.js";
 import { element, type HtmlElement } from "./html.js";

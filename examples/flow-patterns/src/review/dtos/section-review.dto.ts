@@ -1,4 +1,4 @@
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 /** One section reviewed: it carries the section's title, so the next step needs no second list. */
 export class SectionReviewDto {

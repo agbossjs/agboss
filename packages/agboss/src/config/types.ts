@@ -34,7 +34,7 @@ export const MaxTokensSchema = z.union([
   z.literal(TokenLimit.MODEL_MAX),
 ]);
 
-/** A `Reasoning` value (`agboss/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
+/** A `Reasoning` value (`@agboss/core/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
 export const ReasoningValueSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("model-decides") }),
   z.object({
@@ -56,7 +56,7 @@ export const ThinkingSchema = z.union([
   ReasoningValueSchema,
 ]);
 
-/** A `PromptCaching` value (`agboss/models`). */
+/** A `PromptCaching` value (`@agboss/core/models`). */
 export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("where-supported"),

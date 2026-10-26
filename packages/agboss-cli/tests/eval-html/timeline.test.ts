@@ -5,9 +5,9 @@
  * unstable case's attempts part ways, the comparison with a baseline, and the size of a full run.
  */
 import { describe, expect, it } from "vitest";
-import { ComponentKind, ToolCallStatus } from "agboss";
-import { CheckStatus } from "agboss/eval";
-import type { EvalCaseReport, EvalRunResult } from "agboss/eval";
+import { ComponentKind, ToolCallStatus } from "@agboss/core";
+import { CheckStatus } from "@agboss/core/eval";
+import type { EvalCaseReport, EvalRunResult } from "@agboss/core/eval";
 import { renderEvalReportPage, TimelineDetail } from "../../src/eval/html/report-page.js";
 import { MAX_VALUE_CHARACTERS } from "../../src/eval/html/value-view.js";
 import { MAX_HTML_REPORT_SIZE } from "../../src/eval/html/bounded-page.js";

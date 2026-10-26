@@ -17,8 +17,8 @@ const RULE = "@stylistic/newline-per-chained-call";
 const WORKFLOW = join(repo, "examples/job-scout/src/job-scout.workflow.ts");
 
 const imports = [
-  'import { start } from "agboss";',
-  'import { WorkflowStartTextDto } from "agboss/dto";',
+  'import { start } from "@agboss/core";',
+  'import { WorkflowStartTextDto } from "@agboss/core/dto";',
   'import { ChatWorkflowFinish } from "./workflow-finishes/chat.workflow-finish.js";',
   'import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";',
   "",

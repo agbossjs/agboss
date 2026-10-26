@@ -5,22 +5,22 @@ import { readFileSync } from "node:fs";
 
 const PACKAGE = new URL("../packages/agboss/package.json", import.meta.url);
 
-/** `"./dto"` → `"agboss/dto"`, `"."` → `"agboss"`. */
+/** `"./dto"` → `"@agboss/core/dto"`, `"."` → `"agboss"`. */
 const specifierOf = (name, subpath) => (subpath === "." ? name : `${name}/${subpath.slice(2)}`);
 
 export function publicEntries() {
   const pkg = JSON.parse(readFileSync(PACKAGE, "utf8"));
   const deprecated = Object.keys(pkg.deprecatedExports ?? {});
-  // `agboss/internal` (#205): only for agboss-cli, never public
+  // `@agboss/core/internal` (#205): only for agboss-cli, never public
   const internal = pkg.internalExports ?? [];
   const subpaths = Object.keys(pkg.exports).filter((s) => !internal.includes(s));
   return {
     name: pkg.name,
-    /** e.g. `["agboss/internal"]`: entries of the CLI, outside the public API */
+    /** e.g. `["@agboss/core/internal"]`: entries of the CLI, outside the public API */
     internal: internal.map((s) => specifierOf(pkg.name, s)),
-    /** e.g. `["agboss", "agboss/dto", …]` */
+    /** e.g. `["agboss", "@agboss/core/dto", …]` */
     current: subpaths.filter((s) => !deprecated.includes(s)).map((s) => specifierOf(pkg.name, s)),
-    /** e.g. `{ "agboss/core": "agboss", … }` — old entry → where to import instead */
+    /** e.g. `{ "@agboss/core/core": "agboss", … }` — old entry → where to import instead */
     deprecated: Object.fromEntries(
       deprecated.map((s) => [
         specifierOf(pkg.name, s),
@@ -40,7 +40,7 @@ export function packageImportPatterns() {
   const quoted = current.map((s) => `"${s}"`).join(", ");
   return [
     {
-      regex: `^(\\.\\./){2,}(packages|${escape(name)})/`,
+      regex: `^(\\.\\./){2,}(packages|agboss|${escape(name)})/`,
       message: `Examples import only from "${name}" (its public API).`,
     },
     {
@@ -62,7 +62,7 @@ export function cliImportPatterns() {
     .map((s) => escape(s.slice(name.length + 1)));
   return [
     {
-      regex: `^(\\.\\./)+${escape(name)}/`,
+      regex: `^(\\.\\./)+(agboss|${escape(name)})/`,
       message: `The CLI uses the framework as a package: import from "${name}" or its entries.`,
     },
     {

@@ -1,5 +1,5 @@
-import { listOf, oneOf, start, Workflow } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { listOf, oneOf, start, Workflow } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorFinderAgent } from "./agents/vendor-finder.agent.js";
 import { VendorRankerAgent } from "./agents/vendor-ranker.agent.js";
 import { VendorCheckFailedDto } from "./dtos/vendor-check-failed.dto.js";

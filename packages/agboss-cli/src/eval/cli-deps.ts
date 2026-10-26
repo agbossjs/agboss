@@ -4,7 +4,7 @@ import {
   type AppDeps,
   type AssembledWorkflow,
   type Environment,
-} from "agboss";
+} from "@agboss/core";
 import {
   applicationEnvironment,
   assembleApplication,

@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** A letter to send: the question its approval is about (`approves`). */
 export class LetterDelivery {

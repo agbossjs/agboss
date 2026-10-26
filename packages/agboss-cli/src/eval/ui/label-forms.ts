@@ -1,5 +1,10 @@
-import { CheckStatus, type EvalCaseReport, type EvalLabel, type EvalRunResult } from "agboss/eval";
-import { isJudgeCheckName, type EvalFailureTag } from "agboss/internal";
+import {
+  CheckStatus,
+  type EvalCaseReport,
+  type EvalLabel,
+  type EvalRunResult,
+} from "@agboss/core/eval";
+import { isJudgeCheckName, type EvalFailureTag } from "@agboss/core/internal";
 import { element, type HtmlElement } from "../html/html.js";
 
 /**

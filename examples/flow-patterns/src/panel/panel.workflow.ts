@@ -1,5 +1,5 @@
-import { listOf, QuorumNotReachedError, start, toFinish, Workflow } from "agboss";
-import { seconds } from "agboss/units";
+import { listOf, QuorumNotReachedError, start, toFinish, Workflow } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import { CultureScoreAgent } from "./agents/culture-score.agent.js";
 import { HireScoreAgent } from "./agents/hire-score.agent.js";
 import { ScoreSummaryAgent } from "./agents/score-summary.agent.js";

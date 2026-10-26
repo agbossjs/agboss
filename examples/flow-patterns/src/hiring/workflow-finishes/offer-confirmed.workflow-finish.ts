@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { OfferConfirmedDto } from "../dtos/offer.dto.js";
 
 /** The offer is sent and confirmed: committed, nothing undoes it. */

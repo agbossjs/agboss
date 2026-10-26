@@ -4,7 +4,7 @@
 //                               doc import it (`./a.js`); any language (a prompt `md`, a `json`)
 //   ```ts no-check: <reason>    not compiled; the reason is required
 //   <!-- snippet-context        hidden lines right before a fence: put before the snippet, or around
-//   import { from } from "agboss";      it when a line `// @snippet` marks where it goes
+//   import { from } from "@agboss/core";      it when a line `// @snippet` marks where it goes
 //   -->
 const FENCE = /^(\s*)(`{3,}|~{3,})(.*)$/;
 const CONTEXT_OPEN = "<!-- snippet-context";

@@ -1,5 +1,5 @@
-import { Agent, listOf } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent, listOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorDto } from "../dtos/vendor.dto.js";
 
 /** Lists the vendors to check: each one becomes a child execution of the check. */

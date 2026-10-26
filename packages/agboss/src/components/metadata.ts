@@ -43,9 +43,9 @@ export type ComponentMeta =
       };
     }
   | { readonly kind: "mcp-tool"; readonly meta: McpToolMeta }
-  /** `@McpExpose` (`agboss/mcp`): what `createMcpService` exposes to MCP clients. */
+  /** `@McpExpose` (`@agboss/core/mcp`): what `createMcpService` exposes to MCP clients. */
   | { readonly kind: "mcp-expose"; readonly meta: McpExposeOptions }
-  /** `@A2AExpose` (`agboss/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
+  /** `@A2AExpose` (`@agboss/core/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
   | {
       readonly kind: "a2a-expose";
       readonly meta: import("../a2a/a2a-expose.decorator.js").A2AExposeOptions;

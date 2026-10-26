@@ -1,4 +1,4 @@
-import type { EvalRunResult } from "agboss/eval";
+import type { EvalRunResult } from "@agboss/core/eval";
 
 /**
  * What one attempt (one of a case's k runs) came to, as the report's dots show it (#397 PR 1):

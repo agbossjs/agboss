@@ -50,11 +50,11 @@ export interface FlowTypesResult {
 
 /**
  * The package's own entries a project imports standard classes from (`WorkflowStartTextDto` from
- * `agboss/dto`): an installed package is not a project module, so it is never in tsx's record.
+ * `@agboss/core/dto`): an installed package is not a project module, so it is never in tsx's record.
  */
 const packageModules = async (): Promise<readonly LoadedModule[]> => [
-  { file: "agboss/dto", exports: await import("../../dto/index.js") },
-  { file: "agboss", exports: await import("../../index.js") },
+  { file: "@agboss/core/dto", exports: await import("../../dto/index.js") },
+  { file: "@agboss/core", exports: await import("../../index.js") },
 ];
 
 /** Loads the modules, generates the types and writes them (unless generation failed). */

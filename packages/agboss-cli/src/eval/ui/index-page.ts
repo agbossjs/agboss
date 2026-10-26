@@ -1,4 +1,4 @@
-import type { EvalCaseReport } from "agboss/eval";
+import type { EvalCaseReport } from "@agboss/core/eval";
 import { ATTEMPT_SYMBOLS, attemptStatusOf } from "../html/attempts.js";
 import { htmlDocumentOf } from "../html/document.js";
 import { shareText } from "../html/format.js";

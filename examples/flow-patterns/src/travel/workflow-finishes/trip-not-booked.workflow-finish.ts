@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { TripRequestDto } from "../dtos/trip.dto.js";
 
 /** The trip could not be booked: what was booked of it was cancelled — the request. */

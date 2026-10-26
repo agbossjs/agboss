@@ -22,8 +22,8 @@ budget and one application budget — no execution runs uncapped.
 
 ```ts file=src/billing/contexts/shop-tenant.context.ts
 // contexts/shop-tenant.context.ts — the tenant's own fields, given per execution (identity, never secrets)
-import { TenantContext } from "agboss";
-import { Decimal } from "agboss/dto";
+import { TenantContext } from "@agboss/core";
+import { Decimal } from "@agboss/core/dto";
 
 export class ShopTenantContext extends TenantContext {
   @Decimal({ min: 0 })
@@ -33,8 +33,8 @@ export class ShopTenantContext extends TenantContext {
 
 ```ts file=src/billing/config/budget.config.ts
 // config/budget.config.ts — every budget of the application
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { ShopTenantContext } from "../contexts/shop-tenant.context.js";
 import { InvoiceWorkflow } from "../invoice.workflow.js";
 
@@ -115,9 +115,9 @@ call's spend (`tool:<name>`) or the step's (`action:<name>`) and counts in every
 step it throws `SpendOutsideStepError` (`[spend.outside-step]`).
 
 ```ts file=src/billing/tools/tax-rate.tool.ts
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "agboss";
-import { Decimal, Text } from "agboss/dto";
-import { seconds, usd } from "agboss/units";
+import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { Decimal, Text } from "@agboss/core/dto";
+import { seconds, usd } from "@agboss/core/units";
 
 export class TaxQuery {
   @Text({ prompt: "the customer's country, ISO 3166 alpha-2" })
@@ -167,7 +167,7 @@ serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastru
 - A provider's `name` ends with `-model-provider` (`[name.kind-suffix]`).
 
 ```ts file=src/billing/environments/app.environment.ts
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   openRouterApiKey?: Secret; // optional: the test environment leaves the keys out
@@ -177,7 +177,7 @@ export class AppEnvironment {
 ```
 
 ```ts file=src/billing/environments/dev.environment.ts
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -203,8 +203,8 @@ import {
   Reasoning,
   RetryPolicy,
   type NoRequestFields,
-} from "agboss/models";
-import { minutes, seconds, usd } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "backup-model-provider",
@@ -242,8 +242,8 @@ import {
   Reasoning,
   RetryPolicy,
   type OpenRouterFields,
-} from "agboss/models";
-import { minutes, seconds } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
 import { BackupModelProvider } from "./backup.model-provider.js";
 
 @ModelProvider({
@@ -313,7 +313,7 @@ never called in a scripted test).
 
 ```ts file=src/billing/model-providers/bedrock.model-provider.ts
 // model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
-import { Injectable, TenantContext } from "agboss";
+import { Injectable, TenantContext } from "@agboss/core";
 import {
   ModelCost,
   ModelFailure,
@@ -328,8 +328,8 @@ import {
   type ModelProviderRequest,
   type ModelProviderResponse,
   type ModelProviderToolDefinition,
-} from "agboss/models";
-import { minutes, seconds, usd } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
 
 /** What the SDK takes: the framework's plain messages and tools, the tenant, the call's signal. */
 export interface BedrockInvocation {
@@ -474,8 +474,8 @@ outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens ×
 ## The application
 
 ```ts file=src/billing/invoice.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Text, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { TaxRateTool } from "./tools/tax-rate.tool.js";
 
 export class InvoiceDraftDto {
@@ -516,7 +516,7 @@ export class InvoiceWorkflow {}
 ```
 
 ```ts file=src/billing/billing.application.ts
-import { Application } from "agboss";
+import { Application } from "@agboss/core";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,
@@ -553,7 +553,7 @@ Each execution names its tenant; the tenant's fields come with it (from your own
 data, never from the request body):
 
 <!-- snippet-context
-import { createApp } from "agboss";
+import { createApp } from "@agboss/core";
 import { BillingApplication } from "./src/billing/billing.application.js";
 import { InvoiceWorkflowStart } from "./src/billing/invoice.workflow.js";
 -->
@@ -585,9 +585,9 @@ never slow a test down.
 
 ```ts file=tests/billing/budget.test.ts
 import { expect } from "vitest";
-import { BudgetExceededError, BudgetScope } from "agboss";
-import { callTool, replyWith, testWith } from "agboss/testing";
-import { usd } from "agboss/units";
+import { BudgetExceededError, BudgetScope } from "@agboss/core";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
+import { usd } from "@agboss/core/units";
 import { BillingApplication } from "../../src/billing/billing.application.js";
 import { InvoiceExecutionBudget } from "../../src/billing/config/budget.config.js";
 import { InvoiceAgent, InvoiceDraftDto, InvoiceWorkflowStart } from "../../src/billing/invoice.workflow.js";

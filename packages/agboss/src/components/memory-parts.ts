@@ -13,7 +13,7 @@ const strategiesOf = (
     agent.memoryStrategy === undefined ? [] : [[agent.name, agent.memoryStrategy] as const],
   );
 
-/** Assembly: a `memoryStrategy` must extend `BaseMemoryStrategy` (`agboss/memory`). */
+/** Assembly: a `memoryStrategy` must extend `BaseMemoryStrategy` (`@agboss/core/memory`). */
 export function checkMemoryStrategies(agents: readonly AgentMeta[]): void {
   for (const [agent, cls] of strategiesOf(agents)) {
     if (!(cls.prototype instanceof BaseMemoryStrategy)) {

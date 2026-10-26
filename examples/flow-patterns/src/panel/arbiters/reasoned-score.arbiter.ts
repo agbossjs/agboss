@@ -1,4 +1,4 @@
-import { Arbiter, DecidedBy } from "agboss";
+import { Arbiter, DecidedBy } from "@agboss/core";
 import { CultureScoreAgent } from "../agents/culture-score.agent.js";
 import { HireScoreAgent } from "../agents/hire-score.agent.js";
 import { SkillsScoreAgent } from "../agents/skills-score.agent.js";

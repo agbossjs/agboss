@@ -1,5 +1,5 @@
 // The decorators of a component the container creates (#402): one instance per application
-// instance, so it keeps no state — what `agboss/no-component-state` (`agboss/eslint`) checks. The
+// instance, so it keeps no state — what `agboss/no-component-state` (`@agboss/core/eslint`) checks. The
 // one list of them, owned by the framework: the rule reads it, and a test
 // (tests/lint/component-decorators.test.ts) fails when a class decorator exported by a public entry
 // is neither listed here nor named there as not a component. Plain data, no imports: the lint entry
@@ -24,14 +24,14 @@ export const COMPONENT_DECORATORS = [
   "Compaction",
   "Budget",
   "HealthCheck",
-  // `agboss/models`
+  // `@agboss/core/models`
   "ModelProvider",
-  // `agboss/mcp`
+  // `@agboss/core/mcp`
   "McpServer",
   "McpTool",
-  // `agboss/rag`
+  // `@agboss/core/rag`
   "Rag",
-  // `agboss/a2a`
+  // `@agboss/core/a2a`
   "A2AAgent",
 ] as const;
 

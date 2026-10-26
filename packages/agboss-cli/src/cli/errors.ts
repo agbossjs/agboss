@@ -4,9 +4,9 @@ import {
   EvalCaseInvalidError,
   GraphRuleError,
   WorkflowLoadError,
-} from "agboss";
-import { ConfigurationError } from "agboss/models";
-import { ApplicationLoadError, ProfileError } from "agboss/internal";
+} from "@agboss/core";
+import { ConfigurationError } from "@agboss/core/models";
+import { ApplicationLoadError, ProfileError } from "@agboss/core/internal";
 import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../scaffold/errors.js";
 import { NoTextStartError } from "./text-start.js";
 

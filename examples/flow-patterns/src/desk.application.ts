@@ -4,8 +4,8 @@ import {
   SqliteCostLedgerRepository,
   SqliteExecutionHistoryRepository,
   SqliteExecutionRecordRepository,
-} from "agboss";
-import { hours } from "agboss/units";
+} from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,

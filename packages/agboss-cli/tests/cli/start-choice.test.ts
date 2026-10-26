@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { startsOfApplication } from "agboss/internal";
+import { startsOfApplication } from "@agboss/core/internal";
 import { closestName } from "../../src/cli/did-you-mean.js";
 import { chooseStart } from "../../src/cli/start-choice.js";
 import { DeskApplication } from "../fixtures/cli/desk/desk.workflow.js";

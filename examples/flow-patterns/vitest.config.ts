@@ -6,7 +6,7 @@ export default defineConfig({
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
     // the workflow matchers (toFollowPath, toFinishWith, …)
-    setupFiles: ["agboss/testing/setup"],
+    setupFiles: ["@agboss/core/testing/setup"],
     // one module graph per worker: the framework and the components load once, not per file —
     // every test assembles its application anew anyway (testWith), so nothing leaks between files
     isolate: false,

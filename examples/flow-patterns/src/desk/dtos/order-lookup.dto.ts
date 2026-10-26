@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** What `order-status-tool` takes: the order to look up. */
 export class OrderLookupDto {

@@ -18,8 +18,8 @@ retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails onl
 
 ```ts file=src/clinic/clinic-context.ts
 // the project's execution context (identity only) and a service the refusal reads
-import { ExecutionContext, Injectable } from "agboss";
-import { OneOf } from "agboss/dto";
+import { ExecutionContext, Injectable } from "@agboss/core";
+import { OneOf } from "@agboss/core/dto";
 
 export class ClinicExecutionContext extends ExecutionContext {
   @OneOf({ values: ["en", "he"] })
@@ -35,7 +35,7 @@ export class RefusalTextService {
 ```
 
 ```ts file=src/clinic/guardrails.ts
-import { InputGuardrail, OutputGuardrail, type GuardrailRefusal } from "agboss";
+import { InputGuardrail, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
 import { ClinicExecutionContext, RefusalTextService } from "./clinic-context.js";
 
 // guardrails/legal-advice.guardrail.ts — a computed refusal: the sender's language, from a service
@@ -83,7 +83,7 @@ import {
   OutputGuardrail,
   TenantContext,
   type GuardrailHandler,
-} from "agboss";
+} from "@agboss/core";
 
 @Injectable()
 export class BlocklistService {
@@ -141,7 +141,7 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
 The caller sends the refusal instead of an answer:
 
 <!-- snippet-context
-import { GuardrailBlockedError, type App } from "agboss";
+import { GuardrailBlockedError, type App } from "@agboss/core";
 import { ClinicWorkflowStart } from "./src/clinic/clinic.application.js";
 declare const app: App;
 declare function reply(text: string): Promise<void>;
@@ -164,7 +164,7 @@ try {
 ## PII policies
 
 ```ts file=src/clinic/pii.ts
-import { Injectable, PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiMatch, type PiiPolicyHandler, type PiiRefusal } from "agboss";
+import { Injectable, PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiMatch, type PiiPolicyHandler, type PiiRefusal } from "@agboss/core";
 
 // pii/contact.pii-policy.ts — declarative: only the kinds a rule names are found
 @PiiPolicy({
@@ -208,7 +208,7 @@ export class PatientIdPiiPolicy implements PiiPolicyHandler {
 ```
 
 ```ts file=src/clinic/environments/app.environment.ts
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class ClinicEnvironment {
   piiPseudonymKey?: Secret; // the HMAC key of tokens: one token per value on every instance
@@ -222,9 +222,9 @@ export const environment: ClinicEnvironment = {}; // tests: a fixed PII key, no 
 ```
 
 ```ts file=src/clinic/clinic.application.ts
-import { Agent, Application, Budget, BudgetPeriod, BudgetScope, DecidedBy, PiiAction, Router, Workflow, WorkflowFinish, WorkflowStart, route, start, type BudgetHandler } from "agboss";
-import { Text, WorkflowFinishTextDto } from "agboss/dto";
-import { usd, type Usd } from "agboss/units";
+import { Agent, Application, Budget, BudgetPeriod, BudgetScope, DecidedBy, PiiAction, Router, Workflow, WorkflowFinish, WorkflowStart, route, start, type BudgetHandler } from "@agboss/core";
+import { Text, WorkflowFinishTextDto } from "@agboss/core/dto";
+import { usd, type Usd } from "@agboss/core/units";
 import { ClinicExecutionContext, RefusalTextService } from "./clinic-context.js";
 import { ClinicEnvironment } from "./environments/app.environment.js";
 import { LegalAdviceGuardrail, NoDiagnosisGuardrail } from "./guardrails.js";
@@ -371,7 +371,7 @@ import { LegalAdviceGuardrail } from "./src/clinic/guardrails.js";
 -->
 
 ```ts
-import { decideWith, testGuardrail, testPii } from "agboss/testing";
+import { decideWith, testGuardrail, testPii } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 
 it("blocks a legal question with the refusal in the sender's language", async () => {
