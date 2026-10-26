@@ -6,19 +6,19 @@
 
 `@agboss/cli` provides the `agboss` (short alias `agb`) command-line interface, static graph compiler (`agboss check`), code generator (`agboss generate`), evaluation runner (`agboss eval`), and local Mesh Hub UI (`agboss hub`) for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
 
-> **Pre-release status (`v0.1.0-rc`):** `@agboss/core` and `@agboss/cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
+> **Current release (`v0.1.0`):** [`@agboss/core@0.1.0`](https://www.npmjs.com/package/@agboss/core) (production runtime) and [`@agboss/cli@0.1.0`](https://www.npmjs.com/package/@agboss/cli) (CLI & static workflow compiler) are publicly published on `registry.npmjs.org` under the official `agboss` npm organization.
 
 ## How to install and start (Quick Start)
 
 ### Option 1 — Create a new project
 
 ```bash
-npm exec --yes --package=@agboss/cli -- agboss create my-app
+npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create my-app
 cd my-app
 npm install
 ```
 
-`npm exec --yes --package=@agboss/cli -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli agboss create my-app`) creates a project with `@agboss/core` in `dependencies`, `@agboss/cli` in `devDependencies`, `AGENTS.md`, and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts`, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+`npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli@0.1.0 agboss create my-app`) creates a project with [`@agboss/core`](https://www.npmjs.com/package/@agboss/core) in `dependencies`, [`@agboss/cli`](https://www.npmjs.com/package/@agboss/cli) in `devDependencies`, `AGENTS.md`, and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts`, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
 
 ### Option 2 — Add to an existing project
 
