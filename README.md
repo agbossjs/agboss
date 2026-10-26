@@ -1,14 +1,15 @@
 # AGBoss — Spring-style TypeScript Framework for LangGraph AI Agents
 
 [![Docs](https://img.shields.io/badge/docs-agboss.dev-258ceb)](https://agboss.dev)
-[![npm](https://img.shields.io/npm/v/@agboss/core?color=258ceb)](https://www.npmjs.com/package/@agboss/core)
+[![npm @agboss/core](https://img.shields.io/npm/v/@agboss/core?label=%40agboss%2Fcore&color=258ceb)](https://www.npmjs.com/package/@agboss/core)
+[![npm @agboss/cli](https://img.shields.io/npm/v/@agboss/cli?label=%40agboss%2Fcli&color=258ceb)](https://www.npmjs.com/package/@agboss/cli)
 [![License](https://img.shields.io/badge/License-Apache_2.0-258ceb.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
 **AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
-> **Pre-release status (`v0.1.0-rc`):** `@agboss/core` and `@agboss/cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from this repository (`npm ci && npm run build && npm pack --workspaces`).
+> **Current release (`v0.1.0`):** [`@agboss/core@0.1.0`](https://www.npmjs.com/package/@agboss/core) (production runtime) and [`@agboss/cli@0.1.0`](https://www.npmjs.com/package/@agboss/cli) (CLI & static workflow compiler) are publicly published on `registry.npmjs.org` under the official `agboss` npm organization.
 
 **Documentation:** [https://agboss.dev](https://agboss.dev) · **Quick Start:** [https://agboss.dev/getting-started/quick-start/](https://agboss.dev/getting-started/quick-start/) · **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/) · **Examples:** [https://github.com/agbossjs/agboss-examples](https://github.com/agbossjs/agboss-examples)
 
@@ -17,12 +18,12 @@
 ### Option 1 — Create a new project
 
 ```bash
-npm exec --yes --package=@agboss/cli -- agboss create my-app
+npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create my-app
 cd my-app
 npm install
 ```
 
-`npm exec --yes --package=@agboss/cli -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli agboss create my-app`) scaffolds a complete project where `package.json` already lists `@agboss/core` in `dependencies` and `@agboss/cli` in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+`npm exec --yes --package=@agboss/cli@0.1.0 -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli@0.1.0 agboss create my-app`) scaffolds a complete project where `package.json` already lists [`@agboss/core`](https://www.npmjs.com/package/@agboss/core) in `dependencies` and [`@agboss/cli`](https://www.npmjs.com/package/@agboss/cli) in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
 
 ```bash
 cp .env.example .env && npm run chat
