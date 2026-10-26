@@ -1,5 +1,5 @@
-import { Agent } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FlightBookingDto } from "../dtos/flight-booking.dto.js";
 import { PlacePurchaseTool } from "../tools/place-purchase.tool.js";
 

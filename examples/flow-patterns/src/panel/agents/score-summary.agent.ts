@@ -1,4 +1,4 @@
-import { Agent, listOf } from "agboss";
+import { Agent, listOf } from "@agboss/core";
 import { PanelReviewDto } from "../dtos/panel-review.dto.js";
 import { ScoreDto } from "../dtos/score.dto.js";
 

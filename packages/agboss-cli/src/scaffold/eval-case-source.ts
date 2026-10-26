@@ -1,4 +1,4 @@
-import type { EvalCaseDraft } from "agboss/internal";
+import type { EvalCaseDraft } from "@agboss/core/internal";
 import ts from "typescript";
 import { declarationNamed } from "./declarations.js";
 import { ScaffoldConflictError, ScaffoldError } from "./errors.js";
@@ -9,7 +9,7 @@ import type { FileToWrite } from "./write.js";
 /**
  * An eval case drafted from an execution (`EvalCaseDraft`, #396 PR 8), written into its suite's
  * file: one `evalCase({ … })` appended to `@EvalSuite({ cases })`, the builders it calls added to
- * the file's import of `agboss/eval`, and each class it names — the history's starts and finishes,
+ * the file's import of `@agboss/core/eval`, and each class it names — the history's starts and finishes,
  * the required tools — imported from its own file. What `agboss generate eval-case --from-execution`
  * writes; a page that saves a run as a case (#397 PR 5) writes it the same way.
  */

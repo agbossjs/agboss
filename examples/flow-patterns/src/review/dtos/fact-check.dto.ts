@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** One fact checker's finding: two copies check independently. */
 export class FactCheckDto {

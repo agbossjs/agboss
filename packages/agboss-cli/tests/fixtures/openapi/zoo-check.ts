@@ -2,7 +2,7 @@
  * A hand-written test dropped into the generated project: the agent's model calls two generated
  * OpenAPI tools through `testWith`, and the stubbed API records what reached it.
  */
-export const ZOO_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
+export const ZOO_CHECK = `import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { afterEach, expect, vi } from "vitest";
 import { KeeperAgent } from "../../../src/agents/keeper/keeper.agent.js";
 import { MainRouter } from "../../../src/routers/main/main.router.js";

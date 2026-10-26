@@ -50,7 +50,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
    position. Every path ends in a finish.
 4. **Data are DTO classes, values are plain objects.** One field decorator per field (`@Text`,
-   `@Integer`, `@Flag`, `@OneOf`, `@ListOf`, `@Nested`, …) from `agboss/dto`; a value is
+   `@Integer`, `@Flag`, `@OneOf`, `@ListOf`, `@Nested`, …) from `@agboss/core/dto`; a value is
    `{ orderId: "7" }`, never `new OrderDto()`. No zod, no JSON Schema by hand.
 5. **Decorator = metadata, constructor = dependencies, methods = a contract.** `deps: [A, B]` lists
    the constructor's parameters in order (the compiler checks it); `implements ToolHandler<In, Out>`,
@@ -60,7 +60,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    execution from an injected `ExecutionContext`, time from `Clock`, ids from `IdGenerator`; data
    that outlive a step go through the path (`.returns`) or your own service over external storage.
 7. **Values carry units.** `seconds(30)`, `minutes(5)`, `hours(24)`, `usd(0.05)`, `kilobytes(256)`
-   from `agboss/units` — `timeout: seconds(5)`, never `timeoutMs: 5000`.
+   from `@agboss/core/units` — `timeout: seconds(5)`, never `timeoutMs: 5000`.
 8. **Infrastructure lives in the application only.** Stores (`Sqlite…Repository`), `Clock`,
    `IdGenerator`, `Logger`, model providers, channel implementations and observers are listed in
    `@Application({ providers | observers })`; a workflow's `providers` are its services
@@ -109,7 +109,7 @@ npm test                                                           # scripted mo
   schema changed since it was recorded; `npx agboss check --cassettes` finds it without a test):
   never edit the cassette by hand — re-record its stale interactions with
   `AGBOSS_VCR_MODE=RECORD_STALE npm test`, then run the evals.
-- **Evals on a live model** are declared as an `@EvalSuite` (`agboss/eval`,
+- **Evals on a live model** are declared as an `@EvalSuite` (`@agboss/core/eval`,
   `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
   `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants
   (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
@@ -151,14 +151,14 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   / `.build()`).
 - Explicit return types on exported functions and methods; no `value!` non-null assertions (a DTO
   field's `orderId!: string` is a definite assignment and is required).
-- Imports only from the public entries: `agboss`, `agboss/dto`, `agboss/units`, `agboss/models`,
-  `agboss/testing` (+ `agboss/testing/setup`), `agboss/mcp`, `agboss/rag`, `agboss/a2a`,
-  `agboss/memory`, `agboss/eval`, and `agboss/eslint` in `eslint.config.js` — never `agboss/internal`,
+- Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
+  `@agboss/core/testing` (+ `@agboss/core/testing/setup`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
+  `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`,
   `agboss/dist/…` or LangGraph directly.
 
 <!-- snippet-context
-import { Injectable } from "agboss";
-import { Text } from "agboss/dto";
+import { Injectable } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class OrderQueryDto {
   @Text({ prompt: "the order id" })
   orderId!: string;
@@ -177,8 +177,8 @@ export class OrderBookService {
 
 ```ts
 // tools/order-status.tool.ts — the shape of every component: decorator, deps, a typed contract
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 
 @Tool({
   name: "order-status-tool",

@@ -37,7 +37,7 @@ const answerOf = (op: OperationModel): string => {
 
 const typeImportOf = (op: OperationModel): string =>
   op.input === undefined
-    ? importLine(["NoInputDto"], "agboss/dto", true)
+    ? importLine(["NoInputDto"], "@agboss/core/dto", true)
     : importLine([op.input.name], `../dto/${dtoFileStem(op.input.name)}.dto.js`, true);
 
 /** The tool's test: the API stubbed, the sample input sent, the request checked. */

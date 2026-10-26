@@ -97,7 +97,7 @@ export function toolSource(op: OperationModel, api: ApiNames): string {
   const standard = standardDtos([input, output]);
   const own = [input, output].filter((t) => !standard.includes(t));
   const imports = [
-    ...(standard.length === 0 ? [] : [importLine(standard, "agboss/dto")]),
+    ...(standard.length === 0 ? [] : [importLine(standard, "@agboss/core/dto")]),
     importLine([api.className], `../services/${api.module}.service.js`),
   ].join("\n");
   return render("openapi/tool.ts.tmpl", {

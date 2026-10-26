@@ -1,4 +1,4 @@
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 /** A full legal check of the candidate's paperwork. */
 export class LegalReviewDto {

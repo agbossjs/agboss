@@ -1,5 +1,5 @@
-import type { EvalLabel, EvalRunReport } from "agboss/eval";
-import { calibrateJudges, evalLabelOf, type EvalFailureTag } from "agboss/internal";
+import type { EvalLabel, EvalRunReport } from "@agboss/core/eval";
+import { calibrateJudges, evalLabelOf, type EvalFailureTag } from "@agboss/core/internal";
 import { runAnchor } from "../html/sections.js";
 import { saveSuiteLabel, suiteLabelsOf } from "./labels-file.js";
 import { seeOther, textResponse, type EvalUiResponse } from "./ui-responses.js";

@@ -1,15 +1,15 @@
 import { defineConfig } from "vitest/config";
 
-/** `agboss/<entry>` → the framework's source, the same modules its test fixtures import. */
+/** `@agboss/core/<entry>` → the framework's source, the same modules its test fixtures import. */
 const framework = new URL("../agboss/src/", import.meta.url).pathname;
 
 export default defineConfig({
   resolve: {
     alias: [
-      { find: /^agboss$/, replacement: `${framework}index.ts` },
-      { find: /^agboss\/testing\/setup$/, replacement: `${framework}testing/setup.ts` },
-      { find: /^agboss\/internal$/, replacement: `${framework}internal.ts` },
-      { find: /^agboss\/([\w-]+)$/, replacement: `${framework}$1/index.ts` },
+      { find: /^@agboss\/core$/, replacement: `${framework}index.ts` },
+      { find: /^@agboss\/core\/testing\/setup$/, replacement: `${framework}testing/setup.ts` },
+      { find: /^@agboss\/core\/internal$/, replacement: `${framework}internal.ts` },
+      { find: /^@agboss\/core\/([\w-]+)$/, replacement: `${framework}$1/index.ts` },
     ],
   },
   test: {

@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { VendorRejectedDto } from "../dtos/vendor-rejected.dto.js";
 
 /** The vendor is not a fit. */

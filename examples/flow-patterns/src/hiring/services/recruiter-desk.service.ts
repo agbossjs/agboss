@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** Where a recruiter hears from the send-offer workflow (a service: the I/O). */
 @Injectable()

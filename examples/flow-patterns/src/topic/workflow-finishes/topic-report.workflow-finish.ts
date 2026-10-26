@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { TopicReportDto } from "../dtos/topic-report.dto.js";
 
 /** The report on the topic: researched here, or merged from its subtopics. */

@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/eval";
+import type { EvalRunReport } from "@agboss/core/eval";
 import type { CommandContext } from "../cli/context.js";
 import { CliError } from "../cli/errors.js";
 import { sizeText } from "./html/format.js";

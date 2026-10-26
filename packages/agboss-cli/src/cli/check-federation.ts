@@ -7,7 +7,7 @@ import {
   FederationProblemCode,
   type FederationMember,
   type FederationProblem,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import type { CheckTarget } from "../check.js";
 import { flagOption, type CommandContext } from "./context.js";
 import { problemText, type CheckProblem } from "./check-problems.js";

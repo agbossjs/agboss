@@ -1,5 +1,5 @@
-import { WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 /** A caller's message to the helpline. */
 @WorkflowStart({

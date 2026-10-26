@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { DeskQuestionDto } from "../dtos/desk-question.dto.js";
 
 /** A customer's question. */

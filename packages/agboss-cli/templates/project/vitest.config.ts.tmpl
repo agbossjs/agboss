@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     // the workflow matchers: toFollowPath, toFinishWith, toHavePausedAt, …
-    setupFiles: ["agboss/testing/setup"],
+    setupFiles: ["@agboss/core/testing/setup"],
     passWithNoTests: true,
     projects: [
       {

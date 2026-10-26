@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** What the offsite got: one line per purchase, booked or declined. */
 export class OffsiteBookingDto {

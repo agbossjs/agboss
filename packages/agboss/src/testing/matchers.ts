@@ -138,7 +138,7 @@ export const workflowMatchers = {
   },
 };
 
-/** The matchers, typed for `expect(…)` in tests (`agboss/testing` brings this in). */
+/** The matchers, typed for `expect(…)` in tests (`@agboss/core/testing` brings this in). */
 export interface WorkflowMatchers<R = unknown> {
   toFollowPath(path: readonly Class[]): R;
   toFinishWith(finish: Class, output?: unknown): R;

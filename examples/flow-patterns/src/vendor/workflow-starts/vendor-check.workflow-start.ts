@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { VendorDto } from "../dtos/vendor.dto.js";
 
 /** Where one vendor's check starts: run alone, or by a parent per item of its list. */

@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** What the panel's counted scores come to. */
 export class PanelReviewDto {

@@ -5,7 +5,7 @@ import { dryRun, write } from "./scaffold-outcome.js";
 
 /**
  * `agboss migrate imports [<path>…] [--dry-run]` (#195): rewrites the imports of the old entries
- * (`agboss/core`, `/graph`, `/router`, `/tool`, `/channels`, `/concurrency`) and of renamed
+ * (`@agboss/core/core`, `/graph`, `/router`, `/tool`, `/channels`, `/concurrency`) and of renamed
  * names to the current public entries. Default: every TypeScript file of the project.
  */
 export const handle: CommandHandler = async (context) => {

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { failureTaxonomyOf, type EvalFailureTag } from "agboss/internal";
+import { failureTaxonomyOf, type EvalFailureTag } from "@agboss/core/internal";
 import { CliError } from "../../cli/errors.js";
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { workflowOf } from "agboss/testing";
-import { withProfile } from "agboss";
+import { workflowOf } from "@agboss/core/testing";
+import { withProfile } from "@agboss/core";
 import { JobScout } from "../src/job-scout.workflow.js";
 
 describe("job-scout workflow", () => {

@@ -1,6 +1,6 @@
-import type { ExecutionHistoryRecord } from "agboss";
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
-import type { EvalCaseDraft, OpenedExecutionHistory } from "agboss/internal";
+import type { ExecutionHistoryRecord } from "@agboss/core";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
+import type { EvalCaseDraft, OpenedExecutionHistory } from "@agboss/core/internal";
 import { recordDraftOf } from "../../cli/generate-eval-case.js";
 
 /**

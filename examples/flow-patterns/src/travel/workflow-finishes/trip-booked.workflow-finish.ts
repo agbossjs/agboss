@@ -1,4 +1,4 @@
-import { WorkflowFinish, type FinishHandler, type InputOf, type OutputOf } from "agboss";
+import { WorkflowFinish, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { TripFlightDto, TripHotelDto, TripBookedDto } from "../dtos/trip.dto.js";
 
 /** Where a booked trip finishes — and commits both bookings: nothing undoes them any more. */

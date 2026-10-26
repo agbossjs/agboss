@@ -63,7 +63,7 @@ export interface AgentMeta
   readonly promptUrls?: readonly string[];
   readonly model: string;
   /**
-   * This agent's memory strategy (a `BaseMemoryStrategy` subclass from `agboss/memory`,
+   * This agent's memory strategy (a `BaseMemoryStrategy` subclass from `@agboss/core/memory`,
    * created by the workflow's container); other agents use the built-in one (`uncompactedTurns`,
    * `compaction`).
    */

@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { ShortlistDto } from "../dtos/shortlist.dto.js";
 
 /** Where a run starts: the shortlist to make an offer from. */

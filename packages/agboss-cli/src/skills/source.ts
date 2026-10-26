@@ -32,7 +32,7 @@ export interface SkillFile {
 /** The `agboss` package Node resolves from `dir`: the nearest `node_modules/agboss` up. */
 function agbossPackageFrom(dir: string): string | undefined {
   for (let at = dir; ; at = dirname(at)) {
-    const manifest = join(at, "node_modules", "agboss", "package.json");
+    const manifest = join(at, "node_modules", "@agboss", "core", "package.json");
     if (existsSync(manifest)) return realpathSync(dirname(manifest));
     if (dirname(at) === at) return undefined;
   }

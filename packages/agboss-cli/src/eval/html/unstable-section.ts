@@ -1,5 +1,5 @@
-import type { EvalCaseReport, EvalRunReport } from "agboss/eval";
-import { attemptDivergenceOf, AttemptDivergenceReason } from "agboss/internal";
+import type { EvalCaseReport, EvalRunReport } from "@agboss/core/eval";
+import { attemptDivergenceOf, AttemptDivergenceReason } from "@agboss/core/internal";
 import { element, type HtmlChild } from "./html.js";
 import {
   caseAnchor,

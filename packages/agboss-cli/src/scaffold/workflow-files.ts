@@ -51,7 +51,7 @@ function extras(
     const from = `../../rag/${name.kebab}.rag.js`;
     agent = wire(agent, "Agent", "rag", element, rag.knowledge, from);
     // the mode is an enum (#269): its import goes with the knowledge base's
-    agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "agboss") };
+    agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "@agboss/core") };
   }
   return { files, agent, server };
 }
@@ -79,7 +79,7 @@ function moduleImports(
   ].join("\n");
 }
 
-/** The workflow's test on `agboss/testing`: its first agent, by script, in its application. */
+/** The workflow's test on `@agboss/core/testing`: its first agent, by script, in its application. */
 function workflowTest(
   dir: string,
   srcDir: string,

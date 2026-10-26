@@ -28,8 +28,8 @@ const ts = (...lines: string[]): string => ["```ts", ...lines, "```"].join("\n")
 
 const router = (route: string): string =>
   ts(
-    'import { Agent, DecidedBy, Router } from "agboss";',
-    'import { WorkflowStartTextDto } from "agboss/dto";',
+    'import { Agent, DecidedBy, Router } from "@agboss/core";',
+    'import { WorkflowStartTextDto } from "@agboss/core/dto";',
     '@Agent({ name: "coder-agent", description: "Codes", prompt: "Code.", model: "m" })',
     "class CoderAgent {}",
     "",

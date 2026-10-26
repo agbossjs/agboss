@@ -1,4 +1,4 @@
-import { ApplicationContext, Injectable } from "agboss";
+import { ApplicationContext, Injectable } from "@agboss/core";
 import { z } from "zod";
 import { JOB_SEARCH, type JobSearch } from "../config/search.config.js";
 import {

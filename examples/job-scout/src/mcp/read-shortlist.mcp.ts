@@ -1,6 +1,6 @@
-import type { ToolHandler } from "agboss";
-import { McpTool } from "agboss/mcp";
-import { NoInputDto } from "agboss/dto";
+import type { ToolHandler } from "@agboss/core";
+import { McpTool } from "@agboss/core/mcp";
+import { NoInputDto } from "@agboss/core/dto";
 import { SHORTLIST } from "../config/paths.js";
 import { isMissingFile } from "../helpers/shortlist.helper.js";
 import { ShortlistContent } from "./read-shortlist.dto.js";

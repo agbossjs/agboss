@@ -1,5 +1,5 @@
-import { Agent, RagMode } from "agboss";
-import { Reasoning } from "agboss/models";
+import { Agent, RagMode } from "@agboss/core";
+import { Reasoning } from "@agboss/core/models";
 import { GreenhouseJobs } from "../tools/greenhouse-jobs.tool.js";
 import { CompanyNotes } from "../rag/company-notes.rag.js";
 import { KIMI } from "../config/settings.js";

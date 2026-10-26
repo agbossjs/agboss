@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { VendorScoreDto } from "../dtos/vendor-score.dto.js";
 
 /** The vendor is scored. */

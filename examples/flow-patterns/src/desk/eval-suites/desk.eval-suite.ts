@@ -7,7 +7,7 @@ import {
   toolCall,
   toolInvariant,
   turn,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 import { DeskAnswerJudge } from "../judges/desk-answer.judge.js";
 import { CloseAccountTool } from "../tools/close-account.tool.js";
 import { OrderStatusTool } from "../tools/order-status.tool.js";

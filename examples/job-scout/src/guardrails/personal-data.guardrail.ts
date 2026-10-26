@@ -1,4 +1,4 @@
-import { OutputGuardrail } from "agboss";
+import { OutputGuardrail } from "@agboss/core";
 
 /** Every agent's answer is checked before it leaves (#120): personal data of a real person is withheld. */
 @OutputGuardrail({

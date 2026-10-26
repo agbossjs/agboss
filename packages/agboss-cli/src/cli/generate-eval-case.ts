@@ -4,8 +4,8 @@ import {
   openExecutionHistory,
   type EvalCaseDraft,
   type OpenedExecutionHistory,
-} from "agboss/internal";
-import type { ExecutionHistoryRecord } from "agboss";
+} from "@agboss/core/internal";
+import type { ExecutionHistoryRecord } from "@agboss/core";
 import { planEvalCase, type EvalCasePlan } from "../scaffold/generate-eval-case.js";
 import { loadCliApplication } from "./cli-application.js";
 import { textOption, type CommandContext } from "./context.js";

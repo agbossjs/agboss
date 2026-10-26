@@ -1,4 +1,4 @@
-import type { ChildExecutionRecord, ExecutionHistoryRecord, ToolCallRecord } from "agboss";
+import type { ChildExecutionRecord, ExecutionHistoryRecord, ToolCallRecord } from "@agboss/core";
 import type { HubRecord } from "./hub-inputs.js";
 
 /**

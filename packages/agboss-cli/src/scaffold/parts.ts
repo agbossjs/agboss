@@ -21,7 +21,7 @@ const FILESYSTEM_TYPES = {
 const COMMAND_TYPES = {
   input: "NoInputDto",
   output: "PlainTextDto",
-  dtoImports: 'import { NoInputDto, PlainTextDto } from "agboss/dto";',
+  dtoImports: 'import { NoInputDto, PlainTextDto } from "@agboss/core/dto";',
 };
 
 /** An MCP server (`<name>.mcp-server.ts`) and one MCP tool calling it (`<tool>.mcp-tool.ts`). */

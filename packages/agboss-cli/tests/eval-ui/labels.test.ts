@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus, type EvalRunResult } from "agboss/eval";
+import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
 import { respondTo, type EvalUiRequest, type EvalUiSettings } from "../../src/eval/ui/ui-routes.js";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
 

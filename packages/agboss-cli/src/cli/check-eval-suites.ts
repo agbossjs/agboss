@@ -1,11 +1,11 @@
 import { relative } from "node:path";
-import { ComponentError, EvalCaseInvalidError, GraphRuleError, type Class } from "agboss";
+import { ComponentError, EvalCaseInvalidError, GraphRuleError, type Class } from "@agboss/core";
 import {
   checkEvalSuite,
   evalSuiteWarningsOf,
   loadEvalSuites,
   type FoundEvalSuite,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { flagOption, loadOptions, type CommandContext } from "./context.js";
 

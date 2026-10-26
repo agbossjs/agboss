@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { VendorCheckFailedDto } from "../dtos/vendor-check-failed.dto.js";
 
 /** The vendor could not be checked: a finish reachable from a side path (no FailFast for the others). */

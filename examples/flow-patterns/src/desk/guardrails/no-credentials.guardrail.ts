@@ -1,4 +1,4 @@
-import { DecidedBy, GuardrailVerdict, InputGuardrail, type GuardrailHandler } from "agboss";
+import { DecidedBy, GuardrailVerdict, InputGuardrail, type GuardrailHandler } from "@agboss/core";
 
 const CREDENTIALS = /\b(password|passcode|cvv)\b/iu;
 

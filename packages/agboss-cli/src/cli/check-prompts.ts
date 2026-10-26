@@ -1,4 +1,4 @@
-import { PromptError, type PromptProblem } from "agboss";
+import { PromptError, type PromptProblem } from "@agboss/core";
 import type { CheckProblem } from "./check-problems.js";
 
 /** `prompts/x.md:3 {{typo}} — known: …` → that file and line; anything else stays with the workflow. */

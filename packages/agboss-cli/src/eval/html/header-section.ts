@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/eval";
+import type { EvalRunReport } from "@agboss/core/eval";
 import { durationText } from "./format.js";
 import { element, type HtmlElement } from "./html.js";
 import { factsOf } from "./sections.js";

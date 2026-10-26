@@ -21,15 +21,16 @@ const framework = JSON.parse(
 ) as PackageJson;
 
 describe("the command ships apart from the framework (#101, #205)", () => {
-  it("AC1 (#101): the command is agboss and agboss-cli — in agboss-cli", () => {
-    expect(cli.name).toBe("agboss-cli");
+  it("AC1 (#101): the command is agboss and agboss-cli — in @agboss/cli", () => {
+    expect(cli.name).toBe("@agboss/cli");
     expect(cli.bin).toEqual({ agboss: "./bin/agboss.js", "agboss-cli": "./bin/agboss.js" });
     expect(cli.files).toContain("NOTICE");
     expect(usage()).toContain("AGBoss");
   });
 
-  it("is built on the exact framework version it ships with (it uses agboss/internal)", () => {
-    expect(cli.dependencies.agboss).toBe(framework.version);
+  it("is built on the exact framework version it ships with (it uses @agboss/core/internal)", () => {
+    expect(cli.dependencies["@agboss/core"]).toBe(framework.version);
+    expect(cli.dependencies.agboss).toBeUndefined();
   });
 
   it("AC5 (#101): the command help says workflow, not bundle", () => {
@@ -38,7 +39,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
     expect(usage()).not.toContain("--workflow");
   });
 
-  it("local delegation: packages/agboss/bin/agboss.js finds the installed agboss-cli", () => {
+  it("local delegation: packages/agboss/bin/agboss.js finds the installed @agboss/cli", () => {
     const out = execFileSync(process.execPath, [join(frameworkDir, "bin/agboss.js"), "--help"], {
       cwd: cliDir,
       encoding: "utf8",
@@ -48,7 +49,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
     expect(out).toContain("Usage: agboss <command>");
   });
 
-  it("empty directory: unpacked agboss-*.tgz bin delegates via AGBOSS_CLI_PACKAGE_SPEC to create a project", () => {
+  it("empty directory: unpacked agboss-core-*.tgz bin delegates via AGBOSS_CLI_PACKAGE_SPEC to create a project", () => {
     const tmp = mkdtempSync(join(tmpdir(), "agboss-empty-dir-test-"));
     try {
       const packDir = join(tmp, "packed");
@@ -67,7 +68,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
         cwd: cliDir,
         stdio: "pipe",
       });
-      const agbossTarball = join(packDir, `agboss-${framework.version}.tgz`);
+      const agbossTarball = join(packDir, `agboss-core-${framework.version}.tgz`);
       const cliTarball = join(packDir, `agboss-cli-${cli.version}.tgz`);
       execFileSync("tar", ["-xzf", agbossTarball, "-C", unpackDir], { stdio: "pipe" });
 

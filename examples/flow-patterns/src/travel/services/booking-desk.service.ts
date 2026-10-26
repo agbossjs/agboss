@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** A booking was refused, or its service did not answer. */
 export class BookingFailedError extends Error {

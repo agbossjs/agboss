@@ -9,7 +9,7 @@ import {
   type EvalCaseReport,
   type EvalRunComparison,
   type EvalRunReport,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 import { flagOption, textOption, type CommandContext } from "../cli/context.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { readRunArtifact, runArtifactInvalid } from "./run-artifact.js";

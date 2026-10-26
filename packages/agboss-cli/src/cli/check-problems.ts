@@ -1,6 +1,6 @@
-import { ComponentError, GraphRuleError } from "agboss";
-import { ConfigurationError, type ModelProblem } from "agboss/models";
-import { ProfileError, type AssembledApplication } from "agboss/internal";
+import { ComponentError, GraphRuleError } from "@agboss/core";
+import { ConfigurationError, type ModelProblem } from "@agboss/core/models";
+import { ProfileError, type AssembledApplication } from "@agboss/core/internal";
 import { promptProblemsOf } from "./check-prompts.js";
 
 /** One problem `agboss check` found: `file:line code message`. */

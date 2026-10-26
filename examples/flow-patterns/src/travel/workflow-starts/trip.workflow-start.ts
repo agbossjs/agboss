@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { TripRequestDto } from "../dtos/trip.dto.js";
 
 /** Where booking a trip starts: the destination and the nights. */

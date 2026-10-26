@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { AgentAnswerInvalidError, BudgetExceededError } from "agboss";
-import { usd } from "agboss/units";
+import { AgentAnswerInvalidError, BudgetExceededError } from "@agboss/core";
+import { usd } from "@agboss/core/units";
 import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
-import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "agboss/testing";
+import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";

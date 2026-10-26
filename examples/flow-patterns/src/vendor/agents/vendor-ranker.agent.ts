@@ -1,4 +1,4 @@
-import { Agent, listOf, oneOf } from "agboss";
+import { Agent, listOf, oneOf } from "@agboss/core";
 import { VendorCheckFailedDto } from "../dtos/vendor-check-failed.dto.js";
 import { VendorRankingDto } from "../dtos/vendor-ranking.dto.js";
 import { VendorRejectedDto } from "../dtos/vendor-rejected.dto.js";

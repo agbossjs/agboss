@@ -5,9 +5,9 @@ import {
   runEvalSuite,
   type ChaosOptions,
   type FoundEvalSuite,
-} from "agboss/internal";
-import type { Class } from "agboss";
-import type { EvalRunReport } from "agboss/eval";
+} from "@agboss/core/internal";
+import type { Class } from "@agboss/core";
+import type { EvalRunReport } from "@agboss/core/eval";
 import { loadCliApplication } from "../cli/cli-application.js";
 import {
   flagOption,

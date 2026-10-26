@@ -111,6 +111,6 @@ export function planRag(root: string, name: string, o: GenerateOptions): Changes
   const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
   const wired = wire(agent, "Agent", "rag", element, rag.knowledge, from);
   // the mode is an enum (#269): its import goes with the knowledge base's
-  const modeImported = addImport(wired.content, wired.path, "RagMode", "agboss");
+  const modeImported = addImport(wired.content, wired.path, "RagMode", "@agboss/core");
   return { create: rag.files, modify: [{ ...wired, content: modeImported }] };
 }

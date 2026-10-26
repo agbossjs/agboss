@@ -1,11 +1,11 @@
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import type { Candidate } from "../helpers/boards.helper.js";
 import { GreenhouseBoards } from "../services/greenhouse-boards.service.js";
 import { fitScorer, matchScore, MAX_JUDGED, passesFilters } from "../helpers/greenhouse.helper.js";
 import { JOB_SEARCH, type JobSearch } from "../config/search.config.js";
 import { JobFitJudge, type FitRater } from "../services/job-fit.service.js";
 import { JobMatches, JobQuery } from "./greenhouse-jobs.dto.js";
-import { minutes } from "agboss/units";
+import { minutes } from "@agboss/core/units";
 
 /**
  * Public Greenhouse boards (no key): hard filters (location, excluded titles), then a cheap judge

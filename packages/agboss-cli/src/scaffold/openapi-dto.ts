@@ -201,7 +201,7 @@ export function dtoClassSource(model: ClassModel, allClasses: readonly ClassMode
   ]
     .sort()
     .map((ref) => importLine([ref], `./${dtoFileStem(ref)}.dto.js`));
-  const imports = [importLine(decorators, "agboss/dto"), ...siblingImports].join("\n");
+  const imports = [importLine(decorators, "@agboss/core/dto"), ...siblingImports].join("\n");
   const body = `/** ${model.doc} */\nexport class ${model.name} {\n${model.fields.map(fieldSource).join("\n\n")}\n}\n`;
   return `${imports}\n\n${body}`;
 }

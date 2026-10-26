@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
-import { HealthStatus, QualityGateError } from "agboss";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { HealthStatus, QualityGateError } from "@agboss/core";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { DeskAgent } from "../src/desk/agents/desk.agent.js";
 import { OrderDeskService } from "../src/desk/services/order-desk.service.js";
 import { DeskMetricsService } from "../src/desk/services/desk-metrics.service.js";

@@ -2,7 +2,7 @@
  * A hand-written test dropped into the job-scout copy after the generators ran (#197): the generated
  * agent is a real route of the main router, and the generated tool is a real tool of that agent.
  */
-export const JOB_SCOUT_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
+export const JOB_SCOUT_CHECK = `import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { BillingAgent } from "../src/agents/billing/billing.agent.js";
 import { JobScoutApplication } from "../src/job-scout.application.js";

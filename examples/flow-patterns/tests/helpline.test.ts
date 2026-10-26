@@ -1,6 +1,6 @@
 import { expect } from "vitest";
-import { A2ACallerRejectedError, A2AClient } from "agboss/a2a";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { A2ACallerRejectedError, A2AClient } from "@agboss/core/a2a";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { DeskA2aCallerResolver } from "../src/desk/a2a/desk.a2a-caller-resolver.js";
 import { DeskA2AExpose } from "../src/desk/a2a/desk.a2a-expose.js";
 import { DeskAgent } from "../src/desk/agents/desk.agent.js";

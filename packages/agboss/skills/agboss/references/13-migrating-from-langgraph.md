@@ -83,7 +83,7 @@ The result — one row per DTO, its producer and its readers — is the plan for
 
 | LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                  |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`agboss/dto`: `@Text`, `@Integer`, `@ListOf`, `@Nested`, …), one per producer — Step 1                                                                                              |
+| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@ListOf`, `@Nested`, …), one per producer — Step 1                                                                                        |
 | `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                        |
 | `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                          |
 | `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                              |
@@ -257,7 +257,7 @@ The files follow Step 1's table. In a project each class is a file of its own
 (`agents/writer.agent.ts`, …); a few share a file here for brevity.
 
 ```ts file=src/support/support.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class SupportRequestDto {
   @Text({ prompt: "the order the customer writes about" })
@@ -327,7 +327,7 @@ The services the old nodes called are injected, the `interrupt()` becomes a chan
 that issues a large refund:
 
 ```ts file=src/support/support.services.ts
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class OrderBookService {
@@ -355,8 +355,8 @@ export class SupervisorQueueService {
 
 ```ts file=src/support/channels/refund-sign-off.channel.ts
 // interrupt({ draft, refundCents }) → the role: what is approved and who answers
-import { Channel, ChannelOf, ChannelOutcome, ChannelRole, PauseAnswerer } from "agboss";
-import type { ChannelAsk } from "agboss";
+import { Channel, ChannelOf, ChannelOutcome, ChannelRole, PauseAnswerer } from "@agboss/core";
+import type { ChannelAsk } from "@agboss/core";
 import { RefundOrderDto } from "../support.dto.js";
 import { SupervisorQueueService } from "../support.services.js";
 
@@ -383,7 +383,7 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
 ```
 
 ```ts file=src/support/support.tools.ts
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RefundSignOffChannel } from "./channels/refund-sign-off.channel.js";
 import { OrderFactsDto, OrderLookupDto, RefundIssuedDto, RefundOrderDto } from "./support.dto.js";
 import { OrderBookService, RefundApiService } from "./support.services.js";
@@ -422,7 +422,7 @@ Each LLM node is an agent with a static prompt and typed `input` / `output` — 
 no string building. The writer and the editor are two agents: the first never reads a draft.
 
 ```ts file=src/support/support.agents.ts
-import { Agent, historyOf, listOf, oneOf } from "agboss";
+import { Agent, historyOf, listOf, oneOf } from "@agboss/core";
 import {
   ChangesRequestedDto,
   ReplyApprovedDto,
@@ -505,8 +505,8 @@ The classifier is a model router (its outcome is where to go, not data); `routeB
 `Command({ goto })` is a code router; the plain-code `issueRefund` node is an action:
 
 ```ts file=src/support/support.nodes.ts
-import { Action, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart } from "agboss";
-import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "agboss";
+import { Action, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
 import { ResearchPlannerAgent, RefundSignOffAgent } from "./support.agents.js";
 import { RefundIssuedDto, ReplyDraftDto, SupportRequestDto } from "./support.dto.js";
 import { RefundApiService } from "./support.services.js";
@@ -577,7 +577,7 @@ writer and from the editor). The `Send` fan-out is a per-item launch, the reduce
 review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the editor's `maxVisits`:
 
 ```ts file=src/support/support.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, listOf, oneOf, route, start, toFinish } from "agboss";
+import { VisitsLimitExceededError, Workflow, agent, caseOf, listOf, oneOf, route, start, toFinish } from "@agboss/core";
 import {
   OrderResearcherAgent,
   RefundSignOffAgent,
@@ -648,8 +648,8 @@ infrastructure — here the channel's implementation; in production also `Sqlite
 `SqlitePausedExecutionRepository`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
 
 ```ts file=src/support/support.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { SupervisorQueueRefundSignOffChannel } from "./channels/refund-sign-off.channel.js";
 import { SupervisorQueueService } from "./support.services.js";
 import { SupportWorkflow } from "./support.workflow.js";
@@ -714,8 +714,8 @@ class, and a code component is tested alone with its unit runner:
 
 ```ts file=tests/support/support.test.ts
 import { expect, it } from "vitest";
-import { ExecutionStatus } from "agboss";
-import { callTool, replyWith, routeTo, testRouter, testWith } from "agboss/testing";
+import { ExecutionStatus } from "@agboss/core";
+import { callTool, replyWith, routeTo, testRouter, testWith } from "@agboss/core/testing";
 import { SupportApplication } from "../../src/support/support.application.js";
 import {
   OrderResearcherAgent,

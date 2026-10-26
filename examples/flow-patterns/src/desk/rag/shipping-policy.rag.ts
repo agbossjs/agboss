@@ -1,4 +1,4 @@
-import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 
 const ARTICLES = [
   { text: "Orders ship within two working days.", source: "help/shipping.md" },

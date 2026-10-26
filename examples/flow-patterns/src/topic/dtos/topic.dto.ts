@@ -1,4 +1,4 @@
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 /**
  * A topic to research: the start's input and the item of each child execution. `level` is domain

@@ -6,8 +6,8 @@ import {
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
-} from "agboss";
-import { DecisionsModelProvider, OpenRouterModelProvider } from "agboss/models";
+} from "@agboss/core";
+import { DecisionsModelProvider, OpenRouterModelProvider } from "@agboss/core/models";
 import { OffsiteBookingWorkflow } from "./approvals/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {

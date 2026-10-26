@@ -1,5 +1,5 @@
-import { start, Workflow } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { start, Workflow } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FlightBuyerAgent } from "./agents/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "./agents/venue-buyer.agent.js";
 import { FlightBookingDto } from "./dtos/flight-booking.dto.js";

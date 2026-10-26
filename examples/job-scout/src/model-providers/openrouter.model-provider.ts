@@ -12,8 +12,8 @@ import {
   Reasoning,
   RetryPolicy,
   type OpenRouterFields,
-} from "agboss/models";
-import { minutes, seconds } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
 
 /**
  * job-scout's chat models: OpenRouter, which returns each call's cost — listed with the framework's

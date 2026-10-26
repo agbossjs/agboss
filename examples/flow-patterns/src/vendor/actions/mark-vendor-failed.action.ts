@@ -1,4 +1,4 @@
-import { Action, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { VendorCheckFailedDto } from "../dtos/vendor-check-failed.dto.js";
 import { VendorDto } from "../dtos/vendor.dto.js";
 

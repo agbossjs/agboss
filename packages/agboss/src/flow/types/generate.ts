@@ -165,7 +165,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     })),
     names,
   );
-  const tablesModule = names.specifier(request.tablesModule ?? "agboss");
+  const tablesModule = names.specifier(request.tablesModule ?? "@agboss/core");
   const text = printTypes(
     { ...tables, ...channels, workflowStarts: contexts.workflowStarts, environments: contracts },
     names,

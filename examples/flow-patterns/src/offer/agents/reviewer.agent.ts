@@ -1,4 +1,4 @@
-import { Agent, historyOf, oneOf } from "agboss";
+import { Agent, historyOf, oneOf } from "@agboss/core";
 import { ChangesRequestedDto } from "../dtos/changes-requested.dto.js";
 import { DraftApprovedDto } from "../dtos/draft-approved.dto.js";
 import { OfferDraftDto } from "../dtos/offer-draft.dto.js";

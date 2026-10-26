@@ -1,5 +1,5 @@
-import { ChaosFailure, type EvalRunChaos } from "agboss/eval";
-import type { ChaosOptions } from "agboss/internal";
+import { ChaosFailure, type EvalRunChaos } from "@agboss/core/eval";
+import type { ChaosOptions } from "@agboss/core/internal";
 import { textOption, type CommandContext } from "../cli/context.js";
 import { usageError } from "../cli/errors.js";
 

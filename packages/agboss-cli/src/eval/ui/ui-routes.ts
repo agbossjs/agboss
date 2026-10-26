@@ -1,5 +1,5 @@
-import type { EvalRunReport } from "agboss/eval";
-import { calibrateJudges, type EvalFailureTag } from "agboss/internal";
+import type { EvalRunReport } from "@agboss/core/eval";
+import { calibrateJudges, type EvalFailureTag } from "@agboss/core/internal";
 import type { HtmlElement } from "../html/html.js";
 import { boundedPageOf } from "../html/bounded-page.js";
 import { sizeText } from "../html/format.js";

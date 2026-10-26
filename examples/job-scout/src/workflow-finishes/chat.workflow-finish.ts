@@ -1,5 +1,5 @@
-import { WorkflowFinishTextDto } from "agboss/dto";
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
+import { WorkflowFinish } from "@agboss/core";
 
 /** Where a turn of the chat finishes: the answer sent back to the job seeker. */
 @WorkflowFinish({

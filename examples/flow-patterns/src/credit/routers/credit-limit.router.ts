@@ -5,7 +5,7 @@ import {
   type InputOf,
   type Route,
   type RouterHandler,
-} from "agboss";
+} from "@agboss/core";
 import { ApprovalAgent } from "../agents/approval.agent.js";
 import { ChargeCardAction } from "../actions/charge-card.action.js";
 import { CreditOrderDto } from "../dtos/credit-order.dto.js";

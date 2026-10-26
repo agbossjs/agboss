@@ -1,5 +1,5 @@
 /**
- * `agboss/units` — values with units, so a limit reads as what it is: `usd(0.5)`,
+ * `@agboss/core/units` — values with units, so a limit reads as what it is: `usd(0.5)`,
  * `seconds(30)`, `minutes(5)`, `kilobytes(64)`. Each value is checked once here and carries its unit in its type.
  */
 import type { Brand } from "../types/brand.js";

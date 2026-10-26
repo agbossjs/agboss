@@ -110,7 +110,7 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
         "Workflow start WorkflowStart WorkflowFinish WorkflowStartTextDto",
         "",
         fence(
-          'import { start } from "agboss";',
+          'import { start } from "@agboss/core";',
           "declare const A: never;",
           "start(A).returns(A).toFinish(A);",
         ),

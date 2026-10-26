@@ -6,9 +6,9 @@ import {
   CompensationReason,
   CompensationStatus,
   StepFailedError,
-} from "agboss";
-import { callTool, failWith, ModelFailure, replyWith, testWith } from "agboss/testing";
-import { usd } from "agboss/units";
+} from "@agboss/core";
+import { callTool, failWith, ModelFailure, replyWith, testWith } from "@agboss/core/testing";
+import { usd } from "@agboss/core/units";
 import { AlertRecruiterAction } from "../src/hiring/actions/alert-recruiter.action.js";
 import { BookOnboardingSlotAction } from "../src/hiring/actions/book-onboarding-slot.action.js";
 import { ConfirmOfferAction } from "../src/hiring/actions/confirm-offer.action.js";

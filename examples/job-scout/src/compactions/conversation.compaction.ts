@@ -1,4 +1,4 @@
-import { Compaction, CompactionStrategy } from "agboss";
+import { Compaction, CompactionStrategy } from "@agboss/core";
 import { KIMI } from "../config/settings.js";
 
 /**

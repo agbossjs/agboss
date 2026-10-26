@@ -6,7 +6,7 @@ import {
   type BeforeToolCall,
   type ToolCallContext,
   type ToolCallResultContext,
-} from "agboss";
+} from "@agboss/core";
 import { CloseAccountTool } from "../tools/close-account.tool.js";
 import { OrderStatusTool } from "../tools/order-status.tool.js";
 

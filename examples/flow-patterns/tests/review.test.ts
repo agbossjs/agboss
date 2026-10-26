@@ -1,5 +1,11 @@
 import { describe, expect } from "vitest";
-import { failWith, ModelFailure, replyWith, testWith, type ModelRequest } from "agboss/testing";
+import {
+  failWith,
+  ModelFailure,
+  replyWith,
+  testWith,
+  type ModelRequest,
+} from "@agboss/core/testing";
 import { FactCheckerAgent } from "../src/review/agents/fact-checker.agent.js";
 import { SectionReviewerAgent } from "../src/review/agents/section-reviewer.agent.js";
 import { SectionSplitterAgent } from "../src/review/agents/section-splitter.agent.js";

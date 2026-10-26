@@ -6,8 +6,8 @@ import {
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
-} from "agboss";
-import { PlainTextDto } from "agboss/dto";
+} from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 import { OrderStatusTool } from "../tools/order-status.tool.js";
 
 /**

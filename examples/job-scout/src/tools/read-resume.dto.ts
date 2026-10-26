@@ -1,4 +1,4 @@
-import { Flag, OneOf, Text } from "agboss/dto";
+import { Flag, OneOf, Text } from "@agboss/core/dto";
 
 /** Which resume to read. */
 export class ResumeRequest {

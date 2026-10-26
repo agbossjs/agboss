@@ -1,9 +1,9 @@
 // `npm run lint`: what a project made by `agboss create` lints with (#388) — typescript-eslint on the
-// example's types and the rules AGBoss code follows, from `agboss/eslint`. The repo's own gate
+// example's types and the rules AGBoss code follows, from `@agboss/core/eslint`. The repo's own gate
 // lints the example too, with the same rules (its eslint.config.js at the root).
 import js from "@eslint/js";
 import stylistic from "@stylistic/eslint-plugin";
-import { FLOW_CHAIN_RULE, agbossPlugin } from "agboss/eslint";
+import { FLOW_CHAIN_RULE, agbossPlugin } from "@agboss/core/eslint";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(

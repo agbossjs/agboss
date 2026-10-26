@@ -1,4 +1,4 @@
-import { Channel, ChannelOutcome, type ChannelAsk } from "agboss";
+import { Channel, ChannelOutcome, type ChannelAsk } from "@agboss/core";
 import { ApprovalTerminal } from "../services/approval-terminal.service.js";
 import { PurchaseApprovalChannel } from "./purchase-approval.channel.js";
 

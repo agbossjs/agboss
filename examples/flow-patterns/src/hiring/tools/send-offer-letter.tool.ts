@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RecruiterApprovalChannel } from "../channels/recruiter-approval.channel.js";
 import { LetterDelivered, LetterDelivery } from "./send-offer-letter.dto.js";
 

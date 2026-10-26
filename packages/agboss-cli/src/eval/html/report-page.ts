@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/eval";
+import type { EvalRunReport } from "@agboss/core/eval";
 import { BASELINE_SECTION } from "./baseline-section.js";
 import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";

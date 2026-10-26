@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** What a credit-limit lookup asks: whose limit, under which idempotency key. */
 export interface CreditLimitRequest {

@@ -1,9 +1,9 @@
 /**
- * `agboss/testing/setup` — registers the workflow matchers (`toFollowPath`, `toFinishWith`,
+ * `@agboss/core/testing/setup` — registers the workflow matchers (`toFollowPath`, `toFinishWith`,
  * `toFailWith`, …) and the call matchers of `mockLlm` / `mockAction` (`toHaveBeenCalledWith`,
  * `toHaveBeenCalledTimes`, `toHaveReturned`) and the trajectory matchers (`toHaveCalledTools`,
  * `toHaveToolCallMatching`, #395): one line in vitest.config.ts,
- * `setupFiles: ["agboss/testing/setup"]`.
+ * `setupFiles: ["@agboss/core/testing/setup"]`.
  */
 import { expect } from "vitest";
 import { installCallMatchers } from "./call-matchers.js";

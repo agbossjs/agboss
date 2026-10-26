@@ -125,8 +125,8 @@ pauses the execution until the reply, `ChannelOutcome.decided(decision)` goes on
 execution — its tenant, the project's context fields — comes through an injected `ExecutionContext`.
 
 <!-- snippet-context
-import { Injectable } from "agboss";
-import { Text } from "agboss/dto";
+import { Injectable } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 @Injectable()
 export class SlackClient {
   post(_text: string, _replyKey: string): Promise<void> {
@@ -147,7 +147,7 @@ import {
   ExecutionContext,
   PauseAnswerer,
   type ChannelAsk,
-} from "agboss";
+} from "@agboss/core";
 
 @ChannelRole({
   name: "user-deletion-approval-channel",
@@ -191,8 +191,8 @@ tool may also name a concrete `@Channel` as is (`TerminalUserChannel`; `AutoAppr
 `AutoRejectChannel`, which decide at once, for tests and scripts).
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionApprovalChannel } from "./channels.js";
 export class UserDeletedDto {
   @Text() userId!: string;
@@ -243,7 +243,7 @@ context fields are passed as typed values, kept in the checkpoint (a resume runs
 by the channel through its `ExecutionContext` — the same for guardrails and every other component.
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 import { ChatStart } from "./tools.js";
 declare const app: App;
 -->
@@ -268,7 +268,7 @@ instead, its id listed in `result.pending`. `agboss chat` asks in the terminal a
 itself. (Free-text replies come with #267 PR 3.)
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 declare const replyKey: string;
 -->

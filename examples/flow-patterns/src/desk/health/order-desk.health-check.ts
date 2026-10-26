@@ -1,5 +1,5 @@
-import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import { OrderDeskService } from "../services/order-desk.service.js";
 
 /** Readiness of the order system the desk reads (#300): `app.checkReadiness()` runs it. */

@@ -22,7 +22,7 @@ import type { TestWithOptions } from "./environment.js";
 const INSTANCE_KEYED = new WeakSet<TestWithOptions>();
 
 /**
- * Internal (#334, not in `agboss/testing`): `testWith(App, withInstancePiiKeys({ instances: 2 }))` —
+ * Internal (#334, not in `@agboss/core/testing`): `testWith(App, withInstancePiiKeys({ instances: 2 }))` —
  * an application without `pseudonymKey` runs on a key of each instance, as in production, instead
  * of the test's fixed key: the framework's own tests of keys per execution across instances.
  */

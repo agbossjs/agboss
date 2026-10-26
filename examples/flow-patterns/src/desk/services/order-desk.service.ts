@@ -1,4 +1,4 @@
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /**
  * The orders the desk looks up — in memory here, a real system in production. Each status carries an

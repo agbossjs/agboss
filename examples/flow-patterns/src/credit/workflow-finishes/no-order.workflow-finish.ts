@@ -1,5 +1,5 @@
-import { WorkflowFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 /** Where a run finishes when the message is not an order: the message, handed over as is. */
 @WorkflowFinish({

@@ -86,7 +86,7 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
       },
     });
     const entry = readFileSync(join(cwd, ".agboss/studio.ts"), "utf8");
-    expect(entry).toContain('import { studioOf } from "agboss/internal";');
+    expect(entry).toContain('import { studioOf } from "@agboss/core/internal";');
     expect(entry).toMatch(/import \{ StudioApplication \} from "\.\.\/.*\/studio\.workflow\.js";/);
     expect(entry).toContain("const studio = await studioOf(StudioApplication);");
     expect(entry).toContain(

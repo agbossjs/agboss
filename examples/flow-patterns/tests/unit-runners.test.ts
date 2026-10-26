@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Injectable } from "agboss";
-import { PlainTextDto, WorkflowFinishTextDto } from "agboss/dto";
+import { Injectable } from "@agboss/core";
+import { PlainTextDto, WorkflowFinishTextDto } from "@agboss/core/dto";
 import {
   callTool,
   override,
@@ -12,7 +12,7 @@ import {
   testRag,
   testRouter,
   testWith,
-} from "agboss/testing";
+} from "@agboss/core/testing";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";

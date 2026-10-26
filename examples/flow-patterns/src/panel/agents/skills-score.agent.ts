@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { CandidateDto } from "../dtos/candidate.dto.js";
 import { ScoreDto } from "../dtos/score.dto.js";
 

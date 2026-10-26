@@ -3,7 +3,7 @@ import {
   CompactionStrategy,
   type CompactionHandler,
   type CompactionInput,
-} from "agboss";
+} from "@agboss/core";
 import { CaseNotesService } from "../services/case-notes.service.js";
 
 /**

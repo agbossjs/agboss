@@ -178,9 +178,9 @@ const applicationSource = (start: string): string => `import {
   WorkflowFinish,
   WorkflowStart,
   start,
-} from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
+} from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { usd } from "@agboss/core/units";
 
 @WorkflowStart({ name: "${start}-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class MessageWorkflowStart {}

@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { VCRMode, testWith } from "agboss/testing";
+import { VCRMode, testWith } from "@agboss/core/testing";
 import { DeskAnswerWorkflowFinish } from "../src/desk/workflow-finishes/desk-answer.workflow-finish.js";
 import { DeskWorkflowStart } from "../src/desk/workflow-starts/desk.workflow-start.js";
 import { DeskApplication } from "../src/desk.application.js";

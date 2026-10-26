@@ -1,4 +1,4 @@
-import type { ApplicationStart } from "agboss/internal";
+import type { ApplicationStart } from "@agboss/core/internal";
 import { textOption, type CommandContext } from "./context.js";
 import { didYouMean } from "./did-you-mean.js";
 import { usageError } from "./errors.js";

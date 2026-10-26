@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /**
  * What the helpline sends the desk — its own class: `check --federation` compares it with the

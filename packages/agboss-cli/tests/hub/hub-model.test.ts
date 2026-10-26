@@ -3,7 +3,7 @@
  * (no snapshot), a call seen from one side only, health with nothing ended, the page's layout.
  */
 import { describe, expect, it } from "vitest";
-import { ExecutionHistoryStatus } from "agboss";
+import { ExecutionHistoryStatus } from "@agboss/core";
 import {
   historyRecordOf,
   toolCallOf,

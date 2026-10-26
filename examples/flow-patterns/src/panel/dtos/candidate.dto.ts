@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** The candidate a panel scores. */
 export class CandidateDto {

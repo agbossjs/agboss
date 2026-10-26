@@ -1,4 +1,4 @@
-import { Action, listOf, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Action, listOf, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { EditorialPlanDto } from "../dtos/editorial-plan.dto.js";
 import { SectionReviewDto } from "../dtos/section-review.dto.js";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { startsOfApplication } from "agboss/internal";
+import { startsOfApplication } from "@agboss/core/internal";
 import { NoTextStartError, textStartOrFail } from "../../src/cli/text-start.js";
 import { DeskApplication } from "../fixtures/cli/desk/desk.workflow.js";
 import { TestApplication } from "../../../agboss/tests/fixtures/test-workflow/test.workflow.js";

@@ -1,5 +1,5 @@
-import { TerminalUserChannel, type ToolHandler } from "agboss";
-import { McpTool } from "agboss/mcp";
+import { TerminalUserChannel, type ToolHandler } from "@agboss/core";
+import { McpTool } from "@agboss/core/mcp";
 import { SHORTLIST } from "../config/paths.js";
 import { addJobs, isMissingFile } from "../helpers/shortlist.helper.js";
 import { ChosenJobs, SavedJobs } from "./save-shortlist.dto.js";

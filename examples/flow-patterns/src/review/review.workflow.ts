@@ -1,5 +1,5 @@
-import { listOf, start, StepFailedError, toFinish, Workflow } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { listOf, start, StepFailedError, toFinish, Workflow } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { EditorialPlanAction } from "./actions/editorial-plan.action.js";
 import { FactCheckerAgent } from "./agents/fact-checker.agent.js";
 import { SectionReviewerAgent } from "./agents/section-reviewer.agent.js";

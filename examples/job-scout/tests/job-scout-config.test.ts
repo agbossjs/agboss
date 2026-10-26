@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testExecutionContext } from "agboss/testing";
+import { testExecutionContext } from "@agboss/core/testing";
 import { GreenhouseBoards, type FetchJson } from "../src/services/greenhouse-boards.service.js";
 
 /** The application context of the dev environment: the public board API. */
@@ -11,7 +11,7 @@ const { application } = testExecutionContext({
 
 const probeBoard = (board: string, words: readonly string[], fetchJson: FetchJson) =>
   new GreenhouseBoards({ boards: {}, places: {} }, application, fetchJson).probe(board, words);
-import { workflowOf } from "agboss/testing";
+import { workflowOf } from "@agboss/core/testing";
 import { JobScout } from "../src/job-scout.workflow.js";
 import { jobScoutPromptVariables } from "../src/config/prompt-variables.js";
 import { jobSearchConfig, JobSearchSchema } from "../src/config/search.config.js";

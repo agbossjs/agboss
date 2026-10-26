@@ -9,16 +9,16 @@ import { envelope, agboss } from "../cli/agboss.js";
 const DISABLE = ["// eslint-disable-next-line", "no-restricted-imports"].join(" ");
 const OLD = [
   DISABLE,
-  'import { Agent } from "agboss/core";',
+  'import { Agent } from "@agboss/core/core";',
   DISABLE,
-  'import { Tool, type ToolHandler } from "agboss/tool";',
-  'import { Text } from "agboss/dto";',
+  'import { Tool, type ToolHandler } from "@agboss/core/tool";',
+  'import { Text } from "@agboss/core/dto";',
   "",
   "export const parts = [Agent, Tool, Text];",
   "export type Handler = ToolHandler<string, string>;",
   "",
 ].join("\n");
-const CURRENT = 'import { Agent } from "agboss";\n\nexport const agent = Agent;\n';
+const CURRENT = 'import { Agent } from "@agboss/core";\n\nexport const agent = Agent;\n';
 
 let project = "";
 afterEach(() => {
@@ -60,8 +60,8 @@ describe("agboss migrate imports (#195)", () => {
     expect(call.stdout).toContain("Imports migrated: 1 of 2 files");
     expect(read("src/a.agent.ts")).toBe(
       [
-        'import { Agent, Tool, type ToolHandler } from "agboss";',
-        'import { Text } from "agboss/dto";',
+        'import { Agent, Tool, type ToolHandler } from "@agboss/core";',
+        'import { Text } from "@agboss/core/dto";',
         "",
         "export const parts = [Agent, Tool, Text];",
         "export type Handler = ToolHandler<string, string>;",
@@ -74,13 +74,13 @@ describe("agboss migrate imports (#195)", () => {
   });
 
   it("reports what needs a look by hand on stderr", async () => {
-    projectWith({ "src/ns.ts": 'import * as core from "agboss/core";\nexport { core };\n' });
+    projectWith({ "src/ns.ts": 'import * as core from "@agboss/core/core";\nexport { core };\n' });
 
     const call = await agboss(["migrate", "imports"], project);
 
     expect(call.code).toBe(0);
-    expect(read("src/ns.ts")).toBe('import * as core from "agboss";\nexport { core };\n');
-    expect(call.stderr).toContain('src/ns.ts:1: "agboss/core" as a whole');
+    expect(read("src/ns.ts")).toBe('import * as core from "@agboss/core";\nexport { core };\n');
+    expect(call.stderr).toContain('src/ns.ts:1: "@agboss/core/core" as a whole');
   });
 
   it("is a usage error without a known migration or with a missing path", async () => {

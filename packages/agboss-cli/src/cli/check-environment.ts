@@ -1,4 +1,4 @@
-import { ComponentError, EnvironmentError } from "agboss";
+import { ComponentError, EnvironmentError } from "@agboss/core";
 import {
   createStartComponents,
   describeServices,
@@ -8,7 +8,7 @@ import {
   selectedEnvironment,
   standaloneContexts,
   type AssembledApplication,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import type { CheckProblem } from "./check-problems.js";
 import type { CommandContext } from "./context.js";
 

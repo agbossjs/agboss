@@ -1,4 +1,4 @@
-import { DecidedBy, GuardrailVerdict, OutputGuardrail, type GuardrailHandler } from "agboss";
+import { DecidedBy, GuardrailVerdict, OutputGuardrail, type GuardrailHandler } from "@agboss/core";
 
 /** Blocks an answer that promises what the desk cannot (#383: by code, on the answer). */
 @OutputGuardrail({

@@ -1,4 +1,4 @@
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
 import { firstFailureOfCase } from "../run-report.js";
 import { ATTEMPT_SYMBOLS, attemptStatusOf } from "./attempts.js";
 import { element, type HtmlElement } from "./html.js";

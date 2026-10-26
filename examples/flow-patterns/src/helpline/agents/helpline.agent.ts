@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { ReadPolicyTool } from "../mcp/read-policy.mcp.js";
 import { AskDeskTool } from "../tools/ask-desk.tool.js";
 

@@ -1,4 +1,4 @@
-import { WorkflowStart } from "agboss";
+import { WorkflowStart } from "@agboss/core";
 import { TopicDto } from "../dtos/topic.dto.js";
 
 /** Where a topic's research starts: the first topic, or each subtopic of a level above. */

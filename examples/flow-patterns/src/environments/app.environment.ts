@@ -1,4 +1,4 @@
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 /**
  * The patterns' environment contract (#261): declared fields only — the values are in each

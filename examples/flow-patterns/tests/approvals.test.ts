@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, vi } from "vitest";
-import { ExecutionStatus, NotPausedError, type ExecutionOutput } from "agboss";
-import { callTool, replyWith, TestConcurrency, testWith } from "agboss/testing";
+import { ExecutionStatus, NotPausedError, type ExecutionOutput } from "@agboss/core";
+import { callTool, replyWith, TestConcurrency, testWith } from "@agboss/core/testing";
 import { FlightBuyerAgent } from "../src/approvals/agents/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../src/approvals/agents/venue-buyer.agent.js";
 import { FlightBookingDto } from "../src/approvals/dtos/flight-booking.dto.js";

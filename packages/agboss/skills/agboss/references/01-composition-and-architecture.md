@@ -42,7 +42,7 @@ convention).
 
 ```ts file=src/shortlist/dtos/shortlist.dto.ts
 // dtos/shortlist.dto.ts — narrow DTOs, one per step's result; each field's prompt is its schema text
-import { Integer, ListOf, Nested, Text, Url } from "agboss/dto";
+import { Integer, ListOf, Nested, Text, Url } from "@agboss/core/dto";
 
 export class JobDto {
   @Text({ prompt: "the job title as posted", maxLength: 200 })
@@ -80,8 +80,8 @@ export class ShortlistSavedDto {
 
 ```ts file=src/shortlist/agents/screening.agent.ts
 // agents/screening.agent.ts — the agent that does the work also says which outcome it is
-import { Agent, oneOf } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent, oneOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { NoMatchDto, ShortlistDto } from "../dtos/shortlist.dto.js";
 
 @Agent({
@@ -97,7 +97,7 @@ export class ScreeningAgent {}
 
 ```ts file=src/shortlist/services/shortlist-store.service.ts
 // services/shortlist-store.service.ts — the I/O lives in a service, created by the container
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 import type { JobDto } from "../dtos/shortlist.dto.js";
 
 @Injectable()
@@ -110,7 +110,7 @@ export class ShortlistStoreService {
 
 ```ts file=src/shortlist/actions/save-shortlist.action.ts
 // actions/save-shortlist.action.ts — code on the path: reads its input from the scope
-import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { ShortlistDto, ShortlistSavedDto } from "../dtos/shortlist.dto.js";
 import { ShortlistStoreService } from "../services/shortlist-store.service.js";
 
@@ -138,7 +138,7 @@ export class SaveShortlistAction implements ActionHandler<SaveShortlistAction> {
 
 ```ts file=src/shortlist/workflow-finishes/shortlist.workflow-finishes.ts
 // workflow-finishes/*.workflow-finish.ts — each finish names the class it hands back
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { NoMatchDto, ShortlistDto, ShortlistSavedDto } from "../dtos/shortlist.dto.js";
 
 @WorkflowFinish({
@@ -165,7 +165,7 @@ export class NoMatchWorkflowFinish {}
 
 ```ts file=src/shortlist/routers/shortlist-size.router.ts
 // routers/shortlist-size.router.ts — decided by data: no model, cost 0, targets typed by `routes`
-import { DecidedBy, Router, type InputOf, type Route, type RouterHandler } from "agboss";
+import { DecidedBy, Router, type InputOf, type Route, type RouterHandler } from "@agboss/core";
 import { SaveShortlistAction } from "../actions/save-shortlist.action.js";
 import { ShortlistDto } from "../dtos/shortlist.dto.js";
 import { TooManyJobsWorkflowFinish } from "../workflow-finishes/shortlist.workflow-finishes.js";
@@ -189,8 +189,8 @@ export class ShortlistSizeRouter implements RouterHandler<ShortlistSizeRouter> {
 ```
 
 ```ts file=src/shortlist/workflow-starts/job-search.workflow-start.ts
-import { WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({
   name: "job-search-workflow-start",
@@ -202,8 +202,8 @@ export class JobSearchWorkflowStart {}
 
 ```ts file=src/shortlist/shortlist.workflow.ts
 // shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
-import { Workflow, caseOf, oneOf, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, caseOf, oneOf, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SaveShortlistAction } from "./actions/save-shortlist.action.js";
 import { ScreeningAgent } from "./agents/screening.agent.js";
 import { NoMatchDto, ShortlistDto, ShortlistSavedDto } from "./dtos/shortlist.dto.js";
@@ -245,8 +245,8 @@ export class ShortlistWorkflow {}
 
 ```ts file=src/shortlist/config/budget.config.ts
 // config/budget.config.ts — every budget of the application: one per scope at least
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -272,7 +272,7 @@ export class ExecutionBudget implements BudgetHandler {
 
 ```ts file=src/shortlist/shortlist.application.ts
 // shortlist.application.ts — what createApp, testWith and the CLI take
-import { Application, EmptyEnvironment } from "agboss";
+import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 import { ShortlistWorkflow } from "./shortlist.workflow.js";
 
@@ -320,14 +320,14 @@ What this shows:
   `AgentAnswerInvalidError` (a `StepFailedError`, so an `.onError` can take it).
 - **Narrow DTOs per step.** One class per result (`ShortlistDto`, `ShortlistSavedDto`), named by what
   it is, ending with `Dto`; DTO names are unique in the application (`[dto.duplicate-name]`).
-- **Standard DTOs** (`agboss/dto`): `WorkflowStartTextDto` (`text`, `author?`),
+- **Standard DTOs** (`@agboss/core/dto`): `WorkflowStartTextDto` (`text`, `author?`),
   `WorkflowFinishTextDto` (`text`), `PlainTextDto` (`text` — a text agent's reply to a judge),
   `AttachmentDto`, `MoneyDto`, `AddressDto`, `DateRangeDto`, `ToolCallApprovalDecisionDto`, ….
 
 Anti-pattern — the "God DTO":
 
 <!-- snippet-context
-import { Flag, Integer, Text } from "agboss/dto";
+import { Flag, Integer, Text } from "@agboss/core/dto";
 -->
 
 ```ts
@@ -365,8 +365,8 @@ forces `if (x.found)` checks in every reader, and makes `about` / outdating (ref
   webp data URLs only.
 
 <!-- snippet-context
-import { Injectable, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 @Injectable()
 export class DocumentStoreService {
   textOf(url: string, signal: AbortSignal): Promise<string> {
@@ -381,9 +381,9 @@ export class DocumentTextDto {
 -->
 
 ```ts
-import { ExecutionContext } from "agboss";
-import { AttachmentDto } from "agboss/dto";
-import { kilobytes, seconds } from "agboss/units";
+import { ExecutionContext } from "@agboss/core";
+import { AttachmentDto } from "@agboss/core/dto";
+import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
   name: "read-document-tool",

@@ -1,4 +1,4 @@
-import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "agboss";
+import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "@agboss/core";
 
 const CUSTOMER_ID = /\bCUS-\d{4}\b/gu;
 

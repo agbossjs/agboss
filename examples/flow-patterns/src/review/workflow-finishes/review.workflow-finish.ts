@@ -1,4 +1,10 @@
-import { listOf, WorkflowFinish, type FinishHandler, type InputOf, type OutputOf } from "agboss";
+import {
+  listOf,
+  WorkflowFinish,
+  type FinishHandler,
+  type InputOf,
+  type OutputOf,
+} from "@agboss/core";
 import { EditorialPlanDto } from "../dtos/editorial-plan.dto.js";
 import { FactCheckDto } from "../dtos/fact-check.dto.js";
 import { ReviewReportDto } from "../dtos/review-report.dto.js";

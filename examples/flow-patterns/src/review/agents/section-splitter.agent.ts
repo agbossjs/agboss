@@ -1,5 +1,5 @@
-import { Agent, listOf } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent, listOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SectionDto } from "../dtos/section.dto.js";
 
 /** Splits the manuscript into its sections: the list the next launch runs over, in order. */

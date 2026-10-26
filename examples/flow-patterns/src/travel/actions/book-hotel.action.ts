@@ -1,4 +1,10 @@
-import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import {
+  Action,
+  ExecutionContext,
+  type ActionHandler,
+  type InputOf,
+  type OutputOf,
+} from "@agboss/core";
 import { TripHotelDto, TripRequestDto } from "../dtos/trip.dto.js";
 import { BookingDeskService } from "../services/booking-desk.service.js";
 import { CancelHotelAction } from "./cancel-hotel.action.js";

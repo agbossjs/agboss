@@ -100,8 +100,8 @@ export function planWorkflowStart(root: string, name: string, o: GenerateOptions
   const graph = workflowGraph(root, o);
   const description = o.description ?? `${n.title} (TODO: describe what starts the run)`;
   const content = [
-    'import { WorkflowStartTextDto } from "agboss/dto";',
-    'import { WorkflowStart } from "agboss";',
+    'import { WorkflowStartTextDto } from "@agboss/core/dto";',
+    'import { WorkflowStart } from "@agboss/core";',
     "",
     `/** ${description} */`,
     "@WorkflowStart({",
@@ -127,8 +127,8 @@ export function planWorkflowFinish(root: string, name: string, o: GenerateOption
   const graph = workflowGraph(root, o);
   const description = o.description ?? `${n.title} (TODO: describe what finishes the run)`;
   const content = [
-    'import { WorkflowFinishTextDto } from "agboss/dto";',
-    'import { WorkflowFinish } from "agboss";',
+    'import { WorkflowFinishTextDto } from "@agboss/core/dto";',
+    'import { WorkflowFinish } from "@agboss/core";',
     "",
     `/** ${description} */`,
     "@WorkflowFinish({",

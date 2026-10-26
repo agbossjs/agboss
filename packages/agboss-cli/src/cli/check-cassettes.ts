@@ -1,5 +1,5 @@
 import path from "node:path";
-import { cassetteFilesUnder, checkCassettes } from "agboss/internal";
+import { cassetteFilesUnder, checkCassettes } from "@agboss/core/internal";
 import type { CheckTarget } from "../check.js";
 import type { CheckProblem } from "./check-problems.js";
 

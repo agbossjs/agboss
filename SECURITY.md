@@ -8,11 +8,11 @@ request or discussion. If email is not an option, use GitHub's private reporting
 
 Please include:
 
-- the affected package (`agboss` or `agboss-cli`) and its version, or the commit of `main`;
+- the affected package (`@agboss/core` or `@agboss/cli`) and its version, or the commit of `main`;
 - what an attacker can do and under which conditions (the component involved — a tool, a channel, a
   PII policy, a guardrail, an MCP server, an infrastructure implementation, …);
 - the steps to reproduce: ideally a minimal application or test (`testWith(App)` from
-  `agboss/testing`) that shows the problem with scripted models, no real keys;
+  `@agboss/core/testing`) that shows the problem with scripted models, no real keys;
 - the environment it was seen in (Node version, operating system, which built-in or SQLite
   implementations are listed);
 - whether the issue is already public anywhere, and how you would like to be credited.
@@ -47,7 +47,7 @@ maintenance lines are listed here.
 
 ## Scope
 
-In scope: the `agboss` and `agboss-cli` packages, the project templates `agboss create` writes, and
+In scope: the `@agboss/core` and `@agboss/cli` packages, the project templates `agboss create` writes, and
 the examples in this repository as far as they show how the framework is meant to be used.
 
 Out of scope: vulnerabilities in a model provider, an MCP server or another third-party service

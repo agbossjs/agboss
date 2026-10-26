@@ -1,37 +1,37 @@
-# agboss-cli — Official CLI for AGBoss
+# @agboss/cli — Official CLI for AGBoss
 
 [![Docs](https://img.shields.io/badge/docs-agboss.dev%2Fcli-258ceb)](https://agboss.dev/cli/)
-[![npm](https://img.shields.io/npm/v/agboss-cli?color=258ceb)](https://www.npmjs.com/package/agboss-cli)
+[![npm](https://img.shields.io/npm/v/@agboss/cli?color=258ceb)](https://www.npmjs.com/package/@agboss/cli)
 [![License](https://img.shields.io/badge/License-Apache_2.0-258ceb.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-`agboss-cli` provides the `agboss` (short alias `agb`) command-line interface, static graph compiler (`agboss check`), code generator (`agboss generate`), evaluation runner (`agboss eval`), and local Mesh Hub UI (`agboss hub`) for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
+`@agboss/cli` provides the `agboss` (short alias `agb`) command-line interface, static graph compiler (`agboss check`), code generator (`agboss generate`), evaluation runner (`agboss eval`), and local Mesh Hub UI (`agboss hub`) for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
 
-> **Pre-release status (`v0.1.0-rc`):** `agboss` and `agboss-cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
+> **Pre-release status (`v0.1.0-rc`):** `@agboss/core` and `@agboss/cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
 
 ## How to install and start (Quick Start)
 
 ### Option 1 — Create a new project
 
 ```bash
-npx agboss create my-app
+npm exec --yes --package=@agboss/cli -- agboss create my-app
 cd my-app
 npm install
 ```
 
-`npx agboss create my-app` (also available via `npx agboss-cli create my-app`, short alias `agb c`) creates a project with `agboss` in `dependencies`, `agboss-cli` in `devDependencies`, `AGENTS.md`, and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts`, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+`npm exec --yes --package=@agboss/cli -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli agboss create my-app`) creates a project with `@agboss/core` in `dependencies`, `@agboss/cli` in `devDependencies`, `AGENTS.md`, and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts`, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
 
 ### Option 2 — Add to an existing project
 
 ```bash
-npm install agboss
-npm install -D agboss-cli
+npm install @agboss/core
+npm install -D @agboss/cli
 npx agboss check
 ```
 
 Why two packages?
 
-- **`agboss` (`dependencies`)** — lightweight production runtime (decorators, execution graph, DI container, repository contracts, subpaths `agboss/dto`, `agboss/testing`, `agboss/eval`, `agboss/eslint`, schemas, and bundled AI skills) shipped into Docker / Kubernetes.
-- **`agboss-cli` (`devDependencies`)** — static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), Studio bridge (`agboss studio`), and local UI servers (`agboss eval ui`, `agboss hub ui`) that do not bloat production container images.
+- **`@agboss/core` (`dependencies`)** — lightweight production runtime (decorators, execution graph, DI container, repository contracts, subpaths `@agboss/core/dto`, `@agboss/core/testing`, `@agboss/core/eval`, `@agboss/core/eslint`, schemas, and bundled AI skills) shipped into Docker / Kubernetes.
+- **`@agboss/cli` (`devDependencies`)** — static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), Studio bridge (`agboss studio`), and local UI servers (`agboss eval ui`, `agboss hub ui`) that do not bloat production container images.
 
 ## Core Commands
 
@@ -53,7 +53,7 @@ Why two packages?
 | `agboss records export`                                       | Export stored `ExecutionRecord`s (`ExecutionHistoryRepository`) for `--tenant <id>` or `--all-tenants` to `--out <file.jsonl>` (`--since`, `--until`)                                       |
 | `agboss hub show <path...> [--html <file>]` / `agboss hub ui` | Stitch `describe --json` snapshots and `.jsonl` execution records into a global Agent Mesh graph, cross-service execution trees, Progressive Crystallization Radar, and Blast Radius        |
 | `agboss rag index`                                            | Build or update `@Rag` knowledge-base indexes                                                                                                                                               |
-| `agboss migrate imports`                                      | Rewrite deprecated sub-entry imports to current `agboss` entries                                                                                                                            |
+| `agboss migrate imports`                                      | Rewrite deprecated sub-entry imports to current `@agboss/core` entries                                                                                                                      |
 
 ## Documentation & Links
 

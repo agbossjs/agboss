@@ -1,4 +1,4 @@
-// `agboss/eslint` (#388 S2): the lint rules AGBoss code follows, for a project's ESLint flat config —
+// `@agboss/core/eslint` (#388 S2): the lint rules AGBoss code follows, for a project's ESLint flat config —
 // the one `agboss create` writes imports it — and for this repository's own. A separate entry: the
 // root import never loads it. The rules use `@typescript-eslint/utils`: an optional peer of
 // `agboss`, installed with `typescript-eslint` wherever this entry is loaded.

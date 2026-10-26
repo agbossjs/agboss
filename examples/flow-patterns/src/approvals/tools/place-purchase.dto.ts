@@ -1,4 +1,4 @@
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 /** What a buyer wants to pay for: the question its approval is about (`approves`). */
 export class PurchaseOrder {

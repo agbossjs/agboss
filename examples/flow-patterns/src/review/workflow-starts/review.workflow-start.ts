@@ -1,5 +1,5 @@
-import { WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 /** Where a review starts: the manuscript. */
 @WorkflowStart({

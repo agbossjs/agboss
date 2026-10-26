@@ -1,8 +1,8 @@
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { mcpServerStub, toolOf, workflowOf } from "agboss/testing";
-import { createAppDeps, secret } from "agboss";
+import { mcpServerStub, toolOf, workflowOf } from "@agboss/core/testing";
+import { createAppDeps, secret } from "@agboss/core";
 import { JobScout } from "../src/job-scout.workflow.js";
 import { environment as testEnvironment } from "../src/environments/test.environment.js";
 import type { AppEnvironment } from "../src/environments/app.environment.js";

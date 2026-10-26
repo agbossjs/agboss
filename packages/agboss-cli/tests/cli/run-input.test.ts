@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { startsOfApplication, type ApplicationStart } from "agboss/internal";
+import { startsOfApplication, type ApplicationStart } from "@agboss/core/internal";
 import { COMMANDS } from "../../src/cli/commands.js";
 import type { CliIo, CommandContext } from "../../src/cli/context.js";
 import { parseCommand } from "../../src/cli/parse.js";

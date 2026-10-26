@@ -8,7 +8,7 @@ import {
   ThisWorkflow,
   toAction,
   Workflow,
-} from "agboss";
+} from "@agboss/core";
 import { MarkTopicFailedAction } from "./actions/mark-topic-failed.action.js";
 import { SubtopicsAction } from "./actions/subtopics.action.js";
 import { MergeAgent } from "./agents/merge.agent.js";

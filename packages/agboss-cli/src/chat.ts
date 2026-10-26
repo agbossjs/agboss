@@ -1,5 +1,5 @@
-import { createApp, type App, type Class, type ExecutionOutput } from "agboss";
-import { executeUnchecked, type ApplicationStart } from "agboss/internal";
+import { createApp, type App, type Class, type ExecutionOutput } from "@agboss/core";
+import { executeUnchecked, type ApplicationStart } from "@agboss/core/internal";
 import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";

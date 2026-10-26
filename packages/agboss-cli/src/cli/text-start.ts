@@ -1,5 +1,5 @@
-import { WorkflowStartTextDto } from "agboss/dto";
-import type { ApplicationStart } from "agboss/internal";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import type { ApplicationStart } from "@agboss/core/internal";
 
 export class NoTextStartError extends Error {
   override name = "NoTextStartError";

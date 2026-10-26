@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EvalLabel } from "agboss/eval";
-import { evalLabelsOf, labelsWith } from "agboss/internal";
+import type { EvalLabel } from "@agboss/core/eval";
+import { evalLabelsOf, labelsWith } from "@agboss/core/internal";
 import { writeAtomically } from "./atomic-write.js";
 
 /**

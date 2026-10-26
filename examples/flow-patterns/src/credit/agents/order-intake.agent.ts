@@ -1,5 +1,5 @@
-import { Agent } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditOrderDto } from "../dtos/credit-order.dto.js";
 
 /** Reads the order — who orders and for how much — from the customer's message. */

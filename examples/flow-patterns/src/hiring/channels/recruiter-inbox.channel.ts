@@ -1,4 +1,4 @@
-import { Channel, ChannelOutcome, type ChannelAsk } from "agboss";
+import { Channel, ChannelOutcome, type ChannelAsk } from "@agboss/core";
 import { RecruiterDeskService } from "../services/recruiter-desk.service.js";
 import { RecruiterApprovalChannel } from "./recruiter-approval.channel.js";
 

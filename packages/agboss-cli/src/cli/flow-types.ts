@@ -1,12 +1,12 @@
 import { readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { WorkflowLoadError } from "agboss";
+import { WorkflowLoadError } from "@agboss/core";
 import {
   FlowTypesStatus,
   GENERATED_TYPES_FILE,
   writeFlowTypes,
   type FlowTypesResult,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import type { ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";

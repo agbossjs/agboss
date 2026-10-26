@@ -5,7 +5,7 @@
  * steps (no model call) are not on it.
  */
 import { describe, expect, it } from "vitest";
-import { ComponentKind, type ExecutionStepRecord } from "agboss";
+import { ComponentKind, type ExecutionStepRecord } from "@agboss/core";
 import { buildCostReport } from "../../../agboss/src/finops/usage.js";
 import { bareRecordOf } from "../../../agboss/src/flow/runtime/records.js";
 import {

@@ -69,7 +69,7 @@ holds from its type**, not guess it from the name.
 - **Compiler settings are the floor**: `strict` + `noUncheckedIndexedAccess`. No `any`, no
   non-null `!`, no `as` except at a validated boundary (parsing / branding). Exported functions
   have explicit return types.
-- **Data crossing a tool or MCP boundary are DTO classes** (`agboss/dto`): one field
+- **Data crossing a tool or MCP boundary are DTO classes** (`@agboss/core/dto`): one field
   decorator per field, plain data, validated by the framework at the boundary (tool arguments and
   results, MCP server tools, workflow start input). Workflows never write zod.
 - External input the framework parses itself (CLI, config, settings, model JSON output) is
@@ -97,7 +97,7 @@ holds from its type**, not guess it from the name.
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
 - **`TokenLimit.MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
-- **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): application
+- **Models come from model providers** (`@ModelProvider`, `@agboss/core/models`, #151): application
   infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
   - Decisions providers, one listed → the list is complete); each model of the application is
     served by exactly one listed provider (`serves`) — `[model.unserved]` /
@@ -140,7 +140,7 @@ holds from its type**, not guess it from the name.
   model providers) and injected; tests inject scripted models or fakes through the same gateway.
 - Prompts live in `src/prompts/` (agents, graph) and `src/routers/prompts.ts` (routers own their
   prompts to stay isolated). No prompt strings inside nodes.
-- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testTool(Tool, { overrides })`, `agboss/testing`)
+- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testTool(Tool, { overrides })`, `@agboss/core/testing`)
   before being wired into a graph. Agents run the framework's own loop (`src/graph/agent-loop/`) —
   no `createAgent`, no middlewares; side-effecting tools pass
   `executionContext.step.idempotencyKey` (`deps: [ExecutionContext]`) to the external service.
@@ -211,7 +211,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
 
 - **Coverage ≥ 80%** lines / branches / functions / statements (enforced).
 - Tests never hit a real LLM or network. The whole application: `testWith(Application)` from
-  `agboss/testing` (scripted models, stubbed MCP servers, blocked network, matchers by class);
+  `@agboss/core/testing` (scripted models, stubbed MCP servers, blocked network, matchers by class);
   units: `FakeListChatModel` / `FakeStreamingChatModel` from `@langchain/core/utils/testing`.
 - Compile-time tests: `// @ts-expect-error — <reason>` lines in a `*.test.ts`, checked by `tsc`.
 - Real-model checks go to `tests/smoke/` and run only via `make smoke`.

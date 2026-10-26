@@ -9,7 +9,7 @@ import { recordComponent } from "./metadata.js";
 
 /**
  * The contract of a tool (`@Tool`, `@McpTool`): `implements ToolHandler<OrderQuery, OrderStatus>` — its
- * input and output DTOs (classes from `agboss/dto`). `run` gets only its input; the execution it
+ * input and output DTOs (classes from `@agboss/core/dto`). `run` gets only its input; the execution it
  * runs in comes through `deps: [ExecutionContext]` (#280).
  */
 export interface ToolHandler<TInput, TOutput> {

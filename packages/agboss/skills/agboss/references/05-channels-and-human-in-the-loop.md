@@ -25,7 +25,7 @@ in memory — a pause survives a restart when the pause store and the checkpoint
 ## A worked example: refunds approved in Slack
 
 ```ts file=src/refunds/dtos/refund.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class RefundRequestDto {
   @Text({ prompt: "the order to refund" })
@@ -42,7 +42,7 @@ export class RefundDoneDto {
 ```
 
 ```ts file=src/refunds/services/slack-client.service.ts
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class SlackClientService {
@@ -58,8 +58,8 @@ export class SlackClientService {
 
 ```ts file=src/refunds/channels/refund-approval.channel.ts
 // channels/refund-approval.channel.ts — the role: what it approves and who may answer
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpretation, ReplyInterpreter } from "agboss";
-import type { InputOf, OutputOf, ReplyInterpreterHandler } from "agboss";
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpretation, ReplyInterpreter } from "@agboss/core";
+import type { InputOf, OutputOf, ReplyInterpreterHandler } from "@agboss/core";
 import { RefundRequestDto } from "../dtos/refund.dto.js";
 
 // free text → a decision, by code (DecidedBy.Model: a chat model, or a decision model for yes / no)
@@ -89,8 +89,8 @@ export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChan
 
 ```ts file=src/refunds/channels/slack-refund-approval.channel.ts
 // channels/slack-refund-approval.channel.ts — the role's one implementation: infrastructure
-import { Channel, ChannelOutcome, ExecutionContext, PauseResolution } from "agboss";
-import type { ChannelAsk, ChannelWithdrawal } from "agboss";
+import { Channel, ChannelOutcome, ExecutionContext, PauseResolution } from "@agboss/core";
+import type { ChannelAsk, ChannelWithdrawal } from "@agboss/core";
 import { SlackClientService } from "../services/slack-client.service.js";
 import { RefundApprovalChannel } from "./refund-approval.channel.js";
 
@@ -129,7 +129,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
 ```ts file=src/refunds/tools/refund.tool.ts
 // tools/refund.tool.ts — names the role; runs only once a call is approved
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RefundApprovalChannel } from "../channels/refund-approval.channel.js";
 import { RefundDoneDto, RefundRequestDto } from "../dtos/refund.dto.js";
 
@@ -163,9 +163,9 @@ export const environment: AppEnvironment = { sqlitePath: ":memory:" };
 ```
 
 ```ts file=src/refunds/refunds.application.ts
-import { Agent, Application, Budget, BudgetPeriod, BudgetScope, SqliteCheckpointSaver, SqlitePausedExecutionRepository, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { usd, type Usd } from "agboss/units";
+import { Agent, Application, Budget, BudgetPeriod, BudgetScope, SqliteCheckpointSaver, SqlitePausedExecutionRepository, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { usd, type Usd } from "@agboss/core/units";
 import { SlackRefundApprovalChannel } from "./channels/slack-refund-approval.channel.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { SlackClientService } from "./services/slack-client.service.js";
@@ -238,7 +238,7 @@ export class RefundsApplication {}
 ## Answering
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 declare const pauseId: string;
 -->
@@ -302,8 +302,8 @@ tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat`
 ## Testing a pause
 
 <!-- snippet-context
-import { ChannelOutcome } from "agboss";
-import { callTool, replyWith, testWith } from "agboss/testing";
+import { ChannelOutcome } from "@agboss/core";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { RefundAgent, RefundsApplication, RefundWorkflowFinish, RefundWorkflowStart } from "./src/refunds/refunds.application.js";
 import { SlackRefundApprovalChannel } from "./src/refunds/channels/slack-refund-approval.channel.js";

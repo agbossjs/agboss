@@ -28,7 +28,7 @@ export function writeApplication(root: string, workflow: ListedWorkflow): string
   writeFileSync(
     join(root, path),
     [
-      'import { Application, EmptyEnvironment } from "agboss";',
+      'import { Application, EmptyEnvironment } from "@agboss/core";',
       `import { ${workflow.className} } from "./${from}";`,
       "",
       "@Application({",

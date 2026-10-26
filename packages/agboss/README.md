@@ -1,14 +1,14 @@
 # AGBoss — Spring-style TypeScript Framework for LangGraph AI Agents
 
 [![Docs](https://img.shields.io/badge/docs-agboss.dev-258ceb)](https://agboss.dev)
-[![npm](https://img.shields.io/npm/v/agboss?color=258ceb)](https://www.npmjs.com/package/agboss)
+[![npm](https://img.shields.io/npm/v/@agboss/core?color=258ceb)](https://www.npmjs.com/package/@agboss/core)
 [![License](https://img.shields.io/badge/License-Apache_2.0-258ceb.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
 **AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
-> **Pre-release status (`v0.1.0-rc`):** `agboss` and `agboss-cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
+> **Pre-release status (`v0.1.0-rc`):** `@agboss/core` and `@agboss/cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
 
 **Documentation:** [https://agboss.dev](https://agboss.dev) · **Quick Start:** [https://agboss.dev/getting-started/quick-start/](https://agboss.dev/getting-started/quick-start/) · **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/) · **Examples:** [https://github.com/agbossjs/agboss-examples](https://github.com/agbossjs/agboss-examples)
 
@@ -17,12 +17,12 @@
 ### Option 1 — Create a new project
 
 ```bash
-npx agboss create my-app
+npm exec --yes --package=@agboss/cli -- agboss create my-app
 cd my-app
 npm install
 ```
 
-`npx agboss create my-app` (also available via `npx agboss-cli create my-app`, short alias `agb c`) scaffolds a complete project where `package.json` already lists `agboss` in `dependencies` and `agboss-cli` in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+`npm exec --yes --package=@agboss/cli -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli agboss create my-app`) scaffolds a complete project where `package.json` already lists `@agboss/core` in `dependencies` and `@agboss/cli` in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
 
 ```bash
 cp .env.example .env && npm run chat
@@ -39,19 +39,19 @@ npx agboss g workflow onboarding-workflow   # a second workflow, listed in the @
 ### Option 2 — Add to an existing project
 
 ```bash
-npm install agboss
-npm install -D agboss-cli
+npm install @agboss/core
+npm install -D @agboss/cli
 npx agboss check
 ```
 
 Why two packages?
 
-- **`agboss` (`dependencies`)** — the lightweight production runtime (decorators, execution graph, DI container, storage repository contracts, subpath entries `agboss/dto`, `agboss/testing`, `agboss/eval`, `agboss/eslint`, schemas, and bundled AI coding skills) that ships into your Docker / Kubernetes image.
-- **`agboss-cli` (`devDependencies`)** — the static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), LangGraph Studio bridge (`agboss studio`), and local visual UI servers (`agboss eval ui`, `agboss hub ui`) that stay out of production container images.
+- **`@agboss/core` (`dependencies`)** — the lightweight production runtime (decorators, execution graph, DI container, storage repository contracts, subpath entries `@agboss/core/dto`, `@agboss/core/testing`, `@agboss/core/eval`, `@agboss/core/eslint`, schemas, and bundled AI coding skills) that ships into your Docker / Kubernetes image.
+- **`@agboss/cli` (`devDependencies`)** — the static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), LangGraph Studio bridge (`agboss studio`), and local visual UI servers (`agboss eval ui`, `agboss hub ui`) that stay out of production container images.
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class JobQuery {
   @Text({ prompt: "what to look for" })
   query!: string;
@@ -66,7 +66,7 @@ export class GreenhouseJobs implements ToolHandler<JobQuery, JobQuery> {
 
 ```ts file=src/agents/scout.agent.ts
 // src/agents/scout.agent.ts — the prompt is a file next to the agent
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 
 @Agent({
   name: "scout-agent",
@@ -79,8 +79,8 @@ export class ScoutAgent {}
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart } from "agboss";
-import { WorkflowFinishTextDto } from "agboss/dto";
+import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 import { ScoutAgent } from "./agents/scout.agent.js";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
@@ -106,8 +106,8 @@ export class JobFitJudge {}
 
 ```ts file=src/job-scout.workflow.ts
 // src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
-import { Workflow, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
   name: "job-scout-workflow",
@@ -178,8 +178,8 @@ import {
   RetryPolicy,
   TRANSIENT_FAILURES,
   type OpenRouterFields,
-} from "agboss/models";
-import { minutes, seconds } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "openrouter-model-provider",
@@ -213,7 +213,7 @@ export class OpenRouterModelProvider extends OpenRouterProvider {
 
 ```ts file=src/environments/app.environment.ts
 // src/environments/app.environment.ts — the key both providers read; `test` leaves it out
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   openRouterApiKey?: Secret; // dev, prod: openRouterApiKey: secret("OPENROUTER_API_KEY")
@@ -223,9 +223,9 @@ export class AppEnvironment {
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
-import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "agboss";
-import { DecisionsModelProvider } from "agboss/models";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "@agboss/core";
+import { DecisionsModelProvider } from "@agboss/core/models";
+import { usd, type Usd } from "@agboss/core/units";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
@@ -275,7 +275,7 @@ whose process died; tests run on `sqlitePath: ":memory:"`. One file serves one m
 Several-instances):
 
 <!-- snippet-context
-import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "agboss";
+import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "@agboss/core";
 -->
 
 ```ts
@@ -303,14 +303,14 @@ framework reads (the ledger's day, records, leases) and every wait it makes (lea
 recovery, the shutdown timeout, a tool's `timeout`, model call timeouts, retry backoff,
 `Retry-After` pauses) goes through it — the system's clock unless `@Application({ providers })`
 lists a class that `extends Clock`. A component that needs the time injects it; `testWith` runs
-every test on a `VirtualClock` (`agboss/testing`), moved by `await clock.advance(seconds(30))`
+every test on a `VirtualClock` (`@agboss/core/testing`), moved by `await clock.advance(seconds(30))`
 without real waiting. Direct time in the framework (`Date.now()`, `new Date()`, `setTimeout`, …)
 fails lint (`agboss/no-direct-time`):
 
 ```ts
 // services/reminder.service.ts — the time comes from the application's Clock, never Date.now()
-import { Clock, Injectable } from "agboss";
-import { seconds } from "agboss/units";
+import { Clock, Injectable } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 
 @Injectable({ deps: [Clock] })
 export class ReminderService {
@@ -490,9 +490,9 @@ More: [Examples Showcase](https://agboss.dev/examples/job-scout/) · [Wiki → E
 
 ## Public entries
 
-Runtime package `agboss` + dev/CI companion `agboss-cli`; the root `agboss` is the authoring API, and subpath entries keep integrations focused:
+Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agboss/core` is the authoring API, and subpath entries keep integrations focused:
 
-- `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
+- `@agboss/core` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
   `@PiiPolicy`, `@ChannelRole`, `@Compaction`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
@@ -501,36 +501,36 @@ Runtime package `agboss` + dev/CI companion `agboss-cli`; the root `agboss` is t
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
   `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
-- `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
+- `@agboss/core/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
-- `agboss/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
-- `agboss/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
-- `agboss/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ agboss/testing/setup`: the matchers)
-- `agboss/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
-- `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
+- `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
+- `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
+- `@agboss/core/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
+  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
+- `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
+- `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
-- `agboss/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
+- `@agboss/core/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
 
-Importing `agboss` has no side effects: tracing, the MCP SDK and SQLite load only when an app
-uses them. The old entries `agboss/core`, `/graph`, `/router`, `/tool` and `/channels` are
+Importing `@agboss/core` has no side effects: tracing, the MCP SDK and SQLite load only when an app
+uses them. The old entries `@agboss/core/core`, `/graph`, `/router`, `/tool` and `/channels` are
 deprecated re-exports for one minor release (`/concurrency` went with the old flow DSL, #272); `agboss migrate imports` rewrites them
 (and the renamed `Router` engine type → `RouterEngine`, root `McpServer` → `McpExpose` from
-`agboss/mcp`, testing `Duration` → `ClockDuration`, `TestClock` → `VirtualClock`). Every entry's surface is in
+`@agboss/core/mcp`, testing `Duration` → `ClockDuration`, `TestClock` → `VirtualClock`). Every entry's surface is in
 `packages/agboss/api/*.api.md`; `npm run api:update` after an intended API change.
 
 ## Repository
 
 ```
-packages/agboss/      the framework runtime (published as `agboss`)
-packages/agboss-cli/  the CLI, static compiler & UI tools (published as `agboss-cli`)
+packages/agboss/      the framework runtime (published as `@agboss/core`)
+packages/agboss-cli/  the CLI, static compiler & UI tools (published as `@agboss/cli`)
 examples/job-scout/   the example (uses only the public API)
 examples/flow-patterns/ the flow's patterns: a review loop, a code router, parallel launches (scripted tests only)
 ```
 
 `make check` — build, API reports, compiled docs, format, lint, types, tests with coverage for both packages. `npm run dev` —
 rebuild the framework on change. The framework never imports the examples, and the examples use
-only `agboss` — both enforced by ESLint.
+only `@agboss/core` — both enforced by ESLint.
 
 ## Environments
 
@@ -538,10 +538,10 @@ One set per application, in `environments/` next to the application file (#261).
 plain class with declared fields only, declared once in the application:
 
 <!-- snippet-context
-import { Application, Workflow, WorkflowStart, start, WorkflowFinish } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Workflow, WorkflowStart, start, WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "audit-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class AuditWorkflowStart {}
 @WorkflowFinish({ name: "audit-workflow-finish", description: "The answer", output: WorkflowStartTextDto })
@@ -592,7 +592,7 @@ export class AuditApplication {}
 
 ```ts file=src/audit/environments/app.environment.ts
 // environments/app.environment.ts — the contract: fields only, no values
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   auditUrl!: string;
@@ -606,7 +606,7 @@ Each environment is a plain object typed by the contract, in `<name>.environment
 is the environment's name (`--env prod` → `prod.environment.ts`):
 
 ```ts file=src/audit/environments/prod.environment.ts
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -618,7 +618,7 @@ export const environment: AppEnvironment = {
 ```
 
 ```ts file=src/audit/environments/dev.environment.ts
-import { secret } from "agboss";
+import { secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -642,7 +642,7 @@ contract declares fields only; put the value in each environment`. A framework i
   `process.env`; the chosen environment's name is `applicationContext.environmentName`:
 
 ```ts file=src/audit/services/audit-store.service.ts
-import { ApplicationContext, Injectable } from "agboss";
+import { ApplicationContext, Injectable } from "@agboss/core";
 
 @Injectable({ deps: [ApplicationContext] })
 export class AuditStoreService {
@@ -725,8 +725,8 @@ most 200 questions per call; an answer that does not fit its question fails with
 `ModelKindError` (`model.wrong-kind`).
 
 <!-- snippet-context
-import { InjectionToken } from "agboss";
-import { ListOf, Text } from "agboss/dto";
+import { InjectionToken } from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
 export class JobDto {
   @Text({ prompt: "the job's title" })
   title!: string;
@@ -753,7 +753,7 @@ import {
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-} from "agboss";
+} from "@agboss/core";
 
 @Judge({
   name: "answer-grounded-judge",
@@ -799,7 +799,7 @@ plain object of its DTO, typed by the judge — another shape, or a `variant` wi
 value, does not compile.
 
 <!-- snippet-context
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 export class OfferDto {
   @Integer({ prompt: "the salary offered" })
   salary!: number;
@@ -811,8 +811,8 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { isVariant, oneOf } from "agboss/dto";
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { isVariant, oneOf } from "@agboss/core/dto";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
@@ -840,7 +840,7 @@ one choice question over the routes, options sorted so declaration order never c
 
 ## Testing
 
-`testWith(Application)` (`agboss/testing`) runs the whole application in each test — its real
+`testWith(Application)` (`@agboss/core/testing`) runs the whole application in each test — its real
 container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
 `VirtualClock`. Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
 `replyWith(XDto, fields)` must be a class of the agent's output (a class outside its `oneOf` does
@@ -859,8 +859,8 @@ a code one is created by the container and replaced with `mockOf(Interpreter).in
 (`mockReturnValue(ReplyInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
-import { ExecutionCancelledError } from "agboss";
-import { Text } from "agboss/dto";
+import { ExecutionCancelledError } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class ChangesRequestedDto {
   @Text({ prompt: "what to change" })
   notes!: string;
@@ -881,8 +881,8 @@ declare const shortlist: never;
 
 ```ts
 import { expect } from "vitest";
-import { replyWith, testWith, ToolFailure, waitFor } from "agboss/testing";
-import { seconds, usd } from "agboss/units";
+import { replyWith, testWith, ToolFailure, waitFor } from "@agboss/core/testing";
+import { seconds, usd } from "@agboss/core/units";
 
 const test = testWith(OfferApplication);
 
@@ -931,8 +931,8 @@ a unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`,
 its model by script; each call gives `{ output, spend }`.
 
 <!-- snippet-context
-import { Injectable, type JudgeHandler, type JudgeInput, type JudgeVerdict } from "agboss";
-import { PlainTextDto } from "agboss/dto";
+import { Injectable, type JudgeHandler, type JudgeInput, type JudgeVerdict } from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 declare class QuickPanelApplication {}
 declare class PanelWorkflowStart {}
 declare class SkillsAgent {}
@@ -965,8 +965,8 @@ import {
   testJudge,
   testTool,
   testWith,
-} from "agboss/testing";
-import { seconds } from "agboss/units";
+} from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
 
 // the risks agent answers first, then the skills agent: the quorum counts them in that order
 const test = testWith(QuickPanelApplication, {
@@ -1013,8 +1013,8 @@ through `{{input.…}}` in its instructions (`[prompt.input-in-instructions]`); 
 input and no metadata.
 
 <!-- snippet-context
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text({ prompt: "the order id" })
   orderId!: string;
@@ -1052,7 +1052,7 @@ Read outside an execution (in a constructor at start) or after its step ended (a
 the context throws `ExecutionContextUnavailableError` (`context.unavailable`) — never `undefined`.
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 import { ChatWorkflowStart } from "./src/job-scout.workflow.js";
 declare const app: App;
 declare const threadId: string;
@@ -1107,7 +1107,7 @@ only with `approved: true`, checked by the tool's input), else `DtoValidationErr
 keeps waiting:
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 declare const replyKey: string;
 -->
@@ -1149,8 +1149,8 @@ behind it, if any) and the pause stays pending, so the webhook can ask again or 
 (`pause.no-reply-interpreter`), the pause untouched.
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "agboss";
-import { Text } from "agboss/dto";
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 declare const app: App;
 declare const replyKey: string;
 export class RefundCardInputDto {
@@ -1182,8 +1182,8 @@ await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "m
 ```
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter } from "agboss";
-import { Text } from "agboss/dto";
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class DepositReturnDto {
   @Text() leaseId!: string;
 }
@@ -1281,8 +1281,8 @@ to expire. `createApp` calls `app.close()` on SIGTERM / SIGINT (a second signal 
 until the close finishes; `testWith` never listens.
 
 <!-- snippet-context
-import type { App } from "agboss";
-import { seconds } from "agboss/units";
+import type { App } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 declare const app: App;
 -->
 
@@ -1292,7 +1292,7 @@ await app.close({ timeout: seconds(10) });
 ```
 
 In unit tests, `testExecutionContext({ … })` from
-`agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`; its
+`@agboss/core/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`; its
 `tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
 environment } }`.
 
@@ -1338,7 +1338,7 @@ import {
   type OnAgentStart,
   type OnExecutionEnd,
   type OnExecutionRejected,
-} from "agboss";
+} from "@agboss/core";
 
 @Injectable()
 export class MetricsObserver implements OnExecutionEnd, OnAgentStart, OnExecutionRejected {
@@ -1425,8 +1425,8 @@ budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStep
 (`[spend.outside-step]`).
 
 <!-- snippet-context
-import { ExecutionContext, TenantContext } from "agboss";
-import { Decimal } from "agboss/dto";
+import { ExecutionContext, TenantContext } from "@agboss/core";
+import { Decimal } from "@agboss/core/dto";
 export class ShopTenantContext extends TenantContext {
   @Decimal()
   dailyBudgetUsd!: number;
@@ -1435,8 +1435,8 @@ export class ShopTenantContext extends TenantContext {
 
 ```ts
 // config/budget.config.ts — the tenant's own amount, from its server-side data
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({
   name: "tenant-daily-budget",
@@ -1473,7 +1473,7 @@ cannot hold the worst case of a per-item launch (`maxItems` runs: set `maxSteps`
 `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
 
 <!-- snippet-context
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 export class SearchQueryDto {
   @Text({ prompt: "what to search the web for" })
   query!: string;
@@ -1485,8 +1485,8 @@ export class SearchResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "agboss";
-import { usd } from "agboss/units";
+import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { usd } from "@agboss/core/units";
 
 @Tool({
   name: "web-search-tool",
@@ -1531,8 +1531,8 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   type PiiRefusal,
-} from "agboss";
-import { Text } from "agboss/dto";
+} from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 -->
 
 ```ts
@@ -1610,8 +1610,8 @@ answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`;
 (`guardrails.<name>.threshold`). A model that does not answer fails closed (`GuardFailedError`).
 
 <!-- snippet-context
-import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";
-import { OneOf } from "agboss/dto";
+import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
+import { OneOf } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
   @OneOf({ values: ["en", "he"] })
   locale!: "en" | "he";
@@ -1678,7 +1678,7 @@ Each agent and model router sees the last `uncompactedTurns` of them in full —
 `compaction` on the same levels (again the lowest wins; none anywhere → the window only):
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy, TokenLimit } from "agboss";
+import { Compaction, CompactionStrategy, TokenLimit } from "@agboss/core";
 -->
 
 ```ts

@@ -8,7 +8,7 @@ import type { Milliseconds } from "../units/index.js";
  * renewals, the recovery sweep, the shutdown timeout, a tool's and a model call's timeout, retry
  * backoff and `Retry-After` pauses) goes through the application's one `Clock` — never
  * `Date.now()`, `new Date()`, `setTimeout` or `setInterval` directly (lint `agboss/no-direct-time`;
- * this file holds the one real implementation). Tests run on `VirtualClock` (`agboss/testing`),
+ * this file holds the one real implementation). Tests run on `VirtualClock` (`@agboss/core/testing`),
  * moved by `await clock.advance(seconds(31))` without real waiting. A component that needs the time
  * injects it: `@Injectable({ deps: [Clock] })`.
  */
@@ -62,7 +62,7 @@ export const systemClock: Clock = new SystemClock();
  * application's one `IdGenerator`. A caller's own `threadId` is used as given, a recovered execution
  * keeps its id. The built-in `RandomIdGenerator` unless `@Application({ providers })` lists a class
  * that `extends IdGenerator`; created before the stores that inject it (`deps: [IdGenerator]`), so it
- * may not depend on the contexts. `testWith` runs on `SequentialIdGenerator` (`agboss/testing`:
+ * may not depend on the contexts. `testWith` runs on `SequentialIdGenerator` (`@agboss/core/testing`:
  * `thread-1`, `execution-1`, …) unless the application lists its own. Never a `pauseId`: that is an
  * answer credential, a random 128-bit token outside it.
  */

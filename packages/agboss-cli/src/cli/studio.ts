@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
-import { studioOf } from "agboss/internal";
+import { studioOf } from "@agboss/core/internal";
 import { loadCliApplication } from "./cli-application.js";
 import { requiredText, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";

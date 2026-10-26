@@ -1,4 +1,4 @@
-import { McpServer, McpServerClient } from "agboss/mcp";
+import { McpServer, McpServerClient } from "@agboss/core/mcp";
 import { FILESYSTEM_SERVER, SHORTLIST_DIR } from "../config/paths.js";
 import { FileContent, FileRead, FileWrite, FileWritten } from "./shortlist.dto.js";
 

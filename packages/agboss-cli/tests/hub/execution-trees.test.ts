@@ -12,7 +12,7 @@ import {
   type ChildExecutionRecord,
   type ExecutionHistoryRecord,
   type ToolCallRecord,
-} from "agboss";
+} from "@agboss/core";
 import { bareRecordOf } from "../../../agboss/src/flow/runtime/records.js";
 import { buildCostReport } from "../../../agboss/src/finops/usage.js";
 import {

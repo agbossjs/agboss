@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel.js";
 import { PurchaseOrder, PurchasePlaced } from "./place-purchase.dto.js";
 

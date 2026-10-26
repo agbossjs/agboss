@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { env } from "agboss";
-import { testWith } from "agboss/testing";
+import { env } from "@agboss/core";
+import { testWith } from "@agboss/core/testing";
 import { JobScoutApplication } from "../src/job-scout.application.js";
 import type { AppEnvironment } from "../src/environments/app.environment.js";
 import { GreenhouseJobs } from "../src/tools/greenhouse-jobs.tool.js";

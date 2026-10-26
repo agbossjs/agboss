@@ -160,13 +160,13 @@ describe("#305 AC4: the skills sync", () => {
 
   it("the project's own agboss wins over the CLI's; one that ships no skills is [skills.no-framework]", () => {
     const withSkills = projectRoot();
-    const own = join(withSkills, "node_modules/agboss");
+    const own = join(withSkills, "node_modules/@agboss/core");
     mkdirSync(join(own, "skills/agboss"), { recursive: true });
-    writeFileSync(join(own, "package.json"), '{ "name": "agboss", "version": "9.9.9" }');
+    writeFileSync(join(own, "package.json"), '{ "name": "@agboss/core", "version": "9.9.9" }');
     writeFileSync(join(own, "skills/agboss/SKILL.md"), "---\nname: agboss\n---\n");
     const older = projectRoot();
-    mkdirSync(join(older, "node_modules/agboss"), { recursive: true });
-    writeFileSync(join(older, "node_modules/agboss/package.json"), '{ "version": "0.0.9" }');
+    mkdirSync(join(older, "node_modules/@agboss/core"), { recursive: true });
+    writeFileSync(join(older, "node_modules/@agboss/core/package.json"), '{ "version": "0.0.9" }');
 
     expect(sync(withSkills).result).toMatchObject({ version: "9.9.9", written: ["SKILL.md"] });
     expect(skillsLines(sync(older))).toEqual([

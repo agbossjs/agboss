@@ -1,4 +1,4 @@
-import type { EvalChildTrace, EvalExecutionTrace } from "agboss/eval";
+import type { EvalChildTrace, EvalExecutionTrace } from "@agboss/core/eval";
 import { element, type HtmlElement } from "./html.js";
 import { errorLine, listOf, stepView } from "./step-view.js";
 import { valueView } from "./value-view.js";

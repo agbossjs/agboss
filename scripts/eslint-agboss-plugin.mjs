@@ -1,7 +1,7 @@
-// The AGBoss lint rules, `agboss/…`, for this repository: the public entry `agboss/eslint` (#388 S2,
+// The AGBoss lint rules, `agboss/…`, for this repository: the public entry `@agboss/core/eslint` (#388 S2,
 // packages/agboss/src/eslint), the same one a project made by `agboss create` loads — so the
 // framework is built before it is linted (`make check` builds first).
-import { agbossPlugin } from "agboss/eslint";
+import { agbossPlugin } from "@agboss/core/eslint";
 
 /** `agboss/no-component-state` (#261): framework sources and examples. */
 export const componentStateRules = {

@@ -1,4 +1,4 @@
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 /** The review: the plan, the style notes and every fact check. */
 export class ReviewReportDto {

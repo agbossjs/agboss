@@ -1,4 +1,12 @@
-import { agent, caseOf, oneOf, start, toAction, VisitsLimitExceededError, Workflow } from "agboss";
+import {
+  agent,
+  caseOf,
+  oneOf,
+  start,
+  toAction,
+  VisitsLimitExceededError,
+  Workflow,
+} from "@agboss/core";
 import { NotifyRecruiterAction } from "./actions/notify-recruiter.action.js";
 import { SendOfferAction } from "./actions/send-offer.action.js";
 import { DraftAgent } from "./agents/draft.agent.js";

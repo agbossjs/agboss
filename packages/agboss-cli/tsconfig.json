@@ -4,8 +4,8 @@
     // typecheck, lint and tests see the framework's sources, as one program with its test fixtures;
     // the build (tsconfig.build.json) compiles against the built package, as a user installs it
     "paths": {
-      "agboss": ["../agboss/src/index.ts"],
-      "agboss/*": ["../agboss/src/*/index.ts", "../agboss/src/*.ts"]
+      "@agboss/core": ["../agboss/src/index.ts"],
+      "@agboss/core/*": ["../agboss/src/*/index.ts", "../agboss/src/*.ts"]
     }
   },
   "include": ["src", "tests", "vitest.config.ts"]

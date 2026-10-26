@@ -1,4 +1,4 @@
-import { ListOf, Text } from "agboss/dto";
+import { ListOf, Text } from "@agboss/core/dto";
 
 /** A topic too broad for one report: its subtopics, each researched the same way. */
 export class TopicTooBroadDto {

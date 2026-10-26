@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 const DECLARES_WORKFLOW = /@Workflow\(/;
 const DECLARES_APPLICATION = /@Application\(/;
 // a snippet that runs something when loaded (a test, a top-level createApp) is not a module to load
-const RUNS_WHEN_LOADED = /from "(vitest|agboss\/testing)"|createApp\(/;
+const RUNS_WHEN_LOADED = /from "(vitest|@agboss\/core\/testing)"|createApp\(/;
 
 /** A snippet the generator loads: a workflow, or an application that only declares. */
 const isFlowModule = (text) =>
@@ -22,7 +22,7 @@ export async function writeDocTypes(folder, doc, files) {
     .map((file) => file.path)
     .filter((path) => isFlowModule(readFileSync(path, "utf8")));
   if (workflows.length === 0) return { types: [], problems: [] };
-  const { FlowTypesStatus, writeFlowTypes } = await import("agboss/internal");
+  const { FlowTypesStatus, writeFlowTypes } = await import("@agboss/core/internal");
   try {
     const result = await writeFlowTypes({ files: workflows, project: folder });
     const problems = result.errors.map((found) => `${doc}: [${found.code}] ${found.message}`);

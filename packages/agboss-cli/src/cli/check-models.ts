@@ -7,8 +7,8 @@ import {
   type AssembledApplication,
   type ModelUse,
   type ProviderFetch,
-} from "agboss/internal";
-import type { ModelProblem, ModelProviderDirectory } from "agboss/models";
+} from "@agboss/core/internal";
+import type { ModelProblem, ModelProviderDirectory } from "@agboss/core/models";
 
 /** What `agboss check --models` prints and the exit code it ends with. */
 export interface ModelCheckReport {

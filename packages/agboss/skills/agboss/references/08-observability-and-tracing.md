@@ -43,9 +43,9 @@ application's and the workflow's PII policies.
 ## The worked example: metrics, audit and a log
 
 ```ts file=src/desk/desk.workflow.ts
-import { Action, Agent, ExecutionContext, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { Text, WorkflowStartTextDto } from "agboss/dto";
+import { Action, Agent, ExecutionContext, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class DeskAnswerDto {
   @Text({ prompt: "the answer to send" })
@@ -108,7 +108,7 @@ export class DeskWorkflow {}
 
 ```ts file=src/desk/services/metrics.service.ts
 // services/metrics.service.ts — your metrics client (Prometheus, StatsD, …) behind a service
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class MetricsService {
@@ -141,7 +141,7 @@ import {
   type OnExecutionRejected,
   type OnExecutionResume,
   type OnModelEnd,
-} from "agboss";
+} from "@agboss/core";
 import { DeskAgent } from "../desk.workflow.js";
 import { MetricsService } from "../services/metrics.service.js";
 
@@ -190,7 +190,7 @@ import {
   type CompensationStartEvent,
   type OnCompensationEnd,
   type OnCompensationStart,
-} from "agboss";
+} from "@agboss/core";
 
 @Injectable()
 export class CompensationAuditObserver implements OnCompensationStart, OnCompensationEnd {
@@ -208,7 +208,7 @@ export class CompensationAuditObserver implements OnCompensationStart, OnCompens
 
 ```ts file=src/desk/infrastructure/json.logger.ts
 // infrastructure/json.logger.ts — the framework's own log, one JSON line per entry
-import { Injectable, LogLevel, Logger, type LogEntry } from "agboss";
+import { Injectable, LogLevel, Logger, type LogEntry } from "@agboss/core";
 
 @Injectable()
 export class JsonLogger extends Logger {
@@ -228,8 +228,8 @@ export class JsonLogger extends Logger {
 ```
 
 ```ts file=src/desk/config/budget.config.ts
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -254,7 +254,7 @@ export class ExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=src/desk/desk.application.ts
-import { Application, EmptyEnvironment } from "agboss";
+import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 import { DeskWorkflow } from "./desk.workflow.js";
 import { JsonLogger } from "./infrastructure/json.logger.js";
@@ -352,8 +352,8 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 ```ts file=tests/desk/record.test.ts
 import { expect } from "vitest";
-import { ExecutionStatus } from "agboss";
-import { replyWith, testWith } from "agboss/testing";
+import { ExecutionStatus } from "@agboss/core";
+import { replyWith, testWith } from "@agboss/core/testing";
 import { DeskApplication } from "../../src/desk/desk.application.js";
 import {
   DeskAgent,

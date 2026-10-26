@@ -1,4 +1,4 @@
-import { Flag } from "agboss/dto";
+import { Flag } from "@agboss/core/dto";
 
 /** A large order's approval. */
 export class CreditApprovalDto {

@@ -4,7 +4,7 @@ import type {
   EvalJudgeCalibration,
   EvalMetricGroup,
   EvalRaterAgreement,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 
 /**
  * What `agboss eval calibrate` prints (#396 PR 4): a header line, then per judge its κ line, a

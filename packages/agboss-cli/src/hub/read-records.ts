@@ -1,5 +1,5 @@
-import type { ExecutionHistoryRecord } from "agboss";
-import { evalRunReportOf } from "agboss/internal";
+import type { ExecutionHistoryRecord } from "@agboss/core";
+import { evalRunReportOf } from "@agboss/core/internal";
 import { HubInputKind, type HubEvalRun, type HubRecord } from "./hub-inputs.js";
 import { FieldError, isObject, listAt, objectAt, textAt, type JsonObject } from "./json-fields.js";
 

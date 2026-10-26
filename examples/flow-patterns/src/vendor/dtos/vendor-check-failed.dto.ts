@@ -1,4 +1,4 @@
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 /** A vendor whose check failed: the child's soft failure, one more class for its parent. */
 export class VendorCheckFailedDto {

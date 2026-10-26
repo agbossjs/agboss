@@ -1,4 +1,4 @@
-import type { UsageRecord } from "agboss";
+import type { UsageRecord } from "@agboss/core";
 
 /** A usage record for fake router outcomes. */
 export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({

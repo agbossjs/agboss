@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { SectionDto } from "../dtos/section.dto.js";
 import { SectionReviewDto } from "../dtos/section-review.dto.js";
 

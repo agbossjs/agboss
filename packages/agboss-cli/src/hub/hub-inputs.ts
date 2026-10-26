@@ -1,5 +1,5 @@
-import type { ExecutionHistoryRecord } from "agboss";
-import type { EvalRunReport } from "agboss/eval";
+import type { ExecutionHistoryRecord } from "@agboss/core";
+import type { EvalRunReport } from "@agboss/core/eval";
 
 /**
  * What `agboss hub` reads (#401 S2, the report's architecture 3): files and folders only, each file

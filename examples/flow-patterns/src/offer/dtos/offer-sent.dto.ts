@@ -1,4 +1,4 @@
-import { Flag } from "agboss/dto";
+import { Flag } from "@agboss/core/dto";
 
 /** The approved offer was sent. */
 export class OfferSentDto {

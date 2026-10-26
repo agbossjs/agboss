@@ -1,4 +1,4 @@
-import { Action, type ActionHandler, type InputOf } from "agboss";
+import { Action, type ActionHandler, type InputOf } from "@agboss/core";
 import { RegisteredOfferDto } from "../dtos/offer.dto.js";
 import { RecruiterDeskService } from "../services/recruiter-desk.service.js";
 

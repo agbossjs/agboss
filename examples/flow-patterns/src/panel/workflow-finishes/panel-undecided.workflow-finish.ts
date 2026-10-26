@@ -1,4 +1,4 @@
-import { WorkflowFinish } from "agboss";
+import { WorkflowFinish } from "@agboss/core";
 import { CandidateDto } from "../dtos/candidate.dto.js";
 
 /** Where a panel finishes without a quorum: the candidate, for a person to decide. */

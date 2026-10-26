@@ -172,7 +172,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
 
 /**
  * The decorator-shaped exports of the public entries: PascalCase functions that are not classes.
- * `agboss/dto` is left out: its decorators (`@Text`, `@Integer`, …) are fields of DTO classes.
+ * `@agboss/core/dto` is left out: its decorators (`@Text`, `@Integer`, …) are fields of DTO classes.
  */
 async function exportedDecorators(): Promise<ReadonlyMap<string, string>> {
   const entries: Readonly<Record<string, Record<string, unknown>>> = {

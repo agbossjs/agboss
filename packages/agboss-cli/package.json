@@ -1,9 +1,12 @@
 {
-  "name": "agboss-cli",
+  "name": "@agboss/cli",
   "version": "0.1.0",
   "description": "Official CLI for the AGBoss TypeScript AI agent framework — project scaffolding (agboss create), code generators, static graph & saga verification (agboss check), describe --json, chat, and eval.",
   "type": "module",
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Pavel Ravvich <hello@agboss.dev> (https://github.com/pavelravvich)",
   "homepage": "https://agboss.dev/cli/",
   "repository": {
@@ -52,10 +55,10 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@agboss/core": "0.1.0",
     "@apidevtools/swagger-parser": "^13.1.0",
     "@inquirer/prompts": "^8.7.2",
     "@langchain/langgraph-cli": "^1.0.0",
-    "agboss": "0.1.0",
     "dotenv": "^18.0.3",
     "typescript": "^5.9.3",
     "zod": "^4.6.7"

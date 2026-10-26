@@ -1,4 +1,4 @@
-import { AGBossError, createApp, type ExecutionOutput } from "agboss";
+import { AGBossError, createApp, type ExecutionOutput } from "@agboss/core";
 import { parseArgs } from "node:util";
 import { FlowPatternsApplication } from "../flow-patterns.application.js";
 

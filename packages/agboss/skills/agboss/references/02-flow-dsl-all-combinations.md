@@ -36,7 +36,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `ThisWorkflow` + `@Workflow({ maxDepth })`                                            | the workflow launches itself                                                               | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
 | `@Action({ compensateWith, committedBy })`                                            | the action's undo and its commit point; side paths must run the undo                       | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
-The wrappers (`agboss`, also re-exported by `agboss/dto`): `listOf(XDto)`, `oneOf(A, B)`,
+The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
 `optional(XDto)`, `historyOf(XDto, { limit })` (an input only), `variant(XDto, value)` (tests).
 
 Placement rules that hold everywhere:
@@ -55,7 +55,7 @@ A start's input is a DTO, a `listOf(…)` or a map of fields; `start(S)` returns
 gets each field as `{ producer, value }`.
 
 ```ts file=src/ticket/ticket.dto.ts
-import { Flag, OneOf, Text } from "agboss/dto";
+import { Flag, OneOf, Text } from "@agboss/core/dto";
 
 export class TicketDto {
   @Text({ prompt: "what the customer wrote" })
@@ -83,8 +83,8 @@ export class TicketFiledDto {
 
 ```ts file=src/ticket/ticket.components.ts
 // one class per file in a project; together here for brevity
-import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, optional } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
+import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
 import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./ticket.dto.js";
 
 @WorkflowStart({
@@ -129,7 +129,7 @@ export class TicketFiledWorkflowFinish {}
 ```
 
 ```ts file=src/ticket/ticket.workflow.ts
-import { Workflow, optional, start } from "agboss";
+import { Workflow, optional, start } from "@agboss/core";
 import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./ticket.dto.js";
 import {
   FileTicketAction,
@@ -171,7 +171,7 @@ gives TriageDto — write .returns(TriageDto) after it`); a step without `output
 finish whose output is `WorkflowFinishTextDto` (`[flow.text-agent-target]`).
 
 ```ts file=src/credit/credit.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class CreditOrderDto {
   @Text({ prompt: "the customer's id" })
@@ -193,9 +193,9 @@ export class ChargeResultDto {
 ```
 
 ```ts file=src/credit/credit.components.ts
-import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, optional } from "agboss";
-import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit.dto.js";
 
 export class CreditServiceUnavailableError extends Error {}
@@ -289,8 +289,8 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 ```
 
 ```ts file=src/credit/credit.workflow.ts
-import { Workflow, action, route, start, toFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, action, route, start, toFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import {
   ChargeOrderAction,
   CreditAnswerWorkflowFinish,
@@ -359,7 +359,7 @@ value is **about**, and `historyOf(XDto, { limit })` reads the earlier versions.
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
 ```ts file=src/offer/offer.dto.ts
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 
 export class CandidateShortlistDto {
   @Text({ prompt: "the shortlisted candidate" })
@@ -388,8 +388,8 @@ export class OfferSentDto {
 ```
 
 ```ts file=src/offer/offer.components.ts
-import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
+import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
 import {
   CandidateShortlistDto,
   ChangesRequestedDto,
@@ -472,7 +472,7 @@ export class OfferFailedWorkflowFinish {}
 ```
 
 ```ts file=src/offer/offer.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, start, toAction } from "agboss";
+import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, start, toAction } from "@agboss/core";
 import {
   NotifyRecruiterAction,
   OfferDraftAgent,
@@ -552,7 +552,7 @@ A launch runs several branches at once; `.join()` is where their values meet. Ag
 | an action without `output`                                            | nothing: `.join()` goes on with `.to…(…)` |
 
 ```ts file=src/review/review.dto.ts
-import { Flag, Text } from "agboss/dto";
+import { Flag, Text } from "@agboss/core/dto";
 
 export class ArticleSectionDto {
   @Text({ prompt: "the section's title" })
@@ -589,9 +589,9 @@ export class ReviewSummaryDto {
 ```
 
 ```ts file=src/review/review.components.ts
-import { Action, Agent, WorkflowFinish, WorkflowStart, listOf } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Action, Agent, WorkflowFinish, WorkflowStart, listOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import {
   ArticleSectionDto,
   FactCheckDto,
@@ -703,8 +703,8 @@ export class ReviewIncompleteWorkflowFinish {}
 ```
 
 ```ts file=src/review/review.workflow.ts
-import { StepFailedError, Workflow, listOf, start, toFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { StepFailedError, Workflow, listOf, start, toFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import {
   ArchiveArticleAction,
   ArticlePublishWorkflowStart,
@@ -772,8 +772,8 @@ the route's `prompt`); `failure: FailurePolicy.Skip` lets a failed branch drop o
 the launch (`FailFast`, the default).
 
 ```ts file=src/support/support.components.ts
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, WorkflowFinish, WorkflowStart, optional } from "agboss";
-import { Text, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class OrderLookupDto {
   @Text({ prompt: "where the order is" })
@@ -863,8 +863,8 @@ export class SupportLaunchRouter {}
 ```
 
 ```ts file=src/support/support.workflow.ts
-import { Workflow, optional, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, optional, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import {
   LoyaltyOfferAgent,
   LoyaltyOfferDto,
@@ -926,9 +926,9 @@ decide whether an answer counts: several `.acceptedBy(…)` are an AND in path o
 `.acceptedBy(anyOf(A, B))` stops at the first that accepts.
 
 ```ts file=src/panel/panel.components.ts
-import { Agent, Arbiter, DecidedBy, OnAnswer, WorkflowFinish, WorkflowStart, listOf } from "agboss";
-import type { ArbiterAnswerOf } from "agboss";
-import { Flag, Integer, Text } from "agboss/dto";
+import { Agent, Arbiter, DecidedBy, OnAnswer, WorkflowFinish, WorkflowStart, listOf } from "@agboss/core";
+import type { ArbiterAnswerOf } from "@agboss/core";
+import { Flag, Integer, Text } from "@agboss/core/dto";
 
 export class PanelCandidateDto {
   @Text({ prompt: "the candidate's CV" })
@@ -1058,8 +1058,8 @@ export class HasReasonArbiter {
 ```
 
 ```ts file=src/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, start, toFinish } from "agboss";
-import { seconds } from "agboss/units";
+import { QuorumNotReachedError, Workflow, anyOf, listOf, start, toFinish } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 import {
   CulturePanelAgent,
   HasReasonArbiter,
@@ -1100,9 +1100,9 @@ Groups — the first complete group, by priority (1 is the highest), continues *
 follows the groups but `.onJoinError(…)`:
 
 ```ts file=src/deal/deal.workflow.ts
-import { Agent, QuorumNotReachedError, Workflow, WorkflowFinish, WorkflowStart, group, listOf, start, toFinish } from "agboss";
-import { Flag, Text } from "agboss/dto";
-import { minutes } from "agboss/units";
+import { Agent, QuorumNotReachedError, Workflow, WorkflowFinish, WorkflowStart, group, listOf, start, toFinish } from "@agboss/core";
+import { Flag, Text } from "@agboss/core/dto";
+import { minutes } from "@agboss/core/units";
 
 export class DealDto {
   @Text({ prompt: "the deal's terms" })
@@ -1210,7 +1210,7 @@ or `toWorkflow(W)` as a side-path starter. The child's scope starts with its sta
 result is one of its finishes' outputs.
 
 ```ts file=src/vendor/vendor.dto.ts
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -1243,8 +1243,8 @@ export class VendorRankingDto {
 
 ```ts file=src/vendor/vendor-check.workflow.ts
 // the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, oneOf, start, toAction } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, oneOf, start, toAction } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
 import { VendorCheckFailedDto, VendorDto, VendorRejectedDto, VendorScoreDto } from "./vendor.dto.js";
 
 @WorkflowStart({ name: "vendor-check-workflow-start", description: "One vendor to check", input: VendorDto })
@@ -1307,8 +1307,8 @@ export class VendorCheckWorkflow {}
 ```
 
 ```ts file=src/vendor/vendor-screening.workflow.ts
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, listOf, oneOf, start, toFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, listOf, oneOf, start, toFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorCheckWorkflow } from "./vendor-check.workflow.js";
 import { VendorCheckFailedDto, VendorDto, VendorRankingDto, VendorRejectedDto, VendorScoreDto } from "./vendor.dto.js";
 
@@ -1404,9 +1404,9 @@ export class SingleVendorWorkflow {}
 A child as an error handler — `toWorkflow(W)` starts a side path:
 
 ```ts file=src/payment/payment.workflow.ts
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class PaymentRequestDto {
   @Text({ prompt: "the payment's id" })
@@ -1511,9 +1511,9 @@ decorator's arguments are evaluated). `@Workflow({ maxDepth })` is required; on 
 branch keeps one that does not recurse.
 
 ```ts file=src/topic/topic-research.workflow.ts
-import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, listOf, oneOf, start, toAction } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { Integer, Text } from "agboss/dto";
+import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, listOf, oneOf, start, toAction } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
 
 export class TopicDto {
   @Text({ prompt: "the topic to research" })
@@ -1651,9 +1651,9 @@ after** its action.
   `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.
 
 ```ts file=src/order/order.components.ts
-import { Action, ExecutionContext, WorkflowFinish, WorkflowStart } from "agboss";
-import type { ActionHandler, InputOf, OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, ExecutionContext, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class OrderRequestDto {
   @Text({ prompt: "the order's id" })
@@ -1757,7 +1757,7 @@ export class OrderShippedWorkflowFinish {}
 ```
 
 ```ts file=src/order/order.workflow.ts
-import { Workflow, action, start, toAction } from "agboss";
+import { Workflow, action, start, toAction } from "@agboss/core";
 import {
   CardPaymentDto,
   CarrierError,
@@ -1813,9 +1813,9 @@ A failed join undoes its finished branches by itself — the side path cannot, t
 reach it:
 
 ```ts file=src/trip/trip.workflow.ts
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "agboss";
-import type { ActionHandler, FinishHandler, InputOf, OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
+import type { ActionHandler, FinishHandler, InputOf, OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class TripRequestDto {
   @Text({ prompt: "where the trip goes" })

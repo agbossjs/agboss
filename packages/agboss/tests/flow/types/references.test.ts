@@ -68,7 +68,7 @@ describe("S2: import paths come from the modules that export a class", () => {
       "../src/agents/draft.agent.js",
     );
     expect(moduleSpecifier("/project/.agboss", "/project/.agboss/local.mts")).toBe("./local.mjs");
-    expect(moduleSpecifier("/project/.agboss", "agboss")).toBe("agboss");
+    expect(moduleSpecifier("/project/.agboss", "@agboss/core")).toBe("@agboss/core");
   });
 
   it("the declaring file first, else the first module that is not an index barrel", () => {
@@ -98,7 +98,7 @@ describe("S2: import paths come from the modules that export a class", () => {
       "SameDto2",
       "SameDto",
     ]);
-    expect(names.importLines("agboss")).toEqual([
+    expect(names.importLines("@agboss/core")).toEqual([
       'import type { SameDto } from "../a.dto.js";',
       'import type { SameDto as SameDto2 } from "../b.dto.js";',
     ]);
@@ -158,7 +158,7 @@ describe("S3 / S5: names that key the tables are unique in the application", () 
     ]);
   });
 
-  it("the tables are augmented in agboss by default", () => {
+  it("the tables are augmented in @agboss/core by default", () => {
     const only = startOf("only-workflow-start");
     const { text } = generateFlowTypes({
       workflows: [workflowOf("only-workflow", only)],
@@ -172,7 +172,9 @@ describe("S3 / S5: names that key the tables are unique in the application", () 
       strict: true,
     });
 
-    expect(text).toContain('declare module "agboss" {');
-    expect(text).toContain('import type { NoInput, agbossComponent, agbossDto } from "agboss";');
+    expect(text).toContain('declare module "@agboss/core" {');
+    expect(text).toContain(
+      'import type { NoInput, agbossComponent, agbossDto } from "@agboss/core";',
+    );
   });
 });

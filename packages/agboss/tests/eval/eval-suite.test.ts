@@ -1,5 +1,5 @@
 /**
- * #396 PR 1 — `agboss/eval`: `@EvalSuite` and the builders of its cases and checks, typed by the
+ * #396 PR 1 — `@agboss/core/eval`: `@EvalSuite` and the builders of its cases and checks, typed by the
  * suite's start and each tool's input, and its assembly on the application it runs on —
  * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]`,
  * then the cases' values (`eval.case-invalid`). Nothing runs: no runner yet.

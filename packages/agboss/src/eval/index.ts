@@ -1,5 +1,5 @@
 /**
- * `agboss/eval` (#396): eval suites — `@EvalSuite` in `eval-suites/<name>.eval-suite.ts` and the
+ * `@agboss/core/eval` (#396): eval suites — `@EvalSuite` in `eval-suites/<name>.eval-suite.ts` and the
  * builders of its cases and checks. Decorators and builders only: nothing runs at import; the
  * runner (`agboss eval run --suite <name>`) belongs to the CLI and loads on demand.
  */

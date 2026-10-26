@@ -1,4 +1,4 @@
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { CreditApprovalDto } from "../dtos/credit-approval.dto.js";
 import { CreditOrderDto } from "../dtos/credit-order.dto.js";
 

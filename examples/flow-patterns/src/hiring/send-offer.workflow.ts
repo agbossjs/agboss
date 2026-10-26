@@ -1,4 +1,4 @@
-import { StepFailedError, Workflow, start, toAction } from "agboss";
+import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
 import { AlertRecruiterAction } from "./actions/alert-recruiter.action.js";
 import { BookOnboardingSlotAction } from "./actions/book-onboarding-slot.action.js";
 import { ConfirmOfferAction } from "./actions/confirm-offer.action.js";

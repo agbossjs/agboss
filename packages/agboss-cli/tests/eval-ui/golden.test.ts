@@ -17,8 +17,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CheckStatus, type EvalRunResult } from "agboss/eval";
-import { openExecutionHistory, type OpenedExecutionHistory } from "agboss/internal";
+import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
+import { openExecutionHistory, type OpenedExecutionHistory } from "@agboss/core/internal";
 import { SqliteHistoryApplication } from "../../../agboss/tests/infrastructure/sqlite/fixtures/history.application.js";
 import {
   historyRecordOf,

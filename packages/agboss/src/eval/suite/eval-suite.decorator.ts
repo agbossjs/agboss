@@ -3,7 +3,7 @@ import type { EvalCase, EvalCaseOf } from "./cases.js";
 import type { EvalCascade, EvalCheck } from "./checks.js";
 
 /**
- * `@EvalSuite` (#396, `agboss/eval`): a named set of cases run through one start of an
+ * `@EvalSuite` (#396, `@agboss/core/eval`): a named set of cases run through one start of an
  * application, judged by an ordered list of checks — `eval-suites/<name>.eval-suite.ts`, one class
  * per file, its `name` ending with `-eval-suite`. The decorator only records it: nothing runs at
  * import (the runner is the CLI's, loaded on demand).

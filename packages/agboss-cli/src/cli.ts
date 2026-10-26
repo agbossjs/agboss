@@ -1,9 +1,9 @@
-import { createApp, type App, type ExecutionOutput } from "agboss";
+import { createApp, type App, type ExecutionOutput } from "@agboss/core";
 import {
   executeUnchecked,
   type ApplicationStart,
   type ExecutionStreamEvent,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";

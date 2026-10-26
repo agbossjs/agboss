@@ -1,4 +1,4 @@
-import { caseOf, oneOf, start, StepFailedError, toAction, Workflow } from "agboss";
+import { caseOf, oneOf, start, StepFailedError, toAction, Workflow } from "@agboss/core";
 import { MarkVendorFailedAction } from "./actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "./agents/vendor-checker.agent.js";
 import { VendorCheckFailedDto } from "./dtos/vendor-check-failed.dto.js";

@@ -6,7 +6,7 @@ import {
   openExecutionHistory,
   type HistoryExportQuery,
   type OpenedExecutionHistory,
-} from "agboss/internal";
+} from "@agboss/core/internal";
 import { loadCliApplication } from "./cli/cli-application.js";
 import {
   flagOption,

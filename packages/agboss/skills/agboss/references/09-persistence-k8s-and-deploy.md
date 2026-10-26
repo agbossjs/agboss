@@ -32,7 +32,7 @@ own implementation of each contract (below) over Postgres, Redis or the like.
 ## The worked example: a durable application
 
 ```ts file=src/claims/environments/app.environment.ts
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   sqlitePath!: string; // required because SQLite stores are listed
@@ -41,7 +41,7 @@ export class AppEnvironment {
 ```
 
 ```ts file=src/claims/environments/prod.environment.ts
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -67,8 +67,8 @@ import {
   type IncompatibleResume,
   type ResumeDecision,
   type WorkflowDefinition,
-} from "agboss";
-import { Text, WorkflowStartTextDto } from "agboss/dto";
+} from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class ClaimAssessmentDto {
   @Text({ prompt: "the assessment of the claim" })
@@ -117,8 +117,8 @@ export class ClaimWorkflow implements WorkflowDefinition {
 ```
 
 ```ts file=src/claims/health/claims-api.health-check.ts
-import { HealthCheck, HealthCheckResult, Injectable, type HealthCheckHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { HealthCheck, HealthCheckResult, Injectable, type HealthCheckHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 
 @Injectable()
 export class ClaimsApiService {
@@ -154,8 +154,8 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
   type BudgetHandler,
-} from "agboss";
-import { hours, seconds, usd, type Usd } from "agboss/units";
+} from "@agboss/core";
+import { hours, seconds, usd, type Usd } from "@agboss/core/units";
 import { ClaimWorkflow } from "./claims.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { ClaimsApiHealthCheck, ClaimsApiService } from "./health/claims-api.health-check.js";
@@ -214,7 +214,7 @@ probes to its endpoints (`Unhealthy` → 503, anything else 200 — a `Degraded`
 
 ```ts file=src/claims/main.ts
 import { createServer } from "node:http";
-import { HealthStatus, createApp, type HealthReport } from "agboss";
+import { HealthStatus, createApp, type HealthReport } from "@agboss/core";
 import { ClaimsApplication } from "./claims.application.js";
 import { ClaimWorkflowStart } from "./claims.workflow.js";
 
@@ -450,8 +450,8 @@ import {
   SqliteConnection,
   SqliteExecutionLeaseRepository,
   type ExecutionLease,
-} from "agboss";
-import type { Milliseconds } from "agboss/units";
+} from "@agboss/core";
+import type { Milliseconds } from "@agboss/core/units";
 
 @Injectable()
 export class LeaseAuditService {
@@ -492,8 +492,8 @@ framework (durations as parameters, now from `Clock`), never from the store's cl
 
 ```ts file=tests/claims/health.test.ts
 import { expect } from "vitest";
-import { HealthStatus } from "agboss";
-import { replyWith, testWith } from "agboss/testing";
+import { HealthStatus } from "@agboss/core";
+import { replyWith, testWith } from "@agboss/core/testing";
 import { ClaimsApplication } from "../../src/claims/claims.application.js";
 import { ClaimAssessmentDto, ClaimAssessorAgent, ClaimWorkflowStart } from "../../src/claims/claims.workflow.js";
 

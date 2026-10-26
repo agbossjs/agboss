@@ -1,9 +1,12 @@
 {
-  "name": "agboss",
+  "name": "@agboss/core",
   "version": "0.1.0",
   "description": "Spring-style TypeScript framework for complex LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
   "type": "module",
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Pavel Ravvich <hello@agboss.dev> (https://github.com/pavelravvich)",
   "homepage": "https://agboss.dev",
   "repository": {
