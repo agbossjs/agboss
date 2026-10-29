@@ -1,8 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { AgentAnswerInvalidError, BudgetExceededError } from "@agboss/core";
-import { usd } from "@agboss/core/units";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  AgentAnswerInvalidError,
+  BudgetExceededError,
+  ExecutionLeaseLostError,
+  ExecutionLeaseRepository,
+} from "@agboss/core";
+import { seconds, usd } from "@agboss/core/units";
 import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
-import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
+import {
+  override,
+  replyWith,
+  replyWithInvalidAnswer,
+  routeTo,
+  testWith,
+} from "@agboss/core/testing";
+import { DeskMetricsObserver } from "../src/desk/observers/desk-metrics.observer.js";
+import {
+  CrashAfterChargePaymentService,
+  crash,
+  EndsSeenObserver,
+  endOf,
+  MortalExecutionLeaseRepository,
+  resetCrash,
+} from "./support/credit-crash.js";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
@@ -13,6 +33,7 @@ import { CreditLimitRouter } from "../src/credit/routers/credit-limit.router.js"
 import { DeskRouter } from "../src/credit/routers/desk.router.js";
 import { CreditServiceUnavailableError } from "../src/credit/services/credit-service-unavailable.error.js";
 import { CreditService } from "../src/credit/services/credit.service.js";
+import { PaymentService } from "../src/credit/services/payment.service.js";
 import { CreditWorkflowFinish } from "../src/credit/workflow-finishes/credit.workflow-finish.js";
 import { NoOrderWorkflowFinish } from "../src/credit/workflow-finishes/no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "../src/credit/workflow-finishes/order-held.workflow-finish.js";
@@ -50,7 +71,9 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
       ChargeCardAction,
       CreditWorkflowFinish,
     ]);
-    expect(large).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1" });
+    // two orders are two charges: each step has its own idempotency key
+    expect(small).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-1" });
+    expect(large).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-2" });
   });
 
   test("route() calls its service with the step's idempotency key", async ({
@@ -68,6 +91,25 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
     expect(mockOf(CreditService).limitOf.mock.calls).toEqual([
       [{ customerId: "c-1", requestKey: `${result.executionId}:credit-limit-router:1` }],
     ]);
+  });
+
+  test("the charge carries the step's idempotency key (#472)", async ({ app, mockLlm, mockOf }) => {
+    mockOf(PaymentService).charge.mockResolvedValue({ chargeId: "charge-from-the-provider" });
+    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+
+    const result = await app.execute(CreditWorkflowStart, { text: "50 dollars of tea" });
+
+    expect(mockOf(PaymentService).charge.mock.calls).toEqual([
+      [
+        {
+          customerId: "c-1",
+          total: 50,
+          idempotencyKey: `${result.executionId}:charge-card-action:1`,
+        },
+      ],
+    ]);
+    expect(result).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-from-the-provider" });
   });
 
   test("a message that is not an order is handed over", async ({ app, mockLlm }) => {
@@ -177,5 +219,68 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
 
   await expect(app.execute(CreditWorkflowStart, { text: "lots of tea" })).rejects.toFailWith(
     AgentAnswerInvalidError,
+  );
+});
+
+/**
+ * #472 AC2: the charge is made, then its instance dies before the step's checkpoint is written —
+ * another instance on the same file recovers the execution and runs the step again with the same
+ * idempotency key; the payment provider answers with the charge it made, so there is one.
+ */
+const instances = testWith(FlowPatternsApplication, {
+  instances: 2,
+  env: "instances",
+  overrides: [
+    override(ExecutionLeaseRepository, MortalExecutionLeaseRepository),
+    override(PaymentService, CrashAfterChargePaymentService),
+    override(DeskMetricsObserver, EndsSeenObserver),
+  ],
+});
+
+describe("#472: a crash after the charge, before its checkpoint", () => {
+  beforeEach(resetCrash);
+  afterEach(resetCrash);
+
+  instances(
+    "the recovered step charges no second time: one charge, the same chargeId",
+    async ({ apps, clock, mockLlm }) => {
+      mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+      mockLlm(OrderIntakeAgent).thenReturn(
+        replyWith(CreditOrderDto, { customerId: "c-crash", total: 50 }),
+      );
+      const [first, second] = apps;
+      if (first === undefined || second === undefined) throw new Error("two instances expected");
+      await Promise.all([first.ready(), second.ready()]);
+      const charged = new Promise<void>((resolve) => {
+        crash.charged = resolve;
+      });
+
+      const dying = first.execute(CreditWorkflowStart, { text: "50 dollars of tea" });
+      dying.catch(() => undefined);
+      await charged;
+      crash.dead.add("instance-1");
+      await clock.advance(seconds(31));
+      const ended = await endOf("credit-workflow");
+
+      await expect(dying).rejects.toBeInstanceOf(ExecutionLeaseLostError);
+      const key = `${ended.executionId}:charge-card-action:1`;
+      const charge = { chargeNumber: 1, customerId: "c-crash", total: 50 };
+      expect(crash.charges).toEqual([
+        {
+          instanceId: "instance-1",
+          idempotencyKey: key,
+          chargeId: "charge-c-crash-1",
+          ledger: [charge],
+        },
+        {
+          instanceId: "instance-2",
+          idempotencyKey: key,
+          chargeId: "charge-c-crash-1",
+          ledger: [charge],
+        },
+      ]);
+      expect(ended.finish.name).toBe("credit-workflow-finish");
+      expect(crash.ends.map((event) => event.executionId)).toEqual([ended.executionId]);
+    },
   );
 });
