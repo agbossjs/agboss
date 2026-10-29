@@ -47,8 +47,9 @@ function runContextOf(
   row: QueuedChildExecution,
   registry: ChildRegistry,
   deps: AppDeps,
-  signal: AbortSignal,
+  at: { readonly signal: AbortSignal; readonly lease: HeldExecutionLease },
 ): RunContext {
+  const { signal, lease } = at;
   const contexts = deps.contexts ?? standaloneContexts(deps.config);
   const values = run.initial.contexts;
   const parent = parentOfRecord(run.parent, {
@@ -66,7 +67,7 @@ function runContextOf(
     input: run.input,
     ...(run.ownerId === undefined ? {} : { ownerId: run.ownerId }),
     // the child's own lease (#471): its steps fence with it, never its parent's
-    ...(deps.lease === undefined ? {} : { lease: deps.lease }),
+    lease,
     tree: { parent, itemIndex: run.initial.child.itemIndex },
   };
 }
@@ -207,7 +208,7 @@ export async function runQueuedChild(
     const rootDeps = leasedDeps(root.deps, lease);
     const childDeps = leasedGraphDeps(rawChildDeps, lease);
     const run = await decodedRun(parts.serde, row.run);
-    const context = runContextOf(run, row, parts.registry, rootDeps, signal);
+    const context = runContextOf(run, row, parts.registry, rootDeps, { signal, lease });
     const { rests } = await streamed(childDeps, rootDeps, row, run, context);
     return { status: rests ? ExecutionRecordStatus.Paused : ExecutionRecordStatus.Answered };
   } catch (error) {

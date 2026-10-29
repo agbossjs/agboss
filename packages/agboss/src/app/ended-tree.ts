@@ -60,7 +60,7 @@ export interface TreeEnd {
   readonly cause: Error;
   readonly signal: AbortSignal;
   /** The lease the undo runs under: its actions fence with it (#471). */
-  readonly lease?: FrameLease | undefined;
+  readonly lease: FrameLease;
 }
 
 /** Ends the tree as described above. */

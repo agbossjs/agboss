@@ -29,7 +29,7 @@ export interface TreeUndoSites {
   /** The undo's signal: the lease's (a lost lease is no outcome of the undo, #265). */
   readonly signal: AbortSignal;
   /** The lease the undo runs under: its actions' `executionContext.fence` (#471). */
-  readonly lease?: FrameLease | undefined;
+  readonly lease: FrameLease;
   readonly reason: CompensationReason;
   readonly namespaces: ReadonlyMap<string, string>;
 }
@@ -65,7 +65,7 @@ function factsOf(
     workflow: Object.freeze({ ...identity, startedVersion }),
     tenant: tenantOfExecution(runtime, contexts.tenant),
     values: contexts.execution,
-    ...(sites.lease === undefined ? {} : { lease: sites.lease }),
+    lease: sites.lease,
   });
 }
 

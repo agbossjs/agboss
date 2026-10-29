@@ -27,7 +27,7 @@ export async function undoneTreeEnd<TError>(
   failure: {
     readonly error: TError;
     readonly signal: AbortSignal;
-    readonly lease?: FrameLease | undefined;
+    readonly lease: FrameLease;
   },
   undo: EndedTreeUndo,
 ): Promise<TError | CompensationFailedError> {
@@ -47,7 +47,7 @@ export function unwindingDeps(
   state: TreeState,
   at: {
     readonly signal: AbortSignal;
-    readonly lease?: FrameLease | undefined;
+    readonly lease: FrameLease;
     readonly undo: EndedTreeUndo;
   },
 ): AppDeps {
