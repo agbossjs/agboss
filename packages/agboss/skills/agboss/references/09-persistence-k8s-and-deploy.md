@@ -31,7 +31,7 @@ own implementation of each contract (below) over Postgres, Redis or the like.
 
 ## The worked example: a durable application
 
-```ts file=src/claims/environments/app.environment.ts
+```ts file=src/environments/app.environment.ts
 import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
@@ -40,7 +40,7 @@ export class AppEnvironment {
 }
 ```
 
-```ts file=src/claims/environments/prod.environment.ts
+```ts file=src/environments/prod.environment.ts
 import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
@@ -50,7 +50,7 @@ export const environment: AppEnvironment = {
 };
 ```
 
-```ts file=src/claims/environments/test.environment.ts
+```ts file=src/environments/test.environment.ts
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = { sqlitePath: ":memory:" };
@@ -65,7 +65,7 @@ export class ClaimAssessmentDto {
 }
 ```
 
-```ts file=src/claims/workflow-starts/claim.workflow-start.ts
+```ts file=src/claims/workflows/claim/claim.workflow-start.ts
 import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
@@ -73,10 +73,10 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 export class ClaimWorkflowStart {}
 ```
 
-```ts file=src/claims/agents/claim-assessor.agent.ts
+```ts file=src/claims/agents/claim-assessor/claim-assessor.agent.ts
 import { Agent } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { ClaimAssessmentDto } from "../dto/claim-assessment.dto.js";
+import { ClaimAssessmentDto } from "../../dto/claim-assessment.dto.js";
 
 @Agent({
   name: "claim-assessor-agent",
@@ -89,15 +89,15 @@ import { ClaimAssessmentDto } from "../dto/claim-assessment.dto.js";
 export class ClaimAssessorAgent {}
 ```
 
-```ts file=src/claims/workflow-finishes/claim.workflow-finish.ts
+```ts file=src/claims/workflows/claim/claim.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import { ClaimAssessmentDto } from "../dto/claim-assessment.dto.js";
+import { ClaimAssessmentDto } from "../../dto/claim-assessment.dto.js";
 
 @WorkflowFinish({ name: "claim-workflow-finish", description: "The assessment", output: ClaimAssessmentDto })
 export class ClaimWorkflowFinish {}
 ```
 
-```ts file=src/claims/claims.workflow.ts
+```ts file=src/claims/workflows/claim/claim.workflow.ts
 import {
   Workflow,
   WorkflowSettings,
@@ -107,10 +107,10 @@ import {
   type WorkflowDefinition,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { ClaimAssessorAgent } from "./agents/claim-assessor.agent.js";
-import { ClaimAssessmentDto } from "./dto/claim-assessment.dto.js";
-import { ClaimWorkflowFinish } from "./workflow-finishes/claim.workflow-finish.js";
-import { ClaimWorkflowStart } from "./workflow-starts/claim.workflow-start.js";
+import { ClaimAssessorAgent } from "../../agents/claim-assessor/claim-assessor.agent.js";
+import { ClaimAssessmentDto } from "../../dto/claim-assessment.dto.js";
+import { ClaimWorkflowFinish } from "./claim.workflow-finish.js";
+import { ClaimWorkflowStart } from "./claim.workflow-start.js";
 
 /** A paused or running execution of another config hash is continued only when the version is the same. */
 const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
@@ -201,7 +201,7 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
-```ts file=src/claims/claims.application.ts
+```ts file=src/claims.application.ts
 import {
   Application,
   SqliteCheckpointSaver,
@@ -214,13 +214,13 @@ import {
   SqliteRateLimitRepository,
 } from "@agboss/core";
 import { hours, seconds } from "@agboss/core/units";
-import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
-import { ExecutionBudget } from "./budgets/execution.budget.js";
-import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
-import { ClaimWorkflow } from "./claims.workflow.js";
+import { ApplicationDailyBudget } from "./claims/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./claims/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./claims/budgets/tenant-daily.budget.js";
+import { ClaimsApiHealthCheck } from "./claims/health-checks/claims-api.health-check.js";
+import { ClaimsApiService } from "./claims/services/claims-api.service.js";
+import { ClaimWorkflow } from "./claims/workflows/claim/claim.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { ClaimsApiHealthCheck } from "./health-checks/claims-api.health-check.js";
-import { ClaimsApiService } from "./services/claims-api.service.js";
 
 @Application({
   name: "claims-application",
@@ -253,11 +253,11 @@ export class ClaimsApplication {}
 The process: `createApp` closes the app on SIGTERM / SIGINT by itself; the project's server maps the
 probes to its endpoints (`Unhealthy` → 503, anything else 200 — a `Degraded` instance still serves):
 
-```ts file=src/claims/main.ts
+```ts file=src/http/server.ts
 import { createServer } from "node:http";
 import { HealthStatus, createApp, type HealthReport } from "@agboss/core";
-import { ClaimsApplication } from "./claims.application.js";
-import { ClaimWorkflowStart } from "./workflow-starts/claim.workflow-start.js";
+import { ClaimsApplication } from "../claims.application.js";
+import { ClaimWorkflowStart } from "../claims/workflows/claim/claim.workflow-start.js";
 
 const app = await createApp(ClaimsApplication, { env: "prod" }); // listens for SIGTERM / SIGINT
 
@@ -601,14 +601,14 @@ framework (durations as parameters, now from `Clock`), never from the store's cl
 
 ## Testing it
 
-```ts file=tests/claims/health.test.ts
+```ts file=tests/claims.application.test.ts
 import { expect } from "vitest";
 import { HealthStatus } from "@agboss/core";
 import { replyWith, testWith } from "@agboss/core/testing";
-import { ClaimsApplication } from "../../src/claims/claims.application.js";
-import { ClaimAssessorAgent } from "../../src/claims/agents/claim-assessor.agent.js";
-import { ClaimAssessmentDto } from "../../src/claims/dto/claim-assessment.dto.js";
-import { ClaimWorkflowStart } from "../../src/claims/workflow-starts/claim.workflow-start.js";
+import { ClaimsApplication } from "../src/claims.application.js";
+import { ClaimAssessorAgent } from "../src/claims/agents/claim-assessor/claim-assessor.agent.js";
+import { ClaimAssessmentDto } from "../src/claims/dto/claim-assessment.dto.js";
+import { ClaimWorkflowStart } from "../src/claims/workflows/claim/claim.workflow-start.js";
 
 const test = testWith(ClaimsApplication); // the test environment: sqlitePath ":memory:"
 const twoInstances = testWith(ClaimsApplication, { instances: 2 });
