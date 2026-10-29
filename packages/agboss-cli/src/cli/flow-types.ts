@@ -50,6 +50,7 @@ function workflowModulesOf(project: string, file: string): string[] {
  * The application `package.json` sets, none when it sets none or cannot be read (a missing file, a
  * path that is not a string, invalid JSON): `--application` wins over `package.json` (#268 AC1), so
  * a broken setting there is not this check's failure — the types go to the project's file as before.
+ * (A package.json that is not JSON still fails `agboss check`: its skills sync reads it, #305.)
  */
 function configuredApplicationOfOrNone(project: string): ApplicationPath | undefined {
   try {

@@ -170,6 +170,14 @@ describe("#468: what is and is not isolated", () => {
     expect(scopedTypesOf(cwd)).toEqual(["types.cases-one-agboss-fixed-application.d.ts"]);
   });
 
+  it("an .mts module loses its extension too", async () => {
+    const cwd = projectWith({ "cases/two/application.mts": STAR }, PARTS);
+
+    await agboss(["check", "--application", "cases/two/application.mts"], cwd);
+
+    expect(scopedTypesOf(cwd)).toEqual(["types.cases-two-application.d.ts"]);
+  });
+
   it("a module outside the project folder is named without the leading ..", async () => {
     const cwd = projectOf(PARTS);
 
@@ -265,6 +273,26 @@ describe("#468: a broken setting in package.json does not fail --application", (
     expect(call.code).toBe(3);
     expect(call.stderr).toContain("Application file not found");
     expect(existsSync(join(cwd, ".agboss"))).toBe(false);
+  });
+
+  it("a package.json that is not JSON is the project's to fix, also with --application", async () => {
+    const cwd = brokenProject('{"name":"p","agboss":');
+
+    const call = await agboss(["check", "--application", STAR], cwd);
+
+    expect(call.code).toBe(3);
+    expect(call.stderr).toContain("package.json: Unexpected end of JSON input");
+    expect(existsSync(join(cwd, ".agboss"))).toBe(false);
+  });
+
+  it("the types of --application go to the project's file when package.json is not JSON", async () => {
+    const cwd = brokenProject('{"name":"p","agboss":');
+    const lines: string[] = [];
+
+    await regenerateFlowTypes(contextIn(cwd, lines), [STAR]);
+
+    expect(lines).toEqual(["say   types: .agboss/types.d.ts"]);
+    expect(scopedTypesOf(cwd)).toEqual([]);
   });
 
   it("agboss generate regenerates the project's file", async () => {
