@@ -50,7 +50,7 @@ export interface TreeUnwindCall<TCause> {
   readonly cause: TCause;
   readonly signal: AbortSignal;
   /** The lease the undo runs under: its actions fence with it (#471). */
-  readonly lease?: FrameLease | undefined;
+  readonly lease: FrameLease;
 }
 
 /** What the tree's end raises and the undo records its error event carries. */

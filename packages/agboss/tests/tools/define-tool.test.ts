@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/index.js";
 import {
   defineTool,
   InvalidToolNameError,
@@ -125,5 +126,42 @@ describe("defineTool", () => {
         run: () => Promise.resolve(""),
       }),
     ).toThrow(InvalidToolNameError);
+  });
+});
+
+describe("defineTool: what rises instead of an error result (#471)", () => {
+  it("a fenced write rises as the ExecutionFencedError, wrapped or not", async () => {
+    const fenced = new ExecutionFencedError({
+      scopeKey: "acme:root-1",
+      token: 1,
+      observedToken: 2,
+    });
+
+    for (const thrown of [fenced, new Error("the ledger refused", { cause: fenced })])
+      await expect(echo(() => Promise.reject(thrown)).invoke({ text: "a" }, ctx())).rejects.toBe(
+        fenced,
+      );
+  });
+
+  it("a run failing after its lease was lost rises as the lost lease, not as the model's error", async () => {
+    const lost = new ExecutionLeaseLostError("root-1");
+    const controller = new AbortController();
+    const tool = echo(() => {
+      controller.abort(lost);
+      return Promise.reject(new Error("the connection was closed"));
+    });
+
+    await expect(tool.invoke({ text: "a" }, ctx(controller.signal))).rejects.toBe(lost);
+  });
+
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["a string", "boom"],
+    ["a number", 42],
+  ])("a run rejecting with %s is an error result, never a TypeError", async (_case, thrown) => {
+    const tool = echo(vi.fn<Run>().mockRejectedValue(thrown));
+
+    expect(await tool.invoke({ text: "a" }, ctx())).toMatchObject({ kind: "error" });
   });
 });

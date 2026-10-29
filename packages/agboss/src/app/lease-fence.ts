@@ -42,11 +42,6 @@ export class LeaseFence {
     this.#confirmedUntil = askedAt + EXECUTION_LEASE;
   }
 
-  /** Whether the lease is yielded while remote children run (#333 PR 4): no time to trust. */
-  get isYielded(): boolean {
-    return this.#confirmedUntil === Number.POSITIVE_INFINITY;
-  }
-
   /**
    * Aborts the holder: another instance took the lease (or this instance can no longer acquire it),
    * or an external system fenced one of its writes (`reason`, #471).

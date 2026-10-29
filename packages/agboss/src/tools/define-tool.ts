@@ -101,13 +101,12 @@ const standaloneCall = (): ToolInvocationContext => ({
   reportCost: () => undefined,
 });
 
-/** A LangGraph interrupt (a pause), by class or by name across module copies. */
-const isInterrupt = (error: unknown): boolean =>
-  isGraphInterrupt(error) ||
-  (typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    error.name === "GraphInterrupt");
+/**
+ * A LangGraph interrupt (a pause) — by its name, so across module copies too. Safe on anything a
+ * run may throw: `isGraphInterrupt(null)` reads `null.name` and throws.
+ */
+const isPause = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && isGraphInterrupt(error);
 
 /**
  * What a run that threw gives besides a pause: a hand-over rises as it is — a lost lease or a fenced
@@ -143,7 +142,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
         { timeout, clock: ctx.clock },
       );
     } catch (error) {
-      if (isInterrupt(error)) throw error;
+      if (isPause(error)) throw error;
       return failedRun(error, ctx.signal);
     }
     const output = definition.output.safeParse(produced);

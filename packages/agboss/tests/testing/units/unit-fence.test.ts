@@ -12,6 +12,7 @@ import {
   testTool,
   VirtualClock,
 } from "../../../src/testing/index.js";
+import { testFenceLeaseOf } from "../../../src/testing/fence.js";
 import { seconds } from "../../../src/units/index.js";
 import {
   ArtifactLedger,
@@ -129,6 +130,40 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
       observedToken: 4,
     });
     expect(fence.fenced()).toBeInstanceOf(ExecutionFencedError);
+  });
+
+  it("isLost: confirmNow() rejects too, and the confirmNowFails option does not matter", async () => {
+    const { fence } = testExecutionContext({
+      fence: { isLost: true, confirmNowFails: new Error("store down") },
+    });
+
+    await expect(fence.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+    expect(() => {
+      fence.assertHeld();
+    }).toThrow(ExecutionLeaseLostError);
+  });
+
+  it("the lost error names the execution the lease is of", async () => {
+    const { fence } = testExecutionContext({
+      executionId: "execution-9",
+      fence: { leaseExecutionId: "root-9", isLost: true },
+    });
+
+    await expect(fence.confirmNow()).rejects.toMatchObject({ rootExecutionId: "root-9" });
+  });
+
+  it("a unit test's lease is never yielded: entering a step holds it, leaving changes nothing", async () => {
+    const lease = testFenceLeaseOf(
+      { token: 2 },
+      { tenantId: "acme", executionId: "execution-1", clock: new VirtualClock() },
+    );
+
+    const leave = await lease.enterStep();
+    leave();
+    leave();
+
+    expect(lease).toMatchObject({ isYielded: false, token: 2, scopeKey: "acme:execution-1" });
+    expect(Object.isFrozen(lease)).toBe(true);
   });
 
   it("a class created by hand fences with it", async () => {
