@@ -18,14 +18,15 @@ import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/
 import { LeaseGate } from "../../src/testing/leases.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
-import { storeKinds } from "../infrastructure/contracts/store-kinds.js";
+import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
+import { withTarget } from "../../src/testing/contracts/seam.js";
 
-const kinds = storeKinds<ExecutionLeaseRepository>({
-  inMemory: ({ clock, application, database }) =>
+const kinds = storeTargets<ExecutionLeaseRepository>(
+  ({ clock, application, database }) =>
     new InMemoryExecutionLeaseRepository(clock, application, database),
-  sqlite: ({ clock, application, connection }) =>
+  ({ clock, application, connection }) =>
     new SqliteExecutionLeaseRepository(connection(), clock, application),
-});
+);
 
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };
 
@@ -78,114 +79,126 @@ function heldWait(): { readonly wait: () => Promise<void>; end: (error?: Error) 
 const acquireBy = (store: ExecutionLeaseRepository) =>
   store.acquire(TREE.tenantId, TREE.rootExecutionId, seconds(30));
 
-describe.each(kinds)("#471: the held lease at its edges ($name)", ({ twoInstances }) => {
-  it("confirmNow() while the lease is yielded rejects: lost, nothing renewed", async () => {
-    const { clock, first } = twoInstances();
-    const lease = await heldOn(first, clock);
-    const { wait, end } = heldWait();
-    const waiting = lease.yieldWhile(wait);
-    waiting.catch(() => undefined);
-    await settled();
-    expect(lease.isYielded).toBe(true);
+describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
+  it(
+    "confirmNow() while the lease is yielded rejects: lost, nothing renewed",
+    withTarget(target, async ({ clock, first }) => {
+      const lease = await heldOn(first, clock);
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      waiting.catch(() => undefined);
+      await settled();
+      expect(lease.isYielded).toBe(true);
 
-    await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+      await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
 
-    expect(lease.signal.aborted).toBe(true);
-    end();
-    await expect(waiting).resolves.toBeUndefined();
-    await lease.release();
-  });
+      expect(lease.signal.aborted).toBe(true);
+      end();
+      await expect(waiting).resolves.toBeUndefined();
+      await lease.release();
+    }),
+  );
 
-  it("a wait that ends in a hand-over rises as it is; the lease is not taken back", async () => {
-    const { clock, first, second } = twoInstances();
-    const lease = await heldOn(first, clock);
-    const { wait, end } = heldWait();
-    const waiting = lease.yieldWhile(wait);
-    waiting.catch(() => undefined);
-    await settled();
-    const handedOver = new ExecutionLeaseLostError(TREE.rootExecutionId);
+  it(
+    "a wait that ends in a hand-over rises as it is; the lease is not taken back",
+    withTarget(target, async ({ clock, first, second }) => {
+      const lease = await heldOn(first, clock);
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      waiting.catch(() => undefined);
+      await settled();
+      const handedOver = new ExecutionLeaseLostError(TREE.rootExecutionId);
 
-    end(handedOver);
+      end(handedOver);
 
-    await expect(waiting).rejects.toBe(handedOver);
-    expect(lease.token).toBeUndefined();
-    expect((await acquireBy(second))?.leaseEpoch).toBe(2);
-    await lease.release();
-  });
+      await expect(waiting).rejects.toBe(handedOver);
+      expect(lease.token).toBeUndefined();
+      expect((await acquireBy(second))?.leaseEpoch).toBe(2);
+      await lease.release();
+    }),
+  );
 
-  it("a wait that fails otherwise takes the lease back, then rises", async () => {
-    const { clock, first, second } = twoInstances();
-    const lease = await heldOn(first, clock);
-    const { wait, end } = heldWait();
-    const waiting = lease.yieldWhile(wait);
-    waiting.catch(() => undefined);
-    await settled();
-    const failure = new Error("the remote child failed");
+  it(
+    "a wait that fails otherwise takes the lease back, then rises",
+    withTarget(target, async ({ clock, first, second }) => {
+      const lease = await heldOn(first, clock);
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      waiting.catch(() => undefined);
+      await settled();
+      const failure = new Error("the remote child failed");
 
-    end(failure);
+      end(failure);
 
-    await expect(waiting).rejects.toBe(failure);
-    expect(lease.token).toBe(2);
-    expect(lease.isYielded).toBe(false);
-    expect(await acquireBy(second)).toBeUndefined();
-    await lease.release();
-  });
+      await expect(waiting).rejects.toBe(failure);
+      expect(lease.token).toBe(2);
+      expect(lease.isYielded).toBe(false);
+      expect(await acquireBy(second)).toBeUndefined();
+      await lease.release();
+    }),
+  );
 
-  it("release() after a fenced write leaves the store alone: the lease runs out there", async () => {
-    const { clock, first, second } = twoInstances();
-    const { store, released } = countingReleases(first);
-    const lease = await heldOn(store, clock);
-    // a fenced write found anywhere stops the holder of its token (#471)
-    handedOverOf(
-      new ExecutionFencedError({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
-      undefined,
-    );
-    expect(lease.signal.aborted).toBe(true);
+  it(
+    "release() after a fenced write leaves the store alone: the lease runs out there",
+    withTarget(target, async ({ clock, first, second }) => {
+      const { store, released } = countingReleases(first);
+      const lease = await heldOn(store, clock);
+      // a fenced write found anywhere stops the holder of its token (#471)
+      handedOverOf(
+        new ExecutionFencedError({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
+        undefined,
+      );
+      expect(lease.signal.aborted).toBe(true);
 
-    await lease.release();
+      await lease.release();
 
-    expect(released).toEqual([]);
-    expect(await acquireBy(second)).toBeUndefined();
-    expect(lease.isYielded).toBe(false);
-  });
+      expect(released).toEqual([]);
+      expect(await acquireBy(second)).toBeUndefined();
+      expect(lease.isYielded).toBe(false);
+    }),
+  );
 
-  it("release() while yielded and release() twice give the store nothing more", async () => {
-    const { clock, first } = twoInstances();
-    const { store, released } = countingReleases(first);
-    const lease = await heldOn(store, clock);
-    const { wait, end } = heldWait();
-    const waiting = lease.yieldWhile(wait);
-    waiting.catch(() => undefined);
-    await settled();
-    expect(released).toHaveLength(1);
+  it(
+    "release() while yielded and release() twice give the store nothing more",
+    withTarget(target, async ({ clock, first }) => {
+      const { store, released } = countingReleases(first);
+      const lease = await heldOn(store, clock);
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      waiting.catch(() => undefined);
+      await settled();
+      expect(released).toHaveLength(1);
 
-    await lease.release();
-    await lease.release();
+      await lease.release();
+      await lease.release();
 
-    expect(released).toHaveLength(1);
-    end();
-    await waiting;
-  });
+      expect(released).toHaveLength(1);
+      end();
+      await waiting;
+    }),
+  );
 
-  it("a step's leave called twice counts once: the other step still keeps the lease", async () => {
-    const { clock, first, second } = twoInstances();
-    const lease = await heldOn(first, clock);
-    const leaveOne = await lease.enterStep();
-    const leaveOther = await lease.enterStep();
-    leaveOne();
-    leaveOne();
-    const { wait, end } = heldWait();
-    const waiting = lease.yieldWhile(wait);
-    await settled();
+  it(
+    "a step's leave called twice counts once: the other step still keeps the lease",
+    withTarget(target, async ({ clock, first, second }) => {
+      const lease = await heldOn(first, clock);
+      const leaveOne = await lease.enterStep();
+      const leaveOther = await lease.enterStep();
+      leaveOne();
+      leaveOne();
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      await settled();
 
-    expect(lease.isYielded).toBe(false);
-    expect(await acquireBy(second)).toBeUndefined();
+      expect(lease.isYielded).toBe(false);
+      expect(await acquireBy(second)).toBeUndefined();
 
-    leaveOther();
-    await settled();
-    expect(lease.isYielded).toBe(true);
-    end();
-    await waiting;
-    await lease.release();
-  });
+      leaveOther();
+      await settled();
+      expect(lease.isYielded).toBe(true);
+      end();
+      await waiting;
+      await lease.release();
+    }),
+  );
 });

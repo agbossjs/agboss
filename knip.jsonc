@@ -23,6 +23,7 @@
         "src/index.ts",
         "src/internal.ts",
         "src/{dto,units,models,testing,mcp,rag,a2a,memory,eval,eslint}/index.ts",
+        "src/testing/contracts/index.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
@@ -33,6 +34,8 @@
         "tests/**/eval-suites/*.eval-suite.ts",
         // loaded by path: the applications `agboss check --federation` is tested on (#398 PR 4)
         "tests/federation/fixtures/*.application.ts",
+        // loaded by path: the contract fixtures a nested vitest runs (#481)
+        "tests/fixtures/contracts/*.contract-fixture.ts",
         // compile-time tests: checked by tsc (the gate's typecheck), not run by Vitest (#272)
         "tests/**/*.test-d.ts",
       ],
