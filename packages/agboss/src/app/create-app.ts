@@ -23,6 +23,7 @@ import { pausedRunBook } from "./paused-runs.js";
 import { UnknownToolError, withWithdrawals } from "./parts.js";
 import { LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
+import { leasingOf } from "../infrastructure/contracts.js";
 import { treeMovesOf } from "./tree-moves.js";
 import {
   contextValuesOf,
@@ -91,11 +92,12 @@ export async function buildApp(
   };
   const policy = bundle.onIncompatibleResume;
   const { pausedExecutions: pauses, records: log } = parts.infrastructure;
-  const { executionLeases, executionTrees: trees, clock } = parts.infrastructure;
+  const { executionTrees: trees, clock } = parts.infrastructure;
   // a cancel tells the channels of its sent pauses (#337)
   const paused = pausedRunBook({ pauses, answers: log, withdrawn }, current, clock);
   const live = new LiveRuns();
-  const leases = executionLeasesOf(executionLeases, clock);
+  const leasing = leasingOf(parts.infrastructure);
+  const leases = executionLeasesOf(leasing.repository, leasing.clock);
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);

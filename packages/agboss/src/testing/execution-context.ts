@@ -27,6 +27,10 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { arbiterOf } from "../flow/decorators/arbiter.js";
 import { componentKindOf } from "../flow/runtime/join-keys.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
+import { fenceOver } from "../flow/context/execution-fence.js";
+import type { Clock } from "../infrastructure/clock.js";
+import { VirtualClock } from "./clock.js";
+import { testFenceLeaseOf, type TestFenceOptions } from "./fence.js";
 
 /** The step of a `testExecutionContext`: what is not given takes its default. */
 export interface TestStepOptions {
@@ -47,6 +51,8 @@ export interface TestExecutionContextOptions {
   /** The `@Workflow` class (its `name` and `version` from its decorator). */
   readonly workflow?: WorkflowClass;
   readonly step?: TestStepOptions;
+  /** The clock `fence.confirmedUntil` and `fence.assertHeld()` read (#471); default a `VirtualClock`. */
+  readonly clock?: Clock;
 }
 
 /** Stands in for a component a test does not name. */
@@ -144,6 +150,8 @@ export interface TestContextOptions<
   /** The execution subclass's values, checked by its field decorators. */
   readonly execution?: ContextValues<TExecution>;
   readonly application?: TestApplicationOptions;
+  /** `executionContext.fence` (#471): a held lease of the execution by default (token 1). */
+  readonly fence?: TestFenceOptions;
 }
 
 const applicationOf = (options: TestApplicationOptions = {}): ApplicationContext =>
@@ -178,7 +186,8 @@ function executionDataOf(options: TestExecutionContextOptions): Readonly<Record<
  * `new WriteAuditAction(testExecutionContext(), fakeAuditRepository)`. Frozen, one level (no
  * parent), readable at any time — no execution needed. Defaults: execution `test-execution`, its
  * own thread, no owner, a signal nobody aborts, step `test-step` on its first visit, the tenant
- * `"default"` of an application `test-application` on the `test` environment. With the project's
+ * `"default"` of an application `test-application` on the `test` environment, a held lease (`fence`:
+ * token 1, confirmed for 30 s on `clock`, #471). With the project's
  * subclasses (`executionContext`, `tenantContext`) the values are checked by their decorators:
  * `testExecutionContext({ tenantContext: JobScoutTenantContext, tenant: { dailyBudget: usd(40) } }).tenant`.
  */
@@ -201,6 +210,12 @@ export function testExecutionContext<
     readonly tenant: TTenant;
   };
   Object.assign(context, executionDataOf(options), values, { tenant });
+  const lease = testFenceLeaseOf(options.fence ?? {}, {
+    tenantId: tenant.tenantId,
+    executionId: options.executionId ?? "test-execution",
+    clock: options.clock ?? new VirtualClock(),
+  });
+  Object.defineProperty(context, "fence", { enumerable: true, value: fenceOver(() => lease) });
   Object.defineProperty(context, "root", { enumerable: true, value: context });
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) => (workflow === context.workflow.type ? context : undefined),

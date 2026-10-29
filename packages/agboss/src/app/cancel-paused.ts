@@ -28,7 +28,7 @@ export async function cancelledPaused(parts: CancelParts, thread: ThreadKey): Pr
     const cause = new ExecutionCancelledError(
       `thread "${thread.threadId}" was cancelled while paused`,
     );
-    const ended = await endedWithoutPass(parts, state, { cause, signal: lease.signal });
+    const ended = await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease });
     if (ended.error instanceof CompensationFailedError) throw ended.error;
     return true;
   } finally {

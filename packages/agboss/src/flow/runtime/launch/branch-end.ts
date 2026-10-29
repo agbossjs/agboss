@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { handedOverReason } from "../../../app/handed-over.js";
+import { handedOverOf } from "../../../app/handed-over.js";
 import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { StepFailedError } from "../../../graph/errors.js";
@@ -43,10 +43,15 @@ export const executionSignalOf = (config: RunnableConfig | undefined, runId: str
 
 /**
  * A hand-over and a cancel of the execution (S21): thrown as they are — never recorded, never
- * `Skip`ped, never taken by `.onJoinError(…)`.
+ * `Skip`ped, never taken by `.onJoinError(…)`. A fenced write behind the branch's `error` (#471) is a
+ * hand-over too, and wins over the signal's reason.
  */
-export function passThroughStops(config: RunnableConfig | undefined, runId: string): void {
-  const handedOver = handedOverReason(config?.signal);
+export function passThroughStops(
+  config: RunnableConfig | undefined,
+  runId: string,
+  error?: unknown,
+): void {
+  const handedOver = handedOverOf(error, config?.signal);
   if (handedOver !== undefined) throw handedOver;
   if (executionSignalOf(config, runId).aborted || config?.signal?.aborted === true)
     throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");

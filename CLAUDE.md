@@ -1884,7 +1884,27 @@ export class PlanService {
   before its last confirmed renewal plus `seconds(30)` — a lease store error before then lets a
   checkpoint write go on, at that moment the execution's `signal` aborts with
   `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call.
+  While a parent node waits for `AnyInstance` children it yields the lease only when no other step
+  of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first).
   Wiki → Several-instances.
+- **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
+  under — the root's for a root, its `ParentInstance` children and `ThisWorkflow` levels, an
+  `AnyInstance` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
+  `:`), `tenantId`, `leaseExecutionId`, `token` (the lease's `leaseEpoch`, a counter of that one
+  key), `confirmedUntil`, `assertHeld()` (local; past `confirmedUntil` it expires the lease first),
+  `confirmNow()` (a renewal now: confirmed → the #360 checks; anything else aborts the lease and
+  rejects) and `fenced(observedToken)`. An external system keeps the highest token per `scopeKey`
+  with the step's `idempotencyKey` in one transaction — `incoming >= highest` accepted, below
+  refused with `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken`),
+  found anywhere in a cause chain or an `AggregateError` and a hand-over at every site — no
+  `.onError`, no undo, no `onToolEnd`, nothing to the model, the record stays `running`, no
+  `onExecutionError`; the moving call rejects with the fenced error itself (`fencedErrorOf` before
+  the signal's reason). Exactly-once only when the external system checks both atomically; a mark
+  keyed by a shared aggregate fences parallel `AnyInstance` children wrongly. Frames with no lease
+  (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) and an
+  ancestor's `parent.fence` / `root.fence` throw `ExecutionContextUnavailableError`. Wiki →
+  Several-instances.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose
@@ -2031,7 +2051,9 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   one clock: a lease, a pause resumed on the other instance, a rate-limit slot — the in-memory
   defaults are shared; listed SQLite stores on `sqlitePath: ":memory:"` are **not**, each instance
   opens its own database, so a multi-instance test names one file, e.g. flow-patterns'
-  `instances` environment on a temp path, #458); models answer by script — `replyWith(text)` or
+  `instances` environment on a temp path, #458) and `leases` (#471: `leases.stall(apps[0])` freezes
+  that instance's lease store calls and lease timers while its steps run on, `leases.resume(…)`
+  lets them go — a zombie writer on the `VirtualClock`); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
   the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
   `routeTo(...targets)` (`Route<R>`: one target after `.chooseOne(…)`, the `OnDemand` ones before a
@@ -2083,7 +2105,9 @@ probability, refusal? }`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
-  decorators), else the default tenant. `testExecutionContext({ … })` stays for a class created
+  decorators), else the default tenant; with a held lease (`executionContext.fence`: token 1, the
+  execution's own scope, confirmed for 30 s on the runner's clock), set by `fence: { token,
+leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` (#471). `testExecutionContext({ … })` stays for a class created
   by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a
   real model; real-model checks are `make smoke`.
 

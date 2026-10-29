@@ -1,3 +1,4 @@
+import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import {
@@ -114,6 +115,7 @@ export class TestEnvironment {
   /** The PII key of its instances when the application sets none (#334). */
   readonly #piiTestKey: string | undefined;
   #reused: ReadonlyMap<Class, unknown> = new Map();
+  readonly #beforeClose: (() => void)[] = [];
   /** The app being built: instances are built one after the other, the first one's stores kept. */
   #building: Promise<unknown> = Promise.resolve();
 
@@ -176,7 +178,7 @@ export class TestEnvironment {
    * A new app instance over this test's state: the real container and graphs, models and MCP
    * servers scripted, the infrastructure of the first app kept.
    */
-  newApp(): Promise<BuiltApplication> {
+  newApp(leaseGate?: ExecutionLeaseGate): Promise<BuiltApplication> {
     this.mocks.started();
     const building = this.#building.then(async () => {
       const seams = {
@@ -188,6 +190,7 @@ export class TestEnvironment {
         quiet: true,
         ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
         observers: [this.mocks.actions],
+        ...(leaseGate === undefined ? {} : { leaseGate }),
       };
       const built = await buildApplication(this.assembled, this.#options, seams);
       if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);
@@ -220,8 +223,14 @@ export class TestEnvironment {
     return this.mcp.stubOf<TServer>(name);
   }
 
+  /** Runs `work` first when the test's apps close (a stalled lease resumed, #471). */
+  onClose(work: () => void): void {
+    this.#beforeClose.push(work);
+  }
+
   /** Closes every app (their `onStop` hooks). */
   async close(): Promise<void> {
+    for (const work of this.#beforeClose) work();
     for (const built of this.#apps) await built.app.close();
   }
 }

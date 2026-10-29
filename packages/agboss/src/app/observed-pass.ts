@@ -23,7 +23,8 @@ export function observedPass(
   const stops = [held.lease.signal, held.watch.signal];
   const caller = call.signal === undefined ? stops : [call.signal, ...stops];
   const undo: EndedTreeUndo = { compensations: [] };
-  const at = { signal: AbortSignal.any([held.lease.signal, live.interruption]), undo };
+  const signal = AbortSignal.any([held.lease.signal, live.interruption]);
+  const at = { signal, lease: held.lease, undo };
   const moving = unwindingDeps(leasedDeps(deps, held.lease), state, at);
   const leg = async (): Promise<ExecutionOutput> => {
     const run = await live.track(state, AbortSignal.any(caller), (signal) => pass(moving, signal));

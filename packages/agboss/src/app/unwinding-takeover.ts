@@ -23,14 +23,15 @@ import type { TreeState } from "./tree-move-types.js";
 async function endedUnwinding(
   parts: CancelParts,
   state: TreeState,
-  signal: AbortSignal,
+  lease: HeldExecutionLease,
 ): Promise<Error | undefined> {
   const mark = await unwindingOf(parts.trees, treeOf(state), UNWINDING_KEY);
   if (mark === undefined) return undefined;
   const text = `execution ${state.runId} is recovered: its automatic undo goes on, the undos done are skipped`;
   const subject = { executionId: state.runId, tenantId: state.tenantId };
   parts.deps.log.warn("compensation.recovered", text, subject);
-  return (await endedWithoutPass(parts, state, { cause: causeOfMark(mark), signal })).error;
+  const end = { cause: causeOfMark(mark), signal: lease.signal, lease };
+  return (await endedWithoutPass(parts, state, end)).error;
 }
 
 /** A lease just taken of a tree with the mark: the tree ended, the lease released; its final error. */
@@ -40,7 +41,7 @@ export async function endedUnwindingAtTake(
   lease: HeldExecutionLease,
 ): Promise<Error | undefined> {
   try {
-    return await endedUnwinding(parts, state, lease.signal);
+    return await endedUnwinding(parts, state, lease);
   } finally {
     await lease.release();
   }

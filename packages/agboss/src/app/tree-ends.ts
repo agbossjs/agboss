@@ -13,15 +13,19 @@ export const treeOf = (state: TreeState): ExecutionTree => ({
   rootExecutionId: state.runId,
 });
 
-/** The graph deps of one pass: checkpoint writes renew `lease`, remote child waits yield it (#333 PR 4). */
+/**
+ * The graph deps of one pass: checkpoint writes renew `lease`, remote child waits yield it (#333 PR
+ * 4), its steps fence with it (#471).
+ */
 export function leasedGraphDeps<TName extends string>(
   deps: GraphDeps<TName>,
   lease: HeldExecutionLease,
 ): GraphDeps<TName> {
-  if (deps.pause === undefined) return deps;
+  if (deps.pause === undefined) return { ...deps, lease };
   const { pause, remoteChildren, childDepsOf } = deps;
   return {
     ...deps,
+    lease,
     pause: {
       ...pause,
       checkpointer: new LeasedCheckpointSaver(pause.checkpointer, lease),

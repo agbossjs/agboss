@@ -1,3 +1,4 @@
+import { LeaseGate, rememberLeaseGate } from "./leases.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
 import type { App, ExecutionOutput } from "../app/types.js";
@@ -107,6 +108,7 @@ const slicesOf = (
 });
 
 export function createTestApp(environment: TestEnvironment): TestApp {
+  const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
   /** The built application once `building` resolved: `resolve` reads it synchronously. */
   let ready: BuiltApplication | undefined;
@@ -116,7 +118,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       const message = "this app is closed — after recoverApp() use the app it returned";
       return Promise.reject(new TestFailure("test.app-closed", message));
     }
-    return (building ??= withProbesLoaded(environment.newApp()).then(
+    return (building ??= withProbesLoaded(environment.newApp(gate)).then(
       (application) => (ready = application),
     ));
   };
@@ -153,5 +155,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
+  // `leases.stall(app)` closes this instance's gate (#471)
+  rememberLeaseGate(testApp, gate);
   return testApp;
 }

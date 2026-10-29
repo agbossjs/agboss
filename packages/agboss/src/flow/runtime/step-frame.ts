@@ -124,6 +124,8 @@ export function stepFrameAt(
       values: state.contexts.execution,
       // where its request came from and its deadline (#398 PR 2): its contexts', a child's its root's
       ...meshFactsOf(state.contexts),
+      // the lease its steps run under (#471): the root's, or an AnyInstance child's own
+      ...(run.lease === undefined ? {} : { lease: run.lease }),
       // a child execution (#263): its parent's execution and launching step, its item; a root: the
       // call chain its mesh calls carry (#398)
       ...(run.tree === undefined
@@ -242,8 +244,16 @@ export async function inTreeSlot<TResult>(
   work: () => Promise<TResult>,
 ): Promise<TResult> {
   if (!takesSlot(site.node)) return work();
-  // the step's work is an entry of the instance's running steps until its body returned (#367)
-  const body = (): Promise<TResult> => inStepEntry(site.slots?.steps, site, work);
+  // the step's work is an entry of the instance's running steps until its body returned (#367),
+  // and a running step of its lease — never yielded under it, taken back first when it was (#471)
+  const body = async (): Promise<TResult> => {
+    const leave = await site.execution.lease?.enterStep();
+    try {
+      return await inStepEntry(site.slots?.steps, site, work);
+    } finally {
+      leave?.();
+    }
+  };
   if (site.slots === undefined) return body();
   const hold = await takeSlots(site, site.slots);
   try {

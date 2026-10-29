@@ -17,7 +17,12 @@ export interface ExecutionLease {
   readonly rootExecutionId: string;
   /** The application instance that holds it. */
   readonly holderInstanceId: string;
-  /** Grows by 1 on every `acquire` after an expired or released lease: the fence of the holder. */
+  /**
+   * The fence of the holder (#471: `executionContext.fence.token`): a counter of this one lease key
+   * `(tenantId, rootExecutionId)` — 1 for its first holder, + 1 on every `acquire` after an expired
+   * or released lease —, never a sequence across keys. Every implementation keeps it so (a
+   * distributed store counts per key, not by its own revision).
+   */
   readonly leaseEpoch: number;
   /** When the lease ends unless renewed (the framework's clock). */
   readonly expiresAt: Date;

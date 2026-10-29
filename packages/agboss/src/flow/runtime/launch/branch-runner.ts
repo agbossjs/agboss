@@ -177,7 +177,7 @@ async function abortLaunch(run: BranchRun): Promise<void> {
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
-  passThroughStops(run.config, run.state.runId);
+  passThroughStops(run.config, run.state.runId, error);
   const { live, ticket } = run;
   // the spend the error carries is the original one's (an aborted loop's calls so far)
   const usage = [...unrecordedSpendOf(error), ...run.services];

@@ -59,6 +59,7 @@ function threadIdOf(start: ExecutionStart): string {
 function startFrameOf<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   start: ExecutionStart,
+  lease?: ExecutionFacts["lease"],
 ): FrameSpec {
   const node = deps.graph.nodes.get(start.start);
   const { executionId } = start;
@@ -75,6 +76,8 @@ function startFrameOf<TName extends string>(
           workflow: Object.freeze(workflow),
           tenant: tenantOfExecution(contexts, start.contexts.tenant),
           values: start.contexts.execution,
+          // inside a pass (#471): its lease; `maxSpend()` is read before one, with none
+          ...(lease === undefined ? {} : { lease }),
         },
         "threadId",
         { enumerable: true, get: (): string => threadIdOf(start) },
@@ -99,12 +102,13 @@ function startFrameOf<TName extends string>(
 
 /**
  * Runs work in the frame of an execution's start (#382): what a custom compaction's `compact()`
- * reads as its `ExecutionContext` before the execution's first step.
+ * reads as its `ExecutionContext` before the execution's first step — inside the pass, so under its
+ * lease (#471).
  */
 export const inStartFrame =
   <TName extends string>(deps: AgentExecutionDeps<TName>, start: ExecutionStart) =>
   <T>(work: () => Promise<T>): Promise<T> =>
-    runInFrame(startFrameOf(deps, start), work);
+    runInFrame(startFrameOf(deps, start, deps.lease), work);
 
 /**
  * Opens the budgets of a new execution: `maxSpend()` of each read once (in `inFrame`, where the

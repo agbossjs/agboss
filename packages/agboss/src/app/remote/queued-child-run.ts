@@ -65,6 +65,8 @@ function runContextOf(
     tenantId: row.tenantId,
     input: run.input,
     ...(run.ownerId === undefined ? {} : { ownerId: run.ownerId }),
+    // the child's own lease (#471): its steps fence with it, never its parent's
+    ...(deps.lease === undefined ? {} : { lease: deps.lease }),
     tree: { parent, itemIndex: run.initial.child.itemIndex },
   };
 }

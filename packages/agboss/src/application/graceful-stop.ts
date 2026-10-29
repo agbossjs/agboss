@@ -1,10 +1,10 @@
 import { ApplicationStoppingError } from "../app/application-stopping.js";
 import type { BuiltApp } from "../app/create-app.js";
-import { executionLeasesOf } from "../app/execution-leases.js";
+import { executionLeasesOf, type ExecutionLeases } from "../app/execution-leases.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { startRecoverySweep, type RecoverySweep } from "../infrastructure/recovery.js";
-import type { Infrastructure } from "../infrastructure/contracts.js";
+import { leasingOf, type Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -176,7 +176,7 @@ function childWorkersOf(
   ]).then(([workers, registry]) =>
     workers.startChildWorkers({
       queue: infrastructure.childQueue,
-      leases: executionLeasesOf(infrastructure.executionLeases, infrastructure.clock),
+      leases: leasesOf(infrastructure),
       trees: infrastructure.executionTrees,
       clock: infrastructure.clock,
       log,
@@ -236,4 +236,10 @@ export function stopOf(
     steps: parts.stepsAtStop,
   });
   return { stop, sweep };
+}
+
+/** The leases of the instance's lease holders (its child workers), on its leasing (#471). */
+function leasesOf(infrastructure: Infrastructure): ExecutionLeases {
+  const { repository, clock } = leasingOf(infrastructure);
+  return executionLeasesOf(repository, clock);
 }

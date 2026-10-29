@@ -1,6 +1,6 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf } from "../../core/error-record.js";
-import { handedOverReason } from "../../app/handed-over.js";
+import { handedOverOf } from "../../app/handed-over.js";
 import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
 import { unrecordedSpendOf, type Reported } from "./node-runner.js";
 import type { ExecutionStateUpdate } from "./state.js";
@@ -22,8 +22,9 @@ export function caught(
 ): ExecutionStateUpdate {
   const { node } = visit;
   if (isGraphInterrupt(error)) throw error;
-  // a lost lease or an interruption is no failure of the step: another instance goes on (#265)
-  const handedOver = handedOverReason(signal);
+  // a lost lease, a fenced write or an interruption is no failure of the step: another instance
+  // goes on (#265, #471) — a fenced error behind the failure first, rethrown as it is
+  const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) throw handedOver;
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);

@@ -1,5 +1,6 @@
 import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import type { FrameLease } from "../flow/context/frame.js";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
@@ -28,8 +29,13 @@ export interface RunIdentity {
 }
 
 /** The run's `RunContext`: built once here, read by every node through `configurable.run`. */
-const runContextOf = (identity: RunIdentity, options: AgentExecutionOptions): RunContext =>
+const runContextOf = (
+  identity: RunIdentity,
+  options: AgentExecutionOptions,
+  lease: FrameLease | undefined,
+): RunContext =>
   newRunContext({
+    lease,
     runId: identity.runId,
     threadId: identity.threadId,
     signal: options.signal,
@@ -69,7 +75,7 @@ export function streamConfig<TName extends string>(
   if (options.onStream !== undefined) {
     callbacks.push(new StreamingCallbackHandler(options.onStream));
   }
-  const run = runContextOf(identity, options);
+  const run = runContextOf(identity, options, deps.lease);
   const services = {
     run,
     ...(deps.clock === undefined ? {} : { clock: deps.clock }),

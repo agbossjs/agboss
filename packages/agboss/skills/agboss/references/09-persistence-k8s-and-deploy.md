@@ -310,6 +310,13 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
   pass `executionContext.step.idempotencyKey` —
   `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`, the same on a rerun — to
   every external side effect, and make each undo safe to run twice.
+- **Fencing (#471).** `executionContext.fence` is the lease the step runs under: `scopeKey`
+  (`${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — the root's lease for
+  the root and its `ChildPlacement.ParentInstance` children, an `AnyInstance` child's own), `token`
+  (its `leaseEpoch`: 1, 2, … per lease, rising with every take), `confirmedUntil`, `assertHeld()`,
+  `confirmNow()`, `fenced(observedToken)`. Exactly-once only when the external system checks the
+  token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
+  judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
 - **Any instance answers.** A pause made on one instance is resumed on another; `app.cancel` reaches
   the tree on whichever instance moves it.
 - **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,
@@ -649,10 +656,15 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   writes. A step whose instance lost the lease sees `executionContext.signal` abort with
   `ExecutionLeaseLostError`, but a write it already sent to a database or a file still lands, and
   the instance that takes the tree over runs the step again. Make every external write idempotent by
-  `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op), call
-  `executionContext.signal.throwIfAborted()` right before it, and where the order of writes matters
-  keep your own monotonic fencing token with the row and refuse an older one — a step has no lease
-  epoch of its own to read.
+  `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op) and fence it
+  with `executionContext.fence`: `fence.token` is the monotonic fencing token of the step's lease
+  scope — the external system keeps the highest token per `fence.scopeKey` in the same transaction
+  as the key, refuses a lower one with `fence.fenced(highest)` (or `new ExecutionFencedError({
+scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
+  hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
+  write and `await fence.confirmNow()` before a call that cannot check tokens (a webhook). Never key
+  the mark by a shared business row: parallel `ChildPlacement.AnyInstance` children each fence with
+  a lease (and a token) of their own.
 - `ChildPlacement.AnyInstance` across processes: a child queued in one process wakes that process's
   workers at once, never another's — other processes find it at their workers' sweep, every 30 s.
   A worker claims queued children while it has free step slots, so the first one to look may take a
