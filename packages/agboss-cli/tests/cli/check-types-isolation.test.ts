@@ -217,23 +217,68 @@ describe("#468: what is and is not isolated", () => {
   });
 });
 
-describe("#468: agboss generate", () => {
-  const contextIn = (cwd: string, lines: string[]): CommandContext => ({
-    command: "generate",
-    values: {},
-    positionals: [],
-    json: false,
-    io: {
-      stdout: { write: () => true },
-      stderr: { write: () => true },
-      env: {},
-      cwd,
-      registerTypeScript: false,
-    },
-    say: (line) => lines.push(`say ${line}`),
-    warn: (line) => lines.push(`warn ${line}`),
+const contextIn = (cwd: string, lines: string[]): CommandContext => ({
+  command: "generate",
+  values: {},
+  positionals: [],
+  json: false,
+  io: {
+    stdout: { write: () => true },
+    stderr: { write: () => true },
+    env: {},
+    cwd,
+    registerTypeScript: false,
+  },
+  say: (line) => lines.push(`say ${line}`),
+  warn: (line) => lines.push(`warn ${line}`),
+});
+
+const MISSING_APPLICATION = '{"name":"p","agboss":{"application":"src/gone.application.ts"}}';
+
+describe("#468: a broken setting in package.json does not fail --application", () => {
+  const brokenProject = (packageJson: string): string => {
+    const directory = projectOf(undefined);
+    writeFileSync(join(directory, "package.json"), packageJson);
+    return directory;
+  };
+
+  it.each([
+    ["names a file that is not there", MISSING_APPLICATION],
+    ["is not a path", '{"name":"p","agboss":{"application":42}}'],
+    ["is an empty path", '{"name":"p","agboss":{"application":"  "}}'],
+  ])("the setting %s: the application given writes .agboss/types.d.ts", async (_case, json) => {
+    const cwd = brokenProject(json);
+
+    const call = await agboss(["check", "--application", STAR], cwd);
+
+    expect(call.code).toBe(0);
+    expect(call.stderr).toBe("");
+    expect(existsSync(typesOf(cwd))).toBe(true);
+    expect(scopedTypesOf(cwd)).toEqual([]);
   });
 
+  it("without --application the broken setting is still the error it was", async () => {
+    const cwd = brokenProject(MISSING_APPLICATION);
+
+    const call = await agboss(["check"], cwd);
+
+    expect(call.code).toBe(3);
+    expect(call.stderr).toContain("Application file not found");
+    expect(existsSync(join(cwd, ".agboss"))).toBe(false);
+  });
+
+  it("agboss generate regenerates the project's file", async () => {
+    const cwd = brokenProject(MISSING_APPLICATION);
+    const lines: string[] = [];
+
+    await regenerateFlowTypes(contextIn(cwd, lines), [STAR]);
+
+    expect(lines).toEqual(["say   types: .agboss/types.d.ts"]);
+    expect(scopedTypesOf(cwd)).toEqual([]);
+  });
+});
+
+describe("#468: agboss generate", () => {
   it("a workflow of the project's own application regenerates the project's file", async () => {
     const cwd = projectOf(PARTS);
     const lines: string[] = [];

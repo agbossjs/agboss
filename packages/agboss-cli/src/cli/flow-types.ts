@@ -10,6 +10,7 @@ import {
 import { configuredApplicationOf, type ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";
+import { CliError } from "./errors.js";
 
 /**
  * Type generation in the CLI (#272 S2, S7): `agboss check` on the application's module analyses its
@@ -46,13 +47,27 @@ function workflowModulesOf(project: string, file: string): string[] {
 }
 
 /**
+ * The application `package.json` sets, none when it sets none or cannot be read (a missing file, a
+ * path that is not a string, invalid JSON): `--application` wins over `package.json` (#268 AC1), so
+ * a broken setting there is not this check's failure — the types go to the project's file as before.
+ */
+function configuredApplicationOfOrNone(project: string): ApplicationPath | undefined {
+  try {
+    return configuredApplicationOf(project);
+  } catch (error) {
+    if (error instanceof CliError) return undefined;
+    throw error;
+  }
+}
+
+/**
  * Where the types of `file` go (#468). The project's `.agboss/types.d.ts` belongs to the application
  * its `package.json` sets (and the workflows of that `src/`): checking another application — a test
  * fixture outside `src/` — writes `.agboss/types.<module path>.d.ts` instead, so the IDE's
  * diagnostics for the project's own application are not invalidated. Undefined: the project's file.
  */
 function scopedTypesFileOf(project: string, file: string): string | undefined {
-  const configured = configuredApplicationOf(project);
+  const configured = configuredApplicationOfOrNone(project);
   if (configured === undefined) return undefined;
   const given = resolve(project, file);
   const root = sourceRootOf(given);
