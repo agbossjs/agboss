@@ -32,6 +32,12 @@ export interface FlowTypesWrite {
   readonly tablesModule?: string;
   /** `--strict`: analyser warnings are errors. */
   readonly strict?: boolean;
+  /**
+   * Where to write, relative to the project: a file directly in `.agboss/` (#468 — the types of an
+   * application that is not the project's own, so the project's `.agboss/types.d.ts` is left alone).
+   * Default: `.agboss/types.d.ts`.
+   */
+  readonly outFile?: string;
 }
 
 /** What generation did and found. */
@@ -59,7 +65,7 @@ const packageModules = async (): Promise<readonly LoadedModule[]> => [
 
 /** Loads the modules, generates the types and writes them (unless generation failed). */
 export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult> {
-  const outFile = join(request.project, GENERATED_TYPES_FILE);
+  const outFile = join(request.project, request.outFile ?? GENERATED_TYPES_FILE);
   const typescript = request.typescript === undefined ? {} : { typescript: request.typescript };
   const project = await loadFlowProject(request.files, typescript);
   const { workflows, applications } = project;

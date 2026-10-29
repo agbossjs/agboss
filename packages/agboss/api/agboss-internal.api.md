@@ -800,6 +800,7 @@ export enum FlowTypesStatus {
 // @public
 export interface FlowTypesWrite {
     readonly files: readonly string[];
+    readonly outFile?: string;
     readonly project: string;
     readonly strict?: boolean;
     readonly tablesModule?: string;

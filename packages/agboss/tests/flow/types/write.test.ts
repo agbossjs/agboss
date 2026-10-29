@@ -82,3 +82,41 @@ describe("#270 AC13: the generated file", () => {
     expect(existsSync(typesOf(directory))).toBe(false);
   });
 });
+
+describe("#468: outFile", () => {
+  it("writes beside the project's own file, which stays as it was", async () => {
+    const directory = project();
+    mkdirSync(join(directory, ".agboss"));
+    writeFileSync(typesOf(directory), "the project's own types");
+
+    const result = await writeFlowTypes({
+      files: [fixture("fixtures/test-workflow/test.workflow.ts")],
+      project: directory,
+      typescript: false,
+      outFile: ".agboss/types.other.d.ts",
+    });
+
+    expect(result).toMatchObject({
+      status: FlowTypesStatus.Written,
+      outFile: join(directory, ".agboss/types.other.d.ts"),
+    });
+    expect(readFileSync(join(directory, ".agboss/types.other.d.ts"), "utf8")).toContain(
+      'declare module "@agboss/core" {',
+    );
+    expect(readFileSync(typesOf(directory), "utf8")).toBe("the project's own types");
+  });
+
+  it("a module with no workflow writes nothing at the given file either", async () => {
+    const directory = project();
+
+    const result = await writeFlowTypes({
+      files: [fixture("fixtures/test-flow/test.flow.ts")],
+      project: directory,
+      typescript: false,
+      outFile: ".agboss/types.other.d.ts",
+    });
+
+    expect(result.status).toBe(FlowTypesStatus.NoFlow);
+    expect(existsSync(join(directory, ".agboss/types.other.d.ts"))).toBe(false);
+  });
+});

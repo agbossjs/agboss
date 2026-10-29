@@ -72,6 +72,14 @@ function fromPackageJson(cwd: string): ApplicationPath | undefined {
   return { file, shown: value };
 }
 
+/**
+ * The application the project's `package.json` sets (#468), whatever `--application` says; undefined
+ * when it sets none.
+ */
+export function configuredApplicationOf(cwd: string): ApplicationPath | undefined {
+  return fromPackageJson(cwd);
+}
+
 /** `--application <path>`, else the project's package.json; neither → where to set it. */
 export function applicationPathOf(context: CommandContext): ApplicationPath {
   const given = textOption(context.values, "application");

@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { WorkflowLoadError } from "@agboss/core";
 import {
   FlowTypesStatus,
@@ -7,9 +7,10 @@ import {
   writeFlowTypes,
   type FlowTypesResult,
 } from "@agboss/core/internal";
-import type { ApplicationPath } from "./application-path.js";
+import { configuredApplicationOf, type ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";
+import { CliError } from "./errors.js";
 
 /**
  * Type generation in the CLI (#272 S2, S7): `agboss check` on the application's module analyses its
@@ -45,6 +46,47 @@ function workflowModulesOf(project: string, file: string): string[] {
   return [given, ...found.filter((path) => path !== given)];
 }
 
+/**
+ * The application `package.json` sets, none when it sets none or cannot be read (a missing file, a
+ * path that is not a string, invalid JSON): `--application` wins over `package.json` (#268 AC1), so
+ * a broken setting there is not this check's failure — the types go to the project's file as before.
+ * (A package.json that is not JSON still fails `agboss check`: its skills sync reads it, #305.)
+ */
+function configuredApplicationOfOrNone(project: string): ApplicationPath | undefined {
+  try {
+    return configuredApplicationOf(project);
+  } catch (error) {
+    if (error instanceof CliError) return undefined;
+    throw error;
+  }
+}
+
+/**
+ * Where the types of `file` go (#468). The project's `.agboss/types.d.ts` belongs to the application
+ * its `package.json` sets (and the workflows of that `src/`): checking another application — a test
+ * fixture outside `src/` — writes `.agboss/types.<module path>.d.ts` instead, so the IDE's
+ * diagnostics for the project's own application are not invalidated. Undefined: the project's file.
+ */
+function scopedTypesFileOf(project: string, file: string): string | undefined {
+  const configured = configuredApplicationOfOrNone(project);
+  if (configured === undefined) return undefined;
+  const given = resolve(project, file);
+  const root = sourceRootOf(given);
+  if (given === configured.file || (root !== undefined && root === sourceRootOf(configured.file)))
+    return undefined;
+  const slug = relative(project, given)
+    .replace(/\.[cm]?[jt]s$/, "")
+    .split(sep)
+    .filter((part) => part !== "" && part !== "..")
+    .join("-");
+  return join(dirname(GENERATED_TYPES_FILE), `types.${slug}.d.ts`);
+}
+
+const scopedOutFile = (project: string, file: string): { readonly outFile?: string } => {
+  const outFile = scopedTypesFileOf(project, file);
+  return outFile === undefined ? {} : { outFile };
+};
+
 /** The generator's result for one module; undefined when it is missing. */
 async function generate(
   context: CommandContext,
@@ -55,6 +97,7 @@ async function generate(
     const result = await writeFlowTypes({
       files: workflowModulesOf(context.io.cwd, file),
       project: context.io.cwd,
+      ...scopedOutFile(context.io.cwd, file),
       ...loadOptions(context),
       ...(strict ? { strict } : {}),
     });
