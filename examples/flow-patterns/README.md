@@ -9,7 +9,7 @@ and which serves the desk over A2A to the helpline of the first:
 | Folder           | Pattern                                                                                                                                                                                                            | Start                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
 | `src/offer/`     | a review loop                                                                                                                                                                                                      | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router                                                                                                                                                                                | `credit-workflow-start`           |
+| `src/credit/`    | a code router beside a model router; a charge made once per step under its idempotency key (#472)                                                                                                                  | `credit-workflow-start`           |
 | `src/review/`    | parallel launches in waves (#273)                                                                                                                                                                                  | `review-workflow-start`           |
 | `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                                                                                                                    | `panel-workflow-start`            |
 | `src/vendor/`    | a child workflow per vendor (#263)                                                                                                                                                                                 | `vendor-screening-workflow-start` |
@@ -67,6 +67,33 @@ lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #3
 the same transport (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk-cassette.test.ts`); after a
 change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-cassette]`, and
 `AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk-cassette.test.ts` records only what changed.
+
+## A side effect made once: the credit desk's charge (#472)
+
+AGBoss runs a step **at least once**: when an instance dies after a step did its work but before the
+step's checkpoint is saved, another instance continues the execution from the last checkpoint and
+runs that step again — with the same `executionContext.step.idempotencyKey`
+(`<executionId>:charge-card-action:1`). A side effect is made once only when both sides do their part:
+
+| Who                 | Does                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| AGBoss              | runs the step again after a crash, with the same `step.idempotencyKey`                                                         |
+| the action          | passes that key with the request (`ChargeCardAction` → `PaymentService.charge({ …, idempotencyKey })`)                         |
+| the external system | makes **one** charge per key, **atomically**, answers a retry with the charge it made, refuses a key reused for another charge |
+
+Here the external system is offline: `PaymentService` stands in for a payment provider and keeps its
+ledger in the application's SQLite file (`PaymentLedgerRepository`, its table in
+`src/credit/sql/payment-charges.sql`) — the key is the table's primary key, the insert and the read
+are one synchronous transaction. With a real provider, the key goes in its idempotency header
+(`Idempotency-Key`); a provider or API that ignores it charges twice, and nothing on the AGBoss side
+can prevent that. `tests/credit.test.ts` kills the instance after the charge and before the step's
+checkpoint, lets the other instance recover the execution and checks there is one charge, with the
+same `chargeId`; `tests/payment-ledger.test.ts` checks the ledger on its own.
+
+This deduplicates the retries of one step. It does not stop an instance that stalled (not died)
+from writing after another took its lease over — that needs fencing of stale lease holders at the
+external system; [`agbossjs/distributed-agent-recovery`](https://github.com/agbossjs/distributed-agent-recovery)
+shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at

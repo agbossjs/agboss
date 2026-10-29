@@ -10,6 +10,7 @@ import { CreditLimitRouter } from "./routers/credit-limit.router.js";
 import { DeskRouter } from "./routers/desk.router.js";
 import { CreditServiceUnavailableError } from "./services/credit-service-unavailable.error.js";
 import { CreditService } from "./services/credit.service.js";
+import { PaymentService } from "./services/payment.service.js";
 import { CreditWorkflowFinish } from "./workflow-finishes/credit.workflow-finish.js";
 import { NoOrderWorkflowFinish } from "./workflow-finishes/no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "./workflow-finishes/order-held.workflow-finish.js";
@@ -19,7 +20,8 @@ import { CreditWorkflowStart } from "./workflow-starts/credit.workflow-start.js"
  * A code router inside a model router's route (#280): the desk router (Jev) sends an order to the
  * intake, the credit-limit router's `route()` sends it for approval or straight to the charge. A
  * credit service that is down (`CreditServiceUnavailableError`, the `RouterFailedError`'s cause)
- * holds the order; any other error fails the run.
+ * holds the order; any other error fails the run. The charge is a side effect made once per
+ * step: `ChargeCardAction` passes the step's idempotency key to `PaymentService`.
  */
 @Workflow({
   name: "credit-workflow",
@@ -48,6 +50,6 @@ import { CreditWorkflowStart } from "./workflow-starts/credit.workflow-start.js"
       .toFinish(CreditWorkflowFinish),
   ],
   maxSteps: 8,
-  providers: [CreditService],
+  providers: [CreditService, PaymentService],
 })
 export class CreditWorkflow {}

@@ -5,6 +5,7 @@ import {
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
+  SqliteConnection,
   SqlitePausedExecutionRepository,
 } from "@agboss/core";
 import { DecisionsModelProvider, OpenRouterModelProvider } from "@agboss/core/models";
@@ -18,6 +19,7 @@ import {
   TopicResearchExecutionBudget,
 } from "./config/budget.config.js";
 import { CreditWorkflow } from "./credit/credit.workflow.js";
+import { PaymentLedgerRepository } from "./credit/repositories/payment-ledger.repository.js";
 import { DeskWorkflow } from "./desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
@@ -96,6 +98,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
     SqliteCheckpointSaver,
     SqliteExecutionLeaseRepository,
     SqliteExecutionTreeRepository,
+    SqliteConnection, // the file's one connection, for the project's own repositories too
+    PaymentLedgerRepository, // the credit desk's payment ledger, on the same SQLite file
   ],
   budgets: [
     ApplicationDailyBudget,
