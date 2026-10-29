@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { WorkflowLoadError } from "@agboss/core";
 import {
   FlowTypesStatus,
@@ -7,7 +7,7 @@ import {
   writeFlowTypes,
   type FlowTypesResult,
 } from "@agboss/core/internal";
-import type { ApplicationPath } from "./application-path.js";
+import { configuredApplicationOf, type ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";
 
@@ -45,6 +45,32 @@ function workflowModulesOf(project: string, file: string): string[] {
   return [given, ...found.filter((path) => path !== given)];
 }
 
+/**
+ * Where the types of `file` go (#468). The project's `.agboss/types.d.ts` belongs to the application
+ * its `package.json` sets (and the workflows of that `src/`): checking another application — a test
+ * fixture outside `src/` — writes `.agboss/types.<module path>.d.ts` instead, so the IDE's
+ * diagnostics for the project's own application are not invalidated. Undefined: the project's file.
+ */
+function scopedTypesFileOf(project: string, file: string): string | undefined {
+  const configured = configuredApplicationOf(project);
+  if (configured === undefined) return undefined;
+  const given = resolve(project, file);
+  const root = sourceRootOf(given);
+  if (given === configured.file || (root !== undefined && root === sourceRootOf(configured.file)))
+    return undefined;
+  const slug = relative(project, given)
+    .replace(/\.[cm]?[jt]s$/, "")
+    .split(sep)
+    .filter((part) => part !== "" && part !== "..")
+    .join("-");
+  return join(dirname(GENERATED_TYPES_FILE), `types.${slug}.d.ts`);
+}
+
+const scopedOutFile = (project: string, file: string): { readonly outFile?: string } => {
+  const outFile = scopedTypesFileOf(project, file);
+  return outFile === undefined ? {} : { outFile };
+};
+
 /** The generator's result for one module; undefined when it is missing. */
 async function generate(
   context: CommandContext,
@@ -55,6 +81,7 @@ async function generate(
     const result = await writeFlowTypes({
       files: workflowModulesOf(context.io.cwd, file),
       project: context.io.cwd,
+      ...scopedOutFile(context.io.cwd, file),
       ...loadOptions(context),
       ...(strict ? { strict } : {}),
     });
