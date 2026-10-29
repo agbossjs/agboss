@@ -27,3 +27,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0020 — Declared compensation: explicit where a path can say it, automatic where none can](ADR-0020-Declared-compensation) | Accepted |
 | [0021 — Project skills shipped with the framework](ADR-0021-Project-skills-shipped-with-the-framework) | Accepted |
 | [0022 — Child workflows as runs of their own](ADR-0022-Child-workflows-as-runs-of-their-own) | Accepted (reverses #263 S24) |
+| [0023 — The execution fence on the context](ADR-0023-Execution-fence-on-the-context) | Accepted |

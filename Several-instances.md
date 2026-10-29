@@ -249,6 +249,85 @@ lease expires while a call waits, the waiting call takes it and goes on.
 stores, not one atomic operation (`BaseCheckpointSaver` is taken as is, so ecosystem savers plug
 in): the race window is one round trip.
 
+## Fencing external writes (#471)
+
+The lease fences the framework's own checkpoint writes. A step's write to another system is the
+step's: a holder frozen past its lease (a GC pause, `SIGSTOP`, a VM migration) may wake and write
+after the instance that took the tree over already did. Steps run **at least once**; a write is
+**exactly once** only when the external system checks two things atomically — the step's
+idempotency key and the lease's fencing token — and the framework gives both:
+
+- `executionContext.step.idempotencyKey` — the same when a recovered step runs again;
+- `executionContext.fence` — the lease the current step runs under (`ExecutionFence`):
+
+| Member | What it is |
+| --- | --- |
+| `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
+| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and `ThisWorkflow` levels; a `ChildPlacement.AnyInstance` child itself. |
+| `token` | The lease's `leaseEpoch`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the re-acquire after remote children); never a sequence across keys. |
+| `confirmedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
+| `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= confirmedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
+| `confirmNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
+| `fenced(observedToken?)` | The `ExecutionFencedError` a step throws when the external system refused it. |
+
+The external check, in one transaction with the idempotency key: `incoming >= highest` → accept and
+set `highest = incoming`; `incoming < highest` → refuse. SQLite (`BEGIN IMMEDIATE`, run in one
+synchronous turn) or PostgreSQL:
+
+```sql
+CREATE TABLE fence_marks (scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL);
+CREATE TABLE release_artifacts (
+  idempotency_key TEXT PRIMARY KEY,
+  scope_key TEXT NOT NULL,
+  token INTEGER NOT NULL,
+  artifact TEXT NOT NULL
+);
+
+-- 1. raise the mark: no row back = a newer token was seen → ROLLBACK, refuse
+INSERT INTO fence_marks (scope_key, highest_token) VALUES (:scope_key, :token)
+ON CONFLICT (scope_key) DO UPDATE SET highest_token = excluded.highest_token
+WHERE excluded.highest_token >= fence_marks.highest_token
+RETURNING highest_token;
+
+-- 2. write once by the step's key: 0 rows = a replay, already written
+INSERT INTO release_artifacts (idempotency_key, scope_key, token, artifact)
+VALUES (:idempotency_key, :scope_key, :token, :artifact)
+ON CONFLICT (idempotency_key) DO NOTHING;
+```
+
+A refused write throws `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+ExecutionLeaseLostError`; `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken` —
+built by `fence.fenced(highest)` in the step or `new ExecutionFencedError({ scopeKey, token,
+observedToken })` in a repository that has only what it wrote). It is a **hand-over**, wherever it
+is thrown and however it is wrapped (a `cause` chain, an `AggregateError`, a cycle): the runtime
+looks for it first — in a visit, a launch's branch, a child's exit, an undo, an agent's tool call
+(before `onToolEnd` and the spend tally) and a tool interceptor — aborts the holder's lease with it
+and rethrows it as it is: no `.onError` (a catch-all `.onError(Error, …)` too), no undo, nothing
+shown to the model, no failed record (it stays `running`), no `onExecutionError`; the moving call
+rejects with the `ExecutionFencedError` itself, also when the lease's own expiry aborted the signal a
+moment before. A business error still takes its `.onError`.
+
+- **Key the mark by `fence.scopeKey`**, never by a shared business row. Parallel `AnyInstance`
+  children hold independent leases: a recovered `child-1` writes with token 2 while a healthy
+  `child-2` is still at 1 — a `highest_token` on one shared `releases` row would refuse the healthy
+  child and send it through false recoveries. A shared aggregate needs its own locking.
+- **Read `fence.token` right before the write**, after `fence.assertHeld()`; across a pause or the
+  remote-children wait it rises.
+- **An API that cannot check tokens** (a webhook): `await fence.confirmNow()` and an
+  `Idempotency-Key` header narrow the window, never close it.
+- **Where there is no fence:** frames that run under no held lease — a reply interpreter (it runs in
+  `app.resume`'s first phase), a budget's `maxSpend()` (read before the first pass), an eval judge,
+  a tool exported over MCP or called through a test slice — and an ancestor's `parent.fence` /
+  `root.fence` throw `ExecutionContextUnavailableError`. So does a fence kept past its step (a
+  destructured `fence` in a stray promise): every member reads the current frame when it is used.
+
+**Remote children and the lease (#471).** While a parent node waits for `AnyInstance` children it
+yields the root's lease only when every waiting caller waits **and no other step of the tree
+runs** — a sibling `ParentInstance` branch running a step keeps the lease (before #471 it ran and
+checkpointed with the lease released), and a step that starts while the lease is yielded takes it
+back first, under a new token. A step that cannot take it back (another instance holds it) is
+handed over.
+
 ## Recovery
 
 An execution whose instance died mid-step is continued by another instance, automatically (#265
@@ -567,6 +646,16 @@ Recovery is tested the same way: kill one instance (a lease store of the test's 
 the store sees it), `await clock.advance(seconds(31))`, and the other instance's sweep continues the
 tree; or `await app.close({ timeout })` with an execution still running, and the other instance
 continues it at its next sweep.
+
+**A zombie writer** (#471). The `leases` fixture freezes one instance's lease while its step code
+runs on: `leases.stall(apps[0])` holds that instance's lease store calls (taking, renewing,
+releasing — around `ExecutionLeaseRepository`, whichever implementation is listed) and its lease
+timers (the background renewal and the local expiry, on the shared `VirtualClock`);
+`leases.resume(apps[0])` lets them go, the held timers firing at once, as after `SIGCONT`. With a
+step frozen after `fence.assertHeld()` and before its write (inside the window), `await
+clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over under token 2 and write;
+the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A stalled
+instance is resumed at the end of its test.
 
 `clock` is the test's `VirtualClock` — one for all the instances of the test, the `Clock` every one
 of them reads ([Testing → The clock](Testing#the-clock)). `await clock.advance(d)` lets the work

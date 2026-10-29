@@ -148,6 +148,7 @@ A Vitest `test` whose fixtures are:
 | `mcpOf`   | the stub of an MCP server                                                                  |
 | `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock — listed SQLite stores only through a file, not `:memory:` ([Several instances](Several-instances#testing-several-instances)) |
 | `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
+| `leases`  | a frozen process (#471): `leases.stall(apps[0])` holds that instance's lease store calls and lease timers while its steps run on, `leases.resume(apps[0])` lets them go ([Several instances](Several-instances#testing-several-instances)) |
 | `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 
 The whole application is assembled when the test starts: a broken workflow fails every test of
@@ -1055,6 +1056,12 @@ built as at run time. The levels above (#261): the tenant `"default"` of an appl
 `execution` (the project's subclasses and their values, checked by their decorators like at
 `execute`) and `application: { name, version, environmentName, environment }`; a service of the
 tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
+Its `fence` (#471) is a held lease of the execution: token 1, scope `<tenant>:test-execution`,
+confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { token,
+leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` sets each part — `isLost` makes
+`assertHeld()` and `confirmNow()` refuse with `ExecutionLeaseLostError`, `confirmNowFails` (`true`
+or an error) only `confirmNow()` (a store error right before a webhook). Every unit runner takes the
+same `fence` option, its `confirmedUntil` on `run.clock`.
 
 <!-- snippet-context
 import { ExecutionContext, Injectable } from "@agboss/core";

@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — fencing external writes (#471)
+
+- **Added — `executionContext.fence`** ([Several instances](Several-instances#fencing-external-writes-471),
+  [ADR-0023](ADR-0023-Execution-fence-on-the-context)): the lease the step runs under — `scopeKey`,
+  `tenantId`, `leaseExecutionId`, `token` (its `leaseEpoch`), `confirmedUntil`, `assertHeld()`,
+  `confirmNow()`, `fenced(observedToken)`; `ExecutionFence` and `ExecutionFencedError`
+  (`execution.lease-lost.fenced`, `extends ExecutionLeaseLostError`) in the root entry.
+- **Changed — a fenced error is a hand-over everywhere**: found in a cause chain or an
+  `AggregateError`, before the signal's reason — no `.onError`, no undo, no `onToolEnd`, nothing to
+  the model, no failed record; the moving call rejects with it. A tool's or an interceptor's lost
+  lease ends the agent's loop instead of reaching the model as a tool error.
+- **Fixed — the remote-children wait** yields the root's lease only while no other step of the tree
+  runs (a sibling `ParentInstance` branch used to run with the lease released, #333 PR 4).
+- **Added — testing**: the `leases` fixture of `testWith` (`stall` / `resume`, `TestLeases`) and the
+  `fence` option of every unit runner and `testExecutionContext` (`TestFenceOptions`, `clock`).
+
 ## Unreleased — pauses, lease yielding and per-child recovery across instances (#333 PR 4)
 
 - **Added — pauses and `app.resume` in `ChildPlacement.AnyInstance` children**
