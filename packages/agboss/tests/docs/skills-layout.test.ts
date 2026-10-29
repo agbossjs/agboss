@@ -259,6 +259,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "never inline `CREATE TABLE`",
       "never string-interpolated SQL",
       "`sqliteConnection.database`",
+      "listed in `@Application({ providers })`, never a workflow's",
       "`sqliteConnection.transaction(() => …)`",
       "no `await` inside",
     ],
@@ -269,6 +270,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
     [
       "`SqliteConnection`",
       "never an internal helper",
+      "Both are listed in `@Application({ providers })` — `SqliteConnection` too",
       "`ensureSchema`",
       "`?` parameters",
       "never build queries with string interpolation",

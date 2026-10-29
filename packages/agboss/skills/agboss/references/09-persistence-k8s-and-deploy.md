@@ -485,7 +485,9 @@ Every class with a direct database connection or store contract lives in `reposi
 queries with string interpolation (`SELECT … ${clause}`).
 
 A repository of the project's own tables injects `SqliteConnection` and uses its `database` (a
-`node:sqlite` `DatabaseSync`) — never an internal helper of `@agboss/core`. Its DDL is a `.sql` file
+`node:sqlite` `DatabaseSync`) — never an internal helper of `@agboss/core`. Both are listed in
+`@Application({ providers })` — `SqliteConnection` too, beside the SQLite stores — never in a
+workflow's `providers`: there `SqliteConnection` is not registered. Its DDL is a `.sql` file
 read once, applied by `ensureSchema`; its statements take `?` parameters; a write transaction is
 `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside, so two instances on one
 event loop (`testWith(App, { instances: 2 })`) never wait on each other's open lock:

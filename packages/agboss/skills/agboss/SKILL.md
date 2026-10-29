@@ -164,8 +164,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   over a typed ORM / query builder (such as Drizzle ORM) with table definitions in
   `schemas/<name>.schema.ts` and DDL migrations in `sql/<name>.sql` — never inline `CREATE TABLE`
   strings in TypeScript, never string-interpolated SQL (`SELECT … ${clause}`), and never database
-  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` and
-  uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
+  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (both listed in
+  `@Application({ providers })`, never a workflow's) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
   transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside: two
   instances on one event loop (`testWith(App, { instances: 2 })`) would wait on each other's lock
   (reference 09).
