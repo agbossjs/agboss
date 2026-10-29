@@ -1037,6 +1037,15 @@ it("the model reads a token; its answer gets the address back", async () => {
 });
 ```
 
+## Store contract suites — `@agboss/core/testing/contracts` (#481)
+
+A store implementation outside the core runs the core's own contract suites against itself: one
+function per contract (`executionLeaseContract(target)`, …, `checkpointSaverContract(target)`), each
+registering `<contract> contract (<target name>)` with a case per rule, every case on two instances
+over one backing store and its own `VirtualClock`. The target is `{ name, instance(seam), reset?,
+close? }` — [Several instances → Writing your own store](Several-instances#writing-your-own-store-the-published-contract-suites-481).
+It is an entry of its own: `@agboss/core/testing` does not load it.
+
 ## Lower level
 
 A class created by hand — a budget's `maxSpend()`, a service — takes `testExecutionContext()`;

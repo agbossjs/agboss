@@ -597,6 +597,61 @@ Every store contract has `ping()` (#300): one fast round trip that resolves when
 and rejects with why when it does not — `app.checkReadiness()` calls it under a `seconds(2)`
 timeout, and a rejection or a timeout is that store's `Unhealthy` ([Health checks](Health-checks)).
 
+### Writing your own store: the published contract suites (#481)
+
+Stores live outside the core (a PostgreSQL or a Redis one in a repository of its own), so the core
+publishes the suites its own stores run: **`@agboss/core/testing/contracts`**, one function per
+contract — `executionLeaseContract`, `executionRecordContract`, `executionTreeContract`,
+`childExecutionQueueContract`, `pausedExecutionContract`, `executionHistoryContract`,
+`costLedgerContract`, `rateLimitContract`, `meshRequestContract` and `checkpointSaverContract`. The
+in-memory defaults and the SQLite implementations pass exactly these suites in the core's CI, so a
+store that passes them behaves as they do — two-instance cases (an atomic lease takeover, fencing
+epochs, the child queue's claim order, one of two concurrent transitions) included.
+
+A **`ContractTarget<TStore>`** says how to build the store under test:
+
+| Field | What it does |
+| --- | --- |
+| `name` | in the suite's title: `lease contract (PostgreSQL)` |
+| `instance(seam)` | builds one instance's store — called twice per case, two instances on one backing store; sync or async |
+| `reset?()` | before each case: an empty backing store (truncate, a new schema, a new file); a failing reset fails the case with its error |
+| `close?(store)` | after each case, per built store: close connections |
+
+The **`StoreSeam`** it builds from is the suite's: `clock` (one `VirtualClock` per case at
+`2026-01-05T09:00:00.000Z`, shared by both instances, moved only by the case — a store that reads the
+database's or the machine's time fails the time-based cases), `instanceId` (`instance-1`,
+`instance-2`: the holder of leases, the claimer of queued children) and `application` (the instance's
+`ApplicationContext`). A case that needs one instance uses the first.
+
+<!-- snippet-context
+import { ExecutionLeaseRepository, type ApplicationContext, type Clock } from "@agboss/core";
+declare class Pool { query(sql: string): Promise<void>; end(): Promise<void>; }
+declare const pool: Pool;
+declare const PostgresExecutionLeaseRepository: new (
+  pool: Pool,
+  clock: Clock,
+  applicationContext: ApplicationContext,
+) => ExecutionLeaseRepository;
+-->
+
+```ts
+// tests/postgres-lease.contract.test.ts — in the store's own repository, run by vitest
+import { executionLeaseContract } from "@agboss/core/testing/contracts";
+
+executionLeaseContract({
+  name: "PostgreSQL",
+  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.clock, seam.application),
+  reset: () => pool.query("TRUNCATE execution_leases"),
+});
+```
+
+Each function registers `describe("<contract> contract (<name>)")` with one case per rule, named as
+the core names them (`a tree's lease held by one instance is not given to the other`), and ends with
+`ping() resolves on both instances`; a failure in the store's repository reads the same as in the
+core. The suites test the store, not the framework over it: the cases that run a whole application
+(`testWith`) stay in the core's own tests. `@agboss/core/testing` does not re-export them, so a
+project's ordinary tests never load them ([ADR-0024](ADR-0024-Published-store-contract-suites)).
+
 ## Testing several instances
 
 `testWith(App, { instances: 2 })` runs two application instances in one test — `apps[0]` (= `app`)
@@ -812,7 +867,7 @@ are checked where the child runs, and each superstep's spend reaches the root's 
 `SqliteRateLimitRepository` keeps them in `rate_limit_slots`, `rate_limit_window_entries` and
 `rate_limit_pauses`; a file an older version wrote gets the two new tables when it is opened. Your
 own implementation (Redis, …) `extends RateLimitRepository` and implements all eight methods (`ping()` included, #300); the
-shared contract suite of the framework (`tests/infrastructure/rate-limit.contract.test.ts`) is the
-behaviour to match.
+published `rateLimitContract` (`@agboss/core/testing/contracts`, [above](#writing-your-own-store-the-published-contract-suites-481))
+is the behaviour to match.
 
 **Standalone executable proof:** [`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — published store contract suites (#481)
+
+- **Added — `@agboss/core/testing/contracts`** ([Several instances](Several-instances#writing-your-own-store-the-published-contract-suites-481),
+  [Testing](Testing#store-contract-suites--agbosscoretestingcontracts-481),
+  [ADR-0024](ADR-0024-Published-store-contract-suites)): the core's store contract suites, one
+  function per contract — `executionLeaseContract`, `executionRecordContract`,
+  `executionTreeContract`, `childExecutionQueueContract`, `pausedExecutionContract`,
+  `executionHistoryContract`, `costLedgerContract`, `rateLimitContract`, `meshRequestContract`,
+  `checkpointSaverContract` — over a `ContractTarget` (`name`, `instance(seam)`, `reset?`, `close?`;
+  `StoreSeam`: the suite's clock, `instanceId`, `application`). The in-memory and SQLite stores run
+  the same suites; `@agboss/core/testing` does not re-export them.
+
 ## Unreleased — fencing external writes (#471)
 
 - **Added — `executionContext.fence`** ([Several instances](Several-instances#fencing-external-writes-471),
