@@ -26,7 +26,7 @@ const PROBE_THREAD = { configurable: { thread_id: "agboss-health-check", checkpo
  * `SqliteCheckpointSaver`) is pinged, any other is asked for the latest checkpoint of a thread that
  * does not exist — one read, nothing written.
  */
-async function pingCheckpointSaver(saver: BaseCheckpointSaver): Promise<void> {
+export async function pingCheckpointSaver(saver: BaseCheckpointSaver): Promise<void> {
   const ping: unknown = Reflect.get(saver, "ping");
   if (typeof ping === "function") {
     const pinged: unknown = Reflect.apply(ping, saver, []);

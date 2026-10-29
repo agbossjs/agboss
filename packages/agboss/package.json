@@ -72,6 +72,10 @@
       "types": "./dist/testing/setup.d.ts",
       "import": "./dist/testing/setup.js"
     },
+    "./testing/contracts": {
+      "types": "./dist/testing/contracts/index.d.ts",
+      "import": "./dist/testing/contracts/index.js"
+    },
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"

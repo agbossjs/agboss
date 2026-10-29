@@ -1272,7 +1272,11 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
   `[Clock, IdGenerator]`, #313). Every #265 store contract has `abstract ping(): Promise<void>`
   (#300: one fast round trip — the in-memory ones resolve, the SQLite ones `SELECT 1`; a project's
-  own implementation adds it), what `app.checkReadiness()` calls.
+  own implementation adds it), what `app.checkReadiness()` calls. A store outside the core proves itself with
+  the published contract suites (#481, `@agboss/core/testing/contracts`: `executionLeaseContract({
+name, instance(seam), reset?, close? })`, one function per contract and the checkpoint saver),
+  the same cases the in-memory and SQLite stores run (`tests/infrastructure/*.contract.test.ts`,
+  their targets in `tests/infrastructure/contracts/store-kinds.ts`).
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
@@ -2115,7 +2119,8 @@ leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` (#471). `testExecut
 
 An example (and any project) imports only the public entries: the root `agboss` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
-types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`), and
+types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`; `/testing/contracts`, #481, the store
+contract suites), and
 the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` and the builders of
 its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a
 project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
@@ -2251,6 +2256,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
     health/         @HealthCheck, HealthCheckResult, HealthReport + the rules (health-check.ts, in the
                     root import); the probes, loaded on first use (application-health.ts, #300)
     testing/        `@agboss/core/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
+                    contracts/ — `@agboss/core/testing/contracts`: the published store contract suites (#481)
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `@agboss/core/dto`: field decorators, DTO schemas and validation, standard/ DTOs
     units/          `@agboss/core/units`: usd(), seconds(), minutes(), kilobytes()

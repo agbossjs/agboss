@@ -599,6 +599,35 @@ An implementation over another store keeps every operation atomic, takes every t
 framework (durations as parameters, now from `Clock`), never from the store's clock, and implements
 `ping()` — one fast round trip that readiness calls.
 
+It proves that with the core's own contract suites (#481), published as
+`@agboss/core/testing/contracts` — one function per contract (`executionLeaseContract`,
+`childExecutionQueueContract`, …, `checkpointSaverContract`), the very cases the in-memory and SQLite
+stores pass. A `ContractTarget` says how to build one instance's store from its `StoreSeam` (the
+suite's `VirtualClock`, `instanceId`, `application`), `reset()` empties the backing store before each
+case and `close(store)` runs after it; every case builds two instances on one backing store:
+
+<!-- snippet-context
+import { ExecutionLeaseRepository, type ApplicationContext, type Clock } from "@agboss/core";
+declare class Pool { query(sql: string): Promise<void>; }
+declare const pool: Pool;
+declare const PostgresExecutionLeaseRepository: new (
+  pool: Pool,
+  clock: Clock,
+  applicationContext: ApplicationContext,
+) => ExecutionLeaseRepository;
+-->
+
+```ts
+// tests/postgres-lease.contract.test.ts — "lease contract (PostgreSQL)", a case per rule
+import { executionLeaseContract } from "@agboss/core/testing/contracts";
+
+executionLeaseContract({
+  name: "PostgreSQL",
+  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.clock, seam.application),
+  reset: () => pool.query("TRUNCATE execution_leases"),
+});
+```
+
 ## Testing it
 
 ```ts file=tests/claims/health.test.ts

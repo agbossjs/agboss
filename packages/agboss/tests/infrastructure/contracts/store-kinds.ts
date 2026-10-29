@@ -11,45 +11,26 @@ import { resolveEnvironment } from "../../../src/environments/resolve.js";
 import type { Token } from "../../../src/components/injection.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
-import { VirtualClock } from "../../../src/testing/clock.js";
+import type { ContractTarget, StoreSeam } from "../../../src/testing/contracts/index.js";
 
 /**
- * One shared contract suite per storage contract (#265 PR 3), run against each kind of store: the
- * built-in in-memory default (two instances over one `InMemoryDatabase`, what `testWith(App, {
- * instances: 2 })` gives) and SQLite (two instances, two connections to one temporary file — so
- * `BEGIN IMMEDIATE` is tested between connections). Every test gets a new file, removed after it.
+ * The core's own stores as targets of the published contract suites (#481,
+ * `@agboss/core/testing/contracts`): the built-in in-memory default (two instances over one
+ * `InMemoryDatabase`, what `testWith(App, { instances: 2 })` gives) and SQLite (two instances, two
+ * connections to one temporary file — so `BEGIN IMMEDIATE` is tested between connections). Both
+ * run exactly the cases an external store runs; every test gets a new database or file.
  */
 
-/** What one application instance's store is built from. */
-export interface InstanceSeam {
-  readonly clock: VirtualClock;
-  readonly instanceId: string;
-  /** The instance's application context: its `instanceId` (the holder of its leases). */
-  readonly application: ApplicationContext;
-  /** The rows of the in-memory defaults, shared by the instances. */
+/** What one of the core's stores is built from: the seam, and the backing store of its kind. */
+export interface InstanceSeam extends StoreSeam {
+  /** The rows of the in-memory defaults, shared by the test's instances. */
   readonly database: InMemoryDatabase;
   /** This instance's own connection to the test's SQLite file. */
   readonly connection: () => SqliteConnection;
 }
 
-/** The two instances of one test, over one clock. */
-export interface TwoInstances<TStore> {
-  readonly clock: VirtualClock;
-  readonly first: TStore;
-  readonly second: TStore;
-}
-
-/** A kind of store the suite runs against. */
-export interface StoreKind<TStore> {
-  readonly name: string;
-  readonly twoInstances: () => TwoInstances<TStore>;
-}
-
-/** How each kind builds the store of one instance. */
-export interface StoreFactories<TStore> {
-  readonly inMemory: (seam: InstanceSeam) => TStore;
-  readonly sqlite: (seam: InstanceSeam) => TStore;
-}
+/** How a kind builds the store of one instance. */
+export type StoreFactory<TStore> = (seam: InstanceSeam) => TStore;
 
 const opened: SqliteConnection[] = [];
 const folders: string[] = [];
@@ -97,50 +78,38 @@ const noConnection = (): never => {
   throw new Error("an in-memory store has no SQLite connection");
 };
 
-function inMemoryKind<TStore>(make: StoreFactories<TStore>["inMemory"]): StoreKind<TStore> {
+/** The in-memory default: one `InMemoryDatabase` per test, shared by both instances. */
+export function inMemoryTarget<TStore>(make: StoreFactory<TStore>): ContractTarget<TStore> {
+  let database = new InMemoryDatabase();
   return {
     name: "in-memory",
-    twoInstances: () => {
-      const clock = new VirtualClock();
-      const database = new InMemoryDatabase();
-      const seam = (instanceId: string): InstanceSeam => ({
-        clock,
-        instanceId,
-        application: applicationOn(":memory:", instanceId),
-        database,
-        connection: noConnection,
-      });
-      return { clock, first: make(seam("instance-1")), second: make(seam("instance-2")) };
+    reset: () => {
+      database = new InMemoryDatabase();
     },
+    instance: (seam) => make({ ...seam, database, connection: noConnection }),
   };
 }
 
-function sqliteKind<TStore>(make: StoreFactories<TStore>["sqlite"]): StoreKind<TStore> {
+/** SQLite: a temporary file per test, one connection per instance (closed after the test). */
+export function sqliteTarget<TStore>(make: StoreFactory<TStore>): ContractTarget<TStore> {
+  let path = ":memory:";
   return {
     name: "SQLite",
-    twoInstances: () => {
-      const clock = new VirtualClock();
-      const path = temporarySqlitePath();
-      const seam = (instanceId: string): InstanceSeam => {
-        const connection = connectionTo(path);
-        return {
-          clock,
-          instanceId,
-          application: applicationOn(path, instanceId),
-          database: new InMemoryDatabase(),
-          connection: () => connection,
-        };
-      };
-      return { clock, first: make(seam("instance-1")), second: make(seam("instance-2")) };
+    reset: () => {
+      path = temporarySqlitePath();
+    },
+    instance: (seam) => {
+      const connection = connectionTo(path);
+      return make({ ...seam, database: new InMemoryDatabase(), connection: () => connection });
     },
   };
 }
 
-/** The kinds a contract suite runs against: `describe.each(storeKinds({ inMemory, sqlite }))`. */
-export const storeKinds = <TStore>(make: StoreFactories<TStore>): readonly StoreKind<TStore>[] => [
-  inMemoryKind(make.inMemory),
-  sqliteKind(make.sqlite),
-];
+/** Both kinds of the core's stores: `describe.each(storeTargets(inMemory, sqlite))`. */
+export const storeTargets = <TStore>(
+  inMemory: StoreFactory<TStore>,
+  sqlite: StoreFactory<TStore>,
+): readonly ContractTarget<TStore>[] => [inMemoryTarget(inMemory), sqliteTarget(sqlite)];
 
 const shared = new WeakMap<InMemoryDatabase, Map<string, unknown>>();
 

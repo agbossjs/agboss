@@ -5,7 +5,8 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
-    exclude: ["tests/smoke/**", "node_modules/**"],
+    // the contract fixtures run only inside tests/testing/contracts (#481: a nested vitest)
+    exclude: ["tests/smoke/**", "node_modules/**", "tests/fixtures/contracts/**"],
     // the workflow matchers (agboss/testing/setup in a project)
     setupFiles: ["./src/testing/setup.ts"],
     coverage: {
