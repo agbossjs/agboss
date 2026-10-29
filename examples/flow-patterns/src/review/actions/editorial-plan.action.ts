@@ -1,6 +1,6 @@
 import { Action, listOf, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { EditorialPlanDto } from "../dtos/editorial-plan.dto.js";
-import { SectionReviewDto } from "../dtos/section-review.dto.js";
+import { EditorialPlanDto } from "../dto/editorial-plan.dto.js";
+import { SectionReviewDto } from "../dto/section-review.dto.js";
 
 /**
  * Between two waves: maps the first wave's reviews — one per section, in the sections' order — to

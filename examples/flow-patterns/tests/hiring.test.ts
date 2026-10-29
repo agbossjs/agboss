@@ -15,10 +15,10 @@ import { ConfirmOfferAction } from "../src/hiring/actions/confirm-offer.action.j
 import { RegisterOfferAction } from "../src/hiring/actions/register-offer.action.js";
 import { ReleaseOnboardingSlotAction } from "../src/hiring/actions/release-onboarding-slot.action.js";
 import { WithdrawOfferAction } from "../src/hiring/actions/withdraw-offer.action.js";
-import { OfferLetterAgent } from "../src/hiring/agents/offer-letter.agent.js";
-import { OfferSenderAgent } from "../src/hiring/agents/offer-sender.agent.js";
+import { OfferLetterAgent } from "../src/hiring/agents/offer-letter/offer-letter.agent.js";
+import { OfferSenderAgent } from "../src/hiring/agents/offer-sender/offer-sender.agent.js";
 import { RecruiterInboxChannel } from "../src/hiring/channels/recruiter-inbox.channel.js";
-import { OfferLetterDto, OfferLetterSentDto } from "../src/hiring/dtos/offer.dto.js";
+import { OfferLetterDto, OfferLetterSentDto } from "../src/hiring/dto/offer.dto.js";
 import {
   AtsClientService,
   AtsUnavailableError,
@@ -30,9 +30,9 @@ import {
 import { ExecutionBudget } from "../src/config/budget.config.js";
 import { RecruiterDeskService } from "../src/hiring/services/recruiter-desk.service.js";
 import { SendOfferLetterTool } from "../src/hiring/tools/send-offer-letter.tool.js";
-import { OfferConfirmedWorkflowFinish } from "../src/hiring/workflow-finishes/offer-confirmed.workflow-finish.js";
-import { OfferWithdrawnWorkflowFinish } from "../src/hiring/workflow-finishes/offer-withdrawn.workflow-finish.js";
-import { SendOfferWorkflowStart } from "../src/hiring/workflow-starts/send-offer.workflow-start.js";
+import { OfferConfirmedWorkflowFinish } from "../src/hiring/workflows/send-offer/offer-confirmed.workflow-finish.js";
+import { OfferWithdrawnWorkflowFinish } from "../src/hiring/workflows/send-offer/offer-withdrawn.workflow-finish.js";
+import { SendOfferWorkflowStart } from "../src/hiring/workflows/send-offer/send-offer.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /**

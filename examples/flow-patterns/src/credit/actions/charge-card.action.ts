@@ -6,9 +6,9 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { ChargeResultDto } from "../dtos/charge-result.dto.js";
-import { CreditApprovalDto } from "../dtos/credit-approval.dto.js";
-import { CreditOrderDto } from "../dtos/credit-order.dto.js";
+import { ChargeResultDto } from "../dto/charge-result.dto.js";
+import { CreditApprovalDto } from "../dto/credit-approval.dto.js";
+import { CreditOrderDto } from "../dto/credit-order.dto.js";
 import { PaymentService } from "../services/payment.service.js";
 
 /**

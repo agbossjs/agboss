@@ -1,12 +1,12 @@
 import { describe, expect } from "vitest";
 import { HealthStatus, QualityGateError } from "@agboss/core";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
-import { DeskAgent } from "../src/desk/agents/desk.agent.js";
+import { DeskAgent } from "../src/desk/agents/desk/desk.agent.js";
 import { OrderDeskService } from "../src/desk/services/order-desk.service.js";
 import { DeskMetricsService } from "../src/desk/services/desk-metrics.service.js";
 import { OrderStatusTool } from "../src/desk/tools/order-status.tool.js";
-import { DeskAnswerWorkflowFinish } from "../src/desk/workflow-finishes/desk-answer.workflow-finish.js";
-import { DeskWorkflowStart } from "../src/desk/workflow-starts/desk.workflow-start.js";
+import { DeskAnswerWorkflowFinish } from "../src/desk/workflows/desk/desk-answer.workflow-finish.js";
+import { DeskWorkflowStart } from "../src/desk/workflows/desk/desk.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /** The desk's operational contracts: its judge, PII policy, observer, health check and step cap. */

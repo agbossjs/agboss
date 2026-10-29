@@ -9,7 +9,7 @@ import {
   SqlitePausedExecutionRepository,
 } from "@agboss/core";
 import { DecisionsModelProvider, OpenRouterModelProvider } from "@agboss/core/models";
-import { OffsiteBookingWorkflow } from "./approvals/offsite-booking.workflow.js";
+import { OffsiteBookingWorkflow } from "./approvals/workflows/offsite-booking/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {
   ApplicationDailyBudget,
@@ -18,23 +18,23 @@ import {
   TenantDailyBudget,
   TopicResearchExecutionBudget,
 } from "./config/budget.config.js";
-import { CreditWorkflow } from "./credit/credit.workflow.js";
+import { CreditWorkflow } from "./credit/workflows/credit/credit.workflow.js";
 import { PaymentLedgerRepository } from "./credit/repositories/payment-ledger.repository.js";
-import { DeskWorkflow } from "./desk/desk.workflow.js";
-import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
+import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
+import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-check.js";
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
-import { IntakeWorkflow } from "./intake/intake.workflow.js";
-import { HelplineWorkflow } from "./helpline/helpline.workflow.js";
+import { IntakeWorkflow } from "./intake/workflows/intake/intake.workflow.js";
+import { HelplineWorkflow } from "./helpline/workflows/helpline/helpline.workflow.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
-import { OfferWorkflow } from "./offer/offer.workflow.js";
-import { PanelWorkflow } from "./panel/panel.workflow.js";
+import { OfferWorkflow } from "./offer/workflows/offer/offer.workflow.js";
+import { PanelWorkflow } from "./panel/workflows/panel/panel.workflow.js";
 import { RecruiterInboxChannel } from "./hiring/channels/recruiter-inbox.channel.js";
-import { SendOfferWorkflow } from "./hiring/send-offer.workflow.js";
-import { TripWorkflow } from "./travel/trip.workflow.js";
-import { ReviewWorkflow } from "./review/review.workflow.js";
-import { TopicResearchWorkflow } from "./topic/topic-research.workflow.js";
-import { VendorScreeningWorkflow } from "./vendor/vendor-screening.workflow.js";
+import { SendOfferWorkflow } from "./hiring/workflows/send-offer/send-offer.workflow.js";
+import { TripWorkflow } from "./travel/workflows/trip/trip.workflow.js";
+import { ReviewWorkflow } from "./review/workflows/review/review.workflow.js";
+import { TopicResearchWorkflow } from "./topic/workflows/topic-research/topic-research.workflow.js";
+import { VendorScreeningWorkflow } from "./vendor/workflows/vendor-screening/vendor-screening.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 
 /**

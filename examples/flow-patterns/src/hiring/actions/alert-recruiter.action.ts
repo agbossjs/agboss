@@ -1,5 +1,5 @@
 import { Action, type ActionHandler, type InputOf } from "@agboss/core";
-import { RegisteredOfferDto } from "../dtos/offer.dto.js";
+import { RegisteredOfferDto } from "../dto/offer.dto.js";
 import { RecruiterDeskService } from "../services/recruiter-desk.service.js";
 
 /** An undo failed: a person takes the offer over. */

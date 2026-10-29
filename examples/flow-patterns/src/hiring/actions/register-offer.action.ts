@@ -5,7 +5,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { OfferRequestDto, RegisteredOfferDto } from "../dtos/offer.dto.js";
+import { OfferRequestDto, RegisteredOfferDto } from "../dto/offer.dto.js";
 import { AtsClientService } from "../services/ats-client.service.js";
 import { ConfirmOfferAction } from "./confirm-offer.action.js";
 import { WithdrawOfferAction } from "./withdraw-offer.action.js";

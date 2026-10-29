@@ -1,5 +1,5 @@
 import { Tool, type ToolHandler } from "@agboss/core";
-import { OrderLookupDto, OrderStatusDto } from "../dtos/order-lookup.dto.js";
+import { OrderLookupDto, OrderStatusDto } from "../dto/order-lookup.dto.js";
 import { OrderDeskService } from "../services/order-desk.service.js";
 
 /** Looks an order up. */

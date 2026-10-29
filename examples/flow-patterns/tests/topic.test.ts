@@ -7,14 +7,14 @@ import {
   type ModelRequest,
 } from "@agboss/core/testing";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { MergeAgent } from "../src/topic/agents/merge.agent.js";
-import { ResearcherAgent } from "../src/topic/agents/researcher.agent.js";
-import { TopicReportDto } from "../src/topic/dtos/topic-report.dto.js";
-import { TopicTooBroadDto } from "../src/topic/dtos/topic-too-broad.dto.js";
-import { TopicResearchWorkflow } from "../src/topic/topic-research.workflow.js";
-import { TopicFailedWorkflowFinish } from "../src/topic/workflow-finishes/topic-failed.workflow-finish.js";
-import { TopicReportWorkflowFinish } from "../src/topic/workflow-finishes/topic-report.workflow-finish.js";
-import { TopicResearchWorkflowStart } from "../src/topic/workflow-starts/topic-research.workflow-start.js";
+import { MergeAgent } from "../src/topic/agents/merge/merge.agent.js";
+import { ResearcherAgent } from "../src/topic/agents/researcher/researcher.agent.js";
+import { TopicReportDto } from "../src/topic/dto/topic-report.dto.js";
+import { TopicTooBroadDto } from "../src/topic/dto/topic-too-broad.dto.js";
+import { TopicResearchWorkflow } from "../src/topic/workflows/topic-research/topic-research.workflow.js";
+import { TopicFailedWorkflowFinish } from "../src/topic/workflows/topic-research/topic-failed.workflow-finish.js";
+import { TopicReportWorkflowFinish } from "../src/topic/workflows/topic-research/topic-report.workflow-finish.js";
+import { TopicResearchWorkflowStart } from "../src/topic/workflows/topic-research/topic-research.workflow-start.js";
 
 /** Recursion (#264): each subtopic researched by the workflow itself, at most three levels deep. */
 

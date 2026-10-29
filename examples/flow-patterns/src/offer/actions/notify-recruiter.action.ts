@@ -1,5 +1,5 @@
 import { Action, type ActionHandler, type InputOf } from "@agboss/core";
-import { OfferDraftDto } from "../dtos/offer-draft.dto.js";
+import { OfferDraftDto } from "../dto/offer-draft.dto.js";
 import { RecruiterInbox } from "../services/recruiter-inbox.service.js";
 
 /** Tells the recruiter the offer failed: the editor's visits ran out before an approval. */

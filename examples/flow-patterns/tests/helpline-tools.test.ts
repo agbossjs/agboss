@@ -1,11 +1,11 @@
 import { expect } from "vitest";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { HelplineAgent } from "../src/helpline/agents/helpline.agent.js";
+import { HelplineAgent } from "../src/helpline/agents/helpline/helpline.agent.js";
 import { PolicyFilesServer } from "../src/helpline/mcp/policy-files.server.js";
 import { ReadPolicyTool } from "../src/helpline/mcp/read-policy.mcp.js";
-import { HelplineAnswerWorkflowFinish } from "../src/helpline/workflow-finishes/helpline-answer.workflow-finish.js";
-import { HelplineWorkflowStart } from "../src/helpline/workflow-starts/helpline.workflow-start.js";
+import { HelplineAnswerWorkflowFinish } from "../src/helpline/workflows/helpline/helpline-answer.workflow-finish.js";
+import { HelplineWorkflowStart } from "../src/helpline/workflows/helpline/helpline.workflow-start.js";
 
 /**
  * The helpline's MCP tool: the filesystem server is never started in a test — `mcpOf` answers its

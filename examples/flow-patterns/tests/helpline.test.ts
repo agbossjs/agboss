@@ -3,16 +3,16 @@ import { A2ACallerRejectedError, A2AClient } from "@agboss/core/a2a";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { DeskA2aCallerResolver } from "../src/desk/a2a/desk.a2a-caller-resolver.js";
 import { DeskA2AExpose } from "../src/desk/a2a/desk.a2a-expose.js";
-import { DeskAgent } from "../src/desk/agents/desk.agent.js";
+import { DeskAgent } from "../src/desk/agents/desk/desk.agent.js";
 import { OrderStatusTool } from "../src/desk/tools/order-status.tool.js";
 import { DeskApplication } from "../src/desk.application.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { DeskA2AAgent } from "../src/helpline/a2a/desk.a2a-agent.js";
-import { HelplineAgent } from "../src/helpline/agents/helpline.agent.js";
-import { DeskCallDto, DeskReplyDto } from "../src/helpline/dtos/desk-call.dto.js";
+import { HelplineAgent } from "../src/helpline/agents/helpline/helpline.agent.js";
+import { DeskCallDto, DeskReplyDto } from "../src/helpline/dto/desk-call.dto.js";
 import { AskDeskTool } from "../src/helpline/tools/ask-desk.tool.js";
-import { HelplineAnswerWorkflowFinish } from "../src/helpline/workflow-finishes/helpline-answer.workflow-finish.js";
-import { HelplineWorkflowStart } from "../src/helpline/workflow-starts/helpline.workflow-start.js";
+import { HelplineAnswerWorkflowFinish } from "../src/helpline/workflows/helpline/helpline-answer.workflow-finish.js";
+import { HelplineWorkflowStart } from "../src/helpline/workflows/helpline/helpline.workflow-start.js";
 
 /**
  * Two applications over A2A (#387, #398): `desk-application` serves its start, the helpline of

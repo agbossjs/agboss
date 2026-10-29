@@ -1,17 +1,17 @@
 import { describe, expect } from "vitest";
 import { BranchVerdict } from "@agboss/core";
 import { decideWith, replyWith, testWith, type ModelRequest } from "@agboss/core/testing";
-import { CultureScoreAgent } from "../src/panel/agents/culture-score.agent.js";
-import { HireScoreAgent } from "../src/panel/agents/hire-score.agent.js";
-import { ScoreSummaryAgent } from "../src/panel/agents/score-summary.agent.js";
-import { SkillsScoreAgent } from "../src/panel/agents/skills-score.agent.js";
-import { ReasonedScoreArbiter } from "../src/panel/arbiters/reasoned-score.arbiter.js";
-import { PanelReviewDto } from "../src/panel/dtos/panel-review.dto.js";
-import { ScoreDto } from "../src/panel/dtos/score.dto.js";
+import { CultureScoreAgent } from "../src/panel/agents/culture-score/culture-score.agent.js";
+import { HireScoreAgent } from "../src/panel/agents/hire-score/hire-score.agent.js";
+import { ScoreSummaryAgent } from "../src/panel/agents/score-summary/score-summary.agent.js";
+import { SkillsScoreAgent } from "../src/panel/agents/skills-score/skills-score.agent.js";
+import { ReasonedScoreArbiter } from "../src/panel/arbiters/reasoned-score/reasoned-score.arbiter.js";
+import { PanelReviewDto } from "../src/panel/dto/panel-review.dto.js";
+import { ScoreDto } from "../src/panel/dto/score.dto.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { PanelReviewWorkflowFinish } from "../src/panel/workflow-finishes/panel-review.workflow-finish.js";
-import { PanelUndecidedWorkflowFinish } from "../src/panel/workflow-finishes/panel-undecided.workflow-finish.js";
-import { PanelWorkflowStart } from "../src/panel/workflow-starts/panel.workflow-start.js";
+import { PanelReviewWorkflowFinish } from "../src/panel/workflows/panel/panel-review.workflow-finish.js";
+import { PanelUndecidedWorkflowFinish } from "../src/panel/workflows/panel/panel-undecided.workflow-finish.js";
+import { PanelWorkflowStart } from "../src/panel/workflows/panel/panel.workflow-start.js";
 
 /** A quorum (#279): two counted scores of three are enough; the arbiters say which count. */
 

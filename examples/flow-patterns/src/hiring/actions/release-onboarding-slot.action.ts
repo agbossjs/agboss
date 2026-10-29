@@ -1,5 +1,5 @@
 import { Action, ExecutionContext, type ActionHandler, type InputOf } from "@agboss/core";
-import { OnboardingSlotDto } from "../dtos/offer.dto.js";
+import { OnboardingSlotDto } from "../dto/offer.dto.js";
 import { HrCalendarService } from "../services/hr-calendar.service.js";
 
 /** The undo of `book-onboarding-slot-action`: an ordinary @Action, safe to run twice. */

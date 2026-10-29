@@ -1,6 +1,6 @@
 import { Action, listOf, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { TopicTooBroadDto } from "../dtos/topic-too-broad.dto.js";
-import { TopicDto } from "../dtos/topic.dto.js";
+import { TopicTooBroadDto } from "../dto/topic-too-broad.dto.js";
+import { TopicDto } from "../dto/topic.dto.js";
 
 /** Splits a topic that is too broad: fewer branches deeper down, each one level further. */
 @Action({

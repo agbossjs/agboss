@@ -8,9 +8,9 @@ import {
   BookingDeskService,
   BookingFailedError,
 } from "../src/travel/services/booking-desk.service.js";
-import { TripBookedWorkflowFinish } from "../src/travel/workflow-finishes/trip-booked.workflow-finish.js";
-import { TripNotBookedWorkflowFinish } from "../src/travel/workflow-finishes/trip-not-booked.workflow-finish.js";
-import { TripWorkflowStart } from "../src/travel/workflow-starts/trip.workflow-start.js";
+import { TripBookedWorkflowFinish } from "../src/travel/workflows/trip/trip-booked.workflow-finish.js";
+import { TripNotBookedWorkflowFinish } from "../src/travel/workflows/trip/trip-not-booked.workflow-finish.js";
+import { TripWorkflowStart } from "../src/travel/workflows/trip/trip.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /**

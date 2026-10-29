@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus, NotPausedError, type ExecutionOutput } from "@agboss/core";
 import { callTool, replyWith, TestConcurrency, testWith } from "@agboss/core/testing";
-import { FlightBuyerAgent } from "../src/approvals/agents/flight-buyer.agent.js";
-import { VenueBuyerAgent } from "../src/approvals/agents/venue-buyer.agent.js";
-import { FlightBookingDto } from "../src/approvals/dtos/flight-booking.dto.js";
-import { VenueBookingDto } from "../src/approvals/dtos/venue-booking.dto.js";
+import { FlightBuyerAgent } from "../src/approvals/agents/flight-buyer/flight-buyer.agent.js";
+import { VenueBuyerAgent } from "../src/approvals/agents/venue-buyer/venue-buyer.agent.js";
+import { FlightBookingDto } from "../src/approvals/dto/flight-booking.dto.js";
+import { VenueBookingDto } from "../src/approvals/dto/venue-booking.dto.js";
 import { ApprovalTerminal } from "../src/approvals/services/approval-terminal.service.js";
 import { PlacePurchaseTool } from "../src/approvals/tools/place-purchase.tool.js";
-import { OffsiteBookingWorkflowFinish } from "../src/approvals/workflow-finishes/offsite-booking.workflow-finish.js";
-import { OffsiteBookingWorkflowStart } from "../src/approvals/workflow-starts/offsite-booking.workflow-start.js";
+import { OffsiteBookingWorkflowFinish } from "../src/approvals/workflows/offsite-booking/offsite-booking.workflow-finish.js";
+import { OffsiteBookingWorkflowStart } from "../src/approvals/workflows/offsite-booking/offsite-booking.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /** Two approvals at once (#267, #346 AC2): two buyers side by side, each purchase a pause. */

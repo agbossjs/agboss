@@ -1,11 +1,11 @@
 import { describe, expect } from "vitest";
 import { GuardrailBlockedError, ToolBlockedError, ToolCallStatus, toolCallsOf } from "@agboss/core";
 import { callTool, callToolWithInvalidArguments, replyWith, testWith } from "@agboss/core/testing";
-import { DeskAgent } from "../src/desk/agents/desk.agent.js";
+import { DeskAgent } from "../src/desk/agents/desk/desk.agent.js";
 import { CloseAccountTool } from "../src/desk/tools/close-account.tool.js";
 import { OrderStatusTool } from "../src/desk/tools/order-status.tool.js";
-import { DeskAnswerWorkflowFinish } from "../src/desk/workflow-finishes/desk-answer.workflow-finish.js";
-import { DeskWorkflowStart } from "../src/desk/workflow-starts/desk.workflow-start.js";
+import { DeskAnswerWorkflowFinish } from "../src/desk/workflows/desk/desk-answer.workflow-finish.js";
+import { DeskWorkflowStart } from "../src/desk/workflows/desk/desk.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /**

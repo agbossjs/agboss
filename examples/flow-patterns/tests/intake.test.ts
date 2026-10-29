@@ -8,12 +8,12 @@ import {
   TestConcurrency,
   testWith,
 } from "@agboss/core/testing";
-import { FastScreenAgent } from "../src/intake/agents/fast-screen.agent.js";
-import { LegalCheckAgent } from "../src/intake/agents/legal-check.agent.js";
-import { FastScreenDto, LegalReviewDto } from "../src/intake/dtos/intake.dto.js";
-import { IntakeReportWorkflowFinish } from "../src/intake/workflow-finishes/intake-report.workflow-finish.js";
-import { QuickScreenWorkflowFinish } from "../src/intake/workflow-finishes/quick-screen.workflow-finish.js";
-import { IntakeWorkflowStart } from "../src/intake/workflow-starts/intake.workflow-start.js";
+import { FastScreenAgent } from "../src/intake/agents/fast-screen/fast-screen.agent.js";
+import { LegalCheckAgent } from "../src/intake/agents/legal-check/legal-check.agent.js";
+import { FastScreenDto, LegalReviewDto } from "../src/intake/dto/intake.dto.js";
+import { IntakeReportWorkflowFinish } from "../src/intake/workflows/intake/intake-report.workflow-finish.js";
+import { QuickScreenWorkflowFinish } from "../src/intake/workflows/intake/quick-screen.workflow-finish.js";
+import { IntakeWorkflowStart } from "../src/intake/workflows/intake/intake.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 
 /**

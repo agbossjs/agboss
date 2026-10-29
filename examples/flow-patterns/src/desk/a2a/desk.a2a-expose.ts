@@ -1,5 +1,5 @@
 import { A2AExpose } from "@agboss/core/a2a";
-import { DeskWorkflowStart } from "../workflow-starts/desk.workflow-start.js";
+import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
 
 /**
  * What `desk-application` serves over A2A (#398 PR 3): its one start. `agboss describe --json`

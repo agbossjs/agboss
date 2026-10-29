@@ -1,6 +1,6 @@
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel.js";
-import { PurchaseOrder, PurchasePlaced } from "./place-purchase.dto.js";
+import { PurchaseOrder, PurchasePlaced } from "../dto/place-purchase.dto.js";
 
 /**
  * Places a purchase — only once it is approved: every call waits for the thread's owner through

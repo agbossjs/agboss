@@ -1,5 +1,5 @@
 import { Action, ExecutionContext, type ActionHandler, type InputOf } from "@agboss/core";
-import { TripFlightDto } from "../dtos/trip.dto.js";
+import { TripFlightDto } from "../dto/trip.dto.js";
 import { BookingDeskService } from "../services/booking-desk.service.js";
 
 /** The undo of `book-flight-action`: an ordinary @Action, safe to run twice. */

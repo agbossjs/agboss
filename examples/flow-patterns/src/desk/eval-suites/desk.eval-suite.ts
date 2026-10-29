@@ -8,10 +8,10 @@ import {
   toolInvariant,
   turn,
 } from "@agboss/core/eval";
-import { DeskAnswerJudge } from "../judges/desk-answer.judge.js";
+import { DeskAnswerJudge } from "../judges/desk-answer/desk-answer.judge.js";
 import { CloseAccountTool } from "../tools/close-account.tool.js";
 import { OrderStatusTool } from "../tools/order-status.tool.js";
-import { DeskWorkflowStart } from "../workflow-starts/desk.workflow-start.js";
+import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
 
 /**
  * The desk's eval suite (#396): run offline by `desk-application`, whose transport model answers

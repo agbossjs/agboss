@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { NotifyRecruiterAction } from "../src/offer/actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../src/offer/actions/send-offer.action.js";
-import { DraftAgent } from "../src/offer/agents/draft.agent.js";
-import { EditorAgent } from "../src/offer/agents/editor.agent.js";
-import { ReviewerAgent } from "../src/offer/agents/reviewer.agent.js";
-import { ChangesRequestedDto } from "../src/offer/dtos/changes-requested.dto.js";
-import { DraftApprovedDto } from "../src/offer/dtos/draft-approved.dto.js";
-import { OfferDraftDto } from "../src/offer/dtos/offer-draft.dto.js";
+import { DraftAgent } from "../src/offer/agents/draft/draft.agent.js";
+import { EditorAgent } from "../src/offer/agents/editor/editor.agent.js";
+import { ReviewerAgent } from "../src/offer/agents/reviewer/reviewer.agent.js";
+import { ChangesRequestedDto } from "../src/offer/dto/changes-requested.dto.js";
+import { DraftApprovedDto } from "../src/offer/dto/draft-approved.dto.js";
+import { OfferDraftDto } from "../src/offer/dto/offer-draft.dto.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { OfferMailer } from "../src/offer/services/offer-mailer.service.js";
 import { RecruiterInbox } from "../src/offer/services/recruiter-inbox.service.js";
-import { OfferFailedWorkflowFinish } from "../src/offer/workflow-finishes/offer-failed.workflow-finish.js";
-import { OfferSentWorkflowFinish } from "../src/offer/workflow-finishes/offer-sent.workflow-finish.js";
-import { OfferWorkflowStart } from "../src/offer/workflow-starts/offer.workflow-start.js";
+import { OfferFailedWorkflowFinish } from "../src/offer/workflows/offer/offer-failed.workflow-finish.js";
+import { OfferSentWorkflowFinish } from "../src/offer/workflows/offer/offer-sent.workflow-finish.js";
+import { OfferWorkflowStart } from "../src/offer/workflows/offer/offer.workflow-start.js";
 
 /** The review loop: draft → reviewer, reviewer → editor → reviewer until it approves. */
 

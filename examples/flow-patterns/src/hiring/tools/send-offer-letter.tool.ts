@@ -1,6 +1,6 @@
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RecruiterApprovalChannel } from "../channels/recruiter-approval.channel.js";
-import { LetterDelivered, LetterDelivery } from "./send-offer-letter.dto.js";
+import { LetterDelivered, LetterDelivery } from "../dto/send-offer-letter.dto.js";
 
 /** Sends the letter — only once the recruiter approves it; its id is the call's idempotency key. */
 @Tool({

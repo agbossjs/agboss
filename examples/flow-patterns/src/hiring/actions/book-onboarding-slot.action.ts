@@ -5,7 +5,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { OnboardingSlotDto, RegisteredOfferDto } from "../dtos/offer.dto.js";
+import { OnboardingSlotDto, RegisteredOfferDto } from "../dto/offer.dto.js";
 import { HrCalendarService } from "../services/hr-calendar.service.js";
 import { ConfirmOfferAction } from "./confirm-offer.action.js";
 import { ReleaseOnboardingSlotAction } from "./release-onboarding-slot.action.js";

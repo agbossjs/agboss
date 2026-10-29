@@ -6,21 +6,21 @@ import {
   testWith,
   type ModelRequest,
 } from "@agboss/core/testing";
-import { VendorCheckerAgent } from "../src/vendor/agents/vendor-checker.agent.js";
-import { VendorFinderAgent } from "../src/vendor/agents/vendor-finder.agent.js";
-import { VendorRankerAgent } from "../src/vendor/agents/vendor-ranker.agent.js";
-import { VendorRankingDto } from "../src/vendor/dtos/vendor-ranking.dto.js";
-import { VendorRejectedDto } from "../src/vendor/dtos/vendor-rejected.dto.js";
-import { VendorScoreDto } from "../src/vendor/dtos/vendor-score.dto.js";
-import { VendorDto } from "../src/vendor/dtos/vendor.dto.js";
+import { VendorCheckerAgent } from "../src/vendor/agents/vendor-checker/vendor-checker.agent.js";
+import { VendorFinderAgent } from "../src/vendor/agents/vendor-finder/vendor-finder.agent.js";
+import { VendorRankerAgent } from "../src/vendor/agents/vendor-ranker/vendor-ranker.agent.js";
+import { VendorRankingDto } from "../src/vendor/dto/vendor-ranking.dto.js";
+import { VendorRejectedDto } from "../src/vendor/dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../src/vendor/dto/vendor-score.dto.js";
+import { VendorDto } from "../src/vendor/dto/vendor.dto.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { VendorCheckWorkflow } from "../src/vendor/vendor-check.workflow.js";
-import { VendorCheckFailedWorkflowFinish } from "../src/vendor/workflow-finishes/vendor-check-failed.workflow-finish.js";
-import { VendorRankingWorkflowFinish } from "../src/vendor/workflow-finishes/vendor-ranking.workflow-finish.js";
-import { VendorRejectedWorkflowFinish } from "../src/vendor/workflow-finishes/vendor-rejected.workflow-finish.js";
-import { VendorScoredWorkflowFinish } from "../src/vendor/workflow-finishes/vendor-scored.workflow-finish.js";
-import { VendorCheckWorkflowStart } from "../src/vendor/workflow-starts/vendor-check.workflow-start.js";
-import { VendorScreeningWorkflowStart } from "../src/vendor/workflow-starts/vendor-screening.workflow-start.js";
+import { VendorCheckWorkflow } from "../src/vendor/workflows/vendor-check/vendor-check.workflow.js";
+import { VendorCheckFailedWorkflowFinish } from "../src/vendor/workflows/vendor-check/vendor-check-failed.workflow-finish.js";
+import { VendorRankingWorkflowFinish } from "../src/vendor/workflows/vendor-screening/vendor-ranking.workflow-finish.js";
+import { VendorRejectedWorkflowFinish } from "../src/vendor/workflows/vendor-check/vendor-rejected.workflow-finish.js";
+import { VendorScoredWorkflowFinish } from "../src/vendor/workflows/vendor-check/vendor-scored.workflow-finish.js";
+import { VendorCheckWorkflowStart } from "../src/vendor/workflows/vendor-check/vendor-check.workflow-start.js";
+import { VendorScreeningWorkflowStart } from "../src/vendor/workflows/vendor-screening/vendor-screening.workflow-start.js";
 
 /** A child workflow per item (#263): each vendor checked in an execution of its own. */
 

@@ -5,7 +5,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { OfferConfirmedDto, OfferLetterSentDto, RegisteredOfferDto } from "../dtos/offer.dto.js";
+import { OfferConfirmedDto, OfferLetterSentDto, RegisteredOfferDto } from "../dto/offer.dto.js";
 import { AtsClientService } from "../services/ats-client.service.js";
 
 /** The commit point: once it succeeds, nothing undoes the offer or the slot any more. */

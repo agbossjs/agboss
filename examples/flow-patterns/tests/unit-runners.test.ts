@@ -13,24 +13,24 @@ import {
   testRouter,
   testWith,
 } from "@agboss/core/testing";
-import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
-import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
+import { ApprovalAgent } from "../src/credit/agents/approval/approval.agent.js";
+import { OrderIntakeAgent } from "../src/credit/agents/order-intake/order-intake.agent.js";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
-import { CreditLimitRouter } from "../src/credit/routers/credit-limit.router.js";
-import { DeskAgent } from "../src/desk/agents/desk.agent.js";
-import { DeskAnswerJudge } from "../src/desk/judges/desk-answer.judge.js";
-import { QuotesLookupJudge } from "../src/desk/judges/quotes-lookup.judge.js";
-import { CustomerIdPiiPolicy } from "../src/desk/pii/customer-id.pii-policy.js";
+import { CreditLimitRouter } from "../src/credit/routers/credit-limit/credit-limit.router.js";
+import { DeskAgent } from "../src/desk/agents/desk/desk.agent.js";
+import { DeskAnswerJudge } from "../src/desk/judges/desk-answer/desk-answer.judge.js";
+import { QuotesLookupJudge } from "../src/desk/judges/quotes-lookup/quotes-lookup.judge.js";
+import { CustomerIdPiiPolicy } from "../src/desk/pii-policies/customer-id.pii-policy.js";
 import { ShippingPolicyRag } from "../src/desk/rag/shipping-policy.rag.js";
 import { OrderStatusTool } from "../src/desk/tools/order-status.tool.js";
-import { DeskWorkflowStart } from "../src/desk/workflow-starts/desk.workflow-start.js";
+import { DeskWorkflowStart } from "../src/desk/workflows/desk/desk.workflow-start.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { InRangeArbiter } from "../src/panel/arbiters/in-range.arbiter.js";
-import { HireScoreAgent } from "../src/panel/agents/hire-score.agent.js";
-import { SkillsScoreAgent } from "../src/panel/agents/skills-score.agent.js";
+import { InRangeArbiter } from "../src/panel/arbiters/in-range/in-range.arbiter.js";
+import { HireScoreAgent } from "../src/panel/agents/hire-score/hire-score.agent.js";
+import { SkillsScoreAgent } from "../src/panel/agents/skills-score/skills-score.agent.js";
 import { BookFlightAction } from "../src/travel/actions/book-flight.action.js";
 import { BookingDeskService } from "../src/travel/services/booking-desk.service.js";
-import { TripWorkflowStart } from "../src/travel/workflow-starts/trip.workflow-start.js";
+import { TripWorkflowStart } from "../src/travel/workflows/trip/trip.workflow-start.js";
 
 /**
  * The unit runners on the patterns' own components (#262 S55): each runs one component on its own

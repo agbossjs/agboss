@@ -6,18 +6,18 @@ import {
   testWith,
   type ModelRequest,
 } from "@agboss/core/testing";
-import { FactCheckerAgent } from "../src/review/agents/fact-checker.agent.js";
-import { SectionReviewerAgent } from "../src/review/agents/section-reviewer.agent.js";
-import { SectionSplitterAgent } from "../src/review/agents/section-splitter.agent.js";
-import { StyleCriticAgent } from "../src/review/agents/style-critic.agent.js";
-import { FactCheckDto } from "../src/review/dtos/fact-check.dto.js";
-import { SectionReviewDto } from "../src/review/dtos/section-review.dto.js";
-import { SectionDto } from "../src/review/dtos/section.dto.js";
-import { StyleNotesDto } from "../src/review/dtos/style-notes.dto.js";
+import { FactCheckerAgent } from "../src/review/agents/fact-checker/fact-checker.agent.js";
+import { SectionReviewerAgent } from "../src/review/agents/section-reviewer/section-reviewer.agent.js";
+import { SectionSplitterAgent } from "../src/review/agents/section-splitter/section-splitter.agent.js";
+import { StyleCriticAgent } from "../src/review/agents/style-critic/style-critic.agent.js";
+import { FactCheckDto } from "../src/review/dto/fact-check.dto.js";
+import { SectionReviewDto } from "../src/review/dto/section-review.dto.js";
+import { SectionDto } from "../src/review/dto/section.dto.js";
+import { StyleNotesDto } from "../src/review/dto/style-notes.dto.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { ReviewIncompleteWorkflowFinish } from "../src/review/workflow-finishes/review-incomplete.workflow-finish.js";
-import { ReviewWorkflowFinish } from "../src/review/workflow-finishes/review.workflow-finish.js";
-import { ReviewWorkflowStart } from "../src/review/workflow-starts/review.workflow-start.js";
+import { ReviewIncompleteWorkflowFinish } from "../src/review/workflows/review/review-incomplete.workflow-finish.js";
+import { ReviewWorkflowFinish } from "../src/review/workflows/review/review.workflow-finish.js";
+import { ReviewWorkflowStart } from "../src/review/workflows/review/review.workflow-start.js";
 
 /** Parallel launches in waves (#273): a reviewer per section, then the critics side by side. */
 

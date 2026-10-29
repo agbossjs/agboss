@@ -24,20 +24,20 @@ import {
   resetCrash,
 } from "./support/credit-crash.js";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
-import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
-import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
+import { ApprovalAgent } from "../src/credit/agents/approval/approval.agent.js";
+import { OrderIntakeAgent } from "../src/credit/agents/order-intake/order-intake.agent.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
-import { CreditApprovalDto } from "../src/credit/dtos/credit-approval.dto.js";
-import { CreditOrderDto } from "../src/credit/dtos/credit-order.dto.js";
-import { CreditLimitRouter } from "../src/credit/routers/credit-limit.router.js";
-import { DeskRouter } from "../src/credit/routers/desk.router.js";
-import { CreditServiceUnavailableError } from "../src/credit/services/credit-service-unavailable.error.js";
+import { CreditApprovalDto } from "../src/credit/dto/credit-approval.dto.js";
+import { CreditOrderDto } from "../src/credit/dto/credit-order.dto.js";
+import { CreditLimitRouter } from "../src/credit/routers/credit-limit/credit-limit.router.js";
+import { DeskRouter } from "../src/credit/routers/desk/desk.router.js";
+import { CreditServiceUnavailableError } from "../src/credit/errors/credit-service-unavailable.error.js";
 import { CreditService } from "../src/credit/services/credit.service.js";
 import { PaymentService } from "../src/credit/services/payment.service.js";
-import { CreditWorkflowFinish } from "../src/credit/workflow-finishes/credit.workflow-finish.js";
-import { NoOrderWorkflowFinish } from "../src/credit/workflow-finishes/no-order.workflow-finish.js";
-import { OrderHeldWorkflowFinish } from "../src/credit/workflow-finishes/order-held.workflow-finish.js";
-import { CreditWorkflowStart } from "../src/credit/workflow-starts/credit.workflow-start.js";
+import { CreditWorkflowFinish } from "../src/credit/workflows/credit/credit.workflow-finish.js";
+import { NoOrderWorkflowFinish } from "../src/credit/workflows/credit/no-order.workflow-finish.js";
+import { OrderHeldWorkflowFinish } from "../src/credit/workflows/credit/order-held.workflow-finish.js";
+import { CreditWorkflowStart } from "../src/credit/workflows/credit/credit.workflow-start.js";
 
 /** A code router (`route(input)`, no model) inside a model router's route. */
 

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { McpServer, McpServerClient } from "@agboss/core/mcp";
-import { PolicyFileContent, PolicyFileRead } from "./policy-files.dto.js";
+import { PolicyFileContent, PolicyFileRead } from "../dto/policy-files.dto.js";
 
 /** The customer policies the helpline reads: `data/policies/` of this example. */
 export const POLICIES_DIR = join(
