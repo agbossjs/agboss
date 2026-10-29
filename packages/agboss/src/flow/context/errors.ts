@@ -34,4 +34,11 @@ export class ExecutionContextUnavailableError extends AGBossError {
       `the execution context was read after its step ended (${stepLabelOf(step)} in execution ${executionId}). Read what you need before the step returns, or pass the value explicitly.`,
     );
   }
+
+  /** A read of `executionContext.fence` where no lease is held (#471): `why` says where it was. */
+  static noFence(read: UnavailableRead, why: string): ExecutionContextUnavailableError {
+    return new ExecutionContextUnavailableError(
+      `${read.consumer} read ${read.field} ${why}. Fence an external write from a step (an action, a tool, a router, a judge) that runs during the execution's pass.`,
+    );
+  }
 }

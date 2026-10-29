@@ -1,3 +1,4 @@
+import type { FrameLease } from "../flow/context/frame.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { AgentPrompts, AgentsConfigOf } from "../config/types.js";
 import type { ModelRegistry } from "../llm/registry.js";
@@ -107,6 +108,11 @@ export interface GraphDeps<TName extends string> {
    * registry of its trees' entries; absent = `seconds(15)`, no registry (a workflow run on its own).
    */
   readonly compensation?: CompensationParts | undefined;
+  /**
+   * The lease a pass moves the tree under (#471): what its steps' `executionContext.fence` reads;
+   * absent outside a pass (a workflow run on its own, a slice).
+   */
+  readonly lease?: FrameLease | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

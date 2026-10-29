@@ -1,7 +1,7 @@
 import { NodeKind } from "../../flow/ast.js";
 import type { CompensationEntry, CompensationReason } from "../../flow/compensation.js";
 import { COMPENSATION_TIMEOUT } from "../../flow/compensation.js";
-import type { ExecutionFacts } from "../../flow/context/frame.js";
+import type { ExecutionFacts, FrameLease } from "../../flow/context/frame.js";
 import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
 import type { UndoSite } from "../../flow/runtime/compensation/undo.js";
 import { joinKeysOf, workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
@@ -28,6 +28,8 @@ export interface TreeUndoSites {
   readonly ownerId: string | undefined;
   /** The undo's signal: the lease's (a lost lease is no outcome of the undo, #265). */
   readonly signal: AbortSignal;
+  /** The lease the undo runs under: its actions' `executionContext.fence` (#471). */
+  readonly lease?: FrameLease | undefined;
   readonly reason: CompensationReason;
   readonly namespaces: ReadonlyMap<string, string>;
 }
@@ -63,6 +65,7 @@ function factsOf(
     workflow: Object.freeze({ ...identity, startedVersion }),
     tenant: tenantOfExecution(runtime, contexts.tenant),
     values: contexts.execution,
+    ...(sites.lease === undefined ? {} : { lease: sites.lease }),
   });
 }
 

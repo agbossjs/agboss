@@ -2,7 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
-import type { ParentExecution } from "../flow/context/frame.js";
+import type { FrameLease, ParentExecution } from "../flow/context/frame.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type ExecutionId = string & { readonly __brand: "ExecutionId" };
@@ -29,6 +29,8 @@ export interface RunContext {
   readonly input: Readonly<Record<string, unknown>>;
   /** A child execution's place in its tree (#263): its parent and its item; absent at the root. */
   readonly tree?: ExecutionTreePlace;
+  /** The lease the run's steps run under (#471); absent outside a pass. */
+  readonly lease?: FrameLease | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */
@@ -45,6 +47,7 @@ export function newRunContext(context: {
   readonly ownerId?: string | undefined;
   readonly tenantId?: string | undefined;
   readonly input?: Readonly<Record<string, unknown>> | undefined;
+  readonly lease?: FrameLease | undefined;
 }): RunContext {
   return {
     runId: runIdOf(context.runId),
@@ -53,6 +56,7 @@ export function newRunContext(context: {
     input: context.input ?? {},
     tenantId: context.tenantId ?? DEFAULT_TENANT_ID,
     ...(context.ownerId === undefined ? {} : { ownerId: context.ownerId }),
+    ...(context.lease === undefined ? {} : { lease: context.lease }),
   };
 }
 

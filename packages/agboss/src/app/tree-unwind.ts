@@ -1,3 +1,4 @@
+import type { FrameLease } from "../flow/context/frame.js";
 import type { CompensationFailedError, CompensationRecord } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
 import type { TreeState } from "./tree-move-types.js";
@@ -23,11 +24,16 @@ export interface EndedTreeUndo {
 export async function undoneTreeEnd<TError>(
   deps: AppDeps,
   state: TreeState,
-  failure: { readonly error: TError; readonly signal: AbortSignal },
+  failure: {
+    readonly error: TError;
+    readonly signal: AbortSignal;
+    readonly lease?: FrameLease | undefined;
+  },
   undo: EndedTreeUndo,
 ): Promise<TError | CompensationFailedError> {
   const { unwoundTree } = await import("./compensation/root-unwind.js");
-  const done = await unwoundTree(deps, state, { cause: failure.error, signal: failure.signal });
+  const call = { cause: failure.error, signal: failure.signal, lease: failure.lease };
+  const done = await unwoundTree(deps, state, call);
   undo.compensations = done.compensations;
   return done.error;
 }
@@ -39,11 +45,15 @@ export async function undoneTreeEnd<TError>(
 export function unwindingDeps(
   deps: AppDeps,
   state: TreeState,
-  at: { readonly signal: AbortSignal; readonly undo: EndedTreeUndo },
+  at: {
+    readonly signal: AbortSignal;
+    readonly lease?: FrameLease | undefined;
+    readonly undo: EndedTreeUndo;
+  },
 ): AppDeps {
   const { compensation } = deps;
   if (compensation === undefined) return deps;
   const rootUnwind = (error: unknown): Promise<unknown> =>
-    undoneTreeEnd(deps, state, { error, signal: at.signal }, at.undo);
+    undoneTreeEnd(deps, state, { error, signal: at.signal, lease: at.lease }, at.undo);
   return { ...deps, compensation: { ...compensation, rootUnwind } };
 }

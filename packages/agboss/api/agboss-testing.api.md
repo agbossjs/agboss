@@ -624,6 +624,7 @@ export interface TestContextOptions<TExecution extends ExecutionContext, TTenant
     readonly execution?: ContextValues<TExecution>;
     // Warning: (ae-forgotten-export) The symbol "ExecutionContextClass" needs to be exported by the entry point index.d.ts
     readonly executionContext?: ExecutionContextClass<TExecution>;
+    readonly fence?: TestFenceOptions;
     // Warning: (ae-forgotten-export) The symbol "ContextValues" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "TenantValues" needs to be exported by the entry point index.d.ts
     readonly tenant?: ContextValues<TTenant> | TenantValues;
@@ -638,6 +639,8 @@ export function testExecutionContext<TExecution extends ExecutionContext = Execu
 
 // @public
 export interface TestExecutionContextOptions {
+    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
+    readonly clock?: Clock;
     // (undocumented)
     readonly executionId?: string;
     // (undocumented)
@@ -665,6 +668,15 @@ export class TestFailure extends Error {
 export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
 
 // @public
+export interface TestFenceOptions {
+    readonly confirmedUntil?: Date;
+    readonly confirmNowFails?: true | Error;
+    readonly isLost?: boolean;
+    readonly leaseExecutionId?: string;
+    readonly token?: number;
+}
+
+// @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
 
 // Warning: (ae-forgotten-export) The symbol "JudgeHandlerClass" needs to be exported by the entry point index.d.ts
@@ -672,6 +684,12 @@ export function testGuardrail<TExecution extends ExecutionContext = ExecutionCon
 //
 // @public
 export function testJudge<TJudge extends JudgeHandlerClass, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: TJudge, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner<JudgeReplyOf<TJudge>>;
+
+// @public
+export interface TestLeases {
+    resume(app: object): void;
+    stall(app: object): void;
+}
 
 // @public
 export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
@@ -894,8 +912,6 @@ export enum VCRMode {
     REPLAY = "REPLAY"
 }
 
-// Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class VirtualClock extends Clock {
     constructor(start?: Date);
@@ -928,6 +944,7 @@ export interface WorkflowFixtures {
     readonly app: TestApp;
     readonly apps: readonly TestApp[];
     readonly clock: VirtualClock;
+    readonly leases: TestLeases;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
     // Warning: (ae-forgotten-export) The symbol "ModelTarget" needs to be exported by the entry point index.d.ts
@@ -987,20 +1004,20 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/errors.ts:68:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:73:3 - (ae-undocumented) Missing documentation for "changes".
 // src/testing/errors.ts:88:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/testing/execution-context.ts:36:3 - (ae-undocumented) Missing documentation for "callId".
-// src/testing/execution-context.ts:37:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/testing/execution-context.ts:38:3 - (ae-undocumented) Missing documentation for "copyNumber".
-// src/testing/execution-context.ts:43:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/testing/execution-context.ts:44:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/testing/execution-context.ts:45:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/testing/execution-context.ts:46:3 - (ae-undocumented) Missing documentation for "signal".
-// src/testing/execution-context.ts:49:3 - (ae-undocumented) Missing documentation for "step".
-// src/testing/execution-context.ts:125:3 - (ae-undocumented) Missing documentation for "name".
-// src/testing/execution-context.ts:126:3 - (ae-undocumented) Missing documentation for "version".
-// src/testing/execution-context.ts:127:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/execution-context.ts:128:3 - (ae-undocumented) Missing documentation for "environmentName".
-// src/testing/execution-context.ts:146:3 - (ae-undocumented) Missing documentation for "application".
+// src/testing/execution-context.ts:39:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/testing/execution-context.ts:40:3 - (ae-undocumented) Missing documentation for "callId".
+// src/testing/execution-context.ts:41:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/testing/execution-context.ts:42:3 - (ae-undocumented) Missing documentation for "copyNumber".
+// src/testing/execution-context.ts:47:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/testing/execution-context.ts:48:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/testing/execution-context.ts:49:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/testing/execution-context.ts:50:3 - (ae-undocumented) Missing documentation for "signal".
+// src/testing/execution-context.ts:53:3 - (ae-undocumented) Missing documentation for "step".
+// src/testing/execution-context.ts:131:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/execution-context.ts:132:3 - (ae-undocumented) Missing documentation for "version".
+// src/testing/execution-context.ts:133:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/execution-context.ts:134:3 - (ae-undocumented) Missing documentation for "environmentName".
+// src/testing/execution-context.ts:152:3 - (ae-undocumented) Missing documentation for "application".
 // src/testing/invalid-turns.ts:61:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
@@ -1026,10 +1043,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:31:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:38:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:39:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:38:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:39:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:40:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".

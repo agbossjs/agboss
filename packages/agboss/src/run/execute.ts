@@ -1,5 +1,5 @@
 import { ExecutionCancelledError } from "../core/errors.js";
-import { handedOverReason, isHandedOver } from "../app/handed-over.js";
+import { handedOverOf, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ExecutionGraph } from "../flow/runtime/build.js";
@@ -53,7 +53,8 @@ const errorMessage = (error: unknown): string =>
  * `ApplicationStoppingError` (not a failure, #265).
  */
 export const outcomeError = (error: unknown, signal: AbortSignal | undefined): unknown => {
-  const handedOver = handedOverReason(signal);
+  // a fenced write behind the error first (#471): the moving call rejects with it, as it is
+  const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) return handedOver;
   return signal?.aborted === true && !(error instanceof ExecutionCancelledError)
     ? new ExecutionCancelledError("the run was cancelled")

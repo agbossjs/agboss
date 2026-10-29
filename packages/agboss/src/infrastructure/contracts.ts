@@ -101,7 +101,26 @@ export interface Infrastructure {
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
   readonly childQueue: ChildExecutionQueueRepository;
+  /**
+   * What the holders of leases take and renew them in, and their timers (the background renewal,
+   * the local expiry) sleep on — a test's `leases.stall` gate (#471); absent = `executionLeases` on
+   * `clock`. Readiness pings `executionLeases` itself.
+   */
+  readonly leasing?: Leasing;
 }
+
+/** The lease store and clock the holders of leases use (#471). */
+export interface Leasing {
+  readonly repository: ExecutionLeaseRepository;
+  readonly clock: Clock;
+}
+
+/** The lease store and clock of an instance's lease holders. */
+export const leasingOf = (infrastructure: Infrastructure): Leasing =>
+  infrastructure.leasing ?? {
+    repository: infrastructure.executionLeases,
+    clock: infrastructure.clock,
+  };
 
 /** The infrastructure from the application's container (a listed class, else the default). */
 export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrastructure => ({

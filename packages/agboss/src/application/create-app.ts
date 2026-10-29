@@ -17,6 +17,7 @@ import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
+import { gatedInfrastructure, type ExecutionLeaseGate } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { composeApp, instanceHealthOf } from "./compose-app.js";
 import { stopOf } from "./graceful-stop.js";
@@ -65,6 +66,8 @@ export interface InstanceSeams {
   readonly piiTestKey?: string;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
   readonly observers?: readonly ExecutionObserver[];
+  /** A test's gate over the instance's lease (#471, `leases.stall`): its store and its timers. */
+  readonly leaseGate?: ExecutionLeaseGate;
 }
 
 /**
@@ -169,7 +172,8 @@ export async function buildApplication(
     { ...options.container, onCreate },
   );
   const container: ContainerOptions = { ...options.container, application: shared };
-  const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
+  const resolved = resolveInfrastructure(shared, { ...container, onCreate });
+  const infrastructure = gatedInfrastructure(resolved, seams.leaseGate);
   const processEnv = options.processEnv ?? process.env;
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
   // a test's instances share a fixed PII key when the application sets none (#120, #334)

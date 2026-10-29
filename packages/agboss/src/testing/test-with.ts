@@ -13,6 +13,7 @@ import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { withA2ATestServers, type A2AServerFixture } from "./a2a-server.js";
 import type { ModelTarget } from "./scripted-gateway.js";
+import { withTestLeases, type TestLeases } from "./leases.js";
 import "./vitest-types.js";
 
 /** What every test of `testWith(Application)` gets as its fixtures. */
@@ -66,6 +67,12 @@ export interface WorkflowFixtures {
    * container, the loopback open for the test (no `allowNetwork` needed), closed at its end.
    */
   readonly a2aServer: A2AServerFixture;
+  /**
+   * A frozen process (#471): `leases.stall(apps[0])` stops that instance's lease store calls and
+   * lease timers while its step code runs on, `leases.resume(apps[0])` lets them go — with
+   * `clock.advance(seconds(31))` between, another instance takes the lease over.
+   */
+  readonly leases: TestLeases;
 }
 
 /** How many app instances the test runs: a whole number ≥ 1 (default 1). */
@@ -162,5 +169,6 @@ export function testWith<TApplication extends Class>(
       await use((server) => environment.mcpOf(server));
     },
     a2aServer: ({ app }, use) => withA2ATestServers(app, use),
+    leases: ({ environment }, use) => withTestLeases(environment, use),
   });
 }

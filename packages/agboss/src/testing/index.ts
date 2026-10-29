@@ -68,6 +68,8 @@ export type { CallAssertion, CallMatchers } from "./vitest-types.js";
 export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
 export { VirtualClock, type ClockDuration } from "./clock.js";
+export type { TestLeases } from "./leases.js";
+export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";
 export { TestConcurrency, step, type OrderedStep } from "./concurrency/test-concurrency.js";
 export { override, type Override } from "./units/override.js";

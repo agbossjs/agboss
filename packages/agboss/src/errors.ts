@@ -82,4 +82,8 @@ export {
   ModelKindError,
 } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./app/application-stopping.js";
-export { ExecutionLeaseLostError } from "./app/lease-lost.js";
+export {
+  ExecutionFencedError,
+  ExecutionLeaseLostError,
+  type ExecutionFencedErrorOptions,
+} from "./app/lease-lost.js";

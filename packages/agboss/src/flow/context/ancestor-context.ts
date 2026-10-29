@@ -1,6 +1,7 @@
 import { contextFieldNamesOf, type ExecutionContextClass } from "./context-values.js";
 import type { ExecutionContext, StepDescriptor, WorkflowClass } from "./execution-context.js";
 import { depthOf, type ExecutionFacts } from "./frame.js";
+import { ancestorFenceRead } from "./execution-fence.js";
 
 /**
  * The ancestors of an execution as its `ExecutionContext` shows them (#263): `parent`, `root` and
@@ -46,6 +47,11 @@ export function ancestorContextOf(
     Object.defineProperty(context, field, { enumerable: true, value });
   const parent = parentContextOf(type, facts);
   Object.defineProperty(context, "parent", { enumerable: true, value: parent });
+  // an ancestor's lease is never fenced with (#471): it may be yielded or held on another instance
+  Object.defineProperty(context, "fence", {
+    enumerable: false,
+    get: () => ancestorFenceRead(type.name),
+  });
   Object.defineProperty(context, "root", {
     enumerable: true,
     get: () => parent?.root ?? context,

@@ -1,3 +1,4 @@
+import { handedOverOf } from "../../app/handed-over.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
@@ -44,6 +45,9 @@ async function runTool(
     if (error && typeof error === "object" && "name" in error && error.name === "GraphInterrupt") {
       throw error;
     }
+    // a hand-over (#471: a fenced write too) ends the loop before onToolEnd and the tally
+    const handedOver = handedOverOf(error, context.signal);
+    if (handedOver !== undefined) throw handedOver;
     return { kind: "error", message: errorMessage(error), cause: error };
   }
 }

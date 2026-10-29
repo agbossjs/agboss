@@ -43,6 +43,34 @@ export interface ExecutionFacts {
   readonly origin?: ExecutionOrigin | undefined;
   /** Its deadline (#398 PR 2), kept in its contexts: what its mesh calls claim of it. */
   readonly deadline?: ExecutionDeadline | undefined;
+  /**
+   * The lease the execution's steps run under here (#471): the root's for the root and its
+   * `ParentInstance` children, a `ChildPlacement.AnyInstance` child's own; `undefined` where none is
+   * held (a reply interpreter, a budget's `maxSpend()`, an ancestor rebuilt on another instance).
+   */
+  readonly lease?: FrameLease | undefined;
+}
+
+/**
+ * The held lease as a step's `executionContext.fence` reads it (#471, internal): the live token and
+ * confirmation of the one lease, the checks against it, its running steps.
+ */
+export interface FrameLease {
+  readonly tenantId: string;
+  readonly leaseExecutionId: string;
+  readonly scopeKey: string;
+  /** The lease's `leaseEpoch`; `undefined` while it is yielded (no lease held). */
+  readonly token: number | undefined;
+  /** The `Clock` time (ms) up to which the store confirmed it; `POSITIVE_INFINITY` while yielded. */
+  readonly confirmedUntil: number;
+  /** Yielded while remote children run (#333 PR 4): nothing held, nothing to fence with. */
+  readonly isYielded: boolean;
+  /** Throws the lease's `ExecutionLeaseLostError` when lost or past `confirmedUntil` (expiring it first). */
+  assertHeld(): void;
+  /** Renews in the store now: confirmed → the after-renewal checks; anything else → lost, rejected. */
+  confirmNow(): Promise<void>;
+  /** A step of the tree runs (#471): the lease is not yielded under it; the function leaves. */
+  enterStep(): Promise<() => void>;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

@@ -3,6 +3,7 @@ import type { ComponentRecord } from "../runtime/records.js";
 import type { TenantContext } from "./tenant-context.js";
 
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
+import type { ExecutionFence } from "./execution-fence.js";
 /**
  * The execution context (#280, #261): the one context of an execution, injected through the
  * constructor (`deps: [ExecutionContext]`, `constructor(private readonly executionContext:
@@ -110,6 +111,13 @@ export abstract class ExecutionContext {
    * signature was verified (a child has its root's); `undefined` otherwise.
    */
   declare readonly origin: ExecutionOrigin | undefined;
+  /**
+   * The lease the current step runs under (#471): `scopeKey`, `token` and the checks an external
+   * write fences with. Read where a lease is held — a step of the execution's pass; elsewhere (a
+   * reply interpreter, `maxSpend()`, an eval judge, a tool called on its own, `parent.fence` /
+   * `root.fence` of an ancestor) it throws `ExecutionContextUnavailableError`.
+   */
+  declare readonly fence: ExecutionFence;
   /** The nearest execution of `workflow` in the chain, this one included; `undefined` when none. */
   declare readonly executionOf: (workflow: WorkflowClass) => this | undefined;
 }

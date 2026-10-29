@@ -1,3 +1,4 @@
+import type { FrameLease } from "../../flow/context/frame.js";
 import { meterOf } from "../../budgets/execution-budgets.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
@@ -48,6 +49,8 @@ import { undoSiteOf, type TreeUndoSites } from "./tree-undo-sites.js";
 export interface TreeUnwindCall<TCause> {
   readonly cause: TCause;
   readonly signal: AbortSignal;
+  /** The lease the undo runs under: its actions fence with it (#471). */
+  readonly lease?: FrameLease | undefined;
 }
 
 /** What the tree's end raises and the undo records its error event carries. */
@@ -134,7 +137,7 @@ export async function unwoundTree<TCause>(
   const mirrored = deps.compensation?.registry.entriesOf(tree, () => true) ?? [];
   const owner = await deps.terns.threadOwner(deps.config.name, state.tenantId, state.threadId);
   const sites: TreeUndoSites = {
-    ...{ deps, state, checkpoint, ownerId: owner?.owner, signal: call.signal },
+    ...{ deps, state, checkpoint, ownerId: owner?.owner, signal: call.signal, lease: call.lease },
     reason: reasonOfCause(call.cause),
     namespaces: stored.namespaces,
   };

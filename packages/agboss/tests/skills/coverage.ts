@@ -247,6 +247,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Clock", "ApplicationContext", "IdGenerator", "seconds", "hours"],
     ...["ExecutionHistoryRepository", "SqliteExecutionHistoryRepository", "ExecutionHistoryStatus"],
     "ExecutionHistoryRecord",
+    ...["ExecutionFencedError", "ExecutionContextUnavailableError"],
   ],
   "references/11-cli-studio-and-error-catalog.md": [
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
@@ -277,6 +278,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ModelProviderFailureError", "ModelProvider"],
     "NotAWorkflowStartError",
     "ToolBlockedError",
+    "ExecutionFencedError",
   ],
   "references/12-end-to-end-recipes.md": [
     ...["createApp", "testWith", "Application", "Workflow", "historyOf", "anyOf", "listOf"],

@@ -73,6 +73,8 @@ function factsOf(site: ChildUnwindSite): ExecutionFacts {
     tenant: parent.execution.tenant,
     values: parent.execution.values,
     ...(run.tree === undefined ? {} : { parent: run.tree.parent, itemIndex: run.tree.itemIndex }),
+    // the lease its parent's node runs under (#471): the child's undo fences with it
+    ...(run.lease === undefined ? {} : { lease: run.lease }),
   });
 }
 

@@ -42,10 +42,17 @@ export class LeaseFence {
     this.#confirmedUntil = askedAt + EXECUTION_LEASE;
   }
 
-  /** Aborts the holder: another instance took the lease (or this instance can no longer acquire it). */
-  lose(): never {
-    if (!this.lost.signal.aborted)
-      this.lost.abort(new ExecutionLeaseLostError(this.rootExecutionId));
+  /** Whether the lease is yielded while remote children run (#333 PR 4): no time to trust. */
+  get isYielded(): boolean {
+    return this.#confirmedUntil === Number.POSITIVE_INFINITY;
+  }
+
+  /**
+   * Aborts the holder: another instance took the lease (or this instance can no longer acquire it),
+   * or an external system fenced one of its writes (`reason`, #471).
+   */
+  lose(reason: ExecutionLeaseLostError = new ExecutionLeaseLostError(this.rootExecutionId)): never {
+    if (!this.lost.signal.aborted) this.lost.abort(reason);
     throw this.lost.signal.reason;
   }
 

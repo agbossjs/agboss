@@ -1307,6 +1307,66 @@ lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
 (`execution.lease-lost`) — no `onExecutionError`, no failed record: the new holder continues (Wiki →
 Several-instances).
 
+**Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
+wake and write after the new holder did. `executionContext.fence` is the lease the step runs under
+— `scopeKey`, `token` (its `leaseEpoch`, a counter of that one lease), `assertHeld()`,
+`confirmNow()` — so the external system keeps the highest token of each `scopeKey` and refuses a
+lower one, in the same transaction as the step's `idempotencyKey`:
+
+<!-- snippet-context
+import { Action, ExecutionContext, ExecutionFencedError, Injectable } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+-->
+
+```ts
+/** The external ledger: the fence and the idempotency key checked in one transaction. */
+@Injectable()
+export class ReleaseLedger {
+  readonly #highest = new Map<string, number>();
+  readonly #written = new Set<string>();
+
+  stage(write: { scopeKey: string; token: number; idempotencyKey: string }): void {
+    const highest = this.#highest.get(write.scopeKey) ?? 0;
+    if (write.token < highest)
+      throw new ExecutionFencedError({ ...write, observedToken: highest });
+    this.#highest.set(write.scopeKey, write.token);
+    this.#written.add(write.idempotencyKey); // a replay of the same step writes nothing new
+  }
+}
+
+@Action({
+  name: "stage-release-action",
+  description: "Stages the release, fenced by the lease",
+  input: { message: WorkflowStartTextDto },
+  deps: [ExecutionContext, ReleaseLedger],
+})
+export class StageReleaseAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly releaseLedger: ReleaseLedger,
+  ) {}
+
+  async execute(): Promise<void> {
+    const { fence, step } = this.executionContext;
+    fence.assertHeld();
+    this.releaseLedger.stage({
+      scopeKey: fence.scopeKey,
+      token: fence.token,
+      idempotencyKey: step.idempotencyKey,
+    });
+    await fence.confirmNow(); // before a call that cannot check tokens (a webhook)
+  }
+}
+```
+
+A refused write throws `ExecutionFencedError` (`extends ExecutionLeaseLostError`) — found in any
+cause chain, it is a hand-over: no `.onError`, no undo, the record stays `running` and the call
+rejects with it. Key the mark by `fence.scopeKey`, never by a shared business row: parallel
+`ChildPlacement.AnyInstance` children each hold a lease (and a token) of their own. Exactly-once
+holds only when the external system checks both atomically. A test freezes a writer with
+`testWith(App, { instances: 2 })` and `leases.stall(apps[0])` on the `VirtualClock`; a unit runner's
+step has a held lease (`fence: { token, isLost, confirmNowFails }`).
+
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
 every instance looks for `running` roots at its start and every 30 s, takes the lease of each whose
 holder died (its lease expired) or stopped (released it), and continues it from its last

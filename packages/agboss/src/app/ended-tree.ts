@@ -1,3 +1,4 @@
+import type { FrameLease } from "../flow/context/frame.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runningOutcome } from "../run/execute.js";
@@ -58,6 +59,8 @@ export interface EndedTree {
 export interface TreeEnd {
   readonly cause: Error;
   readonly signal: AbortSignal;
+  /** The lease the undo runs under: its actions fence with it (#471). */
+  readonly lease?: FrameLease | undefined;
 }
 
 /** Ends the tree as described above. */
@@ -77,7 +80,8 @@ export async function endedWithoutPass(
   const stored = await paused.find(state);
   if (stored?.run.runId === state.runId) await paused.drop(state);
   const undo: EndedTreeUndo = { compensations: [] };
-  const ended = await undoneTreeEnd(deps, state, { error: end.cause, signal: end.signal }, undo);
+  const failure = { error: end.cause, signal: end.signal, lease: end.lease };
+  const ended = await undoneTreeEnd(deps, state, failure, undo);
   const error: Error = ended;
   const isEnded = record !== undefined && (await failedRecord(deps, record, error));
   await forgetTree(parts, state);

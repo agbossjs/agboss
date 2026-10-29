@@ -1,4 +1,4 @@
-import { handedOverReason } from "../../../app/handed-over.js";
+import { handedOverOf, handedOverReason } from "../../../app/handed-over.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { ExecutionObserverManager } from "../../../core/observer-manager.js";
 import type { Class } from "../../../components/injection.js";
@@ -144,6 +144,10 @@ async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorR
     const update: unknown = await instance.execute(input);
     await reportNodeEvent((base) => site.observer?.onActionEnd({ ...base, name, update }));
   } catch (thrown) {
+    // a fenced write (#471) is a hand-over, never a failed undo: the instance that holds the lease
+    // runs it again
+    const handedOver = handedOverOf(thrown, undefined);
+    if (handedOver !== undefined) throw handedOver;
     error = errorRecordOf(thrown);
   }
   const status = error === undefined ? CompensationStatus.Compensated : CompensationStatus.Failed;

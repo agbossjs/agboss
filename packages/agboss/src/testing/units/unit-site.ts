@@ -35,6 +35,8 @@ import type { TurnFor } from "../script-types.js";
 import { createScriptedGateway } from "../scripted-gateway.js";
 import type { UnitModelScript, UnitOptions, UnitRun } from "./unit-types.js";
 import { replacementsOf } from "./override.js";
+import { testFenceLeaseOf } from "../fence.js";
+import type { FrameLease } from "../../flow/context/frame.js";
 
 /**
  * What a unit runner runs a component on (#262 S55, S62): its own container (the component's
@@ -131,6 +133,8 @@ export class UnitSite {
   /** The tenant's and the execution's values, validated once, as `app.execute` validates them. */
   readonly #tenant: TenantFields;
   readonly #execution: ContextFields;
+  /** The lease its calls fence with (#471): held, token 1, unless the options say otherwise. */
+  readonly #lease: FrameLease;
   #gateway: ModelGateway | undefined;
 
   constructor(options: UnitOptions) {
@@ -138,6 +142,11 @@ export class UnitSite {
     this.container = unitContainer(this.clock, this.contexts, options);
     this.#tenant = tenantFieldsOf(this.contexts.tenantContext, options.tenant);
     this.#execution = executionFieldsOf(this.contexts.executionContext, options.execution);
+    this.#lease = testFenceLeaseOf(options.fence ?? {}, {
+      tenantId: this.#tenant.tenantId,
+      executionId: UNIT_EXECUTION,
+      clock: this.clock,
+    });
   }
 
   /** The component's instance (its `deps` resolved, `overrides` applied). */
@@ -192,6 +201,7 @@ export class UnitSite {
         workflow,
         tenant: tenantOfExecution(this.contexts, this.#tenant),
         values: this.#execution,
+        lease: this.#lease,
       }),
       step: testStepOf(UNIT_EXECUTION, {
         component: frame.component,

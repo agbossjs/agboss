@@ -1559,6 +1559,7 @@ export abstract class ExecutionContext {
     readonly depth: number;
     readonly executionId: string;
     readonly executionOf: (workflow: WorkflowClass) => this | undefined;
+    readonly fence: ExecutionFence;
     readonly itemIndex: number | undefined;
     readonly origin: ExecutionOrigin | undefined;
     readonly ownerId: string | undefined;
@@ -1591,6 +1592,7 @@ export class ExecutionContextUnavailableError extends AGBossError {
     static ended(step: StepDescriptor, executionId: string): ExecutionContextUnavailableError;
     // (undocumented)
     name: string;
+    static noFence(read: UnavailableRead, why: string): ExecutionContextUnavailableError;
     // Warning: (ae-forgotten-export) The symbol "UnavailableRead" needs to be exported by the entry point index.d.ts
     static outside(read: UnavailableRead): ExecutionContextUnavailableError;
 }
@@ -1624,6 +1626,44 @@ export interface ExecutionEvent {
     // (undocumented)
     readonly threadId: string;
     readonly workflow: WorkflowRecord;
+}
+
+// @public
+export interface ExecutionFence {
+    assertHeld(): void;
+    readonly confirmedUntil: Date;
+    confirmNow(): Promise<void>;
+    fenced(observedToken?: number): ExecutionFencedError;
+    readonly leaseExecutionId: string;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+}
+
+// @public
+export class ExecutionFencedError extends ExecutionLeaseLostError {
+    constructor(options: ExecutionFencedErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly observedToken: number | undefined;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export interface ExecutionFencedErrorOptions {
+    readonly observedToken?: number | undefined;
+    readonly scopeKey: string;
+    readonly token: number;
 }
 
 // @public
@@ -2125,6 +2165,8 @@ export interface GraphDeps<TName extends string> {
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
     readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
+    // Warning: (ae-forgotten-export) The symbol "FrameLease" needs to be exported by the entry point index.d.ts
+    readonly lease?: FrameLease | undefined;
     readonly maxSteps: number;
     readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
     // (undocumented)
@@ -5456,9 +5498,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:102:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:57:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:58:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:82:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:83:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:84:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-lost.ts:85:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:88:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:89:3 - (ae-undocumented) Missing documentation for "observedToken".
 // src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/resume.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
@@ -5824,14 +5872,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/context/application-context.ts:38:3 - (ae-undocumented) Missing documentation for "host".
 // src/flow/context/errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/context/errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/context/execution-context.ts:18:3 - (ae-undocumented) Missing documentation for "type".
-// src/flow/context/execution-context.ts:23:3 - (ae-undocumented) Missing documentation for "name".
-// src/flow/context/execution-context.ts:24:3 - (ae-undocumented) Missing documentation for "version".
-// src/flow/context/execution-context.ts:36:3 - (ae-undocumented) Missing documentation for "type".
-// src/flow/context/execution-context.ts:41:3 - (ae-undocumented) Missing documentation for "component".
-// src/flow/context/execution-context.ts:74:3 - (ae-undocumented) Missing documentation for "component".
-// src/flow/context/execution-context.ts:97:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/flow/context/execution-context.ts:98:3 - (ae-undocumented) Missing documentation for "step".
+// src/flow/context/execution-context.ts:19:3 - (ae-undocumented) Missing documentation for "type".
+// src/flow/context/execution-context.ts:24:3 - (ae-undocumented) Missing documentation for "name".
+// src/flow/context/execution-context.ts:25:3 - (ae-undocumented) Missing documentation for "version".
+// src/flow/context/execution-context.ts:37:3 - (ae-undocumented) Missing documentation for "type".
+// src/flow/context/execution-context.ts:42:3 - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-context.ts:75:3 - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-context.ts:98:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/flow/context/execution-context.ts:99:3 - (ae-undocumented) Missing documentation for "step".
+// src/flow/context/execution-fence.ts:18:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/decorators/action.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/action.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/action.ts:45:1 - (ae-undocumented) Missing documentation for "Action".
@@ -6025,9 +6074,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/tool-calls.ts:86:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts:91:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:33:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:72:3 - (ae-undocumented) Missing documentation for "observer".
+// src/graph/deps.ts:33:3 - (ae-undocumented) Missing documentation for "config".
+// src/graph/deps.ts:34:3 - (ae-undocumented) Missing documentation for "registry".
+// src/graph/deps.ts:73:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
@@ -6333,8 +6382,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:97:3 - (ae-undocumented) Missing documentation for "ternId".
 // src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "data".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/tools/define-tool.ts:33:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:34:12 - (ae-undocumented) Missing documentation for "name".
+// src/tools/define-tool.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:35:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:45:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts:64:3 - (ae-undocumented) Missing documentation for "tools".

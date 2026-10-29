@@ -1,3 +1,4 @@
+import { handedOverOf } from "../app/handed-over.js";
 import { AGBossError } from "../core/errors.js";
 import type { z } from "zod";
 import { pathOf } from "../dto/errors.js";
@@ -100,6 +101,24 @@ const standaloneCall = (): ToolInvocationContext => ({
   reportCost: () => undefined,
 });
 
+/** A LangGraph interrupt (a pause), by class or by name across module copies. */
+const isInterrupt = (error: unknown): boolean =>
+  isGraphInterrupt(error) ||
+  (typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "GraphInterrupt");
+
+/**
+ * What a run that threw gives besides a pause: a hand-over rises as it is — a lost lease or a fenced
+ * write (#471) stops the loop, nothing goes back to the model —, any other failure is an error result.
+ */
+function failedRun(error: unknown, signal: AbortSignal | undefined): ToolOutput<never> {
+  const handedOver = handedOverOf(error, signal);
+  if (handedOver !== undefined) throw handedOver;
+  return failure(errorMessage(error), error);
+}
+
 /** Declares a tool once: zod input/output, typed `run`, failures turned into error results. */
 export function defineTool<TName extends string, TInput, TOutput>(
   definition: ToolDefinition<TName, TInput, TOutput>,
@@ -124,13 +143,8 @@ export function defineTool<TName extends string, TInput, TOutput>(
         { timeout, clock: ctx.clock },
       );
     } catch (error) {
-      if (
-        isGraphInterrupt(error) ||
-        (error && typeof error === "object" && "name" in error && error.name === "GraphInterrupt")
-      ) {
-        throw error;
-      }
-      return failure(errorMessage(error), error);
+      if (isInterrupt(error)) throw error;
+      return failedRun(error, ctx.signal);
     }
     const output = definition.output.safeParse(produced);
     if (!output.success) return failure(`invalid output: ${describeIssues(output.error)}`);

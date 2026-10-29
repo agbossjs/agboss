@@ -74,10 +74,10 @@ export function cancelWatchOf(trees: ExecutionTreeRepository, state: TreeState):
 export async function endCancelled(
   parts: CancelParts,
   state: TreeState,
-  signal: AbortSignal,
+  lease: HeldExecutionLease,
 ): Promise<Error> {
   const cause = cancelledErrorOf(state.threadId);
-  return (await endedWithoutPass(parts, state, { cause, signal })).error;
+  return (await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease })).error;
 }
 
 /** A lease just taken (a resume, a recovery): a tree with a request is ended, the lease released. */
@@ -88,7 +88,7 @@ export async function endedAtTake(
 ): Promise<Error | undefined> {
   if (!(await isCancelRequested(parts.trees, treeOf(state)))) return undefined;
   try {
-    return await endCancelled(parts, state, lease.signal);
+    return await endCancelled(parts, state, lease);
   } finally {
     await lease.release();
   }
@@ -106,7 +106,7 @@ export async function endIfCancelledAtRest(
 ): Promise<void> {
   const { result, watch, lease } = rest;
   if (result.status !== ExecutionStatus.Paused || !(await watch.isRequested())) return;
-  throw await endCancelled(parts, state, lease.signal);
+  throw await endCancelled(parts, state, lease);
 }
 
 /**
@@ -122,7 +122,7 @@ async function endHeld(
   const lease = isWaiting ? await parts.leases.hold(tree) : await parts.leases.tryHold(tree);
   if (lease === undefined) return undefined;
   try {
-    return await endCancelled(parts, state, lease.signal);
+    return await endCancelled(parts, state, lease);
   } finally {
     await lease.release();
   }
