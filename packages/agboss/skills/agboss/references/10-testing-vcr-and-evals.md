@@ -1166,6 +1166,22 @@ Each runner builds the component's own container (its `deps`, `overrides`, an `e
 runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder` and `JudgeModel`
 work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
 
+A service has no runner: its test creates it by hand (as `agboss create`'s
+`tests/services/api.service.test.ts` does) and mirrors its module like any other:
+
+```ts file=tests/rental/services/fleet.service.test.ts
+import { expect, it } from "vitest";
+import { FleetService } from "../../../src/rental/services/fleet.service.js";
+
+it("a reservation is keyed by the customer and the step's idempotency key", async () => {
+  const fleetService = new FleetService();
+
+  await expect(fleetService.reserve("c-1", "execution-1:reserve-car-action:1")).resolves.toBe(
+    "c-1:execution-1:reserve-car-action:1",
+  );
+});
+```
+
 A component's test mirrors its module — the tool's in `tests/screening/tools/`, beside the mirror of
 `src/screening/tools/`:
 
