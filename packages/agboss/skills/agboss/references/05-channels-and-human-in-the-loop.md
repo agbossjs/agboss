@@ -24,7 +24,7 @@ in memory — a pause survives a restart when the pause store and the checkpoint
 
 ## A worked example: refunds approved in Slack
 
-```ts file=src/refunds/dtos/refund.dto.ts
+```ts file=src/refunds/dto/refund.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class RefundRequestDto {
@@ -60,7 +60,7 @@ export class SlackClientService {
 // channels/refund-approval.channel.ts — the role: what it approves and who may answer
 import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpretation, ReplyInterpreter } from "@agboss/core";
 import type { InputOf, OutputOf, ReplyInterpreterHandler } from "@agboss/core";
-import { RefundRequestDto } from "../dtos/refund.dto.js";
+import { RefundRequestDto } from "../dto/refund.dto.js";
 
 // free text → a decision, by code (DecidedBy.Model: a chat model, or a decision model for yes / no)
 @ReplyInterpreter({
@@ -131,7 +131,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 // tools/refund.tool.ts — names the role; runs only once a call is approved
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RefundApprovalChannel } from "../channels/refund-approval.channel.js";
-import { RefundDoneDto, RefundRequestDto } from "../dtos/refund.dto.js";
+import { RefundDoneDto, RefundRequestDto } from "../dto/refund.dto.js";
 
 @Tool({
   name: "refund-tool",

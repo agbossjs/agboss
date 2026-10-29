@@ -24,7 +24,10 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Budget` (`budgets/<name>.budget.ts`)                                                          | `BudgetHandler`: `maxSpend()`                               | `name` (`-budget`), `scope`, `period`, `deps`                                                                                                                                                                                                                                                                                                                              |
 | `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                                                |
 | `@ToolInterceptor` (`interceptors/<name>.interceptor.ts`)                                       | `BeforeToolCall` and / or `AfterToolCall`                   | `name` (`-tool-interceptor`), `description`, `deps`                                                                                                                                                                                                                                                                                                                        |
-| `@Injectable` (`services/<name>.service.ts`, `observers/<name>.observer.ts`)                    | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                                                                     |
+| `@Injectable` service (`services/<name>.service.ts`)                                            | domain / API / filesystem orchestration (no direct DB/SQL)  | `deps` (`services/` holds **only** `*.service.ts`)                                                                                                                                                                                                                                                                                                                         |
+| `@Injectable` repository (`repositories/<name>.repository.ts`)                                  | direct DB access via typed ORM (e.g. Drizzle) or store impl | `deps` (uses `schemas/<name>.schema.ts` & `sql/<name>.sql`, zero string-interpolated SQL)                                                                                                                                                                                                                                                                                  |
+| `@Injectable` observer (`observers/<name>.observer.ts`)                                         | `ExecutionObserver` hooks                                   | `deps`                                                                                                                                                                                                                                                                                                                                                                     |
+| `AGBossError` subclass (`errors/<name>.error.ts`)                                               | `static override readonly code = "…"`                       | caught in flows via `.onError(MyError, …)`                                                                                                                                                                                                                                                                                                                                 |
 
 `npx agboss generate` (alias `g`) writes workflows (`w`), agents (`a`), routers (`r`), arbiters (`ar`),
 tools (`t`), MCP servers (`m`), knowledge bases (`rag`), OpenAPI clients (`oa`) and eval cases (`ec`);
@@ -73,13 +76,18 @@ import type { AppEnvironment } from "./app.environment.js";
 export const environment: AppEnvironment = { crmUrl: "http://crm.test", crmRetries: 0 };
 ```
 
-```ts file=src/desk/dtos/desk.dto.ts
-import { Flag, Text } from "@agboss/core/dto";
+```ts file=src/desk/dto/customer-query.dto.ts
+// dto/<name>.dto.ts — one *Dto class per file
+import { Text } from "@agboss/core/dto";
 
 export class CustomerQueryDto {
   @Text({ prompt: "the customer's email" })
   email!: string;
 }
+```
+
+```ts file=src/desk/dto/customer.dto.ts
+import { Flag, Text } from "@agboss/core/dto";
 
 export class CustomerDto {
   @Text({ prompt: "the customer's plan" })
@@ -88,6 +96,10 @@ export class CustomerDto {
   @Flag({ prompt: "whether the customer has an open ticket" })
   hasOpenTicket!: boolean;
 }
+```
+
+```ts file=src/desk/dto/desk-answer.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DeskAnswerDto {
   @Text({ prompt: "the answer to send, citing [source]s" })
@@ -128,7 +140,8 @@ export class CrmClientService implements OnStart, OnDestroy {
 // tools/customer-lookup.tool.ts — the execution and the spend come through the constructor
 import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
 import { kilobytes, seconds, usd } from "@agboss/core/units";
-import { CustomerDto, CustomerQueryDto } from "../dtos/desk.dto.js";
+import { CustomerQueryDto } from "../dto/customer-query.dto.js";
+import { CustomerDto } from "../dto/customer.dto.js";
 import { CrmClientService } from "../services/crm-client.service.js";
 
 @Tool({
@@ -245,7 +258,7 @@ export class GraphMemoryCompaction implements CompactionHandler {
 ```ts file=src/desk/judges/cites-source.judge.ts
 // judges/cites-source.judge.ts — runs on the agent's answer, as its DTO
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { DeskAnswerDto } from "../dtos/desk.dto.js";
+import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
 
 @Judge({
   name: "cites-source-judge",
@@ -274,7 +287,7 @@ import { Agent, RagMode, TokenLimit } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { Reasoning, ReasoningEffort } from "@agboss/core/models";
 import { ConversationCompaction } from "../compactions/conversation.compaction.js";
-import { DeskAnswerDto } from "../dtos/desk.dto.js";
+import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
 import { CitesSourceJudge } from "../judges/cites-source.judge.js";
 import { HelpCenterRag } from "../rag/help-center.rag.js";
 import { CustomerLookupTool } from "../tools/customer-lookup.tool.js";
@@ -304,7 +317,7 @@ You answer customers. Look the customer up with customer-lookup-tool, search the
 search-help-center-rag-tool, and cite every claim as [source].
 ```
 
-```ts file=src/desk/health/crm.health-check.ts
+```ts file=src/desk/health-checks/crm.health-check.ts
 // health/crm.health-check.ts — a readiness component of the project
 import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
@@ -339,19 +352,30 @@ export class PrefixedIdGenerator extends IdGenerator {
 }
 ```
 
-```ts file=src/desk/desk.workflow.ts
-import { Workflow, start } from "@agboss/core";
-import { WorkflowFinish, WorkflowStart } from "@agboss/core";
+```ts file=src/desk/workflow-starts/desk.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { SupportAgent } from "./agents/support.agent.js";
-import { DeskAnswerDto } from "./dtos/desk.dto.js";
-import { CrmClientService } from "./services/crm-client.service.js";
 
 @WorkflowStart({ name: "desk-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
 export class DeskWorkflowStart {}
+```
+
+```ts file=src/desk/workflow-finishes/desk.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
 
 @WorkflowFinish({ name: "desk-workflow-finish", description: "The answer", output: DeskAnswerDto })
 export class DeskWorkflowFinish {}
+```
+
+```ts file=src/desk/desk.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { SupportAgent } from "./agents/support.agent.js";
+import { DeskAnswerDto } from "./dto/desk-answer.dto.js";
+import { CrmClientService } from "./services/crm-client.service.js";
+import { DeskWorkflowFinish } from "./workflow-finishes/desk.workflow-finish.js";
+import { DeskWorkflowStart } from "./workflow-starts/desk.workflow-start.js";
 
 @Workflow({
   name: "desk-workflow",
@@ -370,13 +394,9 @@ export class DeskWorkflowFinish {}
 export class DeskWorkflow {}
 ```
 
-```ts file=src/desk/desk.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+```ts file=src/desk/budgets/application-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { DeskWorkflow } from "./desk.workflow.js";
-import { AppEnvironment } from "./environments/app.environment.js";
-import { CrmHealthCheck } from "./health/crm.health-check.js";
-import { PrefixedIdGenerator } from "./infrastructure/prefixed-id-generator.js";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -384,6 +404,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(10);
   }
 }
+```
+
+```ts file=src/desk/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -391,6 +416,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(2);
   }
 }
+```
+
+```ts file=src/desk/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -398,6 +428,17 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/desk/desk.application.ts
+import { Application } from "@agboss/core";
+import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./budgets/execution.budget.js";
+import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
+import { DeskWorkflow } from "./desk.workflow.js";
+import { AppEnvironment } from "./environments/app.environment.js";
+import { CrmHealthCheck } from "./health-checks/crm.health-check.js";
+import { PrefixedIdGenerator } from "./infrastructure/prefixed-id-generator.js";
 
 @Application({
   name: "desk-application",
@@ -439,6 +480,25 @@ export class DeskApplication {}
   error). Open pools and subscriptions in `onStart`, close them in `onDestroy`.
 - **No component state**: fields are `private readonly` constructor parameters; `this.cache = …`
   fails lint (`agboss/no-component-state`). A cache or a dedup set is a service over external storage.
+
+## Your own errors
+
+A domain error is an `AGBossError` subclass in `errors/<name>.error.ts`, its name ending with `Error`
+and a stable `code` of its own — never a `StepFailedError` (the framework's wrapper of a step's
+failure, with the original as its `cause`): `.onError(OrderNotFoundError, …)` after the step that
+throws it takes it through that cause.
+
+```ts file=src/desk/errors/order-not-found.error.ts
+import { AGBossError } from "@agboss/core";
+
+export class OrderNotFoundError extends AGBossError {
+  static override readonly code: string = "orders.not-found";
+
+  constructor(readonly orderId: string) {
+    super(`order ${orderId} does not exist`);
+  }
+}
+```
 
 ## The frame-bound tokens
 
@@ -508,7 +568,7 @@ typed by that agent's output (`[arbiter.unhandled-agent]`, `[arbiter.unknown-age
 
 <!-- snippet-context
 import { SupportAgent } from "./src/desk/agents/support.agent.js";
-import { DeskAnswerDto } from "./src/desk/dtos/desk.dto.js";
+import { DeskAnswerDto } from "./src/desk/dto/desk-answer.dto.js";
 -->
 
 ```ts
@@ -636,7 +696,7 @@ export class AuditToolInterceptor implements AfterToolCall {
 <!-- snippet-context
 import { createApp } from "@agboss/core";
 import { DeskApplication } from "./src/desk/desk.application.js";
-import { DeskWorkflowStart } from "./src/desk/desk.workflow.js";
+import { DeskWorkflowStart } from "./src/desk/workflow-starts/desk.workflow-start.js";
 -->
 
 ```ts

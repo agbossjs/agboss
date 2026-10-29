@@ -25,7 +25,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 A candidate screening: two agents score in parallel, a code arbiter checks each answer, a verdict
 agent decides (judged, guarded, with a knowledge base in context), a code router saves a hire.
 
-```ts file=src/screening/dtos/screening.dto.ts
+```ts file=src/screening/dto/screening.dto.ts
 import { Integer, OneOf, Text } from "@agboss/core/dto";
 
 export class CandidateDto {
@@ -81,7 +81,7 @@ export class ArchiveEntryDto {
 import { Action, DecidedBy, Decision, ExecutionContext, Injectable, Judge, JudgeModel, JudgeVerdict, OutputGuardrail, PiiAction, PiiKind, PiiPolicy, Router, Tool, pii } from "@agboss/core";
 import type { ActionHandler, InputOf, JudgeHandler, JudgeInput, OutputOf, Route, RouterHandler, ToolHandler } from "@agboss/core";
 import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
-import { ArchiveEntryDto, ArchiveQueryDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
+import { ArchiveEntryDto, ArchiveQueryDto, HireSavedDto, VerdictDto } from "./dto/screening.dto.js";
 import { RejectedWorkflowFinish } from "./finishes.js";
 
 @Injectable()
@@ -213,7 +213,7 @@ export class HireRouter implements RouterHandler<HireRouter> {
 
 ```ts file=src/screening/agents.ts
 import { Agent, RagMode } from "@agboss/core";
-import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
+import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dto/screening.dto.js";
 import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge, ShortReasonJudge } from "./components.js";
 
 @Agent({
@@ -256,7 +256,7 @@ export class VerdictAgent {}
 // a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
 import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
 import { CultureAgent, SkillsAgent } from "./agents.js";
-import { CultureReportDto, SkillsReportDto } from "./dtos/screening.dto.js";
+import { CultureReportDto, SkillsReportDto } from "./dto/screening.dto.js";
 
 @Arbiter({ name: "has-notes-arbiter", decidedBy: DecidedBy.Code })
 export class HasNotesArbiter {
@@ -274,7 +274,7 @@ export class HasNotesArbiter {
 
 ```ts file=src/screening/finishes.ts
 import { WorkflowFinish, WorkflowStart } from "@agboss/core";
-import { CandidateDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
+import { CandidateDto, HireSavedDto, VerdictDto } from "./dto/screening.dto.js";
 
 @WorkflowStart({ name: "screening-workflow-start", description: "A candidate", input: CandidateDto })
 export class ScreeningWorkflowStart {}
@@ -292,7 +292,7 @@ import { usd, type Usd } from "@agboss/core/units";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./agents.js";
 import { HasNotesArbiter } from "./arbiters.js";
 import { CandidateArchiveService, ContactPiiPolicy, HireRouter, HiringStoreService, SaveHireAction } from "./components.js";
-import { CandidateDto, CultureReportDto, HireSavedDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
+import { CandidateDto, CultureReportDto, HireSavedDto, SkillsReportDto, VerdictDto } from "./dto/screening.dto.js";
 import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./finishes.js";
 
 @Workflow({
@@ -361,7 +361,7 @@ import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from
 import { expect } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
-import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dto/screening.dto.js";
 import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/finishes.js";
 import { ScreeningApplication } from "./src/screening/screening.application.js";
 -->
@@ -571,7 +571,7 @@ import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing"
 import { expect } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
-import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dto/screening.dto.js";
 import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
 import { ScreeningApplication } from "./src/screening/screening.application.js";
 -->
@@ -903,7 +903,7 @@ import { expect, it } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { HasNotesArbiter } from "./src/screening/arbiters.js";
 import { BiasGuardrail, CandidateArchiveService, CandidateArchiveTool, ContactPiiPolicy, HireRouter, HiringPolicyRag, ReasonedVerdictJudge, SaveHireAction, ShortReasonJudge } from "./src/screening/components.js";
-import { VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { VerdictDto } from "./src/screening/dto/screening.dto.js";
 import { RejectedWorkflowFinish } from "./src/screening/finishes.js";
 -->
 

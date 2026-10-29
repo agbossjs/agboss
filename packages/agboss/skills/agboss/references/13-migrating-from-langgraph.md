@@ -256,7 +256,7 @@ test("a refund request ends with a refund id", async () => {
 The files follow Step 1's table. In a project each class is a file of its own
 (`agents/writer.agent.ts`, …); a few share a file here for brevity.
 
-```ts file=src/support/support.dto.ts
+```ts file=src/support/dto/support.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class SupportRequestDto {
@@ -357,7 +357,7 @@ export class SupervisorQueueService {
 // interrupt({ draft, refundCents }) → the role: what is approved and who answers
 import { Channel, ChannelOf, ChannelOutcome, ChannelRole, PauseAnswerer } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
-import { RefundOrderDto } from "../support.dto.js";
+import { RefundOrderDto } from "../dto/support.dto.js";
 import { SupervisorQueueService } from "../support.services.js";
 
 @ChannelRole({
@@ -385,7 +385,7 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
 ```ts file=src/support/support.tools.ts
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { RefundSignOffChannel } from "./channels/refund-sign-off.channel.js";
-import { OrderFactsDto, OrderLookupDto, RefundIssuedDto, RefundOrderDto } from "./support.dto.js";
+import { OrderFactsDto, OrderLookupDto, RefundIssuedDto, RefundOrderDto } from "./dto/support.dto.js";
 import { OrderBookService, RefundApiService } from "./support.services.js";
 
 @Tool({ name: "order-lookup-tool", description: "What is known about an order", input: OrderLookupDto, output: OrderFactsDto, deps: [OrderBookService] })
@@ -431,7 +431,7 @@ import {
   ResearchFindingDto,
   ResearchQuestionDto,
   SupportRequestDto,
-} from "./support.dto.js";
+} from "./dto/support.dto.js";
 import { IssueSignedOffRefundTool, OrderLookupTool } from "./support.tools.js";
 
 @Agent({
@@ -508,7 +508,7 @@ The classifier is a model router (its outcome is where to go, not data); `routeB
 import { Action, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
 import { ResearchPlannerAgent, RefundSignOffAgent } from "./support.agents.js";
-import { RefundIssuedDto, ReplyDraftDto, SupportRequestDto } from "./support.dto.js";
+import { RefundIssuedDto, ReplyDraftDto, SupportRequestDto } from "./dto/support.dto.js";
 import { RefundApiService } from "./support.services.js";
 
 @WorkflowStart({ name: "support-workflow-start", description: "A customer's message about an order", input: SupportRequestDto })
@@ -586,7 +586,7 @@ import {
   ReplyWriterAgent,
   ResearchPlannerAgent,
 } from "./support.agents.js";
-import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto, SupportRequestDto } from "./support.dto.js";
+import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto, SupportRequestDto } from "./dto/support.dto.js";
 import {
   HandOverWorkflowFinish,
   IssueRefundAction,
@@ -725,7 +725,7 @@ import {
   ReplyWriterAgent,
   ResearchPlannerAgent,
 } from "../../src/support/support.agents.js";
-import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto } from "../../src/support/support.dto.js";
+import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto } from "../../src/support/dto/support.dto.js";
 import {
   IssueRefundAction,
   RefundIssuedWorkflowFinish,
