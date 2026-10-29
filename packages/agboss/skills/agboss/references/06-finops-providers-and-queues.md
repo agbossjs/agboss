@@ -31,12 +31,11 @@ export class ShopTenantContext extends TenantContext {
 }
 ```
 
-```ts file=src/billing/config/budget.config.ts
-// config/budget.config.ts — every budget of the application
+Every budget of the application, one file each in `budgets/`:
+
+```ts file=src/billing/budgets/application-daily.budget.ts
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { ShopTenantContext } from "../contexts/shop-tenant.context.js";
-import { InvoiceWorkflow } from "../invoice.workflow.js";
 
 @Budget({
   name: "application-daily-budget",
@@ -48,6 +47,12 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(50);
   }
 }
+```
+
+```ts file=src/billing/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
+import { ShopTenantContext } from "../contexts/shop-tenant.context.js";
 
 @Budget({
   name: "tenant-daily-budget",
@@ -62,6 +67,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(this.shopTenantContext.dailyBudgetUsd);
   }
 }
+```
+
+```ts file=src/billing/budgets/tenant-monthly.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-monthly-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Month })
 export class TenantMonthlyBudget implements BudgetHandler {
@@ -69,6 +79,11 @@ export class TenantMonthlyBudget implements BudgetHandler {
     return usd(200); // several budgets of one scope with different periods hold at once
   }
 }
+```
+
+```ts file=src/billing/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution }) // no workflow: the default
 export class ExecutionBudget implements BudgetHandler {
@@ -76,6 +91,12 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.05); // one pass of app.execute, its child workflows included
   }
 }
+```
+
+```ts file=src/billing/budgets/invoice-execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
+import { InvoiceWorkflow } from "../workflows/invoice/invoice.workflow.js";
 
 @Budget({ name: "invoice-execution-budget", scope: BudgetScope.Execution, workflow: InvoiceWorkflow })
 export class InvoiceExecutionBudget implements BudgetHandler {
@@ -114,20 +135,29 @@ A `@Tool` or `@Action` that calls a paid API records what one call cost; the rec
 call's spend (`tool:<name>`) or the step's (`action:<name>`) and counts in every budget. Outside a
 step it throws `SpendOutsideStepError` (`[spend.outside-step]`).
 
-```ts file=src/billing/tools/tax-rate.tool.ts
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
-import { Decimal, Text } from "@agboss/core/dto";
-import { seconds, usd } from "@agboss/core/units";
+```ts file=src/billing/dto/tax-query.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TaxQuery {
   @Text({ prompt: "the customer's country, ISO 3166 alpha-2" })
   country!: string;
 }
+```
+
+```ts file=src/billing/dto/tax-rate.dto.ts
+import { Decimal } from "@agboss/core/dto";
 
 export class TaxRate {
   @Decimal({ prompt: "the VAT rate, 0 to 1", min: 0, max: 1 })
   rate!: number;
 }
+```
+
+```ts file=src/billing/tools/tax-rate.tool.ts
+import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { seconds, usd } from "@agboss/core/units";
+import { TaxQuery } from "../dto/tax-query.dto.js";
+import { TaxRate } from "../dto/tax-rate.dto.js";
 
 @Tool({
   name: "tax-rate-tool",
@@ -166,7 +196,7 @@ serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastru
   providers is two model strings. `npx agboss describe` prints `model: … → <provider>`.
 - A provider's `name` ends with `-model-provider` (`[name.kind-suffix]`).
 
-```ts file=src/billing/environments/app.environment.ts
+```ts file=src/environments/app.environment.ts
 import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
@@ -176,7 +206,7 @@ export class AppEnvironment {
 }
 ```
 
-```ts file=src/billing/environments/dev.environment.ts
+```ts file=src/environments/dev.environment.ts
 import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
@@ -187,7 +217,7 @@ export const environment: AppEnvironment = {
 };
 ```
 
-```ts file=src/billing/environments/test.environment.ts
+```ts file=src/environments/test.environment.ts
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {}; // tests script every model: no key
@@ -311,25 +341,18 @@ injected `TenantContext` reads the calling execution. Everything of the gateway 
 tools of a DTO agent, traces, and `mockLlm` in `testWith` (which answers above it: `complete()` is
 never called in a scripted test).
 
-```ts file=src/billing/model-providers/bedrock.model-provider.ts
-// model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
-import { Injectable, TenantContext } from "@agboss/core";
+The SDK's client is a service of its own; the provider injects it:
+
+```ts file=src/billing/services/bedrock-sdk-client.service.ts
+import { Injectable } from "@agboss/core";
 import {
-  ModelCost,
   ModelFailure,
-  ModelProvider,
   ModelProviderFailureError,
-  QueueBalancingStrategy,
-  RateLimitPolicy,
-  RetryPolicy,
-  TRANSIENT_FAILURES,
-  type ModelProviderHandler,
   type ModelProviderMessage,
-  type ModelProviderRequest,
   type ModelProviderResponse,
   type ModelProviderToolDefinition,
 } from "@agboss/core/models";
-import { minutes, seconds, usd } from "@agboss/core/units";
+import { seconds } from "@agboss/core/units";
 
 /** What the SDK takes: the framework's plain messages and tools, the tenant, the call's signal. */
 export interface BedrockInvocation {
@@ -355,6 +378,24 @@ export class BedrockSdkClient {
     return (await response.json()) as ModelProviderResponse; // { text, toolCalls?, usage, cost? }
   }
 }
+```
+
+```ts file=src/billing/model-providers/bedrock.model-provider.ts
+// model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
+import { TenantContext } from "@agboss/core";
+import {
+  ModelCost,
+  ModelProvider,
+  QueueBalancingStrategy,
+  RateLimitPolicy,
+  RetryPolicy,
+  TRANSIENT_FAILURES,
+  type ModelProviderHandler,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
+import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
 
 @ModelProvider({
   name: "bedrock-model-provider",
@@ -473,18 +514,30 @@ outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens ×
 
 ## The application
 
-```ts file=src/billing/invoice.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
-import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
-import { TaxRateTool } from "./tools/tax-rate.tool.js";
+The DTO, the agent, and the workflow with its start and finish in `workflows/invoice/`:
+
+```ts file=src/billing/dto/invoice-draft.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class InvoiceDraftDto {
   @Text({ prompt: "the invoice, with its VAT line" })
   text!: string;
 }
+```
+
+```ts file=src/billing/workflows/invoice/invoice.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "invoice-workflow-start", description: "What to invoice", input: WorkflowStartTextDto })
 export class InvoiceWorkflowStart {}
+```
+
+```ts file=src/billing/agents/invoice/invoice.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
+import { TaxRateTool } from "../../tools/tax-rate.tool.js";
 
 @Agent({
   name: "invoice-agent",
@@ -496,9 +549,23 @@ export class InvoiceWorkflowStart {}
   tools: [TaxRateTool],
 })
 export class InvoiceAgent {}
+```
+
+```ts file=src/billing/workflows/invoice/invoice.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
 
 @WorkflowFinish({ name: "invoice-workflow-finish", description: "The draft", output: InvoiceDraftDto })
 export class InvoiceWorkflowFinish {}
+```
+
+```ts file=src/billing/workflows/invoice/invoice.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { InvoiceAgent } from "../../agents/invoice/invoice.agent.js";
+import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
+import { InvoiceWorkflowFinish } from "./invoice.workflow-finish.js";
+import { InvoiceWorkflowStart } from "./invoice.workflow-start.js";
 
 @Workflow({
   name: "invoice-workflow",
@@ -515,20 +582,18 @@ export class InvoiceWorkflowFinish {}
 export class InvoiceWorkflow {}
 ```
 
-```ts file=src/billing/billing.application.ts
+```ts file=src/billing.application.ts
 import { Application } from "@agboss/core";
-import {
-  ApplicationDailyBudget,
-  ExecutionBudget,
-  InvoiceExecutionBudget,
-  TenantDailyBudget,
-  TenantMonthlyBudget,
-} from "./config/budget.config.js";
-import { ShopTenantContext } from "./contexts/shop-tenant.context.js";
+import { ApplicationDailyBudget } from "./billing/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./billing/budgets/execution.budget.js";
+import { InvoiceExecutionBudget } from "./billing/budgets/invoice-execution.budget.js";
+import { TenantDailyBudget } from "./billing/budgets/tenant-daily.budget.js";
+import { TenantMonthlyBudget } from "./billing/budgets/tenant-monthly.budget.js";
+import { ShopTenantContext } from "./billing/contexts/shop-tenant.context.js";
+import { BackupModelProvider } from "./billing/model-providers/backup.model-provider.js";
+import { AppOpenRouterModelProvider } from "./billing/model-providers/openrouter.model-provider.js";
+import { InvoiceWorkflow } from "./billing/workflows/invoice/invoice.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { InvoiceWorkflow } from "./invoice.workflow.js";
-import { BackupModelProvider } from "./model-providers/backup.model-provider.js";
-import { AppOpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "billing-application",
@@ -554,8 +619,8 @@ data, never from the request body):
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
-import { BillingApplication } from "./src/billing/billing.application.js";
-import { InvoiceWorkflowStart } from "./src/billing/invoice.workflow.js";
+import { BillingApplication } from "./src/billing.application.js";
+import { InvoiceWorkflowStart } from "./src/billing/workflows/invoice/invoice.workflow-start.js";
 -->
 
 ```ts
@@ -583,15 +648,17 @@ An exhausted budget is reached the real way — a budget mocked low and a script
 `limits` option. Scripted models answer above the providers, so the rate limit and the breaker
 never slow a test down.
 
-```ts file=tests/billing/budget.test.ts
+```ts file=tests/billing/workflows/invoice/invoice.workflow.test.ts
 import { expect } from "vitest";
 import { BudgetExceededError, BudgetScope } from "@agboss/core";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { usd } from "@agboss/core/units";
-import { BillingApplication } from "../../src/billing/billing.application.js";
-import { InvoiceExecutionBudget } from "../../src/billing/config/budget.config.js";
-import { InvoiceAgent, InvoiceDraftDto, InvoiceWorkflowStart } from "../../src/billing/invoice.workflow.js";
-import { TaxRateTool } from "../../src/billing/tools/tax-rate.tool.js";
+import { BillingApplication } from "../../../../src/billing.application.js";
+import { InvoiceAgent } from "../../../../src/billing/agents/invoice/invoice.agent.js";
+import { InvoiceExecutionBudget } from "../../../../src/billing/budgets/invoice-execution.budget.js";
+import { InvoiceDraftDto } from "../../../../src/billing/dto/invoice-draft.dto.js";
+import { TaxRateTool } from "../../../../src/billing/tools/tax-rate.tool.js";
+import { InvoiceWorkflowStart } from "../../../../src/billing/workflows/invoice/invoice.workflow-start.js";
 
 const test = testWith(BillingApplication);
 
