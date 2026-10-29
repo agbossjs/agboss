@@ -838,7 +838,17 @@ What each layer checks — scripts, then evaluation, then smoke: [The test split
 
 `npm test` runs unit + integration; the generated `test:suites` script (`vitest run --project suites`)
 runs the suites. A new project's workflow test
-(`src/<workflow>/<workflow>.workflow.test.ts`) scripts the main router and the first agent.
+(`tests/workflows/<workflow>/<workflow>.workflow.test.ts`) scripts the main router and the first agent.
+
+**`tests/` mirrors `src/` (#474).** A component's unit test sits at its module's path with `.test.ts`
+(`tests/tools/refund.tool.test.ts` ↔ `src/tools/refund.tool.ts`,
+`tests/billing/routers/refund/refund.router.test.ts` ↔ `src/billing/routers/refund/refund.router.ts`);
+a workflow's tests sit in its folder's mirror (`tests/[<domain>/]workflows/<w>/`, any number of
+`*.test.ts` there); a whole application's in `tests/<app>.application.test.ts`. Helpers and cassettes
+go to a `support/` or `__snapshots__/` folder inside a mirrored folder — the tests that use them sit
+beside them (`examples/flow-patterns`: `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`).
+`agboss generate` writes tests there, and the shipped skills' snippets keep to it
+(`packages/agboss/tests/docs/skills-layout.test.ts`).
 
 ## Compile-time tests
 

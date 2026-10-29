@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the project layout in every skill snippet and in flow-patterns (#474)
+
+- **Changed — the shipped skills** ([Components](Components#project-layout-474),
+  [Naming](Naming#folders-one-domain-level-kind-folders-a-folder-per-workflow-474)): every snippet of
+  `SKILL.md` and references 01–13 is one class per file, named by its `file=`, at the path
+  `agboss generate` writes — `src/[<domain>/]<kind>/…`, `workflows/<w>/` with the workflow's starts
+  and finishes, `agents/<n>/` (and every prompt-bearing kind) with its `<n>.prompt.md`, DTOs in
+  `dto/`, the application and `environments/` at the `src/` root, `tests/` mirroring `src/`.
+  `SKILL.md` allows one domain level (`src/billing/agents/refund/refund.agent.ts`); the "condensed"
+  references are gone; `@ToolInterceptor` lives in `tool-interceptors/<n>.tool-interceptor.ts`.
+- **Changed — `examples/flow-patterns`** ([Example](Example#flow-patterns-a-review-loop-and-a-code-router)):
+  `dtos/` → `dto/`, each workflow in `<domain>/workflows/<w>/` with its starts and finishes, each
+  agent, router, judge, arbiter, compaction and guardrail in its own folder; its tests mirror `src/`
+  ([Testing](Testing#three-kinds-of-tests)), the cassette in
+  `tests/desk/workflows/desk/__snapshots__/`. Component names, versions, cassettes, snapshots and
+  eval baselines are unchanged.
+- **Added — the layout check** (`packages/agboss/tests/docs/skills-layout.test.ts`): one class per
+  block, a class block without `file=`, a workflow file outside `workflows/<w>/`, a flat prompt-bearing
+  component, a `*.prompt.md` not beside its component, a domain with a loose file, a test outside the
+  mirror — each named by file and line, over the skills, the example's real files and what
+  `agboss generate` writes.
+
 ## Unreleased — published store contract suites (#481)
 
 - **Added — `@agboss/core/testing/contracts`** ([Several instances](Several-instances#writing-your-own-store-the-published-contract-suites-481),

@@ -373,7 +373,7 @@ re-entered mid-undo finishes its own before any step and raises its error again
 A failed undo is not marked: the next holder runs it again (its key `<step key>:compensation`
 makes that safe).
 
-```ts no-check: the send-offer example's test (examples/flow-patterns/tests/hiring.test.ts), shown here as the case it proves
+```ts no-check: the send-offer example's test (examples/flow-patterns/tests/hiring/workflows/send-offer/send-offer.workflow.test.ts), shown here as the case it proves
 test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({ app, mockLlm, mockOf }) => {
   mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
   mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");

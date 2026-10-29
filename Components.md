@@ -15,6 +15,32 @@ examples/job-scout/src/
 
 The example `examples/job-scout` uses every kind below — see [Example](Example).
 
+## Project layout (#474)
+
+What `agboss create` / `agboss generate` write, what `SKILL.md` and every snippet of the shipped
+skills show, and what `examples/flow-patterns` keeps to (checked by
+`packages/agboss/tests/docs/skills-layout.test.ts`):
+
+```
+src/
+  <app>.application.ts             the application — at the src/ root
+  environments/                    its environments — at the src/ root
+  [<domain>/]                      optional, one level: holds kind folders only
+    workflows/<w>/                 <w>.workflow.ts + its *.workflow-start.ts and *.workflow-finish.ts
+    agents/<n>/                    <n>.agent.ts + <n>.prompt.md
+    routers/<n>/  judges/<n>/  arbiters/<n>/  compactions/<n>/  guardrails/<n>/  reply-interpreters/<n>/
+    dto/<n>.dto.ts                 one DTO per file (never dtos/)
+    tools/  actions/  services/  repositories/  schemas/  sql/  errors/  budgets/  …
+tests/                             mirrors src/ (Testing → Three kinds of tests)
+```
+
+- **One class per file**, in the folder of its kind; a prompt-bearing component (agent, router,
+  judge, arbiter, compaction, guardrail, reply interpreter) in its own folder — even a code one
+  without a prompt file.
+- **A domain** (`src/billing/`) is any folder that is not a kind folder; it holds only kind folders.
+  A folder named like a kind (`src/dto/`) is that kind.
+- `examples/job-scout` keeps its older flat layout (`workflow-starts/`, `agents/<n>.agent.ts`).
+
 ## Component rules
 
 Every component reads the same way, top to bottom:
@@ -62,16 +88,16 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 
 | File                                           | Holds                                                                    |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| `<name>.workflow.ts`                           | the `@Workflow` module                                                   |
-| `workflow-starts/<name>.workflow-start.ts`     | a `@WorkflowStart` — where a run starts ([Workflow](Workflow))           |
-| `routers/<name>.router.ts`                     | a `@Router` with its routes ([Routers](Routers))                         |
+| `workflows/<w>/<w>.workflow.ts`                | the `@Workflow` module                                                   |
+| `workflows/<w>/<name>.workflow-start.ts`       | a `@WorkflowStart` — where a run starts ([Workflow](Workflow))           |
+| `routers/<name>/<name>.router.ts`              | a `@Router` with its routes ([Routers](Routers))                         |
 | `actions/<name>.action.ts`                     | an `@Action` — code without a model                                      |
-| `arbiters/<name>.arbiter.ts`                   | an `@Arbiter` — whether an answer counts for a quorum ([Parallel](Parallel#arbiters)) |
+| `arbiters/<name>/<name>.arbiter.ts`            | an `@Arbiter` — whether an answer counts for a quorum ([Parallel](Parallel#arbiters)) |
 | `agents/<name>-agent.options.ts`               | an options const two agents share (`satisfies Omit<AgentOptions, …>`)    |
-| `workflow-finishes/<name>.workflow-finish.ts`  | a `@WorkflowFinish` — where a run finishes                               |
-| `agents/<name>.agent.ts` + `<name>.prompt.md`  | an `@Agent`; its prompt file in `promptUrls: ["./<name>.prompt.md"]`     |
-| `tools/<name>.tool.ts` + `<name>.tool.test.ts` | a `@Tool` and its test                                                   |
-| `tools/<name>.dto.ts`, `mcp/<name>.dto.ts`     | the DTOs of the tools / server next to it (plain data classes)           |
+| `workflows/<w>/<name>.workflow-finish.ts`      | a `@WorkflowFinish` — where a run finishes                               |
+| `agents/<name>/<name>.agent.ts` + `<name>.prompt.md` | an `@Agent`; its prompt file in `promptUrls: ["./<name>.prompt.md"]`     |
+| `tools/<name>.tool.ts` + `tests/tools/<name>.tool.test.ts` | a `@Tool` and its test (`tests/` mirrors `src/`)             |
+| `dto/<name>.dto.ts`                            | one DTO class (plain data) — of a tool, a server, a path                 |
 | `mcp/<name>.server.ts`                         | an `@McpServer` and the server tools it uses (`extends McpServerClient`) |
 | `mcp/<name>.mcp.ts`                            | an `@McpTool` — a tool with its server injected                          |
 | `rag/<name>.rag.ts`                            | a `@Rag` knowledge base                                                  |

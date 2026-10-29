@@ -118,6 +118,14 @@ coverage (`isolate: false`: one module graph per worker, each test assembling it
 per item and recursion, [Workflow as a step](Workflow-as-a-step)), `src/approvals/` (two approvals at
 once, below).
 
+Each domain holds kind folders only (#474, [Components](Components#project-layout-474)): the
+workflow with its starts and finishes in `workflows/<w>/` (`src/credit/workflows/credit/credit.workflow.ts`,
+`credit.workflow-start.ts`, `order-held.workflow-finish.ts`), each agent, router, judge, arbiter,
+compaction and guardrail in its own folder (`src/credit/agents/approval/approval.agent.ts` +
+`approval.prompt.md`), DTOs in `dto/`, errors in `errors/`. `tests/` mirrors `src/`: a workflow's
+tests in `tests/<domain>/workflows/<w>/` (with its `support/` and `__snapshots__/`), a component's
+unit test at its module's path (`tests/credit/repositories/payment-ledger.repository.test.ts`).
+
 ```bash
 npm install && npm run build          # repo root
 cd examples/flow-patterns
@@ -160,8 +168,8 @@ npm test
   `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches
   (`search-shipping-policy-rag-tool`), and the workflow a `PiiPolicyHandler` detector
   (`<customer-id:…>` in what the model reads); the application lists an observer, a `@HealthCheck`
-  (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. `tests/unit-runners.test.ts` runs the unit
-  runners on the patterns' own components — `testAction` with an `override`, `testRouter`,
+  (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. Each unit runner runs on the patterns' own components in the test that mirrors the
+  component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testAction` with an `override`, `testRouter`,
   `testArbiter`, `testRag`, `testPii`, and `testJudge` on the tool calls of a scripted visit.
 - **`src/helpline/`** — two applications over [A2A](A2A) (#398): `desk-application` serves
   `desk-workflow-start` (`@A2AExpose` in `@Application({ exposes })`; its caller resolver takes the
@@ -172,16 +180,16 @@ npm test
   `version` is `[federation.version-not-bumped]`), and the application against the desk's fresh
   `agboss describe --json` — renaming a field of `DeskCallDto` gives
   `[federation.incompatible-schema] … — affects flow-patterns-application › helpline-workflow
-  (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/helpline.test.ts` serves
+  (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/desk/a2a/desk.a2a-expose.test.ts` serves
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
   `mockOf(DeskA2AAgent)`.
   The helpline also reads the customer policies (`data/policies/`) through the official filesystem
   [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` an `@McpTool`;
-  `tests/helpline-tools.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
+  `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
   screen side by side, `.joinQuorumGroups(group(LegalCheckAgent).priority(1)…, group(FastScreenAgent)
-  .priority(2)…, { deadline: seconds(30) })`. `tests/intake.test.ts` fixes the order the branches
+  .priority(2)…, { deadline: seconds(30) })`. `tests/intake/workflows/intake/intake.workflow.test.ts` fixes the order the branches
   finish in with `TestConcurrency.inOrder([step(…), step(…)])`: the full check first wins
   (`result.launches[0].group`, the screen cancelled); the full check's model failing
   (`failWith(ModelFailure.RateLimited)`) lets the quick screen's group go on.
@@ -200,9 +208,9 @@ npm test
   and drafts an eval case from the newest (`agboss generate eval-case lookup-from-history --suite
   desk-eval-suite --from-execution <id> --dry-run`) — what `agboss eval ui`'s "Save as golden case"
   (#397 PR 5) writes into the suite.
-  `tests/desk-cassette.test.ts` replays the desk from a [VCR](Testing#vcr--recorded-runs) cassette,
-  `tests/__snapshots__/desk-lookup.cassette.json`, recorded offline through the same transport
-  (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk-cassette.test.ts`, #439); `npm run check` runs
+  `tests/desk/workflows/desk/desk-cassette.test.ts` replays the desk from a [VCR](Testing#vcr--recorded-runs) cassette,
+  `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`, recorded offline through the same transport
+  (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`, #439); `npm run check` runs
   `agboss check --cassettes` on the desk, so a changed prompt or schema is `[vcr.stale-cassette]`
   until `AGBOSS_VCR_MODE=RECORD_STALE` records what changed.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
