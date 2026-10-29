@@ -23,7 +23,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@ReplyInterpreter` (`reply-interpreters/<name>/<name>.reply-interpreter.ts`)                   | —                                                           | `name` (`-reply-interpreter`), `model`, `prompt` / `promptUrls`, `decision`                                                                                                                                                                                                                                                                                                |
 | `@Budget` (`budgets/<name>.budget.ts`)                                                          | `BudgetHandler`: `maxSpend()`                               | `name` (`-budget`), `scope`, `period`, `deps`                                                                                                                                                                                                                                                                                                                              |
 | `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                                                |
-| `@ToolInterceptor` (`interceptors/<name>.interceptor.ts`)                                       | `BeforeToolCall` and / or `AfterToolCall`                   | `name` (`-tool-interceptor`), `description`, `deps`                                                                                                                                                                                                                                                                                                                        |
+| `@ToolInterceptor` (`tool-interceptors/<name>.tool-interceptor.ts`)                             | `BeforeToolCall` and / or `AfterToolCall`                   | `name` (`-tool-interceptor`), `description`, `deps`                                                                                                                                                                                                                                                                                                                        |
 | `@Injectable` service (`services/<name>.service.ts`)                                            | domain / API / filesystem orchestration (no direct DB/SQL)  | `deps` (`services/` holds **only** `*.service.ts`)                                                                                                                                                                                                                                                                                                                         |
 | `@Injectable` repository (`repositories/<name>.repository.ts`)                                  | direct DB access via typed ORM (e.g. Drizzle) or store impl | `deps` (uses `schemas/<name>.schema.ts` & `sql/<name>.sql`, zero string-interpolated SQL)                                                                                                                                                                                                                                                                                  |
 | `@Injectable` observer (`observers/<name>.observer.ts`)                                         | `ExecutionObserver` hooks                                   | `deps`                                                                                                                                                                                                                                                                                                                                                                     |
@@ -41,9 +41,9 @@ contract; the check is on the decorator line.
 
 ## A worked example: a support desk's components
 
-One class per file in a project; here a few small classes share a file for brevity.
+One class per file in a project, each in the folder of its kind.
 
-```ts file=src/desk/environments/app.environment.ts
+```ts file=src/environments/app.environment.ts
 // environments/app.environment.ts — the contract: declared fields only, never a value
 import type { Secret } from "@agboss/core";
 
@@ -55,7 +55,7 @@ export class AppEnvironment {
 }
 ```
 
-```ts file=src/desk/environments/dev.environment.ts
+```ts file=src/environments/dev.environment.ts
 // environments/dev.environment.ts — one file per environment; `--env dev` (the default) picks it
 import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
@@ -68,7 +68,7 @@ export const environment: AppEnvironment = {
 };
 ```
 
-```ts file=src/desk/environments/test.environment.ts
+```ts file=src/environments/test.environment.ts
 // environments/test.environment.ts — what testWith runs on; without it tests fail to start.
 // A secret() whose variable is unset fails the start, so a test environment leaves secrets out.
 import type { AppEnvironment } from "./app.environment.js";
@@ -181,8 +181,8 @@ export class HelpCenterRag implements RagConnector {
 }
 ```
 
-```ts file=src/desk/compactions/conversation.compaction.ts
-// compactions/conversation.compaction.ts — what happens to turns older than the window
+```ts file=src/desk/compactions/conversation/conversation.compaction.ts
+// compactions/conversation/conversation.compaction.ts — what happens to turns older than the window
 import { Compaction, CompactionStrategy } from "@agboss/core";
 
 @Compaction({
@@ -210,7 +210,7 @@ next turn reads its thread; a `compact()` that throws or gives no summary is `Co
 <!-- snippet-context
 import { Injectable, type CompactionTurn } from "@agboss/core";
 @Injectable()
-export class KnowledgeGraphService {
+class KnowledgeGraphService {
   saveFactsAndSummarize(
     _threadId: string,
     turns: readonly CompactionTurn[],
@@ -222,8 +222,8 @@ export class KnowledgeGraphService {
 // @snippet
 -->
 
-```ts file=src/desk/compactions/graph-memory.compaction.ts
-// compactions/graph-memory.compaction.ts — the facts go to a knowledge graph, its summary to readers
+```ts file=src/desk/compactions/graph-memory/graph-memory.compaction.ts
+// compactions/graph-memory/graph-memory.compaction.ts — the facts go to a knowledge graph, its summary to readers
 import {
   Compaction,
   CompactionStrategy,
@@ -255,10 +255,10 @@ export class GraphMemoryCompaction implements CompactionHandler {
 }
 ```
 
-```ts file=src/desk/judges/cites-source.judge.ts
-// judges/cites-source.judge.ts — runs on the agent's answer, as its DTO
+```ts file=src/desk/judges/cites-source/cites-source.judge.ts
+// judges/cites-source/cites-source.judge.ts — runs on the agent's answer, as its DTO
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @Judge({
   name: "cites-source-judge",
@@ -281,16 +281,16 @@ export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
 }
 ```
 
-```ts file=src/desk/agents/support.agent.ts
-// agents/support.agent.ts — every model setting in one place; the prompt in a file next to it
+```ts file=src/desk/agents/support/support.agent.ts
+// agents/support/support.agent.ts — every model setting in one place; the prompt in a file next to it
 import { Agent, RagMode, TokenLimit } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { Reasoning, ReasoningEffort } from "@agboss/core/models";
-import { ConversationCompaction } from "../compactions/conversation.compaction.js";
-import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
-import { CitesSourceJudge } from "../judges/cites-source.judge.js";
-import { HelpCenterRag } from "../rag/help-center.rag.js";
-import { CustomerLookupTool } from "../tools/customer-lookup.tool.js";
+import { ConversationCompaction } from "../../compactions/conversation/conversation.compaction.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
+import { CitesSourceJudge } from "../../judges/cites-source/cites-source.judge.js";
+import { HelpCenterRag } from "../../rag/help-center.rag.js";
+import { CustomerLookupTool } from "../../tools/customer-lookup.tool.js";
 
 @Agent({
   name: "support-agent",
@@ -312,13 +312,13 @@ import { CustomerLookupTool } from "../tools/customer-lookup.tool.js";
 export class SupportAgent {}
 ```
 
-```md file=src/desk/agents/support.prompt.md
+```md file=src/desk/agents/support/support.prompt.md
 You answer customers. Look the customer up with customer-lookup-tool, search the help center with
 search-help-center-rag-tool, and cite every claim as [source].
 ```
 
 ```ts file=src/desk/health-checks/crm.health-check.ts
-// health/crm.health-check.ts — a readiness component of the project
+// health-checks/crm.health-check.ts — a readiness component of the project
 import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CrmClientService } from "../services/crm-client.service.js";
@@ -352,7 +352,7 @@ export class PrefixedIdGenerator extends IdGenerator {
 }
 ```
 
-```ts file=src/desk/workflow-starts/desk.workflow-start.ts
+```ts file=src/desk/workflows/desk/desk.workflow-start.ts
 import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
@@ -360,22 +360,22 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 export class DeskWorkflowStart {}
 ```
 
-```ts file=src/desk/workflow-finishes/desk.workflow-finish.ts
+```ts file=src/desk/workflows/desk/desk.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @WorkflowFinish({ name: "desk-workflow-finish", description: "The answer", output: DeskAnswerDto })
 export class DeskWorkflowFinish {}
 ```
 
-```ts file=src/desk/desk.workflow.ts
+```ts file=src/desk/workflows/desk/desk.workflow.ts
 import { Workflow, start } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { SupportAgent } from "./agents/support.agent.js";
-import { DeskAnswerDto } from "./dto/desk-answer.dto.js";
-import { CrmClientService } from "./services/crm-client.service.js";
-import { DeskWorkflowFinish } from "./workflow-finishes/desk.workflow-finish.js";
-import { DeskWorkflowStart } from "./workflow-starts/desk.workflow-start.js";
+import { SupportAgent } from "../../agents/support/support.agent.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
+import { CrmClientService } from "../../services/crm-client.service.js";
+import { DeskWorkflowFinish } from "./desk.workflow-finish.js";
+import { DeskWorkflowStart } from "./desk.workflow-start.js";
 
 @Workflow({
   name: "desk-workflow",
@@ -430,15 +430,15 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
-```ts file=src/desk/desk.application.ts
+```ts file=src/desk.application.ts
 import { Application } from "@agboss/core";
-import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
-import { ExecutionBudget } from "./budgets/execution.budget.js";
-import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
-import { DeskWorkflow } from "./desk.workflow.js";
+import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./desk/budgets/tenant-daily.budget.js";
+import { CrmHealthCheck } from "./desk/health-checks/crm.health-check.js";
+import { PrefixedIdGenerator } from "./desk/infrastructure/prefixed-id-generator.js";
+import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { CrmHealthCheck } from "./health-checks/crm.health-check.js";
-import { PrefixedIdGenerator } from "./infrastructure/prefixed-id-generator.js";
 
 @Application({
   name: "desk-application",
@@ -535,17 +535,17 @@ Injected like any dependency, read only while a step runs (outside → `Executio
 <!-- snippet-context
 import { Judge, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
-export class OfferDto {
+class OfferDto {
   @Integer({ prompt: "the salary offered" })
   salary!: number;
 }
-export class RefusalDto {
+class RefusalDto {
   @Text({ prompt: "why no offer is made" })
   reason!: string;
 }
 -->
 
-```ts
+```ts file=src/desk/judges/offer-range/offer-range.judge.ts
 @Judge({ name: "offer-range-judge", model: "moonshotai/kimi-k2.6", reply: oneOf(OfferDto, RefusalDto) })
 export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
@@ -566,13 +566,10 @@ An arbiter decides whether one branch's answer of a parallel launch counts towar
 typed by that agent's output (`[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`,
 `[arbiter.duplicate-agent]`); by model: `model`, `prompt` and one `criteria` entry per agent.
 
-<!-- snippet-context
-import { SupportAgent } from "./src/desk/agents/support.agent.js";
-import { DeskAnswerDto } from "./src/desk/dto/desk-answer.dto.js";
--->
-
-```ts
+```ts file=src/desk/arbiters/has-answer/has-answer.arbiter.ts
 import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { SupportAgent } from "../../agents/support/support.agent.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @Arbiter({ name: "has-answer-arbiter", decidedBy: DecidedBy.Code })
 export class HasAnswerArbiter {
@@ -596,21 +593,14 @@ one is `[tool-interceptor.not-an-interceptor]`).
 <!-- snippet-context
 import { TenantContext } from "@agboss/core";
 import { ListOf, Text } from "@agboss/core/dto";
-export class JobScoutTenantContext extends TenantContext {
+class JobScoutTenantContext extends TenantContext {
   @ListOf(Text)
   allowedCities!: string[];
 }
 -->
 
-```ts
-import {
-  ToolCallDecision,
-  ToolInterceptor,
-  type AfterToolCall,
-  type BeforeToolCall,
-  type ToolCallContext,
-  type ToolCallResultContext,
-} from "@agboss/core";
+```ts file=src/desk/tool-interceptors/tenant-scope.tool-interceptor.ts
+import { ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
 
 @ToolInterceptor({
   name: "tenant-scope-tool-interceptor",
@@ -635,6 +625,10 @@ export class TenantScopeToolInterceptor implements BeforeToolCall {
     return ToolCallDecision.allow();
   }
 }
+```
+
+```ts file=src/desk/tool-interceptors/audit.tool-interceptor.ts
+import { ToolInterceptor, type AfterToolCall, type ToolCallResultContext } from "@agboss/core";
 
 @ToolInterceptor({ name: "audit-tool-interceptor", description: "Logs every tool result" })
 export class AuditToolInterceptor implements AfterToolCall {
@@ -695,8 +689,8 @@ export class AuditToolInterceptor implements AfterToolCall {
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
-import { DeskApplication } from "./src/desk/desk.application.js";
-import { DeskWorkflowStart } from "./src/desk/workflow-starts/desk.workflow-start.js";
+import { DeskApplication } from "./src/desk.application.js";
+import { DeskWorkflowStart } from "./src/desk/workflows/desk/desk.workflow-start.js";
 -->
 
 ```ts
@@ -744,30 +738,53 @@ An action with a side effect the flow may have to take back names its undo — a
 never a model call — and optionally the action after which nothing undoes it any more. Where the flow
 goes after a failure is reference 02, section 8; the tests reference 10.
 
-<!-- snippet-context
-import { Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+The booking's DTOs, its start and its finish:
+
+```ts file=src/booking/dto/seat-request.dto.ts
 import { Text } from "@agboss/core/dto";
+
 export class SeatRequestDto {
   @Text({ prompt: "the flight and the passenger" })
   request!: string;
 }
+```
+
+```ts file=src/booking/dto/seat-hold.dto.ts
+import { Text } from "@agboss/core/dto";
+
 export class SeatHoldDto {
   @Text({ prompt: "the hold's id" })
   holdId!: string;
 }
+```
+
+```ts file=src/booking/dto/ticket-issued.dto.ts
+import { Text } from "@agboss/core/dto";
+
 export class TicketIssuedDto {
   @Text({ prompt: "the ticket number" })
   ticketNumber!: string;
 }
+```
+
+```ts file=src/booking/workflows/seat/seat.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { SeatRequestDto } from "../../dto/seat-request.dto.js";
+
 @WorkflowStart({ name: "seat-workflow-start", description: "A seat to book", input: SeatRequestDto })
 export class SeatWorkflowStart {}
+```
+
+```ts file=src/booking/workflows/seat/ticket-issued.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { TicketIssuedDto } from "../../dto/ticket-issued.dto.js";
+
 @WorkflowFinish({ name: "ticket-issued-workflow-finish", description: "The ticket", output: TicketIssuedDto })
 export class TicketIssuedWorkflowFinish {}
-// @snippet
--->
+```
 
-```ts
-import { Action, ExecutionContext, Injectable, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+```ts file=src/booking/services/airline.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class AirlineService {
@@ -781,8 +798,14 @@ export class AirlineService {
     return Promise.resolve();
   }
 }
+```
 
+```ts file=src/booking/actions/release-seat.action.ts
 // the undo: reads only what the path holds right after the action it undoes
+import { Action, ExecutionContext, type ActionHandler, type InputOf } from "@agboss/core";
+import { SeatHoldDto } from "../dto/seat-hold.dto.js";
+import { AirlineService } from "../services/airline.service.js";
+
 @Action({
   name: "release-seat-action",
   description: "Releases a held seat",
@@ -800,14 +823,29 @@ export class ReleaseSeatAction implements ActionHandler<ReleaseSeatAction> {
     await this.airlineService.release(input.hold.value.holdId, this.executionContext.step.idempotencyKey);
   }
 }
+```
 
+```ts file=src/booking/actions/issue-ticket.action.ts
 // the commit point: once it succeeds, nothing undoes the hold
+import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { SeatHoldDto } from "../dto/seat-hold.dto.js";
+import { TicketIssuedDto } from "../dto/ticket-issued.dto.js";
+
 @Action({ name: "issue-ticket-action", description: "Issues the ticket", input: { hold: SeatHoldDto }, output: TicketIssuedDto })
 export class IssueTicketAction implements ActionHandler<IssueTicketAction> {
   execute(input: InputOf<IssueTicketAction>): Promise<OutputOf<IssueTicketAction>> {
     return Promise.resolve({ ticketNumber: `T-${input.hold.value.holdId}` });
   }
 }
+```
+
+```ts file=src/booking/actions/hold-seat.action.ts
+import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { SeatHoldDto } from "../dto/seat-hold.dto.js";
+import { SeatRequestDto } from "../dto/seat-request.dto.js";
+import { AirlineService } from "../services/airline.service.js";
+import { IssueTicketAction } from "./issue-ticket.action.js";
+import { ReleaseSeatAction } from "./release-seat.action.js";
 
 @Action({
   name: "hold-seat-action",
@@ -829,6 +867,18 @@ export class HoldSeatAction implements ActionHandler<HoldSeatAction> {
     return { holdId: await this.airlineService.hold(input.request.value.request, key) };
   }
 }
+```
+
+```ts file=src/booking/workflows/seat/seat.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { HoldSeatAction } from "../../actions/hold-seat.action.js";
+import { IssueTicketAction } from "../../actions/issue-ticket.action.js";
+import { SeatHoldDto } from "../../dto/seat-hold.dto.js";
+import { SeatRequestDto } from "../../dto/seat-request.dto.js";
+import { TicketIssuedDto } from "../../dto/ticket-issued.dto.js";
+import { AirlineService } from "../../services/airline.service.js";
+import { SeatWorkflowStart } from "./seat.workflow-start.js";
+import { TicketIssuedWorkflowFinish } from "./ticket-issued.workflow-finish.js";
 
 @Workflow({
   name: "seat-workflow",
