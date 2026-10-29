@@ -54,7 +54,7 @@ A start's input is a DTO, a `listOf(…)` or a map of fields; `start(S)` returns
 `.returns(…)`. A node reads its `input` fields from the scope by class — never by position. An action
 gets each field as `{ producer, value }`.
 
-```ts file=src/ticket/ticket.dto.ts
+```ts file=src/ticket/dto/ticket.dto.ts
 import { Flag, OneOf, Text } from "@agboss/core/dto";
 
 export class TicketDto {
@@ -85,7 +85,7 @@ export class TicketFiledDto {
 // one class per file in a project; together here for brevity
 import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./ticket.dto.js";
+import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./dto/ticket.dto.js";
 
 @WorkflowStart({
   name: "ticket-workflow-start",
@@ -130,7 +130,7 @@ export class TicketFiledWorkflowFinish {}
 
 ```ts file=src/ticket/ticket.workflow.ts
 import { Workflow, optional, start } from "@agboss/core";
-import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./ticket.dto.js";
+import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./dto/ticket.dto.js";
 import {
   FileTicketAction,
   TicketFiledWorkflowFinish,
@@ -170,7 +170,7 @@ gives TriageDto — write .returns(TriageDto) after it`); a step without `output
 `route(input)` returns a target, typed by its `routes`. A **text agent** (no `output`) leads only to a
 finish whose output is `WorkflowFinishTextDto` (`[flow.text-agent-target]`).
 
-```ts file=src/credit/credit.dto.ts
+```ts file=src/credit/dto/credit.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class CreditOrderDto {
@@ -196,7 +196,7 @@ export class ChargeResultDto {
 import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit.dto.js";
+import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./dto/credit.dto.js";
 
 export class CreditServiceUnavailableError extends Error {}
 
@@ -304,7 +304,7 @@ import {
   OrderHeldWorkflowFinish,
   OrderIntakeAgent,
 } from "./credit.components.js";
-import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit.dto.js";
+import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./dto/credit.dto.js";
 
 @Workflow({
   name: "credit-workflow",
@@ -358,7 +358,7 @@ one `caseOf(…)` per variant. In a loop whose classes are built from each other
 value is **about**, and `historyOf(XDto, { limit })` reads the earlier versions. Every node on a
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
-```ts file=src/offer/offer.dto.ts
+```ts file=src/offer/dto/offer.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class CandidateShortlistDto {
@@ -396,7 +396,7 @@ import {
   DraftApprovedDto,
   OfferDraftDto,
   OfferSentDto,
-} from "./offer.dto.js";
+} from "./dto/offer.dto.js";
 
 @WorkflowStart({ name: "offer-workflow-start", description: "A shortlisted candidate", input: CandidateShortlistDto })
 export class OfferWorkflowStart {}
@@ -489,7 +489,7 @@ import {
   DraftApprovedDto,
   OfferDraftDto,
   OfferSentDto,
-} from "./offer.dto.js";
+} from "./dto/offer.dto.js";
 
 @Workflow({
   name: "offer-workflow",
@@ -551,7 +551,7 @@ A launch runs several branches at once; `.join()` is where their values meet. Ag
 | a router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` | `optional(XDto)`                          |
 | an action without `output`                                            | nothing: `.join()` goes on with `.to…(…)` |
 
-```ts file=src/review/review.dto.ts
+```ts file=src/review/dto/review.dto.ts
 import { Flag, Text } from "@agboss/core/dto";
 
 export class ArticleSectionDto {
@@ -599,7 +599,7 @@ import {
   SectionNotesDto,
   SectionReviewDto,
   StyleNotesDto,
-} from "./review.dto.js";
+} from "./dto/review.dto.js";
 
 @WorkflowStart({ name: "article-review-workflow-start", description: "An article", input: WorkflowStartTextDto })
 export class ArticleReviewWorkflowStart {}
@@ -727,7 +727,7 @@ import {
   SectionNotesDto,
   SectionReviewDto,
   StyleNotesDto,
-} from "./review.dto.js";
+} from "./dto/review.dto.js";
 
 @Workflow({
   name: "article-review-workflow",
@@ -1209,7 +1209,7 @@ picks it), `.toParallelWorkflows(W, { maxItems })` (one child per item), `workfl
 or `toWorkflow(W)` as a side-path starter. The child's scope starts with its start's input only; its
 result is one of its finishes' outputs.
 
-```ts file=src/vendor/vendor.dto.ts
+```ts file=src/vendor/dto/vendor.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class VendorDto {
@@ -1245,7 +1245,7 @@ export class VendorRankingDto {
 // the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
 import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, oneOf, start, toAction } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { VendorCheckFailedDto, VendorDto, VendorRejectedDto, VendorScoreDto } from "./vendor.dto.js";
+import { VendorCheckFailedDto, VendorDto, VendorRejectedDto, VendorScoreDto } from "./dto/vendor.dto.js";
 
 @WorkflowStart({ name: "vendor-check-workflow-start", description: "One vendor to check", input: VendorDto })
 export class VendorCheckWorkflowStart {}
@@ -1310,7 +1310,7 @@ export class VendorCheckWorkflow {}
 import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, listOf, oneOf, start, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorCheckWorkflow } from "./vendor-check.workflow.js";
-import { VendorCheckFailedDto, VendorDto, VendorRankingDto, VendorRejectedDto, VendorScoreDto } from "./vendor.dto.js";
+import { VendorCheckFailedDto, VendorDto, VendorRankingDto, VendorRejectedDto, VendorScoreDto } from "./dto/vendor.dto.js";
 
 @WorkflowStart({ name: "vendor-screening-workflow-start", description: "What to buy", input: WorkflowStartTextDto })
 export class VendorScreeningWorkflowStart {}

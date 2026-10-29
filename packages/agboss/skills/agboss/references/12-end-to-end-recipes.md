@@ -19,7 +19,7 @@ After writing any of them: `npx agboss check` (types, every rule), `npx agboss d
 A draft is reviewed until approved; the reviewer compares it with the earlier versions; the editor
 may rewrite it at most twice; an approved offer above a limit waits for a person, below it is sent.
 
-```ts file=src/offers/offer.dto.ts
+```ts file=src/offers/dto/offer.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class OfferRequestDto {
@@ -67,7 +67,7 @@ export class OfferMailerService {
 ```ts file=src/offers/offer.components.ts
 import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
-import { LetterApprovedDto, LetterChangesDto, OfferLetterDto, OfferMailedDto, OfferRequestDto } from "./offer.dto.js";
+import { LetterApprovedDto, LetterChangesDto, OfferLetterDto, OfferMailedDto, OfferRequestDto } from "./dto/offer.dto.js";
 import { OfferMailerService } from "./services/offer-mailer.service.js";
 
 @WorkflowStart({ name: "offer-letter-workflow-start", description: "An offer to write", input: OfferRequestDto })
@@ -163,7 +163,7 @@ import {
   OfferSizeRouter,
   OfferStuckWorkflowFinish,
 } from "./offer.components.js";
-import { LetterApprovedDto, LetterChangesDto, OfferLetterDto, OfferMailedDto, OfferRequestDto } from "./offer.dto.js";
+import { LetterApprovedDto, LetterChangesDto, OfferLetterDto, OfferMailedDto, OfferRequestDto } from "./dto/offer.dto.js";
 import { MailerUnavailableError, OfferMailerService } from "./services/offer-mailer.service.js";
 
 @Workflow({
@@ -251,7 +251,7 @@ import {
   OfferSizeRouter,
   OfferStuckWorkflowFinish,
 } from "../../src/offers/offer.components.js";
-import { LetterApprovedDto, LetterChangesDto, OfferLetterDto } from "../../src/offers/offer.dto.js";
+import { LetterApprovedDto, LetterChangesDto, OfferLetterDto } from "../../src/offers/dto/offer.dto.js";
 
 const test = testWith(OffersApplication);
 
@@ -303,7 +303,7 @@ A finder lists suppliers; each is checked by a child workflow that fails softly;
 assess the shortlist and any two accepted reviews are enough; the buyer — the thread's owner —
 approves the order before it is placed.
 
-```ts file=src/sourcing/sourcing.dto.ts
+```ts file=src/sourcing/dto/sourcing.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class SupplierDto {
@@ -363,7 +363,7 @@ export class PurchaseSummaryDto {
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
 import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "@agboss/core";
 import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { SupplierDto, SupplierScoreDto, SupplierUncheckedDto } from "./sourcing.dto.js";
+import { SupplierDto, SupplierScoreDto, SupplierUncheckedDto } from "./dto/sourcing.dto.js";
 
 @WorkflowStart({ name: "supplier-check-workflow-start", description: "A supplier to check", input: SupplierDto })
 export class SupplierCheckWorkflowStart {}
@@ -415,7 +415,7 @@ export class SupplierCheckWorkflow {}
 // the role: what it approves and who answers; its implementation is infrastructure
 import { Channel, ChannelOf, ChannelOutcome, ChannelRole, Injectable, PauseAnswerer } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
-import { PurchaseOrderDto } from "../sourcing.dto.js";
+import { PurchaseOrderDto } from "../dto/sourcing.dto.js";
 
 @ChannelRole({
   name: "purchase-approval-channel",
@@ -462,7 +462,7 @@ import {
   SupplierScoreDto,
   SupplierShortlistDto,
   SupplierUncheckedDto,
-} from "./sourcing.dto.js";
+} from "./dto/sourcing.dto.js";
 
 @WorkflowStart({ name: "sourcing-workflow-start", description: "What to buy", input: WorkflowStartTextDto })
 export class SourcingWorkflowStart {}
@@ -590,7 +590,7 @@ import {
   SupplierScoreDto,
   SupplierShortlistDto,
   SupplierUncheckedDto,
-} from "./sourcing.dto.js";
+} from "./dto/sourcing.dto.js";
 import { SupplierCheckWorkflow } from "./supplier-check.workflow.js";
 
 @Workflow({
@@ -687,7 +687,7 @@ import {
   SupplierShortlistAgent,
   TermsReviewAgent,
 } from "../../src/sourcing/sourcing.components.js";
-import { PurchaseReviewDto, PurchaseSummaryDto, SupplierDto, SupplierScoreDto, SupplierShortlistDto } from "../../src/sourcing/sourcing.dto.js";
+import { PurchaseReviewDto, PurchaseSummaryDto, SupplierDto, SupplierScoreDto, SupplierShortlistDto } from "../../src/sourcing/dto/sourcing.dto.js";
 import {
   SupplierCheckWorkflow,
   SupplierCheckerAgent,
@@ -1155,7 +1155,7 @@ export class ApplicantPiiPolicy {}
 export class OutOfScopeGuardrail {}
 ```
 
-```ts file=src/loans/loans.dto.ts
+```ts file=src/loans/dto/loans.dto.ts
 import { Decimal, Flag, Integer, Text } from "@agboss/core/dto";
 
 export class LoanApplicationDto {
@@ -1198,7 +1198,7 @@ export class LoanOfferSentDto {
 }
 ```
 
-```ts file=src/loans/services/loans.services.ts
+```ts file=src/loans/services/loans.service.ts
 import { ApplicationContext, Injectable } from "@agboss/core";
 
 export class LedgerUnavailableError extends Error {}
@@ -1239,8 +1239,8 @@ export class FundsLedgerService {
 import { Action, Agent, ExecutionContext, HealthCheck, HealthCheckResult, SpendRecorder, Tool, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import type { ActionHandler, HealthCheckHandler, InputOf, OutputOf, ToolHandler } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
-import { CreditScore, CreditScoreQuery, FundsReservationDto, LoanApplicationDto, LoanDecisionDto, LoanOfferSentDto } from "./loans.dto.js";
-import { CreditBureauService, FundsLedgerService } from "./services/loans.services.js";
+import { CreditScore, CreditScoreQuery, FundsReservationDto, LoanApplicationDto, LoanDecisionDto, LoanOfferSentDto } from "./dto/loans.dto.js";
+import { CreditBureauService, FundsLedgerService } from "./services/loans.service.js";
 
 @WorkflowStart({ name: "loan-workflow-start", description: "A loan application", input: LoanApplicationDto })
 export class LoanWorkflowStart {}
@@ -1360,8 +1360,8 @@ import {
   SendLoanOfferAction,
   UnderwriterAgent,
 } from "./loans.components.js";
-import { FundsReservationDto, LoanApplicationDto, LoanDecisionDto, LoanOfferSentDto } from "./loans.dto.js";
-import { CreditBureauService, FundsLedgerService } from "./services/loans.services.js";
+import { FundsReservationDto, LoanApplicationDto, LoanDecisionDto, LoanOfferSentDto } from "./dto/loans.dto.js";
+import { CreditBureauService, FundsLedgerService } from "./services/loans.service.js";
 
 @Workflow({
   name: "loan-workflow",
@@ -1476,7 +1476,7 @@ import { decideWith, override, testGuardrail, testPii, testTool } from "@agboss/
 import { seconds } from "@agboss/core/units";
 import { CreditScoreTool } from "../../src/loans/loans.components.js";
 import { ApplicantPiiPolicy, OutOfScopeGuardrail } from "../../src/loans/safety/loans.safety.js";
-import { CreditBureauService } from "../../src/loans/services/loans.services.js";
+import { CreditBureauService } from "../../src/loans/services/loans.service.js";
 
 @Injectable()
 export class FixedCreditBureauService extends CreditBureauService {
@@ -1528,8 +1528,8 @@ import {
   ReserveFundsAction,
   UnderwriterAgent,
 } from "../../src/loans/loans.components.js";
-import { LoanDecisionDto } from "../../src/loans/loans.dto.js";
-import { FundsLedgerService } from "../../src/loans/services/loans.services.js";
+import { LoanDecisionDto } from "../../src/loans/dto/loans.dto.js";
+import { FundsLedgerService } from "../../src/loans/services/loans.service.js";
 import { OutOfScopeGuardrail } from "../../src/loans/safety/loans.safety.js";
 
 const test = testWith(LoansApplication);

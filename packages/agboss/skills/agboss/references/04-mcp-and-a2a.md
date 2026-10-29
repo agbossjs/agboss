@@ -13,8 +13,8 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 
 ## Using an MCP server
 
-```ts file=src/support/mcp/issues.dto.ts
-// mcp/issues.dto.ts — the server tools' DTOs: input and output of each one you use
+```ts file=src/support/dto/issues.dto.ts
+// dto/issues.dto.ts — the server tools' DTOs: input and output of each one you use
 import { ListOf, Text } from "@agboss/core/dto";
 
 export class IssueSearchDto {
@@ -39,7 +39,7 @@ export class IssueHitsDto {
 ```ts file=src/support/mcp/issues.server.ts
 // mcp/issues.server.ts — the server and the tools of it this workflow uses (checked at start)
 import { McpServer, McpServerClient } from "@agboss/core/mcp";
-import { IssueHitsDto, IssueSearchDto } from "./issues.dto.js";
+import { IssueHitsDto, IssueSearchDto } from "../dto/issues.dto.js";
 
 const tools = {
   search_issues: { input: IssueSearchDto, output: IssueHitsDto }, // the server's own tool name
@@ -60,7 +60,7 @@ export class IssuesServer extends McpServerClient<typeof tools> {}
 import { ExecutionContext, type ToolHandler } from "@agboss/core";
 import { McpTool } from "@agboss/core/mcp";
 import { kilobytes, seconds } from "@agboss/core/units";
-import { IssueHitsDto, IssueSearchDto } from "./issues.dto.js";
+import { IssueHitsDto, IssueSearchDto } from "../dto/issues.dto.js";
 import { IssuesServer } from "./issues.server.js";
 
 @McpTool({
@@ -102,7 +102,7 @@ export class SearchIssuesTool implements ToolHandler<IssueSearchDto, IssueHitsDt
 
 ## Calling another application over A2A
 
-```ts file=src/support/a2a/order-desk.dto.ts
+```ts file=src/support/dto/order-desk.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class OrderQuestionDto {
@@ -122,7 +122,7 @@ export class OrderDeskReplyDto {
 import { ExecutionContext } from "@agboss/core";
 import { A2AAgent, A2AClient } from "@agboss/core/a2a";
 import { usd } from "@agboss/core/units";
-import { OrderDeskReplyDto, OrderQuestionDto } from "./order-desk.dto.js";
+import { OrderDeskReplyDto, OrderQuestionDto } from "../dto/order-desk.dto.js";
 
 @A2AAgent({
   name: "order-desk-a2a-agent",
@@ -149,7 +149,7 @@ export class OrderDeskA2AAgent extends A2AClient<OrderQuestionDto, OrderDeskRepl
 // tools/ask-order-desk.tool.ts — an agent delegates to the remote workflow through a tool
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
-import { OrderDeskReplyDto, OrderQuestionDto } from "../a2a/order-desk.dto.js";
+import { OrderDeskReplyDto, OrderQuestionDto } from "../dto/order-desk.dto.js";
 import { OrderDeskA2AAgent } from "../a2a/order-desk.a2a-agent.js";
 
 @Tool({
@@ -193,8 +193,8 @@ Serving the workflow to A2A callers (below) takes a **caller resolver**: who cal
 host for each request — its tenant, the thread's owner, the execution's values. An ordinary
 `@Injectable`, listed in `providers` and created by the container like any service:
 
-```ts file=src/support/a2a/api-key-directory.service.ts
-// a2a/api-key-directory.service.ts — the host's own service (a database, a KMS, …)
+```ts file=src/support/services/api-key-directory.service.ts
+// services/api-key-directory.service.ts — the host's own service (a database, a KMS, …)
 import { Injectable } from "@agboss/core";
 
 export interface ApiKeyGrant {
@@ -216,7 +216,7 @@ export class ApiKeyDirectory {
 import { Injectable } from "@agboss/core";
 import { A2ACallerResolution, A2ARoute, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
 import type { SupportWorkflowStart } from "../support.workflow.js";
-import { ApiKeyDirectory, type ApiKeyGrant } from "./api-key-directory.service.js";
+import { ApiKeyDirectory, type ApiKeyGrant } from "../services/api-key-directory.service.js";
 
 @Injectable({ deps: [ApiKeyDirectory] }) // created by the container, never `new`
 export class SupportA2aCallerResolver implements A2ACallerResolver<typeof SupportWorkflowStart> {
@@ -241,7 +241,7 @@ export class SupportA2aCallerResolver implements A2ACallerResolver<typeof Suppor
 import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
-import { ApiKeyDirectory } from "./a2a/api-key-directory.service.js";
+import { ApiKeyDirectory } from "./services/api-key-directory.service.js";
 import { A2AExpose } from "@agboss/core/a2a";
 import { OrderDeskA2AAgent } from "./a2a/order-desk.a2a-agent.js";
 import { SupportA2aCallerResolver } from "./a2a/support.a2a-caller-resolver.js";
@@ -432,7 +432,7 @@ import { expect } from "vitest";
 import { Injectable } from "@agboss/core";
 import { A2ACallerRejectedError, A2AClient } from "@agboss/core/a2a";
 import { override, testWith } from "@agboss/core/testing";
-import { ApiKeyDirectory, type ApiKeyGrant } from "../../src/support/a2a/api-key-directory.service.js";
+import { ApiKeyDirectory, type ApiKeyGrant } from "../../src/support/services/api-key-directory.service.js";
 import { SupportA2aCallerResolver } from "../../src/support/a2a/support.a2a-caller-resolver.js";
 import { SupportAgent } from "../../src/support/agents/support.agent.js";
 import { SupportA2AExpose, SupportApplication } from "../../src/support/support.workflow.js";

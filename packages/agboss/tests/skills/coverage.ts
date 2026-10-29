@@ -24,6 +24,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "usd",
     "kilobytes",
     "AGBossError",
+    "StepFailedError",
+    "SqliteConnection",
     "LimitExceededError",
     ...["EvalSuite", "EvalCascade", "checkTrajectory", "testJudge", "DecidedBy"],
     "ToolInterceptor",
@@ -64,6 +66,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "ImageDetail",
   ],
   "references/03-components-di-and-lifecycle.md": [
+    ...["AGBossError", "StepFailedError"],
     ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "Agent", "Tool", "Action"],
     ...["Reasoning", "ReasoningEffort", "RagMode", "TurnLimit", "TokenLimit"],
     ...["Compaction", "CompactionStrategy", "Rag", "RagConnector", "Router", "RouterHandler"],
@@ -222,6 +225,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["BranchStatus", "BranchVerdict", "PendingPause"],
   ],
   "references/09-persistence-k8s-and-deploy.md": [
+    ...["SqliteConnection", "ExecutionLeaseLostError", "SqliteChildExecutionQueueRepository"],
     ...[
       "SqliteCheckpointSaver",
       "SqliteExecutionRecordRepository",

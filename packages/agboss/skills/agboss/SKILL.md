@@ -20,8 +20,11 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
 1. **The application is the unit.** `createApp(App)`, `testWith(App)` and every `npx agboss …`
    command take an `@Application`; a `@Workflow` runs only as one of its `workflows` (or as a child
    of one). `createApp(Workflow)` and `testWith(Workflow)` do not compile.
-2. **One class per file, named by its kind.** Every `@Workflow` lives in its own subfolder
-   `workflows/<workflow-name>/` alongside its `@WorkflowStart` and `@WorkflowFinish` files
+2. **One entity per file, strictly inside its kind folder.** Every directory's name declares the
+   exact kind of files inside it (`<kind>/<name>.<kind>.<ext>`), and mixing kinds in a folder is
+   forbidden (`services/` holds **only** `*.service.ts` — never errors, schemas, repositories, or
+   SQL). Every `@Workflow` lives in its own subfolder `workflows/<workflow-name>/` alongside its
+   `@WorkflowStart` and `@WorkflowFinish` files
    (`workflows/<workflow-name>/<workflow-name>.workflow.ts`,
    `workflows/<workflow-name>/<start-name>.workflow-start.ts`,
    `workflows/<workflow-name>/<finish-name>.workflow-finish.ts`). Prompt-bearing components always
@@ -31,8 +34,10 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `compactions/<name>/<name>.compaction.ts`, `guardrails/<name>/<name>.guardrail.ts`,
    `reply-interpreters/<name>/<name>.reply-interpreter.ts`); every other entity is a single file in
    its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`, `actions/<name>.action.ts`,
-   `services/<name>.service.ts`, `observers/<name>.observer.ts`, `budgets/<name>.budget.ts`,
-   `interceptors/<name>.interceptor.ts`, `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
+   `services/<name>.service.ts`, `repositories/<name>.repository.ts`, `schemas/<name>.schema.ts`,
+   `sql/<name>.sql`, `errors/<name>.error.ts`, `observers/<name>.observer.ts`,
+   `budgets/<name>.budget.ts`, `interceptors/<name>.interceptor.ts`,
+   `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
    `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `retrievers/<name>.retriever.ts`,
    `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
    `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
@@ -44,7 +49,8 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
    `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
    (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
-   file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`).
+   file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`). Every custom error is an
+   `AGBossError` subclass in `errors/<name>.error.ts` ending with `Error`.
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
    `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
@@ -66,7 +72,8 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `@Application({ providers | observers })`; a workflow's `providers` are its services
    (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
 9. **Failures are typed and handled in the flow.** Every error is an `AGBossError` subclass with a
-   stable `code`; `.onError(ErrorClass, side path)` right after a step catches that class, its
+   stable `code` (`static override readonly code`) — never a `StepFailedError`, the framework's
+   wrapper of a step's failure; `.onError(ErrorClass, side path)` right after a step catches that class, its
    subclasses and errors caused by it. A side path that can catch a `LimitExceededError` leads only
    to actions and finishes (`[graph.limit-handler-uses-model]`).
 10. **The generated types are the contract — regenerate, never edit.** `npx agboss check` writes
@@ -151,6 +158,20 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   / `.build()`).
 - Explicit return types on exported functions and methods; no `value!` non-null assertions (a DTO
   field's `orderId!: string` is a definite assignment and is required).
+- Keep every TypeScript file focused and under 200 lines (functions ≤ 50 lines), with one class per
+  file inside its dedicated kind directory.
+- Direct database connections and queries belong exclusively in `repositories/<name>.repository.ts`
+  over a typed ORM / query builder (such as Drizzle ORM) with table definitions in
+  `schemas/<name>.schema.ts` and DDL migrations in `sql/<name>.sql` — never inline `CREATE TABLE`
+  strings in TypeScript, never string-interpolated SQL (`SELECT … ${clause}`), and never database
+  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (both listed in
+  `@Application({ providers })`, never a workflow's) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
+  transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside: two
+  instances on one event loop (`testWith(App, { instances: 2 })`) would wait on each other's lock
+  (reference 09).
+- References 02, 04–08 and 10–13 condense several classes into one snippet to stay short; in a
+  project each of them is still its own file in its kind folder, as SKILL.md and references 01, 03
+  and 09 show.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
   `@agboss/core/testing` (+ `@agboss/core/testing/setup`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
   `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`,
