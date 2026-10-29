@@ -16,7 +16,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
 `vitest.config.ts` registers the matchers: `setupFiles: ["@agboss/core/testing/setup"]`. A project made by
-`npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
+`npx agboss create` has three Vitest projects by file name, in `tests/` mirroring `src/`: `tests/**/*.test.ts`
 (unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
 `*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
 
@@ -25,8 +25,10 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 A candidate screening: two agents score in parallel, a code arbiter checks each answer, a verdict
 agent decides (judged, guarded, with a knowledge base in context), a code router saves a hire.
 
-```ts file=src/screening/dto/screening.dto.ts
-import { Integer, OneOf, Text } from "@agboss/core/dto";
+The data, one DTO per file:
+
+```ts file=src/screening/dto/candidate.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class CandidateDto {
   @Text({ prompt: "the candidate's name" })
@@ -35,6 +37,10 @@ export class CandidateDto {
   @Text({ prompt: "the candidate's CV" })
   cv!: string;
 }
+```
+
+```ts file=src/screening/dto/skills-report.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class SkillsReportDto {
   @Integer({ prompt: "technical skills, 1 to 10", min: 1, max: 10 })
@@ -43,6 +49,10 @@ export class SkillsReportDto {
   @Text({ prompt: "what the score rests on" })
   notes!: string;
 }
+```
+
+```ts file=src/screening/dto/culture-report.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class CultureReportDto {
   @Integer({ prompt: "team fit, 1 to 10", min: 1, max: 10 })
@@ -51,6 +61,10 @@ export class CultureReportDto {
   @Text({ prompt: "what the score rests on" })
   notes!: string;
 }
+```
+
+```ts file=src/screening/dto/verdict.dto.ts
+import { OneOf, Text } from "@agboss/core/dto";
 
 export class VerdictDto {
   @OneOf({ values: ["hire", "reject"], prompt: "the decision" })
@@ -59,16 +73,28 @@ export class VerdictDto {
   @Text({ prompt: "why, in one sentence" })
   reason!: string;
 }
+```
+
+```ts file=src/screening/dto/hire-saved.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class HireSavedDto {
   @Text({ prompt: "the hire's id" })
   hireId!: string;
 }
+```
+
+```ts file=src/screening/dto/archive-query.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ArchiveQueryDto {
   @Text({ prompt: "the candidate's name" })
   name!: string;
 }
+```
+
+```ts file=src/screening/dto/archive-entry.dto.ts
+import { Integer } from "@agboss/core/dto";
 
 export class ArchiveEntryDto {
   @Integer({ prompt: "earlier applications", min: 0 })
@@ -76,13 +102,10 @@ export class ArchiveEntryDto {
 }
 ```
 
-```ts file=src/screening/components.ts
-// one class per file in a project; together here for brevity
-import { Action, DecidedBy, Decision, ExecutionContext, Injectable, Judge, JudgeModel, JudgeVerdict, OutputGuardrail, PiiAction, PiiKind, PiiPolicy, Router, Tool, pii } from "@agboss/core";
-import type { ActionHandler, InputOf, JudgeHandler, JudgeInput, OutputOf, Route, RouterHandler, ToolHandler } from "@agboss/core";
-import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
-import { ArchiveEntryDto, ArchiveQueryDto, HireSavedDto, VerdictDto } from "./dto/screening.dto.js";
-import { RejectedWorkflowFinish } from "./finishes.js";
+The services, the tool and the knowledge base:
+
+```ts file=src/screening/services/candidate-archive.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class CandidateArchiveService {
@@ -90,6 +113,10 @@ export class CandidateArchiveService {
     return Promise.resolve(name.length % 3);
   }
 }
+```
+
+```ts file=src/screening/services/hiring-store.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class HiringStoreService {
@@ -97,6 +124,13 @@ export class HiringStoreService {
     return Promise.resolve(`hire-${name}-${idempotencyKey}`);
   }
 }
+```
+
+```ts file=src/screening/tools/candidate-archive.tool.ts
+import { Tool, type ToolHandler } from "@agboss/core";
+import { ArchiveEntryDto } from "../dto/archive-entry.dto.js";
+import { ArchiveQueryDto } from "../dto/archive-query.dto.js";
+import { CandidateArchiveService } from "../services/candidate-archive.service.js";
 
 @Tool({
   name: "candidate-archive-tool",
@@ -112,6 +146,10 @@ export class CandidateArchiveTool implements ToolHandler<ArchiveQueryDto, Archiv
     return { applications: await this.candidateArchiveService.applicationsOf(name) };
   }
 }
+```
+
+```ts file=src/screening/rag/hiring-policy.rag.ts
+import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 
 @Rag({ name: "hiring-policy-rag", description: "The hiring policy", topK: 2 })
 export class HiringPolicyRag implements RagConnector {
@@ -120,6 +158,13 @@ export class HiringPolicyRag implements RagConnector {
     return Promise.resolve({ results: results.slice(0, options.topK) });
   }
 }
+```
+
+The judges, the guardrail and the PII policy:
+
+```ts file=src/screening/judges/reasoned-verdict/reasoned-verdict.judge.ts
+import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { VerdictDto } from "../../dto/verdict.dto.js";
 
 @Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", reply: VerdictDto, deps: [JudgeModel] })
 export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
@@ -135,8 +180,13 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
       : JudgeVerdict.failed({ reason: "give a reason that supports the decision" });
   }
 }
+```
 
+```ts file=src/screening/judges/short-reason/short-reason.judge.ts
 // a code judge (#396): no model, no cost — its judge(input) decides; runs before the model judge
+import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { VerdictDto } from "../../dto/verdict.dto.js";
+
 @Judge({ name: "short-reason-judge", decidedBy: DecidedBy.Code, reply: VerdictDto })
 export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
   judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
@@ -148,8 +198,13 @@ export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
     );
   }
 }
+```
 
+```ts file=src/screening/judges/hire-saved/hire-saved.judge.ts
 // an eval judge judges a finish's output: the saved hire
+import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { HireSavedDto } from "../../dto/hire-saved.dto.js";
+
 @Judge({ name: "hire-saved-judge", decidedBy: DecidedBy.Code, reply: HireSavedDto })
 export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
   judge({ reply }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
@@ -160,6 +215,10 @@ export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
     );
   }
 }
+```
+
+```ts file=src/screening/guardrails/bias/bias.guardrail.ts
+import { OutputGuardrail } from "@agboss/core";
 
 @OutputGuardrail({
   name: "bias-guardrail",
@@ -170,6 +229,10 @@ export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
   refusal: "The verdict was withheld for review.",
 })
 export class BiasGuardrail {}
+```
+
+```ts file=src/screening/pii-policies/contact.pii-policy.ts
+import { PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
 
 @PiiPolicy({
   name: "contact-pii-policy",
@@ -177,6 +240,15 @@ export class BiasGuardrail {}
   rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
 })
 export class ContactPiiPolicy {}
+```
+
+The action and the code router that saves a hire:
+
+```ts file=src/screening/actions/save-hire.action.ts
+import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { HireSavedDto } from "../dto/hire-saved.dto.js";
+import { VerdictDto } from "../dto/verdict.dto.js";
+import { HiringStoreService } from "../services/hiring-store.service.js";
 
 @Action({
   name: "save-hire-action",
@@ -196,6 +268,13 @@ export class SaveHireAction implements ActionHandler<SaveHireAction> {
     return { hireId: await this.hiringStoreService.save(input.verdict.value.reason, key) };
   }
 }
+```
+
+```ts file=src/screening/routers/hire/hire.router.ts
+import { DecidedBy, Router, type InputOf, type Route, type RouterHandler } from "@agboss/core";
+import { SaveHireAction } from "../../actions/save-hire.action.js";
+import { VerdictDto } from "../../dto/verdict.dto.js";
+import { RejectedWorkflowFinish } from "../../workflows/screening/rejected.workflow-finish.js";
 
 @Router({
   name: "hire-router",
@@ -211,10 +290,13 @@ export class HireRouter implements RouterHandler<HireRouter> {
 }
 ```
 
-```ts file=src/screening/agents.ts
-import { Agent, RagMode } from "@agboss/core";
-import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dto/screening.dto.js";
-import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge, ShortReasonJudge } from "./components.js";
+The agents:
+
+```ts file=src/screening/agents/skills/skills.agent.ts
+import { Agent } from "@agboss/core";
+import { CandidateDto } from "../../dto/candidate.dto.js";
+import { SkillsReportDto } from "../../dto/skills-report.dto.js";
+import { CandidateArchiveTool } from "../../tools/candidate-archive.tool.js";
 
 @Agent({
   name: "skills-agent",
@@ -226,6 +308,12 @@ import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJu
   tools: [CandidateArchiveTool],
 })
 export class SkillsAgent {}
+```
+
+```ts file=src/screening/agents/culture/culture.agent.ts
+import { Agent } from "@agboss/core";
+import { CandidateDto } from "../../dto/candidate.dto.js";
+import { CultureReportDto } from "../../dto/culture-report.dto.js";
 
 @Agent({
   name: "culture-agent",
@@ -236,6 +324,17 @@ export class SkillsAgent {}
   output: CultureReportDto,
 })
 export class CultureAgent {}
+```
+
+```ts file=src/screening/agents/verdict/verdict.agent.ts
+import { Agent, RagMode } from "@agboss/core";
+import { CultureReportDto } from "../../dto/culture-report.dto.js";
+import { SkillsReportDto } from "../../dto/skills-report.dto.js";
+import { VerdictDto } from "../../dto/verdict.dto.js";
+import { BiasGuardrail } from "../../guardrails/bias/bias.guardrail.js";
+import { ReasonedVerdictJudge } from "../../judges/reasoned-verdict/reasoned-verdict.judge.js";
+import { ShortReasonJudge } from "../../judges/short-reason/short-reason.judge.js";
+import { HiringPolicyRag } from "../../rag/hiring-policy.rag.js";
 
 @Agent({
   name: "verdict-agent",
@@ -252,11 +351,13 @@ export class CultureAgent {}
 export class VerdictAgent {}
 ```
 
-```ts file=src/screening/arbiters.ts
+```ts file=src/screening/arbiters/has-notes/has-notes.arbiter.ts
 // a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
 import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
-import { CultureAgent, SkillsAgent } from "./agents.js";
-import { CultureReportDto, SkillsReportDto } from "./dto/screening.dto.js";
+import { CultureAgent } from "../../agents/culture/culture.agent.js";
+import { SkillsAgent } from "../../agents/skills/skills.agent.js";
+import { CultureReportDto } from "../../dto/culture-report.dto.js";
+import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 
 @Arbiter({ name: "has-notes-arbiter", decidedBy: DecidedBy.Code })
 export class HasNotesArbiter {
@@ -272,28 +373,50 @@ export class HasNotesArbiter {
 }
 ```
 
-```ts file=src/screening/finishes.ts
-import { WorkflowFinish, WorkflowStart } from "@agboss/core";
-import { CandidateDto, HireSavedDto, VerdictDto } from "./dto/screening.dto.js";
+The workflow, with its start and its finishes in its folder:
+
+```ts file=src/screening/workflows/screening/screening.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { CandidateDto } from "../../dto/candidate.dto.js";
 
 @WorkflowStart({ name: "screening-workflow-start", description: "A candidate", input: CandidateDto })
 export class ScreeningWorkflowStart {}
+```
+
+```ts file=src/screening/workflows/screening/hired.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { HireSavedDto } from "../../dto/hire-saved.dto.js";
 
 @WorkflowFinish({ name: "hired-workflow-finish", description: "The saved hire", output: HireSavedDto })
 export class HiredWorkflowFinish {}
+```
+
+```ts file=src/screening/workflows/screening/rejected.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VerdictDto } from "../../dto/verdict.dto.js";
 
 @WorkflowFinish({ name: "rejected-workflow-finish", description: "The rejection", output: VerdictDto })
 export class RejectedWorkflowFinish {}
 ```
 
-```ts file=src/screening/screening.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, route, start, type BudgetHandler } from "@agboss/core";
-import { usd, type Usd } from "@agboss/core/units";
-import { CultureAgent, SkillsAgent, VerdictAgent } from "./agents.js";
-import { HasNotesArbiter } from "./arbiters.js";
-import { CandidateArchiveService, ContactPiiPolicy, HireRouter, HiringStoreService, SaveHireAction } from "./components.js";
-import { CandidateDto, CultureReportDto, HireSavedDto, SkillsReportDto, VerdictDto } from "./dto/screening.dto.js";
-import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./finishes.js";
+```ts file=src/screening/workflows/screening/screening.workflow.ts
+import { Workflow, route, start } from "@agboss/core";
+import { HireRouter } from "../../routers/hire/hire.router.js";
+import { SaveHireAction } from "../../actions/save-hire.action.js";
+import { CultureAgent } from "../../agents/culture/culture.agent.js";
+import { SkillsAgent } from "../../agents/skills/skills.agent.js";
+import { VerdictAgent } from "../../agents/verdict/verdict.agent.js";
+import { HasNotesArbiter } from "../../arbiters/has-notes/has-notes.arbiter.js";
+import { CandidateDto } from "../../dto/candidate.dto.js";
+import { CultureReportDto } from "../../dto/culture-report.dto.js";
+import { HireSavedDto } from "../../dto/hire-saved.dto.js";
+import { SkillsReportDto } from "../../dto/skills-report.dto.js";
+import { VerdictDto } from "../../dto/verdict.dto.js";
+import { CandidateArchiveService } from "../../services/candidate-archive.service.js";
+import { HiringStoreService } from "../../services/hiring-store.service.js";
+import { HiredWorkflowFinish } from "./hired.workflow-finish.js";
+import { RejectedWorkflowFinish } from "./rejected.workflow-finish.js";
+import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
 
 @Workflow({
   name: "screening-workflow",
@@ -320,6 +443,13 @@ import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } f
   providers: [CandidateArchiveService, HiringStoreService],
 })
 export class ScreeningWorkflow {}
+```
+
+The budgets, one per file, and the application at the `src/` root:
+
+```ts file=src/screening/budgets/application-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -327,6 +457,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(5);
   }
 }
+```
+
+```ts file=src/screening/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -334,6 +469,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/screening/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -341,6 +481,15 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/screening.application.ts
+import { Application, EmptyEnvironment } from "@agboss/core";
+import { ApplicationDailyBudget } from "./screening/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./screening/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./screening/budgets/tenant-daily.budget.js";
+import { ContactPiiPolicy } from "./screening/pii-policies/contact.pii-policy.js";
+import { ScreeningWorkflow } from "./screening/workflows/screening/screening.workflow.js";
 
 @Application({
   name: "screening-application",
@@ -359,11 +508,18 @@ export class ScreeningApplication {}
 import { QuorumNotReachedError } from "@agboss/core";
 import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
-import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
-import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
-import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dto/screening.dto.js";
-import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/finishes.js";
-import { ScreeningApplication } from "./src/screening/screening.application.js";
+import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
+import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
+import { VerdictAgent } from "./src/screening/agents/verdict/verdict.agent.js";
+import { CandidateArchiveTool } from "./src/screening/tools/candidate-archive.tool.js";
+import { ReasonedVerdictJudge } from "./src/screening/judges/reasoned-verdict/reasoned-verdict.judge.js";
+import { CultureReportDto } from "./src/screening/dto/culture-report.dto.js";
+import { SkillsReportDto } from "./src/screening/dto/skills-report.dto.js";
+import { VerdictDto } from "./src/screening/dto/verdict.dto.js";
+import { HiredWorkflowFinish } from "./src/screening/workflows/screening/hired.workflow-finish.js";
+import { RejectedWorkflowFinish } from "./src/screening/workflows/screening/rejected.workflow-finish.js";
+import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
+import { ScreeningApplication } from "./src/screening.application.js";
 -->
 
 ```ts
@@ -486,9 +642,9 @@ url, headers })`. The app is built first and the caller resolver taken from its 
 import { A2ACallerRejectedError, A2AClient, A2AStatus, type A2ACallerResolver } from "@agboss/core/a2a";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
-import { SkillsAgent } from "./src/screening/agents.js";
-import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
-import { ScreeningApplication } from "./src/screening/screening.application.js";
+import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
+import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
+import { ScreeningApplication } from "./src/screening.application.js";
 declare const ScreeningA2aCallerResolver: new () => A2ACallerResolver<typeof ScreeningWorkflowStart>;
 declare const ScreeningA2AExpose: new () => object;
 const test = testWith(ScreeningApplication);
@@ -573,11 +729,16 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
 import { ToolCallStatus, toolCallsOf } from "@agboss/core";
 import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
-import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
-import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
-import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dto/screening.dto.js";
-import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
-import { ScreeningApplication } from "./src/screening/screening.application.js";
+import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
+import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
+import { VerdictAgent } from "./src/screening/agents/verdict/verdict.agent.js";
+import { CandidateArchiveTool } from "./src/screening/tools/candidate-archive.tool.js";
+import { ReasonedVerdictJudge } from "./src/screening/judges/reasoned-verdict/reasoned-verdict.judge.js";
+import { CultureReportDto } from "./src/screening/dto/culture-report.dto.js";
+import { SkillsReportDto } from "./src/screening/dto/skills-report.dto.js";
+import { VerdictDto } from "./src/screening/dto/verdict.dto.js";
+import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
+import { ScreeningApplication } from "./src/screening.application.js";
 -->
 
 ```ts
@@ -615,27 +776,41 @@ reason?, status? })` asserts one, with `CompensationReason` (`SidePath`, `JoinFa
 execution that fails has no result: assert the undo through the mocked service, and a failed
 automatic undo through `rejects.toFailWith(CompensationFailedError, { cause })`.
 
-```ts file=src/rental/rental.ts
-import { Action, ExecutionContext, Injectable, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+A car rental, in its own domain folder — its data, error and service:
+
+```ts file=src/rental/dto/rental-request.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class RentalRequestDto {
   @Text({ prompt: "the customer" })
   customer!: string;
 }
+```
+
+```ts file=src/rental/dto/car-reservation.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class CarReservationDto {
   @Text({ prompt: "the reservation's id" })
   reservationId!: string;
 }
+```
+
+```ts file=src/rental/dto/deposit.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DepositDto {
   @Text({ prompt: "the deposit's id" })
   depositId!: string;
 }
+```
 
+```ts file=src/rental/errors/deposit-declined.error.ts
 export class DepositDeclinedError extends Error {}
+```
+
+```ts file=src/rental/services/fleet.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class FleetService {
@@ -653,9 +828,14 @@ export class FleetService {
     return Promise.resolve(`deposit:${customer}`);
   }
 }
+```
 
-@WorkflowStart({ name: "rental-workflow-start", description: "A car to rent", input: RentalRequestDto })
-export class RentalWorkflowStart {}
+The actions — the reservation declares its undo:
+
+```ts file=src/rental/actions/cancel-car.action.ts
+import { Action, ExecutionContext, type ActionHandler, type InputOf } from "@agboss/core";
+import { CarReservationDto } from "../dto/car-reservation.dto.js";
+import { FleetService } from "../services/fleet.service.js";
 
 @Action({ name: "cancel-car-action", description: "Cancels the reservation", input: { reservation: CarReservationDto }, deps: [FleetService, ExecutionContext] })
 export class CancelCarAction implements ActionHandler<CancelCarAction> {
@@ -668,6 +848,14 @@ export class CancelCarAction implements ActionHandler<CancelCarAction> {
     await this.fleetService.cancel(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
   }
 }
+```
+
+```ts file=src/rental/actions/reserve-car.action.ts
+import { Action, ExecutionContext, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { CarReservationDto } from "../dto/car-reservation.dto.js";
+import { RentalRequestDto } from "../dto/rental-request.dto.js";
+import { FleetService } from "../services/fleet.service.js";
+import { CancelCarAction } from "./cancel-car.action.js";
 
 @Action({
   name: "reserve-car-action",
@@ -688,6 +876,13 @@ export class ReserveCarAction implements ActionHandler<ReserveCarAction> {
     return { reservationId: await this.fleetService.reserve(input.request.value.customer, key) };
   }
 }
+```
+
+```ts file=src/rental/actions/charge-deposit.action.ts
+import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { DepositDto } from "../dto/deposit.dto.js";
+import { RentalRequestDto } from "../dto/rental-request.dto.js";
+import { FleetService } from "../services/fleet.service.js";
 
 @Action({ name: "charge-deposit-action", description: "Charges the deposit", input: { request: RentalRequestDto }, output: DepositDto, deps: [FleetService] })
 export class ChargeDepositAction implements ActionHandler<ChargeDepositAction> {
@@ -697,12 +892,47 @@ export class ChargeDepositAction implements ActionHandler<ChargeDepositAction> {
     return { depositId: await this.fleetService.chargeDeposit(input.request.value.customer) };
   }
 }
+```
+
+The workflow, its start and its finishes:
+
+```ts file=src/rental/workflows/rental/rental.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { RentalRequestDto } from "../../dto/rental-request.dto.js";
+
+@WorkflowStart({ name: "rental-workflow-start", description: "A car to rent", input: RentalRequestDto })
+export class RentalWorkflowStart {}
+```
+
+```ts file=src/rental/workflows/rental/rental-booked.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { DepositDto } from "../../dto/deposit.dto.js";
 
 @WorkflowFinish({ name: "rental-booked-workflow-finish", description: "The deposit", output: DepositDto })
 export class RentalBookedWorkflowFinish {}
+```
+
+```ts file=src/rental/workflows/rental/rental-declined.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { RentalRequestDto } from "../../dto/rental-request.dto.js";
 
 @WorkflowFinish({ name: "rental-declined-workflow-finish", description: "Declined", output: RentalRequestDto })
 export class RentalDeclinedWorkflowFinish {}
+```
+
+```ts file=src/rental/workflows/rental/rental.workflow.ts
+import { Workflow, start, toAction } from "@agboss/core";
+import { CancelCarAction } from "../../actions/cancel-car.action.js";
+import { ChargeDepositAction } from "../../actions/charge-deposit.action.js";
+import { ReserveCarAction } from "../../actions/reserve-car.action.js";
+import { CarReservationDto } from "../../dto/car-reservation.dto.js";
+import { DepositDto } from "../../dto/deposit.dto.js";
+import { RentalRequestDto } from "../../dto/rental-request.dto.js";
+import { DepositDeclinedError } from "../../errors/deposit-declined.error.js";
+import { FleetService } from "../../services/fleet.service.js";
+import { RentalBookedWorkflowFinish } from "./rental-booked.workflow-finish.js";
+import { RentalDeclinedWorkflowFinish } from "./rental-declined.workflow-finish.js";
+import { RentalWorkflowStart } from "./rental.workflow-start.js";
 
 @Workflow({
   name: "rental-workflow",
@@ -724,13 +954,13 @@ export class RentalDeclinedWorkflowFinish {}
   providers: [FleetService],
 })
 export class RentalWorkflow {}
-
 ```
 
-```ts file=src/rental/rental.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+Its budgets and its application, beside the screening one at the `src/` root:
+
+```ts file=src/rental/budgets/rental-application.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { RentalWorkflow } from "./rental.js";
 
 @Budget({ name: "rental-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class RentalApplicationBudget implements BudgetHandler {
@@ -738,6 +968,11 @@ export class RentalApplicationBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/rental/budgets/rental-tenant.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "rental-tenant-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class RentalTenantBudget implements BudgetHandler {
@@ -745,6 +980,11 @@ export class RentalTenantBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/rental/budgets/rental-execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "rental-execution-budget", scope: BudgetScope.Execution })
 export class RentalExecutionBudget implements BudgetHandler {
@@ -752,6 +992,14 @@ export class RentalExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/rental.application.ts
+import { Application, EmptyEnvironment } from "@agboss/core";
+import { RentalApplicationBudget } from "./rental/budgets/rental-application.budget.js";
+import { RentalExecutionBudget } from "./rental/budgets/rental-execution.budget.js";
+import { RentalTenantBudget } from "./rental/budgets/rental-tenant.budget.js";
+import { RentalWorkflow } from "./rental/workflows/rental/rental.workflow.js";
 
 @Application({
   name: "rental-application",
@@ -763,19 +1011,19 @@ export class RentalExecutionBudget implements BudgetHandler {
 export class RentalApplication {}
 ```
 
-```ts file=tests/rental.test.ts
+The workflow's tests, in the mirror of its folder:
+
+```ts file=tests/rental/workflows/rental/rental.workflow.test.ts
 import { expect } from "vitest";
 import { CompensationFailedError, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
 import { testWith } from "@agboss/core/testing";
-import { RentalApplication } from "../src/rental/rental.application.js";
-import {
-  CancelCarAction,
-  DepositDeclinedError,
-  FleetService,
-  RentalDeclinedWorkflowFinish,
-  RentalWorkflowStart,
-  ReserveCarAction,
-} from "../src/rental/rental.js";
+import { RentalApplication } from "../../../../src/rental.application.js";
+import { CancelCarAction } from "../../../../src/rental/actions/cancel-car.action.js";
+import { ReserveCarAction } from "../../../../src/rental/actions/reserve-car.action.js";
+import { DepositDeclinedError } from "../../../../src/rental/errors/deposit-declined.error.js";
+import { FleetService } from "../../../../src/rental/services/fleet.service.js";
+import { RentalDeclinedWorkflowFinish } from "../../../../src/rental/workflows/rental/rental-declined.workflow-finish.js";
+import { RentalWorkflowStart } from "../../../../src/rental/workflows/rental/rental.workflow-start.js";
 
 const test = testWith(RentalApplication);
 
@@ -834,26 +1082,32 @@ is left to test is the class's own mapping: call `complete()` on an instance bui
 client and a `testExecutionContext()` for its `TenantContext` (a class created by hand) — the
 retries, the rate limit, the breaker and the accounting around it are the framework's.
 
-```ts file=tests/bedrock.model-provider.test.ts
-import { expect, it } from "vitest";
+The provider and the SDK client it wraps:
+
+```ts file=src/services/sdk-client.service.ts
+import { Injectable } from "@agboss/core";
+import type { ModelProviderResponse } from "@agboss/core/models";
+
+@Injectable()
+export class SdkClientService {
+  invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+  }
+}
+```
+
+```ts file=src/model-providers/sdk.model-provider.ts
 import { TenantContext } from "@agboss/core";
 import {
   ModelCost,
   ModelProvider,
-  ModelProviderMessageRole,
   RetryPolicy,
   type ModelProviderHandler,
   type ModelProviderRequest,
   type ModelProviderResponse,
 } from "@agboss/core/models";
-import { testExecutionContext } from "@agboss/core/testing";
 import { minutes, seconds } from "@agboss/core/units";
-
-class FakeSdk {
-  invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
-  }
-}
+import { SdkClientService } from "../services/sdk-client.service.js";
 
 @ModelProvider({
   name: "sdk-model-provider",
@@ -863,16 +1117,29 @@ class FakeSdk {
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
-  deps: [FakeSdk, TenantContext],
+  deps: [SdkClientService, TenantContext],
 })
-class SdkModelProvider implements ModelProviderHandler {
+export class SdkModelProvider implements ModelProviderHandler {
   constructor(
-    private readonly sdk: FakeSdk,
+    private readonly sdk: SdkClientService,
     private readonly tenantContext: TenantContext,
   ) {}
 
   complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
     return this.sdk.invoke(request.model, this.tenantContext.tenantId);
+  }
+}
+```
+
+```ts file=tests/model-providers/sdk.model-provider.test.ts
+import { expect, it } from "vitest";
+import { ModelProviderMessageRole, type ModelProviderRequest, type ModelProviderResponse } from "@agboss/core/models";
+import { testExecutionContext } from "@agboss/core/testing";
+import { SdkModelProvider } from "../../src/model-providers/sdk.model-provider.js";
+
+class FakeSdk {
+  invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
   }
 }
 
@@ -899,19 +1166,33 @@ Each runner builds the component's own container (its `deps`, `overrides`, an `e
 runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder` and `JudgeModel`
 work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
 
-<!-- snippet-context
+A service has no runner: its test creates it by hand (as `agboss create`'s
+`tests/services/api.service.test.ts` does) and mirrors its module like any other:
+
+```ts file=tests/rental/services/fleet.service.test.ts
+import { expect, it } from "vitest";
+import { FleetService } from "../../../src/rental/services/fleet.service.js";
+
+it("a reservation is keyed by the customer and the step's idempotency key", async () => {
+  const fleetService = new FleetService();
+
+  await expect(fleetService.reserve("c-1", "execution-1:reserve-car-action:1")).resolves.toBe(
+    "c-1:execution-1:reserve-car-action:1",
+  );
+});
+```
+
+A component's test mirrors its module — the tool's in `tests/screening/tools/`, beside the mirror of
+`src/screening/tools/`:
+
+```ts file=tests/screening/tools/candidate-archive.tool.test.ts
 import { Injectable } from "@agboss/core";
-import { decideWith, override, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter, testTool } from "@agboss/core/testing";
+import { override, testTool } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
-import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
-import { HasNotesArbiter } from "./src/screening/arbiters.js";
-import { BiasGuardrail, CandidateArchiveService, CandidateArchiveTool, ContactPiiPolicy, HireRouter, HiringPolicyRag, ReasonedVerdictJudge, SaveHireAction, ShortReasonJudge } from "./src/screening/components.js";
-import { VerdictDto } from "./src/screening/dto/screening.dto.js";
-import { RejectedWorkflowFinish } from "./src/screening/finishes.js";
--->
+import { CandidateArchiveService } from "../../../src/screening/services/candidate-archive.service.js";
+import { CandidateArchiveTool } from "../../../src/screening/tools/candidate-archive.tool.js";
 
-```ts
 @Injectable()
 export class FirstTimeArchiveService extends CandidateArchiveService {
   override applicationsOf(): Promise<number> {
@@ -929,7 +1210,29 @@ it("testTool: input and output validated, a service replaced by a class", async 
   expect(output).toEqual({ applications: 0 });
   expect(spend.totalUsd).toBe(0);
 });
+```
 
+The other runners, the same way:
+
+<!-- snippet-context
+import { decideWith, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter } from "@agboss/core/testing";
+import { expect, it } from "vitest";
+import { SaveHireAction } from "./src/screening/actions/save-hire.action.js";
+import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
+import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
+import { VerdictAgent } from "./src/screening/agents/verdict/verdict.agent.js";
+import { HasNotesArbiter } from "./src/screening/arbiters/has-notes/has-notes.arbiter.js";
+import { VerdictDto } from "./src/screening/dto/verdict.dto.js";
+import { BiasGuardrail } from "./src/screening/guardrails/bias/bias.guardrail.js";
+import { ReasonedVerdictJudge } from "./src/screening/judges/reasoned-verdict/reasoned-verdict.judge.js";
+import { ShortReasonJudge } from "./src/screening/judges/short-reason/short-reason.judge.js";
+import { ContactPiiPolicy } from "./src/screening/pii-policies/contact.pii-policy.js";
+import { HiringPolicyRag } from "./src/screening/rag/hiring-policy.rag.js";
+import { HireRouter } from "./src/screening/routers/hire/hire.router.js";
+import { RejectedWorkflowFinish } from "./src/screening/workflows/screening/rejected.workflow-finish.js";
+-->
+
+```ts
 it("testAction: input fields are { producer, value } records", async () => {
   const runAction = testAction(SaveHireAction);
 
@@ -1115,12 +1418,13 @@ it("testCompaction: the turns reach the model, the summary joins the queue", asy
 ## Recorded runs (VCR)
 
 <!-- snippet-context
-import { ScreeningApplication } from "./src/screening/screening.application.js";
-import { HiredWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/finishes.js";
+import { ScreeningApplication } from "./src/screening.application.js";
+import { HiredWorkflowFinish } from "./src/screening/workflows/screening/hired.workflow-finish.js";
+import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
 -->
 
 ```ts
-// src/screening/screening.integration.test.ts — real models once, then replayed with no key or network
+// tests/screening/workflows/screening/screening.integration.test.ts — real models once, then replayed with no key or network
 import { expect } from "vitest";
 import { VCRMode, testWith } from "@agboss/core/testing";
 
@@ -1247,11 +1551,6 @@ turn. Every value is typed: a turn by the start's input, `tenant` / `execution` 
 context classes (required where it declares its own, as at `app.execute`), `toolCall` / `toolInvariant`
 by the tool's input DTO, a past turn by its start's input and its finish's output.
 
-<!-- snippet-context
-import { CandidateArchiveTool, HireSavedJudge, ReasonedVerdictJudge } from "../components.js";
-import { HiredWorkflowFinish, ScreeningWorkflowStart } from "../finishes.js";
--->
-
 ```ts file=src/screening/eval-suites/screening.eval-suite.ts
 import {
   EvalCascade,
@@ -1264,6 +1563,11 @@ import {
   toolInvariant,
   turn,
 } from "@agboss/core/eval";
+import { HireSavedJudge } from "../judges/hire-saved/hire-saved.judge.js";
+import { ReasonedVerdictJudge } from "../judges/reasoned-verdict/reasoned-verdict.judge.js";
+import { CandidateArchiveTool } from "../tools/candidate-archive.tool.js";
+import { HiredWorkflowFinish } from "../workflows/screening/hired.workflow-finish.js";
+import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflow-start.js";
 
 @EvalSuite({
   name: "screening-eval-suite",

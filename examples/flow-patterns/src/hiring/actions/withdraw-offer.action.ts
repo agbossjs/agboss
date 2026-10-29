@@ -1,5 +1,5 @@
 import { Action, ExecutionContext, type ActionHandler, type InputOf } from "@agboss/core";
-import { RegisteredOfferDto } from "../dtos/offer.dto.js";
+import { RegisteredOfferDto } from "../dto/offer.dto.js";
 import { AtsClientService } from "../services/ats-client.service.js";
 
 /** The undo of `register-offer-action`: an ordinary @Action, safe to run twice. */

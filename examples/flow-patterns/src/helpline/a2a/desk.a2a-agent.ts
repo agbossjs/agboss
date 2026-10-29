@@ -1,7 +1,7 @@
 import { ExecutionContext } from "@agboss/core";
 import { A2AAgent, A2AClient } from "@agboss/core/a2a";
 import { usd } from "@agboss/core/units";
-import { DeskCallDto, DeskReplyDto } from "../dtos/desk-call.dto.js";
+import { DeskCallDto, DeskReplyDto } from "../dto/desk-call.dto.js";
 
 /**
  * The help desk of `desk-application`, a declared contract (#398 PR 3): its start, what it is sent

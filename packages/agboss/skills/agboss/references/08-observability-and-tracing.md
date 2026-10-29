@@ -42,23 +42,38 @@ application's and the workflow's PII policies.
 
 ## The worked example: metrics, audit and a log
 
-```ts file=src/desk/desk.workflow.ts
-import { Action, Agent, ExecutionContext, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
+The desk workflow, one component per file:
+
+```ts file=src/desk/dto/desk-answer.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DeskAnswerDto {
   @Text({ prompt: "the answer to send" })
   text!: string;
 }
+```
+
+```ts file=src/desk/dto/desk-ticket.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DeskTicketDto {
   @Text({ prompt: "the ticket's id" })
   ticketId!: string;
 }
+```
+
+```ts file=src/desk/workflows/desk/desk.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "desk-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
 export class DeskWorkflowStart {}
+```
+
+```ts file=src/desk/agents/desk/desk.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @Agent({
   name: "desk-agent",
@@ -69,6 +84,13 @@ export class DeskWorkflowStart {}
   output: DeskAnswerDto,
 })
 export class DeskAgent {}
+```
+
+```ts file=src/desk/actions/open-ticket.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { DeskAnswerDto } from "../dto/desk-answer.dto.js";
+import { DeskTicketDto } from "../dto/desk-ticket.dto.js";
 
 @Action({
   name: "open-ticket-action",
@@ -85,9 +107,25 @@ export class OpenTicketAction implements ActionHandler<OpenTicketAction> {
     return Promise.resolve({ ticketId: `${String(input.answer.value.text.length)}:${key}` });
   }
 }
+```
+
+```ts file=src/desk/workflows/desk/desk.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { DeskTicketDto } from "../../dto/desk-ticket.dto.js";
 
 @WorkflowFinish({ name: "desk-workflow-finish", description: "The ticket", output: DeskTicketDto })
 export class DeskWorkflowFinish {}
+```
+
+```ts file=src/desk/workflows/desk/desk.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { OpenTicketAction } from "../../actions/open-ticket.action.js";
+import { DeskAgent } from "../../agents/desk/desk.agent.js";
+import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
+import { DeskTicketDto } from "../../dto/desk-ticket.dto.js";
+import { DeskWorkflowFinish } from "./desk.workflow-finish.js";
+import { DeskWorkflowStart } from "./desk.workflow-start.js";
 
 @Workflow({
   name: "desk-workflow",
@@ -107,7 +145,7 @@ export class DeskWorkflow {}
 ```
 
 ```ts file=src/desk/services/metrics.service.ts
-// services/metrics.service.ts — your metrics client (Prometheus, StatsD, …) behind a service
+// your metrics client (Prometheus, StatsD, …) behind a service
 import { Injectable } from "@agboss/core";
 
 @Injectable()
@@ -126,7 +164,7 @@ export class MetricsService {
 ```
 
 ```ts file=src/desk/observers/execution-metrics.observer.ts
-// observers/execution-metrics.observer.ts — one instance, every execution of the application
+// one instance, every execution of the application
 import {
   Injectable,
   ResumeReason,
@@ -142,7 +180,7 @@ import {
   type OnExecutionResume,
   type OnModelEnd,
 } from "@agboss/core";
-import { DeskAgent } from "../desk.workflow.js";
+import { DeskAgent } from "../agents/desk/desk.agent.js";
 import { MetricsService } from "../services/metrics.service.js";
 
 @Injectable({ deps: [MetricsService] })
@@ -182,7 +220,7 @@ export class ExecutionMetricsObserver
 ```
 
 ```ts file=src/desk/observers/compensation-audit.observer.ts
-// observers/compensation-audit.observer.ts — the automatic undo, around the undo action's own events
+// the automatic undo, around the undo action's own events
 import {
   CompensationStatus,
   Injectable,
@@ -207,7 +245,7 @@ export class CompensationAuditObserver implements OnCompensationStart, OnCompens
 ```
 
 ```ts file=src/desk/infrastructure/json.logger.ts
-// infrastructure/json.logger.ts — the framework's own log, one JSON line per entry
+// the framework's own log, one JSON line per entry
 import { Injectable, LogLevel, Logger, type LogEntry } from "@agboss/core";
 
 @Injectable()
@@ -227,7 +265,7 @@ export class JsonLogger extends Logger {
 }
 ```
 
-```ts file=src/desk/config/budget.config.ts
+```ts file=src/desk/budgets/application-daily.budget.ts
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 
@@ -237,6 +275,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(10);
   }
 }
+```
+
+```ts file=src/desk/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -244,6 +287,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/desk/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -253,14 +301,16 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
-```ts file=src/desk/desk.application.ts
+```ts file=src/desk.application.ts
 import { Application, EmptyEnvironment } from "@agboss/core";
-import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
-import { DeskWorkflow } from "./desk.workflow.js";
-import { JsonLogger } from "./infrastructure/json.logger.js";
-import { CompensationAuditObserver } from "./observers/compensation-audit.observer.js";
-import { ExecutionMetricsObserver } from "./observers/execution-metrics.observer.js";
-import { MetricsService } from "./services/metrics.service.js";
+import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./desk/budgets/tenant-daily.budget.js";
+import { JsonLogger } from "./desk/infrastructure/json.logger.js";
+import { CompensationAuditObserver } from "./desk/observers/compensation-audit.observer.js";
+import { ExecutionMetricsObserver } from "./desk/observers/execution-metrics.observer.js";
+import { MetricsService } from "./desk/services/metrics.service.js";
+import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 
 @Application({
   name: "desk-application",
@@ -350,18 +400,16 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 ## Reading it in a test
 
-```ts file=tests/desk/record.test.ts
+```ts file=tests/desk/workflows/desk/record.test.ts
 import { expect } from "vitest";
 import { ExecutionStatus } from "@agboss/core";
 import { replyWith, testWith } from "@agboss/core/testing";
-import { DeskApplication } from "../../src/desk/desk.application.js";
-import {
-  DeskAgent,
-  DeskAnswerDto,
-  DeskWorkflowFinish,
-  DeskWorkflowStart,
-  OpenTicketAction,
-} from "../../src/desk/desk.workflow.js";
+import { DeskApplication } from "../../../../src/desk.application.js";
+import { OpenTicketAction } from "../../../../src/desk/actions/open-ticket.action.js";
+import { DeskAgent } from "../../../../src/desk/agents/desk/desk.agent.js";
+import { DeskAnswerDto } from "../../../../src/desk/dto/desk-answer.dto.js";
+import { DeskWorkflowFinish } from "../../../../src/desk/workflows/desk/desk.workflow-finish.js";
+import { DeskWorkflowStart } from "../../../../src/desk/workflows/desk/desk.workflow-start.js";
 
 const test = testWith(DeskApplication);
 

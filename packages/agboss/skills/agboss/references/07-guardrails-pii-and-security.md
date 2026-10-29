@@ -16,15 +16,20 @@ retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails onl
 
 ## Guardrails
 
-```ts file=src/clinic/clinic-context.ts
-// the project's execution context (identity only) and a service the refusal reads
-import { ExecutionContext, Injectable } from "@agboss/core";
+The project's execution context (identity only) and a service the refusal reads:
+
+```ts file=src/clinic/contexts/clinic-execution.context.ts
+import { ExecutionContext } from "@agboss/core";
 import { OneOf } from "@agboss/core/dto";
 
 export class ClinicExecutionContext extends ExecutionContext {
   @OneOf({ values: ["en", "he"] })
   locale!: "en" | "he";
 }
+```
+
+```ts file=src/clinic/services/refusal-text.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class RefusalTextService {
@@ -34,11 +39,12 @@ export class RefusalTextService {
 }
 ```
 
-```ts file=src/clinic/guardrails.ts
-import { InputGuardrail, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
-import { ClinicExecutionContext, RefusalTextService } from "./clinic-context.js";
+```ts file=src/clinic/guardrails/legal-advice/legal-advice.guardrail.ts
+// a computed refusal: the sender's language, from a service
+import { InputGuardrail, type GuardrailRefusal } from "@agboss/core";
+import { ClinicExecutionContext } from "../../contexts/clinic-execution.context.js";
+import { RefusalTextService } from "../../services/refusal-text.service.js";
 
-// guardrails/legal-advice.guardrail.ts — a computed refusal: the sender's language, from a service
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
@@ -57,8 +63,12 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
     return this.refusalTextService.legalAdvice(this.clinicExecutionContext.locale);
   }
 }
+```
 
-// guardrails/no-diagnosis.guardrail.ts — a fixed refusal; no model: defaults.guardrail.model
+```ts file=src/clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.ts
+// a fixed refusal; no model: defaults.guardrail.model
+import { OutputGuardrail } from "@agboss/core";
+
 @OutputGuardrail({
   name: "no-diagnosis-guardrail",
   description: "Blocks answers that diagnose",
@@ -75,15 +85,8 @@ DecidedBy.Code` and the class's `check(text)` (`implements GuardrailHandler`) re
 `threshold` (they do not compile), no model call, cost 0. Its refusal is the decorator's text or the
 class's `refusal()` (`implements GuardrailHandler, GuardrailRefusal`), as for a model guardrail:
 
-```ts file=src/clinic/code-guardrails.ts
-import {
-  DecidedBy,
-  GuardrailVerdict,
-  Injectable,
-  OutputGuardrail,
-  TenantContext,
-  type GuardrailHandler,
-} from "@agboss/core";
+```ts file=src/clinic/services/blocklist.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class BlocklistService {
@@ -91,8 +94,19 @@ export class BlocklistService {
     return Promise.resolve(tenantId === "acme" && text.toLowerCase().includes("competitor"));
   }
 }
+```
 
-// guardrails/tenant-blocklist.guardrail.ts — decided by code: the tenant's deny list, no model
+```ts file=src/clinic/guardrails/tenant-blocklist/tenant-blocklist.guardrail.ts
+// decided by code: the tenant's deny list, no model
+import {
+  DecidedBy,
+  GuardrailVerdict,
+  OutputGuardrail,
+  TenantContext,
+  type GuardrailHandler,
+} from "@agboss/core";
+import { BlocklistService } from "../../services/blocklist.service.js";
+
 @OutputGuardrail({
   name: "tenant-blocklist-guardrail",
   description: "Blocks replies containing words forbidden by the tenant",
@@ -142,7 +156,7 @@ The caller sends the refusal instead of an answer:
 
 <!-- snippet-context
 import { GuardrailBlockedError, type App } from "@agboss/core";
-import { ClinicWorkflowStart } from "./src/clinic/clinic.application.js";
+import { ClinicWorkflowStart } from "./src/clinic/workflows/clinic/clinic.workflow-start.js";
 declare const app: App;
 declare function reply(text: string): Promise<void>;
 -->
@@ -163,10 +177,10 @@ try {
 
 ## PII policies
 
-```ts file=src/clinic/pii.ts
-import { Injectable, PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiMatch, type PiiPolicyHandler, type PiiRefusal } from "@agboss/core";
+```ts file=src/clinic/pii-policies/contact.pii-policy.ts
+// declarative: only the kinds a rule names are found
+import { PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiRefusal } from "@agboss/core";
 
-// pii/contact.pii-policy.ts — declarative: only the kinds a rule names are found
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details and refuses card numbers",
@@ -181,6 +195,10 @@ export class ContactPiiPolicy implements PiiRefusal {
     return `Please do not send a ${kind} here.`;
   }
 }
+```
+
+```ts file=src/clinic/services/patient-registry.service.ts
+import { Injectable, type PiiMatch } from "@agboss/core";
 
 @Injectable()
 export class PatientRegistryService {
@@ -191,8 +209,13 @@ export class PatientRegistryService {
     }));
   }
 }
+```
 
-// pii/patient-id.pii-policy.ts — the project's own detector: ranges, the framework applies `action`
+```ts file=src/clinic/pii-policies/patient-id.pii-policy.ts
+// the project's own detector: ranges, the framework applies `action`
+import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "@agboss/core";
+import { PatientRegistryService } from "../services/patient-registry.service.js";
+
 @PiiPolicy({
   name: "patient-id-pii-policy",
   action: PiiAction.replaceWithToken(), // the model reads <patient-id:…>
@@ -207,7 +230,7 @@ export class PatientIdPiiPolicy implements PiiPolicyHandler {
 }
 ```
 
-```ts file=src/clinic/environments/app.environment.ts
+```ts file=src/environments/app.environment.ts
 import type { Secret } from "@agboss/core";
 
 export class ClinicEnvironment {
@@ -215,20 +238,17 @@ export class ClinicEnvironment {
 }
 ```
 
-```ts file=src/clinic/environments/test.environment.ts
+```ts file=src/environments/test.environment.ts
 import type { ClinicEnvironment } from "./app.environment.js";
 
 export const environment: ClinicEnvironment = {}; // tests: a fixed PII key, no secret to set
 ```
 
-```ts file=src/clinic/clinic.application.ts
-import { Agent, Application, Budget, BudgetPeriod, BudgetScope, DecidedBy, PiiAction, Router, Workflow, WorkflowFinish, WorkflowStart, route, start, type BudgetHandler } from "@agboss/core";
-import { Text, WorkflowFinishTextDto } from "@agboss/core/dto";
-import { usd, type Usd } from "@agboss/core/units";
-import { ClinicExecutionContext, RefusalTextService } from "./clinic-context.js";
-import { ClinicEnvironment } from "./environments/app.environment.js";
-import { LegalAdviceGuardrail, NoDiagnosisGuardrail } from "./guardrails.js";
-import { ContactPiiPolicy, PatientIdPiiPolicy, PatientRegistryService } from "./pii.js";
+The application's components, one per file:
+
+```ts file=src/clinic/dto/patient-message.dto.ts
+import { PiiAction } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class PatientMessageDto {
   @Text({ prompt: "the patient's message" })
@@ -237,6 +257,12 @@ export class PatientMessageDto {
   @Text({ prompt: "the patient's name", sensitive: PiiAction.replaceWithToken() }) // masked wherever it goes
   patientName!: string;
 }
+```
+
+```ts file=src/clinic/agents/clinic/clinic.agent.ts
+import { Agent } from "@agboss/core";
+import { PatientMessageDto } from "../../dto/patient-message.dto.js";
+import { LegalAdviceGuardrail } from "../../guardrails/legal-advice/legal-advice.guardrail.js";
 
 @Agent({
   name: "clinic-agent",
@@ -247,6 +273,13 @@ export class PatientMessageDto {
   guardrails: [LegalAdviceGuardrail], // this agent's model only
 })
 export class ClinicAgent {}
+```
+
+```ts file=src/clinic/agents/billing/billing.agent.ts
+import { Agent } from "@agboss/core";
+import { PatientMessageDto } from "../../dto/patient-message.dto.js";
+import { NoDiagnosisGuardrail } from "../../guardrails/no-diagnosis/no-diagnosis.guardrail.js";
+import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js";
 
 @Agent({
   name: "billing-agent",
@@ -258,6 +291,13 @@ export class ClinicAgent {}
   excludePiiPolicies: [PatientIdPiiPolicy], // its model sees patient ids; logs and traces stay masked
 })
 export class BillingAgent {}
+```
+
+```ts file=src/clinic/routers/clinic/clinic.router.ts
+import { DecidedBy, Router } from "@agboss/core";
+import { BillingAgent } from "../../agents/billing/billing.agent.js";
+import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
+import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 
 @Router({
   name: "clinic-router",
@@ -272,12 +312,35 @@ export class BillingAgent {}
   ],
 })
 export class ClinicRouter {}
+```
+
+```ts file=src/clinic/workflows/clinic/clinic.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 
 @WorkflowStart({ name: "clinic-workflow-start", description: "A patient's message", input: PatientMessageDto })
 export class ClinicWorkflowStart {}
+```
+
+```ts file=src/clinic/workflows/clinic/clinic.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({ name: "clinic-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ClinicWorkflowFinish {}
+```
+
+```ts file=src/clinic/workflows/clinic/clinic.workflow.ts
+import { Workflow, route, start } from "@agboss/core";
+import { BillingAgent } from "../../agents/billing/billing.agent.js";
+import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
+import { PatientMessageDto } from "../../dto/patient-message.dto.js";
+import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js";
+import { ClinicRouter } from "../../routers/clinic/clinic.router.js";
+import { PatientRegistryService } from "../../services/patient-registry.service.js";
+import { RefusalTextService } from "../../services/refusal-text.service.js";
+import { ClinicWorkflowFinish } from "./clinic.workflow-finish.js";
+import { ClinicWorkflowStart } from "./clinic.workflow-start.js";
 
 @Workflow({
   name: "clinic-workflow",
@@ -298,6 +361,11 @@ export class ClinicWorkflowFinish {}
   providers: [RefusalTextService, PatientRegistryService],
 })
 export class ClinicWorkflow {}
+```
+
+```ts file=src/clinic/budgets/application-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -305,6 +373,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(5);
   }
 }
+```
+
+```ts file=src/clinic/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -312,6 +385,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/clinic/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -319,6 +397,18 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/clinic.application.ts
+import { Application } from "@agboss/core";
+import { ApplicationDailyBudget } from "./clinic/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./clinic/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./clinic/budgets/tenant-daily.budget.js";
+import { ClinicExecutionContext } from "./clinic/contexts/clinic-execution.context.js";
+import { NoDiagnosisGuardrail } from "./clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.js";
+import { ContactPiiPolicy } from "./clinic/pii-policies/contact.pii-policy.js";
+import { ClinicWorkflow } from "./clinic/workflows/clinic/clinic.workflow.js";
+import { ClinicEnvironment } from "./environments/app.environment.js";
 
 @Application({
   name: "clinic-application",
@@ -365,9 +455,9 @@ Actions: `PiiAction.replaceWithKind()` → `<israeli-id>`; `replacePart({ keepLa
 ## Testing
 
 <!-- snippet-context
-import { ClinicExecutionContext } from "./src/clinic/clinic-context.js";
-import { ContactPiiPolicy } from "./src/clinic/pii.js";
-import { LegalAdviceGuardrail } from "./src/clinic/guardrails.js";
+import { ClinicExecutionContext } from "./src/clinic/contexts/clinic-execution.context.js";
+import { ContactPiiPolicy } from "./src/clinic/pii-policies/contact.pii-policy.js";
+import { LegalAdviceGuardrail } from "./src/clinic/guardrails/legal-advice/legal-advice.guardrail.js";
 -->
 
 ```ts

@@ -1,7 +1,7 @@
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { CreditWorkflow } from "../credit/credit.workflow.js";
-import { TopicResearchWorkflow } from "../topic/topic-research.workflow.js";
+import { CreditWorkflow } from "../credit/workflows/credit/credit.workflow.js";
+import { TopicResearchWorkflow } from "../topic/workflows/topic-research/topic-research.workflow.js";
 
 /**
  * Every budget of the flow patterns (#261): the whole application per day, a tenant per day, the

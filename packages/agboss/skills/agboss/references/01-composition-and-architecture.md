@@ -37,8 +37,8 @@ Rules of thumb:
 
 One agent screens the request and answers either a shortlist or a "no match" marker; a code router
 decides by size whether the shortlist is saved; an action saves it. One class per file, each in the
-folder of its kind — `dto/`, `agents/`, `services/`, `actions/`, `workflow-finishes/`, `routers/`,
-`workflow-starts/`, `budgets/`.
+folder of its kind — `dto/`, `agents/`, `services/`, `actions/`, `routers/`, `budgets/`, and
+`workflows/shortlist/` for the workflow with its start and finishes.
 
 ```ts file=src/shortlist/dto/job.dto.ts
 // dto/job.dto.ts — narrow DTOs, one per file and per step's result; each field's prompt is its schema text
@@ -90,12 +90,12 @@ export class ShortlistSavedDto {
 }
 ```
 
-```ts file=src/shortlist/agents/screening.agent.ts
-// agents/screening.agent.ts — the agent that does the work also says which outcome it is
+```ts file=src/shortlist/agents/screening/screening.agent.ts
+// agents/screening/screening.agent.ts — the agent that does the work also says which outcome it is
 import { Agent, oneOf } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { NoMatchDto } from "../dto/no-match.dto.js";
-import { ShortlistDto } from "../dto/shortlist.dto.js";
+import { NoMatchDto } from "../../dto/no-match.dto.js";
+import { ShortlistDto } from "../../dto/shortlist.dto.js";
 
 @Agent({
   name: "screening-agent",
@@ -150,10 +150,10 @@ export class SaveShortlistAction implements ActionHandler<SaveShortlistAction> {
 }
 ```
 
-```ts file=src/shortlist/workflow-finishes/shortlist-saved.workflow-finish.ts
-// workflow-finishes/<name>.workflow-finish.ts — each finish names the class it hands back
+```ts file=src/shortlist/workflows/shortlist/shortlist-saved.workflow-finish.ts
+// workflows/shortlist/<name>.workflow-finish.ts — each finish names the class it hands back
 import { WorkflowFinish } from "@agboss/core";
-import { ShortlistSavedDto } from "../dto/shortlist-saved.dto.js";
+import { ShortlistSavedDto } from "../../dto/shortlist-saved.dto.js";
 
 @WorkflowFinish({
   name: "shortlist-saved-workflow-finish",
@@ -163,9 +163,9 @@ import { ShortlistSavedDto } from "../dto/shortlist-saved.dto.js";
 export class ShortlistSavedWorkflowFinish {}
 ```
 
-```ts file=src/shortlist/workflow-finishes/too-many-jobs.workflow-finish.ts
+```ts file=src/shortlist/workflows/shortlist/too-many-jobs.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import { ShortlistDto } from "../dto/shortlist.dto.js";
+import { ShortlistDto } from "../../dto/shortlist.dto.js";
 
 @WorkflowFinish({
   name: "too-many-jobs-workflow-finish",
@@ -175,9 +175,9 @@ import { ShortlistDto } from "../dto/shortlist.dto.js";
 export class TooManyJobsWorkflowFinish {}
 ```
 
-```ts file=src/shortlist/workflow-finishes/no-match.workflow-finish.ts
+```ts file=src/shortlist/workflows/shortlist/no-match.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import { NoMatchDto } from "../dto/no-match.dto.js";
+import { NoMatchDto } from "../../dto/no-match.dto.js";
 
 @WorkflowFinish({
   name: "no-match-workflow-finish",
@@ -187,12 +187,12 @@ import { NoMatchDto } from "../dto/no-match.dto.js";
 export class NoMatchWorkflowFinish {}
 ```
 
-```ts file=src/shortlist/routers/shortlist-size.router.ts
-// routers/shortlist-size.router.ts — decided by data: no model, cost 0, targets typed by `routes`
+```ts file=src/shortlist/routers/shortlist-size/shortlist-size.router.ts
+// routers/shortlist-size/shortlist-size.router.ts — decided by data: no model, cost 0, targets typed by `routes`
 import { DecidedBy, Router, type InputOf, type Route, type RouterHandler } from "@agboss/core";
-import { SaveShortlistAction } from "../actions/save-shortlist.action.js";
-import { ShortlistDto } from "../dto/shortlist.dto.js";
-import { TooManyJobsWorkflowFinish } from "../workflow-finishes/too-many-jobs.workflow-finish.js";
+import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
+import { ShortlistDto } from "../../dto/shortlist.dto.js";
+import { TooManyJobsWorkflowFinish } from "../../workflows/shortlist/too-many-jobs.workflow-finish.js";
 
 const MAX_SAVED_JOBS = 10;
 
@@ -212,7 +212,7 @@ export class ShortlistSizeRouter implements RouterHandler<ShortlistSizeRouter> {
 }
 ```
 
-```ts file=src/shortlist/workflow-starts/job-search.workflow-start.ts
+```ts file=src/shortlist/workflows/shortlist/job-search.workflow-start.ts
 import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
@@ -224,21 +224,21 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 export class JobSearchWorkflowStart {}
 ```
 
-```ts file=src/shortlist/shortlist.workflow.ts
-// shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
+```ts file=src/shortlist/workflows/shortlist/shortlist.workflow.ts
+// workflows/shortlist/shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
 import { Workflow, caseOf, oneOf, route, start } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { SaveShortlistAction } from "./actions/save-shortlist.action.js";
-import { ScreeningAgent } from "./agents/screening.agent.js";
-import { NoMatchDto } from "./dto/no-match.dto.js";
-import { ShortlistSavedDto } from "./dto/shortlist-saved.dto.js";
-import { ShortlistDto } from "./dto/shortlist.dto.js";
-import { ShortlistSizeRouter } from "./routers/shortlist-size.router.js";
-import { ShortlistStoreService } from "./services/shortlist-store.service.js";
-import { NoMatchWorkflowFinish } from "./workflow-finishes/no-match.workflow-finish.js";
-import { ShortlistSavedWorkflowFinish } from "./workflow-finishes/shortlist-saved.workflow-finish.js";
-import { TooManyJobsWorkflowFinish } from "./workflow-finishes/too-many-jobs.workflow-finish.js";
-import { JobSearchWorkflowStart } from "./workflow-starts/job-search.workflow-start.js";
+import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
+import { ScreeningAgent } from "../../agents/screening/screening.agent.js";
+import { NoMatchDto } from "../../dto/no-match.dto.js";
+import { ShortlistSavedDto } from "../../dto/shortlist-saved.dto.js";
+import { ShortlistDto } from "../../dto/shortlist.dto.js";
+import { ShortlistSizeRouter } from "../../routers/shortlist-size/shortlist-size.router.js";
+import { ShortlistStoreService } from "../../services/shortlist-store.service.js";
+import { JobSearchWorkflowStart } from "./job-search.workflow-start.js";
+import { NoMatchWorkflowFinish } from "./no-match.workflow-finish.js";
+import { ShortlistSavedWorkflowFinish } from "./shortlist-saved.workflow-finish.js";
+import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
 
 @Workflow({
   name: "shortlist-workflow",
@@ -304,13 +304,13 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
-```ts file=src/shortlist/shortlist.application.ts
+```ts file=src/shortlist.application.ts
 // shortlist.application.ts — what createApp, testWith and the CLI take
 import { Application, EmptyEnvironment } from "@agboss/core";
-import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
-import { ExecutionBudget } from "./budgets/execution.budget.js";
-import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
-import { ShortlistWorkflow } from "./shortlist.workflow.js";
+import { ApplicationDailyBudget } from "./shortlist/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./shortlist/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./shortlist/budgets/tenant-daily.budget.js";
+import { ShortlistWorkflow } from "./shortlist/workflows/shortlist/shortlist.workflow.js";
 
 @Application({
   name: "shortlist-application",
@@ -362,11 +362,9 @@ What this shows:
 
 Anti-pattern — the "God DTO":
 
-<!-- snippet-context
+```ts file=src/shortlist/dto/screening-result.dto.ts
 import { Flag, Integer, Text } from "@agboss/core/dto";
--->
 
-```ts
 // ✗ one class for every outcome: optional fields nobody can rely on, a flag the code must re-check
 export class ScreeningResultDto {
   @Flag({ prompt: "whether anything matched" })
@@ -404,19 +402,19 @@ forces `if (x.found)` checks in every reader, and makes `about` / outdating (ref
 import { Injectable, Tool, type ToolHandler } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
-export class DocumentStoreService {
+class DocumentStoreService {
   textOf(url: string, signal: AbortSignal): Promise<string> {
     return Promise.resolve(`${url}:${String(signal.aborted)}`);
   }
 }
-export class DocumentTextDto {
+class DocumentTextDto {
   @Text({ prompt: "the document's text, extracted" })
   text!: string;
 }
 // @snippet
 -->
 
-```ts
+```ts file=src/shortlist/tools/read-document.tool.ts
 import { ExecutionContext } from "@agboss/core";
 import { AttachmentDto } from "@agboss/core/dto";
 import { kilobytes, seconds } from "@agboss/core/units";

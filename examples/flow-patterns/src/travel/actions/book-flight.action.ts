@@ -5,7 +5,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { TripFlightDto, TripRequestDto } from "../dtos/trip.dto.js";
+import { TripFlightDto, TripRequestDto } from "../dto/trip.dto.js";
 import { BookingDeskService } from "../services/booking-desk.service.js";
 import { CancelFlightAction } from "./cancel-flight.action.js";
 

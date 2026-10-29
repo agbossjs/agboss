@@ -1,6 +1,6 @@
 import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { OfferDraftDto } from "../dtos/offer-draft.dto.js";
-import { OfferSentDto } from "../dtos/offer-sent.dto.js";
+import { OfferDraftDto } from "../dto/offer-draft.dto.js";
+import { OfferSentDto } from "../dto/offer-sent.dto.js";
 import { OfferMailer } from "../services/offer-mailer.service.js";
 
 /** Sends the approved offer. */

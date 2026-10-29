@@ -253,11 +253,10 @@ test("a refund request ends with a refund id", async () => {
 
 ### After: narrow DTOs, components, paths
 
-The files follow Step 1's table. In a project each class is a file of its own
-(`agents/writer.agent.ts`, …); a few share a file here for brevity.
+The files follow Step 1's table, one class per file of its kind folder — first the DTOs, in `dto/`:
 
-```ts file=src/support/dto/support.dto.ts
-import { Integer, Text } from "@agboss/core/dto";
+```ts file=src/support/dto/support-request.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class SupportRequestDto {
   @Text({ prompt: "the order the customer writes about" })
@@ -266,11 +265,19 @@ export class SupportRequestDto {
   @Text({ prompt: "the customer's message" })
   message!: string;
 }
+```
+
+```ts file=src/support/dto/research-question.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ResearchQuestionDto {
   @Text({ prompt: "one thing to check before answering" })
   question!: string;
 }
+```
+
+```ts file=src/support/dto/research-finding.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ResearchFindingDto {
   @Text({ prompt: "the question checked" })
@@ -279,6 +286,10 @@ export class ResearchFindingDto {
   @Text({ prompt: "what the order's facts say" })
   answer!: string;
 }
+```
+
+```ts file=src/support/dto/reply-draft.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class ReplyDraftDto {
   @Text({ prompt: "the reply to the customer" })
@@ -287,17 +298,29 @@ export class ReplyDraftDto {
   @Integer({ prompt: "the refund the reply promises, in cents (0 for none)", min: 0 })
   refundCents!: number;
 }
+```
+
+```ts file=src/support/dto/changes-requested.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ChangesRequestedDto {
   @Text({ prompt: "what to change in the reply" })
   notes!: string;
 }
+```
+
+```ts file=src/support/dto/reply-approved.dto.ts
+import { Text } from "@agboss/core/dto";
 
 /** The reviewer's approval: the variant is the decision, so it needs no flag. */
 export class ReplyApprovedDto {
   @Text({ prompt: "a note for the record", optional: true })
   note?: string;
 }
+```
+
+```ts file=src/support/dto/refund-order.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class RefundOrderDto {
   @Text({ prompt: "the order to refund" })
@@ -306,16 +329,28 @@ export class RefundOrderDto {
   @Integer({ prompt: "the amount in cents", min: 1 })
   amountCents!: number;
 }
+```
+
+```ts file=src/support/dto/refund-issued.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class RefundIssuedDto {
   @Text({ prompt: "the refund's id" })
   refundId!: string;
 }
+```
+
+```ts file=src/support/dto/order-lookup.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OrderLookupDto {
   @Text({ prompt: "the order id" })
   orderId!: string;
 }
+```
+
+```ts file=src/support/dto/order-facts.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OrderFactsDto {
   @Text({ prompt: "what is known about the order" })
@@ -326,7 +361,7 @@ export class OrderFactsDto {
 The services the old nodes called are injected, the `interrupt()` becomes a channel role on the tool
 that issues a large refund:
 
-```ts file=src/support/support.services.ts
+```ts file=src/support/services/order-book.service.ts
 import { Injectable } from "@agboss/core";
 
 @Injectable()
@@ -335,6 +370,10 @@ export class OrderBookService {
     return Promise.resolve(`order ${orderId}: delivered late`);
   }
 }
+```
+
+```ts file=src/support/services/refund-api.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class RefundApiService {
@@ -342,6 +381,10 @@ export class RefundApiService {
     return Promise.resolve(`refund-${orderId}-${String(amountCents)}-${idempotencyKey}`);
   }
 }
+```
+
+```ts file=src/support/services/supervisor-queue.service.ts
+import { Injectable } from "@agboss/core";
 
 @Injectable()
 export class SupervisorQueueService {
@@ -353,12 +396,10 @@ export class SupervisorQueueService {
 }
 ```
 
-```ts file=src/support/channels/refund-sign-off.channel.ts
+```ts file=src/support/channels/refund-sign-off.channel-role.ts
 // interrupt({ draft, refundCents }) → the role: what is approved and who answers
-import { Channel, ChannelOf, ChannelOutcome, ChannelRole, PauseAnswerer } from "@agboss/core";
-import type { ChannelAsk } from "@agboss/core";
-import { RefundOrderDto } from "../dto/support.dto.js";
-import { SupervisorQueueService } from "../support.services.js";
+import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+import { RefundOrderDto } from "../dto/refund-order.dto.js";
 
 @ChannelRole({
   name: "refund-sign-off-channel",
@@ -367,6 +408,13 @@ import { SupervisorQueueService } from "../support.services.js";
   answeredBy: PauseAnswerer.ThreadOwner,
 })
 export abstract class RefundSignOffChannel extends ChannelOf<RefundSignOffChannel> {}
+```
+
+```ts file=src/support/channels/supervisor-queue-refund-sign-off.channel.ts
+import { Channel, ChannelOutcome } from "@agboss/core";
+import type { ChannelAsk } from "@agboss/core";
+import { SupervisorQueueService } from "../services/supervisor-queue.service.js";
+import { RefundSignOffChannel } from "./refund-sign-off.channel-role.js";
 
 @Channel({ name: "supervisor-queue-refund-sign-off-channel", description: "Puts the refund in the supervisors' queue", deps: [SupervisorQueueService] })
 export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
@@ -382,11 +430,11 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
 }
 ```
 
-```ts file=src/support/support.tools.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
-import { RefundSignOffChannel } from "./channels/refund-sign-off.channel.js";
-import { OrderFactsDto, OrderLookupDto, RefundIssuedDto, RefundOrderDto } from "./dto/support.dto.js";
-import { OrderBookService, RefundApiService } from "./support.services.js";
+```ts file=src/support/tools/order-lookup.tool.ts
+import { Tool, type ToolHandler } from "@agboss/core";
+import { OrderFactsDto } from "../dto/order-facts.dto.js";
+import { OrderLookupDto } from "../dto/order-lookup.dto.js";
+import { OrderBookService } from "../services/order-book.service.js";
 
 @Tool({ name: "order-lookup-tool", description: "What is known about an order", input: OrderLookupDto, output: OrderFactsDto, deps: [OrderBookService] })
 export class OrderLookupTool implements ToolHandler<OrderLookupDto, OrderFactsDto> {
@@ -396,6 +444,14 @@ export class OrderLookupTool implements ToolHandler<OrderLookupDto, OrderFactsDt
     return { facts: await this.orderBookService.factsOf(orderId) };
   }
 }
+```
+
+```ts file=src/support/tools/issue-signed-off-refund.tool.ts
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { RefundSignOffChannel } from "../channels/refund-sign-off.channel-role.js";
+import { RefundIssuedDto } from "../dto/refund-issued.dto.js";
+import { RefundOrderDto } from "../dto/refund-order.dto.js";
+import { RefundApiService } from "../services/refund-api.service.js";
 
 @Tool({
   name: "issue-signed-off-refund-tool",
@@ -421,18 +477,10 @@ export class IssueSignedOffRefundTool implements ToolHandler<RefundOrderDto, Ref
 Each LLM node is an agent with a static prompt and typed `input` / `output` — no `withStructuredOutput`,
 no string building. The writer and the editor are two agents: the first never reads a draft.
 
-```ts file=src/support/support.agents.ts
-import { Agent, historyOf, listOf, oneOf } from "@agboss/core";
-import {
-  ChangesRequestedDto,
-  ReplyApprovedDto,
-  ReplyDraftDto,
-  RefundIssuedDto,
-  ResearchFindingDto,
-  ResearchQuestionDto,
-  SupportRequestDto,
-} from "./dto/support.dto.js";
-import { IssueSignedOffRefundTool, OrderLookupTool } from "./support.tools.js";
+```ts file=src/support/agents/research-planner/research-planner.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @Agent({
   name: "research-planner-agent",
@@ -443,6 +491,14 @@ import { IssueSignedOffRefundTool, OrderLookupTool } from "./support.tools.js";
   output: listOf(ResearchQuestionDto),
 })
 export class ResearchPlannerAgent {}
+```
+
+```ts file=src/support/agents/order-researcher/order-researcher.agent.ts
+import { Agent } from "@agboss/core";
+import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
+import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
+import { OrderLookupTool } from "../../tools/order-lookup.tool.js";
 
 @Agent({
   name: "order-researcher-agent",
@@ -455,6 +511,13 @@ export class ResearchPlannerAgent {}
   maxToolCalls: 2,
 })
 export class OrderResearcherAgent {}
+```
+
+```ts file=src/support/agents/reply-writer/reply-writer.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
+import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @Agent({
   name: "reply-writer-agent",
@@ -465,6 +528,14 @@ export class OrderResearcherAgent {}
   output: ReplyDraftDto,
 })
 export class ReplyWriterAgent {}
+```
+
+```ts file=src/support/agents/reply-reviewer/reply-reviewer.agent.ts
+import { Agent, historyOf, listOf, oneOf } from "@agboss/core";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { ReplyApprovedDto } from "../../dto/reply-approved.dto.js";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
+import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 
 @Agent({
   name: "reply-reviewer-agent",
@@ -476,6 +547,12 @@ export class ReplyWriterAgent {}
   maxVisits: 3,
 })
 export class ReplyReviewerAgent {}
+```
+
+```ts file=src/support/agents/reply-editor/reply-editor.agent.ts
+import { Agent } from "@agboss/core";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 
 @Agent({
   name: "reply-editor-agent",
@@ -487,6 +564,14 @@ export class ReplyReviewerAgent {}
   maxVisits: 2, // the old `revisions` counter
 })
 export class ReplyEditorAgent {}
+```
+
+```ts file=src/support/agents/refund-sign-off/refund-sign-off.agent.ts
+import { Agent } from "@agboss/core";
+import { RefundIssuedDto } from "../../dto/refund-issued.dto.js";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
+import { IssueSignedOffRefundTool } from "../../tools/issue-signed-off-refund.tool.js";
 
 @Agent({
   name: "refund-sign-off-agent",
@@ -501,27 +586,47 @@ export class ReplyEditorAgent {}
 export class RefundSignOffAgent {}
 ```
 
-The classifier is a model router (its outcome is where to go, not data); `routeBySize`'s
-`Command({ goto })` is a code router; the plain-code `issueRefund` node is an action:
+The start and the finishes sit in the workflow's folder; the classifier is a model router (its
+outcome is where to go, not data); `routeBySize`'s `Command({ goto })` is a code router; the
+plain-code `issueRefund` node is an action:
 
-```ts file=src/support/support.nodes.ts
-import { Action, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
-import { ResearchPlannerAgent, RefundSignOffAgent } from "./support.agents.js";
-import { RefundIssuedDto, ReplyDraftDto, SupportRequestDto } from "./dto/support.dto.js";
-import { RefundApiService } from "./support.services.js";
+```ts file=src/support/workflows/support/support.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @WorkflowStart({ name: "support-workflow-start", description: "A customer's message about an order", input: SupportRequestDto })
 export class SupportWorkflowStart {}
+```
+
+```ts file=src/support/workflows/support/refund-issued.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { RefundIssuedDto } from "../../dto/refund-issued.dto.js";
 
 @WorkflowFinish({ name: "refund-issued-workflow-finish", description: "The refund was issued", output: RefundIssuedDto })
 export class RefundIssuedWorkflowFinish {}
+```
+
+```ts file=src/support/workflows/support/hand-over.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @WorkflowFinish({ name: "hand-over-workflow-finish", description: "Not a refund: for the team", output: SupportRequestDto })
 export class HandOverWorkflowFinish {}
+```
+
+```ts file=src/support/workflows/support/reply-stuck.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @WorkflowFinish({ name: "reply-stuck-workflow-finish", description: "The review did not converge", output: SupportRequestDto })
 export class ReplyStuckWorkflowFinish {}
+```
+
+```ts file=src/support/routers/support-triage/support-triage.router.ts
+import { DecidedBy, Router } from "@agboss/core";
+import { ResearchPlannerAgent } from "../../agents/research-planner/research-planner.agent.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
+import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workflow-finish.js";
 
 @Router({
   name: "support-triage-router",
@@ -536,6 +641,15 @@ export class ReplyStuckWorkflowFinish {}
   ],
 })
 export class SupportTriageRouter {}
+```
+
+```ts file=src/support/actions/issue-refund.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { RefundIssuedDto } from "../dto/refund-issued.dto.js";
+import { ReplyDraftDto } from "../dto/reply-draft.dto.js";
+import { SupportRequestDto } from "../dto/support-request.dto.js";
+import { RefundApiService } from "../services/refund-api.service.js";
 
 @Action({
   name: "issue-refund-action",
@@ -555,6 +669,14 @@ export class IssueRefundAction implements ActionHandler<IssueRefundAction> {
     return { refundId: await this.refundApiService.issue(input.request.value.orderId, input.draft.value.refundCents, key) };
   }
 }
+```
+
+```ts file=src/support/routers/refund-size/refund-size.router.ts
+import { DecidedBy, Router } from "@agboss/core";
+import type { InputOf, Route, RouterHandler } from "@agboss/core";
+import { IssueRefundAction } from "../../actions/issue-refund.action.js";
+import { RefundSignOffAgent } from "../../agents/refund-sign-off/refund-sign-off.agent.js";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 
 const REFUND_SIGN_OFF_CENTS = 10_000;
 
@@ -576,27 +698,30 @@ The graph's edges become two paths: the main one, and the reviewer's own (it is 
 writer and from the editor). The `Send` fan-out is a per-item launch, the reducer its join; the
 review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the editor's `maxVisits`:
 
-```ts file=src/support/support.workflow.ts
+```ts file=src/support/workflows/support/support.workflow.ts
 import { VisitsLimitExceededError, Workflow, agent, caseOf, listOf, oneOf, route, start, toFinish } from "@agboss/core";
-import {
-  OrderResearcherAgent,
-  RefundSignOffAgent,
-  ReplyEditorAgent,
-  ReplyReviewerAgent,
-  ReplyWriterAgent,
-  ResearchPlannerAgent,
-} from "./support.agents.js";
-import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto, SupportRequestDto } from "./dto/support.dto.js";
-import {
-  HandOverWorkflowFinish,
-  IssueRefundAction,
-  RefundIssuedWorkflowFinish,
-  RefundSizeRouter,
-  ReplyStuckWorkflowFinish,
-  SupportTriageRouter,
-  SupportWorkflowStart,
-} from "./support.nodes.js";
-import { OrderBookService, RefundApiService } from "./support.services.js";
+import { IssueRefundAction } from "../../actions/issue-refund.action.js";
+import { OrderResearcherAgent } from "../../agents/order-researcher/order-researcher.agent.js";
+import { RefundSignOffAgent } from "../../agents/refund-sign-off/refund-sign-off.agent.js";
+import { ReplyEditorAgent } from "../../agents/reply-editor/reply-editor.agent.js";
+import { ReplyReviewerAgent } from "../../agents/reply-reviewer/reply-reviewer.agent.js";
+import { ReplyWriterAgent } from "../../agents/reply-writer/reply-writer.agent.js";
+import { ResearchPlannerAgent } from "../../agents/research-planner/research-planner.agent.js";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { RefundIssuedDto } from "../../dto/refund-issued.dto.js";
+import { ReplyApprovedDto } from "../../dto/reply-approved.dto.js";
+import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
+import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
+import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
+import { SupportRequestDto } from "../../dto/support-request.dto.js";
+import { RefundSizeRouter } from "../../routers/refund-size/refund-size.router.js";
+import { SupportTriageRouter } from "../../routers/support-triage/support-triage.router.js";
+import { OrderBookService } from "../../services/order-book.service.js";
+import { RefundApiService } from "../../services/refund-api.service.js";
+import { HandOverWorkflowFinish } from "./hand-over.workflow-finish.js";
+import { RefundIssuedWorkflowFinish } from "./refund-issued.workflow-finish.js";
+import { ReplyStuckWorkflowFinish } from "./reply-stuck.workflow-finish.js";
+import { SupportWorkflowStart } from "./support.workflow-start.js";
 
 @Workflow({
   name: "support-workflow",
@@ -646,13 +771,11 @@ export class SupportWorkflow {}
 The `compile({ checkpointer })` call becomes the application: its workflows, budgets and
 infrastructure — here the channel's implementation; in production also `SqliteCheckpointSaver` and
 `SqlitePausedExecutionRepository`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
+Its budgets, one per file in `budgets/`:
 
-```ts file=src/support/support.application.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "@agboss/core";
+```ts file=src/support/budgets/support-application.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { SupervisorQueueRefundSignOffChannel } from "./channels/refund-sign-off.channel.js";
-import { SupervisorQueueService } from "./support.services.js";
-import { SupportWorkflow } from "./support.workflow.js";
 
 @Budget({ name: "support-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class SupportApplicationBudget implements BudgetHandler {
@@ -660,6 +783,11 @@ export class SupportApplicationBudget implements BudgetHandler {
     return usd(10);
   }
 }
+```
+
+```ts file=src/support/budgets/support-tenant.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "support-tenant-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class SupportTenantBudget implements BudgetHandler {
@@ -667,6 +795,11 @@ export class SupportTenantBudget implements BudgetHandler {
     return usd(2);
   }
 }
+```
+
+```ts file=src/support/budgets/support-execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "support-execution-budget", scope: BudgetScope.Execution })
 export class SupportExecutionBudget implements BudgetHandler {
@@ -674,6 +807,16 @@ export class SupportExecutionBudget implements BudgetHandler {
     return usd(0.2);
   }
 }
+```
+
+```ts file=src/support.application.ts
+import { Application, EmptyEnvironment } from "@agboss/core";
+import { SupportApplicationBudget } from "./support/budgets/support-application.budget.js";
+import { SupportExecutionBudget } from "./support/budgets/support-execution.budget.js";
+import { SupportTenantBudget } from "./support/budgets/support-tenant.budget.js";
+import { SupervisorQueueRefundSignOffChannel } from "./support/channels/supervisor-queue-refund-sign-off.channel.js";
+import { SupervisorQueueService } from "./support/services/supervisor-queue.service.js";
+import { SupportWorkflow } from "./support/workflows/support/support.workflow.js";
 
 @Application({
   name: "support-application",
@@ -712,28 +855,30 @@ The tests move from live calls to scripts: no key, no network, no cost, the same
 `testWith(App)` scripts each model by class; the path, the finish and the pause are asserted by
 class, and a code component is tested alone with its unit runner:
 
-```ts file=tests/support/support.test.ts
+```ts file=tests/support/workflows/support/support.workflow.test.ts
 import { expect, it } from "vitest";
 import { ExecutionStatus } from "@agboss/core";
 import { callTool, replyWith, routeTo, testRouter, testWith } from "@agboss/core/testing";
-import { SupportApplication } from "../../src/support/support.application.js";
-import {
-  OrderResearcherAgent,
-  RefundSignOffAgent,
-  ReplyEditorAgent,
-  ReplyReviewerAgent,
-  ReplyWriterAgent,
-  ResearchPlannerAgent,
-} from "../../src/support/support.agents.js";
-import { ChangesRequestedDto, RefundIssuedDto, ReplyApprovedDto, ReplyDraftDto, ResearchFindingDto, ResearchQuestionDto } from "../../src/support/dto/support.dto.js";
-import {
-  IssueRefundAction,
-  RefundIssuedWorkflowFinish,
-  RefundSizeRouter,
-  SupportTriageRouter,
-  SupportWorkflowStart,
-} from "../../src/support/support.nodes.js";
-import { IssueSignedOffRefundTool, OrderLookupTool } from "../../src/support/support.tools.js";
+import { SupportApplication } from "../../../../src/support.application.js";
+import { IssueRefundAction } from "../../../../src/support/actions/issue-refund.action.js";
+import { OrderResearcherAgent } from "../../../../src/support/agents/order-researcher/order-researcher.agent.js";
+import { RefundSignOffAgent } from "../../../../src/support/agents/refund-sign-off/refund-sign-off.agent.js";
+import { ReplyEditorAgent } from "../../../../src/support/agents/reply-editor/reply-editor.agent.js";
+import { ReplyReviewerAgent } from "../../../../src/support/agents/reply-reviewer/reply-reviewer.agent.js";
+import { ReplyWriterAgent } from "../../../../src/support/agents/reply-writer/reply-writer.agent.js";
+import { ResearchPlannerAgent } from "../../../../src/support/agents/research-planner/research-planner.agent.js";
+import { ChangesRequestedDto } from "../../../../src/support/dto/changes-requested.dto.js";
+import { RefundIssuedDto } from "../../../../src/support/dto/refund-issued.dto.js";
+import { ReplyApprovedDto } from "../../../../src/support/dto/reply-approved.dto.js";
+import { ReplyDraftDto } from "../../../../src/support/dto/reply-draft.dto.js";
+import { ResearchFindingDto } from "../../../../src/support/dto/research-finding.dto.js";
+import { ResearchQuestionDto } from "../../../../src/support/dto/research-question.dto.js";
+import { RefundSizeRouter } from "../../../../src/support/routers/refund-size/refund-size.router.js";
+import { SupportTriageRouter } from "../../../../src/support/routers/support-triage/support-triage.router.js";
+import { IssueSignedOffRefundTool } from "../../../../src/support/tools/issue-signed-off-refund.tool.js";
+import { OrderLookupTool } from "../../../../src/support/tools/order-lookup.tool.js";
+import { RefundIssuedWorkflowFinish } from "../../../../src/support/workflows/support/refund-issued.workflow-finish.js";
+import { SupportWorkflowStart } from "../../../../src/support/workflows/support/support.workflow-start.js";
 
 const test = testWith(SupportApplication);
 

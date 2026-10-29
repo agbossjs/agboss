@@ -1,5 +1,5 @@
 import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
-import { PurchaseOrder } from "../tools/place-purchase.dto.js";
+import { PurchaseOrder } from "../dto/place-purchase.dto.js";
 
 /**
  * The role a purchase is approved through (#267): it approves `place-purchase-tool` calls and the

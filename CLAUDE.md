@@ -188,8 +188,8 @@ In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · 
 In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface, #419; scripted tests,
 no model key): `npm run check` (`agboss check --strict --cassettes` on its offline `src/desk.application.ts`
 `--federation snapshots/` — its A2A export against its checked-in `describe --json`, its VCR
-cassette `tests/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
-#439; replayed by `tests/desk-cassette.test.ts`) against its prompts and schemas — and on its
+cassette `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
+#439; replayed by `tests/desk/workflows/desk/desk-cassette.test.ts`) against its prompts and schemas — and on its
 application's twelve workflows `--federation` against the desk's fresh `describe --json`, then
 `--models` on `test`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
@@ -209,14 +209,14 @@ compaction, code guardrails, a tool interceptor — on a transport model provide
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
 resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
-`tests/helpline.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
+`tests/desk/a2a/desk.a2a-expose.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
 `@McpTool` (`mcpOf`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
-reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals.test.ts` resumes a pause on a second
+reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
 instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file);
-`tests/unit-runners.test.ts` runs every unit
-runner on the patterns' components, `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
+every unit runner runs on the patterns' components in the test that mirrors each
+(`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
 Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and
@@ -2312,7 +2312,9 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340),
                     src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398,
                     with an MCP server), src/intake/ (quorum groups, #279),
-                    one *.workflow.ts each; model-providers/; desk.application.ts (offline, served over
+                    each domain only kind folders (#474): workflows/<w>/ (the *.workflow.ts with its
+                    starts and finishes), dto/, agents/<n>/ (+ <n>.prompt.md) and the other prompted
+                    kinds in their own folders; tests/ mirrors src/; model-providers/; desk.application.ts (offline, served over
                     A2A); snapshots/ (its describe --json); eval/ (its eval baseline, labels and
                     failure tags); data/policies/ (what the MCP server reads); scripts/ (npm run
                     answer); README.md (real runs,

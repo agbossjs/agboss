@@ -22,7 +22,10 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    of one). `createApp(Workflow)` and `testWith(Workflow)` do not compile.
 2. **One entity per file, strictly inside its kind folder.** Every directory's name declares the
    exact kind of files inside it (`<kind>/<name>.<kind>.<ext>`), and mixing kinds in a folder is
-   forbidden (`services/` holds **only** `*.service.ts` — never errors, schemas, repositories, or
+   forbidden. `src/` holds kind folders, optionally under one domain level — `src/[<domain>/]<kind>/…`
+   (`src/billing/agents/refund/refund.agent.ts`): a domain is any folder that is not a kind folder
+   and holds only kind folders, never a loose file or a second domain; `<app>.application.ts` and
+   `environments/` stay at the `src/` root (`services/` holds **only** `*.service.ts` — never errors, schemas, repositories, or
    SQL). Every `@Workflow` lives in its own subfolder `workflows/<workflow-name>/` alongside its
    `@WorkflowStart` and `@WorkflowFinish` files
    (`workflows/<workflow-name>/<workflow-name>.workflow.ts`,
@@ -36,13 +39,15 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`, `actions/<name>.action.ts`,
    `services/<name>.service.ts`, `repositories/<name>.repository.ts`, `schemas/<name>.schema.ts`,
    `sql/<name>.sql`, `errors/<name>.error.ts`, `observers/<name>.observer.ts`,
-   `budgets/<name>.budget.ts`, `interceptors/<name>.interceptor.ts`,
+   `budgets/<name>.budget.ts`, `tool-interceptors/<name>.tool-interceptor.ts`,
    `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
    `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `retrievers/<name>.retriever.ts`,
    `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
    `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
    `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
-   `contexts/<name>.context.ts`, `http/server.ts`, `environments/*.environment.ts`,
+   `contexts/<name>.context.ts`, `infrastructure/<name>.<contract>.ts` (your own `Logger`, `IdGenerator`,
+   `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts`, `scripts/<name>.ts` (run by `npm run`),
+   `http/server.ts`, `environments/*.environment.ts`,
    `<app>.application.ts`), and `tests/` mirrors `src/` symmetrically (`tests/tools/<name>.tool.test.ts`,
    `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A component's `name` is in
    kebab-case ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
@@ -169,9 +174,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside: two
   instances on one event loop (`testWith(App, { instances: 2 })`) would wait on each other's lock
   (reference 09).
-- References 02, 04–08 and 10–13 condense several classes into one snippet to stay short; in a
-  project each of them is still its own file in its kind folder, as SKILL.md and references 01, 03
-  and 09 show.
+- Every snippet of these references is one file at its path in this layout (`file=` above its code):
+  copy its folders and names as they are.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
   `@agboss/core/testing` (+ `@agboss/core/testing/setup`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
   `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`,
@@ -196,8 +200,8 @@ export class OrderBookService {
 }
 -->
 
-```ts
-// tools/order-status.tool.ts — the shape of every component: decorator, deps, a typed contract
+```ts file=src/tools/order-status.tool.ts
+// the shape of every component: decorator, deps, a typed contract
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 

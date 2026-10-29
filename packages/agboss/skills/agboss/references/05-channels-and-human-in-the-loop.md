@@ -24,7 +24,7 @@ in memory — a pause survives a restart when the pause store and the checkpoint
 
 ## A worked example: refunds approved in Slack
 
-```ts file=src/refunds/dto/refund.dto.ts
+```ts file=src/refunds/dto/refund-request.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class RefundRequestDto {
@@ -34,6 +34,10 @@ export class RefundRequestDto {
   @Integer({ prompt: "the amount in cents", min: 1 })
   amountCents!: number;
 }
+```
+
+```ts file=src/refunds/dto/refund-done.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class RefundDoneDto {
   @Text({ prompt: "the refund's id" })
@@ -56,13 +60,11 @@ export class SlackClientService {
 }
 ```
 
-```ts file=src/refunds/channels/refund-approval.channel.ts
-// channels/refund-approval.channel.ts — the role: what it approves and who may answer
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpretation, ReplyInterpreter } from "@agboss/core";
-import type { InputOf, OutputOf, ReplyInterpreterHandler } from "@agboss/core";
-import { RefundRequestDto } from "../dto/refund.dto.js";
-
+```ts file=src/refunds/reply-interpreters/refund/refund.reply-interpreter.ts
 // free text → a decision, by code (DecidedBy.Model: a chat model, or a decision model for yes / no)
+import { DecidedBy, ReplyInterpretation, ReplyInterpreter } from "@agboss/core";
+import type { InputOf, OutputOf, ReplyInterpreterHandler } from "@agboss/core";
+
 @ReplyInterpreter({
   name: "refund-reply-interpreter",
   description: "Reads a manager's Slack reply to a refund",
@@ -76,6 +78,13 @@ export class RefundReplyInterpreter implements ReplyInterpreterHandler<RefundRep
     return ReplyInterpretation.notUnderstood({ reason: `not "approve" or "reject …": ${input.reply}` });
   }
 }
+```
+
+```ts file=src/refunds/channels/refund-approval.channel-role.ts
+// channels/refund-approval.channel-role.ts — the role: what it approves and who may answer
+import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+import { RefundRequestDto } from "../dto/refund-request.dto.js";
+import { RefundReplyInterpreter } from "../reply-interpreters/refund/refund.reply-interpreter.js";
 
 @ChannelRole({
   name: "refund-approval-channel",
@@ -92,7 +101,7 @@ export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChan
 import { Channel, ChannelOutcome, ExecutionContext, PauseResolution } from "@agboss/core";
 import type { ChannelAsk, ChannelWithdrawal } from "@agboss/core";
 import { SlackClientService } from "../services/slack-client.service.js";
-import { RefundApprovalChannel } from "./refund-approval.channel.js";
+import { RefundApprovalChannel } from "./refund-approval.channel-role.js";
 
 const AUTO_APPROVE_CENTS = 5000;
 
@@ -130,8 +139,9 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 ```ts file=src/refunds/tools/refund.tool.ts
 // tools/refund.tool.ts — names the role; runs only once a call is approved
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
-import { RefundApprovalChannel } from "../channels/refund-approval.channel.js";
-import { RefundDoneDto, RefundRequestDto } from "../dto/refund.dto.js";
+import { RefundApprovalChannel } from "../channels/refund-approval.channel-role.js";
+import { RefundDoneDto } from "../dto/refund-done.dto.js";
+import { RefundRequestDto } from "../dto/refund-request.dto.js";
 
 @Tool({
   name: "refund-tool",
@@ -150,26 +160,23 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
 }
 ```
 
-```ts file=src/refunds/environments/app.environment.ts
+```ts file=src/environments/app.environment.ts
 export class AppEnvironment {
   sqlitePath!: string; // the Sqlite* stores read it ([environment.missing-field] without it)
 }
 ```
 
-```ts file=src/refunds/environments/test.environment.ts
+```ts file=src/environments/test.environment.ts
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = { sqlitePath: ":memory:" };
 ```
 
-```ts file=src/refunds/refunds.application.ts
-import { Agent, Application, Budget, BudgetPeriod, BudgetScope, SqliteCheckpointSaver, SqlitePausedExecutionRepository, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { usd, type Usd } from "@agboss/core/units";
-import { SlackRefundApprovalChannel } from "./channels/slack-refund-approval.channel.js";
-import { AppEnvironment } from "./environments/app.environment.js";
-import { SlackClientService } from "./services/slack-client.service.js";
-import { RefundTool } from "./tools/refund.tool.js";
+The agent, the workflow with its start and finish, the budgets and the application:
+
+```ts file=src/refunds/agents/refund/refund.agent.ts
+import { Agent } from "@agboss/core";
+import { RefundTool } from "../../tools/refund.tool.js";
 
 @Agent({
   name: "refund-agent",
@@ -179,12 +186,31 @@ import { RefundTool } from "./tools/refund.tool.js";
   tools: [RefundTool],
 })
 export class RefundAgent {}
+```
+
+```ts file=src/refunds/workflows/refund/refund.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class RefundWorkflowStart {}
+```
+
+```ts file=src/refunds/workflows/refund/refund.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({ name: "refund-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class RefundWorkflowFinish {}
+```
+
+```ts file=src/refunds/workflows/refund/refund.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { RefundAgent } from "../../agents/refund/refund.agent.js";
+import { SlackClientService } from "../../services/slack-client.service.js";
+import { RefundWorkflowFinish } from "./refund.workflow-finish.js";
+import { RefundWorkflowStart } from "./refund.workflow-start.js";
 
 @Workflow({
   name: "refund-workflow",
@@ -198,6 +224,11 @@ export class RefundWorkflowFinish {}
   providers: [SlackClientService], // services in the workflow…
 })
 export class RefundWorkflow {}
+```
+
+```ts file=src/refunds/budgets/application-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -205,6 +236,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(5);
   }
 }
+```
+
+```ts file=src/refunds/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -212,6 +248,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/refunds/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -219,6 +260,16 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/refunds.application.ts
+import { Application, SqliteCheckpointSaver, SqlitePausedExecutionRepository } from "@agboss/core";
+import { AppEnvironment } from "./environments/app.environment.js";
+import { ApplicationDailyBudget } from "./refunds/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./refunds/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./refunds/budgets/tenant-daily.budget.js";
+import { SlackRefundApprovalChannel } from "./refunds/channels/slack-refund-approval.channel.js";
+import { RefundWorkflow } from "./refunds/workflows/refund/refund.workflow.js";
 
 @Application({
   name: "refunds-application",
@@ -305,7 +356,10 @@ tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat`
 import { ChannelOutcome } from "@agboss/core";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
-import { RefundAgent, RefundsApplication, RefundWorkflowFinish, RefundWorkflowStart } from "./src/refunds/refunds.application.js";
+import { RefundsApplication } from "./src/refunds.application.js";
+import { RefundAgent } from "./src/refunds/agents/refund/refund.agent.js";
+import { RefundWorkflowFinish } from "./src/refunds/workflows/refund/refund.workflow-finish.js";
+import { RefundWorkflowStart } from "./src/refunds/workflows/refund/refund.workflow-start.js";
 import { SlackRefundApprovalChannel } from "./src/refunds/channels/slack-refund-approval.channel.js";
 import { RefundTool } from "./src/refunds/tools/refund.tool.js";
 -->

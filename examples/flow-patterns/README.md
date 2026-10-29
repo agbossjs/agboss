@@ -62,11 +62,13 @@ check`) runs the desk once, exports the kept records (`agboss records export --t
 lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #396) — the draft
 `agboss eval ui`'s "Save as golden case" (#397) writes into the suite.
 
-`tests/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
-(`tests/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was recorded offline, through
-the same transport (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk-cassette.test.ts`); after a
+`tests/desk/workflows/desk/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
+(`tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was
+recorded offline, through the same transport
+(`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`); after a
 change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-cassette]`, and
-`AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk-cassette.test.ts` records only what changed.
+`AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
+only what changed.
 
 ## A side effect made once: the credit desk's charge (#472)
 
@@ -86,9 +88,10 @@ ledger in the application's SQLite file (`PaymentLedgerRepository`, its table in
 `src/credit/sql/payment-charges.sql`) — the key is the table's primary key, the insert and the read
 are one synchronous transaction. With a real provider, the key goes in its idempotency header
 (`Idempotency-Key`); a provider or API that ignores it charges twice, and nothing on the AGBoss side
-can prevent that. `tests/credit.test.ts` kills the instance after the charge and before the step's
-checkpoint, lets the other instance recover the execution and checks there is one charge, with the
-same `chargeId`; `tests/payment-ledger.test.ts` checks the ledger on its own.
+can prevent that. `tests/credit/workflows/credit/credit.workflow.test.ts` kills the instance after
+the charge and before the step's checkpoint, lets the other instance recover the execution and checks
+there is one charge, with the same `chargeId`; `tests/credit/actions/charge-card.action.test.ts`
+checks the ledger on its own.
 
 This deduplicates the retries of one step. It does not stop an instance that stalled (not died)
 from writing after another took its lease over — that needs fencing of stale lease holders at the

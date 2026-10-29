@@ -1,6 +1,6 @@
 import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { VendorCheckFailedDto } from "../dtos/vendor-check-failed.dto.js";
-import { VendorDto } from "../dtos/vendor.dto.js";
+import { VendorCheckFailedDto } from "../dto/vendor-check-failed.dto.js";
+import { VendorDto } from "../dto/vendor.dto.js";
 
 /**
  * The child's soft failure: a check that failed becomes a result of its own, so one failed vendor

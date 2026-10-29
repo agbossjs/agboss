@@ -13,14 +13,19 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 
 ## Using an MCP server
 
-```ts file=src/support/dto/issues.dto.ts
-// dto/issues.dto.ts — the server tools' DTOs: input and output of each one you use
-import { ListOf, Text } from "@agboss/core/dto";
+The server tools' DTOs — input and output of each one you use, one class per file:
+
+```ts file=src/support/dto/issue-search.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class IssueSearchDto {
   @Text({ prompt: "words to search the issues for" })
   query!: string;
 }
+```
+
+```ts file=src/support/dto/issue-hit.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class IssueHitDto {
   @Text({ prompt: "the issue's title" })
@@ -29,6 +34,11 @@ export class IssueHitDto {
   @Text({ prompt: "the issue's link" })
   url!: string;
 }
+```
+
+```ts file=src/support/dto/issue-hits.dto.ts
+import { ListOf } from "@agboss/core/dto";
+import { IssueHitDto } from "./issue-hit.dto.js";
 
 export class IssueHitsDto {
   @ListOf(IssueHitDto, { prompt: "the matching issues" })
@@ -39,7 +49,8 @@ export class IssueHitsDto {
 ```ts file=src/support/mcp/issues.server.ts
 // mcp/issues.server.ts — the server and the tools of it this workflow uses (checked at start)
 import { McpServer, McpServerClient } from "@agboss/core/mcp";
-import { IssueHitsDto, IssueSearchDto } from "../dto/issues.dto.js";
+import { IssueHitsDto } from "../dto/issue-hits.dto.js";
+import { IssueSearchDto } from "../dto/issue-search.dto.js";
 
 const tools = {
   search_issues: { input: IssueSearchDto, output: IssueHitsDto }, // the server's own tool name
@@ -60,7 +71,8 @@ export class IssuesServer extends McpServerClient<typeof tools> {}
 import { ExecutionContext, type ToolHandler } from "@agboss/core";
 import { McpTool } from "@agboss/core/mcp";
 import { kilobytes, seconds } from "@agboss/core/units";
-import { IssueHitsDto, IssueSearchDto } from "../dto/issues.dto.js";
+import { IssueHitsDto } from "../dto/issue-hits.dto.js";
+import { IssueSearchDto } from "../dto/issue-search.dto.js";
 import { IssuesServer } from "./issues.server.js";
 
 @McpTool({
@@ -102,13 +114,17 @@ export class SearchIssuesTool implements ToolHandler<IssueSearchDto, IssueHitsDt
 
 ## Calling another application over A2A
 
-```ts file=src/support/dto/order-desk.dto.ts
+```ts file=src/support/dto/order-question.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class OrderQuestionDto {
   @Text({ prompt: "the question for the order desk" })
   question!: string;
 }
+```
+
+```ts file=src/support/dto/order-desk-reply.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OrderDeskReplyDto {
   @Text({ prompt: "the order desk's answer" })
@@ -122,7 +138,8 @@ export class OrderDeskReplyDto {
 import { ExecutionContext } from "@agboss/core";
 import { A2AAgent, A2AClient } from "@agboss/core/a2a";
 import { usd } from "@agboss/core/units";
-import { OrderDeskReplyDto, OrderQuestionDto } from "../dto/order-desk.dto.js";
+import { OrderDeskReplyDto } from "../dto/order-desk-reply.dto.js";
+import { OrderQuestionDto } from "../dto/order-question.dto.js";
 
 @A2AAgent({
   name: "order-desk-a2a-agent",
@@ -149,7 +166,8 @@ export class OrderDeskA2AAgent extends A2AClient<OrderQuestionDto, OrderDeskRepl
 // tools/ask-order-desk.tool.ts — an agent delegates to the remote workflow through a tool
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
-import { OrderDeskReplyDto, OrderQuestionDto } from "../dto/order-desk.dto.js";
+import { OrderDeskReplyDto } from "../dto/order-desk-reply.dto.js";
+import { OrderQuestionDto } from "../dto/order-question.dto.js";
 import { OrderDeskA2AAgent } from "../a2a/order-desk.a2a-agent.js";
 
 @Tool({
@@ -173,10 +191,10 @@ export class AskOrderDeskTool implements ToolHandler<OrderQuestionDto, OrderDesk
 }
 ```
 
-```ts file=src/support/agents/support.agent.ts
+```ts file=src/support/agents/support/support.agent.ts
 import { Agent } from "@agboss/core";
-import { SearchIssuesTool } from "../mcp/search-issues.mcp.js";
-import { AskOrderDeskTool } from "../tools/ask-order-desk.tool.js";
+import { SearchIssuesTool } from "../../mcp/search-issues.mcp.js";
+import { AskOrderDeskTool } from "../../tools/ask-order-desk.tool.js";
 
 @Agent({
   name: "support-agent",
@@ -215,7 +233,7 @@ export class ApiKeyDirectory {
 // a2a/support.a2a-caller-resolver.ts — who calls: decided by the host, the tenant never guessed
 import { Injectable } from "@agboss/core";
 import { A2ACallerResolution, A2ARoute, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
-import type { SupportWorkflowStart } from "../support.workflow.js";
+import type { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 import { ApiKeyDirectory, type ApiKeyGrant } from "../services/api-key-directory.service.js";
 
 @Injectable({ deps: [ApiKeyDirectory] }) // created by the container, never `new`
@@ -237,22 +255,35 @@ export class SupportA2aCallerResolver implements A2ACallerResolver<typeof Suppor
 }
 ```
 
-```ts file=src/support/support.workflow.ts
-import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { usd, type Usd } from "@agboss/core/units";
-import { ApiKeyDirectory } from "./services/api-key-directory.service.js";
-import { A2AExpose } from "@agboss/core/a2a";
-import { OrderDeskA2AAgent } from "./a2a/order-desk.a2a-agent.js";
-import { SupportA2aCallerResolver } from "./a2a/support.a2a-caller-resolver.js";
-import { SupportAgent } from "./agents/support.agent.js";
-import { IssuesServer } from "./mcp/issues.server.js";
+The workflow — its start and finish beside it in `workflows/support/` —, what the application
+serves over A2A, its budgets and the application:
+
+```ts file=src/support/workflows/support/support.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "support-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class SupportWorkflowStart {}
+```
+
+```ts file=src/support/workflows/support/support.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({ name: "support-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class SupportWorkflowFinish {}
+```
+
+```ts file=src/support/workflows/support/support.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { OrderDeskA2AAgent } from "../../a2a/order-desk.a2a-agent.js";
+import { SupportA2aCallerResolver } from "../../a2a/support.a2a-caller-resolver.js";
+import { SupportAgent } from "../../agents/support/support.agent.js";
+import { IssuesServer } from "../../mcp/issues.server.js";
+import { ApiKeyDirectory } from "../../services/api-key-directory.service.js";
+import { SupportWorkflowFinish } from "./support.workflow-finish.js";
+import { SupportWorkflowStart } from "./support.workflow-start.js";
 
 @Workflow({
   name: "support-workflow",
@@ -268,10 +299,20 @@ export class SupportWorkflowFinish {}
   providers: [OrderDeskA2AAgent, ApiKeyDirectory, SupportA2aCallerResolver],
 })
 export class SupportWorkflow {}
+```
 
+```ts file=src/support/a2a/support.a2a-expose.ts
 // what the application serves over A2A (#398 PR 3): the starts a caller may run
+import { A2AExpose } from "@agboss/core/a2a";
+import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
+
 @A2AExpose({ name: "support-a2a-expose", version: "1.0.0", exports: [SupportWorkflowStart] })
 export class SupportA2AExpose {}
+```
+
+```ts file=src/support/budgets/application-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
@@ -279,6 +320,11 @@ export class ApplicationDailyBudget implements BudgetHandler {
     return usd(5);
   }
 }
+```
+
+```ts file=src/support/budgets/tenant-daily.budget.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -286,6 +332,11 @@ export class TenantDailyBudget implements BudgetHandler {
     return usd(1);
   }
 }
+```
+
+```ts file=src/support/budgets/execution.budget.ts
+import { Budget, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "execution-budget", scope: BudgetScope.Execution })
 export class ExecutionBudget implements BudgetHandler {
@@ -293,6 +344,15 @@ export class ExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+```
+
+```ts file=src/support.application.ts
+import { Application, EmptyEnvironment } from "@agboss/core";
+import { SupportA2AExpose } from "./support/a2a/support.a2a-expose.js";
+import { ApplicationDailyBudget } from "./support/budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./support/budgets/execution.budget.js";
+import { TenantDailyBudget } from "./support/budgets/tenant-daily.budget.js";
+import { SupportWorkflow } from "./support/workflows/support/support.workflow.js";
 
 @Application({
   name: "support-application",
@@ -333,14 +393,10 @@ call)` returns the `A2AExecutionResponse` whatever the status — use it when th
 Over MCP — the workflow's tools and starts become MCP tools; a start runs `app.execute`, and with any
 start exported `resume_workflow` (`app.resume`) is offered too:
 
-<!-- snippet-context
-import { SearchIssuesTool } from "./src/support/mcp/search-issues.mcp.js";
-import { SupportWorkflowStart } from "./src/support/support.workflow.js";
--->
-
-```ts
-// mcp/support.expose.ts
+```ts file=src/support/mcp/support.expose.ts
 import { McpExpose } from "@agboss/core/mcp";
+import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
+import { SearchIssuesTool } from "./search-issues.mcp.js";
 
 @McpExpose({
   name: "support-mcp",
@@ -352,10 +408,8 @@ export class SupportMcp {}
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
-import { McpExpose } from "@agboss/core/mcp";
-import { SupportApplication, SupportWorkflowStart } from "./src/support/support.workflow.js";
-@McpExpose({ name: "support-mcp", version: "1.0.0", exports: [SupportWorkflowStart] })
-export class SupportMcp {}
+import { SupportApplication } from "./src/support.application.js";
+import { SupportMcp } from "./src/support/mcp/support.expose.js";
 -->
 
 ```ts
@@ -381,7 +435,8 @@ before its body is read or a header written. A run that waits for an approval an
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
-import { SupportA2AExpose, SupportApplication } from "./src/support/support.workflow.js";
+import { SupportApplication } from "./src/support.application.js";
+import { SupportA2AExpose } from "./src/support/a2a/support.a2a-expose.js";
 import { SupportA2aCallerResolver } from "./src/support/a2a/support.a2a-caller-resolver.js";
 -->
 
@@ -427,15 +482,16 @@ A2AClient({ url, headers })`; the loopback is open for it (no `allowNetwork`), i
 test's end, and `override(ApiKeyDirectory, …)` replaces the resolver's services like any other
 (reference 10):
 
-```ts file=tests/support/support-a2a.test.ts
+```ts file=tests/support/a2a/support.a2a-caller-resolver.test.ts
 import { expect } from "vitest";
 import { Injectable } from "@agboss/core";
 import { A2ACallerRejectedError, A2AClient } from "@agboss/core/a2a";
 import { override, testWith } from "@agboss/core/testing";
-import { ApiKeyDirectory, type ApiKeyGrant } from "../../src/support/services/api-key-directory.service.js";
-import { SupportA2aCallerResolver } from "../../src/support/a2a/support.a2a-caller-resolver.js";
-import { SupportAgent } from "../../src/support/agents/support.agent.js";
-import { SupportA2AExpose, SupportApplication } from "../../src/support/support.workflow.js";
+import { ApiKeyDirectory, type ApiKeyGrant } from "../../../src/support/services/api-key-directory.service.js";
+import { SupportA2aCallerResolver } from "../../../src/support/a2a/support.a2a-caller-resolver.js";
+import { SupportA2AExpose } from "../../../src/support/a2a/support.a2a-expose.js";
+import { SupportAgent } from "../../../src/support/agents/support/support.agent.js";
+import { SupportApplication } from "../../../src/support.application.js";
 
 @Injectable()
 class NoKeysDirectory extends ApiKeyDirectory {
@@ -499,7 +555,7 @@ export class OrdersWorkflowFinish {}
 export class LoopedWorkflowFinish {}
 -->
 
-```ts
+```ts file=orders/src/workflows/orders/orders.workflow.ts
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
@@ -532,17 +588,24 @@ PEM in environment fields, named by field like a `@ModelProvider`'s `apiKey`: th
 `Secret` (PKCS #8), a peer's public key a plain text field (SPKI) — it is public.
 
 <!-- snippet-context
-import { Application, type Secret } from "@agboss/core";
-export class BillingWorkflow {} // a @Workflow of its own
+import type { Secret } from "@agboss/core";
 -->
 
-```ts
-// environments/billing.environment.ts — the contract
+```ts file=billing/src/environments/billing.environment.ts
+// the contract
 export class BillingEnvironment {
   meshSigningKey!: Secret; // secret("MESH_SIGNING_KEY") in each environment
   ordersPublicKey!: string; // env("ORDERS_PUBLIC_KEY")
 }
+```
 
+<!-- snippet-context
+import { Application } from "@agboss/core";
+import { BillingEnvironment } from "./environments/billing.environment.js";
+export class BillingWorkflow {} // a @Workflow of its own
+-->
+
+```ts file=billing/src/billing.application.ts
 @Application({
   name: "billing-application",
   version: "1.0.0",

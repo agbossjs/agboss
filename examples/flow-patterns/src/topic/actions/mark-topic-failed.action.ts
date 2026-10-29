@@ -1,6 +1,6 @@
 import { Action, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { TopicFailedDto } from "../dtos/topic-failed.dto.js";
-import { TopicDto } from "../dtos/topic.dto.js";
+import { TopicFailedDto } from "../dto/topic-failed.dto.js";
+import { TopicDto } from "../dto/topic.dto.js";
 
 /** Records that a topic could not be researched: its own result, so its siblings go on. */
 @Action({

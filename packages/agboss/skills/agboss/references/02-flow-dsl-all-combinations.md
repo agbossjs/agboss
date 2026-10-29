@@ -5,7 +5,10 @@ parallel launches, quorums, child workflows, recursion, `.onError` side paths an
 primitive to pick: `01-composition-and-architecture.md`; the component classes:
 `03-components-di-and-lifecycle.md`; every `[rule.code]` with a fix: `11-cli-studio-and-error-catalog.md`.
 
-Every block below compiles with its generated types. After you change a path, run
+Every block below compiles with its generated types. Each class is a block of its own, at its path
+in the project (`file=` above it): DTOs in `dto/`, a workflow with its starts and finishes in
+`workflows/<w>/`, an agent in `agents/<n>/`, and each recipe in its own domain folder (`src/ticket/`,
+`src/credit/`, …). After you change a path, run
 `npx agboss check` (it rewrites `.agboss/types.d.ts` and reports every rule at once) and read the
 result with `npx agboss describe`.
 
@@ -55,17 +58,25 @@ A start's input is a DTO, a `listOf(…)` or a map of fields; `start(S)` returns
 gets each field as `{ producer, value }`.
 
 ```ts file=src/ticket/dto/ticket.dto.ts
-import { Flag, OneOf, Text } from "@agboss/core/dto";
+import { Text } from "@agboss/core/dto";
 
 export class TicketDto {
   @Text({ prompt: "what the customer wrote" })
   body!: string;
 }
+```
+
+```ts file=src/ticket/dto/customer.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class CustomerDto {
   @Text({ prompt: "the customer's plan" })
   plan!: string;
 }
+```
+
+```ts file=src/ticket/dto/triage.dto.ts
+import { Flag, OneOf } from "@agboss/core/dto";
 
 export class TriageDto {
   @OneOf({ values: ["billing", "bug", "other"], prompt: "the ticket's queue" })
@@ -74,6 +85,10 @@ export class TriageDto {
   @Flag({ prompt: "whether the ticket is urgent" })
   isUrgent!: boolean;
 }
+```
+
+```ts file=src/ticket/dto/ticket-filed.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TicketFiledDto {
   @Text({ prompt: "the filed ticket's id" })
@@ -81,11 +96,10 @@ export class TicketFiledDto {
 }
 ```
 
-```ts file=src/ticket/ticket.components.ts
-// one class per file in a project; together here for brevity
-import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./dto/ticket.dto.js";
+```ts file=src/ticket/workflows/ticket/ticket.workflow-start.ts
+import { WorkflowStart, optional } from "@agboss/core";
+import { CustomerDto } from "../../dto/customer.dto.js";
+import { TicketDto } from "../../dto/ticket.dto.js";
 
 @WorkflowStart({
   name: "ticket-workflow-start",
@@ -93,6 +107,13 @@ import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./dto/ticket.
   input: { ticket: TicketDto, customer: optional(CustomerDto) },
 })
 export class TicketWorkflowStart {}
+```
+
+```ts file=src/ticket/agents/ticket-triage/ticket-triage.agent.ts
+import { Agent, optional } from "@agboss/core";
+import { CustomerDto } from "../../dto/customer.dto.js";
+import { TicketDto } from "../../dto/ticket.dto.js";
+import { TriageDto } from "../../dto/triage.dto.js";
 
 @Agent({
   name: "ticket-triage-agent",
@@ -103,6 +124,14 @@ export class TicketWorkflowStart {}
   output: TriageDto,
 })
 export class TicketTriageAgent {}
+```
+
+```ts file=src/ticket/actions/file-ticket.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { TicketFiledDto } from "../dto/ticket-filed.dto.js";
+import { TicketDto } from "../dto/ticket.dto.js";
+import { TriageDto } from "../dto/triage.dto.js";
 
 @Action({
   name: "file-ticket-action",
@@ -119,6 +148,11 @@ export class FileTicketAction implements ActionHandler<FileTicketAction> {
     return Promise.resolve({ ticketId: `${queue}-${this.executionContext.step.idempotencyKey}` });
   }
 }
+```
+
+```ts file=src/ticket/workflows/ticket/ticket-filed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { TicketFiledDto } from "../../dto/ticket-filed.dto.js";
 
 @WorkflowFinish({
   name: "ticket-filed-workflow-finish",
@@ -128,15 +162,16 @@ export class FileTicketAction implements ActionHandler<FileTicketAction> {
 export class TicketFiledWorkflowFinish {}
 ```
 
-```ts file=src/ticket/ticket.workflow.ts
+```ts file=src/ticket/workflows/ticket/ticket.workflow.ts
 import { Workflow, optional, start } from "@agboss/core";
-import { CustomerDto, TicketDto, TicketFiledDto, TriageDto } from "./dto/ticket.dto.js";
-import {
-  FileTicketAction,
-  TicketFiledWorkflowFinish,
-  TicketTriageAgent,
-  TicketWorkflowStart,
-} from "./ticket.components.js";
+import { FileTicketAction } from "../../actions/file-ticket.action.js";
+import { TicketTriageAgent } from "../../agents/ticket-triage/ticket-triage.agent.js";
+import { CustomerDto } from "../../dto/customer.dto.js";
+import { TicketFiledDto } from "../../dto/ticket-filed.dto.js";
+import { TicketDto } from "../../dto/ticket.dto.js";
+import { TriageDto } from "../../dto/triage.dto.js";
+import { TicketFiledWorkflowFinish } from "./ticket-filed.workflow-finish.js";
+import { TicketWorkflowStart } from "./ticket.workflow-start.js";
 
 @Workflow({
   name: "ticket-workflow",
@@ -170,7 +205,7 @@ gives TriageDto — write .returns(TriageDto) after it`); a step without `output
 `route(input)` returns a target, typed by its `routes`. A **text agent** (no `output`) leads only to a
 finish whose output is `WorkflowFinishTextDto` (`[flow.text-agent-target]`).
 
-```ts file=src/credit/dto/credit.dto.ts
+```ts file=src/credit/dto/credit-order.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class CreditOrderDto {
@@ -180,11 +215,19 @@ export class CreditOrderDto {
   @Integer({ prompt: "the order's total in whole dollars", min: 1 })
   total!: number;
 }
+```
+
+```ts file=src/credit/dto/credit-approval.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class CreditApprovalDto {
   @Text({ prompt: "who approved the order" })
   approvedBy!: string;
 }
+```
+
+```ts file=src/credit/dto/charge-result.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ChargeResultDto {
   @Text({ prompt: "the charge's id" })
@@ -192,16 +235,24 @@ export class ChargeResultDto {
 }
 ```
 
-```ts file=src/credit/credit.components.ts
-import { Action, Agent, DecidedBy, ExecutionContext, Router, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf, Route, RouterHandler } from "@agboss/core";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./dto/credit.dto.js";
+```ts file=src/credit/errors/credit-service-unavailable.error.ts
+
 
 export class CreditServiceUnavailableError extends Error {}
+```
+
+```ts file=src/credit/workflows/credit/credit.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "credit-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
 export class CreditWorkflowStart {}
+```
+
+```ts file=src/credit/agents/order-intake/order-intake.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "order-intake-agent",
@@ -212,6 +263,10 @@ export class CreditWorkflowStart {}
   output: CreditOrderDto,
 })
 export class OrderIntakeAgent {}
+```
+
+```ts file=src/credit/agents/credit-question/credit-question.agent.ts
+import { Agent } from "@agboss/core";
 
 @Agent({
   name: "credit-question-agent",
@@ -220,6 +275,12 @@ export class OrderIntakeAgent {}
   model: "moonshotai/kimi-k2.6",
 }) // a text agent: no output — it answers text
 export class CreditQuestionAgent {}
+```
+
+```ts file=src/credit/agents/credit-approval/credit-approval.agent.ts
+import { Agent } from "@agboss/core";
+import { CreditApprovalDto } from "../../dto/credit-approval.dto.js";
+import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "credit-approval-agent",
@@ -230,6 +291,14 @@ export class CreditQuestionAgent {}
   output: CreditApprovalDto,
 })
 export class CreditApprovalAgent {}
+```
+
+```ts file=src/credit/actions/charge-order.action.ts
+import { Action, ExecutionContext, optional } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { ChargeResultDto } from "../dto/charge-result.dto.js";
+import { CreditApprovalDto } from "../dto/credit-approval.dto.js";
+import { CreditOrderDto } from "../dto/credit-order.dto.js";
 
 @Action({
   name: "charge-order-action",
@@ -247,15 +316,37 @@ export class ChargeOrderAction implements ActionHandler<ChargeOrderAction> {
     return Promise.resolve({ chargeId: `${input.order.value.customerId}:${approvedBy}:${key}` });
   }
 }
+```
+
+```ts file=src/credit/workflows/credit/credit-answer.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({ name: "credit-answer-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class CreditAnswerWorkflowFinish {}
+```
+
+```ts file=src/credit/workflows/credit/order-charged.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { ChargeResultDto } from "../../dto/charge-result.dto.js";
 
 @WorkflowFinish({ name: "order-charged-workflow-finish", description: "The charge", output: ChargeResultDto })
 export class OrderChargedWorkflowFinish {}
+```
+
+```ts file=src/credit/workflows/credit/order-held.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @WorkflowFinish({ name: "order-held-workflow-finish", description: "An order held for later", output: CreditOrderDto })
 export class OrderHeldWorkflowFinish {}
+```
+
+```ts file=src/credit/routers/credit-desk/credit-desk.router.ts
+import { DecidedBy, Router } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { CreditQuestionAgent } from "../../agents/credit-question/credit-question.agent.js";
+import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
 
 @Router({
   name: "credit-desk-router",
@@ -271,6 +362,14 @@ export class OrderHeldWorkflowFinish {}
   ],
 })
 export class CreditDeskRouter {}
+```
+
+```ts file=src/credit/routers/credit-limit/credit-limit.router.ts
+import { DecidedBy, Router, route } from "@agboss/core";
+import type { InputOf, Route, RouterHandler } from "@agboss/core";
+import { ChargeOrderAction } from "../../actions/charge-order.action.js";
+import { CreditApprovalAgent } from "../../agents/credit-approval/credit-approval.agent.js";
+import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 const APPROVAL_LIMIT = 1000;
 
@@ -288,23 +387,23 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 }
 ```
 
-```ts file=src/credit/credit.workflow.ts
+```ts file=src/credit/workflows/credit/credit.workflow.ts
 import { Workflow, action, route, start, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import {
-  ChargeOrderAction,
-  CreditAnswerWorkflowFinish,
-  CreditApprovalAgent,
-  CreditDeskRouter,
-  CreditLimitRouter,
-  CreditQuestionAgent,
-  CreditServiceUnavailableError,
-  CreditWorkflowStart,
-  OrderChargedWorkflowFinish,
-  OrderHeldWorkflowFinish,
-  OrderIntakeAgent,
-} from "./credit.components.js";
-import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./dto/credit.dto.js";
+import { ChargeOrderAction } from "../../actions/charge-order.action.js";
+import { CreditApprovalAgent } from "../../agents/credit-approval/credit-approval.agent.js";
+import { CreditQuestionAgent } from "../../agents/credit-question/credit-question.agent.js";
+import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
+import { ChargeResultDto } from "../../dto/charge-result.dto.js";
+import { CreditApprovalDto } from "../../dto/credit-approval.dto.js";
+import { CreditOrderDto } from "../../dto/credit-order.dto.js";
+import { CreditServiceUnavailableError } from "../../errors/credit-service-unavailable.error.js";
+import { CreditDeskRouter } from "../../routers/credit-desk/credit-desk.router.js";
+import { CreditLimitRouter } from "../../routers/credit-limit/credit-limit.router.js";
+import { CreditAnswerWorkflowFinish } from "./credit-answer.workflow-finish.js";
+import { CreditWorkflowStart } from "./credit.workflow-start.js";
+import { OrderChargedWorkflowFinish } from "./order-charged.workflow-finish.js";
+import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
 
 @Workflow({
   name: "credit-workflow",
@@ -358,28 +457,45 @@ one `caseOf(…)` per variant. In a loop whose classes are built from each other
 value is **about**, and `historyOf(XDto, { limit })` reads the earlier versions. Every node on a
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
-```ts file=src/offer/dto/offer.dto.ts
+```ts file=src/offer/dto/candidate-shortlist.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class CandidateShortlistDto {
   @Text({ prompt: "the shortlisted candidate" })
   candidate!: string;
 }
+```
+
+```ts file=src/offer/dto/offer-draft.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OfferDraftDto {
   @Text({ prompt: "the offer text" })
   text!: string;
 }
+```
+
+```ts file=src/offer/dto/changes-requested.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ChangesRequestedDto {
   @Text({ prompt: "what to change in the draft" })
   notes!: string;
 }
+```
+
+```ts file=src/offer/dto/draft-approved.dto.ts
+import { optional } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class DraftApprovedDto {
   @Text({ prompt: "a note for the record", optional: true })
   note?: string;
 }
+```
+
+```ts file=src/offer/dto/offer-sent.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OfferSentDto {
   @Text({ prompt: "the sent offer's id" })
@@ -387,19 +503,18 @@ export class OfferSentDto {
 }
 ```
 
-```ts file=src/offer/offer.components.ts
-import { Action, Agent, ExecutionContext, WorkflowFinish, WorkflowStart, historyOf, oneOf } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import {
-  CandidateShortlistDto,
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-} from "./dto/offer.dto.js";
+```ts file=src/offer/workflows/offer/offer.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
 
 @WorkflowStart({ name: "offer-workflow-start", description: "A shortlisted candidate", input: CandidateShortlistDto })
 export class OfferWorkflowStart {}
+```
+
+```ts file=src/offer/agents/offer-draft/offer-draft.agent.ts
+import { Agent } from "@agboss/core";
+import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
+import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-draft-agent",
@@ -410,6 +525,13 @@ export class OfferWorkflowStart {}
   output: OfferDraftDto,
 })
 export class OfferDraftAgent {}
+```
+
+```ts file=src/offer/agents/offer-reviewer/offer-reviewer.agent.ts
+import { Agent, historyOf, oneOf } from "@agboss/core";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
+import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-reviewer-agent",
@@ -421,6 +543,12 @@ export class OfferDraftAgent {}
   maxVisits: 4,
 })
 export class OfferReviewerAgent {}
+```
+
+```ts file=src/offer/agents/offer-editor/offer-editor.agent.ts
+import { Agent } from "@agboss/core";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-editor-agent",
@@ -432,6 +560,13 @@ export class OfferReviewerAgent {}
   maxVisits: 3,
 })
 export class OfferEditorAgent {}
+```
+
+```ts file=src/offer/actions/send-offer.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { OfferDraftDto } from "../dto/offer-draft.dto.js";
+import { OfferSentDto } from "../dto/offer-sent.dto.js";
 
 @Action({
   name: "send-offer-action",
@@ -448,6 +583,12 @@ export class SendOfferAction implements ActionHandler<SendOfferAction> {
     return Promise.resolve({ offerId: `${String(input.draft.value.text.length)}:${key}` });
   }
 }
+```
+
+```ts file=src/offer/actions/notify-recruiter.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { CandidateShortlistDto } from "../dto/candidate-shortlist.dto.js";
 
 @Action({
   name: "notify-recruiter-action",
@@ -459,9 +600,19 @@ export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterActio
     await Promise.resolve(input.shortlist.value.candidate);
   }
 }
+```
+
+```ts file=src/offer/workflows/offer/offer-sent.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { OfferSentDto } from "../../dto/offer-sent.dto.js";
 
 @WorkflowFinish({ name: "offer-sent-workflow-finish", description: "The sent offer", output: OfferSentDto })
 export class OfferSentWorkflowFinish {}
+```
+
+```ts file=src/offer/workflows/offer/offer-failed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
 
 @WorkflowFinish({
   name: "offer-failed-workflow-finish",
@@ -471,25 +622,21 @@ export class OfferSentWorkflowFinish {}
 export class OfferFailedWorkflowFinish {}
 ```
 
-```ts file=src/offer/offer.workflow.ts
+```ts file=src/offer/workflows/offer/offer.workflow.ts
 import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, start, toAction } from "@agboss/core";
-import {
-  NotifyRecruiterAction,
-  OfferDraftAgent,
-  OfferEditorAgent,
-  OfferFailedWorkflowFinish,
-  OfferReviewerAgent,
-  OfferSentWorkflowFinish,
-  OfferWorkflowStart,
-  SendOfferAction,
-} from "./offer.components.js";
-import {
-  CandidateShortlistDto,
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-} from "./dto/offer.dto.js";
+import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
+import { SendOfferAction } from "../../actions/send-offer.action.js";
+import { OfferDraftAgent } from "../../agents/offer-draft/offer-draft.agent.js";
+import { OfferEditorAgent } from "../../agents/offer-editor/offer-editor.agent.js";
+import { OfferReviewerAgent } from "../../agents/offer-reviewer/offer-reviewer.agent.js";
+import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
+import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
+import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
+import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
+import { OfferSentDto } from "../../dto/offer-sent.dto.js";
+import { OfferFailedWorkflowFinish } from "./offer-failed.workflow-finish.js";
+import { OfferSentWorkflowFinish } from "./offer-sent.workflow-finish.js";
+import { OfferWorkflowStart } from "./offer.workflow-start.js";
 
 @Workflow({
   name: "offer-workflow",
@@ -551,8 +698,8 @@ A launch runs several branches at once; `.join()` is where their values meet. Ag
 | a router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` | `optional(XDto)`                          |
 | an action without `output`                                            | nothing: `.join()` goes on with `.to…(…)` |
 
-```ts file=src/review/dto/review.dto.ts
-import { Flag, Text } from "@agboss/core/dto";
+```ts file=src/review/dto/article-section.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ArticleSectionDto {
   @Text({ prompt: "the section's title" })
@@ -561,26 +708,46 @@ export class ArticleSectionDto {
   @Text({ prompt: "the section's text" })
   body!: string;
 }
+```
+
+```ts file=src/review/dto/section-review.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class SectionReviewDto {
   @Text({ prompt: "what to fix in the section" })
   notes!: string;
 }
+```
+
+```ts file=src/review/dto/style-notes.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class StyleNotesDto {
   @Text({ prompt: "notes on style" })
   notes!: string;
 }
+```
+
+```ts file=src/review/dto/fact-check.dto.ts
+import { Flag } from "@agboss/core/dto";
 
 export class FactCheckDto {
   @Flag({ prompt: "whether every claim is supported" })
   isSupported!: boolean;
 }
+```
+
+```ts file=src/review/dto/section-notes.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class SectionNotesDto {
   @Text({ prompt: "the section reviews, merged" })
   notes!: string;
 }
+```
+
+```ts file=src/review/dto/review-summary.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class ReviewSummaryDto {
   @Text({ prompt: "what to change, in order" })
@@ -588,24 +755,26 @@ export class ReviewSummaryDto {
 }
 ```
 
-```ts file=src/review/review.components.ts
-import { Action, Agent, WorkflowFinish, WorkflowStart, listOf } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+```ts file=src/review/workflows/article-review/article-review.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import {
-  ArticleSectionDto,
-  FactCheckDto,
-  ReviewSummaryDto,
-  SectionNotesDto,
-  SectionReviewDto,
-  StyleNotesDto,
-} from "./dto/review.dto.js";
 
 @WorkflowStart({ name: "article-review-workflow-start", description: "An article", input: WorkflowStartTextDto })
 export class ArticleReviewWorkflowStart {}
+```
+
+```ts file=src/review/workflows/article-review/article-publish.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "article-publish-workflow-start", description: "An article to publish", input: WorkflowStartTextDto })
 export class ArticlePublishWorkflowStart {}
+```
+
+```ts file=src/review/agents/section-splitter/section-splitter.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { ArticleSectionDto } from "../../dto/article-section.dto.js";
 
 @Agent({
   name: "section-splitter-agent",
@@ -616,6 +785,12 @@ export class ArticlePublishWorkflowStart {}
   output: listOf(ArticleSectionDto),
 })
 export class SectionSplitterAgent {}
+```
+
+```ts file=src/review/agents/section-reviewer/section-reviewer.agent.ts
+import { Agent } from "@agboss/core";
+import { ArticleSectionDto } from "../../dto/article-section.dto.js";
+import { SectionReviewDto } from "../../dto/section-review.dto.js";
 
 @Agent({
   name: "section-reviewer-agent",
@@ -626,6 +801,12 @@ export class SectionSplitterAgent {}
   output: SectionReviewDto,
 })
 export class SectionReviewerAgent {}
+```
+
+```ts file=src/review/agents/style-critic/style-critic.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { StyleNotesDto } from "../../dto/style-notes.dto.js";
 
 @Agent({
   name: "style-critic-agent",
@@ -636,6 +817,12 @@ export class SectionReviewerAgent {}
   output: StyleNotesDto,
 })
 export class StyleCriticAgent {}
+```
+
+```ts file=src/review/agents/fact-checker/fact-checker.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { FactCheckDto } from "../../dto/fact-check.dto.js";
 
 @Agent({
   name: "fact-checker-agent",
@@ -646,6 +833,13 @@ export class StyleCriticAgent {}
   output: FactCheckDto,
 })
 export class FactCheckerAgent {}
+```
+
+```ts file=src/review/actions/section-notes.action.ts
+import { Action, listOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { SectionNotesDto } from "../dto/section-notes.dto.js";
+import { SectionReviewDto } from "../dto/section-review.dto.js";
 
 @Action({
   name: "section-notes-action",
@@ -659,6 +853,15 @@ export class SectionNotesAction implements ActionHandler<SectionNotesAction> {
     return Promise.resolve({ notes: input.sections.map((review) => review.value.notes).join("\n") });
   }
 }
+```
+
+```ts file=src/review/actions/review-summary.action.ts
+import { Action, listOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { FactCheckDto } from "../dto/fact-check.dto.js";
+import { ReviewSummaryDto } from "../dto/review-summary.dto.js";
+import { SectionNotesDto } from "../dto/section-notes.dto.js";
+import { StyleNotesDto } from "../dto/style-notes.dto.js";
 
 @Action({
   name: "review-summary-action",
@@ -673,6 +876,12 @@ export class ReviewSummaryAction implements ActionHandler<ReviewSummaryAction> {
     return Promise.resolve({ plan });
   }
 }
+```
+
+```ts file=src/review/actions/archive-article.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Action({ name: "archive-article-action", description: "Archives the article", input: { article: WorkflowStartTextDto } })
 export class ArchiveArticleAction implements ActionHandler<ArchiveArticleAction> {
@@ -680,6 +889,12 @@ export class ArchiveArticleAction implements ActionHandler<ArchiveArticleAction>
     await Promise.resolve(input.article.value.text.length);
   }
 }
+```
+
+```ts file=src/review/actions/index-article.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Action({ name: "index-article-action", description: "Indexes the article for search", input: { article: WorkflowStartTextDto } })
 export class IndexArticleAction implements ActionHandler<IndexArticleAction> {
@@ -687,12 +902,27 @@ export class IndexArticleAction implements ActionHandler<IndexArticleAction> {
     await Promise.resolve(input.article.value.text.length);
   }
 }
+```
+
+```ts file=src/review/workflows/article-review/review-summary.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { ReviewSummaryDto } from "../../dto/review-summary.dto.js";
 
 @WorkflowFinish({ name: "review-summary-workflow-finish", description: "The review plan", output: ReviewSummaryDto })
 export class ReviewSummaryWorkflowFinish {}
+```
+
+```ts file=src/review/workflows/article-review/article-published.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({ name: "article-published-workflow-finish", description: "The published article", output: WorkflowStartTextDto })
 export class ArticlePublishedWorkflowFinish {}
+```
+
+```ts file=src/review/workflows/article-review/review-incomplete.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowFinish({
   name: "review-incomplete-workflow-finish",
@@ -702,32 +932,28 @@ export class ArticlePublishedWorkflowFinish {}
 export class ReviewIncompleteWorkflowFinish {}
 ```
 
-```ts file=src/review/review.workflow.ts
+```ts file=src/review/workflows/article-review/article-review.workflow.ts
 import { StepFailedError, Workflow, listOf, start, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import {
-  ArchiveArticleAction,
-  ArticlePublishWorkflowStart,
-  ArticlePublishedWorkflowFinish,
-  ArticleReviewWorkflowStart,
-  FactCheckerAgent,
-  IndexArticleAction,
-  ReviewIncompleteWorkflowFinish,
-  ReviewSummaryAction,
-  ReviewSummaryWorkflowFinish,
-  SectionNotesAction,
-  SectionReviewerAgent,
-  SectionSplitterAgent,
-  StyleCriticAgent,
-} from "./review.components.js";
-import {
-  ArticleSectionDto,
-  FactCheckDto,
-  ReviewSummaryDto,
-  SectionNotesDto,
-  SectionReviewDto,
-  StyleNotesDto,
-} from "./dto/review.dto.js";
+import { ArchiveArticleAction } from "../../actions/archive-article.action.js";
+import { IndexArticleAction } from "../../actions/index-article.action.js";
+import { ReviewSummaryAction } from "../../actions/review-summary.action.js";
+import { SectionNotesAction } from "../../actions/section-notes.action.js";
+import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
+import { SectionReviewerAgent } from "../../agents/section-reviewer/section-reviewer.agent.js";
+import { SectionSplitterAgent } from "../../agents/section-splitter/section-splitter.agent.js";
+import { StyleCriticAgent } from "../../agents/style-critic/style-critic.agent.js";
+import { ArticleSectionDto } from "../../dto/article-section.dto.js";
+import { FactCheckDto } from "../../dto/fact-check.dto.js";
+import { ReviewSummaryDto } from "../../dto/review-summary.dto.js";
+import { SectionNotesDto } from "../../dto/section-notes.dto.js";
+import { SectionReviewDto } from "../../dto/section-review.dto.js";
+import { StyleNotesDto } from "../../dto/style-notes.dto.js";
+import { ArticlePublishWorkflowStart } from "./article-publish.workflow-start.js";
+import { ArticlePublishedWorkflowFinish } from "./article-published.workflow-finish.js";
+import { ArticleReviewWorkflowStart } from "./article-review.workflow-start.js";
+import { ReviewIncompleteWorkflowFinish } from "./review-incomplete.workflow-finish.js";
+import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js";
 
 @Workflow({
   name: "article-review-workflow",
@@ -771,32 +997,54 @@ A **router before a launch** decides who is launched. Each route states `spawn`:
 the route's `prompt`); `failure: FailurePolicy.Skip` lets a failed branch drop out instead of failing
 the launch (`FailFast`, the default).
 
-```ts file=src/support/support.components.ts
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, WorkflowFinish, WorkflowStart, optional } from "@agboss/core";
-import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
+```ts file=src/support/dto/order-lookup.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OrderLookupDto {
   @Text({ prompt: "where the order is" })
   status!: string;
 }
+```
+
+```ts file=src/support/dto/refund-terms.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class RefundTermsDto {
   @Text({ prompt: "the refund terms that apply" })
   terms!: string;
 }
+```
+
+```ts file=src/support/dto/loyalty-offer.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class LoyaltyOfferDto {
   @Text({ prompt: "an offer for the customer" })
   offer!: string;
 }
+```
+
+```ts file=src/support/dto/support-reply.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class SupportReplyDto {
   @Text({ prompt: "the reply to send" })
   text!: string;
 }
+```
+
+```ts file=src/support/workflows/support-launch/support-launch.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @WorkflowStart({ name: "support-launch-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
 export class SupportLaunchWorkflowStart {}
+```
+
+```ts file=src/support/agents/order-lookup/order-lookup.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
 
 @Agent({
   name: "order-lookup-agent",
@@ -807,6 +1055,12 @@ export class SupportLaunchWorkflowStart {}
   output: OrderLookupDto,
 })
 export class OrderLookupAgent {}
+```
+
+```ts file=src/support/agents/refund-terms/refund-terms.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { RefundTermsDto } from "../../dto/refund-terms.dto.js";
 
 @Agent({
   name: "refund-terms-agent",
@@ -817,6 +1071,12 @@ export class OrderLookupAgent {}
   output: RefundTermsDto,
 })
 export class RefundTermsAgent {}
+```
+
+```ts file=src/support/agents/loyalty-offer/loyalty-offer.agent.ts
+import { Agent } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
 
 @Agent({
   name: "loyalty-offer-agent",
@@ -827,6 +1087,15 @@ export class RefundTermsAgent {}
   output: LoyaltyOfferDto,
 })
 export class LoyaltyOfferAgent {}
+```
+
+```ts file=src/support/agents/support-reply/support-reply.agent.ts
+import { Agent, optional } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
+import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
+import { RefundTermsDto } from "../../dto/refund-terms.dto.js";
+import { SupportReplyDto } from "../../dto/support-reply.dto.js";
 
 @Agent({
   name: "support-reply-agent",
@@ -842,9 +1111,22 @@ export class LoyaltyOfferAgent {}
   output: SupportReplyDto,
 })
 export class SupportReplyAgent {}
+```
+
+```ts file=src/support/workflows/support-launch/support-reply.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { SupportReplyDto } from "../../dto/support-reply.dto.js";
 
 @WorkflowFinish({ name: "support-reply-workflow-finish", description: "The reply", output: SupportReplyDto })
 export class SupportReplyWorkflowFinish {}
+```
+
+```ts file=src/support/routers/support-launch/support-launch.router.ts
+import { DecidedBy, FailurePolicy, Router, SpawnPolicy } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
+import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
+import { RefundTermsAgent } from "../../agents/refund-terms/refund-terms.agent.js";
 
 @Router({
   name: "support-launch-router",
@@ -862,22 +1144,20 @@ export class SupportReplyWorkflowFinish {}
 export class SupportLaunchRouter {}
 ```
 
-```ts file=src/support/support.workflow.ts
+```ts file=src/support/workflows/support-launch/support-launch.workflow.ts
 import { Workflow, optional, start } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import {
-  LoyaltyOfferAgent,
-  LoyaltyOfferDto,
-  OrderLookupAgent,
-  OrderLookupDto,
-  RefundTermsAgent,
-  RefundTermsDto,
-  SupportLaunchRouter,
-  SupportLaunchWorkflowStart,
-  SupportReplyAgent,
-  SupportReplyDto,
-  SupportReplyWorkflowFinish,
-} from "./support.components.js";
+import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
+import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
+import { RefundTermsAgent } from "../../agents/refund-terms/refund-terms.agent.js";
+import { SupportReplyAgent } from "../../agents/support-reply/support-reply.agent.js";
+import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
+import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
+import { RefundTermsDto } from "../../dto/refund-terms.dto.js";
+import { SupportReplyDto } from "../../dto/support-reply.dto.js";
+import { SupportLaunchRouter } from "../../routers/support-launch/support-launch.router.js";
+import { SupportLaunchWorkflowStart } from "./support-launch.workflow-start.js";
+import { SupportReplyWorkflowFinish } from "./support-reply.workflow-finish.js";
 
 @Workflow({
   name: "support-launch-workflow",
@@ -925,15 +1205,17 @@ After `.toParallelAgents(…)` a join may count answers instead of waiting for a
 decide whether an answer counts: several `.acceptedBy(…)` are an AND in path order,
 `.acceptedBy(anyOf(A, B))` stops at the first that accepts.
 
-```ts file=src/panel/panel.components.ts
-import { Agent, Arbiter, DecidedBy, OnAnswer, WorkflowFinish, WorkflowStart, listOf } from "@agboss/core";
-import type { ArbiterAnswerOf } from "@agboss/core";
-import { Flag, Integer, Text } from "@agboss/core/dto";
+```ts file=src/panel/dto/panel-candidate.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class PanelCandidateDto {
   @Text({ prompt: "the candidate's CV" })
   cv!: string;
 }
+```
+
+```ts file=src/panel/dto/panel-score.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class PanelScoreDto {
   @Integer({ prompt: "the score, 1 to 10" })
@@ -942,14 +1224,29 @@ export class PanelScoreDto {
   @Text({ prompt: "what the score rests on" })
   reason!: string;
 }
+```
+
+```ts file=src/panel/dto/panel-verdict.dto.ts
+import { Flag } from "@agboss/core/dto";
 
 export class PanelVerdictDto {
   @Flag({ prompt: "whether to hire" })
   isHire!: boolean;
 }
+```
+
+```ts file=src/panel/workflows/panel/panel.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 
 @WorkflowStart({ name: "panel-workflow-start", description: "A candidate", input: PanelCandidateDto })
 export class PanelWorkflowStart {}
+```
+
+```ts file=src/panel/agents/skills-panel/skills-panel.agent.ts
+import { Agent } from "@agboss/core";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
+import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "skills-panel-agent",
@@ -960,6 +1257,12 @@ export class PanelWorkflowStart {}
   output: PanelScoreDto,
 })
 export class SkillsPanelAgent {}
+```
+
+```ts file=src/panel/agents/culture-panel/culture-panel.agent.ts
+import { Agent } from "@agboss/core";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
+import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "culture-panel-agent",
@@ -970,6 +1273,12 @@ export class SkillsPanelAgent {}
   output: PanelScoreDto,
 })
 export class CulturePanelAgent {}
+```
+
+```ts file=src/panel/agents/risk-panel/risk-panel.agent.ts
+import { Agent } from "@agboss/core";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
+import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "risk-panel-agent",
@@ -980,6 +1289,12 @@ export class CulturePanelAgent {}
   output: PanelScoreDto,
 })
 export class RiskPanelAgent {}
+```
+
+```ts file=src/panel/agents/panel-verdict/panel-verdict.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { PanelScoreDto } from "../../dto/panel-score.dto.js";
+import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
 
 @Agent({
   name: "panel-verdict-agent",
@@ -990,9 +1305,19 @@ export class RiskPanelAgent {}
   output: PanelVerdictDto,
 })
 export class PanelVerdictAgent {}
+```
+
+```ts file=src/panel/workflows/panel/panel-verdict.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
 
 @WorkflowFinish({ name: "panel-verdict-workflow-finish", description: "The verdict", output: PanelVerdictDto })
 export class PanelVerdictWorkflowFinish {}
+```
+
+```ts file=src/panel/workflows/panel/panel-undecided.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 
 @WorkflowFinish({
   name: "panel-undecided-workflow-finish",
@@ -1000,6 +1325,14 @@ export class PanelVerdictWorkflowFinish {}
   output: PanelCandidateDto,
 })
 export class PanelUndecidedWorkflowFinish {}
+```
+
+```ts file=src/panel/arbiters/score-range/score-range.arbiter.ts
+import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import type { ArbiterAnswerOf } from "@agboss/core";
+import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
+import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
+import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
 // by code: one @OnAnswer(Agent) method per agent of the launch, named from<Agent class minus "Agent">
 @Arbiter({ name: "score-range-arbiter", decidedBy: DecidedBy.Code })
@@ -1023,6 +1356,13 @@ export class ScoreRangeArbiter {
     return score >= 1 && score <= 10;
   }
 }
+```
+
+```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
+import { Arbiter, DecidedBy, agent } from "@agboss/core";
+import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
+import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
+import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
 // by model: one criterion per agent of the launch
 @Arbiter({
@@ -1037,6 +1377,14 @@ export class ScoreRangeArbiter {
   ],
 })
 export class ReasonedScoreArbiter {}
+```
+
+```ts file=src/panel/arbiters/has-reason/has-reason.arbiter.ts
+import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import type { ArbiterAnswerOf } from "@agboss/core";
+import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
+import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
+import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
 @Arbiter({ name: "has-reason-arbiter", decidedBy: DecidedBy.Code })
 export class HasReasonArbiter {
@@ -1057,24 +1405,22 @@ export class HasReasonArbiter {
 }
 ```
 
-```ts file=src/panel/panel.workflow.ts
+```ts file=src/panel/workflows/panel/panel.workflow.ts
 import { QuorumNotReachedError, Workflow, anyOf, listOf, start, toFinish } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
-import {
-  CulturePanelAgent,
-  HasReasonArbiter,
-  PanelCandidateDto,
-  PanelScoreDto,
-  PanelUndecidedWorkflowFinish,
-  PanelVerdictAgent,
-  PanelVerdictDto,
-  PanelVerdictWorkflowFinish,
-  PanelWorkflowStart,
-  ReasonedScoreArbiter,
-  RiskPanelAgent,
-  ScoreRangeArbiter,
-  SkillsPanelAgent,
-} from "./panel.components.js";
+import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
+import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
+import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
+import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
+import { HasReasonArbiter } from "../../arbiters/has-reason/has-reason.arbiter.js";
+import { ReasonedScoreArbiter } from "../../arbiters/reasoned-score/reasoned-score.arbiter.js";
+import { ScoreRangeArbiter } from "../../arbiters/score-range/score-range.arbiter.js";
+import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
+import { PanelScoreDto } from "../../dto/panel-score.dto.js";
+import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
+import { PanelUndecidedWorkflowFinish } from "./panel-undecided.workflow-finish.js";
+import { PanelVerdictWorkflowFinish } from "./panel-verdict.workflow-finish.js";
+import { PanelWorkflowStart } from "./panel.workflow-start.js";
 
 @Workflow({
   name: "panel-workflow",
@@ -1099,47 +1445,91 @@ export class PanelWorkflow {}
 Groups — the first complete group, by priority (1 is the highest), continues **its own** path; nothing
 follows the groups but `.onJoinError(…)`:
 
-```ts file=src/deal/deal.workflow.ts
-import { Agent, QuorumNotReachedError, Workflow, WorkflowFinish, WorkflowStart, group, listOf, start, toFinish } from "@agboss/core";
-import { Flag, Text } from "@agboss/core/dto";
-import { minutes } from "@agboss/core/units";
+```ts file=src/deal/dto/deal.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DealDto {
   @Text({ prompt: "the deal's terms" })
   terms!: string;
 }
+```
+
+```ts file=src/deal/dto/legal-review.dto.ts
+import { Flag } from "@agboss/core/dto";
 
 export class LegalReviewDto {
   @Flag({ prompt: "whether the terms are legal" })
   isLegal!: boolean;
 }
+```
+
+```ts file=src/deal/dto/deal-critique.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DealCritiqueDto {
   @Text({ prompt: "a weakness of the deal" })
   weakness!: string;
 }
+```
+
+```ts file=src/deal/dto/fast-screen.dto.ts
+import { Flag } from "@agboss/core/dto";
 
 export class FastScreenDto {
   @Flag({ prompt: "whether the deal is obviously bad" })
   isObviouslyBad!: boolean;
 }
+```
+
+```ts file=src/deal/dto/deal-report.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class DealReportDto {
   @Text({ prompt: "the full review" })
   report!: string;
 }
+```
+
+```ts file=src/deal/workflows/deal/deal.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { DealDto } from "../../dto/deal.dto.js";
 
 @WorkflowStart({ name: "deal-workflow-start", description: "A deal to review", input: DealDto })
 export class DealWorkflowStart {}
+```
+
+```ts file=src/deal/agents/deal-legal/deal-legal.agent.ts
+import { Agent } from "@agboss/core";
+import { DealDto } from "../../dto/deal.dto.js";
+import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 
 @Agent({ name: "deal-legal-agent", description: "Checks the law", prompt: "Check the terms against the law.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: LegalReviewDto })
 export class DealLegalAgent {}
+```
+
+```ts file=src/deal/agents/deal-critic/deal-critic.agent.ts
+import { Agent } from "@agboss/core";
+import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
+import { DealDto } from "../../dto/deal.dto.js";
 
 @Agent({ name: "deal-critic-agent", description: "Finds a weakness", prompt: "Name the deal's worst weakness.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: DealCritiqueDto })
 export class DealCriticAgent {}
+```
+
+```ts file=src/deal/agents/deal-screen/deal-screen.agent.ts
+import { Agent } from "@agboss/core";
+import { DealDto } from "../../dto/deal.dto.js";
+import { FastScreenDto } from "../../dto/fast-screen.dto.js";
 
 @Agent({ name: "deal-screen-agent", description: "Screens fast", prompt: "Say whether the deal is obviously bad.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: FastScreenDto })
 export class DealScreenAgent {}
+```
+
+```ts file=src/deal/agents/deal-report/deal-report.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
+import { DealReportDto } from "../../dto/deal-report.dto.js";
+import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 
 @Agent({
   name: "deal-report-agent",
@@ -1150,15 +1540,48 @@ export class DealScreenAgent {}
   output: DealReportDto,
 })
 export class DealReportAgent {}
+```
+
+```ts file=src/deal/workflows/deal/deal-report.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { DealReportDto } from "../../dto/deal-report.dto.js";
 
 @WorkflowFinish({ name: "deal-report-workflow-finish", description: "The review", output: DealReportDto })
 export class DealReportWorkflowFinish {}
+```
+
+```ts file=src/deal/workflows/deal/deal-screened.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { FastScreenDto } from "../../dto/fast-screen.dto.js";
 
 @WorkflowFinish({ name: "deal-screened-workflow-finish", description: "A fast verdict", output: FastScreenDto })
 export class DealScreenedWorkflowFinish {}
+```
+
+```ts file=src/deal/workflows/deal/deal-unreviewed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { DealDto } from "../../dto/deal.dto.js";
 
 @WorkflowFinish({ name: "deal-unreviewed-workflow-finish", description: "No group completed", output: DealDto })
 export class DealUnreviewedWorkflowFinish {}
+```
+
+```ts file=src/deal/workflows/deal/deal.workflow.ts
+import { QuorumNotReachedError, Workflow, group, listOf, start, toFinish } from "@agboss/core";
+import { minutes } from "@agboss/core/units";
+import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
+import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
+import { DealReportAgent } from "../../agents/deal-report/deal-report.agent.js";
+import { DealScreenAgent } from "../../agents/deal-screen/deal-screen.agent.js";
+import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
+import { DealReportDto } from "../../dto/deal-report.dto.js";
+import { DealDto } from "../../dto/deal.dto.js";
+import { FastScreenDto } from "../../dto/fast-screen.dto.js";
+import { LegalReviewDto } from "../../dto/legal-review.dto.js";
+import { DealReportWorkflowFinish } from "./deal-report.workflow-finish.js";
+import { DealScreenedWorkflowFinish } from "./deal-screened.workflow-finish.js";
+import { DealUnreviewedWorkflowFinish } from "./deal-unreviewed.workflow-finish.js";
+import { DealWorkflowStart } from "./deal.workflow-start.js";
 
 @Workflow({
   name: "deal-workflow",
@@ -1210,12 +1633,16 @@ or `toWorkflow(W)` as a side-path starter. The child's scope starts with its sta
 result is one of its finishes' outputs.
 
 ```ts file=src/vendor/dto/vendor.dto.ts
-import { Integer, Text } from "@agboss/core/dto";
+import { Text } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
   name!: string;
 }
+```
+
+```ts file=src/vendor/dto/vendor-score.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
 
 export class VendorScoreDto {
   @Text({ prompt: "the vendor's name" })
@@ -1224,16 +1651,28 @@ export class VendorScoreDto {
   @Integer({ prompt: "the vendor's score, 1 to 10" })
   score!: number;
 }
+```
+
+```ts file=src/vendor/dto/vendor-rejected.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class VendorRejectedDto {
   @Text({ prompt: "why the vendor was rejected" })
   reason!: string;
 }
+```
+
+```ts file=src/vendor/dto/vendor-check-failed.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class VendorCheckFailedDto {
   @Text({ prompt: "the vendor whose check failed" })
   name!: string;
 }
+```
+
+```ts file=src/vendor/dto/vendor-ranking.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class VendorRankingDto {
   @Text({ prompt: "the vendors, best first" })
@@ -1241,14 +1680,19 @@ export class VendorRankingDto {
 }
 ```
 
-```ts file=src/vendor/vendor-check.workflow.ts
-// the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, oneOf, start, toAction } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
-import { VendorCheckFailedDto, VendorDto, VendorRejectedDto, VendorScoreDto } from "./dto/vendor.dto.js";
+```ts file=src/vendor/workflows/vendor-check/vendor-check.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { VendorDto } from "../../dto/vendor.dto.js";
 
 @WorkflowStart({ name: "vendor-check-workflow-start", description: "One vendor to check", input: VendorDto })
 export class VendorCheckWorkflowStart {}
+```
+
+```ts file=src/vendor/agents/vendor-checker/vendor-checker.agent.ts
+import { Agent, oneOf } from "@agboss/core";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
+import { VendorDto } from "../../dto/vendor.dto.js";
 
 @Agent({
   name: "vendor-checker-agent",
@@ -1259,6 +1703,13 @@ export class VendorCheckWorkflowStart {}
   output: oneOf(VendorScoreDto, VendorRejectedDto),
 })
 export class VendorCheckerAgent {}
+```
+
+```ts file=src/vendor/actions/mark-vendor-failed.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { VendorCheckFailedDto } from "../dto/vendor-check-failed.dto.js";
+import { VendorDto } from "../dto/vendor.dto.js";
 
 @Action({
   name: "mark-vendor-failed-action",
@@ -1271,15 +1722,45 @@ export class MarkVendorFailedAction implements ActionHandler<MarkVendorFailedAct
     return Promise.resolve({ name: input.vendor.value.name });
   }
 }
+```
+
+```ts file=src/vendor/workflows/vendor-check/vendor-scored.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 
 @WorkflowFinish({ name: "vendor-scored-workflow-finish", description: "The score", output: VendorScoreDto })
 export class VendorScoredWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/vendor-check/vendor-rejected.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 
 @WorkflowFinish({ name: "vendor-rejected-workflow-finish", description: "The rejection", output: VendorRejectedDto })
 export class VendorRejectedWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/vendor-check/vendor-check-failed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 
 @WorkflowFinish({ name: "vendor-check-failed-workflow-finish", description: "The check failed", output: VendorCheckFailedDto })
 export class VendorCheckFailedWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/vendor-check/vendor-check.workflow.ts
+// the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
+import { StepFailedError, Workflow, caseOf, oneOf, start, toAction } from "@agboss/core";
+import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
+import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
+import { VendorDto } from "../../dto/vendor.dto.js";
+import { VendorCheckFailedWorkflowFinish } from "./vendor-check-failed.workflow-finish.js";
+import { VendorCheckWorkflowStart } from "./vendor-check.workflow-start.js";
+import { VendorRejectedWorkflowFinish } from "./vendor-rejected.workflow-finish.js";
+import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";
 
 @Workflow({
   name: "vendor-check-workflow",
@@ -1306,17 +1787,26 @@ export class VendorCheckFailedWorkflowFinish {}
 export class VendorCheckWorkflow {}
 ```
 
-```ts file=src/vendor/vendor-screening.workflow.ts
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, listOf, oneOf, start, toFinish } from "@agboss/core";
+```ts file=src/vendor/workflows/vendor-screening/vendor-screening.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { VendorCheckWorkflow } from "./vendor-check.workflow.js";
-import { VendorCheckFailedDto, VendorDto, VendorRankingDto, VendorRejectedDto, VendorScoreDto } from "./dto/vendor.dto.js";
 
 @WorkflowStart({ name: "vendor-screening-workflow-start", description: "What to buy", input: WorkflowStartTextDto })
 export class VendorScreeningWorkflowStart {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/single-vendor.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { VendorDto } from "../../dto/vendor.dto.js";
 
 @WorkflowStart({ name: "single-vendor-workflow-start", description: "One vendor by name", input: VendorDto })
 export class SingleVendorWorkflowStart {}
+```
+
+```ts file=src/vendor/agents/vendor-finder/vendor-finder.agent.ts
+import { Agent, listOf } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { VendorDto } from "../../dto/vendor.dto.js";
 
 @Agent({
   name: "vendor-finder-agent",
@@ -1327,6 +1817,14 @@ export class SingleVendorWorkflowStart {}
   output: listOf(VendorDto),
 })
 export class VendorFinderAgent {}
+```
+
+```ts file=src/vendor/agents/vendor-ranker/vendor-ranker.agent.ts
+import { Agent, listOf, oneOf } from "@agboss/core";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
+import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 
 @Agent({
   name: "vendor-ranker-agent",
@@ -1337,21 +1835,61 @@ export class VendorFinderAgent {}
   output: VendorRankingDto,
 })
 export class VendorRankerAgent {}
+```
+
+```ts file=src/vendor/workflows/vendor-screening/vendor-ranking.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
 
 @WorkflowFinish({ name: "vendor-ranking-workflow-finish", description: "The ranking", output: VendorRankingDto })
 export class VendorRankingWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/single-vendor-scored.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 
 @WorkflowFinish({ name: "single-vendor-scored-workflow-finish", description: "The vendor's score", output: VendorScoreDto })
 export class SingleVendorScoredWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/single-vendor-rejected.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 
 @WorkflowFinish({ name: "single-vendor-rejected-workflow-finish", description: "Not this vendor", output: VendorRejectedDto })
 export class SingleVendorRejectedWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/single-vendor-failed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 
 @WorkflowFinish({ name: "single-vendor-failed-workflow-finish", description: "Not checked", output: VendorCheckFailedDto })
 export class SingleVendorFailedWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/vendor-crashed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { VendorDto } from "../../dto/vendor.dto.js";
 
 @WorkflowFinish({ name: "vendor-crashed-workflow-finish", description: "The child failed", output: VendorDto })
 export class VendorCrashedWorkflowFinish {}
+```
+
+```ts file=src/vendor/workflows/vendor-screening/vendor-screening.workflow.ts
+import { Workflow, listOf, oneOf, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
+import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
+import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
+import { VendorDto } from "../../dto/vendor.dto.js";
+import { VendorCheckWorkflow } from "../vendor-check/vendor-check.workflow.js";
+import { VendorRankingWorkflowFinish } from "./vendor-ranking.workflow-finish.js";
+import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.js";
 
 @Workflow({
   name: "vendor-screening-workflow",
@@ -1372,6 +1910,20 @@ export class VendorCrashedWorkflowFinish {}
   ],
 })
 export class VendorScreeningWorkflow {}
+```
+
+```ts file=src/vendor/workflows/single-vendor/single-vendor.workflow.ts
+import { ChildExecutionFailedError, Workflow, caseOf, oneOf, start, toFinish } from "@agboss/core";
+import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
+import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
+import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
+import { VendorDto } from "../../dto/vendor.dto.js";
+import { VendorCheckWorkflow } from "../vendor-check/vendor-check.workflow.js";
+import { SingleVendorFailedWorkflowFinish } from "./single-vendor-failed.workflow-finish.js";
+import { SingleVendorRejectedWorkflowFinish } from "./single-vendor-rejected.workflow-finish.js";
+import { SingleVendorScoredWorkflowFinish } from "./single-vendor-scored.workflow-finish.js";
+import { SingleVendorWorkflowStart } from "./single-vendor.workflow-start.js";
+import { VendorCrashedWorkflowFinish } from "./vendor-crashed.workflow-finish.js";
 
 // another parent, one child: its result is one of its finishes' classes — one case per class.
 // (In one workflow a child class is one node: a per-item launch and a single launch of it are
@@ -1403,26 +1955,45 @@ export class SingleVendorWorkflow {}
 
 A child as an error handler — `toWorkflow(W)` starts a side path:
 
-```ts file=src/payment/payment.workflow.ts
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+```ts file=src/payment/dto/payment-request.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class PaymentRequestDto {
   @Text({ prompt: "the payment's id" })
   paymentId!: string;
 }
+```
+
+```ts file=src/payment/dto/payment-done.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class PaymentDoneDto {
   @Text({ prompt: "the receipt" })
   receipt!: string;
 }
+```
+
+```ts file=src/payment/workflows/pay/pay.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
 
 @WorkflowStart({ name: "pay-workflow-start", description: "A payment", input: PaymentRequestDto })
 export class PayWorkflowStart {}
+```
+
+```ts file=src/payment/workflows/payment-recovery/payment-recovery.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
 
 @WorkflowStart({ name: "payment-recovery-workflow-start", description: "A failed payment", input: PaymentRequestDto })
 export class PaymentRecoveryWorkflowStart {}
+```
+
+```ts file=src/payment/actions/charge-card.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { PaymentDoneDto } from "../dto/payment-done.dto.js";
+import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 
 @Action({ name: "charge-card-action", description: "Charges the card", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
@@ -1430,6 +2001,13 @@ export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
     return Promise.resolve({ receipt: `card:${input.payment.value.paymentId}` });
   }
 }
+```
+
+```ts file=src/payment/actions/send-invoice.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { PaymentDoneDto } from "../dto/payment-done.dto.js";
+import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 
 @Action({ name: "send-invoice-action", description: "Sends an invoice instead", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class SendInvoiceAction implements ActionHandler<SendInvoiceAction> {
@@ -1437,15 +2015,39 @@ export class SendInvoiceAction implements ActionHandler<SendInvoiceAction> {
     return Promise.resolve({ receipt: `invoice:${input.payment.value.paymentId}` });
   }
 }
+```
+
+```ts file=src/payment/workflows/payment-recovery/invoiced.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 
 @WorkflowFinish({ name: "invoiced-workflow-finish", description: "Invoiced", output: PaymentDoneDto })
 export class InvoicedWorkflowFinish {}
+```
+
+```ts file=src/payment/workflows/pay/paid.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 
 @WorkflowFinish({ name: "paid-workflow-finish", description: "Paid by card", output: PaymentDoneDto })
 export class PaidWorkflowFinish {}
+```
+
+```ts file=src/payment/workflows/pay/recovered.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 
 @WorkflowFinish({ name: "recovered-workflow-finish", description: "Paid another way", output: PaymentDoneDto })
 export class RecoveredWorkflowFinish {}
+```
+
+```ts file=src/payment/workflows/payment-recovery/payment-recovery.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { SendInvoiceAction } from "../../actions/send-invoice.action.js";
+import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
+import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
+import { InvoicedWorkflowFinish } from "./invoiced.workflow-finish.js";
+import { PaymentRecoveryWorkflowStart } from "./payment-recovery.workflow-start.js";
 
 @Workflow({
   name: "payment-recovery-workflow",
@@ -1459,6 +2061,17 @@ export class RecoveredWorkflowFinish {}
   ],
 })
 export class PaymentRecoveryWorkflow {}
+```
+
+```ts file=src/payment/workflows/pay/pay.workflow.ts
+import { StepFailedError, Workflow, start, toWorkflow } from "@agboss/core";
+import { ChargeCardAction } from "../../actions/charge-card.action.js";
+import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
+import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
+import { PaymentRecoveryWorkflow } from "../payment-recovery/payment-recovery.workflow.js";
+import { PaidWorkflowFinish } from "./paid.workflow-finish.js";
+import { PayWorkflowStart } from "./pay.workflow-start.js";
+import { RecoveredWorkflowFinish } from "./recovered.workflow-finish.js";
 
 @Workflow({
   name: "pay-workflow",
@@ -1510,9 +2123,7 @@ decorator's arguments are evaluated). `@Workflow({ maxDepth })` is required; on 
 (`depth === maxDepth`) the options of a branch that would recurse are not offered — so every such
 branch keeps one that does not recurse.
 
-```ts file=src/topic/topic-research.workflow.ts
-import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, listOf, oneOf, start, toAction } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+```ts file=src/topic/dto/topic.dto.ts
 import { Integer, Text } from "@agboss/core/dto";
 
 export class TopicDto {
@@ -1522,24 +2133,48 @@ export class TopicDto {
   @Integer({ prompt: "how deep this topic is in the tree, from 1", min: 1 })
   level!: number; // a domain level the model may read — never executionContext.depth
 }
+```
+
+```ts file=src/topic/dto/topic-report.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TopicReportDto {
   @Text({ prompt: "what is known about the topic" })
   report!: string;
 }
+```
+
+```ts file=src/topic/dto/topic-too-broad.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TopicTooBroadDto {
   @Text({ prompt: "why the topic needs splitting" })
   reason!: string;
 }
+```
+
+```ts file=src/topic/dto/topic-failed.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TopicFailedDto {
   @Text({ prompt: "the topic that could not be researched" })
   topic!: string;
 }
+```
+
+```ts file=src/topic/workflows/topic-research/topic-research.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { TopicDto } from "../../dto/topic.dto.js";
 
 @WorkflowStart({ name: "topic-research-workflow-start", description: "A topic", input: TopicDto })
 export class TopicResearchWorkflowStart {}
+```
+
+```ts file=src/topic/agents/topic-researcher/topic-researcher.agent.ts
+import { Agent, oneOf } from "@agboss/core";
+import { TopicReportDto } from "../../dto/topic-report.dto.js";
+import { TopicTooBroadDto } from "../../dto/topic-too-broad.dto.js";
+import { TopicDto } from "../../dto/topic.dto.js";
 
 @Agent({
   name: "topic-researcher-agent",
@@ -1550,6 +2185,12 @@ export class TopicResearchWorkflowStart {}
   output: oneOf(TopicReportDto, TopicTooBroadDto), // on the last level TopicTooBroadDto leaves the schema
 })
 export class TopicResearcherAgent {}
+```
+
+```ts file=src/topic/actions/split-topic.action.ts
+import { Action, listOf } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { TopicDto } from "../dto/topic.dto.js";
 
 @Action({ name: "split-topic-action", description: "Splits a broad topic in three", input: { topic: TopicDto }, output: listOf(TopicDto) })
 export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
@@ -1558,6 +2199,13 @@ export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
     return Promise.resolve(["history", "state", "outlook"].map((part) => ({ topic: `${topic}: ${part}`, level: level + 1 })));
   }
 }
+```
+
+```ts file=src/topic/agents/topic-merge/topic-merge.agent.ts
+import { Agent, listOf, oneOf } from "@agboss/core";
+import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
+import { TopicReportDto } from "../../dto/topic-report.dto.js";
+import { TopicDto } from "../../dto/topic.dto.js";
 
 @Agent({
   name: "topic-merge-agent",
@@ -1568,6 +2216,13 @@ export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
   output: TopicReportDto,
 })
 export class TopicMergeAgent {}
+```
+
+```ts file=src/topic/actions/mark-topic-failed.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { TopicFailedDto } from "../dto/topic-failed.dto.js";
+import { TopicDto } from "../dto/topic.dto.js";
 
 @Action({ name: "mark-topic-failed-action", description: "Records a failed topic", input: { topic: TopicDto }, output: TopicFailedDto })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
@@ -1575,12 +2230,37 @@ export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedActio
     return Promise.resolve({ topic: input.topic.value.topic });
   }
 }
+```
+
+```ts file=src/topic/workflows/topic-research/topic-report.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { TopicReportDto } from "../../dto/topic-report.dto.js";
 
 @WorkflowFinish({ name: "topic-report-workflow-finish", description: "The report", output: TopicReportDto })
 export class TopicReportWorkflowFinish {}
+```
+
+```ts file=src/topic/workflows/topic-research/topic-failed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
 
 @WorkflowFinish({ name: "topic-failed-workflow-finish", description: "The failed topic", output: TopicFailedDto })
 export class TopicFailedWorkflowFinish {}
+```
+
+```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
+import { StepFailedError, ThisWorkflow, Workflow, action, caseOf, listOf, oneOf, start, toAction } from "@agboss/core";
+import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
+import { SplitTopicAction } from "../../actions/split-topic.action.js";
+import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
+import { TopicResearcherAgent } from "../../agents/topic-researcher/topic-researcher.agent.js";
+import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
+import { TopicReportDto } from "../../dto/topic-report.dto.js";
+import { TopicTooBroadDto } from "../../dto/topic-too-broad.dto.js";
+import { TopicDto } from "../../dto/topic.dto.js";
+import { TopicFailedWorkflowFinish } from "./topic-failed.workflow-finish.js";
+import { TopicReportWorkflowFinish } from "./topic-report.workflow-finish.js";
+import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 
 @Workflow({
   name: "topic-research-workflow",
@@ -1650,36 +2330,66 @@ after** its action.
 - An undo that fails does not stop the others; then the execution fails with
   `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.
 
-```ts file=src/order/order.components.ts
-import { Action, ExecutionContext, WorkflowFinish, WorkflowStart } from "@agboss/core";
-import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+```ts file=src/order/dto/order-request.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class OrderRequestDto {
   @Text({ prompt: "the order's id" })
   orderId!: string;
 }
+```
+
+```ts file=src/order/dto/stock-reservation.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class StockReservationDto {
   @Text({ prompt: "the reservation's id" })
   reservationId!: string;
 }
+```
+
+```ts file=src/order/dto/card-payment.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class CardPaymentDto {
   @Text({ prompt: "the payment's id" })
   paymentId!: string;
 }
+```
+
+```ts file=src/order/dto/order-shipped.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class OrderShippedDto {
   @Text({ prompt: "the tracking number" })
   trackingNumber!: string;
 }
+```
+
+```ts file=src/order/errors/carrier.error.ts
+
 
 export class CarrierError extends Error {}
+```
+
+```ts file=src/order/errors/payment-provider.error.ts
+
+
 export class PaymentProviderError extends Error {}
+```
+
+```ts file=src/order/workflows/order/order.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { OrderRequestDto } from "../../dto/order-request.dto.js";
 
 @WorkflowStart({ name: "order-workflow-start", description: "An order to ship", input: OrderRequestDto })
 export class OrderWorkflowStart {}
+```
+
+```ts file=src/order/actions/release-stock.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { StockReservationDto } from "../dto/stock-reservation.dto.js";
 
 // the undo actions: ordinary actions, safe to run twice (they get an idempotency key like any step)
 @Action({ name: "release-stock-action", description: "Releases the reserved stock", input: { reservation: StockReservationDto }, deps: [ExecutionContext] })
@@ -1690,6 +2400,12 @@ export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
     await Promise.resolve(`${input.reservation.value.reservationId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
+```
+
+```ts file=src/order/actions/refund-card.action.ts
+import { Action, ExecutionContext } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { CardPaymentDto } from "../dto/card-payment.dto.js";
 
 @Action({ name: "refund-card-action", description: "Refunds the card", input: { payment: CardPaymentDto }, deps: [ExecutionContext] })
 export class RefundCardAction implements ActionHandler<RefundCardAction> {
@@ -1699,6 +2415,12 @@ export class RefundCardAction implements ActionHandler<RefundCardAction> {
     await Promise.resolve(`${input.payment.value.paymentId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
+```
+
+```ts file=src/order/actions/confirm-order.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 
 @Action({ name: "confirm-order-action", description: "Confirms the order: nothing is undone after it", input: { shipped: OrderShippedDto } })
 export class ConfirmOrderAction implements ActionHandler<ConfirmOrderAction> {
@@ -1706,6 +2428,14 @@ export class ConfirmOrderAction implements ActionHandler<ConfirmOrderAction> {
     await Promise.resolve(input.shipped.value.trackingNumber);
   }
 }
+```
+
+```ts file=src/order/actions/reserve-stock.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { OrderRequestDto } from "../dto/order-request.dto.js";
+import { StockReservationDto } from "../dto/stock-reservation.dto.js";
+import { ReleaseStockAction } from "./release-stock.action.js";
 
 // the undoable actions: each names its undo; the payment also its commit point
 @Action({
@@ -1720,6 +2450,15 @@ export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
     return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
   }
 }
+```
+
+```ts file=src/order/actions/charge-order-card.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { CardPaymentDto } from "../dto/card-payment.dto.js";
+import { OrderRequestDto } from "../dto/order-request.dto.js";
+import { ConfirmOrderAction } from "./confirm-order.action.js";
+import { RefundCardAction } from "./refund-card.action.js";
 
 @Action({
   name: "charge-order-card-action",
@@ -1734,6 +2473,13 @@ export class ChargeOrderCardAction implements ActionHandler<ChargeOrderCardActio
     return Promise.resolve({ paymentId: `payment-${input.order.value.orderId}` });
   }
 }
+```
+
+```ts file=src/order/actions/ship-order.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { OrderRequestDto } from "../dto/order-request.dto.js";
+import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 
 @Action({ name: "ship-order-action", description: "Hands the order to the carrier", input: { order: OrderRequestDto }, output: OrderShippedDto })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
@@ -1741,6 +2487,12 @@ export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
     return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
   }
 }
+```
+
+```ts file=src/order/actions/notify-finance.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { OrderRequestDto } from "../dto/order-request.dto.js";
 
 @Action({ name: "notify-finance-action", description: "Tells finance a refund failed", input: { order: OrderRequestDto } })
 export class NotifyFinanceAction implements ActionHandler<NotifyFinanceAction> {
@@ -1748,34 +2500,42 @@ export class NotifyFinanceAction implements ActionHandler<NotifyFinanceAction> {
     await Promise.resolve(input.order.value.orderId);
   }
 }
+```
+
+```ts file=src/order/workflows/order/order-failed.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { OrderRequestDto } from "../../dto/order-request.dto.js";
 
 @WorkflowFinish({ name: "order-failed-workflow-finish", description: "The order could not be shipped", output: OrderRequestDto })
 export class OrderFailedWorkflowFinish {}
+```
+
+```ts file=src/order/workflows/order/order-shipped.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { OrderShippedDto } from "../../dto/order-shipped.dto.js";
 
 @WorkflowFinish({ name: "order-shipped-workflow-finish", description: "The shipped order", output: OrderShippedDto })
 export class OrderShippedWorkflowFinish {}
 ```
 
-```ts file=src/order/order.workflow.ts
+```ts file=src/order/workflows/order/order.workflow.ts
 import { Workflow, action, start, toAction } from "@agboss/core";
-import {
-  CardPaymentDto,
-  CarrierError,
-  ChargeOrderCardAction,
-  ConfirmOrderAction,
-  NotifyFinanceAction,
-  OrderFailedWorkflowFinish,
-  OrderRequestDto,
-  OrderShippedDto,
-  OrderShippedWorkflowFinish,
-  OrderWorkflowStart,
-  PaymentProviderError,
-  RefundCardAction,
-  ReleaseStockAction,
-  ReserveStockAction,
-  ShipOrderAction,
-  StockReservationDto,
-} from "./order.components.js";
+import { ChargeOrderCardAction } from "../../actions/charge-order-card.action.js";
+import { ConfirmOrderAction } from "../../actions/confirm-order.action.js";
+import { NotifyFinanceAction } from "../../actions/notify-finance.action.js";
+import { RefundCardAction } from "../../actions/refund-card.action.js";
+import { ReleaseStockAction } from "../../actions/release-stock.action.js";
+import { ReserveStockAction } from "../../actions/reserve-stock.action.js";
+import { ShipOrderAction } from "../../actions/ship-order.action.js";
+import { CardPaymentDto } from "../../dto/card-payment.dto.js";
+import { OrderRequestDto } from "../../dto/order-request.dto.js";
+import { OrderShippedDto } from "../../dto/order-shipped.dto.js";
+import { StockReservationDto } from "../../dto/stock-reservation.dto.js";
+import { CarrierError } from "../../errors/carrier.error.js";
+import { PaymentProviderError } from "../../errors/payment-provider.error.js";
+import { OrderFailedWorkflowFinish } from "./order-failed.workflow-finish.js";
+import { OrderShippedWorkflowFinish } from "./order-shipped.workflow-finish.js";
+import { OrderWorkflowStart } from "./order.workflow-start.js";
 
 @Workflow({
   name: "order-workflow",
@@ -1812,35 +2572,60 @@ export class OrderWorkflow {}
 A failed join undoes its finished branches by itself — the side path cannot, the join's values never
 reach it:
 
-```ts file=src/trip/trip.workflow.ts
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
-import type { ActionHandler, FinishHandler, InputOf, OutputOf } from "@agboss/core";
+```ts file=src/trip/dto/trip-request.dto.ts
 import { Text } from "@agboss/core/dto";
 
 export class TripRequestDto {
   @Text({ prompt: "where the trip goes" })
   destination!: string;
 }
+```
+
+```ts file=src/trip/dto/flight-booking.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class FlightBookingDto {
   @Text({ prompt: "the flight booking's id" })
   bookingId!: string;
 }
+```
+
+```ts file=src/trip/dto/hotel-booking.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class HotelBookingDto {
   @Text({ prompt: "the hotel booking's id" })
   bookingId!: string;
 }
+```
+
+```ts file=src/trip/dto/trip-booked.dto.ts
+import { Text } from "@agboss/core/dto";
 
 export class TripBookedDto {
   @Text({ prompt: "both booking ids" })
   summary!: string;
 }
+```
+
+```ts file=src/trip/errors/booking-failed.error.ts
+
 
 export class BookingFailedError extends Error {}
+```
+
+```ts file=src/trip/workflows/trip/trip.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { TripRequestDto } from "../../dto/trip-request.dto.js";
 
 @WorkflowStart({ name: "trip-workflow-start", description: "A trip to book", input: TripRequestDto })
 export class TripWorkflowStart {}
+```
+
+```ts file=src/trip/actions/cancel-flight.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { FlightBookingDto } from "../dto/flight-booking.dto.js";
 
 @Action({ name: "cancel-flight-action", description: "Cancels the flight", input: { flight: FlightBookingDto } })
 export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
@@ -1848,6 +2633,12 @@ export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
     await Promise.resolve(input.flight.value.bookingId);
   }
 }
+```
+
+```ts file=src/trip/actions/cancel-hotel.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf } from "@agboss/core";
+import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
 
 @Action({ name: "cancel-hotel-action", description: "Cancels the hotel", input: { hotel: HotelBookingDto } })
 export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
@@ -1855,6 +2646,14 @@ export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
     await Promise.resolve(input.hotel.value.bookingId);
   }
 }
+```
+
+```ts file=src/trip/actions/book-flight.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { FlightBookingDto } from "../dto/flight-booking.dto.js";
+import { TripRequestDto } from "../dto/trip-request.dto.js";
+import { CancelFlightAction } from "./cancel-flight.action.js";
 
 @Action({ name: "book-flight-action", description: "Books the flight", input: { request: TripRequestDto }, output: FlightBookingDto, compensateWith: CancelFlightAction })
 export class BookFlightAction implements ActionHandler<BookFlightAction> {
@@ -1862,6 +2661,14 @@ export class BookFlightAction implements ActionHandler<BookFlightAction> {
     return Promise.resolve({ bookingId: `flight-${input.request.value.destination}` });
   }
 }
+```
+
+```ts file=src/trip/actions/book-hotel.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
+import { TripRequestDto } from "../dto/trip-request.dto.js";
+import { CancelHotelAction } from "./cancel-hotel.action.js";
 
 @Action({ name: "book-hotel-action", description: "Books the hotel", input: { request: TripRequestDto }, output: HotelBookingDto, compensateWith: CancelHotelAction })
 export class BookHotelAction implements ActionHandler<BookHotelAction> {
@@ -1869,9 +2676,22 @@ export class BookHotelAction implements ActionHandler<BookHotelAction> {
     return Promise.resolve({ bookingId: `hotel-${input.request.value.destination}` });
   }
 }
+```
+
+```ts file=src/trip/workflows/trip/trip-not-booked.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { TripRequestDto } from "../../dto/trip-request.dto.js";
 
 @WorkflowFinish({ name: "trip-not-booked-workflow-finish", description: "Not booked", output: TripRequestDto })
 export class TripNotBookedWorkflowFinish {}
+```
+
+```ts file=src/trip/workflows/trip/trip-booked.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import type { FinishHandler, InputOf, OutputOf } from "@agboss/core";
+import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
+import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
+import { TripBookedDto } from "../../dto/trip-booked.dto.js";
 
 @WorkflowFinish({
   name: "trip-booked-workflow-finish",
@@ -1884,6 +2704,19 @@ export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflo
     return { summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}` };
   }
 }
+```
+
+```ts file=src/trip/workflows/trip/trip.workflow.ts
+import { Workflow, start, toFinish } from "@agboss/core";
+import { BookFlightAction } from "../../actions/book-flight.action.js";
+import { BookHotelAction } from "../../actions/book-hotel.action.js";
+import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
+import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
+import { TripRequestDto } from "../../dto/trip-request.dto.js";
+import { BookingFailedError } from "../../errors/booking-failed.error.js";
+import { TripBookedWorkflowFinish } from "./trip-booked.workflow-finish.js";
+import { TripNotBookedWorkflowFinish } from "./trip-not-booked.workflow-finish.js";
+import { TripWorkflowStart } from "./trip.workflow-start.js";
 
 @Workflow({
   name: "trip-workflow",

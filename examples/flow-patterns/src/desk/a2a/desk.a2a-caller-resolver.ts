@@ -5,7 +5,7 @@ import {
   type A2ACallerRequest,
   type A2ACallerResolver,
 } from "@agboss/core/a2a";
-import type { DeskWorkflowStart } from "../workflow-starts/desk.workflow-start.js";
+import type { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
 
 /** The addresses of this host: the desk serves its neighbours on the same machine only. */
 const LOOPBACK: ReadonlySet<string> = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
