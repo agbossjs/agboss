@@ -96,6 +96,9 @@ const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
 
     expect(refused).toBeInstanceOf(IdempotencyKeyConflictError);
     expect(JSON.stringify(refused)).not.toContain("order:42");
+    // a key made outside an execution has no handle: the error shows none, never a plain hash
+    expect(refused).not.toHaveProperty("businessKeyHash");
+    expect(String((refused as Error).message)).not.toContain("handle");
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
   },

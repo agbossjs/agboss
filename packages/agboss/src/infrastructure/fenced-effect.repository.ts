@@ -61,6 +61,12 @@ export interface FencedEffectKey {
   readonly fingerprint?: string;
   /** The step that made the key: what a replay from another step or execution names. */
   readonly origin?: FencedEffectOrigin;
+  /**
+   * The business key's handle (#508): 12 hex characters of its HMAC-SHA256 under the execution's PII
+   * key — what an error shows instead of the key, to match it with the caller's own log. None where
+   * no key is available (a key made by hand, outside an execution): an error then shows none.
+   */
+  readonly businessKeyHash?: string;
 }
 
 /** A step, as a replay from another one names it (#508). */

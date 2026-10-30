@@ -5,6 +5,7 @@
  * `IdempotencyKeyConflictError` and nothing is charged — through the fenced effect, the tool and
  * `OutboundCalls`. An invalid key is refused before anything runs, and no error carries the key.
  */
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseEventKind,
@@ -24,6 +25,9 @@ import {
   testWith,
 } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
+import { withInstancePiiKeys } from "../../src/testing/pii-parts.js";
+import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
+import { keyedDigestOf } from "../../src/pii/tokens.js";
 import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { instance, settle } from "./fixtures/fence-takeover.js";
 import { execute } from "../helpers/flow.js";
@@ -414,6 +418,69 @@ describe("#508: two instances racing on one business key", () => {
       expect(ledger.outbound.filter((status) => status === OutboundCallOutcomeStatus.Sent)).toEqual(
         [OutboundCallOutcomeStatus.Sent],
       );
+    },
+  );
+});
+
+/** The conflict at the end of `error`'s cause chain. */
+function conflictOf(error: unknown): IdempotencyKeyConflictError {
+  for (let at: unknown = error; at instanceof Error; at = at.cause)
+    if (at instanceof IdempotencyKeyConflictError) return at;
+  throw new Error("no IdempotencyKeyConflictError in the chain");
+}
+
+/** The conflict of charging order 42 for $10, then $12, on `app`. */
+async function conflictOn(
+  app: Parameters<typeof execute>[0],
+): Promise<IdempotencyKeyConflictError> {
+  await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 10 });
+  const error = await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 12 }).catch(
+    (thrown: unknown) => thrown,
+  );
+  return conflictOf(error);
+}
+
+const UNKEYED = createHash("sha256").update("order:42").digest("hex");
+/** order:42's handle under the test's fixed PII key. */
+const TEST_KEYED = keyedDigestOf(TEST_PSEUDONYM_KEY, "order:42").slice(0, 12);
+
+describe("#508: a business key's handle is keyed", () => {
+  const perExecution = testWith(BusinessKeyApplication, withInstancePiiKeys({}));
+
+  test("the same business key gives the same handle within one application", async ({ app }) => {
+    const first = await conflictOn(app);
+    const again = conflictOf(
+      await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 14 }).catch(
+        (thrown: unknown) => thrown,
+      ),
+    );
+
+    expect(first.businessKeyHash).toBe(TEST_KEYED);
+    expect(again.businessKeyHash).toBe(first.businessKeyHash);
+  });
+
+  test("the message has neither the raw key nor its unkeyed SHA-256", async ({ app }) => {
+    const conflict = await conflictOn(app);
+
+    const text = `${conflict.message}\n${JSON.stringify(conflict)}`;
+    expect(text).not.toContain("order:42");
+    expect(text).not.toContain(UNKEYED.slice(0, 12));
+    expect(conflict.businessKeyHash).not.toBe(UNKEYED.slice(0, 12));
+  });
+
+  perExecution(
+    "another PII key gives another handle: each execution's own key (#334) against the test's",
+    async ({ app }) => {
+      const conflict = await conflictOn(app);
+      const another = conflictOf(
+        await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 14 }).catch(
+          (thrown: unknown) => thrown,
+        ),
+      );
+
+      expect(conflict.businessKeyHash).toMatch(/^[0-9a-f]{12}$/u);
+      expect(conflict.businessKeyHash).not.toBe(TEST_KEYED);
+      expect(another.businessKeyHash).not.toBe(conflict.businessKeyHash);
     },
   );
 });

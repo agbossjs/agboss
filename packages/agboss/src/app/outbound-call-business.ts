@@ -1,8 +1,4 @@
-import {
-  businessKeyHashOf,
-  fingerprintOf,
-  IdempotencyKeyConflictError,
-} from "../infrastructure/fenced-effect-key.js";
+import { fingerprintOf, IdempotencyKeyConflictError } from "../infrastructure/fenced-effect-key.js";
 import type {
   FencedEffectKey,
   FencedEffectOrigin,
@@ -52,7 +48,7 @@ export async function checkedBusinessCall<TRequest, TResult>(
   const { key, options } = run;
   if (key.businessKey === undefined) return;
   if (found.fingerprint !== key.fingerprint)
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKey: key.businessKey });
+    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   if (found.status !== OutboundCallStatus.Pending) return;
   const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
@@ -62,11 +58,15 @@ export async function checkedBusinessCall<TRequest, TResult>(
   if (await run.parts.repository.isLeaseHeld(...lease)) throw inFlight;
 }
 
-/** How an error names a call's key: a business key only by its hash (#508), never as it is. */
-export const reportedKeyOf = (key: FencedEffectKey, idempotencyKey: string): string =>
-  key.businessKey === undefined
-    ? idempotencyKey
-    : `business-key:${businessKeyHashOf(key.businessKey)}:${key.name}`;
+/**
+ * How an error names a call's key: a business key only by its keyed handle (#508), never as it is
+ * — `business-key:<handle>:<name>`, or `business-key:<name>` where no handle could be made.
+ */
+export function reportedKeyOf(key: FencedEffectKey, idempotencyKey: string): string {
+  if (key.businessKey === undefined) return idempotencyKey;
+  const handle = key.businessKeyHash === undefined ? "" : `${key.businessKeyHash}:`;
+  return `business-key:${handle}${key.name}`;
+}
 
 /** The step a replayed call was made by, when it is another step or execution (#508). */
 export function replayedFromOf(

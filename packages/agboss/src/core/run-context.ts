@@ -34,6 +34,11 @@ export interface RunContext {
   readonly lease?: FrameLease | undefined;
   /** The workflow's observability mask (#505): what its steps' outbound calls store of a request. */
   readonly observability?: ObservabilityMask | undefined;
+  /**
+   * The application's PII field key (#508): what a business key's handle in an error is keyed by,
+   * unless the execution has a key of its own (#334).
+   */
+  readonly correlationKey?: string | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */

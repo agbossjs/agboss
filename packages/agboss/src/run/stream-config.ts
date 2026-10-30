@@ -44,6 +44,8 @@ const runContextOf = (
   }),
   // what its steps' outbound calls store of a request (#505)
   observability: pii?.observability,
+  // what a business key's handle in an error is keyed by (#508)
+  correlationKey: pii?.fieldKey,
 });
 
 /** What the internal `run.input` holds: the start's input when it is an object (not a list). */

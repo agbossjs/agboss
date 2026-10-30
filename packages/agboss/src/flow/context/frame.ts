@@ -60,6 +60,11 @@ export interface ExecutionFacts {
    * request is stored (#505); `undefined` where the frame has no workflow (a unit runner).
    */
   readonly observability?: ObservabilityMask | undefined;
+  /**
+   * The key a business key's handle is made with (#508): the execution's PII key — its own (#334),
+   * else the application's. None where no key is available: an error then shows no handle.
+   */
+  readonly correlationKey?: string | undefined;
 }
 
 /**

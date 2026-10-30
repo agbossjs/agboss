@@ -22,7 +22,7 @@ async function joinedTo<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult>> {
   const { key } = run;
   if (key.businessKey !== undefined && joined.fingerprint !== key.fingerprint)
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKey: key.businessKey });
+    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   const { signal } = run.frame.execution;
   signal.throwIfAborted();
   const aborted = new Promise<never>((_, reject) => {

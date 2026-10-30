@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
 import { AGBossError } from "../core/errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
+import { currentFrame } from "../flow/context/frame.js";
+import { keyedDigestOf } from "../pii/tokens.js";
 import { isThreadId } from "../run/thread.js";
 import { versionOf } from "../terns/index.js";
 import type {
@@ -68,7 +69,9 @@ export function fencedEffectKeyOf<TFingerprint>(
     });
   const fingerprint =
     options.fingerprint === undefined ? {} : { fingerprint: fingerprintOf(options.fingerprint) };
-  return Object.freeze({ ...key, businessKey: options.businessKey, ...fingerprint });
+  const businessKeyHash = businessKeyHashOf(options.businessKey);
+  const handle = businessKeyHash === undefined ? {} : { businessKeyHash };
+  return Object.freeze({ ...key, businessKey: options.businessKey, ...fingerprint, ...handle });
 }
 
 /** What an invalid business key knows: the effect, and why — never the key itself. */
@@ -92,15 +95,21 @@ export class InvalidBusinessKeyError extends AGBossError {
   }
 }
 
-/** What a conflict knows: the effect and its business key, which the error never shows. */
+/** What a conflict knows: the effect and the business key's handle — never the key. */
 export interface IdempotencyKeyConflictErrorOptions {
   readonly name: string;
-  readonly businessKey: string;
+  readonly businessKeyHash?: string | undefined;
 }
 
-/** A business key's correlation handle (#508): 12 hex characters of its SHA-256, never the key. */
-export const businessKeyHashOf = (businessKey: string): string =>
-  createHash("sha256").update(businessKey).digest("hex").slice(0, 12);
+/**
+ * A business key's handle (#508): 12 hex characters of its HMAC-SHA256 under the PII key of the
+ * execution running now (its own, #334, else the application's `pseudonymKey`) — a business key is
+ * guessable (`order:42`), so never a plain hash. `undefined` where no key is available.
+ */
+export function businessKeyHashOf(businessKey: string): string | undefined {
+  const key = currentFrame()?.execution.correlationKey;
+  return key === undefined ? undefined : keyedDigestOf(key, businessKey).slice(0, 12);
+}
 
 /**
  * The same business key with another fingerprint (#508): `order:42` charged $10, then $12. Never
@@ -112,15 +121,18 @@ export class IdempotencyKeyConflictError extends AGBossError {
   static override readonly code: string = "fenced-effect.key-conflict";
   override name = "IdempotencyKeyConflictError";
   readonly effect: string;
-  readonly businessKeyHash: string;
+  /** The business key's handle, when one could be made (`FencedEffectKey.businessKeyHash`). */
+  declare readonly businessKeyHash?: string;
 
   constructor(options: IdempotencyKeyConflictErrorOptions) {
-    const businessKeyHash = businessKeyHashOf(options.businessKey);
+    const { name, businessKeyHash } = options;
+    const handle = businessKeyHash === undefined ? "" : ` (handle ${businessKeyHash})`;
     super(
-      `"${options.name}" was already made under the same business key (hash ${businessKeyHash}) with other parameters: refused, nothing ran`,
+      `"${name}" was already made under the same business key${handle} with other parameters: refused, nothing ran`,
     );
-    this.effect = options.name;
-    this.businessKeyHash = businessKeyHash;
+    this.effect = name;
+    // absent, not undefined, when no handle could be made
+    if (businessKeyHash !== undefined) this.businessKeyHash = businessKeyHash;
   }
 }
 
@@ -160,7 +172,7 @@ export function replayedFromOf(
 ): FencedEffectOrigin | undefined {
   if (key.businessKey === undefined) return undefined;
   if (stored.fingerprint !== key.fingerprint)
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKey: key.businessKey });
+    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   const { origin } = stored;
   return origin === undefined || sameOrigin(origin, key.origin) ? undefined : origin;
 }

@@ -2017,12 +2017,12 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 
   The same key and fingerprint (SHA-256 of canonical JSON; `OutboundCalls` takes its request's) →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
   visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
-  `effect`, `businessKeyHash` — never the key), nothing run or sent, also for a concurrent call of
+  `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of the key under the execution's PII key, none without one; never the key), nothing run or sent, also for a concurrent call of
   this instance (never joined). A pending call under a business key is in flight while its attempt's
   owner lives — sending in this instance (joined, `Joined`) or under a lease another instance holds
   (`OutboundCallInFlightError`); once its owner is gone, the next caller reconciles it, by the
   compare-and-set. The key sent with the call is `<tenant>:<businessKey>:<name>`; an error names it
-  by hash only (`business-key:<hash>:<name>`). SQLite: `fenced_effect_business_results` and the
+  by its handle only (`business-key:<handle>:<name>`). SQLite: `fenced_effect_business_results` and the
   `outbound_calls` partial unique index on `(tenant_id, name, business_key)`. flow-patterns' credit
   desk charges under `credit:<applicationId>`. Tests: `callTools(callTool(A, …), callTool(B, …))` —
   one move calling several tools at once (each its own task under `TestConcurrency.Real`).

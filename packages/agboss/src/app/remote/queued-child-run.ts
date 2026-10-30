@@ -14,7 +14,7 @@ import {
 import { failureTextOf } from "../../flow/runtime/remote/remote-failure.js";
 import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../../graph/deps.js";
-import type { ObservabilityMask } from "../../pii/observability-mask.js";
+import type { PiiRuntime } from "../../pii/runtime.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type {
   ChildExecutionEnd,
@@ -42,11 +42,14 @@ class QueuedChildError extends Error {
   override name = "QueuedChildError";
 }
 
-/** Where a queued child runs: the worker's signal and lease, its own workflow's mask (#505). */
+/**
+ * Where a queued child runs: the worker's signal and lease, its own workflow's PII runtime — its
+ * mask (#505) and the key of a business key's handle (#508).
+ */
 interface ChildRunSite {
   readonly signal: AbortSignal;
   readonly lease: HeldExecutionLease;
-  readonly mask: ObservabilityMask | undefined;
+  readonly pii: Pick<PiiRuntime, "observability" | "fieldKey"> | undefined;
 }
 
 /** The child's run context on this instance: its parents rebuilt, the worker's signal. */
@@ -55,13 +58,12 @@ function runContextOf(
   row: QueuedChildExecution,
   registry: ChildRegistry,
   deps: AppDeps,
-  { signal, lease, mask }: ChildRunSite,
+  { signal, lease, pii }: ChildRunSite,
 ): RunContext {
   const contexts = deps.contexts ?? standaloneContexts(deps.config);
   const values = run.initial.contexts;
   const parent = parentOfRecord(run.parent, {
-    workflowOf: registry.workflowOf,
-    componentOf: registry.componentOf,
+    ...registry,
     tenant: tenantOfExecution(contexts, values.tenant),
     values: values.execution,
     signal,
@@ -77,7 +79,8 @@ function runContextOf(
     lease,
     tree: { parent, itemIndex: run.initial.child.itemIndex },
     // what its steps store is masked by its own workflow's policies (#505)
-    observability: mask,
+    observability: pii?.observability,
+    correlationKey: pii?.fieldKey,
   };
 }
 
@@ -218,8 +221,8 @@ export async function runQueuedChild(
     const childDeps = leasedGraphDeps(rawChildDeps, lease);
     const run = await decodedRun(parts.serde, row.run);
     // its steps store what they store masked by the child workflow's own policies (#505)
-    const at = { signal, lease, mask: rawChildDeps.pii?.observability };
-    const context = runContextOf(run, row, parts.registry, rootDeps, at);
+    const site = { signal, lease, pii: rawChildDeps.pii };
+    const context = runContextOf(run, row, parts.registry, rootDeps, site);
     const { rests } = await streamed(childDeps, rootDeps, row, run, context);
     return { status: rests ? ExecutionRecordStatus.Paused : ExecutionRecordStatus.Answered };
   } catch (error) {
