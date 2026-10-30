@@ -72,6 +72,10 @@
       "types": "./dist/testing/setup.d.ts",
       "import": "./dist/testing/setup.js"
     },
+    "./testing/vitest": {
+      "types": "./dist/testing/vitest.d.ts",
+      "import": "./dist/testing/vitest.js"
+    },
     "./testing/contracts": {
       "types": "./dist/testing/contracts/index.d.ts",
       "import": "./dist/testing/contracts/index.js"

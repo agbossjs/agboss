@@ -58,6 +58,20 @@ jobs:
           path: coverage.json
           retention-days: 1
 
+  # #497: the packed @agboss/core / @agboss/cli in a project of their own (an external dependency,
+  # never the workspace link): `workflowOf`, `testWith`, `agboss describe` / `check` pass there, and
+  # without agbossTest() `workflowOf` fails with its TestSetupError. Not in `make check` (~2 min).
+  packed-project:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check:packed
+
   publish-badge:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

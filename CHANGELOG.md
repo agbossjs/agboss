@@ -10,6 +10,18 @@ with every breaking change, its reason and the migration — is the Wiki's
 entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced here too
 ([`SECURITY.md`](SECURITY.md)).
 
+## [Unreleased] — 0.1.1
+
+### Fixed
+
+- **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
+  by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
+  `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the
+  test's module graph, and registers the matchers; `agboss create` writes it. Without it
+  `workflowOf(W)` throws `TestSetupError` naming the fix. An existing project changes one line:
+  `test: agbossTest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
+  packed packages in a project of their own (`npm run check:packed`) (#497).
+
 ## [Unreleased] — 0.1.0 (`v0.1.0-rc` Pre-Release Candidate)
 
 The first substantive release of the framework (`0.1.0`, prepared for manual owner publication; not yet published to `registry.npmjs.org`). Everything below is new compared with the `0.0.1` placeholder;

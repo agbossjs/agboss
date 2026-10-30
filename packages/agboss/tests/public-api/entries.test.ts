@@ -14,6 +14,7 @@ import * as rag from "../../src/rag/index.js";
 import * as router from "../../src/router/index.js";
 import * as testing from "../../src/testing/index.js";
 import * as tool from "../../src/tool/index.js";
+import * as testingVitest from "../../src/testing/vitest.js";
 import * as units from "../../src/units/index.js";
 
 /** Every entry of package.json#exports (`./testing/setup` has no exports). */
@@ -23,6 +24,7 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./units": units,
   "./models": models,
   "./testing": testing,
+  "./testing/vitest": testingVitest,
   "./mcp": mcp,
   "./rag": rag,
   "./a2a": a2a,

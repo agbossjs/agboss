@@ -61,7 +61,8 @@
     "check:types": "node scripts/check-types.mjs",
     "check:api": "node scripts/api-report.mjs",
     "check:docs": "node scripts/check-docs.mjs",
-    "api:update": "node scripts/api-report.mjs --write"
+    "api:update": "node scripts/api-report.mjs --write",
+    "check:packed": "npm run build && node scripts/check-packed.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

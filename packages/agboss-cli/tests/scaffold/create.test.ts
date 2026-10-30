@@ -4,10 +4,14 @@
  * provider and guardrail beside it, the workflow `<project>-workflow` in `src/<project>/` — and the
  * code follows the conventions (#280). The end-to-end checks (tsc, lint, tests) are e2e.test.ts's.
  */
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { specFromFlags } from "../../src/scaffold/flags.js";
 import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
+import { DEFAULT_TEST_PATTERNS, testPatterns } from "../../src/scaffold/test-location.js";
 
 const files = planProject(
   specFromFlags("desk", {
@@ -107,5 +111,26 @@ describe("#268 AC8: agboss create", () => {
       "export class ExecutionBudget implements BudgetHandler {",
     );
     expect(content("src/budgets/execution.budget.ts")).toContain("maxSpend(): Usd {");
+  });
+});
+
+describe("#497 AC1: the project's vitest config uses the AGBoss preset", () => {
+  it("AC1: vitest.config.ts wraps its test options in agbossTest(), no raw setupFiles", () => {
+    const config = content("vitest.config.ts");
+
+    expect(config).toContain('import { agbossTest } from "@agboss/core/testing/vitest";');
+    expect(config).toContain("test: agbossTest({");
+    expect(config).not.toContain("setupFiles");
+  });
+
+  it("AC1: agboss generate still reads the test patterns inside agbossTest() (#197)", () => {
+    const root = mkdtempSync(join(tmpdir(), "agboss-497-"));
+    writeFileSync(join(root, "vitest.config.ts"), content("vitest.config.ts"));
+
+    const patterns = testPatterns(root);
+    rmSync(root, { recursive: true });
+
+    expect(patterns?.include).toEqual(expect.arrayContaining([...DEFAULT_TEST_PATTERNS.include]));
+    expect(patterns?.exclude).toEqual(DEFAULT_TEST_PATTERNS.exclude);
   });
 });

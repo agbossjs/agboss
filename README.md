@@ -539,7 +539,8 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
 - `@agboss/core/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
+  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers;
+  `+ @agboss/core/testing/vitest`: `agbossTest()`, the vitest preset)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
@@ -873,6 +874,24 @@ Routers and guardrails work on any decision model too (`@Router({ model: "openai
 one choice question over the routes, options sorted so declaration order never changes the request.
 
 ## Testing
+
+A project's `vitest.config.ts` wraps its `test` options in `agbossTest()` (`@agboss/core/testing/vitest`, #497):
+
+```ts file=vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { agbossTest } from "@agboss/core/testing/vitest";
+
+export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
+```
+
+It loads AGBoss through vite, in the test's own module graph (`server.deps.inline` gains
+`/@agboss\/core/`): installed from npm, the core is external to vitest, and the files it loads by path —
+the application `workflowOf(W)` finds next to `W`, its environments, eval suites — would bypass vite,
+without their decorators and as a second set of classes. It also registers the matchers (`setupFiles`
+gains `@agboss/core/testing/setup`, once). Your own `setupFiles` and `server.deps.inline` are merged,
+never replaced; every other option passes through. Without it, `workflowOf(W)` fails with
+`TestSetupError`: `the application of <workflow> was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`
+(the original error as its `cause`). `agboss create` writes this config.
 
 `testWith(Application)` (`@agboss/core/testing`) runs the whole application in each test — its real
 container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
