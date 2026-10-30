@@ -176,10 +176,7 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
 
 /** One row of the lease log. */
 export type ExecutionLeaseEventRecord =
-  | LeaseTakeoverRecord
-  | StepHandedOverRecord
-  | FencedEffectRecord
-  | OutboundCallEventRecord;
+  LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
 
 export abstract class ExecutionLeaseEventRepository {
   /** Whether the store answers (#300): one fast round trip. */

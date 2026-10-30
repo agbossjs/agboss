@@ -13,7 +13,11 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
-import { ChargeWorkflow, EmailPiiPolicy, OutboundCallLog } from "../../../app/fixtures/outbound-call.workflow.js";
+import {
+  ChargeWorkflow,
+  EmailPiiPolicy,
+  OutboundCallLog,
+} from "../../../app/fixtures/outbound-call.workflow.js";
 
 /**
  * #505 on SQLite — the charge of the in-memory tests on one SQLite file shared by a test's
