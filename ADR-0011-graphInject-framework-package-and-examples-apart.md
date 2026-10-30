@@ -1,6 +1,7 @@
 # ADR-0011 — graphInject: framework package and examples apart
 
-- **Status:** Accepted
+- **Status:** Accepted — the in-repo `examples/job-scout` superseded by
+  [ADR-0025](ADR-0025-Examples-live-in-agbossjs-agboss-examples) (#489)
 - **Issue:** #91
 
 ## Context

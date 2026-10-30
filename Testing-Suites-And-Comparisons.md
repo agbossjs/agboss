@@ -23,8 +23,8 @@ npx agboss compare --start chat-workflow-start --profiles base,scout-low-thinkin
 npx agboss compare --profiles base,cheap-router --last 10   # --start may be omitted: job-scout has one start
 ```
 
-In `examples/job-scout`: `npm run golden -- add --name <n>` and
-`npm run compare -- --profiles base,<p> --golden <n>`. A comparison pays from the workflow's eval
+In [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples) its `golden` and `compare` scripts wrap
+`agboss golden add --name <n>` and `agboss compare --profiles base,<p> --golden <n>`. A comparison pays from the workflow's eval
 account, never from the production day ([FinOps](FinOps#eval-spend)).
 
 ## From code — `compareProfiles`

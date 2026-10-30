@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — job-scout moves to agbossjs/agboss-examples (#489)
+
+- **Removed — `examples/job-scout`** ([Example](Example),
+  [ADR-0025](ADR-0025-Examples-live-in-agbossjs-agboss-examples)): it is
+  [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) of
+  agbossjs/agboss-examples, on the published `@agboss/core`, its history kept. `examples/flow-patterns`
+  is the one in-repo example: the root's `npm run studio` and `npm run check:models` run on it (its
+  new `check:models` script), and every core and CLI test that used job-scout uses it.
+- **Added — a `check:docs` rule**: a link to `examples/job-scout` outside the ADRs and the Changelog
+  fails the check, naming the doc, the line and where the folder went.
+- **Added — `RELEASE_CHECKLIST.md` → Examples against the release candidate**: every example of
+  agbossjs/agboss-examples runs locally against the packed candidate with real models before a
+  release; their CI stays offline.
+
 ## Unreleased — the project layout in every skill snippet and in flow-patterns (#474)
 
 - **Changed — the shipped skills** ([Components](Components#project-layout-474),

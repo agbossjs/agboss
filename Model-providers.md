@@ -282,8 +282,8 @@ export class JobScoutApplication {}
 - A workflow has no provider setting (`settings().modelProviders(…)` and `defaultModelProvider(…)`
   were removed in #266), and no component has one.
 
-job-scout: `src/model-providers/openrouter.model-provider.ts`, listed in `job-scout.application.ts`;
-`agboss create` generates the same.
+[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples): `src/model-providers/openrouter.model-provider.ts`,
+listed in `job-scout.application.ts`; `agboss create` generates the same.
 
 ### The key and the name
 
@@ -473,7 +473,7 @@ keeping some headroom (about 80 %) for other clients of the same key:
 ## Fail fast: settings must fit their models
 
 At **every startup** (with the production gateway) and with **`agboss check --models`** ([CLI](CLI),
-part of `make check` for job-scout — every model of **every workflow of the application** the
+part of `make check` for flow-patterns, `npm run check:models` — every model of **every workflow of the application** the
 workflow is in, each key prefixed with its workflow when there are several), every model use is checked against what its provider says the
 model supports (OpenRouter: its public model list — parameters, reasoning efforts, mandatory
 reasoning, cache pricing; Jev: its known models). **All problems at once**, each with the setting's

@@ -1,11 +1,11 @@
-# Examples: `agboss-examples` (01–07), `job-scout` & `flow-patterns`
+# Examples: `agboss-examples` (01–08) & `flow-patterns`
 
 AGBoss provides two complementary repositories of runnable, CI-verified examples so you can prove compile-time and runtime guarantees locally for `$0` and inspect production-grade reference architectures.
 
-1. **[`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss` through `07-langgraph-migration`)** — seven standalone, runnable applications that depend on the distributed `agboss` and `agboss-cli` packages, enforce the canonical `1 class = 1 file` component subfolder layout and symmetric Spring-style `tests/` mirroring `src/`, and verify every framework guarantee offline (`$0`).
-2. **In-repository packages (`examples/job-scout/` and `examples/flow-patterns/`)** — `examples/job-scout/` (resume → search brief → Greenhouse jobs ranked by Jev → company notes RAG → MCP shortlist) and [flow-patterns](#flow-patterns-a-review-loop-and-a-code-router) (the zero-cost harness of the public surface).
+1. **[`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss` through `08-job-scout`)** — eight standalone, runnable applications that depend on the published `@agboss/core` and `@agboss/cli` packages, enforce the canonical `1 class = 1 file` component subfolder layout and symmetric Spring-style `tests/` mirroring `src/`, and verify every framework guarantee offline (`$0`). [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) is the job scout that lived in this repository until #489 ([ADR-0025](ADR-0025-Examples-live-in-agbossjs-agboss-examples)).
+2. **The in-repository package (`examples/flow-patterns/`)** — [flow-patterns](#flow-patterns-a-review-loop-and-a-code-router), the zero-cost harness of the public surface, the one example `make check` runs.
 
-## How the 7 standalone verified applications work (`agbossjs/agboss-examples`)
+## How the 8 standalone verified applications work (`agbossjs/agboss-examples`)
 
 Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) follows **`Promise → Failure Injection → Reproducible Proof`**:
 
@@ -18,91 +18,20 @@ Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss
 | **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** | Distributed child work-stealing (`.toParallelWorkflows(ChunkWorkerWorkflow, { placement: ChildPlacement.AnyInstance })`, `SqliteChildExecutionQueueRepository`), recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`. |
 | **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** | 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 `agboss-mesh` JWS envelope, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication (`SqliteMeshRequestRepository`), and `agboss check --federation` Blast Radius. |
 | **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** | Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`). |
+| **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** | A real multi-step agent, offline: resume → proposed search brief → Greenhouse jobs ranked by Jev → explained with the user's company notes (`@Rag`) → the chosen ones saved to a shortlist through the filesystem MCP server after the user approves the write — typed child workflows, per-item launches, a quorum and a budget; `check`, `test` and `demo` offline at $0 against the published `@agboss/core` (recorded cassettes, a fixture Greenhouse board), `demo:live` with `OPENROUTER_API_KEY`. |
 
 ---
 
 ## job-scout
 
-`examples/job-scout/` — the full in-repo example, a separate package that depends on `agboss` exactly
-like an outside project (only its public API; ESLint-enforced). Resume from disk → a proposed search
-brief → Greenhouse jobs ranked by Jev → explained with the user's company notes → the chosen ones saved to a
-shortlist, after the user approves the write. Its second, smaller neighbour,
-[flow-patterns](#flow-patterns-a-review-loop-and-a-code-router), holds the flow's patterns the CLI can be pointed at.
-
-```bash
-npm install && npm run build          # repo root
-cd examples/job-scout
-npm run chat                          # "my resume src/data/sample-resume.md" → brief → "ok" → ranked jobs
-npm run describe                      # the paths, each node's inputs, agents, tools — no API key
-npm run types                         # .agboss/types.d.ts (agboss check; run by typecheck)
-```
-
-## Flow
-
-One path per turn (#272): the message goes to the main router (Jev, `maxVisits: 1`), which sends
-it to the agent that answers; that agent's answer finishes the turn, and the thread carries the
-conversation to the next one.
-
-```ts no-check: the example's own file, compiled by its package (src/job-scout.workflow.ts)
-flow: [
-  start(ChatWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toRouter(MainRouter)
-    .chooseOne(
-      route(ProfilerAgent).toFinish(ChatWorkflowFinish),
-      route(ScoutAgent).toFinish(ChatWorkflowFinish),
-      route(ShortlistAgent).toFinish(ChatWorkflowFinish),
-    ),
-],
-```
-
-1. **profiler-agent** reads the resume (`read-resume-tool`: PDF, Markdown, text) and proposes a search brief — where,
-   roles, deal-breakers, count, boards. Reply `ok` or say what to change.
-2. **scout-agent** calls `greenhouse-jobs-tool` once per brief: public Greenhouse boards, hard filters, then Jev rates
-   every remaining job (`JobFitJudge`); the answer is always a numbered list with links, then "why the top
-   matches" from the user's **company notes** (`search-company-notes-rag-tool`, cited as `[file]`). Ask "why is
-   Fireblocks a fit?" — the answer cites `[fireblocks.md]`.
-3. **shortlist-agent** saves the jobs the user names ("save 1 and 2") to `~/job-scout/shortlist.md` through the
-   official filesystem MCP server — the write **waits for the user's approval** (`approve? [y/N]`); rejected →
-   nothing written. "What is on my shortlist?" lists it.
-
-A search turn costs about $0.02; the others well under a cent.
-
-## Components — every kind, by file convention
-
-```
-src/job-scout.application.ts        @Application job-scout-application — its workflow, budgets, defaults (DEFAULTS) and environment contract; no infrastructure listed → in memory (#261)
-src/config/budget.config.ts         @Budget application-daily-budget | tenant-daily-budget | execution-budget
-src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, its window (uncompactedTurns), guardrails, compaction (compactions/conversation.compaction.ts), MCP, providers, channels; limits and model providers in settings()
-src/workflow-starts/, routers/, workflow-finishes/   @WorkflowStart chat-workflow-start → @Router main-router → @WorkflowFinish chat-workflow-finish
-src/agents/*.agent.ts + *.prompt.md @Agent profiler-agent | scout-agent | shortlist-agent (text agents, promptUrls)
-src/tools/read-resume.tool.ts       @Tool ← ResumeReader
-src/tools/greenhouse-jobs.tool.ts   @Tool ← JobFitJudge, JOB_SEARCH, GreenhouseBoards
-src/mcp/shortlist.server.ts         @McpServer (filesystem, only ~/job-scout/; read_text_file, write_file)
-src/mcp/save-shortlist.mcp.ts       @McpTool — adds the chosen jobs, skips links already there (channel: TerminalUserChannel)
-src/mcp/read-shortlist.mcp.ts       @McpTool — the shortlist as saved
-src/services/                       greenhouse-boards (HTTP), resume-reader (files, PDF), job-fit (Jev) — @Injectable
-src/rag/company-notes.rag.ts        @Rag company-notes-rag (SQLite FTS5, topK 3, RagMode.Tool) over notes/companies/
-src/model-providers/                @ModelProvider openrouter (retries, circuit breaker, costs from the response)
-src/environments/                   app.environment.ts (the contract) + dev / staging / test
-src/config/                         search.config.ts (boards, places), settings, paths, prompt variables
-src/scripts/probe-boards.ts         `npm run probe -- --place israel <token…>`
-src/data/sample-resume.md
-```
-
-`notes/companies/*.md` are **samples** (Fireblocks, JFrog, Similarweb, AppsFlyer, Taboola) — replace them
-with what you know; `npm run rag:index` re-indexes. Every agent has an output ceiling, and the workflow
-avoids the OpenRouter provider Inceptron for `kimi-k2.6` (it loops on tool-call arguments — #97).
-
-## Profiles and comparisons
-
-`profiles/job-scout-workflow/scout-low-thinking.yaml`, golden set `golden/job-scout-workflow/core.yaml`
-(a task is a text for the text start, or a thread's start line `start chat-workflow-start: {"text":"…"}`,
-replayed at that start):
-
-```bash
-npm run compare -- --profiles base,scout-low-thinking --golden core
-```
+job-scout — the full example of a real agent (resume → search brief → Greenhouse jobs ranked by Jev
+→ company notes → an approved shortlist write; profiles, golden sets and comparisons) — is
+[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) of agbossjs/agboss-examples since #489: a standalone project on the published
+`@agboss/core`, its commit history kept, checked by that repository's CI offline (`smoke` on every
+push, `nightly` against the pinned framework commit) and run with real models by the maintainer
+before every release (`RELEASE_CHECKLIST.md` → Examples against the release candidate). Why:
+[ADR-0025](ADR-0025-Examples-live-in-agbossjs-agboss-examples). Every check of `make check` it
+served here runs on [flow-patterns](#flow-patterns-a-review-loop-and-a-code-router) now.
 
 ## flow-patterns: a review loop and a code router
 

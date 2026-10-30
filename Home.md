@@ -11,10 +11,9 @@ FinOps on every call, Terns and evaluation, profiles and comparisons, tracing.
 The repository holds two things:
 
 1. **The framework** — the npm package `agboss` (`packages/agboss`), its CLI `agboss`
-   (`packages/agboss-cli`), the in-repo examples `examples/job-scout` and `examples/flow-patterns`,
-   and the seven standalone reference applications in
-   [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss`
-   through `07-langgraph-migration`).
+   (`packages/agboss-cli`), the in-repo example `examples/flow-patterns`, and the eight standalone
+   reference applications in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples)
+   (`01-hello-agboss` through [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout), #489).
 2. **The delivery conveyor** — how the code is built with Claude Code: tickets move
    **Triage → Backlog → In progress → Test → Done** on the repo's board. See
    [Delivery Pipeline](Delivery-Pipeline).
@@ -33,7 +32,7 @@ exported by a public entry, and — once reference 11 declares its catalog compl
 
 ```bash
 npx -p agboss-cli agboss create my-agents   # questionnaire → a working project (see [CLI](CLI))
-cd my-agents && cp .env.example .env && npm run chat
+cd my-agents && cp .env.example .env && npx agboss chat
 ```
 
 Or add it to a project: `npm i agboss` and `npm i -D agboss-cli`, then write the
@@ -82,11 +81,13 @@ instead of letting it loop, unless the path's `.onError(…)` takes the failure.
 
 ```bash
 npm install && npm run build          # at the repo root
-cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
-npm run describe                      # agents, tools, dependencies — no API key
+cd examples/flow-patterns && npm run describe   # every workflow, its paths and inputs — no API key
 ```
 
-More: [Example](Example) (covering [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) `01-hello-agboss` .. `07-langgraph-migration`, `examples/job-scout`, and `examples/flow-patterns`). `npm run studio` (repo root) opens job-scout in LangGraph Studio —
+The job scout (resume → search brief → Greenhouse jobs ranked by Jev) is [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) of
+agbossjs/agboss-examples: clone it and run its `check`, `test` and `demo` offline at $0.
+
+More: [Example](Example) (covering [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) `01-hello-agboss` .. `08-job-scout`, and `examples/flow-patterns`). `npm run studio` (repo root) opens flow-patterns in LangGraph Studio —
 `agboss studio` in any project, no `studio.ts` or `langgraph.json` of its own ([CLI](CLI#watch-mode-and-studio-268)).
 
 ### Public entries

@@ -1,12 +1,14 @@
 # Architecture
 
-The framework lives in `packages/agboss/` (paths below are relative to it); the example in
-`examples/job-scout/` ([Example](Example)). ADR: [0011](ADR-0011-graphInject-framework-package-and-examples-apart).
+The framework lives in `packages/agboss/` (paths below are relative to it); the one in-repo example
+in `examples/flow-patterns/`, the standalone ones — job-scout among them, as [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) —
+in agbossjs/agboss-examples ([Example](Example)). ADRs: [0011](ADR-0011-graphInject-framework-package-and-examples-apart),
+[0025](ADR-0025-Examples-live-in-agbossjs-agboss-examples).
 
 The workflow file **is** the graph ([Workflow](Workflow), [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope)):
 paths through `@WorkflowStart`, `@Router`, `@Agent`, `@Action` and `@WorkflowFinish` classes, checked at assembly
 (and typed by the generated `.agboss/types.d.ts`) and run as one LangGraph `StateGraph` per workflow, its
-node ids the components' names, the path's scope a channel of its own. job-scout is one path per turn:
+node ids the components' names, the path's scope a channel of its own. job-scout (`08-job-scout`) is one path per turn:
 
 ```mermaid
 flowchart LR
@@ -60,7 +62,7 @@ flowchart LR
 | `src/testing`        | `@agboss/core/testing`: testWith, scripted models, matchers | app, graph, llm (gateway), tools — tests only   |
 | `src/internal.ts`    | `@agboss/core/internal`: what the CLI is built on (not public) | app, loader, describe, eval                  |
 | `packages/agboss-cli` | the `agboss` command — a separate package            | `agboss` (+ `/internal`)                   |
-| `examples/job-scout` | the example — a separate package using only `agboss` | `agboss` (+ `/dto`, `/units`, `/models`, `/mcp`, `/rag`) |
+| `examples/flow-patterns` | the in-repo example — a separate package using only the public entries | `@agboss/core` (+ `/dto`, `/units`, `/models`, `/testing`, `/mcp`, `/rag`, `/a2a`, `/eval`, `/eslint`) |
 
 Router, tool and Tern isolation rules are enforced by ESLint (`no-restricted-imports`); the rest of
 `src` imports them only via their `index.ts`.

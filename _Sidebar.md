@@ -27,7 +27,7 @@
 - [Components](Components)
 - [Naming](Naming)
 - [Standard DTOs](Standard-DTOs)
-- [Examples: 01–07, job-scout, flow-patterns](Example)
+- [Examples: 01–08, flow-patterns](Example)
 - [Agents — the loop](Agents)
 - [Model providers](Model-providers)
 - [Tools](Tools)

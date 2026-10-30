@@ -102,8 +102,9 @@ export const sqliteStores = [
   continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
   earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause
   is resumed after a restart, and another instance on the file recovers a run whose process
-  died ([Recovery](#recovery)). job-scout lists all seven (`sqlitePath` in dev:
-  `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`).
+  died ([Recovery](#recovery)). [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) lists all seven (`sqlitePath` in dev:
+  `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`); in this repository flow-patterns' two
+  applications list them between them (`.agboss/flow-patterns.sqlite`).
 
 ### Extending a SQLite implementation
 

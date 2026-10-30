@@ -416,7 +416,7 @@ price table; `tool-reported` = the tool's own cost.
 
 ## Eval spend
 
-`npm run eval` / `npm run replay` / `compare` run within the application's budgets: a replayed or
+`agboss eval score` / `agboss replay` / `agboss compare` run within the application's budgets: a replayed or
 compared execution is an execution like any (its tenant `"default"`), and stops the evaluation once a
 tenant or application budget is exhausted; the judge's own calls are outside any execution — they are
 counted in the application budgets and stop scoring once one is exhausted by its last known limit

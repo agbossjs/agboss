@@ -6,7 +6,7 @@
 
 ```bash
 npx agboss create support-desk          # alias: agboss c — asks for the structure, writes the project, runs npm install
-cd support-desk && cp .env.example .env && npm run chat
+cd support-desk && cp .env.example .env && npx agboss chat
 ```
 
 `agboss create <project>` writes **an application and its first workflow** (#268 AC8): the
@@ -202,7 +202,7 @@ Every command but the generators works on **one application**, whose path the pr
 its `package.json`:
 
 ```json
-{ "agboss": { "application": "src/job-scout.application.ts" } }
+{ "agboss": { "application": "src/flow-patterns.application.ts" } }
 ```
 
 The path is relative to the folder of that `package.json` (the nearest one from the working

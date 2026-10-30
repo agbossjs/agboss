@@ -61,7 +61,7 @@ prompt version: Terns, scored, mean score, cost. A judge failure leaves a Tern u
 ## Comparing a prompt change
 
 ```bash
-npm run replay -- --version <old prompt_version> [--limit 100]
+npx agboss replay --version <old prompt_version> [--limit 100]
 ```
 
 Re-runs the stored tasks of the old version with the **current** config as new threads

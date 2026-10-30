@@ -15,7 +15,7 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0008 — Declarative profiles over a typed base, explicit versions](ADR-0008-Declarative-profiles-and-explicit-versions)    | Accepted |
 | [0009 — Angular-style components with constructor injection](ADR-0009-Angular-style-components-with-constructor-injection) | Accepted |
 | [0010 — RAG as a contract, implementations by the developer](ADR-0010-RAG-as-a-contract)                                   | Accepted |
-| [0011 — GraphCompose: framework package and examples apart](ADR-0011-graphInject-framework-package-and-examples-apart)    | Accepted |
+| [0011 — GraphCompose: framework package and examples apart](ADR-0011-graphInject-framework-package-and-examples-apart)    | Accepted (its in-repo job-scout superseded by 0025) |
 | [0012 — Rename to GraphCompose](ADR-0012-Rename-to-GraphCompose)                                                           | Accepted |
 | [0013 — DTO classes instead of zod](ADR-0013-DTO-classes-instead-of-zod)                                                    | Accepted |
 | [0014 — The workflow file is the graph (transitions), the hub router removed](ADR-0014-Graph-as-transitions)               | Superseded by 0019 |
@@ -29,3 +29,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0022 — Child workflows as runs of their own](ADR-0022-Child-workflows-as-runs-of-their-own) | Accepted (reverses #263 S24) |
 | [0023 — The execution fence on the context](ADR-0023-Execution-fence-on-the-context) | Accepted |
 | [0024 — Published store contract suites](ADR-0024-Published-store-contract-suites) | Accepted |
+| [0025 — Examples live in agbossjs/agboss-examples](ADR-0025-Examples-live-in-agbossjs-agboss-examples) | Accepted |

@@ -96,7 +96,7 @@ span `rag:<name>` in Langfuse, tool mode is traced as a tool.
 ## Index
 
 ```bash
-npm run rag:index      # agboss rag index — every knowledge base of the application [--rag company_docs]
+npx agboss rag index   # every knowledge base of the application [--rag company_docs]
 # company_docs: 3 documents, 5 chunks, 0 unchanged · $0.000000
 ```
 

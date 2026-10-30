@@ -7,13 +7,15 @@ dependencies come through the **constructor**. The compiler checks every link. D
 compiles against the current package.
 
 ```
-examples/job-scout/src/
-  job-scout.workflow.ts            @Workflow — the module (the paths, defaults, providers, maxSteps)
-  workflow-starts/  routers/  agents/  actions/  workflow-finishes/
-  tools/  services/  mcp/  rag/  helpers/  environments/
+examples/flow-patterns/src/
+  flow-patterns.application.ts     @Application — its workflows, infrastructure, budgets
+  credit/                          a domain: kind folders only
+    workflows/credit/              credit.workflow.ts (the paths, maxSteps, providers) + its starts and finishes
+    agents/<n>/  routers/<n>/  actions/  dto/  services/  repositories/  errors/  sql/
 ```
 
-The example `examples/job-scout` uses every kind below — see [Example](Example).
+`examples/flow-patterns` uses every kind below; the standalone examples of agbossjs/agboss-examples
+(job-scout among them, as [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)) do too — see [Example](Example).
 
 ## Project layout (#474)
 
@@ -39,7 +41,8 @@ tests/                             mirrors src/ (Testing → Three kinds of test
   without a prompt file.
 - **A domain** (`src/billing/`) is any folder that is not a kind folder; it holds only kind folders.
   A folder named like a kind (`src/dto/`) is that kind.
-- `examples/job-scout` keeps its older flat layout (`workflow-starts/`, `agents/<n>.agent.ts`).
+- [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples, out of this repository since #489) keeps its older
+  flat layout (`workflow-starts/`, `agents/<n>.agent.ts`).
 
 ## Component rules
 

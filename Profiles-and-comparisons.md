@@ -38,21 +38,21 @@ prompts:
   when it is stale) → autocomplete and validation in editors with the YAML language server.
 
 Use a profile anywhere: `agboss chat --profile scout-low-thinking` (also `agboss run`,
-`agboss eval`, `agboss replay`, `agboss compare --profiles`; in job-scout `npm run chat -- --profile <name>`). `base` means no profile.
+`agboss eval`, `agboss replay`, `agboss compare --profiles`). `base` means no profile.
 
 ## Golden sets
 
 `golden/<workflow>/<name>.yaml` — tasks kept for reproducible comparisons:
 
 ```bash
-npm run golden -- add --name core --from-last 20   # last 20 real tasks (--start <name> with several starts)
+npx agboss golden add --name core --from-last 20   # last 20 real tasks (--start <name> with several starts)
 ```
 
 ## Compare
 
 ```bash
-npm run compare --profiles base,scout-low-thinking --golden core
-npm run compare --profiles base,scout-low-thinking --last 20
+npx agboss compare --profiles base,scout-low-thinking --golden core
+npx agboss compare --profiles base,scout-low-thinking --last 20
 ```
 
 ```
