@@ -36,7 +36,10 @@ import {
   ExecutionLeaseEventRepository,
   InMemoryExecutionLeaseEventRepository,
 } from "./execution-lease-event.repository.js";
+import { OutboundCallRepository } from "./outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
+import { OutboundCalls } from "../app/outbound-calls.js";
 
 /**
  * The infrastructure an application consumes (#261, S28; the shared contracts #265): a framework
@@ -70,6 +73,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
   [ExecutionLeaseEventRepository, InMemoryExecutionLeaseEventRepository],
+  [OutboundCallRepository, InMemoryOutboundCallRepository],
 ]);
 
 /**
@@ -79,6 +83,24 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
 export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
   ...INFRASTRUCTURE_DEFAULTS,
   [Logger, SilentLogger],
+]);
+
+/**
+ * The framework's services a component injects without listing them (#505: `OutboundCalls`),
+ * created by the application's container over its infrastructure — never infrastructure itself.
+ */
+const CORE_SERVICES: readonly (readonly [Class, Class])[] = [[OutboundCalls, OutboundCalls]];
+
+/** What an application's container creates when nothing listed provides it. */
+export const CONTAINER_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
+  ...INFRASTRUCTURE_DEFAULTS,
+  ...CORE_SERVICES,
+]);
+
+/** The same for a test's application: an unlisted `Logger` is silent. */
+export const TEST_CONTAINER_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
+  ...TEST_INFRASTRUCTURE_DEFAULTS,
+  ...CORE_SERVICES,
 ]);
 
 /** Whether `cls` is `contract` or extends it. */
@@ -113,6 +135,8 @@ export interface Infrastructure {
   readonly fencedEffects: FencedEffectRepository<unknown>;
   /** The lease log (#501): takeovers and hand-overs, always written. */
   readonly leaseEvents: ExecutionLeaseEventRepository;
+  /** The intents of calls that leave the system (#505): recorded before each is sent. */
+  readonly outboundCalls: OutboundCallRepository;
   /**
    * What the holders of leases take and renew them in, and their timers (the background renewal,
    * the local expiry) sleep on — a test's `leases.stall` gate (#471); absent = `executionLeases` on
@@ -152,6 +176,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
   leaseEvents: resolve(ExecutionLeaseEventRepository) as ExecutionLeaseEventRepository,
+  outboundCalls: resolve(OutboundCallRepository) as OutboundCallRepository,
 });
 
 /**

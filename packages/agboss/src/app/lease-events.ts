@@ -14,7 +14,7 @@ import {
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
 } from "../infrastructure/execution-lease-event.repository.js";
-import { ApplicationStoppingError } from "./application-stopping.js";
+import { ApplicationStoppingError } from "../core/errors.js";
 import type { HandedOver } from "./handed-over.js";
 import { ExecutionFencedError } from "./lease-lost.js";
 import type { LeaseEventLog } from "./execution-leases.js";

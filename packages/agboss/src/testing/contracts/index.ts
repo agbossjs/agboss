@@ -24,5 +24,6 @@ export {
 } from "./fenced-effect.contract.js";
 export { executionTreeContract } from "./execution-tree.contract.js";
 export { meshRequestContract } from "./mesh-request.contract.js";
+export { outboundCallContract, type OutboundCallStores } from "./outbound-call.contract.js";
 export { pausedExecutionContract } from "./paused-execution.contract.js";
 export { rateLimitContract } from "./rate-limit.contract.js";

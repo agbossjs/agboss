@@ -53,13 +53,19 @@ export interface WriteCount {
 /** A tree's lease long enough for a case (an hour of the case's clock). */
 export const CASE_LEASE: Milliseconds = hours(1);
 
+/** Stores whose cases take leases: the lease store of their database. */
+export interface LeaseHoldingStores {
+  readonly leases: ExecutionLeaseRepository;
+}
+
 /** The lease of `executionId` for `length`, taken by `stores`' instance; a case fails without it. */
-export async function leaseOf<TTransaction>(
-  stores: FencedEffectStores<TTransaction>,
+export async function leaseOf(
+  stores: LeaseHoldingStores,
   executionId = "execution-1",
   length: Milliseconds = CASE_LEASE,
+  tenantId = "default",
 ): Promise<ExecutionLease> {
-  const lease = await stores.leases.acquire("default", executionId, length);
+  const lease = await stores.leases.acquire(tenantId, executionId, length);
   if (lease === undefined)
     throw new Error(`the lease of ${executionId} is held by another instance`);
   return lease;

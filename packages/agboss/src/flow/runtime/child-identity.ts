@@ -1,3 +1,4 @@
+import type { ObservabilityMask } from "../../pii/observability-mask.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { extractRunContext, runIdOf, type RunContext } from "../../core/run-context.js";
@@ -114,10 +115,13 @@ export function childRunOf(
   parent: Frame,
   identity: ChildIdentityRecord,
   input: unknown,
+  mask: ObservabilityMask | undefined,
 ): RunContext {
   const { run } = extractRunContext(config, parent.execution.executionId);
   return {
     ...run,
+    // what the child's steps store is masked by its own workflow's policies (#505)
+    observability: mask,
     runId: runIdOf(identity.executionId),
     input: objectInput(input),
     tree: {

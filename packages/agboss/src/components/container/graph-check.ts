@@ -2,7 +2,7 @@ import { tokenName, type Class, type Token } from "../injection.js";
 import { ComponentError } from "../metadata.js";
 import { depsOf } from "./container.js";
 import { Registrations, type ProviderModule } from "./registrations.js";
-import { INFRASTRUCTURE_DEFAULTS } from "../../infrastructure/contracts.js";
+import { CONTAINER_DEFAULTS } from "../../infrastructure/contracts.js";
 import { undeclaredContextError } from "../context-tokens.js";
 
 /** Core tokens as registrations for the checks: their values are not needed to check the graph. */
@@ -35,7 +35,7 @@ export function checkGraph(
   modules: readonly ProviderModule[],
   core: readonly Token[],
 ): void {
-  const registrations = new Registrations(modules, coreOf(core), INFRASTRUCTURE_DEFAULTS);
+  const registrations = new Registrations(modules, coreOf(core), CONTAINER_DEFAULTS);
   const done = new Set<Token>();
   const visit = (cls: Class, chain: readonly string[]): void => {
     if (done.has(cls)) return;

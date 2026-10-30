@@ -1,5 +1,5 @@
 import { Injectable } from "../components/decorators.js";
-import { threadMapKeyOf } from "./thread-map-key.js";
+import { threadMapKeyOf } from "./in-memory-database.js";
 import type { PausedExecution } from "../app/paused-runs.js";
 import {
   cancelledPause,

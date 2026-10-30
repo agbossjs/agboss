@@ -34,7 +34,7 @@ import { admitRequest, executionEventAt, type ExecutionRequest } from "./run-eve
 import { checkedStart, textStartOf } from "./starts.js";
 import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
-import { ApplicationStoppingError } from "./application-stopping.js";
+import { ApplicationStoppingError } from "../core/errors.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";

@@ -18,6 +18,7 @@ import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionLeaseEventRecord } from "../infrastructure/execution-lease-event.repository.js";
+import type { OutboundCallRecord } from "../infrastructure/outbound-call.repository.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
@@ -278,13 +279,26 @@ export interface App {
    * tree has none.
    */
   leaseEventsOf(tree: LeaseEventsQuery): Promise<readonly ExecutionLeaseEventRecord[]>;
+  /**
+   * Every call that left the system from one execution tree (#505), in the order recorded, with
+   * its state — the intents of `OutboundCallRepository`, requests masked. Another tenant's tree has
+   * none.
+   */
+  outboundCallsOf(tree: LeaseEventsQuery): Promise<readonly OutboundCallRecord[]>;
+  /** A tenant's calls left pending (#505): what waits for reconciliation, or for an operator. */
+  pendingOutboundCalls(tenant: OutboundCallsQuery): Promise<readonly OutboundCallRecord[]>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
 }
 
-/** Which tree's lease log `app.leaseEventsOf` reads: the tenant's root execution. */
+/** Whose pending calls `app.pendingOutboundCalls` reads: a tenant's. */
+export interface OutboundCallsQuery {
+  readonly tenantId: string;
+}
+
+/** Which tree `app.leaseEventsOf` and `app.outboundCallsOf` read: the tenant's root execution. */
 export interface LeaseEventsQuery {
   readonly tenantId: string;
   readonly rootExecutionId: string;
@@ -294,4 +308,7 @@ export interface LeaseEventsQuery {
  * One workflow of an application at run time (internal): the app without the instance's probes and
  * lease log.
  */
-export type WorkflowApp = Omit<App, "checkLiveness" | "checkReadiness" | "leaseEventsOf">;
+export type WorkflowApp = Omit<
+  App,
+  "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCalls"
+>;

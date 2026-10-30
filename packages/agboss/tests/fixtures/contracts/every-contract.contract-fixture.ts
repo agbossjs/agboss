@@ -22,11 +22,13 @@ import {
   executionTreeContract,
   fencedEffectContract,
   meshRequestContract,
+  outboundCallContract,
   pausedExecutionContract,
   rateLimitContract,
   type ContractTarget,
 } from "../../../src/testing/contracts/index.js";
 import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
+import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import {
   inMemoryTarget,
   sharedInMemory,
@@ -77,6 +79,7 @@ executionTreeContract(
 );
 fencedEffectContract(fixtureStore(inMemoryFencedEffects(false)));
 meshRequestContract(fixtureStore(({ database }) => new InMemoryMeshRequestRepository(database)));
+outboundCallContract(fixtureStore(inMemoryOutboundCalls));
 pausedExecutionContract(
   fixtureStore((seam) =>
     sharedInMemory(seam, "paused", () => new InMemoryPausedExecutionRepository()),

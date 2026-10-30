@@ -24,7 +24,10 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { healthCheckRuleViolations } from "../health/health-check.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
-import { fencedEffectsViolations } from "../infrastructure/fenced-effect-settings.js";
+import {
+  fencedEffectsViolations,
+  outboundCallsViolations,
+} from "../infrastructure/fenced-effect-settings.js";
 import { fencedEffectStoreViolations } from "../infrastructure/in-memory-fenced-effect.repository.js";
 
 /**
@@ -202,6 +205,7 @@ export function applicationRuleViolations(
     ...stepCapViolations(options),
     ...meshHopsViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
+    ...outboundCallsViolations(options.name, options.outboundCalls),
     ...fencedEffectStoreViolations(options.name, options.providers ?? []),
     ...meshRuleViolations(
       options.name,

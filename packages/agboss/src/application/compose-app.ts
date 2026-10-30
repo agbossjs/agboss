@@ -19,6 +19,10 @@ import type {
 import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
+import {
+  OutboundCallStatus,
+  type OutboundCallRepository,
+} from "../infrastructure/outbound-call.repository.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
@@ -57,13 +61,38 @@ export interface InstanceSurface {
   readonly warnings: readonly string[];
   /** `app.leaseEventsOf` (#501): the instance's lease log. */
   readonly leaseEvents: ExecutionLeaseEventRepository;
+  /** `app.outboundCallsOf` / `app.pendingOutboundCalls` (#505): the instance's outbound calls. */
+  readonly outboundCalls: OutboundCallRepository;
 }
+
+/** What an operator reads of the instance: its probes, its lease log, its outbound calls. */
+type InstanceReads = Pick<
+  App,
+  "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCalls"
+>;
+
+const instanceReadsOf = ({
+  health,
+  leaseEvents,
+  outboundCalls,
+}: InstanceSurface): InstanceReads => ({
+  checkLiveness: () => health.checkLiveness(),
+  checkReadiness: () => health.checkReadiness(),
+  leaseEventsOf: ({ tenantId, rootExecutionId }) =>
+    leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
+  outboundCallsOf: ({ tenantId, rootExecutionId }) =>
+    // stored masked by the calling workflow's policies (#505): shown as stored
+    outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId),
+  pendingOutboundCalls: ({ tenantId }) =>
+    outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending),
+});
 
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  { stop, warnings, health, leaseEvents }: InstanceSurface,
+  surface: InstanceSurface,
 ): App {
+  const { stop, warnings } = surface;
   const [first] = workflows;
   // the assembly rejects an application without workflows
   if (first === undefined) throw new Error(`${assembled.name} has no workflows`);
@@ -99,10 +128,7 @@ export function composeApp(
     cancel: async (threadId, options) =>
       (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
     close: (options) => stop.close(options),
-    checkLiveness: () => health.checkLiveness(),
-    checkReadiness: () => health.checkReadiness(),
-    leaseEventsOf: ({ tenantId, rootExecutionId }) =>
-      leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
+    ...instanceReadsOf(surface),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   };
@@ -201,7 +227,8 @@ export function instanceAppOf(
   if (parts.quiet !== true)
     logStart(log, parts.contexts.application, assembled.workflows, warnings);
   const health = instanceHealthOf(assembled, workflows, { stop, sweep, ...parts });
-  const app = composeApp(assembled, workflows, { stop, warnings, health, ...infrastructure });
+  const surface = { stop, warnings, health, ...infrastructure };
+  const app = composeApp(assembled, workflows, surface);
   return { app, infrastructure, closed: stop.closed, log };
 }
 

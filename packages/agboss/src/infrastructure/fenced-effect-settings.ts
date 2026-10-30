@@ -45,18 +45,88 @@ export function fencedEffectsViolations(
   application: string,
   options: FencedEffectsOptions | undefined,
 ): RuleViolation[] {
-  const problems: string[] = [];
   const { maxResultSize, retention } = options ?? {};
-  if (maxResultSize !== undefined && !(maxResultSize > 0))
-    problems.push(`maxResultSize is ${String(maxResultSize)} bytes, not a positive size`);
+  return sizeAndRetentionProblems(["maxResultSize", maxResultSize], retention).map((problem) =>
+    violation(
+      "application.fenced-effects-invalid",
+      `its fencedEffects.${problem} — @Application({ fencedEffects: { maxResultSize: kilobytes(64), retention: hours(24) } })`,
+      [application],
+    ),
+  );
+}
+
+/**
+ * What is wrong with a size and a retention of rows a fenced write keeps (#500, #505): a size that
+ * is not positive, a retention not above the lease (30 s) — removed sooner, a mark or an intent
+ * would let a zombie's late write through.
+ */
+function sizeAndRetentionProblems(
+  [field, size]: readonly [string, Bytes | undefined],
+  retention: Milliseconds | undefined,
+): string[] {
+  const problems: string[] = [];
+  if (size !== undefined && !(size > 0))
+    problems.push(`${field} is ${String(size)} bytes, not a positive size`);
   if (retention !== undefined && !(retention > EXECUTION_LEASE))
     problems.push(
       `retention is ${String(retention)} ms, not above the lease's ${String(EXECUTION_LEASE)} ms`,
     );
-  return problems.map((problem) =>
+  return problems;
+}
+
+/** `@Application({ outboundCalls })` (#505): the largest request and result, how long ended intents are kept. */
+export interface OutboundCallsOptions {
+  /** The largest request and the largest result, each in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
+  readonly maxPayloadSize?: Bytes;
+  /**
+   * How long a `Completed` or `Failed` intent is kept after it ended (default `hours(168)`, a
+   * week), then removed by the recovery sweep on the `Clock`; a `Pending` one is never removed.
+   */
+  readonly retention?: Milliseconds;
+}
+
+/** The default largest request or result of an outbound call: 64 KB. */
+export const DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE: Bytes = kilobytes(64);
+
+/** The default retention of an ended outbound call: a week — reconciliation may come days later. */
+export const DEFAULT_OUTBOUND_CALL_RETENTION: Milliseconds = hours(168);
+
+/**
+ * The application's outbound-call settings (#505), as `OutboundCalls` and an outbound-call store
+ * read them: a DI token of the application's container.
+ */
+export class OutboundCallSettings {
+  /** The largest request or result, in UTF-8 bytes of its JSON. */
+  readonly maxPayloadSize: Bytes;
+  /** How long ended intents are kept. */
+  readonly retention: Milliseconds;
+  /**
+   * Whether a request is stored only masked (set by the assembly): the application or one of its
+   * workflows lists PII policies, so a step with no mask refuses its call rather than store it raw.
+   */
+  readonly requiresMask: boolean;
+
+  constructor(options: OutboundCallsOptions = {}, requiresMask = false) {
+    this.maxPayloadSize = options.maxPayloadSize ?? DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE;
+    this.retention = options.retention ?? DEFAULT_OUTBOUND_CALL_RETENTION;
+    this.requiresMask = requiresMask;
+    Object.freeze(this);
+  }
+}
+
+/**
+ * `@Application({ outboundCalls })` (#505): a positive `maxPayloadSize`, and a `retention` above
+ * the lease (30 s) — an intent must outlive the holder that may still complete it.
+ */
+export function outboundCallsViolations(
+  application: string,
+  options: OutboundCallsOptions | undefined,
+): RuleViolation[] {
+  const { maxPayloadSize, retention } = options ?? {};
+  return sizeAndRetentionProblems(["maxPayloadSize", maxPayloadSize], retention).map((problem) =>
     violation(
-      "application.fenced-effects-invalid",
-      `its fencedEffects.${problem} — @Application({ fencedEffects: { maxResultSize: kilobytes(64), retention: hours(24) } })`,
+      "application.outbound-calls-invalid",
+      `its outboundCalls.${problem} — @Application({ outboundCalls: { maxPayloadSize: kilobytes(64), retention: hours(168) } })`,
       [application],
     ),
   );

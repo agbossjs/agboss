@@ -27,6 +27,7 @@ const SUITES: Readonly<Record<string, string>> = {
   executionTreeContract: "execution tree contract",
   fencedEffectContract: "fenced effect contract",
   meshRequestContract: "mesh request contract",
+  outboundCallContract: "outbound call contract",
   pausedExecutionContract: "paused execution contract",
   rateLimitContract: "rate limit contract",
 };

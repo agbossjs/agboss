@@ -179,7 +179,7 @@ export function childRunner(
       inheritedUsage,
       idGenerator,
     });
-    const run = childRunOf(config, frame, entered.identity, input);
+    const run = childRunOf(config, frame, entered.identity, input, child.deps.pii?.observability);
     const ended = endedChildOf(child, frame, entered, entry.start.name, input);
     if (child.isRecursive) refuseBeyondMaxDepth(deps.graph, frame, ended, state.path);
     if (entered.isNew) await deps.observer?.onExecutionStart(eventOf(frame, ended));

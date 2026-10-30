@@ -81,3 +81,30 @@ export type { ExecutionData } from "../run/types.js";
 export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export type { Brand } from "../types/brand.js";
 export type { Milliseconds, Usd } from "../units/index.js";
+// calls that leave the system (#505): the store's contract, its in-memory default, the service,
+// its verdicts and outcome, its settings
+export {
+  OutboundCallRepository,
+  OutboundCallStatus,
+  type OutboundCallFailure,
+  type OutboundCallIntent,
+  type OutboundCallRecord,
+  type OutboundCallStep,
+} from "../infrastructure/outbound-call.repository.js";
+export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+export {
+  OutboundCallOutcomeStatus,
+  OutboundCallPart,
+  OutboundCallReconciliation,
+  OutboundCalls,
+  OutboundCallVerdict,
+  type OutboundCall,
+  type OutboundCallLookup,
+  type OutboundCallOptions,
+  type OutboundCallOutcome,
+  type OutboundCallUnknownOptions,
+} from "../app/outbound-calls.js";
+export {
+  OutboundCallSettings,
+  type OutboundCallsOptions,
+} from "../infrastructure/fenced-effect-settings.js";

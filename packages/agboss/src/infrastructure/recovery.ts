@@ -2,6 +2,7 @@ import type { PausedExecutionRepository } from "./paused-execution.repository.js
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { FencedEffectRepository } from "./fenced-effect.repository.js";
 import type { ExecutionLeaseEventRepository } from "./execution-lease-event.repository.js";
+import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { Clock } from "./clock.js";
 import { isHandedOver } from "../app/handed-over.js";
@@ -210,6 +211,9 @@ export interface RetentionSources {
   /** The lease log (#501) and `@Application({ leaseEventRetention })`: older rows are removed. */
   readonly leaseEvents?: ExecutionLeaseEventRepository | undefined;
   readonly leaseEventRetention?: Milliseconds | undefined;
+  /** The ended outbound calls (#505), removed after `outboundCalls.retention`; never a pending one. */
+  readonly outboundCalls?: OutboundCallRepository | undefined;
+  readonly outboundCallRetention?: Milliseconds | undefined;
 }
 
 /** One kind of rows: what they are, how they are removed before a cutoff, and how long they stay. */
@@ -220,7 +224,8 @@ interface Expiry {
 }
 
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
-  const { pauses, meshRequests, executionHistory, fencedEffects, leaseEvents } = sources;
+  const { pauses, meshRequests, executionHistory, fencedEffects, leaseEvents, outboundCalls } =
+    sources;
   return [
     {
       what: "the resolved pause records",
@@ -246,6 +251,11 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       what: "the lease log's old rows",
       remove: leaseEvents && ((cutoff) => leaseEvents.deleteByOccurredAtBefore(cutoff)),
       retention: sources.leaseEventRetention,
+    },
+    {
+      what: "the ended outbound calls",
+      remove: outboundCalls && ((cutoff) => outboundCalls.deleteByEndedAtBefore(cutoff)),
+      retention: sources.outboundCallRetention,
     },
   ];
 };

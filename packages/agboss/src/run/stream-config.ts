@@ -1,6 +1,5 @@
 import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import type { FrameLease } from "../flow/context/frame.js";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
@@ -32,9 +31,9 @@ export interface RunIdentity {
 const runContextOf = (
   identity: RunIdentity,
   options: AgentExecutionOptions,
-  lease: FrameLease | undefined,
-): RunContext =>
-  newRunContext({
+  { lease, pii }: Pick<AgentExecutionDeps<string>, "lease" | "pii">,
+): RunContext => ({
+  ...newRunContext({
     lease,
     runId: identity.runId,
     threadId: identity.threadId,
@@ -42,7 +41,10 @@ const runContextOf = (
     ownerId: options.ownerId,
     tenantId: identity.tenantId,
     input: objectInput(identity.input),
-  });
+  }),
+  // what its steps' outbound calls store of a request (#505)
+  observability: pii?.observability,
+});
 
 /** What the internal `run.input` holds: the start's input when it is an object (not a list). */
 function objectInput(input: unknown): Readonly<Record<string, unknown>> | undefined {
@@ -75,7 +77,7 @@ export function streamConfig<TName extends string>(
   if (options.onStream !== undefined) {
     callbacks.push(new StreamingCallbackHandler(options.onStream));
   }
-  const run = runContextOf(identity, options, deps.lease);
+  const run = runContextOf(identity, options, deps);
   const services = {
     run,
     ...(deps.clock === undefined ? {} : { clock: deps.clock }),

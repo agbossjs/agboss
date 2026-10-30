@@ -23,7 +23,10 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
 import { DEFAULT_MAX_MESH_HOPS } from "../mesh/mesh-defaults.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
-import { FencedEffectSettings } from "../infrastructure/fenced-effect-settings.js";
+import {
+  FencedEffectSettings,
+  OutboundCallSettings,
+} from "../infrastructure/fenced-effect-settings.js";
 
 /** `@Application({ maxMeshHops, mesh })` (#398), as assembled. */
 const meshOptionsOf = (
@@ -74,6 +77,8 @@ export interface AssembledApplication {
   readonly compensationTimeout: Milliseconds;
   /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
   readonly fencedEffects: FencedEffectSettings;
+  /** `@Application({ outboundCalls })` (#505): what `OutboundCalls` and its store read. */
+  readonly outboundCalls: OutboundCallSettings;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Application({ maxMeshHops })` (#398): the longest call chain it accepts. */
@@ -207,6 +212,14 @@ const retentionsOf = (options: ApplicationOptions) => ({
   leaseEventRetention: options.leaseEventRetention ?? LEASE_EVENT_RETENTION,
 });
 
+/** Whether anything stored must be masked: the application or a workflow lists PII policies. */
+const hasPiiPolicies = (
+  options: ApplicationOptions,
+  workflows: readonly AssembledWorkflow[],
+): boolean =>
+  (options.piiPolicies ?? []).length > 0 ||
+  workflows.some((workflow) => (workflow.pii?.observability ?? []).length > 0);
+
 export async function applicationOf(
   application: Class,
   assembly: ApplicationAssembly = {},
@@ -236,6 +249,10 @@ export async function applicationOf(
     ...retentionsOf(options),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     fencedEffects: new FencedEffectSettings(options.fencedEffects),
+    outboundCalls: new OutboundCallSettings(
+      options.outboundCalls,
+      hasPiiPolicies(options, assembled),
+    ),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

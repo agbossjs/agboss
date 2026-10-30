@@ -2,7 +2,7 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TernOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
-import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/thread-map-key.js";
+import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 
