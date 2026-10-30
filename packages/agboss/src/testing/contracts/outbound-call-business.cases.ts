@@ -126,5 +126,12 @@ const closedLease: OutboundCallCase = {
 /** The business-key cases. */
 export const outboundBusinessKeyCases = (): ContractGroup<OutboundCallStores> => ({
   title: "business keys",
-  cases: [oneAcrossExecutions, settledByAnother, stepKeyApart, tenantsApart, openLease, closedLease],
+  cases: [
+    oneAcrossExecutions,
+    settledByAnother,
+    stepKeyApart,
+    tenantsApart,
+    openLease,
+    closedLease,
+  ],
 });

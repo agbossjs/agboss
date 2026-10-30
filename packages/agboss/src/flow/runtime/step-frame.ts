@@ -128,6 +128,7 @@ export function stepFrameAt(
       ...(run.lease === undefined ? {} : { lease: run.lease }),
       observability: run.observability,
       correlationKey: state.piiKey ?? run.correlationKey,
+      fingerprintKey: run.fingerprintKey,
       // a child execution (#263): its parent's execution and launching step, its item; a root: the
       // call chain its mesh calls carry (#398)
       ...(run.tree === undefined

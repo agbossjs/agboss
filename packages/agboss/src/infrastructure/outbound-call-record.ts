@@ -63,6 +63,8 @@ export interface OutboundCallRecord extends OutboundCallIntent {
   readonly businessKey?: string;
   /** What it does, as a hash of its request (#508): another one under its business key conflicts. */
   readonly fingerprint?: string;
+  /** Its business key's handle (#508, `FencedEffectKey.businessKeyHash`): what reads show of it. */
+  readonly businessKeyHash?: string;
   /** When it was recorded (ISO 8601, the application's `Clock`). */
   readonly recordedAt: string;
   /** When it last ended — `Completed` or `Failed`; none while `Pending`. */

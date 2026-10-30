@@ -287,11 +287,13 @@ export function withoutEnd(found: OutboundCallRecord): OutboundCallRecord {
   return record;
 }
 
-/** `found` ended as `ending` at `endedAt` — only while `attemptOwner` still owns its attempt. */
+/** `found` ended as `ending` at `endedAt` — only while it is pending and `attemptOwner` owns it. */
 export const endedOf = (
   found: OutboundCallRecord,
   attemptOwner: string,
   ending: OutboundCallEnding,
   endedAt: string,
 ): OutboundCallRecord | undefined =>
-  found.attemptOwner === attemptOwner ? { ...withoutEnd(found), ...ending, endedAt } : undefined;
+  found.attemptOwner === attemptOwner && found.status === OutboundCallStatus.Pending
+    ? { ...withoutEnd(found), ...ending, endedAt }
+    : undefined;

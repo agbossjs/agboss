@@ -13,7 +13,6 @@ import {
   checkedCall,
   keyedByRequest,
   replayedFromOf,
-  reportedKeyOf,
   stateOf,
 } from "./outbound-call-business.js";
 import {
@@ -22,6 +21,7 @@ import {
   maskedFailureOf,
   outcomeOf,
   storedJson,
+  storedResultOf,
   told,
   type CallRun,
   type OutboundCallParts,
@@ -31,12 +31,12 @@ import {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
-  OutboundCallUnreconciledError,
   OutboundCallVerdict,
   type OutboundCallOptions,
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
 
+import { superseded, unreconciledOf } from "./outbound-call-endings.js";
 import { joinedOrMade, owning } from "./outbound-call-join.js";
 
 export type { OutboundCallParts } from "./outbound-call-parts.js";
@@ -78,14 +78,19 @@ async function sendNow<TRequest, TResult>(
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
     if (!call.signal.aborted) {
-      await repository.markFailed(run.key, owner, await maskedFailureOf(run, error));
-      told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
+      if (error instanceof Object) run.parts.providerErrors.add(error);
+      const failure = await maskedFailureOf(run, error);
+      if (!(await repository.markFailed(run.key, owner, failure))) await superseded(run, attempt);
+      else told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
     }
     throw error;
   }
-  // stored masked; the step gets the answer as it is
-  const stored = await storedJson(run, OutboundCallPart.Result, answer);
-  await repository.markCompleted(run.key, owner, stored);
+  // stored masked (or a marker: the call happened); the step gets the answer as it is
+  const stored = await storedResultOf(run, answer);
+  if (!(await repository.markCompleted(run.key, owner, stored))) {
+    await superseded(run, attempt);
+    return outcomeOf(run, OutboundCallOutcomeStatus.Superseded, answer, attempt);
+  }
   told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Sent, answer, attempt);
 }
@@ -114,29 +119,19 @@ async function reconciled<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
-  const unreconciled = (reason: string, cause?: unknown): OutboundCallUnreconciledError => {
-    told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
-    return new OutboundCallUnreconciledError(
-      {
-        ...run.options,
-        name: run.key.name,
-        idempotencyKey: reportedKeyOf(run.key, run.idempotencyKey),
-        reason,
-      },
-      cause,
-    );
-  };
+  const unreconciled = (reason: string, cause?: unknown) =>
+    unreconciledOf(run, found, reason, cause);
   let verdict: unknown;
   try {
     verdict = await run.options.reconcile(lookupOf(run, found.request, found.attempt));
   } catch (error) {
-    throw unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
+    throw await unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
   }
   if (!(verdict instanceof OutboundCallReconciliation))
-    throw unreconciled("reconcile gave no OutboundCallReconciliation verdict");
+    throw await unreconciled("reconcile gave no OutboundCallReconciliation verdict");
   if (verdict.verdict === OutboundCallVerdict.NotSent) return movedAndSent(run, found, true);
-  if (verdict.verdict === OutboundCallVerdict.Unknown) throw unreconciled(verdict.reason);
-  const stored = await storedJson(run, OutboundCallPart.Result, verdict.result);
+  if (verdict.verdict === OutboundCallVerdict.Unknown) throw await unreconciled(verdict.reason);
+  const stored = await storedResultOf(run, verdict.result);
   // settled for its owner, which is gone; one that moved it on meanwhile wins: read again
   if (!(await run.parts.repository.markCompleted(run.key, found.attemptOwner, stored)))
     return undefined;

@@ -1,4 +1,5 @@
 import { errorRecordOf } from "../core/error-record.js";
+import { reportedKeyOf } from "./outbound-call-business.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
@@ -21,7 +22,7 @@ import {
   type OutboundCallOptions,
   type OutboundCallOutcome,
   type OutboundCallOutcomeStatus,
-  type OutboundCallPart,
+  OutboundCallPart,
 } from "./outbound-calls.js";
 
 /**
@@ -40,6 +41,8 @@ export interface OutboundCallParts {
   readonly live: Map<string, LiveCall>;
   /** The attempt owners this instance is sending under now (#508): their attempts are in flight. */
   readonly owners: Set<string>;
+  /** The errors the other system answered with (#508): what a joined call shares. */
+  readonly providerErrors: WeakSet<object>;
 }
 
 /** A call this instance is making now: what it does (#508: its fingerprint) and its outcome. */
@@ -87,10 +90,37 @@ export async function maskedFailureOf<TRequest, TResult>(
   error: unknown,
 ): Promise<OutboundCallFailure> {
   const { name, code, message } = errorRecordOf(error);
+  return { name, code, message: await maskedTextOf(run, message) };
+}
+
+/**
+ * `text` as the frame's mask shows it — a failure's message, `reconcile`'s reason — `[redacted]`
+ * where the application lists policies and the frame has no mask, or where masking failed (#508):
+ * never stored or thrown as it is.
+ */
+export async function maskedTextOf<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  text: string,
+): Promise<string> {
   const mask = run.frame.execution.observability;
-  if (mask === undefined)
-    return { name, code, message: run.parts.settings.requiresMask ? REDACTED : message };
-  return { name, code, message: String(await mask.traceData(message)) };
+  if (mask === undefined) return run.parts.settings.requiresMask ? REDACTED : text;
+  return mask.traceData(text).then(String, () => REDACTED);
+}
+
+/**
+ * What a completed attempt stores of `result` (#508): the masked JSON — or, when it cannot be stored
+ * (above the limit, refused by the mask), a marker saying so: the call happened, so the attempt
+ * ends `Completed` either way, never `Failed` (which would send it again).
+ */
+export async function storedResultOf<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  result: unknown,
+): Promise<string> {
+  try {
+    return await storedJson(run, OutboundCallPart.Result, result);
+  } catch (error) {
+    return JSON.stringify({ "agboss:result-not-stored": errorRecordOf(error).code });
+  }
 }
 
 /** What `send` gets: the real request, in memory only. */
@@ -131,7 +161,8 @@ export const outcomeOf = <TRequest, TResult>(
   // the JSON of a result of this call: what `send` or `reconcile` answered, or what was stored
   result: JSON.parse(JSON.stringify(result)) as TResult,
   attempt,
-  idempotencyKey: run.idempotencyKey,
+  // a business key never in what the step may hand a model (#508): its handle only
+  idempotencyKey: reportedKeyOf(run.key, run.idempotencyKey),
 });
 
 /** Tells the lease log and `onOutboundCall` of a move of the call (#505): never its payload. */
@@ -140,6 +171,7 @@ export function told<TRequest, TResult>(
   outcome: OutboundCallEventOutcome,
   [status, attempt]: readonly [OutboundCallStatus, number],
   replayedFrom?: FencedEffectOrigin,
+  supersededBy?: number,
 ): void {
   const { key, options, frame } = run;
   frame.execution.lease?.recordOutboundCall?.({
@@ -147,5 +179,6 @@ export function told<TRequest, TResult>(
     ...{ name: key.name, target: options.target, operation: options.operation },
     ...{ status, attempt, outcome, scopeKey: key.scopeKey, token: key.token },
     ...(replayedFrom === undefined ? {} : { replayedFrom }),
+    ...(supersededBy === undefined ? {} : { supersededBy }),
   });
 }

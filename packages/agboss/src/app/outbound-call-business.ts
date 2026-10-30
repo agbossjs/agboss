@@ -26,12 +26,14 @@ export const keyedByRequest = (key: FencedEffectKey, request: unknown): FencedEf
 
 /**
  * The idempotency key sent with the call: the step's key and the name — or, with a business key,
- * the tenant, the business key and the name, the same from every step and execution.
+ * the tenant, the business key and the name, the same from every step and execution. Each part is
+ * unambiguous (#508): the tenant and the business key `encodeURIComponent`-encoded, the name
+ * without a `:` (`fencedEffectKeyOf` checks it), so two keys never give one string.
  */
 export const callKeyOf = (key: FencedEffectKey): string =>
   key.businessKey === undefined
     ? `${key.idempotencyKey}:${key.name}`
-    : `${encodeURIComponent(key.tenantId)}:${key.businessKey}:${key.name}`;
+    : `${encodeURIComponent(key.tenantId)}:${encodeURIComponent(key.businessKey)}:${key.name}`;
 
 /**
  * Checks a found intent (#505, #508): under a business key another fingerprint is

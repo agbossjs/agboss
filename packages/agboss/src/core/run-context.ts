@@ -39,6 +39,8 @@ export interface RunContext {
    * unless the execution has a key of its own (#334).
    */
   readonly correlationKey?: string | undefined;
+  /** The application's own PII key, when it sets one (#508): what a fingerprint is keyed by. */
+  readonly fingerprintKey?: string | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */

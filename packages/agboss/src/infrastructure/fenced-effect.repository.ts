@@ -283,6 +283,7 @@ export {
   FencedEffectStoreMismatchError,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
+  InvalidFencedEffectNameError,
   type FencedEffectKeyOptions,
   type FencedEffectResultTooLargeErrorOptions,
   type FencedEffectStoreMismatchErrorOptions,

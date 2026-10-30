@@ -15,10 +15,15 @@ import { OutboundCallOutcomeStatus, type OutboundCallOutcome } from "./outbound-
 /** What a call of this instance is known by while it is made: its key's row (a business key's). */
 const liveKeyOf = (key: FencedEffectKey): string => `${key.tenantId}\u0000${identityOf(key)}`;
 
-/** The outcome of the call this instance is making now: shared, or its error. */
+/**
+ * The outcome of the call this instance is making now: shared when it succeeded, its error when
+ * the other system answered with one (#508); anything else of the first call's own — its hand-over,
+ * its cancel — is not this call's: it makes the call itself, under its own frame.
+ */
 async function joinedTo<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   joined: LiveCall,
+  make: () => Promise<OutboundCallOutcome<TResult>>,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { key } = run;
   if (key.businessKey !== undefined && joined.fingerprint !== key.fingerprint)
@@ -30,7 +35,12 @@ async function joinedTo<TRequest, TResult>(
       reject(signal.reason as Error);
     });
   });
-  const first = await Promise.race([joined.outcome, aborted]);
+  const shared = joined.outcome.catch((error: unknown) => {
+    if (error instanceof Object && run.parts.providerErrors.has(error)) throw error;
+    return undefined;
+  });
+  const first = await Promise.race([shared, aborted]);
+  if (first === undefined) return joinedOrMade(run, make);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
 }
@@ -43,7 +53,7 @@ export async function joinedOrMade<TRequest, TResult>(
   const { parts, key } = run;
   const live = liveKeyOf(key);
   const joined = parts.live.get(live);
-  if (joined !== undefined) return joinedTo(run, joined);
+  if (joined !== undefined) return joinedTo(run, joined, make);
   const call = { fingerprint: key.fingerprint, outcome: make() };
   parts.live.set(live, call);
   const { signal } = run.frame.execution;

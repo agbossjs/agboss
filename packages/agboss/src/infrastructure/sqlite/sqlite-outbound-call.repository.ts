@@ -52,6 +52,10 @@ const whereOf = (key: FencedEffectKey): readonly [string, readonly string[]] =>
     ? [BY_STEP, [key.scopeKey, key.idempotencyKey, key.name]]
     : [BY_BUSINESS_KEY, [key.tenantId, key.name, key.businessKey]];
 
+/** The row as its writer read it: its status, attempt and attempt owner (#508). */
+const AS_READ =
+  "status = ? AND json_extract(record, '$.attempt') = ? AND json_extract(record, '$.attemptOwner') = ?";
+
 /** A row's record, as the store wrote it. */
 const recordOf = (row: unknown): OutboundCallRecord =>
   // written by this store from an OutboundCallRecord
@@ -166,9 +170,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
     const lease = { tenantId, leaseExecutionId, token };
-    return Promise.resolve(
-      isSqliteLeaseOpen(this.connection.database, lease),
-    );
+    return Promise.resolve(isSqliteLeaseOpen(this.connection.database, lease));
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
@@ -193,19 +195,33 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return this.#fenced(key, () => {
       const found = this.#found(key);
       const changed = found === undefined ? undefined : change(found);
-      if (changed !== undefined) this.#write(key, changed);
-      return changed !== undefined;
+      return found !== undefined && changed !== undefined && this.#written(key, changed, found);
     });
   }
 
-  /** Writes `change` as the key's intent, under the key's token (inside a fenced transaction). */
-  #write(key: FencedEffectKey, change: OutboundCallRecord): void {
+  /**
+   * Writes `change` as the key's intent, under the key's token (inside a fenced transaction) — only
+   * while the row is still `from` (its status, attempt and attempt owner repeated in the `WHERE`):
+   * exactly one row changed, or nothing. The reference for a port to a store with row locks.
+   */
+  #written(key: FencedEffectKey, change: OutboundCallRecord, from: OutboundCallRecord): boolean {
     const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
     const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
     const [where, values] = whereOf(key);
-    this.connection.database
-      .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${where}`)
-      .run(record.status, endedAt, JSON.stringify(record), ...values);
+    const { changes } = this.connection.database
+      .prepare(
+        `UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,
+      )
+      .run(
+        record.status,
+        endedAt,
+        JSON.stringify(record),
+        ...values,
+        from.status,
+        from.attempt,
+        from.attemptOwner,
+      );
+    return Number(changes) === 1;
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

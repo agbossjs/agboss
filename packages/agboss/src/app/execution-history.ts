@@ -1,4 +1,5 @@
 import { ExecutionCancelledError } from "../core/errors.js";
+import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { buildCostReport } from "../finops/usage.js";
 import { compensationRecordsOf } from "../flow/compensation.js";
@@ -182,7 +183,7 @@ async function maskedRecordOf(
     pauses: answers,
     children: withChildPauses(record.children, answers),
     // its calls that left the system (#505), masked with the record: results and failure texts too
-    ...(calls === undefined ? {} : { outboundCalls: calls }),
+    ...(calls === undefined ? {} : { outboundCalls: calls.map(shownCallOf) }),
   };
   // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden
   const masked = (await keeper.mask.traceData(answered)) as typeof answered;

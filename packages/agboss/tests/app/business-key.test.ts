@@ -152,7 +152,7 @@ describe("#508 AC2: two executions on two threads", () => {
     const second = await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
     expect(gateway.calls).toHaveLength(1);
-    expect(gateway.calls[0]?.idempotencyKey).toBe("default:order:42:charge");
+    expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A42:charge");
     expect(second.output).toEqual(first.output);
     expect(ledger.outbound).toEqual([
       OutboundCallOutcomeStatus.Sent,
@@ -162,7 +162,15 @@ describe("#508 AC2: two executions on two threads", () => {
       tenantId: "default",
       rootExecutionId: first.executionId,
     });
-    expect(calls).toEqual([expect.objectContaining({ businessKey: "order:42" })]);
+    // an operator's read shows the business key by its handle only (#508)
+    expect(calls).toEqual([
+      expect.objectContaining({
+        businessKeyHash: TEST_KEYED,
+        idempotencyKey: `business-key:${TEST_KEYED}:charge`,
+      }),
+    ]);
+    expect(JSON.stringify(calls)).not.toContain("order:42");
+    expect(JSON.stringify(calls)).not.toContain("order%3A42");
   });
 });
 
@@ -279,8 +287,8 @@ describe("#508: a pending call under a business key", () => {
     const second = await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
     expect(ledger.outbound).toEqual([OutboundCallOutcomeStatus.Sent]);
-    expect(gateway.lookups).toEqual([{ idempotencyKey: "default:order:42:charge", attempt: 1 }]);
-    expect(gateway.calls).toEqual([{ idempotencyKey: "default:order:42:charge", attempt: 2 }]);
+    expect(gateway.lookups).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 1 }]);
+    expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
     expect(second.output).toEqual({ chargeId: "ch-42-1" });
   });
 });
@@ -361,8 +369,10 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
       await clock.advance(seconds(31));
       const [end] = await ends(1);
 
-      expect(gateway.lookups).toEqual([{ idempotencyKey: "default:order:42:charge", attempt: 1 }]);
-      expect(gateway.calls).toEqual([{ idempotencyKey: "default:order:42:charge", attempt: 2 }]);
+      expect(gateway.lookups).toEqual([
+        { idempotencyKey: "default:order%3A42:charge", attempt: 1 },
+      ]);
+      expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
       expect(end?.output).toEqual({ chargeId: "ch-42-1" });
       leases.resume(a);
     },

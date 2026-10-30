@@ -1,6 +1,7 @@
 import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
+import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
 
@@ -45,7 +46,18 @@ const runContextOf = (
   // what its steps' outbound calls store of a request (#505)
   observability: pii?.observability,
   // what a business key's handle in an error is keyed by (#508)
+  ...piiKeysOf(pii),
+});
+
+/**
+ * The keys a run's steps derive from its PII key (#508): a business key's handle (the field key)
+ * and a fingerprint's (the application's own key only — the same on every instance).
+ */
+export const piiKeysOf = (
+  pii: Pick<PiiRuntime, "fieldKey" | "isInstanceKey"> | undefined,
+): Pick<RunContext, "correlationKey" | "fingerprintKey"> => ({
   correlationKey: pii?.fieldKey,
+  ...(pii === undefined || pii.isInstanceKey ? {} : { fingerprintKey: pii.fieldKey }),
 });
 
 /** What the internal `run.input` holds: the start's input when it is an object (not a list). */

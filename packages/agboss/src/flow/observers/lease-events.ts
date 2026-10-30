@@ -129,6 +129,11 @@ export interface OutboundCallEvent extends NodeEvent {
   readonly holderInstanceId: string;
   /** A business key's replay of a call another step or execution made (#508): that step. */
   readonly replayedFrom?: FencedEffectOrigin;
+  /**
+   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * both reached the other system.
+   */
+  readonly supersededBy?: number;
 }
 
 /**

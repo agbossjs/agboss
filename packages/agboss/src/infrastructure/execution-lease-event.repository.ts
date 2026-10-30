@@ -43,6 +43,11 @@ export enum OutboundCallEventOutcome {
   Unknown = "unknown",
   /** The other system answered with an error: the intent is failed. */
   Failed = "failed",
+  /**
+   * Answered after a newer attempt took the intent over (#508): two attempts reached the other
+   * system — its answer not stored, an error in the log.
+   */
+  Superseded = "superseded",
   /** The same call was being made by this instance: its outcome shared, nothing sent again. */
   Joined = "joined",
 }
@@ -179,6 +184,11 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   readonly step: LeaseEventStep;
   /** A business key's replay of a call another step or execution made (#508): that step. */
   readonly replayedFrom?: FencedEffectOrigin;
+  /**
+   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * both reached the other system.
+   */
+  readonly supersededBy?: number;
 }
 
 /** One row of the lease log. */

@@ -65,6 +65,11 @@ export interface ExecutionFacts {
    * else the application's. None where no key is available: an error then shows no handle.
    */
   readonly correlationKey?: string | undefined;
+  /**
+   * The application's `pseudonymKey` (#508): what a business key's fingerprint is keyed by — the
+   * same on every instance. None without one.
+   */
+  readonly fingerprintKey?: string | undefined;
 }
 
 /**

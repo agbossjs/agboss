@@ -2,8 +2,9 @@ import { AGBossError } from "../core/errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
+import type { OutboundCallRecord } from "./outbound-call-record.js";
 import { isThreadId } from "../run/thread.js";
-import { versionOf } from "../terns/index.js";
+import { stableJson, versionOf } from "../terns/index.js";
 import type {
   FencedEffectKey,
   FencedEffectOrigin,
@@ -29,8 +30,22 @@ export interface FencedEffectKeyOptions<TFingerprint = unknown> {
   readonly fingerprint?: JsonResult<TFingerprint>;
 }
 
-/** The fingerprint of `value`: SHA-256 of its canonical JSON. */
-export const fingerprintOf = (value: unknown): string => versionOf(value);
+/** The label the fingerprint's subkey is derived under (#508): `HMAC(applicationKey, label)`. */
+export const FINGERPRINT_LABEL = "agboss/fingerprint/v1";
+
+/**
+ * The fingerprint of `value` (#508): an HMAC-SHA256 of its canonical JSON under a subkey of the
+ * application's `pseudonymKey` — the same in every execution and on every instance, so a business
+ * key's calls compare across them, and no guessable request can be found from it. An application
+ * without a `pseudonymKey` has no key its instances share: its fingerprints are a SHA-256 under the
+ * same label (the startup warning `[application.pii-instance-key]` says so).
+ */
+export function fingerprintOf(value: unknown): string {
+  const text = `fingerprint\u0000${stableJson(value)}`;
+  const key = currentFrame()?.execution.fingerprintKey;
+  if (key === undefined) return versionOf(`${FINGERPRINT_LABEL}\u0000${text}`);
+  return keyedDigestOf(keyedDigestOf(key, FINGERPRINT_LABEL), text);
+}
 
 /**
  * The key of the current step's effect `name` (#500): the lease the step runs under
@@ -46,6 +61,7 @@ export function fencedEffectKeyOf<TFingerprint>(
   name: string,
   options?: FencedEffectKeyOptions<TFingerprint>,
 ): FencedEffectKey {
+  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
   const { fence, step } = executionContext;
   const origin = {
     executionId: executionContext.executionId,
@@ -72,6 +88,24 @@ export function fencedEffectKeyOf<TFingerprint>(
   const businessKeyHash = businessKeyHashOf(options.businessKey);
   const handle = businessKeyHash === undefined ? {} : { businessKeyHash };
   return Object.freeze({ ...key, businessKey: options.businessKey, ...fingerprint, ...handle });
+}
+
+/** An effect's name (#508): letters, digits, `.`, `_`, `-`, 1–100 — never a `:` of the keys it is in. */
+const EFFECT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
+
+/**
+ * An effect's or a call's name that is not one (#508): it must be 1–100 letters, digits, `.`, `_` or
+ * `-`, starting with a letter or a digit — it is part of the keys sent to other systems.
+ */
+export class InvalidFencedEffectNameError extends AGBossError {
+  static override readonly code: string = "fenced-effect.invalid-name";
+  override name = "InvalidFencedEffectNameError";
+
+  constructor(length: number) {
+    super(
+      `a fenced effect's name (${String(length)} characters) must be 1–100 letters, digits, ".", "_" or "-", starting with a letter or a digit`,
+    );
+  }
 }
 
 /** What an invalid business key knows: the effect, and why — never the key itself. */
@@ -249,7 +283,20 @@ export class FencedEffectStoreMismatchError extends AGBossError {
 /** A key's business identity as a record keeps it (#508): none for a step's key. */
 export const businessFactsOf = (
   key: FencedEffectKey,
-): { readonly businessKey?: string; readonly fingerprint?: string } => ({
+): Pick<OutboundCallRecord, "businessKey" | "fingerprint" | "businessKeyHash"> => ({
   ...(key.businessKey === undefined ? {} : { businessKey: key.businessKey }),
   ...(key.fingerprint === undefined ? {} : { fingerprint: key.fingerprint }),
+  ...(key.businessKeyHash === undefined ? {} : { businessKeyHash: key.businessKeyHash }),
 });
+
+/**
+ * A call as an operator's read, a kept record and an export show it (#508): a business key only by
+ * its handle — never the key, in itself or inside the key the call went with.
+ */
+export function shownCallOf(record: OutboundCallRecord): OutboundCallRecord {
+  if (record.businessKey === undefined) return record;
+  const shown = { ...record };
+  delete shown.businessKey;
+  const handle = record.businessKeyHash === undefined ? "" : `${record.businessKeyHash}:`;
+  return { ...shown, idempotencyKey: `business-key:${handle}${record.name}` };
+}

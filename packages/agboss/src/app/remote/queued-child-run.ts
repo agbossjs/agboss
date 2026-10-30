@@ -6,11 +6,8 @@ import { runIdOf, type RunContext } from "../../core/run-context.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../../flow/runtime/build.js";
 import { asRootRun, isExecutionState } from "../../flow/runtime/child-thread.js";
-import {
-  decodedRun,
-  parentOfRecord,
-  type RemoteChildRun,
-} from "../../flow/runtime/remote/remote-child-run.js";
+import { decodedRun, parentOfRecord } from "../../flow/runtime/remote/remote-child-run.js";
+import type { RemoteChildRun } from "../../flow/runtime/remote/remote-child-run.js";
 import { failureTextOf } from "../../flow/runtime/remote/remote-failure.js";
 import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../../graph/deps.js";
@@ -23,7 +20,7 @@ import type {
 import { drainRun, outcomeError } from "../../run/execute.js";
 import { pausedLoopsOf, pausedUsageOf } from "../../run/paused.js";
 import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
-import { streamConfig } from "../../run/stream-config.js";
+import { piiKeysOf, streamConfig } from "../../run/stream-config.js";
 import { openPausesOf } from "../../run/waiting-pauses.js";
 import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
@@ -49,7 +46,7 @@ class QueuedChildError extends Error {
 interface ChildRunSite {
   readonly signal: AbortSignal;
   readonly lease: HeldExecutionLease;
-  readonly pii: Pick<PiiRuntime, "observability" | "fieldKey"> | undefined;
+  readonly pii: Pick<PiiRuntime, "observability" | "fieldKey" | "isInstanceKey"> | undefined;
 }
 
 /** The child's run context on this instance: its parents rebuilt, the worker's signal. */
@@ -80,7 +77,7 @@ function runContextOf(
     tree: { parent, itemIndex: run.initial.child.itemIndex },
     // what its steps store is masked by its own workflow's policies (#505)
     observability: pii?.observability,
-    correlationKey: pii?.fieldKey,
+    ...piiKeysOf(pii),
   };
 }
 
