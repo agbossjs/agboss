@@ -66,9 +66,25 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
    ```bash
    set -euo pipefail
    cd "$WORKSPACE_ROOT/agboss-examples" && \
+     AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      npm run verify:published -- --live-registry --version "$RELEASE_VERSION"
    # then pin .agboss-version.json (frameworkSha) to the release commit — Step 1.2 — in a PR there
    ```
+
+   `AGBOSS_NPM_BEFORE` lets this one install take the release published minutes ago (the policy below).
+
+---
+
+## Dependency installs: lockfiles and the minimum release age (#523)
+
+No install in CI or in a release script takes a dependency version nobody reviewed. A release a few minutes old is what a registry mirror may not have yet (a flaky 404, `@langchain/langgraph-sdk@1.12.9` in #522) and what nobody has looked at yet — the window in which a malicious release is usually caught and pulled. The policy, in `agbossjs/agboss`, `agbossjs/postgres` and `agbossjs/agboss-examples` alike:
+
+- **A lockfile where there is one: `npm ci`.** Every workflow step installs with `npm ci` (`npm --prefix <dir> ci` for a checked-out repository). `npm run check:installs` (in `make check`, so in CI; the same check in the other two repositories) fails on a workflow's `npm install` / `npm i` / `npm add` / `npm update` without `--before`.
+- **A minimum release age of 3 days where ranges must be resolved:** a probe project built from the packed tarballs (`npm run check:packed` here; `install:packed`, `install:published`, `verify:package`, `verify:published` in the other two), whose dependencies have no lockfile of their own. The scripts install with `npm install --before=<now − 3 days>`, computed when they run (`scripts/packed/npm-before.mjs` here, `npm-before.mjs` in the scripts of the other two; `check:installs` fails on a script that passes `install` to npm any other way). `@agboss/*` tarballs installed by path are exempt — `--before` filters registry versions, never a file.
+- **`npx` only for a package pinned to an exact version** (`npx tsx@4.20.3`); a project's own tool runs from its `node_modules/.bin`. `check:installs` fails on an unpinned `npx` / `npm exec` in a workflow and on any `npx` in a script.
+- **`AGBOSS_NPM_BEFORE=<ISO 8601 date>`** overrides the date — only by the maintainer, locally, at release time: to verify the candidate against the very latest dependencies (`AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"`, then `npm run check:packed` here, or `install:packed` in agbossjs/agboss-examples), and for the install right after publishing (step 3 above), which must reach a release minutes old. Never in a workflow; a date that does not parse stops the script.
+
+Real-time thresholds go with it (#509, #523): no test asserts a real elapsed duration against a fixed number — it asserts on the `Clock` (a `VirtualClock` it advances) or on the order of events; `npm run check:real-time` (in `make check`) fails on one, and `scripts/flaky-probe.mjs` proves a rewritten test at 50 runs out of 50.
 
 ---
 

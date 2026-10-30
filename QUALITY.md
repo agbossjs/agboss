@@ -214,6 +214,11 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   `@agboss/core/testing` (scripted models, stubbed MCP servers, blocked network, matchers by class);
   units: `FakeListChatModel` / `FakeStreamingChatModel` from `@langchain/core/utils/testing`.
 - Compile-time tests: `// @ts-expect-error — <reason>` lines in a `*.test.ts`, checked by `tsc`.
+- **No real-time thresholds (#509, #523).** A test never compares real elapsed time with a fixed
+  number (`expect(Date.now() - started).toBeLessThan(2000)`, a 300 ms floor): it asserts on the
+  `Clock` — a `VirtualClock` it advances — or on the order of events; a "never hangs" bound is the
+  test's own timeout. `npm run check:real-time` fails on one; a rewritten timing test is proven with
+  `node scripts/flaky-probe.mjs <file> 50` (50/50).
 - Real-model checks go to `tests/smoke/` and run only via `make smoke`.
 - Each spec test case → one test. Name tests by behaviour:
   `it("returns a fallback answer when the model output is empty")`.

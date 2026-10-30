@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { USAGE, UsageError, parseArguments } from "./packed/args.mjs";
 import { installedCoreProblem } from "./packed/installed.mjs";
+import { NpmBeforeError, rangeInstallArguments } from "./packed/npm-before.mjs";
 import {
   OUTSIDE_GRAPH,
   PLAIN_VITEST_CONFIG,
@@ -66,19 +67,29 @@ function createProject(work, tarballs) {
   const tools = join(work, "tools");
   mkdirSync(tools, { recursive: true });
   writeFileSync(join(tools, "package.json"), '{ "name": "packed-tools", "private": true }\n');
-  run("install the packed CLI", "npm", ["install", "--no-audit", "--no-fund", ...tarballs], tools);
-  const agboss = join(tools, "node_modules", ".bin", "agboss");
-  run(`agboss create ${PROJECT}`, agboss, ["create", PROJECT, "--yes", "--skip-install"], work);
+  run("install the packed CLI", "npm", tarballInstallArguments(tarballs), tools);
+  run(
+    `agboss create ${PROJECT}`,
+    binOf(tools, "agboss"),
+    ["create", PROJECT, "--yes", "--skip-install"],
+    work,
+  );
   return join(work, PROJECT);
 }
 
+/**
+ * The tarballs by path; their dependencies' ranges resolved to releases at least three days old
+ * (#523: `--before`, overridable with `AGBOSS_NPM_BEFORE`).
+ */
+export function tarballInstallArguments(tarballs, env = process.env, now = new Date()) {
+  return rangeInstallArguments(["--no-audit", "--no-fund", ...tarballs], env, now);
+}
+
+/** A tool the project installed, run from its `node_modules/.bin` — never fetched from the registry. */
+const binOf = (project, name) => join(project, "node_modules", ".bin", name);
+
 function install(project, tarballs) {
-  run(
-    "install the tarballs into the project",
-    "npm",
-    ["install", "--no-audit", "--no-fund", ...tarballs],
-    project,
-  );
+  run("install the tarballs into the project", "npm", tarballInstallArguments(tarballs), project);
   run("npm ls @agboss/core", "npm", ["ls", "@agboss/core"], project);
   const problem = installedCoreProblem(project);
   if (problem !== undefined) throw new CheckFailed(problem);
@@ -88,16 +99,16 @@ function positive(project) {
   mkdirSync(dirname(join(project, WORKFLOW_OF_TEST_FILE)), { recursive: true });
   writeFileSync(join(project, WORKFLOW_OF_TEST_FILE), WORKFLOW_OF_TEST);
   run("positive: npm test (workflowOf, testWith, environments)", "npm", ["test"], project);
-  run("positive: agboss describe", "npx", ["agboss", "describe"], project);
-  run("positive: agboss check", "npx", ["agboss", "check"], project);
+  run("positive: agboss describe", binOf(project, "agboss"), ["describe"], project);
+  run("positive: agboss check", binOf(project, "agboss"), ["check"], project);
 }
 
 function negative(project) {
   writeFileSync(join(project, "vitest.config.ts"), PLAIN_VITEST_CONFIG);
   const output = run(
     "negative: workflowOf without agbossTest()",
-    "npx",
-    ["vitest", "run", WORKFLOW_OF_TEST_FILE],
+    binOf(project, "vitest"),
+    ["run", WORKFLOW_OF_TEST_FILE],
     project,
     { expectFailure: true },
   );
@@ -132,14 +143,24 @@ function main(argv) {
   console.log(`${options.verifyInstall}: @agboss/core is installed, not linked`);
 }
 
-try {
-  main(process.argv.slice(2));
-} catch (error) {
-  if (!(error instanceof UsageError || error instanceof CheckFailed)) throw error;
-  console.error(
-    error instanceof UsageError
-      ? `${error.message}\n\n${USAGE}`
-      : `check:packed failed: ${error.message}`,
-  );
-  process.exit(error instanceof UsageError ? 2 : 1);
+if (
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === new URL(import.meta.url).pathname
+) {
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    if (!(
+      error instanceof UsageError ||
+      error instanceof CheckFailed ||
+      error instanceof NpmBeforeError
+    ))
+      throw error;
+    console.error(
+      error instanceof UsageError
+        ? `${error.message}\n\n${USAGE}`
+        : `check:packed failed: ${error.message}`,
+    );
+    process.exit(error instanceof UsageError ? 2 : 1);
+  }
 }
