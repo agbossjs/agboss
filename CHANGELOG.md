@@ -31,12 +31,24 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   refused at its write from one that never reached it, and a replay from a new write.
   `FencedEffectAsyncWorkError` moved to the SQLite store's module (still exported from the root).
 
+- **A store outside the core on the public surface alone** (#511, found by `@agboss/postgres`):
+  `@Injectable({ environmentFields })` + `EnvironmentField` — a class declares the environment fields
+  it reads, checked at assembly for every listed class and every class its `deps` reach
+  (`[environment.missing-field]`, `[environment.conflicting-field]`; `SqliteConnection` declares
+  `sqlitePath` so); `VirtualClock.track(work)` and `{ settleTimeout }` — `advance` waits for tracked
+  work (`UnsettledWorkError`), and the published contract suites track every store call of their
+  targets; every type an infrastructure contract names is exported by the root entry (`Tern`,
+  `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
+  `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
+
 ### Fixed
 
 - **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
   10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
   `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,
   `@agboss/core/testing`) instead of hanging the run: vitest bounds no fixture's teardown.
+- `checkpointSaverContract`'s `put` passes the changed channels' versions, as LangGraph does: a saver
+  that writes values only for those versions (LangGraph's `PostgresSaver`) passes as it is (#511).
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
   by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
   `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the

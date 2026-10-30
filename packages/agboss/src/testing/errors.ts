@@ -11,7 +11,8 @@ export type TestFailureCode =
   | "test.no-matching-script"
   | "test.unused-script"
   | "test.unreachable-step"
-  | "test.close-timeout";
+  | "test.close-timeout"
+  | "test.unsettled-work";
 
 /** A failure the toolkit raises for a test: it carries a stable code. */
 export class TestFailure extends Error {
@@ -99,6 +100,26 @@ export class AppCloseTimeoutError extends TestFailure {
         "of real time — an execution still runs (a frozen step, a stalled lease, a wait on the " +
         "VirtualClock nobody advances); the test's own failure, if any, is the cause",
     );
+  }
+}
+
+/**
+ * `VirtualClock.advance` waited for work it tracks (a store call of a contract suite, `clock.track`)
+ * longer than its `settleTimeout` in real time (#511): a call that never settles fails the test by
+ * name instead of hanging it.
+ */
+export class UnsettledWorkError extends TestFailure {
+  override name = "UnsettledWorkError";
+  /** How many tracked calls were still in flight. */
+  readonly inFlight: number;
+
+  constructor(inFlight: number, settleTimeout: number) {
+    super(
+      "test.unsettled-work",
+      `${String(inFlight)} tracked call(s) did not settle within ${String(settleTimeout)} ms of real ` +
+        "time — a store call that never resolves (a lost connection, a missing reply)",
+    );
+    this.inFlight = inFlight;
   }
 }
 

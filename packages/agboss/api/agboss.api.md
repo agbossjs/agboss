@@ -170,21 +170,15 @@ export interface AgentExecutionOptions {
 export interface AgentExecutionOutput {
     // (undocumented)
     readonly budgetUsd: number;
-    // Warning: (ae-forgotten-export) The symbol "Compacted" needs to be exported by the entry point index.d.ts
     readonly compacted?: readonly Compacted[];
-    // Warning: (ae-forgotten-export) The symbol "CostReport" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly cost: CostReport;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionData" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly data: ExecutionData;
     readonly finish?: string;
     // (undocumented)
     readonly output?: unknown;
     readonly path: readonly string[];
-    // Warning: (ae-forgotten-export) The symbol "WaitingPause" needs to be exported by the entry point index.d.ts
     readonly pending: readonly WaitingPause[];
     readonly runId: string;
     readonly start: string;
@@ -409,7 +403,6 @@ export interface ApplicationOptions {
     readonly piiPolicies?: readonly Class[];
     readonly providers?: readonly Provider[];
     readonly pseudonymKey?: string;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly shutdownTimeout?: Milliseconds;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
@@ -612,6 +605,11 @@ export enum BranchVerdict {
 }
 
 // @public
+export type Brand<TValue, TName extends string> = TValue & {
+    readonly [brand]: TName;
+};
+
+// @public
 export function Budget<const TDeps extends readonly Token[] = []>(options: BudgetOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => BudgetHandler>(value: TClass) => TClass;
 
 // @public
@@ -625,7 +623,6 @@ export interface BudgetAccount {
 export interface BudgetBreach {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly key: string;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
     readonly maxSpend: Usd;
     readonly period?: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
@@ -1054,6 +1051,17 @@ export interface CodeRouterRoute {
     readonly target: ComponentClass;
 }
 
+// @public
+export interface Compacted {
+    readonly compaction: string;
+    readonly fromTurn: number;
+    readonly summaries: number;
+    // (undocumented)
+    readonly summaryQueueLength: number;
+    // (undocumented)
+    readonly toTurn: number;
+}
+
 // Warning: (ae-forgotten-export) The symbol "BuiltInCompactionOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -1127,6 +1135,31 @@ export interface CompareProfilesOptions extends AppDepsOptions {
 export interface CompensationEndEvent extends CompensationStartEvent {
     readonly error?: ErrorRecord;
     readonly status: CompensationStatus;
+}
+
+// @public
+export interface CompensationEntry {
+    readonly action: string;
+    readonly committer?: string;
+    // (undocumented)
+    readonly compensated: StepRecord;
+    readonly compensator: string;
+    // (undocumented)
+    readonly executionId: string;
+    readonly input: ScopeRecords;
+    readonly key: string;
+    readonly launchId?: string;
+    readonly sequence: number;
+    // (undocumented)
+    readonly status: CompensationEntryStatus;
+    readonly undo?: CompensationRecord;
+}
+
+// @public
+export enum CompensationEntryStatus {
+    Closed = "closed",
+    Committed = "committed",
+    Open = "open"
 }
 
 // @public
@@ -1214,6 +1247,18 @@ export interface ComponentRecord {
 }
 
 // @public
+export interface ConfigSnapshot {
+    // (undocumented)
+    readonly firstSeen: string;
+    // (undocumented)
+    readonly hash: string;
+    // (undocumented)
+    readonly snapshot: string;
+    // (undocumented)
+    readonly version: string;
+}
+
+// @public
 export class ConsoleLogger extends Logger {
     // (undocumented)
     write(entry: LogEntry): void;
@@ -1223,6 +1268,11 @@ export class ConsoleLogger extends Logger {
 //
 // @public
 export type ContextValues<T> = T extends ExecutionContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof ExecutionContext>>> : T extends TenantContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof TenantContext>>> & TenantValues : never;
+
+// Warning: (ae-forgotten-export) The symbol "COST_CATEGORIES" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type CostCategory = (typeof COST_CATEGORIES)[number];
 
 // @public
 export interface CostCounter extends BudgetAccount {
@@ -1237,6 +1287,40 @@ export abstract class CostLedgerRepository {
     abstract saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
     abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
+
+// @public
+export interface CostLine extends TokenUsage {
+    // (undocumented)
+    readonly caller: string;
+    // (undocumented)
+    readonly category: CostCategory;
+    // (undocumented)
+    readonly costSource: CostSource;
+    // (undocumented)
+    readonly costUsd: number;
+    // (undocumented)
+    readonly model: string;
+    readonly servedBy?: string;
+}
+
+// @public
+export interface CostReport {
+    // (undocumented)
+    readonly byCaller: Readonly<Record<string, number>>;
+    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    // (undocumented)
+    readonly byModel: Readonly<Record<string, number>>;
+    // (undocumented)
+    readonly cacheReadTokens: number;
+    // (undocumented)
+    readonly calls: number;
+    // (undocumented)
+    readonly totalUsd: number;
+    readonly trace: readonly CostLine[];
+}
+
+// @public
+export type CostSource = "api" | "price-table" | "tool";
 
 // @public
 export interface CountQuorum {
@@ -1459,6 +1543,29 @@ export enum EnvironmentErrorCode {
 }
 
 // @public
+export enum EnvironmentField {
+    // (undocumented)
+    Flag = "flag",
+    // (undocumented)
+    Integer = "integer",
+    // (undocumented)
+    OptionalFlag = "optional-flag",
+    // (undocumented)
+    OptionalInteger = "optional-integer",
+    // (undocumented)
+    OptionalSecret = "optional-secret",
+    // (undocumented)
+    OptionalText = "optional-text",
+    // (undocumented)
+    Secret = "secret",
+    // (undocumented)
+    Text = "text"
+}
+
+// @public
+export type EnvironmentFields = Readonly<Record<string, EnvironmentField>>;
+
+// @public
 export interface EnvironmentValueOptions<TValue> {
     // (undocumented)
     readonly default?: TValue;
@@ -1598,6 +1705,23 @@ export class ExecutionContextUnavailableError extends AGBossError {
     static noFence(read: UnavailableRead, why: string): ExecutionContextUnavailableError;
     // Warning: (ae-forgotten-export) The symbol "UnavailableRead" needs to be exported by the entry point index.d.ts
     static outside(read: UnavailableRead): ExecutionContextUnavailableError;
+}
+
+// @public
+export interface ExecutionData {
+    readonly children?: readonly EndedChildRecord[];
+    readonly compensations?: readonly CompensationEntry[];
+    readonly handledErrors?: readonly HandledErrorRecord[];
+    // (undocumented)
+    readonly lastError: ErrorRecord | null;
+    readonly launches?: readonly LaunchRecord[];
+    readonly origin?: ExecutionOrigin;
+    // (undocumented)
+    readonly outdatedValues: readonly OutdatedValueRecord[];
+    // (undocumented)
+    readonly scope: ScopeRecords;
+    readonly steps?: readonly ExecutionStepRecord[];
+    readonly toolCalls?: readonly ToolCallRecord[];
 }
 
 // @public
@@ -1989,23 +2113,15 @@ export interface ExecutionRecord {
 
 // @public
 export abstract class ExecutionRecordRepository {
-    // Warning: (ae-forgotten-export) The symbol "NewSummary" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "Summary" needs to be exported by the entry point index.d.ts
     abstract addSummary(summary: NewSummary): Promise<Summary>;
-    // Warning: (ae-forgotten-export) The symbol "NewTern" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "Tern" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     abstract append(tern: NewTern): Promise<Tern>;
     abstract before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Tern[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Tern[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
-    // Warning: (ae-forgotten-export) The symbol "TernOutcome" needs to be exported by the entry point index.d.ts
     abstract complete(ternId: string, outcome: TernOutcome): Promise<void>;
     abstract completeIfStatus(ternId: string, expected: ExecutionRecordStatus, outcome: TernOutcome): Promise<boolean>;
-    // Warning: (ae-forgotten-export) The symbol "ConfigSnapshot" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -2024,7 +2140,6 @@ export abstract class ExecutionRecordRepository {
     abstract savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "VersionScore" needs to be exported by the entry point index.d.ts
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
     abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
@@ -2764,9 +2879,13 @@ export class IncompatibleResumeError extends AGBossError {
 export type IncompatibleResumePolicy = (resume: IncompatibleResume) => ResumeDecision;
 
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: {
+export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+
+// @public
+export interface InjectableOptions<D extends readonly Token[]> {
     readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+    readonly environmentFields?: EnvironmentFields;
+}
 
 // @public
 export class InjectionToken<T> {
@@ -2893,8 +3012,9 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
     readonly takesAbout: true;
 }
 
-// Warning: (ae-forgotten-export) The symbol "JsonPrimitive" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type JsonPrimitive = string | number | boolean | null;
+
 // @public
 export type JsonResult<T> = T extends JsonPrimitive ? T : T extends (...args: never[]) => unknown ? never : T extends object ? {
     readonly [K in keyof T]: JsonResult<T[K]>;
@@ -3327,6 +3447,9 @@ export interface MeshSpendReport {
 }
 
 // @public
+export type Milliseconds = Brand<number, "Milliseconds">;
+
+// @public
 export interface MissingGeneratedTypes {
     // (undocumented)
     readonly __error: "Missing generated types — run `agboss check` to update .agboss/types.d.ts";
@@ -3458,6 +3581,12 @@ export interface ModelUsage {
 
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
+
+// @public (undocumented)
+export type NewSummary = Omit<Summary, "id" | "createdAt">;
+
+// @public (undocumented)
+export type NewTern = Omit<Tern, "id" | "createdAt">;
 
 // @public
 export interface NewThread {
@@ -4791,7 +4920,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.fenced-effect-lease-store" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.fenced-effect-lease-store" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -4802,6 +4931,9 @@ export interface RuleViolation {
     // (undocumented)
     readonly nodes: readonly string[];
 }
+
+// @public
+export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
 
 // @public
 export interface ScopeValueRecord {
@@ -5269,6 +5401,30 @@ export interface SucceededToolCall<TInput, TOutput> extends ToolCallRecord {
 }
 
 // @public
+export interface Summary {
+    // (undocumented)
+    readonly bundle: string;
+    readonly compaction: string;
+    // (undocumented)
+    readonly costUsd: number;
+    // (undocumented)
+    readonly createdAt: string;
+    // (undocumented)
+    readonly fromTernId: string;
+    // (undocumented)
+    readonly id: string;
+    readonly tenantId: string;
+    // (undocumented)
+    readonly text: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly toTernId: string;
+    // (undocumented)
+    readonly turns: number;
+}
+
+// @public
 export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
 // @public
@@ -5327,6 +5483,58 @@ export class TerminalUserChannel {
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
 
+// @public (undocumented)
+export interface Tern {
+    // (undocumented)
+    readonly bundle: string;
+    // (undocumented)
+    readonly configHash: string | null;
+    readonly configVersion: string | null;
+    // (undocumented)
+    readonly costUsd: number;
+    // (undocumented)
+    readonly createdAt: string;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly modelVersion: string;
+    // (undocumented)
+    readonly promptVersion: string;
+    readonly replayOf: string | null;
+    // (undocumented)
+    readonly replyWith: string;
+    // (undocumented)
+    readonly route: readonly string[];
+    readonly runId: string | null;
+    // (undocumented)
+    readonly status: TernStatus;
+    // (undocumented)
+    readonly steps: readonly TernStep[];
+    // (undocumented)
+    readonly stopReason: string;
+    // (undocumented)
+    readonly task: string;
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+}
+
+// @public
+export type TernOutcome = Pick<Tern, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
+
+// Warning: (ae-forgotten-export) The symbol "TERN_STATUSES" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type TernStatus = (typeof TERN_STATUSES)[number];
+
+// @public
+export interface TernStep {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly content: MessageContent;
+}
+
 // @public
 export class ThisWorkflow {
     // (undocumented)
@@ -5375,6 +5583,18 @@ export enum TokenLimit {
 }
 
 // @public
+export interface TokenUsage {
+    // (undocumented)
+    readonly cacheReadTokens: number;
+    // (undocumented)
+    readonly cacheWriteTokens: number;
+    // (undocumented)
+    readonly inputTokens: number;
+    // (undocumented)
+    readonly outputTokens: number;
+}
+
+// @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
 
 // @public
@@ -5393,6 +5613,20 @@ export class ToolBlockedError extends StepFailedError {
     name: string;
     readonly reason: string;
     readonly tool: string;
+}
+
+// @public
+export class ToolCallApprovalAskDto {
+    // Warning: (ae-forgotten-export) The symbol "ToolArguments" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    arguments: ToolArguments;
+    // (undocumented)
+    callId: string;
+    // (undocumented)
+    summary: string;
+    // (undocumented)
+    tool: string;
 }
 
 // @public
@@ -5619,14 +5853,10 @@ export class UnknownThreadError extends AGBossError {
     name: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "TokenUsage" needs to be exported by the entry point index.d.ts
-//
 // @public
 export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly caller: string;
-    // Warning: (ae-forgotten-export) The symbol "CostSource" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
@@ -5636,6 +5866,9 @@ export interface UsageRecord extends TokenUsage {
     readonly model: string;
     readonly servedBy?: string;
 }
+
+// @public
+export type Usd = Brand<number, "Usd">;
 
 // @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
@@ -5687,6 +5920,20 @@ export type VariantOf<TValue> = TValue extends unknown ? {
 } : never;
 
 // @public
+export interface VersionScore {
+    // (undocumented)
+    readonly costUsd: number;
+    // (undocumented)
+    readonly meanScore: number | null;
+    // (undocumented)
+    readonly promptVersion: string;
+    // (undocumented)
+    readonly scored: number;
+    // (undocumented)
+    readonly terns: number;
+}
+
+// @public
 export class VisitsLimitExceededError extends LimitExceededError {
     constructor(component: ComponentRecord, maxVisits: number, path: readonly string[], spentUsd: number);
     // (undocumented)
@@ -5700,6 +5947,12 @@ export class VisitsLimitExceededError extends LimitExceededError {
     readonly nodeId: string;
     // (undocumented)
     readonly visits: number;
+}
+
+// @public
+export interface WaitingPause extends PendingPause {
+    // (undocumented)
+    readonly pauseId: string;
 }
 
 // @public
@@ -5965,15 +6218,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/compaction/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
-// src/components/decorators.ts:28:1 - (ae-undocumented) Missing documentation for "ToolOptions".
-// src/components/decorators.ts:33:3 - (ae-undocumented) Missing documentation for "name".
-// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:52:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:53:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:17:3 - (ae-undocumented) Missing documentation for "run".
+// src/components/decorators.ts:29:1 - (ae-undocumented) Missing documentation for "ToolOptions".
+// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/decorators.ts:38:3 - (ae-undocumented) Missing documentation for "channel".
+// src/components/decorators.ts:53:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:54:3 - (ae-undocumented) Missing documentation for "output".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
@@ -6131,6 +6384,18 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
 // src/dto/errors.ts:28:5 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
+// src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
+// src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "summary".
+// src/environments/contract.ts:25:3 - (ae-undocumented) Missing documentation for "Text".
+// src/environments/contract.ts:26:3 - (ae-undocumented) Missing documentation for "Integer".
+// src/environments/contract.ts:27:3 - (ae-undocumented) Missing documentation for "Flag".
+// src/environments/contract.ts:28:3 - (ae-undocumented) Missing documentation for "Secret".
+// src/environments/contract.ts:29:3 - (ae-undocumented) Missing documentation for "OptionalText".
+// src/environments/contract.ts:30:3 - (ae-undocumented) Missing documentation for "OptionalInteger".
+// src/environments/contract.ts:31:3 - (ae-undocumented) Missing documentation for "OptionalFlag".
+// src/environments/contract.ts:32:3 - (ae-undocumented) Missing documentation for "OptionalSecret".
 // src/environments/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
 // src/environments/errors.ts:17:5 - (ae-undocumented) Missing documentation for "code".
 // src/environments/secret.ts:49:3 - (ae-undocumented) Missing documentation for "toString".
@@ -6160,10 +6425,25 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
+// src/finops/usage.ts:21:3 - (ae-undocumented) Missing documentation for "inputTokens".
+// src/finops/usage.ts:22:3 - (ae-undocumented) Missing documentation for "outputTokens".
+// src/finops/usage.ts:23:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/finops/usage.ts:35:3 - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:62:1 - (ae-undocumented) Missing documentation for "CostCategory".
+// src/finops/usage.ts:78:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:79:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:82:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:92:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:93:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:94:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:95:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:98:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -6240,6 +6520,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/builder-types.ts:266:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:271:3 - (ae-undocumented) Missing documentation for "chooseOne".
 // src/flow/compensation.ts:86:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/compensation.ts:114:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/flow/compensation.ts:119:3 - (ae-undocumented) Missing documentation for "compensated".
+// src/flow/compensation.ts:128:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/context/application-context.ts:13:3 - (ae-undocumented) Missing documentation for "hostname".
 // src/flow/context/application-context.ts:14:3 - (ae-undocumented) Missing documentation for "pid".
 // src/flow/context/application-context.ts:38:3 - (ae-undocumented) Missing documentation for "host".
@@ -6354,7 +6637,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/generated-types.ts:117:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:128:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:129:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
-// src/flow/generated-types.ts:130:5 - (ae-forgotten-export) The symbol "ToolCallApprovalAskDto" needs to be exported by the entry point index.d.ts
 // src/flow/generated-types.ts:131:5 - (ae-forgotten-export) The symbol "ToolCallApprovalDecisionDto" needs to be exported by the entry point index.d.ts
 // src/flow/generated-types.ts:133:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts:137:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
@@ -6489,11 +6771,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:186:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:187:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:188:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:199:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:200:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:187:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:188:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:189:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:200:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:201:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -6716,6 +6998,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
+// src/pause/types.ts:77:3 - (ae-undocumented) Missing documentation for "pauseId".
 // src/pii/actions.ts:10:3 - (ae-undocumented) Missing documentation for "ReplaceWithKind".
 // src/pii/actions.ts:11:3 - (ae-undocumented) Missing documentation for "ReplacePart".
 // src/pii/actions.ts:12:3 - (ae-undocumented) Missing documentation for "ReplaceWithToken".
@@ -6782,6 +7065,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/pii/pii-policy.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "rules".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
+// src/run/compaction.ts:39:3 - (ae-undocumented) Missing documentation for "toTurn".
+// src/run/compaction.ts:42:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/run/resume-agent.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:12:3 - (ae-undocumented) Missing documentation for "workflowVersion".
@@ -6803,6 +7088,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:47:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:39:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
+// src/run/types.ts:62:3 - (ae-undocumented) Missing documentation for "scope".
+// src/run/types.ts:63:3 - (ae-undocumented) Missing documentation for "outdatedValues".
+// src/run/types.ts:64:3 - (ae-undocumented) Missing documentation for "lastError".
 // src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "status".
 // src/run/types.ts:86:3 - (ae-undocumented) Missing documentation for "startInput".
 // src/run/types.ts:91:3 - (ae-undocumented) Missing documentation for "output".
@@ -6811,6 +7099,44 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts:97:3 - (ae-undocumented) Missing documentation for "ternId".
 // src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "data".
+// src/terns/types.ts:19:1 - (ae-undocumented) Missing documentation for "TernStatus".
+// src/terns/types.ts:23:3 - (ae-undocumented) Missing documentation for "agent".
+// src/terns/types.ts:24:3 - (ae-undocumented) Missing documentation for "content".
+// src/terns/types.ts:27:1 - (ae-undocumented) Missing documentation for "Tern".
+// src/terns/types.ts:28:3 - (ae-undocumented) Missing documentation for "id".
+// src/terns/types.ts:31:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/terns/types.ts:34:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/terns/types.ts:35:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/terns/types.ts:36:3 - (ae-undocumented) Missing documentation for "task".
+// src/terns/types.ts:37:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/terns/types.ts:38:3 - (ae-undocumented) Missing documentation for "status".
+// src/terns/types.ts:39:3 - (ae-undocumented) Missing documentation for "stopReason".
+// src/terns/types.ts:40:3 - (ae-undocumented) Missing documentation for "route".
+// src/terns/types.ts:41:3 - (ae-undocumented) Missing documentation for "steps".
+// src/terns/types.ts:42:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/terns/types.ts:43:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/terns/types.ts:44:3 - (ae-undocumented) Missing documentation for "modelVersion".
+// src/terns/types.ts:49:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/terns/types.ts:52:1 - (ae-undocumented) Missing documentation for "NewTern".
+// src/terns/types.ts:56:3 - (ae-undocumented) Missing documentation for "id".
+// src/terns/types.ts:59:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/terns/types.ts:60:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/terns/types.ts:63:3 - (ae-undocumented) Missing documentation for "fromTernId".
+// src/terns/types.ts:64:3 - (ae-undocumented) Missing documentation for "toTernId".
+// src/terns/types.ts:65:3 - (ae-undocumented) Missing documentation for "turns".
+// src/terns/types.ts:66:3 - (ae-undocumented) Missing documentation for "text".
+// src/terns/types.ts:67:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/terns/types.ts:68:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/terns/types.ts:71:1 - (ae-undocumented) Missing documentation for "NewSummary".
+// src/terns/types.ts:75:3 - (ae-undocumented) Missing documentation for "version".
+// src/terns/types.ts:76:3 - (ae-undocumented) Missing documentation for "hash".
+// src/terns/types.ts:77:3 - (ae-undocumented) Missing documentation for "snapshot".
+// src/terns/types.ts:78:3 - (ae-undocumented) Missing documentation for "firstSeen".
+// src/terns/types.ts:150:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/terns/types.ts:151:3 - (ae-undocumented) Missing documentation for "terns".
+// src/terns/types.ts:152:3 - (ae-undocumented) Missing documentation for "scored".
+// src/terns/types.ts:153:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/terns/types.ts:154:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts:35:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:36:12 - (ae-undocumented) Missing documentation for "name".

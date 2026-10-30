@@ -1,13 +1,18 @@
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations } from "../budgets/budget-rules.js";
 import type { Class, Provider } from "../components/injection.js";
+import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
-import { declaredFieldsOf, environmentRuleViolations } from "../environments/contract.js";
+import {
+  declaredFieldsOf,
+  environmentRuleViolations,
+  readingClassesOf,
+} from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import { providerModeViolations } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
@@ -93,6 +98,14 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
 }
 
 const isClass = (provider: Provider): provider is Class => !("provide" in provider);
+
+/** The classes the application and its workflows list in `providers` (#511: what reads the environment). */
+const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
+  ...(options.providers ?? []).filter(isClass),
+  ...withChildWorkflows(options.workflows)
+    .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
+    .flatMap((workflow) => (moduleOf(workflow).providers ?? []).filter(isClass)),
+];
 
 /** A listed `@ModelProvider`'s `name` ends with `-model-provider` (#266 S73 c). */
 function modelProviderNameViolations(options: ApplicationOptions): RuleViolation[] {
@@ -182,7 +195,7 @@ export function applicationRuleViolations(
     ...environmentRuleViolations(
       options.name,
       options.environment,
-      (options.providers ?? []).filter(isClass),
+      readingClassesOf(listedClassesOf(options), depsOf),
     ),
     ...pseudonymKeyFieldViolations(options),
     ...healthCheckRuleViolations(options),

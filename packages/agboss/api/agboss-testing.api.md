@@ -672,7 +672,7 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step" | "test.close-timeout";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step" | "test.close-timeout" | "test.unsettled-work";
 
 // @public
 export interface TestFenceOptions {
@@ -904,6 +904,14 @@ export interface UnitRun<TOutput> {
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
 
 // @public
+export class UnsettledWorkError extends TestFailure {
+    constructor(inFlight: number, settleTimeout: number);
+    readonly inFlight: number;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export interface VcrConfig {
     // (undocumented)
     readonly cassetteName: string;
@@ -921,10 +929,16 @@ export enum VCRMode {
 
 // @public
 export class VirtualClock extends Clock {
-    constructor(start?: Date);
+    constructor(start?: Date, options?: VirtualClockOptions);
     advance(duration: ClockDuration | Milliseconds): Promise<void>;
     now(): Date;
     sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+    track<T>(work: Promise<T>): Promise<T>;
+}
+
+// @public
+export interface VirtualClockOptions {
+    readonly settleTimeout?: Milliseconds;
 }
 
 // @public
@@ -1004,14 +1018,15 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
 // src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
-// src/testing/errors.ts:18:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:19:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:29:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:41:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:69:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:74:3 - (ae-undocumented) Missing documentation for "changes".
-// src/testing/errors.ts:93:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:107:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:30:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:70:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:75:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/errors.ts:94:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:112:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:128:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:39:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:40:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:41:3 - (ae-undocumented) Missing documentation for "itemIndex".

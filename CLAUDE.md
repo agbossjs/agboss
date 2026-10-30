@@ -1288,7 +1288,18 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   the published contract suites (#481, `@agboss/core/testing/contracts`: `executionLeaseContract({
 name, instance(seam), reset?, close? })`, one function per contract and the checkpoint saver),
   the same cases the in-memory and SQLite stores run (`tests/infrastructure/*.contract.test.ts`,
-  their targets in `tests/infrastructure/contracts/store-kinds.ts`).
+  their targets in `tests/infrastructure/contracts/store-kinds.ts`). On the public surface alone
+  (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
+  `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
+  LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
+  every type a contract's members name is exported by the root entry (`Tern`, `ExecutionData`, …,
+  `tests/public-api/contract-types.test.ts`); and a class declares the environment fields it reads —
+  `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.Secret, postgresPoolSize:
+EnvironmentField.OptionalInteger } })` — checked at assembly for every class the application or
+  a workflow lists and every class their `deps` reach: a required one the contract lacks is
+  `[environment.missing-field]` (`… needs postgresUrl: Secret in AppEnvironment (read by
+PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of two types
+  `[environment.conflicting-field]`.
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
@@ -2096,7 +2107,9 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
   `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
-  one's work before the next, without real waiting; deterministic ids — `thread-1`, `thread-2`, …,
+  one's work before the next, without real waiting — and work registered with `clock.track(promise)`
+  (a store's round trip, #511) settled first, up to `new VirtualClock(start, { settleTimeout })`
+  of real time (default 2 s, then `UnsettledWorkError`, `test.unsettled-work`); deterministic ids — `thread-1`, `thread-2`, …,
   `execution-1`, … in the order made, per test and shared by its instances (`SequentialIdGenerator`,
   `@agboss/core/testing`, #313), unless the application lists its own `IdGenerator` — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and

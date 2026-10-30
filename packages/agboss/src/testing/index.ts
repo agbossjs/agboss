@@ -67,7 +67,7 @@ export { ToolFailure, type ToolScript } from "./tool-script.js";
 export type { CallAssertion, CallMatchers } from "./vitest-types.js";
 export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
-export { VirtualClock, type ClockDuration } from "./clock.js";
+export { VirtualClock, type ClockDuration, type VirtualClockOptions } from "./clock.js";
 export type { TestLeases } from "./leases.js";
 export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";
@@ -120,6 +120,7 @@ export {
   LiveCallBlockedError,
   TestFailure,
   TestSetupError,
+  UnsettledWorkError,
   type TestFailureCode,
 } from "./errors.js";
 export { workflowMatchers, type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";

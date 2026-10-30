@@ -5,6 +5,7 @@ import {
 } from "../../flow/context/application-context.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import { TEST_START, VirtualClock } from "../clock.js";
+import { trackedStore } from "./tracked-store.js";
 
 /**
  * The seam between a published contract suite (#481) and the store under test: what one
@@ -34,7 +35,10 @@ export interface ContractTarget<TStore> {
   close?(store: TStore): void | Promise<void>;
 }
 
-/** What one case gets: the suite's clock and the stores of the two instances, on one backing store. */
+/**
+ * What one case gets: the suite's clock and the stores of the two instances, on one backing store —
+ * each store's calls tracked on the clock, so `advance` lets a database round trip finish (#511).
+ */
 export interface ContractInstances<TStore> {
   /** The clock both stores were built on: time moves only by `clock.advance`. */
   readonly clock: VirtualClock;
@@ -90,7 +94,8 @@ async function buildInstances<TStore>(
   const built = async (instanceId: string): Promise<TStore> => {
     const store = await target.instance(seamOf(clock, instanceId));
     stores.push(store);
-    return store;
+    // the case's clock waits for its calls: a networked store's round trip is more than one turn (#511)
+    return trackedStore(store, clock);
   };
   const first = await built(FIRST_INSTANCE);
   const second = await built(SECOND_INSTANCE);

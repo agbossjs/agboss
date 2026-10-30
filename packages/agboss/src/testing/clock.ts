@@ -1,6 +1,6 @@
-import { Clock } from "../infrastructure/clock.js";
-import type { Milliseconds } from "../units/index.js";
-import { TestSetupError } from "./errors.js";
+import { Clock, SystemClock } from "../infrastructure/clock.js";
+import { seconds, type Milliseconds } from "../units/index.js";
+import { TestSetupError, UnsettledWorkError } from "./errors.js";
 
 /** A duration with its unit: `"500ms"`, `"30s"`, `"5m"`, `"25h"`, `"2d"`. */
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
@@ -35,6 +35,21 @@ const settle = (): Promise<void> =>
     setImmediate(resolve);
   });
 
+/** The real time `advance` waits for tracked work to settle, at most (#511). */
+const SETTLE_TIMEOUT = seconds(2);
+
+/** The real clock the bound on tracked work reads: a test's own time never moves by itself. */
+const REAL_TIME = new SystemClock();
+
+/** Options of a test's clock. */
+export interface VirtualClockOptions {
+  /**
+   * How long, in real time, `advance` waits for the tracked work in flight to settle before it
+   * fails with `UnsettledWorkError` (default 2 s).
+   */
+  readonly settleTimeout?: Milliseconds;
+}
+
 /**
  * The `Clock` of a test (#262): the time is fixed at the start (`TEST_START`, or the given moment)
  * and moves only by `advance`; every framework wait — lease renewals, the recovery sweep, the
@@ -48,10 +63,29 @@ export class VirtualClock extends Clock {
   #current: number;
   #made = 0;
   readonly #sleepers = new Set<Sleeper>();
+  /** Tracked work not settled yet (#511), as promises that never reject. */
+  readonly #inFlight = new Set<Promise<void>>();
+  readonly #settleTimeout: Milliseconds;
 
-  constructor(start: Date = new Date(TEST_START)) {
+  constructor(start: Date = new Date(TEST_START), options: VirtualClockOptions = {}) {
     super();
     this.#current = start.getTime();
+    this.#settleTimeout = options.settleTimeout ?? SETTLE_TIMEOUT;
+  }
+
+  /**
+   * Work `advance` waits for before it moves the time and after each sleep it wakes (#511): a
+   * store's round trip to a database, which one turn of the event loop does not finish. The
+   * published contract suites track every store call of their targets; returns `work` as it is.
+   */
+  track<T>(work: Promise<T>): Promise<T> {
+    const settled = work.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.#inFlight.add(settled);
+    void settled.then(() => this.#inFlight.delete(settled));
+    return work;
   }
 
   /** The test's current time: its start, plus every `advance` so far. */
@@ -87,17 +121,39 @@ export class VirtualClock extends Clock {
   /**
    * Moves the time forward — `await clock.advance(seconds(31))`, `await app.clock.advance("25h")`:
    * the work already started first reaches its next wait, then the time jumps and every sleep due
-   * wakes, in time order, each one's work running before the next. A jump longer than a lease is a
-   * holder frozen for that long.
+   * wakes, in time order, each one's work running before the next — the work `track`ed included,
+   * up to `settleTimeout` of real time (#511). A jump longer than a lease is a holder frozen for
+   * that long.
    */
   async advance(duration: ClockDuration | Milliseconds): Promise<void> {
     const distance = millisecondsOf(duration);
-    await settle();
+    await this.#settled();
     this.#current += distance;
     for (let due = this.#nextDue(); due !== undefined; due = this.#nextDue()) {
       due.wake();
+      await this.#settled();
+    }
+  }
+
+  /** One turn of the event loop, then until no tracked work is in flight (a settled call may start the next). */
+  async #settled(): Promise<void> {
+    await settle();
+    while (this.#inFlight.size > 0) {
+      await this.#drained();
       await settle();
     }
+  }
+
+  /** The tracked work in flight now, settled — or `UnsettledWorkError` after `settleTimeout`. */
+  async #drained(): Promise<void> {
+    const timer = new AbortController();
+    const inFlight = [...this.#inFlight];
+    const isSettled = await Promise.race([
+      Promise.all(inFlight).then(() => true),
+      REAL_TIME.sleep(this.#settleTimeout, timer.signal).then(() => false),
+    ]);
+    timer.abort();
+    if (!isSettled) throw new UnsettledWorkError(this.#inFlight.size, this.#settleTimeout);
   }
 
   /** The earliest sleep due now (the first made, of two due at one moment). */

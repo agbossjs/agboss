@@ -6,6 +6,7 @@ import type { ChannelMeta } from "./meta-types.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { recordComponent } from "./metadata.js";
+import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
  * The contract of a tool (`@Tool`, `@McpTool`): `implements ToolHandler<OrderQuery, OrderStatus>` — its
@@ -71,12 +72,28 @@ export function Tool<
   };
 }
 
-/** A class the container creates for others (a judge, a client, …). */
+/** The options of `@Injectable`. */
+export interface InjectableOptions<D extends readonly Token[]> {
+  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+  readonly deps?: D;
+  /**
+   * The fields of the environment contract the class reads (#511) — a store's connection:
+   * `{ postgresUrl: EnvironmentField.Secret, postgresPoolSize: EnvironmentField.OptionalInteger }`.
+   * An application that lists it, or a class whose `deps` reach it, fails assembly with
+   * `[environment.missing-field]` when its contract lacks a required one.
+   */
+  readonly environmentFields?: EnvironmentFields;
+}
+
+/** A class the container creates for others (a judge, a client, a store's connection, …). */
 export function Injectable<const D extends readonly Token[] = []>(
-  options: { readonly deps?: D } = {},
+  options: InjectableOptions<D> = {},
 ) {
   return <C extends new (...args: ResolvedAll<D>) => object>(value: C): C => {
     recordComponent(value, { kind: "injectable", meta: { deps: options.deps ?? [] } });
+    if (options.environmentFields !== undefined) {
+      declareEnvironmentFields(value, options.environmentFields);
+    }
     return value;
   };
 }
