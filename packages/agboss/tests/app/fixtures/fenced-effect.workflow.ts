@@ -78,7 +78,7 @@ export async function frozenRuns(count: number): Promise<void> {
 }
 
 /** Waits at a gate when the lever says so. */
-async function gate(side: "before" | "after"): Promise<void> {
+export async function gate(side: "before" | "after"): Promise<void> {
   if (gates[side] <= 0) return;
   gates[side] -= 1;
   await new Promise<void>((resolve) => {
@@ -183,7 +183,11 @@ export class FencedExecutionBudget implements BudgetHandler {
   }
 }
 
-@WorkflowStart({ name: "charge-workflow-start", description: "An order", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "charge-workflow-start",
+  description: "An order",
+  input: WorkflowStartTextDto,
+})
 export class ChargeWorkflowStart {}
 
 @WorkflowStart({
@@ -193,7 +197,11 @@ export class ChargeWorkflowStart {}
 })
 export class DoubleChargeWorkflowStart {}
 
-@WorkflowFinish({ name: "charged-workflow-finish", description: "The receipt", output: ChargeReceiptDto })
+@WorkflowFinish({
+  name: "charged-workflow-finish",
+  description: "The receipt",
+  output: ChargeReceiptDto,
+})
 export class ChargedWorkflowFinish {}
 
 @WorkflowFinish({
@@ -214,20 +222,36 @@ export class NotChargedWorkflowFinish {}
       .onError(Error, toFinish(NotChargedWorkflowFinish))
       .returns(ChargeReceiptDto)
       .toFinish(ChargedWorkflowFinish),
+  ],
+})
+export class ChargeWorkflow {}
+
+@WorkflowFinish({
+  name: "double-charged-workflow-finish",
+  description: "The receipt",
+  output: ChargeReceiptDto,
+})
+export class DoubleChargedWorkflowFinish {}
+
+/** Its one action injects the contract: it runs on whatever fenced-effect store is the application's. */
+@Workflow({
+  name: "double-charge-workflow",
+  version: "1.0.0",
+  flow: [
     start(DoubleChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(DoubleChargeAction)
       .returns(ChargeReceiptDto)
-      .toFinish(ChargedWorkflowFinish),
+      .toFinish(DoubleChargedWorkflowFinish),
   ],
 })
-export class ChargeWorkflow {}
+export class DoubleChargeWorkflow {}
 
 @Application({
   name: "fenced-effect-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ChargeWorkflow],
+  workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
   providers: [InMemoryFencedEffectRepository],

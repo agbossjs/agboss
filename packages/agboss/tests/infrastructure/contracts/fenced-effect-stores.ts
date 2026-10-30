@@ -1,4 +1,7 @@
+import type { DatabaseSync } from "node:sqlite";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
+import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
+import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
   InMemoryFencedEffectRepository,
@@ -54,3 +57,28 @@ export const inMemoryFencedEffects =
       ),
     };
   };
+
+/** The business rows of the SQLite target: a table of the test's file, written in the effect's transaction. */
+const BUSINESS_ROWS = "CREATE TABLE IF NOT EXISTS contract_rows (row TEXT NOT NULL)";
+
+/** The SQLite store on this instance's connection to the test's file, with its lease store. */
+export const sqliteFencedEffects: StoreFactory<FencedEffectStores<DatabaseSync>> = (seam) => {
+  const connection = seam.connection();
+  connection.ensureSchema("contract_rows", BUSINESS_ROWS);
+  return {
+    effects: new SqliteFencedEffectRepository(connection, seam.clock, new FencedEffectSettings()),
+    leases: new SqliteExecutionLeaseRepository(connection, seam.clock, seam.application),
+    rows: {
+      insert: (database, row) => {
+        database.prepare("INSERT INTO contract_rows (row) VALUES (?)").run(row);
+      },
+      committed: () =>
+        Promise.resolve(
+          connection.database
+            .prepare("SELECT row FROM contract_rows ORDER BY rowid")
+            .all()
+            .map((found) => String(found.row)),
+        ),
+    },
+  };
+};

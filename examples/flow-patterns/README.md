@@ -70,32 +70,34 @@ change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-casse
 `AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
 only what changed.
 
-## A side effect made once: the credit desk's charge (#472)
+## A side effect made once: the credit desk's charge (#472, #500)
 
 AGBoss runs a step **at least once**: when an instance dies after a step did its work but before the
 step's checkpoint is saved, another instance continues the execution from the last checkpoint and
 runs that step again — with the same `executionContext.step.idempotencyKey`
-(`<executionId>:charge-card-action:1`). A side effect is made once only when both sides do their part:
+(`<executionId>:charge-card-action:1`) under the next lease token. The charge is a **fenced effect**
+(#500): `ChargeCardAction` calls `SqliteFencedEffectRepository.saveResultIfAbsent(fencedEffectKeyOf(
+executionContext, "charge"), (database) => …)`, and the write — `PaymentLedgerRepository.recordCharge`,
+one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
+`BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
-| Who                 | Does                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| AGBoss              | runs the step again after a crash, with the same `step.idempotencyKey`                                                         |
-| the action          | passes that key with the request (`ChargeCardAction` → `PaymentService.charge({ …, idempotencyKey })`)                         |
-| the external system | makes **one** charge per key, **atomically**, answers a retry with the charge it made, refuses a key reused for another charge |
+| In the transaction, in order | What happens                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionFencedError`, nothing written |
+| the scope's high-water mark  | a token below it → `ExecutionFencedError`, before any key is read                                 |
+| the step's key               | written before → the stored receipt, the charge not made again                                    |
+| the write                    | the charge row and its receipt, committed together                                                |
 
-Here the external system is offline: `PaymentService` stands in for a payment provider and keeps its
-ledger in the application's SQLite file (`PaymentLedgerRepository`, its table in
-`src/credit/sql/payment-charges.sql`) — the key is the table's primary key, the insert and the read
-are one synchronous transaction. With a real provider, the key goes in its idempotency header
-(`Idempotency-Key`); a provider or API that ignores it charges twice, and nothing on the AGBoss side
-can prevent that. `tests/credit/workflows/credit/credit.workflow.test.ts` kills the instance after
-the charge and before the step's checkpoint, lets the other instance recover the execution and checks
-there is one charge, with the same `chargeId`; `tests/credit/actions/charge-card.action.test.ts`
-checks the ledger on its own.
+The ledger has no idempotency key and no fencing table of its own (`src/credit/sql/payment-charges.sql`).
+`tests/credit/workflows/credit/credit.workflow.test.ts` kills the instance after the charge and before
+the step's checkpoint, lets the other instance recover the execution and checks there is one charge,
+with the same `chargeId`; `tests/credit/actions/charge-card.action.test.ts` runs the action on its own
+(a replay, a lost lease refused). An instance that stalled and wakes after another took its lease over
+is refused the same way — its write never lands, and it never reads the new holder's receipt.
 
-This deduplicates the retries of one step. It does not stop an instance that stalled (not died)
-from writing after another took its lease over — that needs fencing of stale lease holders at the
-external system; [`agbossjs/distributed-agent-recovery`](https://github.com/agbossjs/distributed-agent-recovery)
+This holds for rows in the same database only: a real payment provider is outside the transaction, and
+its own `Idempotency-Key` is what makes its charge once.
+[`agbossjs/distributed-agent-recovery`](https://github.com/agbossjs/distributed-agent-recovery)
 shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
 A real run uses the `dev` environment (`src/environments/`): models

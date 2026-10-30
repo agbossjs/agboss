@@ -1379,6 +1379,65 @@ holds only when the external system checks both atomically. A test freezes a wri
 `testWith(App, { instances: 2 })` and `leases.stall(apps[0])` on the `VirtualClock`; a unit runner's
 step has a held lease (`fence: { token, isLost, confirmNowFails }`).
 
+**The fenced effect** (#500) does all of that in one call, for rows in the store's own database —
+no fencing or idempotency table of the application's: `saveResultIfAbsent(fencedEffectKeyOf(
+executionContext, name), work)` checks, in one transaction, the step's lease (not its epoch,
+released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
+before any key is read, so a zombie never gets the new holder's result), then the step's key —
+written before, the stored result comes back (`FencedEffectStatus.Replayed`) and `work` does not run;
+else `work` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
+of one instance gets the first's result (`Joined`); a throwing `work` rolls everything back. The
+built-in store is in memory; `SqliteFencedEffectRepository` (listed with
+`SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]`) gives `work` the
+connection's `DatabaseSync` and runs it synchronously — a returned promise rolls back with
+`FencedEffectAsyncWorkError`:
+
+<!-- snippet-context
+import { Action, ExecutionContext, SqliteFencedEffectRepository, fencedEffectKeyOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
+export class OrderDto {
+  @Text() orderId!: string;
+}
+export class ChargeReceiptDto {
+  @Text() chargeId!: string;
+}
+-->
+
+```ts
+@Action({
+  name: "charge-order-action",
+  description: "Charges the order once per step",
+  input: { order: OrderDto },
+  output: ChargeReceiptDto,
+  deps: [ExecutionContext, SqliteFencedEffectRepository],
+})
+export class ChargeOrderAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly sqliteFencedEffectRepository: SqliteFencedEffectRepository,
+  ) {}
+
+  async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
+    const { orderId } = input.order.value;
+    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const { result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(key, (database) => {
+      // synchronous: the row and the receipt commit together, with the fencing checks
+      const { lastInsertRowid } = database
+        .prepare("INSERT INTO charges (order_id) VALUES (?)")
+        .run(orderId);
+      return { chargeId: `charge-${String(lastInsertRowid)}` };
+    });
+    return result;
+  }
+}
+```
+
+`@Application({ fencedEffects: { maxResultSize, retention } })` bounds a stored result (default
+`kilobytes(64)`, else `FencedEffectResultTooLargeError`) and keeps results and marks `hours(24)`
+(the recovery sweep removes them on the `Clock`; above the lease's 30 s,
+`[application.fenced-effects-invalid]`). A store outside the core runs `fencedEffectContract` of
+`@agboss/core/testing/contracts`; flow-patterns' credit desk charges this way (its README).
+
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
 every instance looks for `running` roots at its start and every 30 s, takes the lease of each whose
 holder died (its lease expired) or stopped (released it), and continues it from its last

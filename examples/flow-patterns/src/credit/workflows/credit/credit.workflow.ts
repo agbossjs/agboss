@@ -10,7 +10,6 @@ import { CreditLimitRouter } from "../../routers/credit-limit/credit-limit.route
 import { DeskRouter } from "../../routers/desk/desk.router.js";
 import { CreditServiceUnavailableError } from "../../errors/credit-service-unavailable.error.js";
 import { CreditService } from "../../services/credit.service.js";
-import { PaymentService } from "../../services/payment.service.js";
 import { CreditWorkflowFinish } from "./credit.workflow-finish.js";
 import { NoOrderWorkflowFinish } from "./no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
@@ -21,7 +20,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
  * intake, the credit-limit router's `route()` sends it for approval or straight to the charge. A
  * credit service that is down (`CreditServiceUnavailableError`, the `RouterFailedError`'s cause)
  * holds the order; any other error fails the run. The charge is a side effect made once per
- * step: `ChargeCardAction` passes the step's idempotency key to `PaymentService`.
+ * step: `ChargeCardAction` writes it as a fenced effect (#500) on the application's SQLite file.
  */
 @Workflow({
   name: "credit-workflow",
@@ -50,6 +49,6 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
       .toFinish(CreditWorkflowFinish),
   ],
   maxSteps: 8,
-  providers: [CreditService, PaymentService],
+  providers: [CreditService],
 })
 export class CreditWorkflow {}

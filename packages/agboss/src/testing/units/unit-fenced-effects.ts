@@ -1,6 +1,7 @@
+import type { Container } from "../../components/container/container.js";
 import type { Class, Token } from "../../components/injection.js";
 import type { FrameLease } from "../../flow/context/frame.js";
-import type { TestFenceOptions } from "../fence.js";
+import type { Clock } from "../../infrastructure/clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
@@ -9,41 +10,68 @@ import { FencedEffectSettings } from "../../infrastructure/fenced-effect-setting
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "../../infrastructure/in-memory-fenced-effect.repository.js";
 import { IN_MEMORY_DATABASE } from "../../infrastructure/instance-tokens.js";
-import { InMemoryDatabase, treeKeyOf } from "../../infrastructure/in-memory-database.js";
+import { InMemoryDatabase } from "../../infrastructure/in-memory-database.js";
+import { seconds } from "../../units/index.js";
+import type { TestFenceOptions } from "../fence.js";
 
 /**
- * The fenced effects of a unit runner (#500): the built-in in-memory store, on a database of its
- * own that holds the runner's lease — the fence's token, held until its `confirmedUntil`, released
- * when the options say the lease was lost — so `testAction` / `testTool` run a component's
- * `saveResultIfAbsent` as a step of a held lease does.
+ * The fenced effects of a unit runner (#500): the built-in in-memory store on a database of the
+ * runner's own, and — for every fenced-effect store the runner's container creates, the SQLite one
+ * too — the runner's lease in the lease store that store reads (`static leaseRepository`): the
+ * fence's token, held until its `confirmedUntil`, released when the options say it was lost. So
+ * `testAction` / `testTool` run a component's `saveResultIfAbsent` as a step of a held lease does.
  */
-export interface UnitFencedEffects {
-  readonly core: readonly (readonly [Token, unknown])[];
-  readonly defaults: ReadonlyMap<Class, Class>;
-}
+export class UnitFencedEffects {
+  readonly core: readonly (readonly [Token, unknown])[] = [
+    [IN_MEMORY_DATABASE, new InMemoryDatabase()],
+    [FencedEffectSettings, new FencedEffectSettings()],
+  ];
 
-export function unitFencedEffects(lease: FrameLease, fence: TestFenceOptions): UnitFencedEffects {
-  const database = new InMemoryDatabase();
-  database.executionLeases.set(treeKeyOf(lease.tenantId, lease.leaseExecutionId), {
-    lease: {
-      tenantId: lease.tenantId,
-      rootExecutionId: lease.leaseExecutionId,
-      holderInstanceId: "test-instance",
-      leaseEpoch: fence.token ?? 1,
-      expiresAt: new Date(lease.confirmedUntil),
-    },
-    released: fence.isLost === true,
-  });
-  return {
-    core: [
-      [IN_MEMORY_DATABASE, database],
-      [FencedEffectSettings, new FencedEffectSettings()],
-    ],
-    defaults: new Map<Class, Class>([
-      [FencedEffectRepository, InMemoryFencedEffectRepository],
-      // a component that injects the in-memory store by its own class gets the runner's
-      [InMemoryFencedEffectRepository, InMemoryFencedEffectRepository],
-      [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
-    ]),
+  readonly defaults: ReadonlyMap<Class, Class> = new Map<Class, Class>([
+    [FencedEffectRepository, InMemoryFencedEffectRepository],
+    // a component that injects the in-memory store by its own class gets the runner's
+    [InMemoryFencedEffectRepository, InMemoryFencedEffectRepository],
+    [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
+  ]);
+
+  /** The fenced-effect stores created and not yet given the runner's lease. */
+  readonly #created: object[] = [];
+
+  constructor(
+    private readonly lease: FrameLease,
+    private readonly fence: TestFenceOptions,
+    private readonly clock: Clock,
+  ) {}
+
+  /** The container's hook: a fenced-effect store it created is given the lease before a call. */
+  readonly onCreate = (instance: unknown): void => {
+    if (instance instanceof FencedEffectRepository) this.#created.push(instance);
   };
+
+  /** Writes the runner's lease into the lease store of every store created since the last call. */
+  async hold(container: Container): Promise<void> {
+    for (const store of this.#created.splice(0)) {
+      const leaseRepository: unknown = Reflect.get(store.constructor, "leaseRepository");
+      // a store of its own declares the lease store it reads, a class (`static leaseRepository`)
+      const leases =
+        typeof leaseRepository === "function" ? container.get(leaseRepository as Class) : undefined;
+      if (leases instanceof ExecutionLeaseRepository) await this.#holdIn(leases);
+    }
+  }
+
+  /** Takes the runner's lease up to its token (an epoch per take) and keeps it, or releases it. */
+  async #holdIn(leases: ExecutionLeaseRepository): Promise<void> {
+    const { tenantId, leaseExecutionId } = this.lease;
+    // until its confirmation: one already past is a lease that expired
+    const length = seconds(
+      Math.max(0, this.lease.confirmedUntil - this.clock.now().getTime()) / 1000,
+    );
+    const token = this.fence.token ?? 1;
+    for (let epoch = 1; epoch < token; epoch += 1) {
+      const taken = await leases.acquire(tenantId, leaseExecutionId, length);
+      if (taken !== undefined) await leases.release(taken);
+    }
+    const held = await leases.acquire(tenantId, leaseExecutionId, length);
+    if (held !== undefined && this.fence.isLost === true) await leases.release(held);
+  }
 }

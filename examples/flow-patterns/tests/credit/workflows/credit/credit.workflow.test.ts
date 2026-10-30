@@ -16,7 +16,7 @@ import {
 } from "@agboss/core/testing";
 import { DeskMetricsObserver } from "../../../../src/desk/observers/desk-metrics.observer.js";
 import {
-  CrashAfterChargePaymentService,
+  CrashAfterChargeAction,
   crash,
   EndsSeenObserver,
   endOf,
@@ -33,7 +33,6 @@ import { CreditLimitRouter } from "../../../../src/credit/routers/credit-limit/c
 import { DeskRouter } from "../../../../src/credit/routers/desk/desk.router.js";
 import { CreditServiceUnavailableError } from "../../../../src/credit/errors/credit-service-unavailable.error.js";
 import { CreditService } from "../../../../src/credit/services/credit.service.js";
-import { PaymentService } from "../../../../src/credit/services/payment.service.js";
 import { CreditWorkflowFinish } from "../../../../src/credit/workflows/credit/credit.workflow-finish.js";
 import { NoOrderWorkflowFinish } from "../../../../src/credit/workflows/credit/no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "../../../../src/credit/workflows/credit/order-held.workflow-finish.js";
@@ -91,25 +90,6 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
     expect(mockOf(CreditService).limitOf.mock.calls).toEqual([
       [{ customerId: "c-1", requestKey: `${result.executionId}:credit-limit-router:1` }],
     ]);
-  });
-
-  test("the charge carries the step's idempotency key (#472)", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PaymentService).charge.mockResolvedValue({ chargeId: "charge-from-the-provider" });
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
-
-    const result = await app.execute(CreditWorkflowStart, { text: "50 dollars of tea" });
-
-    expect(mockOf(PaymentService).charge.mock.calls).toEqual([
-      [
-        {
-          customerId: "c-1",
-          total: 50,
-          idempotencyKey: `${result.executionId}:charge-card-action:1`,
-        },
-      ],
-    ]);
-    expect(result).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-from-the-provider" });
   });
 
   test("a message that is not an order is handed over", async ({ app, mockLlm }) => {
@@ -208,21 +188,21 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
 });
 
 /**
- * #472 AC2: the charge is made, then its instance dies before the step's checkpoint is written —
- * another instance on the same file recovers the execution and runs the step again with the same
- * idempotency key; the payment provider answers with the charge it made, so there is one.
+ * #472 AC2, #500 AC1: the charge is made, then its instance dies before the step's checkpoint is
+ * written — another instance on the same file recovers the execution and runs the step again under
+ * the next lease token; its fenced effect replays the first receipt, so there is one charge.
  */
 const instances = testWith(FlowPatternsApplication, {
   instances: 2,
   env: "instances",
   overrides: [
     override(ExecutionLeaseRepository, MortalExecutionLeaseRepository),
-    override(PaymentService, CrashAfterChargePaymentService),
+    override(ChargeCardAction, CrashAfterChargeAction),
     override(DeskMetricsObserver, EndsSeenObserver),
   ],
 });
 
-describe("#472: a crash after the charge, before its checkpoint", () => {
+describe("#472, #500 AC1: a crash after the charge, before its checkpoint", () => {
   beforeEach(resetCrash);
   afterEach(resetCrash);
 

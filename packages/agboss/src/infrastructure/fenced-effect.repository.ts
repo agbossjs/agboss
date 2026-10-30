@@ -1,5 +1,6 @@
 import { scopeKeyOf } from "../app/lease-lost.js";
 import { AGBossError } from "../core/errors.js";
+import type { Class } from "../components/injection.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
 import type { FencedEffectSettings } from "./fenced-effect-settings.js";
 
@@ -98,6 +99,13 @@ const joinKeyOf = (key: FencedEffectKey): string =>
  * the application lists the two together.
  */
 export abstract class FencedEffectRepository<TTransaction> {
+  /**
+   * The lease store whose leases the store checks in its transaction — the one of its database
+   * (`SqliteExecutionLeaseRepository` for the SQLite store): listed beside another, the application
+   * fails assembly with `[application.fenced-effect-lease-store]`. Unset: not checked.
+   */
+  static readonly leaseRepository: Class | undefined = undefined;
+
   constructor(
     /** `@Application({ fencedEffects })`: the largest result, how long rows are kept. */
     protected readonly settings: FencedEffectSettings,
@@ -250,5 +258,24 @@ export class FencedEffectStoreMismatchError extends AGBossError {
     );
     this.fencedEffectRepository = options.fencedEffectRepository;
     this.leaseRepository = options.leaseRepository;
+  }
+}
+
+/**
+ * A fenced effect on SQLite returned a promise (#500): its transaction is one synchronous group of
+ * statements on the instance's connection, so it is rolled back — nothing written, the result not
+ * stored. Do the step's I/O before the call (its input) or after it (with its result), and write
+ * the rows with the given `DatabaseSync` only.
+ */
+export class FencedEffectAsyncWorkError extends AGBossError {
+  static override readonly code: string = "fenced-effect.async-work";
+  override name = "FencedEffectAsyncWorkError";
+  readonly effect: string;
+
+  constructor(effect: string) {
+    super(
+      `fenced effect "${effect}" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call`,
+    );
+    this.effect = effect;
   }
 }

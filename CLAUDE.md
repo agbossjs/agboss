@@ -1912,6 +1912,24 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) and an
   ancestor's `parent.fence` / `root.fence` throw `ExecutionContextUnavailableError`. Wiki →
   Several-instances.
+- **The fenced effect (#500):** `FencedEffectRepository<TTransaction>` (infrastructure, the
+  built-in `InMemoryFencedEffectRepository`; `SqliteFencedEffectRepository` listed with
+  `SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]` — a store declares
+  the lease store it reads, `static leaseRepository`; the unlisted default beside SQLite leases fails
+  its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
+  `saveResultIfAbsent(fencedEffectKeyOf(executionContext, name), work)` → `FencedEffectOutcome {
+status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one transaction — the
+  key's lease (not its epoch, released, expired → `ExecutionFencedError`, a hand-over), the scope's
+  high-water mark (a lower token refused before any key is read), the key (written → the stored
+  result, `work` not run), then `work(transaction)` and its result (`JsonResult<T>`, JSON within
+  `@Application({ fencedEffects: { maxResultSize } })`, default `kilobytes(64)`, else
+  `FencedEffectResultTooLargeError`); a throw rolls everything back; concurrent calls on one key of
+  one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
+  `work` gets the connection's `DatabaseSync` and must be synchronous (a promise →
+  `FencedEffectAsyncWorkError`, rolled back). Results and marks are removed by the recovery sweep
+  after `fencedEffects.retention` (default `hours(24)`, above the lease: `[application.fenced-effects-invalid]`).
+  Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
+  store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose

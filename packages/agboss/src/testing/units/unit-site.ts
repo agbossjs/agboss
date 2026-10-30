@@ -36,7 +36,7 @@ import { createScriptedGateway } from "../scripted-gateway.js";
 import type { UnitModelScript, UnitOptions, UnitRun } from "./unit-types.js";
 import { replacementsOf } from "./override.js";
 import { testFenceLeaseOf } from "../fence.js";
-import { unitFencedEffects } from "./unit-fenced-effects.js";
+import { UnitFencedEffects } from "./unit-fenced-effects.js";
 import type { FrameLease } from "../../flow/context/frame.js";
 
 /**
@@ -99,9 +99,8 @@ function unitContainer(
   clock: Clock,
   contexts: RuntimeContexts,
   options: UnitOptions,
-  lease: FrameLease,
+  fencedEffects: UnitFencedEffects,
 ): Container {
-  const fencedEffects = unitFencedEffects(lease, options.fence ?? {});
   const core = new Map<Token, unknown>([
     ...fencedEffects.core,
     [ROUTER_FACTORY, noRouterFactory],
@@ -112,7 +111,7 @@ function unitContainer(
   ]);
   return createContainer(
     { modules: [], core, defaults: fencedEffects.defaults },
-    { replacements: replacementsOf(options.overrides) },
+    { replacements: replacementsOf(options.overrides), onCreate: fencedEffects.onCreate },
   );
 }
 
@@ -143,6 +142,8 @@ export class UnitSite {
   readonly #execution: ContextFields;
   /** The lease its calls fence with (#471): held, token 1, unless the options say otherwise. */
   readonly #lease: FrameLease;
+  /** The runner's lease in the lease store of every fenced-effect store it creates (#500). */
+  readonly #fencedEffects: UnitFencedEffects;
   #gateway: ModelGateway | undefined;
 
   constructor(options: UnitOptions) {
@@ -154,7 +155,8 @@ export class UnitSite {
       executionId: UNIT_EXECUTION,
       clock: this.clock,
     });
-    this.container = unitContainer(this.clock, this.contexts, options, this.#lease);
+    this.#fencedEffects = new UnitFencedEffects(this.#lease, options.fence ?? {}, this.clock);
+    this.container = unitContainer(this.clock, this.contexts, options, this.#fencedEffects);
   }
 
   /** The component's instance (its `deps` resolved, `overrides` applied). */
@@ -186,6 +188,7 @@ export class UnitSite {
       spent.push({ ...record, caller: frame.caller });
     };
     const spec = { ...this.#frameOf(frame, signal), services: { reportUsage } };
+    await this.#fencedEffects.hold(this.container);
     try {
       const output = await runInFrame(spec, () => untilAborted(work({ signal, spent }), signal));
       const failure = this.book.takeFailure();

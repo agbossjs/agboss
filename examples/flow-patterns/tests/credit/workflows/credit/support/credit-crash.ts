@@ -5,31 +5,30 @@ import {
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
+  SqliteFencedEffectRepository,
   type ExecutionEndEvent,
   type ExecutionLease,
+  type InputOf,
+  type OutputOf,
 } from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 import {
   PaymentLedgerRepository,
   type PaymentChargeRow,
 } from "../../../../../src/credit/repositories/payment-ledger.repository.js";
-import {
-  PaymentService,
-  type Charge,
-  type ChargeRequest,
-} from "../../../../../src/credit/services/payment.service.js";
+import { ChargeCardAction } from "../../../../../src/credit/actions/charge-card.action.js";
 import { DeskMetricsObserver } from "../../../../../src/desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "../../../../../src/desk/services/desk-metrics.service.js";
 
 /**
  * #472: a crash after the charge and before the step's checkpoint, with the public API only — the
  * test's replacements for the lease store (an instance the test kills takes no lease and renews
- * none: what a dead process looks like to the shared file), the payment service (its first charge
+ * none: what a dead process looks like to the shared file), the charge action (its first charge
  * waits until its instance has lost the lease, so the step's checkpoint is never written) and an
  * observer that sees the recovered execution end.
  */
 
-/** One charge the payment service made: on which instance, under which key, what it answered. */
+/** One charge the action made: on which instance, under which step key, what it answered. */
 export interface ChargeSeen {
   readonly instanceId: string;
   readonly idempotencyKey: string;
@@ -90,32 +89,40 @@ const abortOf = (signal: AbortSignal): Promise<void> =>
     });
   });
 
-/** The real payment service; its first charge holds its step until the instance lost the lease. */
-@Injectable({ deps: [PaymentLedgerRepository, ExecutionContext, ApplicationContext] })
-export class CrashAfterChargePaymentService extends PaymentService {
+/** The real charge; its first one holds its step after the charge until the instance lost the lease. */
+@Injectable({
+  deps: [
+    ExecutionContext,
+    SqliteFencedEffectRepository,
+    PaymentLedgerRepository,
+    ApplicationContext,
+  ],
+})
+export class CrashAfterChargeAction extends ChargeCardAction {
   constructor(
+    private readonly context: ExecutionContext,
+    fencedEffects: SqliteFencedEffectRepository,
     private readonly ledger: PaymentLedgerRepository,
-    private readonly executionContext: ExecutionContext,
     private readonly applicationContext: ApplicationContext,
   ) {
-    super(ledger);
+    super(context, fencedEffects, ledger);
   }
 
-  override async charge(request: ChargeRequest): Promise<Charge> {
-    const charge = await super.charge(request);
+  override async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
+    const charge = await super.execute(input);
     crash.charges.push({
       instanceId: this.applicationContext.instanceId,
-      idempotencyKey: request.idempotencyKey,
+      idempotencyKey: this.context.step.idempotencyKey,
       chargeId: charge.chargeId,
-      ledger: this.ledger.chargesOf(request.customerId),
+      ledger: this.ledger.chargesOf(input.order.value.customerId),
     });
     if (crash.charges.length === 1) {
       const released = new Promise<void>((resolve) => {
         crash.release = resolve;
       });
       crash.charged?.();
-      // the external charge is made; the step is not done until its instance has lost the lease
-      await Promise.race([abortOf(this.executionContext.signal), released]);
+      // the charge is committed; the step is not done until its instance has lost the lease
+      await Promise.race([abortOf(this.context.signal), released]);
     }
     return charge;
   }
