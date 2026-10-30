@@ -81,8 +81,15 @@ export {
   ModelKind,
   ModelKindError,
 } from "./llm/decision-errors.js";
-export { ApplicationStoppingError } from "./app/application-stopping.js";
+export { ApplicationStoppingError } from "./core/errors.js";
 export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+export {
+  OutboundCallPayloadTooLargeError,
+  OutboundCallUnmaskedError,
+  OutboundCallUnreconciledError,
+  type OutboundCallPayloadTooLargeErrorOptions,
+  type OutboundCallUnreconciledErrorOptions,
+} from "./app/outbound-calls.js";
 export {
   FencedEffectResultTooLargeError,
   FencedEffectStoreMismatchError,

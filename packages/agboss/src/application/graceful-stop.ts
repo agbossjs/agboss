@@ -1,4 +1,4 @@
-import { ApplicationStoppingError } from "../app/application-stopping.js";
+import { ApplicationStoppingError } from "../core/errors.js";
 import type { BuiltApp } from "../app/create-app.js";
 import { executionLeasesOf, type ExecutionLeases } from "../app/execution-leases.js";
 import type { CloseOptions } from "../app/types.js";
@@ -222,6 +222,8 @@ export function stopOf(
     fencedEffectRetention: assembled.fencedEffects.retention,
     leaseEvents: parts.infrastructure.leaseEvents,
     leaseEventRetention: assembled.leaseEventRetention,
+    outboundCalls: parts.infrastructure.outboundCalls,
+    outboundCallRetention: assembled.outboundCalls.retention,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

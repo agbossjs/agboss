@@ -1,7 +1,7 @@
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-lease-event.repository.js";
-import { ApplicationStoppingError } from "./application-stopping.js";
+import { ApplicationStoppingError } from "../core/errors.js";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**

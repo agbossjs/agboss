@@ -126,6 +126,7 @@ export function stepFrameAt(
       ...meshFactsOf(state.contexts),
       // the lease its steps run under (#471): the root's, or an AnyInstance child's own
       ...(run.lease === undefined ? {} : { lease: run.lease }),
+      observability: run.observability,
       // a child execution (#263): its parent's execution and launching step, its item; a root: the
       // call chain its mesh calls carry (#398)
       ...(run.tree === undefined

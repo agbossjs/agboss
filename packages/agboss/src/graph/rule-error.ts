@@ -85,6 +85,7 @@ export type RuleCode =
   // the fenced effects' settings (#500), and their store beside its lease store
   | "application.fenced-effects-invalid"
   | "application.fenced-effect-lease-store"
+  | "application.outbound-calls-invalid"
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"
   | "mesh.duplicate-peer"

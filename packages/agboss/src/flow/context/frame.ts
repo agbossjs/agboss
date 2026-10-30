@@ -12,6 +12,7 @@ import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
 import type { FencedEffectReport, HandOverReport } from "../../app/lease-events.js";
+import type { ObservabilityMask } from "../../pii/observability-mask.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -50,6 +51,11 @@ export interface ExecutionFacts {
    * held (a reply interpreter, a budget's `maxSpend()`, an ancestor rebuilt on another instance).
    */
   readonly lease?: FrameLease | undefined;
+  /**
+   * What the workflow's observability policies show of a value (#120 AC7): how an outbound call's
+   * request is stored (#505); `undefined` where the frame has no workflow (a unit runner).
+   */
+  readonly observability?: ObservabilityMask | undefined;
 }
 
 /**

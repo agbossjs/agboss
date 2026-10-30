@@ -13,10 +13,14 @@ import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtim
 import { Clock, IdGenerator } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/instance-tokens.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import { FencedEffectSettings } from "../infrastructure/fenced-effect-settings.js";
 import {
+  FencedEffectSettings,
+  OutboundCallSettings,
+} from "../infrastructure/fenced-effect-settings.js";
+import {
+  CONTAINER_DEFAULTS,
   INFRASTRUCTURE_DEFAULTS,
-  TEST_INFRASTRUCTURE_DEFAULTS,
+  TEST_CONTAINER_DEFAULTS,
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
@@ -50,6 +54,8 @@ export interface ApplicationContainerSources {
   readonly quiet?: boolean | undefined;
   /** `@Application({ fencedEffects })` (#500), as the fenced-effect store reads it; else the defaults. */
   readonly fencedEffects?: FencedEffectSettings | undefined;
+  /** `@Application({ outboundCalls })` (#505), as `OutboundCalls` and its store read it. */
+  readonly outboundCalls?: OutboundCallSettings | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -66,9 +72,10 @@ export function applicationContainerOf(
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
+      [OutboundCallSettings, sources.outboundCalls ?? new OutboundCallSettings()],
       ...contextValuesOf(sources.contexts),
     ]),
-    defaults: sources.quiet === true ? TEST_INFRASTRUCTURE_DEFAULTS : INFRASTRUCTURE_DEFAULTS,
+    defaults: sources.quiet === true ? TEST_CONTAINER_DEFAULTS : CONTAINER_DEFAULTS,
     // a listed clock or id generator asked for by its own class is the same instance
     instances: new Map([
       ...(sources.instances ?? []),

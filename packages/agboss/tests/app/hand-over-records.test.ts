@@ -5,7 +5,7 @@
  * never throws; a held lease's `LeaseEventReports` is settled only once its rows are written.
  */
 import { describe, expect, it } from "vitest";
-import { ApplicationStoppingError } from "../../src/app/application-stopping.js";
+import { ApplicationStoppingError } from "../../src/core/errors.js";
 import { recordedHandOver } from "../../src/app/handed-over.js";
 import {
   fencedEffectEventOf,

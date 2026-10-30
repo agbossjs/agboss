@@ -34,6 +34,8 @@ export interface TestApp extends Pick<
   | "checkLiveness"
   | "checkReadiness"
   | "leaseEventsOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCalls"
   | "resolve"
 > {
   readonly clock: VirtualClock;
@@ -114,6 +116,28 @@ const slicesOf = (
   }),
 });
 
+/**
+ * What answers during and after `close()` too: the probes (an orchestrator asks while the app
+ * stops), the lease log (#501: a test reads a stopped zombie's) and the outbound calls (#505: an
+ * operator reads them after the instance stopped).
+ */
+const probesOf = (
+  environment: TestEnvironment,
+  probed: () => Promise<BuiltApplication>,
+): Pick<
+  TestApp,
+  "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCalls"
+> => ({
+  checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
+  checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
+  leaseEventsOf: (tree) =>
+    checked(environment, async () => (await probed()).app.leaseEventsOf(tree)),
+  outboundCallsOf: (tree) =>
+    checked(environment, async () => (await probed()).app.outboundCallsOf(tree)),
+  pendingOutboundCalls: (tenant) =>
+    checked(environment, async () => (await probed()).app.pendingOutboundCalls(tenant)),
+});
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
@@ -145,12 +169,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => (await built()).app.resume(request, options)),
     cancel: (thread, options) =>
       checked(environment, async () => (await built()).app.cancel(thread, options)),
-    // the probes answer during and after close() too: an orchestrator asks while the app stops
-    checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
-    checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
-    // the lease log is read during and after close() too (#501): a test reads a stopped zombie's
-    leaseEventsOf: (tree) =>
-      checked(environment, async () => (await probed()).app.leaseEventsOf(tree)),
+    ...probesOf(environment, probed),
     ready: () =>
       checked(environment, async () => {
         await built();

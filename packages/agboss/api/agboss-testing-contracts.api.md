@@ -86,6 +86,16 @@ export interface FencedEffectStores<TTransaction> {
 // @public
 export function meshRequestContract(target: ContractTarget<MeshRequestRepository>): void;
 
+// @public
+export function outboundCallContract(target: ContractTarget<OutboundCallStores>): void;
+
+// @public
+export interface OutboundCallStores {
+    // Warning: (ae-forgotten-export) The symbol "OutboundCallRepository" needs to be exported by the entry point index.d.ts
+    readonly calls: OutboundCallRepository;
+    readonly leases: ExecutionLeaseRepository;
+}
+
 // Warning: (ae-forgotten-export) The symbol "PausedExecutionRepository" needs to be exported by the entry point index.d.ts
 //
 // @public

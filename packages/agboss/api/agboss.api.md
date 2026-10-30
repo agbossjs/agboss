@@ -314,6 +314,8 @@ export interface App {
     readonly models: readonly string[];
     // (undocumented)
     readonly name: string;
+    outboundCallsOf(tree: LeaseEventsQuery): Promise<readonly OutboundCallRecord[]>;
+    pendingOutboundCalls(tenant: OutboundCallsQuery): Promise<readonly OutboundCallRecord[]>;
     resolve<T>(token: Class<T>): T;
     resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
     readonly textStart: Class | undefined;
@@ -399,6 +401,7 @@ export interface ApplicationOptions {
     readonly mesh?: MeshOptions;
     readonly name: string;
     readonly observers?: readonly ObserverClass[];
+    readonly outboundCalls?: OutboundCallsOptions;
     readonly pauseRecordRetention?: Milliseconds;
     readonly piiPolicies?: readonly Class[];
     readonly providers?: readonly Provider[];
@@ -2916,6 +2919,31 @@ export class InMemoryFencedEffectTransaction {
 }
 
 // @public
+export class InMemoryOutboundCallRepository extends OutboundCallRepository {
+    constructor(clock: Clock, database: InMemoryDatabase, leases: ExecutionLeaseRepository);
+    // (undocumented)
+    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
+    // (undocumented)
+    findAllByTenantIdAndStatus(tenantId: string, status: OutboundCallStatus): Promise<readonly OutboundCallRecord[]>;
+    // (undocumented)
+    findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+    // (undocumented)
+    static readonly leaseRepository: Class | undefined;
+    // (undocumented)
+    markCompleted(key: FencedEffectKey, result: string): Promise<void>;
+    // (undocumented)
+    markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
+    // (undocumented)
+    markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+}
+
+// @public
 export type InputFields = Readonly<Record<string, InputFieldShape>>;
 
 // @public
@@ -3967,6 +3995,255 @@ export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInn
 }
 
 // @public
+export interface OutboundCall<TRequest> {
+    readonly attempt: number;
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly operation: string;
+    readonly request: TRequest;
+    readonly signal: AbortSignal;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallFailure {
+    readonly code: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export interface OutboundCallIntent {
+    readonly attempt: number;
+    readonly executionId: string;
+    readonly idempotencyKey: string;
+    readonly operation: string;
+    readonly request: string;
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly step: OutboundCallStep;
+    readonly target: string;
+    readonly workflow: string;
+}
+
+// @public
+export interface OutboundCallLookup {
+    readonly attempt: number;
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly operation: string;
+    readonly signal: AbortSignal;
+    readonly storedRequest: string;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallOptions<TRequest, TResult> {
+    readonly operation: string;
+    readonly reconcile: (lookup: OutboundCallLookup) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
+    readonly request: TRequest & JsonResult<TRequest>;
+    readonly send: (call: OutboundCall<TRequest>) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallOutcome<TResult> {
+    // (undocumented)
+    readonly attempt: number;
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly result: TResult;
+    // (undocumented)
+    readonly status: OutboundCallOutcomeStatus;
+}
+
+// @public
+export enum OutboundCallOutcomeStatus {
+    Reconciled = "reconciled",
+    Replayed = "replayed",
+    Sent = "sent"
+}
+
+// @public
+export enum OutboundCallPart {
+    // (undocumented)
+    Request = "request",
+    // (undocumented)
+    Result = "result"
+}
+
+// @public
+export class OutboundCallPayloadTooLargeError extends AGBossError {
+    constructor(options: OutboundCallPayloadTooLargeErrorOptions);
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly maxPayloadSize: number;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly part: OutboundCallPart;
+    // (undocumented)
+    readonly size: number;
+}
+
+// @public
+export interface OutboundCallPayloadTooLargeErrorOptions {
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    readonly maxPayloadSize: number;
+    // (undocumented)
+    readonly part: OutboundCallPart;
+    // (undocumented)
+    readonly size: number;
+}
+
+// @public
+export class OutboundCallReconciliation<TResult> {
+    static completed<TResult>(result: TResult & JsonResult<TResult>): OutboundCallReconciliation<TResult>;
+    static notSent(): OutboundCallReconciliation<never>;
+    readonly reason: string;
+    readonly result: TResult | undefined;
+    static unknown(options: OutboundCallUnknownOptions): OutboundCallReconciliation<never>;
+    // (undocumented)
+    readonly verdict: OutboundCallVerdict;
+}
+
+// @public
+export interface OutboundCallRecord extends OutboundCallIntent {
+    readonly endedAt?: string;
+    readonly failure?: OutboundCallFailure;
+    readonly name: string;
+    readonly recordedAt: string;
+    readonly result?: string;
+    // (undocumented)
+    readonly status: OutboundCallStatus;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+}
+
+// @public
+export abstract class OutboundCallRepository {
+    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
+    abstract findAllByTenantIdAndStatus(tenantId: string, status: OutboundCallStatus): Promise<readonly OutboundCallRecord[]>;
+    abstract findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+    static readonly leaseRepository: Class | undefined;
+    abstract markCompleted(key: FencedEffectKey, result: string): Promise<void>;
+    abstract markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
+    abstract markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+    abstract ping(): Promise<void>;
+    abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+}
+
+// @public
+export class OutboundCalls {
+    constructor(repository: OutboundCallRepository, settings: OutboundCallSettings);
+    send<TRequest, TResult>(key: FencedEffectKey, options: OutboundCallOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
+}
+
+// @public
+export class OutboundCallSettings {
+    constructor(options?: OutboundCallsOptions, requiresMask?: boolean);
+    readonly maxPayloadSize: Bytes;
+    readonly requiresMask: boolean;
+    readonly retention: Milliseconds;
+}
+
+// @public
+export interface OutboundCallsOptions {
+    readonly maxPayloadSize?: Bytes;
+    readonly retention?: Milliseconds;
+}
+
+// @public
+export interface OutboundCallsQuery {
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export enum OutboundCallStatus {
+    Completed = "completed",
+    Failed = "failed",
+    Pending = "pending"
+}
+
+// @public
+export interface OutboundCallStep {
+    // (undocumented)
+    readonly nodeId: string;
+    // (undocumented)
+    readonly visitNumber: number;
+}
+
+// @public
+export interface OutboundCallUnknownOptions {
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export class OutboundCallUnmaskedError extends AGBossError {
+    constructor(call: string);
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export class OutboundCallUnreconciledError extends StepFailedError {
+    constructor(options: OutboundCallUnreconciledErrorOptions, cause?: unknown);
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly reason: string;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallUnreconciledErrorOptions {
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly reason: string;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export enum OutboundCallVerdict {
+    Completed = "completed",
+    NotSent = "not-sent",
+    Unknown = "unknown"
+}
+
+// @public
 export interface OutdatedMark {
     readonly byValueId: string;
     // (undocumented)
@@ -4920,7 +5197,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.fenced-effect-lease-store" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.fenced-effect-lease-store" | "application.outbound-calls-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -6117,8 +6394,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 //
 // src/app/app-deps.ts:58:3 - (ae-undocumented) Missing documentation for "evaluation".
 // src/app/app-deps.ts:104:3 - (ae-undocumented) Missing documentation for "container".
-// src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:58:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
@@ -6128,29 +6403,67 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/lease-lost.ts:85:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/lease-lost.ts:88:3 - (ae-undocumented) Missing documentation for "token".
 // src/app/lease-lost.ts:89:3 - (ae-undocumented) Missing documentation for "observedToken".
+// src/app/outbound-calls.ts:24:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:25:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:42:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:43:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:84:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/outbound-calls.ts:85:3 - (ae-undocumented) Missing documentation for "result".
+// src/app/outbound-calls.ts:86:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/app/outbound-calls.ts:87:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:102:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:112:3 - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-calls.ts:175:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:176:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:177:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:178:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:179:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:188:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:189:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:190:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:191:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:192:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:193:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:194:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:215:3 - (ae-undocumented) Missing documentation for "Request".
+// src/app/outbound-calls.ts:216:3 - (ae-undocumented) Missing documentation for "Result".
+// src/app/outbound-calls.ts:221:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:222:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:223:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:224:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:233:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:234:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:235:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:236:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:237:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:238:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:257:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:258:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:259:3 - (ae-undocumented) Missing documentation for "call".
 // src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/resume.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/resume.ts:53:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:54:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:27:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/app/types.ts:28:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:98:3 - (ae-undocumented) Missing documentation for "reply".
-// src/app/types.ts:107:3 - (ae-undocumented) Missing documentation for "decision".
-// src/app/types.ts:119:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:122:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/app/types.ts:130:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:133:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:138:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:139:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:153:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:162:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:183:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:224:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:225:3 - (ae-undocumented) Missing documentation for "version".
-// src/app/types.ts:289:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:290:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/application/application.ts:202:1 - (ae-undocumented) Missing documentation for "Application".
+// src/app/types.ts:28:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/app/types.ts:29:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts:99:3 - (ae-undocumented) Missing documentation for "reply".
+// src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "decision".
+// src/app/types.ts:120:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:123:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts:131:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:134:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:139:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:140:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:154:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:163:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:184:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:225:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:226:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:298:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:303:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:304:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/application/application.ts:211:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -6269,6 +6582,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/errors.ts:19:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
@@ -6771,11 +7086,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:187:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:188:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:189:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:200:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:201:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:188:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:189:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:190:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:201:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:202:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -6855,13 +7170,30 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/in-memory-fenced-effect.repository.ts:55:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:66:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:70:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:85:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:79:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/mesh-request.repository.ts:18:3 - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts:19:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/infrastructure/mesh-request.repository.ts:30:1 - (ae-undocumented) Missing documentation for "MeshRequestRepository".
+// src/infrastructure/outbound-call.repository.ts:39:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/outbound-call.repository.ts:42:3 - (ae-undocumented) Missing documentation for "message".
+// src/infrastructure/outbound-call.repository.ts:47:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/outbound-call.repository.ts:48:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/outbound-call.repository.ts:69:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/outbound-call.repository.ts:74:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/outbound-call.repository.ts:77:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/outbound-call.repository.ts:152:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/outbound-call.repository.ts:162:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/outbound-call.repository.ts:166:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/outbound-call.repository.ts:173:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/outbound-call.repository.ts:189:3 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/outbound-call.repository.ts:197:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/outbound-call.repository.ts:206:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/outbound-call.repository.ts:215:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/outbound-call.repository.ts:224:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/outbound-call.repository.ts:231:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
 // src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".

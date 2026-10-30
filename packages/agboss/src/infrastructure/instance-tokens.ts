@@ -1,6 +1,6 @@
 import { InjectionToken } from "../components/injection.js";
 import { InMemoryDatabase } from "./in-memory-database.js";
-import { FencedEffectSettings } from "./fenced-effect-settings.js";
+import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
 
 /**
  * What the built-in infrastructure defaults read from their application instance besides the
@@ -14,6 +14,11 @@ export const IN_MEMORY_DATABASE = new InjectionToken<InMemoryDatabase>("IN_MEMOR
 
 /**
  * All of them, as the core values every container of an application has — with the application's
- * `FencedEffectSettings` (#500), a public token a fenced-effect store of a project injects.
+ * `FencedEffectSettings` (#500) and `OutboundCallSettings` (#505), public tokens a store of a
+ * project injects.
  */
-export const INFRASTRUCTURE_TOKENS = [IN_MEMORY_DATABASE, FencedEffectSettings];
+export const INFRASTRUCTURE_TOKENS = [
+  IN_MEMORY_DATABASE,
+  FencedEffectSettings,
+  OutboundCallSettings,
+];

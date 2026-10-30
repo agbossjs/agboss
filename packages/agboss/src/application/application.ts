@@ -1,4 +1,7 @@
-import type { FencedEffectsOptions } from "../infrastructure/fenced-effect-settings.js";
+import type {
+  FencedEffectsOptions,
+  OutboundCallsOptions,
+} from "../infrastructure/fenced-effect-settings.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
@@ -123,6 +126,12 @@ export interface ApplicationOptions {
    * (`retention`, default `hours(24)`, above the lease's 30 s — `[application.fenced-effects-invalid]`).
    */
   readonly fencedEffects?: FencedEffectsOptions;
+  /**
+   * The calls that leave the system (#505, `OutboundCalls`): the largest request and result
+   * (default `kilobytes(64)`) and how long an ended intent is kept (default `hours(168)`; a
+   * pending one always) — `[application.outbound-calls-invalid]`.
+   */
+  readonly outboundCalls?: OutboundCallsOptions;
   /**
    * The environment contract, required — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the

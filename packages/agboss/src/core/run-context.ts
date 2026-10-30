@@ -3,6 +3,7 @@ import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
 import type { FrameLease, ParentExecution } from "../flow/context/frame.js";
+import type { ObservabilityMask } from "../pii/observability-mask.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type ExecutionId = string & { readonly __brand: "ExecutionId" };
@@ -31,6 +32,8 @@ export interface RunContext {
   readonly tree?: ExecutionTreePlace;
   /** The lease the run's steps run under (#471); absent outside a pass. */
   readonly lease?: FrameLease | undefined;
+  /** The workflow's observability mask (#505): what its steps' outbound calls store of a request. */
+  readonly observability?: ObservabilityMask | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */
