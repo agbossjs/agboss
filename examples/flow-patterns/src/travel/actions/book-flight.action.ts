@@ -52,7 +52,12 @@ export class BookFlightAction implements ActionHandler<BookFlightAction> {
       operation: "book-flight",
       request: { destination },
       send: async (call) => ({
-        bookingId: await this.bookingDeskService.bookFlight(destination, call.idempotencyKey),
+        // the call's signal: a step that stops ends its request, so its attempt's owner is gone
+        bookingId: await this.bookingDeskService.bookFlight(
+          destination,
+          call.idempotencyKey,
+          call.signal,
+        ),
       }),
       reconcile: async (lookup) =>
         reconciliationOf(await this.bookingDeskService.findFlight(lookup.idempotencyKey)),

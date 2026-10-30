@@ -23,8 +23,10 @@ export interface FlightLookup {
 /** The airline and the hotel (a service: the I/O); every call carries the step's idempotency key. */
 @Injectable()
 export class BookingDeskService {
-  bookFlight(destination: string, idempotencyKey: string): Promise<string> {
-    return this.#post("https://travel.example.com/flights", idempotencyKey, { destination });
+  /** Books under `idempotencyKey`; `signal` (the call's) ends the request when the step stops. */
+  bookFlight(destination: string, idempotencyKey: string, signal?: AbortSignal): Promise<string> {
+    const url = "https://travel.example.com/flights";
+    return this.#post(url, idempotencyKey, { destination }, signal);
   }
 
   /** The booking made with `idempotencyKey`, as the airline knows it (its lookup by key). */
@@ -49,11 +51,17 @@ export class BookingDeskService {
     await this.#post(`https://travel.example.com/hotels/${bookingId}/cancel`, idempotencyKey, {});
   }
 
-  async #post(url: string, idempotencyKey: string, body: object): Promise<string> {
+  async #post(
+    url: string,
+    idempotencyKey: string,
+    body: object,
+    signal?: AbortSignal,
+  ): Promise<string> {
     const response: Response = await fetch(url, {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(body),
+      ...(signal === undefined ? {} : { signal }),
     });
     if (!response.ok) throw new BookingFailedError(`${url} answered ${String(response.status)}`);
     const answer = (await response.json()) as { readonly id: string };

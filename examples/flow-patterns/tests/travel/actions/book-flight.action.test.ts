@@ -25,14 +25,26 @@ const airline = {
   lookup: undefined as FlightLookup | undefined,
 };
 
+/** Never answers: rejects once `signal` aborts — the request the stopped step ends. */
+const abortedBy = (signal: AbortSignal | undefined): Promise<never> =>
+  new Promise<never>((_, reject) => {
+    signal?.addEventListener("abort", () => {
+      reject(new Error("the airline request was aborted"));
+    });
+  });
+
 @Injectable()
 class FakeBookingDeskService extends BookingDeskService {
-  override async bookFlight(destination: string, idempotencyKey: string): Promise<string> {
+  override async bookFlight(
+    destination: string,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
     airline.calls.push(idempotencyKey);
-    if (airline.freeze === "before") await new Promise<never>(() => undefined);
+    if (airline.freeze === "before") await abortedBy(signal);
     const bookingId = airline.bookings.get(idempotencyKey) ?? `${destination}-flight-1`;
     airline.bookings.set(idempotencyKey, bookingId);
-    if (airline.freeze === "after") await new Promise<never>(() => undefined);
+    if (airline.freeze === "after") await abortedBy(signal);
     return bookingId;
   }
 
