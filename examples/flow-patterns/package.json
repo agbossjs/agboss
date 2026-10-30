@@ -13,6 +13,7 @@
     "dev": "agboss dev",
     "studio": "agboss studio",
     "types": "agboss check",
+    "check:models": "agboss check --models --env test",
     "answer": "tsx src/scripts/answer-pauses.ts",
     "check": "agboss check --strict --cassettes --application src/desk.application.ts --federation snapshots/ && agboss describe --json --application src/desk.application.ts > .agboss/desk-application.json && agboss check --strict --federation .agboss/desk-application.json && agboss check --models --env test && eslint . && npm run -s eval:check && npm run -s records:check",
     "typecheck": "npm run types && tsc --noEmit -p .",

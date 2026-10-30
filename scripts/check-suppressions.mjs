@@ -16,8 +16,6 @@ const DIRS = [
   "packages/agboss/tests",
   "packages/agboss-cli/src",
   "packages/agboss-cli/tests",
-  "examples/job-scout/src",
-  "examples/job-scout/tests",
   "examples/flow-patterns/src",
   "examples/flow-patterns/tests",
 ];

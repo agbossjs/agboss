@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=../../../../node_modules/agboss/schema/profile.dto.json
-# Does the scout rank and present jobs better with a little thinking? Compare:
-#   npm run compare -- --profiles base,scout-low-thinking --golden core
-profile: scout-low-thinking
-version: 3.0.0-low-thinking
-agents:
-  scout-agent:
-    thinking: low

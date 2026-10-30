@@ -70,11 +70,11 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
 | `npm run check:docs`                   | typecheck the docs' ts blocks, check the commands they mention                           |
 | `make smoke`                           | real-model smoke tests of the framework (needs `.env`), never in CI                      |
 | `make fmt`                             | auto-format                                                                              |
-| `npm run studio`                       | LangGraph Studio on job-scout (`agboss studio`: no `studio.ts` / `langgraph.json`)       |
+| `npm run studio`                       | LangGraph Studio on flow-patterns (`agboss studio`: no `studio.ts` / `langgraph.json`)   |
 | `scripts/langfuse.sh up\|down\|status` | local Langfuse for tracing; writes keys to `.env`                                        |
 
 The CLI works on one application (#268): its path is set once in the project's `package.json` —
-`"agboss": { "application": "src/job-scout.application.ts" }` — or given with `--application <path>`
+`"agboss": { "application": "src/flow-patterns.application.ts" }` — or given with `--application <path>`
 (neither → exit 3 saying where to set it; there is no `--workflow <path>`). `chat`, `run`, `eval score`,
 `replay`, `golden add` and `compare` run one workflow, chosen by its start's full name —
 `--start chat-workflow-start` (optional with one start; with several and none given, or an unknown
@@ -179,10 +179,13 @@ effect, judges and instructions, a router's `decidedBy` and routes with `spawn` 
 the `onError` table, `launches` (quorum, arbiters with their hashes) and `schemas` — every DTO by
 class and every tool by name, each with its `schemaHash` and JSON Schema.
 
-In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
-`npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` (`agboss eval score`) / `replay` · `npm run golden -- add --name <n>` ·
-`npm run compare -- --profiles base,<p> --golden <n>` · `npm run rag:index` (`agboss rag index`) ·
-`npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command takes
+job-scout — resume → search brief → Greenhouse jobs ranked by Jev, the full example of a real
+multi-step agent (chat, eval, golden, compare, a knowledge base, the Greenhouse probe) — left this
+repository (#489, Wiki → ADR-0025-Examples-live-in-agbossjs-agboss-examples): it is
+[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) of agbossjs/agboss-examples, a standalone project on the published
+`@agboss/core` whose `check`, `test` and `demo` scripts run offline at $0 in that repository's CI;
+before a release the maintainer runs every example there against the candidate with real models
+(`RELEASE_CHECKLIST.md` → Examples against the release candidate). Any run command takes
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface, #419; scripted tests,
@@ -1266,7 +1269,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `SqliteChildExecutionQueueRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
-  `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses
+  `BEGIN IMMEDIATE`, time from the framework's clock; flow-patterns' applications list seven of them. A project subclasses
   one through public tokens only, with `extends` + `override` and the class's own `deps` — `@Injectable({
 deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecutionRecordRepository`
   adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
@@ -2138,7 +2141,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
 `agboss check --strict` on flow-patterns' two applications (warnings are errors, `--federation`
-between them) and its own lint and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+between them) and its own lint and `agboss check --models` on flow-patterns (`npm run check:models`). Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -2297,15 +2300,8 @@ packages/agboss-cli/    the `agboss` command (#205, npm package `@agboss/cli`; d
     chat.ts, cli.ts, check.ts, describe.ts, dev.ts, studio.ts, rag-index.ts, eval/   command handlers
   tests/            CLI tests; workflows come from the framework's tests/fixtures
   bin/              the CLI launcher (bin names `agboss` and `agboss`)
-examples/job-scout/          the example (package job-scout-example; depends on agboss)
-  src/              job-scout.application.ts, job-scout.workflow.ts (one path a turn); workflow-starts/ (*.workflow-start.ts), routers/
-                    (*.router.ts), agents/ (*.agent.ts + *.prompt.md), workflow-finishes/
-                    (*.workflow-finish.ts), tools/ (*.tool.ts +
-                    *.dto.ts), services/ (*.service.ts), mcp/ (*.server.ts, *.mcp.ts, *.dto.ts),
-                    rag/ (*.rag.ts), compactions/ (*.compaction.ts + *.prompt.md), helpers/ (*.helper.ts),
-                    config/ (budget.config.ts, …), scripts/, data/
-  tests/  profiles/  golden/
-examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
+examples/flow-patterns/      the one in-repo example (#489: job-scout is agbossjs/agboss-examples' 08-job-scout) —
+                    the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
                     item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,

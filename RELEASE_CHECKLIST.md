@@ -24,6 +24,54 @@ ls -d "$WORKSPACE_ROOT/agboss" "$WORKSPACE_ROOT/agboss-examples" "$WORKSPACE_ROO
 
 ---
 
+## Examples against the release candidate (every release from `0.1.1`, #489)
+
+The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples), not in this repository (Wiki → ADR-0025-Examples-live-in-agbossjs-agboss-examples): `01`..`07` and [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout), which left `agbossjs/agboss` in #489. Their CI (`smoke` on every push, `nightly` against the pinned framework commit) runs offline, without models and without any token of this repository; **before every release the maintainer runs every example locally against the release candidate with real models.** Nothing is published until all three steps pass.
+
+1. **Pack the candidate and install it into every example.** `AGBOSS_REPO_DIR` points at a checkout of the release commit of `agbossjs/agboss`:
+
+   ```bash
+   set -euo pipefail
+   cd "$WORKSPACE_ROOT/agboss-examples" && \
+     npm ci && \
+     AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run pack:framework && \
+     npm run install:packed
+   ```
+
+2. **Run every example with real models** — `check`, `test`, then `demo:live` where the example has it (`01`, `08`), else its `demo` — with `OPENROUTER_API_KEY` set:
+
+   ```bash
+   set -euo pipefail
+   test -n "${OPENROUTER_API_KEY:-}"
+   cd "$WORKSPACE_ROOT/agboss-examples"
+   for example in [0-9][0-9]-*/; do
+     (
+       cd "$example"
+       npm run check && npm test
+       if node -e 'process.exit(require("./package.json").scripts?.["demo:live"] ? 0 : 1)'; then
+         npm run demo:live
+       else
+         npm run demo
+       fi
+     )
+   done
+   npm run install:packed:restore && test -z "$(git status --short)"
+   ```
+
+   - **Expected outcome:** every example, `08-job-scout` included, passes `check`, `test` and its live demo against the packed candidate; `08`'s demo prints a ranked shortlist and its cost report.
+   - **Failure / stop condition:** stop if a step is unclear, if an example fails, or if an example passes only offline — fix the framework or the example first, never release around it.
+
+3. **After publishing**, check the examples against the registry (`RELEASE_VERSION` is the version just published, e.g. `0.1.1`) and pin them to the release commit:
+
+   ```bash
+   set -euo pipefail
+   cd "$WORKSPACE_ROOT/agboss-examples" && \
+     npm run verify:published -- --live-registry --version "$RELEASE_VERSION"
+   # then pin .agboss-version.json (frameworkSha) to the release commit — Step 1.2 — in a PR there
+   ```
+
+---
+
 # OWNER MANUAL RELEASE — START HERE
 
 Execute the eight phases below **in strict chronological order**. Every command block uses `set -euo pipefail` so execution stops immediately on any non-zero exit code.
