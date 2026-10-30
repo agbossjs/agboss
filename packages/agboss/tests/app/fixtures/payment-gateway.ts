@@ -55,7 +55,7 @@ export const gateway = {
   receiptEmail: "",
   lookup: LookupMode.Books,
   /** How many coming charges freeze before / after they are processed; the frozen gates. */
-  gates: { before: 0, after: 0, frozen: [] as (() => void)[] },
+  gates: { before: 0, after: 0, frozen: [] as (() => void)[], ignoresAbort: false },
 };
 
 export function resetGateway(): void {
@@ -70,6 +70,7 @@ export function resetGateway(): void {
   gateway.gates.before = 0;
   gateway.gates.after = 0;
   gateway.gates.frozen.length = 0;
+  gateway.gates.ignoresAbort = false;
 }
 
 /** Lets every frozen charge go, in the order they froze. */
@@ -90,6 +91,8 @@ async function gate(side: "before" | "after", signal: AbortSignal): Promise<void
   gateway.gates[side] -= 1;
   await new Promise<void>((resolve, reject) => {
     gateway.gates.frozen.push(resolve);
+    // a client that ignores its signal (#508 review): the call goes on after the step aborted
+    if (gateway.gates.ignoresAbort) return;
     signal.addEventListener("abort", () => {
       reject(new Error("the call was aborted before the provider answered"));
     });

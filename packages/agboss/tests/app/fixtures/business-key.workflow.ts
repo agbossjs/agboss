@@ -43,6 +43,8 @@ export const ledger = {
   /** How many coming outbound charges freeze before they are sent; the frozen gates. */
   freeze: 0,
   frozen: [] as (() => void)[],
+  /** Whether a frozen charge ignores its step's signal. */
+  ignoresAbort: false,
 };
 
 export function resetLedger(): void {
@@ -51,6 +53,7 @@ export function resetLedger(): void {
   ledger.outbound.length = 0;
   ledger.freeze = 0;
   ledger.frozen.length = 0;
+  ledger.ignoresAbort = false;
 }
 
 /** Lets every frozen charge go. */
@@ -142,6 +145,8 @@ async function frozenWhenAsked(signal: AbortSignal): Promise<void> {
   ledger.freeze -= 1;
   await new Promise<void>((resolve, reject) => {
     ledger.frozen.push(resolve);
+    // a client that ignores its signal (#508 review): the send goes on after the step aborted
+    if (ledger.ignoresAbort) return;
     signal.addEventListener("abort", () => {
       reject(new Error("the charge was aborted before it was sent"));
     });

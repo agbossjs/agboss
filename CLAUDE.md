@@ -2014,15 +2014,23 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 
   no control characters, else `InvalidBusinessKeyError`, `fenced-effect.invalid-business-key`) —
   one row per tenant, name and business key, whatever step, execution or thread makes it; fencing
   is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
-  The same key and fingerprint (SHA-256 of canonical JSON; `OutboundCalls` takes its request's) →
+  The same key and fingerprint (an HMAC of canonical JSON under a subkey of the application's `pseudonymKey`, `"agboss/fingerprint/v1"` — a labelled SHA-256 without one; `OutboundCalls` takes its request's) →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
   visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
-  this instance (never joined). A pending call under a business key is in flight while its attempt's
-  owner lives — sending in this instance (joined, `Joined`) or under a lease another instance holds
-  (`OutboundCallInFlightError`); once its owner is gone, the next caller reconciles it, by the
-  compare-and-set. The key sent with the call is `<tenant>:<businessKey>:<name>`; an error names it
-  by its handle only (`business-key:<handle>:<name>`). SQLite: `fenced_effect_business_results` and the
+  this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
+  this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other
+  system's own error, else makes its own call), or, under a business key, under a lease still open
+  on another instance (`OutboundCallRepository.isLeaseOpen`: neither released nor superseded —
+  expired counts as open; a holder releases its lease only once its attempts settled) →
+  `OutboundCallInFlightError`; once its owner is gone, the next caller reconciles it, by the
+  compare-and-set. An attempt answered after a newer one took the intent over is `Superseded`
+  (both reached the other system; an error `outbound-call.superseded` in the log, the newer attempt
+  named on the event). An answered call ends `Completed` even when its result cannot be stored (a
+  marker in its place, never `Failed`, which would resend). Effect names are 1–100 of `[A-Za-z0-9._-]`
+  (`InvalidFencedEffectNameError`); the key sent with the call is `<tenant>:<businessKey>:<name>`,
+  each part `encodeURIComponent`-encoded; operator reads, kept records and errors name a business
+  key by its handle only (`business-key:<handle>:<name>`), and so does `OutboundCallOutcome.idempotencyKey`. SQLite: `fenced_effect_business_results` and the
   `outbound_calls` partial unique index on `(tenant_id, name, business_key)`. flow-patterns' credit
   desk charges under `credit:<applicationId>`. Tests: `callTools(callTool(A, …), callTool(B, …))` —
   one move calling several tools at once (each its own task under `TestConcurrency.Real`).
