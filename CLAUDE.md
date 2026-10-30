@@ -2263,6 +2263,14 @@ executionContext, execution }` as `testExecutionContext` takes them (checked by 
 leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` (#471). `testExecutionContext({ … })` stays for a class created
   by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a
   real model; real-model checks are `make smoke`.
+- A payment gateway's guarantees (#508, Wiki → Payment-gateways): `FakeOutboundGateway({ clock,
+capabilities })` — a gateway in memory with `idempotencyKeys` (G1), `lookupByKey` (G2),
+  `keyRetention` on the clock (G3), `firstResponseOnRepeat` (G4), `conflictOnMismatch` (G5), all on
+  by default (`FULL_GATEWAY_CAPABILITIES`), `charge` / `lookup` / `payments`, faults by
+  `injectFault(FakeGatewayFault.AnswerThenDrop | FailBeforeProcessing | Slow, { times, delay })`;
+  `outboundGatewayChecklist({ send, lookup?, clock?, requiredRetention?, keyPrefix? })` probes G1–G5
+  through a team's adapter → `{ results: [{ requirement, status: GatewayCheckStatus, evidence }],
+isPassed }` — offline against the fake, by hand against a sandbox.
 
 ### Imports
 
