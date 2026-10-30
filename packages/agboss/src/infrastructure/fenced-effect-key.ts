@@ -102,14 +102,24 @@ export interface IdempotencyKeyConflictErrorOptions {
 }
 
 /**
- * A business key's handle (#508): 12 hex characters of its HMAC-SHA256 under the PII key of the
- * execution running now (its own, #334, else the application's `pseudonymKey`) — a business key is
- * guessable (`order:42`), so never a plain hash. `undefined` where no key is available.
+ * A business key's handle (#508): 12 hex characters of an HMAC-SHA256 of `business-key\0<key>` under
+ * a subkey derived from the PII key of the execution running now (its own, #334, else the
+ * application's `pseudonymKey`) — a business key is guessable (`order:42`), so never a plain hash,
+ * and never the key's PII token either. `undefined` where no key is available.
  */
 export function businessKeyHashOf(businessKey: string): string | undefined {
   const key = currentFrame()?.execution.correlationKey;
-  return key === undefined ? undefined : keyedDigestOf(key, businessKey).slice(0, 12);
+  if (key === undefined) return undefined;
+  // a subkey of its own (domain separation): never a PII token of the same text, never an oracle
+  const subkey = keyedDigestOf(key, BUSINESS_KEY_HANDLE_LABEL);
+  return keyedDigestOf(subkey, `business-key\u0000${businessKey}`).slice(0, 12);
 }
+
+/**
+ * The label the handle's subkey is derived under (#508): `HMAC(piiKey, label)`. Every use of the PII
+ * key other than its tokens derives a subkey under a label of its own.
+ */
+export const BUSINESS_KEY_HANDLE_LABEL = "agboss/business-key-handle/v1";
 
 /**
  * The same business key with another fingerprint (#508): `order:42` charged $10, then $12. Never

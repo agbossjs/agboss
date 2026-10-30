@@ -27,7 +27,8 @@ import {
 import { seconds } from "../../src/units/index.js";
 import { withInstancePiiKeys } from "../../src/testing/pii-parts.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
-import { keyedDigestOf } from "../../src/pii/tokens.js";
+import { keyedDigestOf, tokenOf } from "../../src/pii/tokens.js";
+import { BUSINESS_KEY_HANDLE_LABEL } from "../../src/infrastructure/fenced-effect-key.js";
 import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { instance, settle } from "./fixtures/fence-takeover.js";
 import { execute } from "../helpers/flow.js";
@@ -441,8 +442,9 @@ async function conflictOn(
 }
 
 const UNKEYED = createHash("sha256").update("order:42").digest("hex");
-/** order:42's handle under the test's fixed PII key. */
-const TEST_KEYED = keyedDigestOf(TEST_PSEUDONYM_KEY, "order:42").slice(0, 12);
+/** order:42's handle under the test's fixed PII key: under its own subkey, its input prefixed. */
+const HANDLE_KEY = keyedDigestOf(TEST_PSEUDONYM_KEY, BUSINESS_KEY_HANDLE_LABEL);
+const TEST_KEYED = keyedDigestOf(HANDLE_KEY, "business-key\u0000order:42").slice(0, 12);
 
 describe("#508: a business key's handle is keyed", () => {
   const perExecution = testWith(BusinessKeyApplication, withInstancePiiKeys({}));
@@ -466,6 +468,18 @@ describe("#508: a business key's handle is keyed", () => {
     expect(text).not.toContain("order:42");
     expect(text).not.toContain(UNKEYED.slice(0, 12));
     expect(conflict.businessKeyHash).not.toBe(UNKEYED.slice(0, 12));
+  });
+
+  test("the handle of a value never equals the PII token of that value under the same key", async ({
+    app,
+  }) => {
+    const conflict = await conflictOn(app);
+    const token = tokenOf("text", "order:42", TEST_PSEUDONYM_KEY, {});
+    const plainHmac = keyedDigestOf(TEST_PSEUDONYM_KEY, "order:42");
+
+    expect(conflict.businessKeyHash).toBe(TEST_KEYED);
+    expect(token).not.toContain(String(conflict.businessKeyHash));
+    expect(plainHmac.startsWith(String(conflict.businessKeyHash))).toBe(false);
   });
 
   perExecution(

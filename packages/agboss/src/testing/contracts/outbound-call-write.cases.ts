@@ -63,7 +63,7 @@ const completed: OutboundCallCase = {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
 
-    await first.calls.markCompleted(key, '{"receipt":"r1"}');
+    await first.calls.markCompleted(key, "owner-1", '{"receipt":"r1"}');
 
     expect(await second.calls.findByKey(key)).toMatchObject({
       status: OutboundCallStatus.Completed,
@@ -79,7 +79,7 @@ const failed: OutboundCallCase = {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
 
-    await first.calls.markFailed(key, FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
 
     expect(await first.calls.findByKey(key)).toMatchObject({
       status: OutboundCallStatus.Failed,
@@ -94,7 +94,7 @@ const pendingAgain: OutboundCallCase = {
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
 
     const isMoved = await first.calls.markPending(
       key,
@@ -119,7 +119,7 @@ const newerHolderReads: OutboundCallCase = {
     const taken = await leaseOf(second, "execution-1", seconds(30));
 
     const found = await second.calls.findByKey(keyOf(taken));
-    await second.calls.markCompleted(keyOf(taken), "{}");
+    await second.calls.markCompleted(keyOf(taken), "owner-1", "{}");
 
     expect(found).toMatchObject({ status: OutboundCallStatus.Pending, token: 1 });
     expect(await second.calls.findByKey(keyOf(taken))).toMatchObject({ token: 2 });
@@ -133,7 +133,7 @@ const namesApart: OutboundCallCase = {
     await recorded(first, keyOf(lease, "charge"));
     await recorded(first, keyOf(lease, "notify"));
 
-    await first.calls.markCompleted(keyOf(lease, "charge"), "{}");
+    await first.calls.markCompleted(keyOf(lease, "charge"), "owner-1", "{}");
 
     expect((await first.calls.findByKey(keyOf(lease, "notify")))?.status).toBe(
       OutboundCallStatus.Pending,

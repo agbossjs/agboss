@@ -81,3 +81,8 @@ export interface OutboundCallState {
   readonly attempt: number;
   readonly attemptOwner: string;
 }
+
+/** How an attempt ended: `Completed` with its result, or `Failed` with its failure. */
+export type OutboundCallEnding =
+  | { readonly status: OutboundCallStatus.Completed; readonly result: string }
+  | { readonly status: OutboundCallStatus.Failed; readonly failure: OutboundCallFailure };

@@ -52,7 +52,7 @@ const settledByAnother: OutboundCallCase = {
     await recorded(first, businessKeyOf(await leaseOf(first, "execution-1")));
     const other = businessKeyOf(await leaseOf(second, "execution-2"));
 
-    await second.calls.markCompleted(other, '{"receipt":"r1"}');
+    await second.calls.markCompleted(other, "owner-1", '{"receipt":"r1"}');
 
     expect(await first.calls.findByKey(other)).toMatchObject({
       status: OutboundCallStatus.Completed,

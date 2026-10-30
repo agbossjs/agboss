@@ -58,3 +58,21 @@ export async function joinedOrMade<TRequest, TResult>(
     leave();
   }
 }
+
+/**
+ * `work` as the owner of an attempt (#508): live in this instance from before its intent is recorded
+ * or claimed until the attempt ends — a failure and a hand-over too — so no caller of this instance
+ * ever takes it for gone.
+ */
+export async function owning<TValue>(
+  owners: Set<string>,
+  owner: string,
+  work: () => Promise<TValue>,
+): Promise<TValue> {
+  owners.add(owner);
+  try {
+    return await work();
+  } finally {
+    owners.delete(owner);
+  }
+}

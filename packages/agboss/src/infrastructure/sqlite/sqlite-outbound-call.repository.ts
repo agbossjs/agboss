@@ -4,6 +4,7 @@ import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
+  endedOf,
   isInState,
   OutboundCallRepository,
   OutboundCallStatus,
@@ -11,6 +12,7 @@ import {
   type OutboundCallIntent,
   type OutboundCallRecord,
   type OutboundCallClaim,
+  type OutboundCallEnding,
   type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
@@ -117,30 +119,25 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    return this.#fenced(key, () => {
-      const found = this.#found(key);
-      if (found === undefined || !isInState(found, expected)) return false;
-      this.#write(key, { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim });
-      return true;
-    });
+    return this.#update(key, (found) =>
+      isInState(found, expected)
+        ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
+        : undefined,
+    );
   }
 
-  markCompleted(key: FencedEffectKey, result: string): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Completed,
-      result,
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
   }
 
-  markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Failed,
-      failure: { ...failure },
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
+  }
+
+  /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
+  #ended(key: FencedEffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+    const endedAt = this.clock.now().toISOString();
+    return this.#update(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
 
   findAllByTenantIdAndRootExecutionId(
@@ -191,11 +188,13 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
   #update(
     key: FencedEffectKey,
-    change: (found: OutboundCallRecord) => OutboundCallRecord,
-  ): Promise<void> {
+    change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
+  ): Promise<boolean> {
     return this.#fenced(key, () => {
       const found = this.#found(key);
-      if (found !== undefined) this.#write(key, change(found));
+      const changed = found === undefined ? undefined : change(found);
+      if (changed !== undefined) this.#write(key, changed);
+      return changed !== undefined;
     });
   }
 

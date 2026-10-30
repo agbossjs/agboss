@@ -1995,7 +1995,7 @@ send, reconcile })` records an intent before the call and settles it after, over
   pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Every attempt
   has an owner (`attemptOwner`, a random id per claim); a new attempt is a compare-and-set on status,
   attempt and owner (`markPending(key, expected, claim)`, `OutboundCallState`, `OutboundCallClaim`):
-  the loser sends nothing and reads again — the winner's result replayed, its pending attempt
+  the loser sends nothing and reads again; `markCompleted` / `markFailed` end an attempt only for its owner (a compare-and-set), the owner live from before its intent is recorded, nothing sent once the step aborted — the winner's result replayed, its pending attempt
   `OutboundCallInFlightError` (`outbound-call.in-flight`), at most three reads; the same call this
   instance is making meanwhile is joined (`Joined`), never reconciled or resent. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
@@ -2017,7 +2017,7 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 
   The same key and fingerprint (SHA-256 of canonical JSON; `OutboundCalls` takes its request's) →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
   visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
-  `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of the key under the execution's PII key, none without one; never the key), nothing run or sent, also for a concurrent call of
+  `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
   this instance (never joined). A pending call under a business key is in flight while its attempt's
   owner lives — sending in this instance (joined, `Joined`) or under a lease another instance holds
   (`OutboundCallInFlightError`); once its owner is gone, the next caller reconciles it, by the

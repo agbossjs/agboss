@@ -17,6 +17,7 @@ import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type {
   OutboundCallClaim,
+  OutboundCallEnding,
   OutboundCallFailure,
   OutboundCallIntent,
   OutboundCallRecord,
@@ -45,6 +46,7 @@ export enum OutboundCallStatus {
 
 export type {
   OutboundCallClaim,
+  OutboundCallEnding,
   OutboundCallFailure,
   OutboundCallIntent,
   OutboundCallRecord,
@@ -91,11 +93,22 @@ export abstract class OutboundCallRepository {
     claim: OutboundCallClaim,
   ): Promise<boolean>;
 
-  /** The intent is `Completed` with `result` (its JSON) — fenced. */
-  abstract markCompleted(key: FencedEffectKey, result: string): Promise<void>;
+  /**
+   * The intent is `Completed` with `result` (its JSON) — fenced, and only while `attemptOwner` still
+   * owns its attempt (a compare-and-set): `false` when a newer attempt took it over, nothing changed.
+   */
+  abstract markCompleted(
+    key: FencedEffectKey,
+    attemptOwner: string,
+    result: string,
+  ): Promise<boolean>;
 
-  /** The intent is `Failed` with `failure` — fenced. */
-  abstract markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
+  /** The intent is `Failed` with `failure` — fenced, and only while `attemptOwner` owns it. */
+  abstract markFailed(
+    key: FencedEffectKey,
+    attemptOwner: string,
+    failure: OutboundCallFailure,
+  ): Promise<boolean>;
 
   /** Every call of one tree of a tenant, in the order recorded. */
   abstract findAllByTenantIdAndRootExecutionId(
@@ -177,22 +190,18 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     );
   }
 
-  async markCompleted(key: FencedEffectKey, result: string): Promise<void> {
-    await this.#changed(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Completed,
-      result,
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
   }
 
-  async markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void> {
-    await this.#changed(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Failed,
-      failure: { ...failure },
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
+  }
+
+  /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
+  #ended(key: FencedEffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+    const endedAt = this.clock.now().toISOString();
+    return this.#changed(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
 
   findAllByTenantIdAndRootExecutionId(
@@ -268,23 +277,19 @@ export const isInState = (found: OutboundCallRecord, expected: OutboundCallState
   found.attemptOwner === expected.attemptOwner;
 
 /** A record without its last ending (`result`, `failure`, `endedAt`): sent again, or ending now. */
-export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
-  tenantId: found.tenantId,
-  rootExecutionId: found.rootExecutionId,
-  executionId: found.executionId,
-  workflow: found.workflow,
-  name: found.name,
-  target: found.target,
-  operation: found.operation,
-  idempotencyKey: found.idempotencyKey,
-  request: found.request,
-  attempt: found.attempt,
-  attemptOwner: found.attemptOwner,
-  step: found.step,
-  status: found.status,
-  token: found.token,
-  leaseExecutionId: found.leaseExecutionId,
-  recordedAt: found.recordedAt,
-  ...(found.businessKey === undefined ? {} : { businessKey: found.businessKey }),
-  ...(found.fingerprint === undefined ? {} : { fingerprint: found.fingerprint }),
-});
+export function withoutEnd(found: OutboundCallRecord): OutboundCallRecord {
+  const record = { ...found };
+  delete record.result;
+  delete record.failure;
+  delete record.endedAt;
+  return record;
+}
+
+/** `found` ended as `ending` at `endedAt` — only while `attemptOwner` still owns its attempt. */
+export const endedOf = (
+  found: OutboundCallRecord,
+  attemptOwner: string,
+  ending: OutboundCallEnding,
+  endedAt: string,
+): OutboundCallRecord | undefined =>
+  found.attemptOwner === attemptOwner ? { ...withoutEnd(found), ...ending, endedAt } : undefined;

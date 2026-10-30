@@ -37,11 +37,11 @@ const FENCED_CALLS: readonly (readonly [
         { attempt: 2, attemptOwner: "owner-2" },
       ),
   ],
-  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, '"zombie"')],
+  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, "owner-1", '"zombie"')],
   [
     "markFailed",
     (stores, key) =>
-      stores.calls.markFailed(key, { name: "Error", code: "Error", message: "zombie" }),
+      stores.calls.markFailed(key, "owner-1", { name: "Error", code: "Error", message: "zombie" }),
   ],
 ];
 
@@ -119,8 +119,8 @@ const listedByStatus: OutboundCallCase = {
     const lease = await leaseOf(first);
     for (const name of ["pending", "completed", "failed"])
       await recorded(first, keyOf(lease, name));
-    await first.calls.markCompleted(keyOf(lease, "completed"), "{}");
-    await first.calls.markFailed(keyOf(lease, "failed"), {
+    await first.calls.markCompleted(keyOf(lease, "completed"), "owner-1", "{}");
+    await first.calls.markFailed(keyOf(lease, "failed"), "owner-1", {
       name: "Error",
       code: "Error",
       message: "no",
@@ -148,9 +148,9 @@ const retentionKeepsPending: OutboundCallCase = {
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", hours(100));
     for (const name of ["pending", "early", "late"]) await recorded(first, keyOf(lease, name));
-    await first.calls.markCompleted(keyOf(lease, "early"), "{}");
+    await first.calls.markCompleted(keyOf(lease, "early"), "owner-1", "{}");
     await clock.advance(hours(2));
-    await first.calls.markFailed(keyOf(lease, "late"), {
+    await first.calls.markFailed(keyOf(lease, "late"), "owner-1", {
       name: "Error",
       code: "Error",
       message: "no",
