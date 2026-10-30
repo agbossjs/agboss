@@ -33,6 +33,13 @@ Rules that follow:
   key (G1). Without G1, a timeout means "it may have been charged": let the step's signal abort the
   wait (a timeout, a lost lease) — an aborted send leaves the intent `Pending` — and on the next
   attempt `reconcile` decides, answering `unknown()` when it cannot look the payment up (G2).
+- **A send that never returns is bounded, and then G1 is what prevents a second charge.** Another
+  instance sees a pending call in flight while its holder's lease is live — for at most
+  `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
+  start) plus up to the lease's 30 s. A send still hung past this bound can coincide with a
+  reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). The hung
+  send's own answer, when it comes, is fenced and logged (`outbound-call.answered-after-hand-over`),
+  never stored ([Several instances](Several-instances#business-idempotency-keys-508)).
 - **Look up by key, not by the request.** `reconcile` gets the request as stored, masked by the PII
   policies; `lookup.idempotencyKey` is what the gateway knows the call by.
 - **Keep keys longer than your longest recovery.** A paused execution answered tomorrow replays
