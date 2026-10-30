@@ -23,7 +23,7 @@ gateways document, and a checklist a team runs against its own gateway.
 | --- | --- | --- | --- |
 | G1 + G2 + G3 | No: `reconcile` finds the payment by its key | No: the gateway deduplicates the key | No, inside G3's window; yes after it |
 | G1 + G3, no G2 | No while the key lives, if you make `reconcile` answer `notSent()` and rely on G1 to deduplicate; with `unknown()`, a person decides | No | Yes after the window |
-| G2, no G1 | No: `reconcile` finds it, if it looks the payment up by your reference | **Yes** if the "error" was a timeout the gateway processed: the retry is a new charge — answer `unknown` for a timeout | — |
+| G2, no G1 | No: `reconcile` finds it, if it looks the payment up by your reference | **Yes** if the "error" was a timeout the gateway processed: the retry is a new charge — let the timeout abort the step instead, so `reconcile` decides | No while `reconcile` still finds it by your reference; **yes** once the gateway no longer finds it |
 | Neither | **Yes**: nothing can tell what happened; `reconcile` can only answer `unknown` | **Yes** | **Yes** |
 
 Rules that follow:
