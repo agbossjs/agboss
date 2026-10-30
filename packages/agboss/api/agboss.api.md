@@ -2320,6 +2320,7 @@ export enum FencedEffectEventOutcome {
 // @public
 export interface FencedEffectKey {
     readonly businessKey?: string;
+    readonly businessKeyHash?: string;
     readonly fingerprint?: string;
     readonly idempotencyKey: string;
     readonly leaseExecutionId: string;
@@ -2866,8 +2867,7 @@ export interface HostContext {
 // @public
 export class IdempotencyKeyConflictError extends AGBossError {
     constructor(options: IdempotencyKeyConflictErrorOptions);
-    // (undocumented)
-    readonly businessKeyHash: string;
+    readonly businessKeyHash?: string;
     // (undocumented)
     static readonly code: string;
     // (undocumented)
@@ -2879,7 +2879,7 @@ export class IdempotencyKeyConflictError extends AGBossError {
 // @public
 export interface IdempotencyKeyConflictErrorOptions {
     // (undocumented)
-    readonly businessKey: string;
+    readonly businessKeyHash?: string | undefined;
     // (undocumented)
     readonly name: string;
 }
@@ -7380,36 +7380,35 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:120:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:143:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-key.ts:76:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:77:3 - (ae-undocumented) Missing documentation for "problem".
-// src/infrastructure/fenced-effect-key.ts:85:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:86:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts:97:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:98:3 - (ae-undocumented) Missing documentation for "businessKey".
-// src/infrastructure/fenced-effect-key.ts:112:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:113:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:114:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts:115:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
-// src/infrastructure/fenced-effect-key.ts:172:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-key.ts:173:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-key.ts:182:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:183:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:184:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts:185:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-key.ts:186:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-key.ts:200:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/fenced-effect-key.ts:201:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/fenced-effect-key.ts:213:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:214:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:215:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/fenced-effect-key.ts:216:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/fenced-effect-key.ts:79:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:80:3 - (ae-undocumented) Missing documentation for "problem".
+// src/infrastructure/fenced-effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:89:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:90:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-key.ts:100:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:101:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
+// src/infrastructure/fenced-effect-key.ts:121:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:122:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:123:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-key.ts:184:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-key.ts:185:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-key.ts:194:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:195:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:196:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-key.ts:197:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-key.ts:198:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-key.ts:212:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect-key.ts:213:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/fenced-effect-key.ts:225:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:226:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:227:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect-key.ts:228:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/fenced-effect.repository.ts:41:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/fenced-effect.repository.ts:68:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/fenced-effect.repository.ts:69:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/fenced-effect.repository.ts:70:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/fenced-effect.repository.ts:85:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:86:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:74:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/fenced-effect.repository.ts:75:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/fenced-effect.repository.ts:76:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/fenced-effect.repository.ts:91:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:92:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:53:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:64:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:68:3 - (ae-undocumented) Missing documentation for "runInTransaction".
