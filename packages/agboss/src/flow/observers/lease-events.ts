@@ -1,4 +1,5 @@
 import type {
+  FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -71,4 +72,33 @@ export interface OnExecutionLeaseTakeover {
 export interface OnStepHandedOver {
   /** Called once per hand-over, before the moving call rejects. */
   onStepHandedOver(event: StepHandedOverEvent): Promise<void> | void;
+}
+
+/**
+ * One call of a step's fenced effect (#500, #501 `onFencedEffect`): it ran, its stored result was
+ * replayed, it joined a call in flight, or the lease refused it — the step's `step`, the effect's
+ * `name`, the lease scope and the call's `token`, never the result. Its `FencedEffect` row of the
+ * lease log is written first.
+ */
+export interface FencedEffectEvent extends NodeEvent {
+  readonly name: string;
+  readonly scopeKey: string;
+  /** The token the call ran under (`fencedEffectKeyOf(…).token`). */
+  readonly token: number;
+  readonly outcome: FencedEffectEventOutcome;
+  /** The token the stored result was first written under, when there is a result. */
+  readonly writtenToken?: number;
+  /** The newer token the store saw, when it refused the call. */
+  readonly observedToken?: number;
+  /** The instance that made the call. */
+  readonly holderInstanceId: string;
+}
+
+/**
+ * A step's fenced effect was called (#501): ran, replayed, joined or refused. Its row of the lease
+ * log is written first; a throw is only a warning and never reaches the effect or its step.
+ */
+export interface OnFencedEffect {
+  /** Called once per call of `saveResultIfAbsent`, after its outcome is known. */
+  onFencedEffect(event: FencedEffectEvent): Promise<void> | void;
 }

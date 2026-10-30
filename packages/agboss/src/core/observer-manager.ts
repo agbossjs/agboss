@@ -7,6 +7,7 @@ import type {
 } from "../flow/observers/compensation-events.js";
 import type {
   ExecutionLeaseTakeoverEvent,
+  FencedEffectEvent,
   StepHandedOverEvent,
 } from "../flow/observers/lease-events.js";
 import type {
@@ -174,5 +175,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onStepHandedOver(event: StepHandedOverEvent): Promise<void> {
     return this.each("onStepHandedOver", event, (o, e) => o.onStepHandedOver?.(e));
+  }
+  onFencedEffect(event: FencedEffectEvent): Promise<void> {
+    return this.each("onFencedEffect", event, (o, e) => o.onFencedEffect?.(e));
   }
 }

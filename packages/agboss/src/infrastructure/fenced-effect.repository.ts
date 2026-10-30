@@ -1,4 +1,8 @@
+import { fencedErrorOf } from "../app/handed-over.js";
 import { scopeKeyOf } from "../app/lease-lost.js";
+import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
+import { nodeEventOf } from "../flow/observers/execution-event.js";
+import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
 import { AGBossError } from "../core/errors.js";
 import type { Class } from "../components/injection.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
@@ -128,6 +132,14 @@ export abstract class FencedEffectRepository<TTransaction> {
     const problem = keyProblemOf(key);
     if (problem !== undefined)
       return Promise.reject(new InvalidFencedEffectKeyError(`not a fenced effect key: ${problem}`));
+    return observedCall(key, currentFrame(), this.#call(key, work));
+  }
+
+  /** The call itself: the leader's transaction, or the outcome of the leader on its key. */
+  #call<TResult>(
+    key: FencedEffectKey,
+    work: FencedEffectWork<TTransaction, TResult>,
+  ): Promise<FencedEffectOutcome<TResult>> {
     const calls = inFlight.get(this) ?? new Map<string, Promise<FencedEffectOutcome<unknown>>>();
     inFlight.set(this, calls);
     const joinKey = joinKeyOf(key);
@@ -171,6 +183,51 @@ export abstract class FencedEffectRepository<TTransaction> {
       });
     return text;
   }
+}
+
+/** How the lease log names each outcome of a call. */
+const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutcome>> = {
+  [FencedEffectStatus.Ran]: FencedEffectEventOutcome.Ran,
+  [FencedEffectStatus.Replayed]: FencedEffectEventOutcome.Replayed,
+  [FencedEffectStatus.Joined]: FencedEffectEventOutcome.Joined,
+};
+
+/**
+ * The call, told to the lease the step runs under (#501): how it went — ran, replayed, joined, or
+ * refused (`ExecutionFencedError`) — as a row of the lease log and `onFencedEffect`, never its
+ * result; a failure of the write itself is no outcome. Nothing outside a step or under a lease that
+ * does not record (a unit runner's).
+ */
+function observedCall<TResult>(
+  key: FencedEffectKey,
+  frame: FrameSpec | undefined,
+  call: Promise<FencedEffectOutcome<TResult>>,
+): Promise<FencedEffectOutcome<TResult>> {
+  const lease = frame?.execution.lease;
+  if (frame === undefined || lease?.recordFencedEffect === undefined) return call;
+  const { name, scopeKey, token } = key;
+  const report = (outcome: FencedEffectEventOutcome, tokens: object): void => {
+    lease.recordFencedEffect?.({
+      event: nodeEventOf(frame),
+      name,
+      scopeKey,
+      token,
+      outcome,
+      ...tokens,
+    });
+  };
+  return call.then(
+    (outcome) => {
+      report(LOGGED_OUTCOME[outcome.status], { writtenToken: outcome.token });
+      return outcome;
+    },
+    (error: unknown) => {
+      const fenced = fencedErrorOf(error);
+      if (fenced !== undefined)
+        report(FencedEffectEventOutcome.Refused, { observedToken: fenced.observedToken });
+      throw error;
+    },
+  );
 }
 
 /** A follower's outcome: the leader's, a copy of its result. */
@@ -258,24 +315,5 @@ export class FencedEffectStoreMismatchError extends AGBossError {
     );
     this.fencedEffectRepository = options.fencedEffectRepository;
     this.leaseRepository = options.leaseRepository;
-  }
-}
-
-/**
- * A fenced effect on SQLite returned a promise (#500): its transaction is one synchronous group of
- * statements on the instance's connection, so it is rolled back — nothing written, the result not
- * stored. Do the step's I/O before the call (its input) or after it (with its result), and write
- * the rows with the given `DatabaseSync` only.
- */
-export class FencedEffectAsyncWorkError extends AGBossError {
-  static override readonly code: string = "fenced-effect.async-work";
-  override name = "FencedEffectAsyncWorkError";
-  readonly effect: string;
-
-  constructor(effect: string) {
-    super(
-      `fenced effect "${effect}" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call`,
-    );
-    this.effect = effect;
   }
 }

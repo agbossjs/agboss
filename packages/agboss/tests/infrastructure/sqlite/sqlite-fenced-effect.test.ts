@@ -8,13 +8,13 @@ import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
-import {
-  FencedEffectAsyncWorkError,
-  FencedEffectStatus,
-} from "../../../src/infrastructure/fenced-effect.repository.js";
+import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
-import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+import {
+  FencedEffectAsyncWorkError,
+  SqliteFencedEffectRepository,
+} from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours, seconds } from "../../../src/units/index.js";

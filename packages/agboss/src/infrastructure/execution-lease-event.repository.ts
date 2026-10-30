@@ -19,6 +19,20 @@ export enum ExecutionLeaseEventKind {
   Takeover = "takeover",
   /** A step stopped without failing: its lease was lost or fenced, or the app stopped (`onStepHandedOver`). */
   HandedOver = "handed-over",
+  /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onFencedEffect`). */
+  FencedEffect = "fenced-effect",
+}
+
+/** How one call of a fenced effect (#500) went, as the lease log keeps it. */
+export enum FencedEffectEventOutcome {
+  /** The write ran now (`FencedEffectStatus.Ran`). */
+  Ran = "ran",
+  /** The stored result came back, the write did not run again (`FencedEffectStatus.Replayed`). */
+  Replayed = "replayed",
+  /** The call joined one in flight on the same key (`FencedEffectStatus.Joined`). */
+  Joined = "joined",
+  /** The lease or the scope's mark refused the call (`ExecutionFencedError`): nothing written. */
+  Refused = "refused",
 }
 
 /** What the instance that took a tree's lease over does with the tree. */
@@ -109,8 +123,22 @@ export interface StepHandedOverRecord extends ExecutionLeaseEventBase {
   readonly observedToken?: number;
 }
 
+/** One call of a step's fenced effect (`ExecutionLeaseEventKind.FencedEffect`), never its result. */
+export interface FencedEffectRecord extends ExecutionLeaseEventBase {
+  readonly kind: ExecutionLeaseEventKind.FencedEffect;
+  /** The effect's name (`fencedEffectKeyOf(executionContext, name)`). */
+  readonly name: string;
+  readonly outcome: FencedEffectEventOutcome;
+  readonly step: LeaseEventStep;
+  /** The token the stored result was first written under (a replay on a newer lease: the older). */
+  readonly writtenToken?: number;
+  /** The newer token the store saw, when it refused the call. */
+  readonly observedToken?: number;
+}
+
 /** One row of the lease log. */
-export type ExecutionLeaseEventRecord = LeaseTakeoverRecord | StepHandedOverRecord;
+export type ExecutionLeaseEventRecord =
+  LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord;
 
 export abstract class ExecutionLeaseEventRepository {
   /** Whether the store answers (#300): one fast round trip. */

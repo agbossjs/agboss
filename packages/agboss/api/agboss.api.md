@@ -1769,12 +1769,13 @@ export interface ExecutionLeaseEventBase {
 
 // @public
 export enum ExecutionLeaseEventKind {
+    FencedEffect = "fenced-effect",
     HandedOver = "handed-over",
     Takeover = "takeover"
 }
 
 // @public
-export type ExecutionLeaseEventRecord = LeaseTakeoverRecord | StepHandedOverRecord;
+export type ExecutionLeaseEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord;
 
 // @public (undocumented)
 export abstract class ExecutionLeaseEventRepository {
@@ -1820,7 +1821,7 @@ export interface ExecutionLeaseTakeoverEvent {
 }
 
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & OnExecutionLeaseTakeover & OnStepHandedOver>;
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect>;
 
 // @public
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
@@ -1856,6 +1857,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): Promise<void>;
+    // (undocumented)
+    onFencedEffect(event: FencedEffectEvent): Promise<void>;
     // (undocumented)
     onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
     // (undocumented)
@@ -2168,6 +2171,28 @@ export class FencedEffectAsyncWorkError extends AGBossError {
 }
 
 // @public
+export interface FencedEffectEvent extends NodeEvent {
+    readonly holderInstanceId: string;
+    // (undocumented)
+    readonly name: string;
+    readonly observedToken?: number;
+    // (undocumented)
+    readonly outcome: FencedEffectEventOutcome;
+    // (undocumented)
+    readonly scopeKey: string;
+    readonly token: number;
+    readonly writtenToken?: number;
+}
+
+// @public
+export enum FencedEffectEventOutcome {
+    Joined = "joined",
+    Ran = "ran",
+    Refused = "refused",
+    Replayed = "replayed"
+}
+
+// @public
 export interface FencedEffectKey {
     readonly idempotencyKey: string;
     readonly leaseExecutionId: string;
@@ -2188,6 +2213,19 @@ export interface FencedEffectOutcome<TResult> {
     // (undocumented)
     readonly status: FencedEffectStatus;
     readonly token: number;
+}
+
+// @public
+export interface FencedEffectRecord extends ExecutionLeaseEventBase {
+    // (undocumented)
+    readonly kind: ExecutionLeaseEventKind.FencedEffect;
+    readonly name: string;
+    readonly observedToken?: number;
+    // (undocumented)
+    readonly outcome: FencedEffectEventOutcome;
+    // (undocumented)
+    readonly step: LeaseEventStep;
+    readonly writtenToken?: number;
 }
 
 // @public
@@ -3671,6 +3709,11 @@ export interface OnExecutionResume {
 export interface OnExecutionStart {
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): HookResult;
+}
+
+// @public
+export interface OnFencedEffect {
+    onFencedEffect(event: FencedEffectEvent): Promise<void> | void;
 }
 
 // @public (undocumented)
@@ -6009,80 +6052,81 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observability.ts:203:3 - (ae-undocumented) Missing documentation for "Execute".
 // src/core/observability.ts:204:3 - (ae-undocumented) Missing documentation for "Resume".
 // src/core/observability.ts:205:3 - (ae-undocumented) Missing documentation for "Cancel".
-// src/core/observer-hooks.ts:47:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-hooks.ts:51:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-hooks.ts:55:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-hooks.ts:63:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-hooks.ts:67:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-hooks.ts:75:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-hooks.ts:77:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
-// src/core/observer-hooks.ts:78:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-hooks.ts:80:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
-// src/core/observer-hooks.ts:81:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-hooks.ts:83:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
-// src/core/observer-hooks.ts:84:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-hooks.ts:86:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
-// src/core/observer-hooks.ts:87:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-hooks.ts:89:1 - (ae-undocumented) Missing documentation for "OnToolStart".
-// src/core/observer-hooks.ts:90:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-hooks.ts:92:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
-// src/core/observer-hooks.ts:93:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-hooks.ts:97:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-hooks.ts:99:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
-// src/core/observer-hooks.ts:100:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-hooks.ts:102:1 - (ae-undocumented) Missing documentation for "OnRagStart".
-// src/core/observer-hooks.ts:103:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-hooks.ts:105:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
-// src/core/observer-hooks.ts:106:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-hooks.ts:108:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
-// src/core/observer-hooks.ts:109:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-hooks.ts:111:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
-// src/core/observer-hooks.ts:112:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-hooks.ts:114:1 - (ae-undocumented) Missing documentation for "OnActionStart".
-// src/core/observer-hooks.ts:115:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-hooks.ts:117:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
-// src/core/observer-hooks.ts:118:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-hooks.ts:120:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
-// src/core/observer-hooks.ts:121:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-hooks.ts:123:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
-// src/core/observer-hooks.ts:124:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-hooks.ts:126:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
-// src/core/observer-hooks.ts:127:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-hooks.ts:129:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
-// src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-hooks.ts:246:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:85:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-manager.ts:88:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-manager.ts:91:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-manager.ts:94:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-manager.ts:97:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-manager.ts:100:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-manager.ts:103:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:106:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:109:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:112:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:115:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:118:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:121:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:124:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:127:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:130:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:133:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-manager.ts:136:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-manager.ts:139:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-manager.ts:142:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-manager.ts:145:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-manager.ts:148:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-manager.ts:151:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-manager.ts:154:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-manager.ts:157:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-manager.ts:160:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
-// src/core/observer-manager.ts:163:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/core/observer-manager.ts:166:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
-// src/core/observer-manager.ts:169:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts:172:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts:175:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
+// src/core/observer-hooks.ts:51:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-hooks.ts:55:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-hooks.ts:59:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-hooks.ts:67:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-hooks.ts:71:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-hooks.ts:79:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-hooks.ts:81:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
+// src/core/observer-hooks.ts:82:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-hooks.ts:84:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
+// src/core/observer-hooks.ts:85:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-hooks.ts:87:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
+// src/core/observer-hooks.ts:88:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-hooks.ts:90:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
+// src/core/observer-hooks.ts:91:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-hooks.ts:93:1 - (ae-undocumented) Missing documentation for "OnToolStart".
+// src/core/observer-hooks.ts:94:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-hooks.ts:96:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
+// src/core/observer-hooks.ts:97:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-hooks.ts:101:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-hooks.ts:103:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
+// src/core/observer-hooks.ts:104:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-hooks.ts:106:1 - (ae-undocumented) Missing documentation for "OnRagStart".
+// src/core/observer-hooks.ts:107:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-hooks.ts:109:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
+// src/core/observer-hooks.ts:110:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-hooks.ts:112:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
+// src/core/observer-hooks.ts:113:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-hooks.ts:115:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
+// src/core/observer-hooks.ts:116:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-hooks.ts:118:1 - (ae-undocumented) Missing documentation for "OnActionStart".
+// src/core/observer-hooks.ts:119:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-hooks.ts:121:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
+// src/core/observer-hooks.ts:122:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-hooks.ts:124:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
+// src/core/observer-hooks.ts:125:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-hooks.ts:127:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
+// src/core/observer-hooks.ts:128:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-hooks.ts:130:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
+// src/core/observer-hooks.ts:131:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-hooks.ts:133:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
+// src/core/observer-hooks.ts:134:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-hooks.ts:141:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
+// src/core/observer-hooks.ts:252:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
+// src/core/observer-manager.ts:86:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-manager.ts:89:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-manager.ts:92:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-manager.ts:95:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts:98:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-manager.ts:101:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-manager.ts:104:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-manager.ts:107:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts:110:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-manager.ts:113:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-manager.ts:116:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-manager.ts:119:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-manager.ts:122:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-manager.ts:125:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-manager.ts:128:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-manager.ts:131:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-manager.ts:134:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-manager.ts:137:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-manager.ts:140:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-manager.ts:143:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-manager.ts:146:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-manager.ts:149:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-manager.ts:152:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-manager.ts:155:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-manager.ts:158:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
+// src/core/observer-manager.ts:161:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
+// src/core/observer-manager.ts:164:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts:167:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
+// src/core/observer-manager.ts:170:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
+// src/core/observer-manager.ts:173:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
+// src/core/observer-manager.ts:176:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
+// src/core/observer-manager.ts:179:3 - (ae-undocumented) Missing documentation for "onFencedEffect".
 // src/dto/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
@@ -6325,11 +6369,14 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/launch-types.ts:164:3 - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts:179:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/observers/execution-event.ts:25:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/flow/observers/lease-events.ts:16:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/flow/observers/lease-events.ts:29:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/flow/observers/lease-events.ts:32:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/observers/lease-events.ts:44:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/observers/lease-events.ts:45:3 - (ae-undocumented) Missing documentation for "site".
+// src/flow/observers/lease-events.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/flow/observers/lease-events.ts:30:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/flow/observers/lease-events.ts:33:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/observers/lease-events.ts:45:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/observers/lease-events.ts:46:3 - (ae-undocumented) Missing documentation for "site".
+// src/flow/observers/lease-events.ts:84:3 - (ae-undocumented) Missing documentation for "name".
+// src/flow/observers/lease-events.ts:85:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/flow/observers/lease-events.ts:88:3 - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/quorum-step.ts:29:3 - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts:30:3 - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts:48:3 - (ae-undocumented) Missing documentation for "deadline".
@@ -6483,19 +6530,22 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-history.repository.ts:75:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:76:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:79:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease-event.repository.ts:68:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/execution-lease-event.repository.ts:69:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-lease-event.repository.ts:70:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/infrastructure/execution-lease-event.repository.ts:75:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:78:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-lease-event.repository.ts:93:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:94:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-lease-event.repository.ts:97:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/infrastructure/execution-lease-event.repository.ts:104:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:105:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-lease-event.repository.ts:106:3 - (ae-undocumented) Missing documentation for "site".
-// src/infrastructure/execution-lease-event.repository.ts:107:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-lease-event.repository.ts:115:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
+// src/infrastructure/execution-lease-event.repository.ts:82:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/execution-lease-event.repository.ts:83:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-lease-event.repository.ts:84:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/infrastructure/execution-lease-event.repository.ts:89:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-lease-event.repository.ts:92:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-lease-event.repository.ts:107:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-lease-event.repository.ts:108:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-lease-event.repository.ts:111:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/infrastructure/execution-lease-event.repository.ts:118:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-lease-event.repository.ts:119:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-lease-event.repository.ts:120:3 - (ae-undocumented) Missing documentation for "site".
+// src/infrastructure/execution-lease-event.repository.ts:121:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-lease-event.repository.ts:128:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-lease-event.repository.ts:131:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-lease-event.repository.ts:132:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-lease-event.repository.ts:143:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
 // src/infrastructure/execution-lease.repository.ts:40:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:41:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
 // src/infrastructure/execution-record.repository.ts:76:3 - (ae-undocumented) Missing documentation for "append".
@@ -6504,25 +6554,22 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:120:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:143:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect.repository.ts:37:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "result".
-// src/infrastructure/fenced-effect.repository.ts:209:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect.repository.ts:210:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect.repository.ts:219:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect.repository.ts:220:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect.repository.ts:221:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect.repository.ts:222:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/fenced-effect.repository.ts:238:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/fenced-effect.repository.ts:250:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect.repository.ts:251:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect.repository.ts:252:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/fenced-effect.repository.ts:253:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/fenced-effect.repository.ts:271:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect.repository.ts:272:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect.repository.ts:273:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect.repository.ts:41:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/fenced-effect.repository.ts:64:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:65:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:266:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect.repository.ts:267:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect.repository.ts:276:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect.repository.ts:277:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect.repository.ts:278:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect.repository.ts:279:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect.repository.ts:280:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect.repository.ts:294:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect.repository.ts:295:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/fenced-effect.repository.ts:307:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect.repository.ts:308:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect.repository.ts:309:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect.repository.ts:310:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:55:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:66:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:70:3 - (ae-undocumented) Missing documentation for "runInTransaction".
@@ -6580,6 +6627,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:76:3 - (ae-undocumented) Missing documentation for "runInTransaction".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:85:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:160:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:161:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:162:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:38:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:42:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:52:3 - (ae-undocumented) Missing documentation for "findByKey".

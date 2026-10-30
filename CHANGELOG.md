@@ -25,7 +25,11 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
   `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
   a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
-  `agboss records export`).
+  `agboss records export`). Every call of a fenced effect from a step is told and kept as well:
+  `onFencedEffect` (`FencedEffectEvent`, `FencedEffectEventOutcome`: ran, replayed, joined,
+  refused — never the result) and a `FencedEffect` row, so the public log alone tells a zombie
+  refused at its write from one that never reached it, and a replay from a new write.
+  `FencedEffectAsyncWorkError` moved to the SQLite store's module (still exported from the root).
 
 ### Fixed
 

@@ -6,11 +6,13 @@
 export {
   ExecutionLeaseEventKind,
   ExecutionLeaseEventRepository,
+  FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
   type ExecutionLeaseEventBase,
   type ExecutionLeaseEventRecord,
+  type FencedEffectRecord,
   type LeaseEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,

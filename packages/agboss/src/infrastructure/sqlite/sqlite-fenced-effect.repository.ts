@@ -1,3 +1,4 @@
+import { AGBossError } from "../../core/errors.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
@@ -6,7 +7,6 @@ import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
-  FencedEffectAsyncWorkError,
   FencedEffectRepository,
   FencedEffectStatus,
   type FencedEffectKey,
@@ -149,3 +149,22 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 }
 
 sqliteImplementation(SqliteFencedEffectRepository);
+
+/**
+ * A fenced effect on SQLite returned a promise (#500): its transaction is one synchronous group of
+ * statements on the instance's connection, so it is rolled back — nothing written, the result not
+ * stored. Do the step's I/O before the call (its input) or after it (with its result), and write
+ * the rows with the given `DatabaseSync` only.
+ */
+export class FencedEffectAsyncWorkError extends AGBossError {
+  static override readonly code: string = "fenced-effect.async-work";
+  override name = "FencedEffectAsyncWorkError";
+  readonly effect: string;
+
+  constructor(effect: string) {
+    super(
+      `fenced effect "${effect}" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call`,
+    );
+    this.effect = effect;
+  }
+}

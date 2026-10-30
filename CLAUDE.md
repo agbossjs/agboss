@@ -1256,7 +1256,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   only — `records.tenant-required`, `records.not-kept`), `ExecutionLeaseEventRepository` (#501: the
   lease log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
   `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord` |
-  `StepHandedOverRecord` (the step's `nodeId`, `visitNumber`, `idempotencyKey`), identities and
+  `StepHandedOverRecord` (the step's `nodeId`, `visitNumber`, `idempotencyKey`) |
+  `FencedEffectRecord` (`name`, `outcome`, the step, `writtenToken?`, `observedToken?`), identities and
   tokens only, masked like observer events; always written, whatever `executionRecordRetention` says,
   readable mid-run with `app.leaseEventsOf({ tenantId, rootExecutionId })`, removed by the recovery
   sweep after `@Application({ leaseEventRetention })`, default `hours(24)`; a kept
@@ -1450,7 +1451,11 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `LeaseLost` / `Fenced` / `ApplicationStopping` —, `site: HandOverSite` — `Step`, `Tool`,
   `ToolInterceptor`, `Compensation`, `Branch`, `Child` —, `scopeKey`, `holderInstanceId`, `token`,
   `observedToken?`) once per hand-over error and lease scope, at the innermost site that found it
-  (`recordedHandOver`, `src/app/handed-over.ts`), its row written before the lease is released.
+  (`recordedHandOver`, `src/app/handed-over.ts`), its row written before the lease is released;
+  `onFencedEffect` (#501, `FencedEffectEvent`, a node event: `name`, `scopeKey`, `token`, `outcome:
+FencedEffectEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `writtenToken?`,
+  `observedToken?`, never the result) once per call of `FencedEffectRepository.saveResultIfAbsent`
+  from a step, in the lease's order (a refusal before the hand-over it causes).
 - **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
   line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
   in tests unless listed). At start, once, only what the decorators say: what started and the worst

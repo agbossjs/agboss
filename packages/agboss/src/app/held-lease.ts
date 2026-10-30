@@ -7,13 +7,13 @@ import type { ExecutionTree } from "../infrastructure/execution-tree.repository.
 import type { Clock } from "../infrastructure/clock.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
 import {
-  HandOverReports,
+  LeaseEventReports,
   reacquiredOf,
   reportTake,
   type LeaseTake,
   type LeaseTaking,
 } from "./execution-leases.js";
-import type { HandOverReport } from "./lease-events.js";
+import type { FencedEffectReport, HandOverReport } from "./lease-events.js";
 import { FencedHolders, isHandedOver } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
@@ -59,7 +59,7 @@ export class HeldLease implements HeldExecutionLease {
   /** Why it was taken (#501): a re-acquire is recorded for the same tree. */
   readonly #take: LeaseTake | undefined;
   /** The hand-overs being recorded (#501): the lease is released only after them. */
-  readonly #reports = new HandOverReports();
+  readonly #reports = new LeaseEventReports();
 
   private readonly repository: ExecutionLeaseRepository;
   private readonly clock: Clock;
@@ -162,7 +162,11 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   recordHandOver(report: HandOverReport): void {
-    this.#reports.record(this.taking.events, report, this.scopeKey);
+    this.#reports.handOver(this.taking.events, report, this.scopeKey);
+  }
+
+  recordFencedEffect(report: FencedEffectReport): void {
+    this.#reports.fencedEffect(this.taking.events, report);
   }
 
   async release(): Promise<void> {

@@ -82,8 +82,8 @@ export {
   ModelKindError,
 } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./app/application-stopping.js";
+export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export {
-  FencedEffectAsyncWorkError,
   FencedEffectResultTooLargeError,
   FencedEffectStoreMismatchError,
   type FencedEffectResultTooLargeErrorOptions,
