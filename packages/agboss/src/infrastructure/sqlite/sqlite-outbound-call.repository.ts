@@ -26,14 +26,17 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS outbound_calls (
   scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, status TEXT NOT NULL,
-  ended_at INTEGER, record TEXT NOT NULL,
-  UNIQUE (scope_key, idempotency_key, name));
+  ended_at INTEGER, record TEXT NOT NULL, business_key TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS outbound_calls_by_step
+  ON outbound_calls (scope_key, idempotency_key, name) WHERE business_key IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS outbound_calls_by_business_key
+  ON outbound_calls (tenant_id, name, business_key) WHERE business_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS outbound_calls_by_tree ON outbound_calls (tenant_id, root_execution_id);
 CREATE INDEX IF NOT EXISTS outbound_calls_by_status ON outbound_calls (tenant_id, status);`;
 
 const RecordRow = z.object({ record: z.string() });
 
-const BY_KEY = "scope_key = ? AND idempotency_key = ? AND name = ?";
+const BY_KEY = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
 
 /** A row's record, as the store wrote it. */
 const recordOf = (row: unknown): OutboundCallRecord =>
@@ -80,7 +83,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         recordedAt: this.clock.now().toISOString(),
       };
       const { changes } = this.connection.database
-        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?)")
+        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL)")
         .run(
           key.scopeKey,
           key.idempotencyKey,
