@@ -16,9 +16,23 @@ Breaking changes and notable additions, newest first. The API reports
   key never appears in an error, only its handle — HMAC-SHA256 under the execution's PII key
   (`FencedEffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
   is `business-key:<handle>:<name>`.
-- **Added — `OutboundCallRepository.isLeaseOpen(tenantId, leaseExecutionId, token)`**: whether the
-  lease a pending business-key call was written under is still open — neither released nor
-  superseded; expired counts as open. A holder releases its lease only once its attempts settled.
+- **Added — `OutboundCallRepository.isLeaseLive(tenantId, leaseExecutionId, token)`**: whether the
+  lease a pending business-key call was written under is still live — neither released, superseded
+  nor expired; an expired one is superseded by the check itself (its epoch moved on), so its holder
+  writes nothing under it again. A holder releases its lease only once its attempts settled, never
+  yields it under one, and stops renewing it without releasing past
+  `@Application({ outboundCalls: { attemptTimeout } })` (**added**, default `minutes(2)`;
+  `[application.outbound-calls-invalid]`) or its instance's stop.
+- **Added — `OutboundCallResultNotStoredError`** (`outbound-call.result-not-stored`, a
+  `StepFailedError`): a replay of a call whose result was not stored — nothing sent, never the
+  marker as a result. Warnings `outbound-call.result-not-stored` and `outbound-call.text-redacted`;
+  an error `outbound-call.answered-after-hand-over` for an answer fenced after its lease was
+  handed over; `outbound-call.superseded` is written to the instance's log (`OutboundCalls` takes
+  the `Logger` and the `Clock`, optional when built by hand), the newer attempt "unknown" when it
+  cannot be read.
+- **Changed — no read, record, export or event shows an intent's `fingerprint`**; rotating
+  `pseudonymKey` changes every fingerprint, so an intent recorded before is a conflict for the same
+  request after. An effect's name is checked again at every store method.
 - **Added — `OutboundCallOutcomeStatus.Superseded`** and `OutboundCallEventOutcome.Superseded`
   (`supersededBy` on the event and its row, an error `outbound-call.superseded`); an answered call
   whose result cannot be stored ends `Completed` with a marker; `InvalidFencedEffectNameError`

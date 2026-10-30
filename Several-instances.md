@@ -563,7 +563,7 @@ A store of another database implements `OutboundCallRepository` (fenced `findByK
 `saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
 attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
 on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
-the two listings; `isLeaseOpen`;
+the two listings; `isLeaseLive` — which supersedes an expired lease in the same step —;
 `deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
@@ -640,7 +640,10 @@ export class ChargeOrderAction {
   a `pseudonymKey` the instances share no key, and it is a SHA-256 under that label
   (`[application.pii-instance-key]` warns). The handle below is keyed the same way when a
   `pseudonymKey` is set — stable across executions; with per-execution keys (#334) it is stable
-  within one tree only.
+  within one tree only. The fingerprint stays in the store's row: no read, kept record, export,
+  event or lease-log row shows it. **Rotating `pseudonymKey` changes every fingerprint:** an intent
+  recorded before the rotation is an `IdempotencyKeyConflictError` for the same request after it —
+  rotate once the business keys in flight have settled, or name each call's `fingerprint` yourself.
 - **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
   `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
@@ -653,19 +656,31 @@ export class ChargeOrderAction {
 - **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
   now, whatever its key, is **joined** (`Joined`): the joiner shares a success or the other system's
   own error, and on anything else of the first call's — its hand-over, its cancel — makes its own
-  call under its own frame. Under a business key, one written under a lease still **open** on
-  another instance (`isLeaseOpen`: neither released nor superseded by a later token) is
-  `OutboundCallInFlightError`, nothing sent. An expired lease counts as open: only a takeover —
-  which bumps the token — proves its holder gone; and a holder releases its lease only once the
-  attempts under it settled (renewed meanwhile), so a cancelled step whose client ignores its signal
-  keeps its call in flight until the call returns. Once the owner is gone the next caller
-  reconciles, and only the winner of the compare-and-set sends.
+  call under its own frame — whatever the first call threw, an object or not. Under a business key,
+  one written under a lease still **live** on another instance (`isLeaseLive`: neither released,
+  superseded by a later token nor expired) is `OutboundCallInFlightError`, nothing sent. A holder
+  releases its lease only once the attempts under it settled (renewed meanwhile) and never yields it
+  under one, so a cancelled step whose client ignores its signal keeps its call in flight while it
+  sends. The wait is bounded: past `@Application({ outboundCalls: { attemptTimeout } })` (default
+  `minutes(2)`) or the instance's stop (`app.close()`'s timeout) the holder stops renewing without
+  releasing, and the lease expires. `isLeaseLive` then supersedes it in the same step — its epoch
+  moved on, the row unreleased — so its holder can neither renew it nor write under it again, and
+  the call is reconciled here; the tree itself is taken over as after any expiry. An answer that
+  comes back after that is fenced, not stored, and logged as an error,
+  `outbound-call.answered-after-hand-over`: the other system may then have the call twice. Once the
+  owner is gone the next caller reconciles, and only the winner of the compare-and-set sends.
 - **A lost completion is never silent:** an attempt answered after a newer one took the intent over
   is `OutboundCallOutcomeStatus.Superseded` — both reached the other system — with the event's
-  `supersededBy` naming the newer attempt and an error `outbound-call.superseded` in the log.
+  `supersededBy` naming the newer attempt and an error `outbound-call.superseded` on the instance's
+  log, lease log or none (a unit runner); when the intent can no longer be read the newer attempt is
+  "unknown", never guessed.
 - **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
-  the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, never `Failed` (which
-  would send it again); a failure or `reconcile` reason the mask cannot mask is `[redacted]`.
+  the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, with a warning
+  `outbound-call.result-not-stored`, never `Failed` (which would send it again); the step gets the
+  answer. A later call under the key fails with `OutboundCallResultNotStoredError`
+  (`outbound-call.result-not-stored`, `reason`: the code, a `StepFailedError`) — nothing sent, and
+  never the marker as a result: read the result from the other system. A failure or `reconcile`
+  reason the mask cannot mask is `[redacted]`, with a warning `outbound-call.text-redacted`.
 - **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the tenant and
   the business key `encodeURIComponent`-encoded, the same from every step and execution — give it to
   the other system as its idempotency key. Everything else names it by its handle only,
@@ -678,7 +693,10 @@ export class ChargeOrderAction {
   business-key cases (two scopes run once, a fingerprint conflict, a stale token refused, two
   instances racing write once, the lease check) and the races a port must make atomic, each run
   for several rounds in both orders: two moves from one read, two records of one business key, an
-  ending against a newer claim, a write against its lease's release and the next take.
+  ending against a newer claim, a write against its lease's release and the next take (which must
+  land before the new holder reads, or be refused), and one business key's row moved under two
+  leases at once — no lease lock serializes those, only the row's own compare-and-set. An effect's
+  name is checked again at every store method, for a key built by hand.
 
 ## Recovery
 
