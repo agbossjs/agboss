@@ -23,6 +23,7 @@ shared implementation of each:
 | `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
 | `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
 | `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
+| `ExecutionLeaseEventRepository` | the lease log is read through the public API whichever instance took a lease over (#501, [below](#the-lease-log-501)) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
 (`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
@@ -473,6 +474,47 @@ both at the latest at the end of the shutdown timeout — the grace is spent on 
 ends within its shutdown timeout (`app.step-still-running` names a body still running then;
 `close({ timeout: 0 })` stops waiting at once). Another instance therefore never reruns a step — the same action, the same
 idempotency key — while its first run is still going here.
+
+## The lease log (#501)
+
+A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint
+— but not for its operators: each one is a `Takeover` row of the **lease log**, an append-only
+infrastructure contract, `ExecutionLeaseEventRepository` (the in-memory default,
+`SqliteExecutionLeaseEventRepository` on the application's file, a project's own one proven by
+`executionLeaseEventContract` of [`@agboss/core/testing/contracts`](#writing-your-own-store-the-published-contract-suites-481)),
+and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
+
+- **who and at which token** — `holderInstanceId` and `token` (the new `executionContext.fence.token`),
+  and `previousHolderInstanceId` / `previousToken` when the lease store names the holder whose lease
+  had **expired**: `acquire` returns it as `ExecutionLease.takenOverFrom`, never after a release or
+  for a first lease. It is optional, so a store from before #501 still works — its takeovers name no
+  previous holder;
+- **why** — `LeaseTakeoverReason.Recovered` (the sweep continues it), `Unwinding` (the sweep
+  finishes its undo), `Cancelled`, `Resumed`, `RemoteChild` (a worker reclaims an `AnyInstance`
+  child), `Reacquired` (a parent took its lease back after waiting for remote children, at a new
+  token, no previous holder). A takeover is a take whose store names an expired holder, and every
+  take of the recovery sweep, an undo's takeover, a reclaim and a re-acquire; a lease released at a
+  pause and taken by the resume is none;
+- **the head checkpoint** (`checkpointId`) the taking instance continues from, where it reads it.
+
+The rows carry identities and tokens only — never a payload — masked like observer events. They are
+**always written**, whatever `executionRecordRetention` says, before the observers hear of them, and
+read while the tree runs, from any instance, through the public API:
+
+<!-- snippet-context
+import type { App } from "@agboss/core";
+declare const app: App;
+declare const rootExecutionId: string;
+-->
+
+```ts
+const rows = await app.leaseEventsOf({ tenantId: "acme", rootExecutionId });
+const takeovers = rows.filter((row) => row.kind === "takeover");
+```
+
+Another tenant's tree has none. The recovery sweep removes the rows older than
+`@Application({ leaseEventRetention })` (default `hours(24)`, on the `Clock`). A lease log that
+cannot write is a warning (`lease-event.failed`) and never reaches the takeover.
 
 ## Cancelling from any instance
 

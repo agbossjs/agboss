@@ -90,6 +90,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
 | `OnQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
 | `OnCompensationStart` / `OnCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
+| `OnExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -271,6 +272,38 @@ export class CompensationAudit implements OnCompensationEnd {
   onCompensationEnd(event: CompensationEndEvent) {
     if (event.status === CompensationStatus.Failed)
       console.warn(`${event.compensated.component.name} not undone: ${event.error?.message ?? ""}`);
+  }
+}
+```
+
+## Lease takeovers (#501)
+
+`onExecutionLeaseTakeover` tells that an instance took a tree's lease over. Like a refused request
+it names no workflow and no thread — a lease belongs to a tree: `ExecutionLeaseTakeoverEvent` has
+`tenantId`, `rootExecutionId`, `leaseExecutionId` (the root, or a `ChildPlacement.AnyInstance`
+child's own lease), `scopeKey` and `token` (the new holder's `executionContext.fence`),
+`holderInstanceId`, `previousHolderInstanceId` / `previousToken` when the lease store names the
+holder whose lease expired (`ExecutionLease.takenOverFrom`), `checkpointId` (the tree's head
+checkpoint, where the take reads it) and `reason`, a `LeaseTakeoverReason`: `Recovered`, `Resumed`,
+`Cancelled`, `Unwinding`, `RemoteChild` or `Reacquired`. A take is a takeover when the store names
+an expired holder, and at every take of the recovery sweep, an undo's takeover, a remote child's
+reclaim and a re-acquire after a yield; a lease released and taken again is none. The same facts
+are a row of the lease log, written first ([Several instances → The lease log](Several-instances#the-lease-log-501));
+an observer that throws is a warning (`observer.failed`) and never reaches the takeover.
+
+```ts
+import {
+  Injectable,
+  LeaseTakeoverReason,
+  type ExecutionLeaseTakeoverEvent,
+  type OnExecutionLeaseTakeover,
+} from "@agboss/core";
+
+@Injectable()
+export class TakeoverAlert implements OnExecutionLeaseTakeover {
+  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent) {
+    if (event.reason === LeaseTakeoverReason.Recovered && event.previousHolderInstanceId !== undefined)
+      console.warn(`${event.previousHolderInstanceId} lost ${event.scopeKey}; token ${event.token}`);
   }
 }
 ```

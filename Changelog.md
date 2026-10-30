@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: handover telemetry, the lease log (#501 PR 1)
+
+- **Added — `ExecutionLease.takenOverFrom`** (`PreviousLeaseHolder`: `holderInstanceId`,
+  `leaseEpoch`): `acquire` names the holder whose lease it took over after it expired — never after a
+  release. Optional: an external `ExecutionLeaseRepository` still compiles; the published
+  `executionLeaseContract` has two more cases, so a store that runs it reports it.
+- **Added — `onExecutionLeaseTakeover`** (`OnExecutionLeaseTakeover`, `ExecutionLeaseTakeoverEvent`,
+  `LeaseTakeoverReason`) ([Observability](Observability#lease-takeovers-501)).
+- **Added — the lease log** ([Several instances](Several-instances#the-lease-log-501)): the
+  infrastructure contract `ExecutionLeaseEventRepository` (`ExecutionLeaseEventRecord` =
+  `LeaseTakeoverRecord`, `ExecutionLeaseEventKind`), its in-memory default,
+  `SqliteExecutionLeaseEventRepository` (table `execution_lease_events`), the contract suite
+  `executionLeaseEventContract`, `app.leaseEventsOf({ tenantId, rootExecutionId })` (`LeaseEventsQuery`)
+  and `@Application({ leaseEventRetention })` (default `hours(24)`, removed by the recovery sweep).
+  Readiness pings it.
 ## Unreleased — 0.1.1: the fenced effect (#500)
 
 - **Added — `FencedEffectRepository<TTransaction>`** ([Several instances](Several-instances#the-fenced-effect-500),
