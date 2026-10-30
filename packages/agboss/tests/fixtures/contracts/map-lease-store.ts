@@ -17,6 +17,8 @@ export class LeaseTable {
   readonly rows = new Map<string, ExecutionLease>();
   /** The trees whose last lease was released, not left to expire (#501: no previous holder). */
   readonly released = new Set<string>();
+  /** The trees whose lease its holder yielded (#516): still its own. */
+  readonly yielded = new Set<string>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -91,5 +93,34 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
       this.table.released.add(key);
     }
     return Promise.resolve();
+  }
+
+  yield(executionLease: ExecutionLease): Promise<boolean> {
+    const key = this.#heldKeyOf(executionLease);
+    if (key !== undefined) this.table.yielded.add(key);
+    return Promise.resolve(key !== undefined);
+  }
+
+  reclaim(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    const key = this.#heldKeyOf(executionLease);
+    if (key === undefined) return Promise.resolve(undefined);
+    const { tenantId, rootExecutionId, holderInstanceId } = executionLease;
+    const leaseEpoch = executionLease.leaseEpoch + 1;
+    const expiresAt = new Date(this.now() + lease);
+    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt };
+    this.table.rows.set(key, reclaimed);
+    this.table.yielded.delete(key);
+    return Promise.resolve(reclaimed);
+  }
+
+  /** The key of `executionLease` while it is still its holder's (not taken, not released). */
+  #heldKeyOf(executionLease: ExecutionLease): string | undefined {
+    const key = keyOf(executionLease.tenantId, executionLease.rootExecutionId);
+    const isHeld =
+      isSameLease(this.table.rows.get(key), executionLease) && !this.table.released.has(key);
+    return isHeld ? key : undefined;
   }
 }

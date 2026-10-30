@@ -43,6 +43,16 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Fixed
 
+- **A parent waiting for `AnyInstance` children is no longer taken over by another instance**
+  (#516) — while it waited, the parent released its lease and only its own process knew the tree
+  was live, so another instance's recovery sweep took the root over and the caller of a successful
+  `execute` got `ExecutionLeaseLostError` or a "no longer queued" error. The yield is now visible in
+  the store: `ExecutionLeaseRepository` gains `yield(lease)` / `reclaim(lease, duration)` (a yielded
+  lease stays its holder's, is renewed, is refused to every other `acquire` until it expires, and is
+  taken back at the next `leaseEpoch`). A holder that dies while waiting stops renewing, so its
+  lease expires and the tree is recovered as before. **Breaking for a store of your own**: implement
+  the two methods; `executionLeaseContract` checks them. The in-memory and SQLite stores implement
+  them (SQLite adds the `yielded` column to an existing file).
 - **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
   10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
   `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,

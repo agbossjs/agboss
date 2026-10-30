@@ -258,7 +258,7 @@ describe.each(kinds)(
     );
 
     it(
-      "a step that cannot take the lease back (another holds it) is handed over",
+      "#516: a yielded lease is still the holder's — refused to another until it expires; a step that cannot take it back then is handed over",
       withTarget(target, async ({ clock, first, second }) => {
         const { lease } = await heldOn(first, clock);
         let release = (): void => undefined;
@@ -271,10 +271,19 @@ describe.each(kinds)(
         waiting.catch(() => undefined);
         for (let tick = 0; tick < 20; tick += 1)
           await new Promise((resolve) => setImmediate(resolve));
+        const refused = await second.acquire(TREE.tenantId, TREE.rootExecutionId, seconds(30));
+        // the holder frozen past the lease (its timers on the closed gate): the lease expires
+        await clock.advance(seconds(31));
         const thief = await second.acquire(TREE.tenantId, TREE.rootExecutionId, seconds(30));
-        expect(thief?.leaseEpoch).toBe(2);
+        expect(refused).toBeUndefined();
+        expect(thief).toMatchObject({
+          leaseEpoch: 2,
+          takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+        });
 
-        await expect(lease.enterStep()).rejects.toThrow(ExecutionLeaseLostError);
+        await expect(lease.enterStep()).rejects.toThrow(
+          "expired while it waited for remote children and another instance took it",
+        );
         expect(lease.signal.aborted).toBe(true);
         release();
         await lease.release();

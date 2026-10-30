@@ -27,7 +27,8 @@ import { leaseReleases } from "./lease-releases.js";
  * while they move it, renew it in the background every third of its length and right before
  * every checkpoint write, and release it when the pass ends (paused, finished or failed). While a
  * parent node awaits remote children in-step (#333 PR 4, S9 Q1), it yields the lease in
- * `ExecutionLeaseRepository` and re-acquires it before continuing.
+ * `ExecutionLeaseRepository` — still its own there, renewed on (#516) — and reclaims it before
+ * continuing.
  */
 
 /** How often a call waiting for a tree held elsewhere tries again (a release here wakes it at once). */
@@ -54,8 +55,9 @@ export interface HeldExecutionLease extends FrameLease {
   afterEachRenewal(check: RenewalCheck): void;
   /**
    * Yields the lease in `ExecutionLeaseRepository` while `wait` awaits remote children (#333 PR 4,
-   * S9 Q1) — only while no other step of the tree runs (#471) — and re-acquires it before
-   * returning so `.join()` and checkpoint writes run under it.
+   * S9 Q1) — only while no other step of the tree runs (#471) — and reclaims it, at the next token,
+   * before returning so `.join()` and checkpoint writes run under it. Yielded is not released
+   * (#516): every instance sees the tree held, the renewals go on, a dead holder's lease expires.
    */
   yieldWhile<T>(wait: () => Promise<T>): Promise<T>;
   /** Stops renewing and gives the lease up (nothing to give when it was lost). */

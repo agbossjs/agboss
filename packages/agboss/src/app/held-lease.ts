@@ -21,9 +21,13 @@ import {
   LeaseFence,
   renewInBackground,
 } from "./lease-fence.js";
-import { scopeKeyOf, type ExecutionFencedError } from "./lease-lost.js";
+import {
+  leaseTakenWhileYieldedError,
+  scopeKeyOf,
+  type ExecutionFencedError,
+} from "./lease-lost.js";
 import { leaseReleases } from "./lease-releases.js";
-import { LeaseYields } from "./lease-yields.js";
+import { LeaseTurns, LeaseYields } from "./lease-yields.js";
 
 /** How a held lease began: when it was asked for (the clock's ms) and why it was taken (#501). */
 export interface HeldLeaseStart {
@@ -35,7 +39,8 @@ export interface HeldLeaseStart {
  * A tree's lease held by this instance (`execution-leases.ts`): renewed and watched in the
  * background, fenced locally (#335), read by its steps' `executionContext.fence` (#471: its token,
  * its checks, a fenced write stopping it), yielded while every caller waits for remote children and
- * no step of the tree runs (#333 PR 4, #471).
+ * no step of the tree runs (#333 PR 4, #471) — yielded in the store, not released (#516): the lease
+ * stays this holder's and is renewed on, so no other instance takes the waiting tree over.
  */
 export class HeldLease implements HeldExecutionLease {
   readonly rootExecutionId: string;
@@ -49,6 +54,10 @@ export class HeldLease implements HeldExecutionLease {
   readonly #stopped = new AbortController();
   readonly #fence: LeaseFence;
   #current: ExecutionLease | undefined;
+  /** Whether `#current` is yielded in the store now (#516). */
+  #isYieldedNow = false;
+  /** The renewals and reclaims of the store, one after another (#516). */
+  readonly #turns = new LeaseTurns();
   /** When the lease is yielded: never under a running step of the tree (#471). */
   readonly #yields = new LeaseYields(async (shouldYield) => {
     if (this.#stopped.signal.aborted || this.#lost.signal.aborted) return;
@@ -74,7 +83,6 @@ export class HeldLease implements HeldExecutionLease {
     this.clock = taking.clock;
     this.#take = take;
     this.#reports.held(initial);
-    const { clock } = taking;
     this.rootExecutionId = tree.rootExecutionId;
     this.leaseExecutionId = tree.rootExecutionId;
     this.tenantId = tree.tenantId;
@@ -82,19 +90,19 @@ export class HeldLease implements HeldExecutionLease {
     this.signal = this.#lost.signal;
     this.#key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
     this.#current = initial;
-    this.#fence = new LeaseFence(clock, askedAt, this.#lost, tree.rootExecutionId);
+    this.#fence = new LeaseFence(this.clock, askedAt, this.#lost, tree.rootExecutionId);
     this.#holder = new FencedHolders(this.scopeKey, (error) => {
       this.fenced(error);
     });
     this.#holder.hold(initial.leaseEpoch);
     this.#lost.signal.addEventListener("abort", this.#holder.forget, { once: true });
     const working = AbortSignal.any([this.#stopped.signal, this.#lost.signal]);
-    void renewInBackground(clock, working, () => this.renewNow());
-    void expireInBackground(clock, working, this.#fence);
+    void renewInBackground(this.clock, working, () => this.renewNow());
+    void expireInBackground(this.clock, working, this.#fence);
   }
 
   get token(): number | undefined {
-    return this.#current?.leaseEpoch;
+    return this.#isYieldedNow ? undefined : this.#current?.leaseEpoch;
   }
 
   get confirmedUntil(): number {
@@ -102,7 +110,7 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   get isYielded(): boolean {
-    return this.#current === undefined && !this.#lost.signal.aborted;
+    return this.#isYieldedNow && !this.#lost.signal.aborted;
   }
 
   afterEachRenewal(check: RenewalCheck): void {
@@ -118,7 +126,8 @@ export class HeldLease implements HeldExecutionLease {
   async confirmNow(): Promise<void> {
     this.#lost.signal.throwIfAborted();
     const held = this.#current;
-    if (held === undefined) this.#fence.lose();
+    // no step runs while the lease is yielded: a confirmation now is not this holder's
+    if (held === undefined || this.#isYieldedNow) this.#fence.lose();
     const { renewedAt, isRenewed } = await this.#renewed(held);
     // anything but a confirmed renewal is a hand-over: the tree goes on where the lease is held
     if (isRenewed !== true) this.#fence.lose();
@@ -133,13 +142,18 @@ export class HeldLease implements HeldExecutionLease {
 
   async renewNow(): Promise<void> {
     this.#lost.signal.throwIfAborted();
-    if (this.#current === undefined) {
+    const renewal = await this.#turns.run(async () => {
+      const held = this.#current;
+      return held === undefined ? undefined : { held, ...(await this.#renewed(held)) };
+    });
+    if (renewal === undefined) {
       for (const check of this.#checks) await check();
       return;
     }
-    const { renewedAt, isRenewed } = await this.#renewed(this.#current);
-    this.#fence.settle(renewedAt, isRenewed);
-    if (isRenewed === true) for (const check of this.#checks) await check();
+    // released meanwhile: the answer is for a lease this holder gave up
+    if (renewal.held !== this.#current) return;
+    this.#fence.settle(renewal.renewedAt, renewal.isRenewed);
+    if (renewal.isRenewed === true) for (const check of this.#checks) await check();
   }
 
   enterStep(): Promise<() => void> {
@@ -147,7 +161,6 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   async yieldWhile<T>(wait: () => Promise<T>): Promise<T> {
-    const unyield = leaseReleases.enterYielded(this.#key);
     let handedOver = false;
     try {
       await this.#yields.startWaiting();
@@ -156,7 +169,6 @@ export class HeldLease implements HeldExecutionLease {
       handedOver = isHandedOver(error);
       throw error;
     } finally {
-      unyield();
       await this.#yields.stopWaiting(handedOver);
     }
   }
@@ -182,6 +194,7 @@ export class HeldLease implements HeldExecutionLease {
     if (this.#stopped.signal.aborted) return;
     this.#stopped.abort();
     this.#holder.forget();
+    this.#isYieldedNow = false;
     if (!this.#lost.signal.aborted && this.#current !== undefined) {
       const held = this.#current;
       this.#current = undefined;
@@ -190,26 +203,32 @@ export class HeldLease implements HeldExecutionLease {
     leaseReleases.notify(this.#key);
   }
 
+  /**
+   * Yields the lease in the store (#516): still this holder's, renewed on. A store that did not
+   * answer leaves it held there, which other instances see the same way; one that says it is no
+   * longer this holder's stops the holder.
+   */
   async #yieldLease(): Promise<void> {
-    if (this.#current === undefined) return;
     const held = this.#current;
-    this.#current = undefined;
+    if (held === undefined || this.#isYieldedNow) return;
+    this.#isYieldedNow = true;
     this.#holder.forget();
-    this.#fence.yield();
-    await this.repository.release(held);
-    leaseReleases.notify(this.#key);
+    const isYielded = await this.repository.yield(held).catch((): boolean => true);
+    if (!isYielded) this.#fence.lose();
   }
 
+  /** Takes the yielded lease back before a step runs (#516): the next token, or the holder stops. */
   async #reacquireLease(): Promise<void> {
-    if (this.#current !== undefined) return;
+    const held = this.#current;
+    if (held === undefined || !this.#isYieldedNow) return;
     const at = this.clock.now().getTime();
-    const next = await this.repository.acquire(
-      this.tree.tenantId,
-      this.tree.rootExecutionId,
-      EXECUTION_LEASE,
-    );
-    if (next === undefined) this.#fence.lose();
-    this.#current = next;
+    const next = await this.#turns.run(async () => {
+      const reclaimed = await this.repository.reclaim(held, EXECUTION_LEASE);
+      if (reclaimed !== undefined) this.#current = reclaimed;
+      return reclaimed;
+    });
+    if (next === undefined) this.#fence.lose(leaseTakenWhileYieldedError(this.leaseExecutionId));
+    this.#isYieldedNow = false;
     this.#reports.held(next);
     this.#holder.hold(next.leaseEpoch);
     this.#fence.reacquired(at);

@@ -16,9 +16,7 @@ import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf } from "./current-output.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
-import { leaseReleases } from "./lease-releases.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
-import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
@@ -136,9 +134,12 @@ class TreeMover implements TreeMoves {
     return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
   }
 
+  /**
+   * A root a resume of this instance moves. Any other root's holder is read from the store: a
+   * holder waiting for remote children keeps its lease there, yielded (#516), so the take fails.
+   */
   #isBusy(interrupted: InterruptedRun): boolean {
-    const key = treeKeyOf(interrupted.tenantId, interrupted.runId);
-    return this.#resuming.has(interrupted.runId) || leaseReleases.isYielded(key);
+    return this.#resuming.has(interrupted.runId);
   }
 
   /**

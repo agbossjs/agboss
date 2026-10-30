@@ -66,6 +66,8 @@ export interface WindowEntry {
 export interface ExecutionLeaseRow {
   readonly lease: ExecutionLease;
   readonly released: boolean;
+  /** Yielded by its holder while it waits for children on any instance (#516); still its own. */
+  readonly isYielded?: boolean;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

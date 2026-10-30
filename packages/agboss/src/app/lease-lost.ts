@@ -34,6 +34,17 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
 }
 
 /**
+ * The lease was taken over while its holder had yielded it waiting for remote children (#516): the
+ * holder was frozen or cut off longer than the lease, so another instance took the expired lease
+ * and continues the tree — only the message differs, as for `leaseExpiredError`.
+ */
+export function leaseTakenWhileYieldedError(rootExecutionId: string): ExecutionLeaseLostError {
+  const error = new ExecutionLeaseLostError(rootExecutionId);
+  error.message = `the lease of execution ${rootExecutionId} expired while it waited for remote children and another instance took it: it continues the execution`;
+  return error;
+}
+
+/**
  * The key of one lease scope (#471): `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}`
  * — exactly one `:`, so two scopes never collide and the parts decode back. A public format.
  */
