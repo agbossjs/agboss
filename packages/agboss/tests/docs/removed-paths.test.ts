@@ -52,6 +52,7 @@ describe("#489 AC4: no link to examples/job-scout outside ADRs and the Changelog
     ["a relative path into the folder", "Open ./examples/job-scout/README.md"],
     ["a command in a code span", "Run `cd examples/job-scout && npm run chat`."],
     ["the folder with a trailing slash", "In `examples/job-scout/` there is …"],
+    ["the folder at the end of a sentence", "The example was examples/job-scout."],
   ])("%s is a problem, naming the doc and the line", async (_kind, text) => {
     const { removedPathProblems } = await removedPaths();
 
@@ -82,6 +83,7 @@ describe("#489 AC4: no link to examples/job-scout outside ADRs and the Changelog
     ["the examples repository's folder", "cd agboss-examples/08-job-scout"],
     ["another repository's folder of that name", "agboss-examples/job-scout"],
     ["a longer folder name", "examples/job-scout-reference"],
+    ["a file of that name elsewhere", "git add src/content/docs/examples/job-scout.md"],
     ["the example that stays", "examples/flow-patterns"],
     ["job-scout as a label", 'the string "job-scout" in a trace tag'],
   ])("%s is not a problem", async (_kind, text) => {

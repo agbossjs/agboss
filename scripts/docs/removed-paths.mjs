@@ -20,11 +20,12 @@ export function isHistory(doc) {
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// the folder itself: not the tail of another name (`agboss-examples/job-scout`), not a longer one
+// the folder itself: not the tail of another name (`agboss-examples/job-scout`), not a longer one,
+// not a file of that name (the website's `src/content/docs/examples/job-scout.md`)
 const PATTERNS = REMOVED_PATHS.map(({ path, movedTo }) => ({
   path,
   movedTo,
-  pattern: new RegExp(`(?<![\\w.-])${escape(path)}(?![\\w-])`),
+  pattern: new RegExp(`(?<![\\w.-])${escape(path)}(?![\\w-]|\\.\\w)`),
 }));
 
 /** Mentions of a removed folder in one doc, one per line and folder, as `doc:line: …`. */
