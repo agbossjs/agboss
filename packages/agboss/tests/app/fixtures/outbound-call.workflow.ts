@@ -245,15 +245,34 @@ export class ChargeAndNotifyWorkflow {}
 })
 export class OutboundCallApplication {}
 
-/** The same application, its root executions kept (#401): their records carry their calls. */
+/** The charge with its PII policy on the workflow, not on the application (#505). */
+@Workflow({
+  name: "kept-charge-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ChargeWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAction(ChargeOrderAction)
+      .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
+      .returns(ChargeReceiptDto)
+      .toFinish(ChargedWorkflowFinish),
+  ],
+  providers: [PaymentGateway],
+  piiPolicies: [EmailPiiPolicy],
+})
+export class KeptChargeWorkflow {}
+
+/**
+ * Its root executions kept (#401): their records carry their calls. The e-mail policy is the
+ * workflow's only — the application's own mask would leave an address as it is.
+ */
 @Application({
   name: "kept-outbound-call-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ChargeWorkflow],
+  workflows: [KeptChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
-  piiPolicies: [EmailPiiPolicy],
   executionRecordRetention: hours(24),
 })
 export class KeptOutboundCallApplication {}

@@ -6,7 +6,7 @@ import { pathOf } from "../dto/errors.js";
 import type { Tool, ToolInvocationContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
-import { timeoutOn } from "../infrastructure/clock-timeout.js";
+import { timeoutOn } from "../infrastructure/clock.js";
 import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
 import { inCurrentStepEntry } from "../flow/runtime/step-entries.js";
 

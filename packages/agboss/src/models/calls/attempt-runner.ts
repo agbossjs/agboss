@@ -1,5 +1,5 @@
 import { systemClock, type Clock } from "../../infrastructure/clock.js";
-import { waitOf } from "../../infrastructure/clock-timeout.js";
+import { waitOf } from "../../infrastructure/clock.js";
 import type { Milliseconds } from "../../units/index.js";
 import { ModelCallError, type CircuitBreaker } from "../circuit-breaker.js";
 import { ModelFailure } from "../model-failure.js";

@@ -1,5 +1,5 @@
 import { runInFrame, type FrameSpec } from "../flow/context/frame.js";
-import { timeoutOn } from "../infrastructure/clock-timeout.js";
+import { timeoutOn } from "../infrastructure/clock.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { PauseCancellation, PauseRecord } from "../infrastructure/pause-record.js";

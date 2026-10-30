@@ -1,5 +1,5 @@
 import type { Clock } from "../../infrastructure/clock.js";
-import { timeoutError, timeoutOn } from "../../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_WEIGHT } from "../../flow/context/tenant-context.js";
 import type { Milliseconds } from "../../units/index.js";

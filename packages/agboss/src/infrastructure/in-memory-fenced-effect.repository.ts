@@ -190,9 +190,10 @@ const isOrExtends = (cls: Class, base: Class): boolean =>
 export function fencedEffectStoreViolations(
   application: string,
   providers: readonly Provider[],
+  contract: Class = FencedEffectRepository,
 ): RuleViolation[] {
   const classes = providers.filter(isClass);
-  const store = classes.find((cls) => isOrExtends(cls, FencedEffectRepository));
+  const store = classes.find((cls) => isOrExtends(cls, contract));
   const expected: unknown = store === undefined ? undefined : Reflect.get(store, "leaseRepository");
   if (store === undefined || typeof expected !== "function") return [];
   const leases =
@@ -206,7 +207,7 @@ export function fencedEffectStoreViolations(
   return [
     violation(
       "application.fenced-effect-lease-store",
-      `${store.name} checks the leases of ${expected.name}, but the application's leases are in ${leases.name} — list the two stores of one database together (SqliteFencedEffectRepository with SqliteExecutionLeaseRepository)`,
+      `${store.name} checks the leases of ${expected.name}, but the application's leases are in ${leases.name} — list the stores of one database together (SqliteFencedEffectRepository or SqliteOutboundCallRepository with SqliteExecutionLeaseRepository)`,
       [application],
     ),
   ];

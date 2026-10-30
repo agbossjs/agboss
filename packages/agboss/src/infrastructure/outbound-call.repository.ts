@@ -268,7 +268,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 }
 
 /** A record without its last ending (`result`, `failure`, `endedAt`): sent again, or ending now. */
-const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
+export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
   tenantId: found.tenantId,
   rootExecutionId: found.rootExecutionId,
   executionId: found.executionId,

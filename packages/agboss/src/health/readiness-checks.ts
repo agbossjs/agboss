@@ -3,7 +3,7 @@ import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { componentReportOf, probe, type ProbeOutcome } from "./health-probe.js";
-import { waitOf } from "../infrastructure/clock-timeout.js";
+import { waitOf } from "../infrastructure/clock.js";
 import { HealthComponentKind, HealthStatus, type HealthComponentReport } from "./health-check.js";
 import type { HealthSources, ProjectHealthCheck } from "./health-sources.js";
 

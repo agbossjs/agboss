@@ -24,7 +24,7 @@ import {
 } from "../../flow/context/context-values.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
 import { Clock } from "../../infrastructure/clock.js";
-import { timeoutError, timeoutOn } from "../../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import type { ModelGateway } from "../../llm/gateway.js";
 import type { Milliseconds } from "../../units/index.js";
 import { VirtualClock } from "../clock.js";

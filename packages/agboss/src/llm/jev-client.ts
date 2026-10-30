@@ -1,5 +1,5 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
-import { timeoutError, timeoutOn } from "../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { DecisionQuestions, DecisionState } from "./decisions.js";
 

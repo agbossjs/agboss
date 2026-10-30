@@ -15,6 +15,10 @@ import {
 import type { TestApp, TestLeases, VirtualClock } from "../../src/testing/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
+import {
+  exportedRecordLine,
+  historyRecordsOf,
+} from "../../src/infrastructure/execution-history-export.js";
 import { execute } from "../helpers/flow.js";
 import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { instance, settle } from "./fixtures/fence-takeover.js";
@@ -237,9 +241,9 @@ describe("#505: the moves of a call, told", () => {
   );
 });
 
-describe("#505: a kept record carries its tree's calls", () => {
+describe("#505 AC4: a kept record and its export carry the tree's calls, masked by the workflow", () => {
   kept(
-    "ExecutionHistoryRecord.outboundCalls: every call of the tree, masked like the record",
+    "AC4: ExecutionHistoryRecord.outboundCalls: every call of the tree, the workflow's policy applied",
     async ({ app }) => {
       gateway.receiptEmail = "bob@example.com";
 
@@ -251,11 +255,35 @@ describe("#505: a kept record carries its tree's calls", () => {
       expect(record?.outboundCalls).toEqual([
         expect.objectContaining({
           name: "charge",
+          workflow: "kept-charge-workflow",
           status: OutboundCallStatus.Completed,
           request: '{"orderId":"order-7","amountUsd":10,"email":"<email>"}',
           result: '{"chargeId":"ch-order-7-1 <email>"}',
         }),
       ]);
+    },
+  );
+
+  kept(
+    "AC4: the exported line (agboss records export) carries them masked too",
+    async ({ app }) => {
+      gateway.receiptEmail = "bob@example.com";
+      await execute(app, ChargeWorkflowStart, { text: "order-7 alice@example.com" });
+      const history = app.resolve(ExecutionHistoryRepository);
+      const query = {
+        tenantId: "default",
+        from: new Date(0),
+        to: new Date("2100-01-01T00:00:00Z"),
+      };
+
+      const lines: string[] = [];
+      for await (const record of historyRecordsOf(history, query))
+        lines.push(exportedRecordLine(record));
+
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('"outboundCalls":[');
+      expect(lines[0]).toContain("<email>");
+      expect(lines[0]).not.toMatch(/alice@example\.com|bob@example\.com/);
     },
   );
 });

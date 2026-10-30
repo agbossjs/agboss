@@ -1,4 +1,6 @@
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
+import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
+import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
 import type { OutboundCallStores } from "../../../src/testing/contracts/index.js";
 import type { StoreFactory } from "./store-kinds.js";
@@ -11,5 +13,14 @@ export const inMemoryOutboundCalls: StoreFactory<OutboundCallStores> = (seam) =>
   return {
     calls: new InMemoryOutboundCallRepository(seam.clock, seam.database, leases),
     leases,
+  };
+};
+
+/** The SQLite store on this instance's connection to the test's file, with its lease store. */
+export const sqliteOutboundCalls: StoreFactory<OutboundCallStores> = (seam) => {
+  const connection = seam.connection();
+  return {
+    calls: new SqliteOutboundCallRepository(connection, seam.clock),
+    leases: new SqliteExecutionLeaseRepository(connection, seam.clock, seam.application),
   };
 };
