@@ -1,13 +1,15 @@
 import { defineConfig } from "vitest/config";
+import { agbossTest } from "@agboss/core/testing/vitest";
 
 /**
  * Three kinds of tests, by file name: unit (`*.test.ts`, no models), integration
  * (`*.integration.test.ts`, recorded answers) and suites (`*.suite.test.ts`, real models).
+ * `agbossTest()` loads AGBoss through vite, in the tests' module graph (the files it loads by path
+ * — the application, its environments — with their decorators), and registers the workflow
+ * matchers: toFollowPath, toFinishWith, toHavePausedAt, …
  */
 export default defineConfig({
-  test: {
-    // the workflow matchers: toFollowPath, toFinishWith, toHavePausedAt, …
-    setupFiles: ["@agboss/core/testing/setup"],
+  test: agbossTest({
     passWithNoTests: true,
     projects: [
       {
@@ -21,5 +23,5 @@ export default defineConfig({
       { extends: true, test: { name: "integration", include: ["tests/**/*.integration.test.ts"] } },
       { extends: true, test: { name: "suites", include: ["tests/**/*.suite.test.ts"] } },
     ],
-  },
+  }),
 });

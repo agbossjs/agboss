@@ -506,12 +506,12 @@ test("a service is replaced by a mock", async ({ app, mockLlm, mockOf }) => {
 ```
 
 ```ts file=vitest.config.ts
-// vitest.config.ts — registers the workflow matchers (toFollowPath, toFinishWith, …)
+// vitest.config.ts — agbossTest() loads AGBoss through vite, in the test's module graph, and
+// registers the workflow matchers (toFollowPath, toFinishWith, …)
 import { defineConfig } from "vitest/config";
+import { agbossTest } from "@agboss/core/testing/vitest";
 
-export default defineConfig({
-  test: { include: ["tests/**/*.test.ts"], setupFiles: ["@agboss/core/testing/setup"] },
-});
+export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
 ```
 
 **Adding an agent** = its `agents/<name>.agent.ts` (+ `<name>.prompt.md`), one route in its
@@ -2079,7 +2079,15 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `toHaveHandledError(E, { at, by })`, and the call
   matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
   `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
-  Vitest's own on anything else (`setupFiles: ["@agboss/core/testing/setup"]`). Errors only the real way:
+  Vitest's own on anything else. The project's `vitest.config.ts` wraps its `test` options in
+  `agbossTest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\/core/`
+  — installed from npm the core is external to vitest, and every file it loads by path (the
+  application `workflowOf(W)` finds next to `W`, environments, eval suites) would bypass vite: no
+  decorators, a second module graph — and `setupFiles` gains `@agboss/core/testing/setup` (once;
+  the user's arrays merged, the rest passed through). Without it `workflowOf(W)` throws
+  `TestSetupError` naming the fix when the application's import fails or lists another class named
+  `W`; `npm run check:packed` (CI's `packed-project` job) proves both on the packed tarballs in a
+  project of its own. Errors only the real way:
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
@@ -2122,7 +2130,7 @@ leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` (#471). `testExecut
 
 An example (and any project) imports only the public entries: the root `agboss` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
-types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`; `/testing/contracts`, #481, the store
+types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`; `/testing/vitest`, #497, the vitest preset `agbossTest()`; `/testing/contracts`, #481, the store
 contract suites), and
 the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` and the builders of
 its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a

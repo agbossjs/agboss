@@ -177,7 +177,7 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
 - Every snippet of these references is one file at its path in this layout (`file=` above its code):
   copy its folders and names as they are.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
-  `@agboss/core/testing` (+ `@agboss/core/testing/setup`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
+  `@agboss/core/testing` (+ `@agboss/core/testing/setup`, `@agboss/core/testing/vitest`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
   `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`,
   `agboss/dist/…` or LangGraph directly.
 

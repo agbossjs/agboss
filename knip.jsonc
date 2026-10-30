@@ -24,9 +24,12 @@
         "src/internal.ts",
         "src/{dto,units,models,testing,mcp,rag,a2a,memory,eval,eslint}/index.ts",
         "src/testing/contracts/index.ts",
+        "src/testing/vitest.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
+        // loaded by path: the applications `workflowOf` finds next to a workflow (#497)
+        "tests/fixtures/outside-graph/**/*.application.ts",
         "tests/**/fixtures/**/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",

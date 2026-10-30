@@ -15,7 +15,9 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                   |
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
-`vitest.config.ts` registers the matchers: `setupFiles: ["@agboss/core/testing/setup"]`. A project made by
+`vitest.config.ts` wraps its `test` options in `agbossTest()` from `@agboss/core/testing/vitest`: AGBoss loaded
+through vite, in the test's module graph (so `workflowOf(W)` loads the application next to `W` with its
+decorators), and the matchers registered. A project made by
 `npx agboss create` has three Vitest projects by file name, in `tests/` mirroring `src/`: `tests/**/*.test.ts`
 (unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
 `*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
