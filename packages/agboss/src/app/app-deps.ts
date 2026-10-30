@@ -38,6 +38,7 @@ import { piiFor } from "./pii-parts.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
 import type { ApplicationPiiKey } from "../application/application-pii.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { LeaseEventLog } from "./execution-leases.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
@@ -145,6 +146,8 @@ export interface WorkflowDepsParts {
   readonly budgets?: BudgetListing;
   /** The application's observers (#261), one manager for all its workflows; absent = none. */
   readonly observer?: ExecutionObserverManager;
+  /** The instance's lease log (#501): its takeovers and hand-overs; absent = none kept. */
+  readonly leaseEvents?: LeaseEventLog;
   /**
    * The key of the tokens of `sensitive` fields (#120) and whether it is the instance's own (S94,
    * #334: then one per root execution); absent = a new one.

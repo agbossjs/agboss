@@ -14,6 +14,15 @@ import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signa
 import type { StepCapacity } from "../step-slots.js";
 import { isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
+import { LeaseTakeoverReason } from "../../infrastructure/execution-lease-event.repository.js";
+import type { LeaseTake } from "../execution-leases.js";
+
+/** The take of a remote child's own lease (#501): a reclaim takes over a child a worker was running. */
+const childTakeOf = (row: QueuedChildExecution, isReclaim: boolean): LeaseTake => ({
+  reason: LeaseTakeoverReason.RemoteChild,
+  isTakeover: isReclaim,
+  rootExecutionId: row.rootExecutionId,
+});
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
@@ -139,7 +148,8 @@ class Workers implements ChildWorkers {
     let lease = this.#preHeld.get(key);
     this.#preHeld.delete(key);
     try {
-      lease ??= await this.parts.leases.tryHold({ tenantId, rootExecutionId: executionId });
+      const tree = { tenantId, rootExecutionId: executionId };
+      lease ??= await this.parts.leases.tryHold(tree, childTakeOf(row, false));
     } finally {
       stopClaiming();
     }
@@ -189,7 +199,8 @@ class Workers implements ChildWorkers {
         .findByTenantIdAndExecutionId(tenantId, executionId)
         .catch(() => undefined);
       if (!isSameRunningClaim(current, row)) return;
-      const lease = await this.parts.leases.tryHold({ tenantId, rootExecutionId: executionId });
+      const tree = { tenantId, rootExecutionId: executionId };
+      const lease = await this.parts.leases.tryHold(tree, childTakeOf(current, true));
       if (lease === undefined) return;
       const queuedAt = this.parts.clock.now();
       await this.parts.queue.saveIfAbsent({

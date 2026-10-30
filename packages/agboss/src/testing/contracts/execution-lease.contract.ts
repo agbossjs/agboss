@@ -64,6 +64,35 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
     },
   },
   {
+    name: "acquire after expiry reports the previous holder; after release it does not",
+    run: async ({ clock, first, second }) => {
+      const fresh = await first.acquire("default", "root-1", LEASE);
+      await clock.advance(seconds(31));
+      const taken = await second.acquire("default", "root-1", LEASE);
+      if (taken !== undefined) await second.release(taken);
+      const afterRelease = await first.acquire("default", "root-1", LEASE);
+
+      expect(fresh?.takenOverFrom).toBeUndefined();
+      expect(taken).toMatchObject({
+        leaseEpoch: 2,
+        takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+      });
+      expect(afterRelease).toMatchObject({ leaseEpoch: 3 });
+      expect(afterRelease?.takenOverFrom).toBeUndefined();
+    },
+  },
+  {
+    name: "a holder that takes its own expired lease back reports itself as the previous holder",
+    run: async ({ clock, first }) => {
+      await first.acquire("default", "root-1", LEASE);
+      await clock.advance(seconds(31));
+
+      const again = await first.acquire("default", "root-1", LEASE);
+
+      expect(again?.takenOverFrom).toEqual({ holderInstanceId: "instance-1", leaseEpoch: 1 });
+    },
+  },
+  {
     name: "releasing a lost lease leaves the new holder's",
     run: async ({ clock, first, second }) => {
       const old = await first.acquire("default", "root-1", LEASE);
@@ -81,7 +110,8 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 /**
  * `ExecutionLeaseRepository` (#265 AC11, Q58): one lease per tree, keyed by `(tenantId,
  * rootExecutionId)` — not given to another instance while valid, taken with `leaseEpoch + 1` after
- * it expired or was released, the old holder's `renew` then `false`; and the framework's holder
+ * it expired or was released, the old holder's `renew` then `false` — a take after expiry names the
+ * expired holder (`takenOverFrom`, #501), one after a release none —; and the framework's holder
  * over it — it aborts its work when the lease is lost, renews while alive, and a release wakes the
  * waiting instance.
  */

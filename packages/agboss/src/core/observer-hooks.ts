@@ -6,6 +6,7 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
+import type { ExecutionLeaseTakeoverEvent } from "../flow/observers/lease-events.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -166,6 +167,16 @@ export interface OnCompensationEnd {
   onCompensationEnd(event: CompensationEndEvent): HookResult;
 }
 
+/**
+ * An instance took a tree's lease over (#501): the recovery sweep, an undo's takeover, a remote
+ * child's reclaim or a re-acquire after a yield — and any take whose store names the holder whose
+ * lease expired. Its `Takeover` row of the lease log is written first; a throw is only a warning.
+ */
+export interface OnExecutionLeaseTakeover {
+  /** Called once per takeover, after its row is written, before the tree moves on. */
+  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
+}
+
 /** Every hook, all optional: the type of an observer instance. */
 export type ExecutionObserver = Partial<
   OnExecutionStart &
@@ -196,7 +207,8 @@ export type ExecutionObserver = Partial<
     OnLaunchItemsTruncated &
     OnQuorumDecided &
     OnCompensationStart &
-    OnCompensationEnd
+    OnCompensationEnd &
+    OnExecutionLeaseTakeover
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
@@ -236,6 +248,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onQuorumDecided: true,
   onCompensationStart: true,
   onCompensationEnd: true,
+  onExecutionLeaseTakeover: true,
 };
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(

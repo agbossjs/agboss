@@ -1253,7 +1253,12 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   in-memory store `[application.in-memory-execution-history]`), removed by the recovery sweep once it
   ended longer ago; `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl>
 [--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
-  only — `records.tenant-required`, `records.not-kept`) — and the
+  only — `records.tenant-required`, `records.not-kept`), `ExecutionLeaseEventRepository` (#501: the
+  lease log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
+  `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord`, identities and
+  tokens only, masked like observer events; always written, whatever `executionRecordRetention` says,
+  readable mid-run with `app.leaseEventsOf({ tenantId, rootExecutionId })`, removed by the recovery
+  sweep after `@Application({ leaseEventRetention })`, default `hours(24)`) — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
   `[di.infrastructure-in-workflow]` too). Listed **only** in
@@ -1266,7 +1271,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
   `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
-  `SqliteChildExecutionQueueRepository`) —
+  `SqliteChildExecutionQueueRepository`, `SqliteExecutionLeaseEventRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; flow-patterns' applications list seven of them. A project subclasses
@@ -1434,7 +1439,11 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   execution, which stays paused. `onValuesOutdated` (`trigger`, `outdated` — no DTO values) once
   per outdating cascade, never empty; `onLaunchItemsTruncated` (`launch`, `items`, `maxItems`) when
   a per-item launch dropped items (#273); `onQuorumDecided` (`launch`, `isReached`, `branches`,
-  `group`) once per quorum (#279).
+  `group`) once per quorum (#279). `onExecutionLeaseTakeover` (#501, `ExecutionLeaseTakeoverEvent`:
+  `tenantId`, `rootExecutionId`, `leaseExecutionId`, `scopeKey`, `token`, `holderInstanceId`,
+  `previousHolderInstanceId?` / `previousToken?`, `checkpointId?`, `reason: LeaseTakeoverReason` —
+  no workflow, like a rejection) once per takeover of a tree's lease, its row of the lease log written
+  first.
 - **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
   line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
   in tests unless listed). At start, once, only what the decorators say: what started and the worst
@@ -1893,6 +1902,10 @@ export class PlanService {
   `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call.
   While a parent node waits for `AnyInstance` children it yields the lease only when no other step
   of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first).
+  A take of an expired lease names its holder (`ExecutionLease.takenOverFrom`, #501, optional for an
+  external store); a takeover — that, or any take of the recovery sweep, an undo's takeover, a remote
+  child's reclaim or a re-acquire after a yield (`LeaseTakeoverReason`) — is a `Takeover` row of the
+  lease log and an `onExecutionLeaseTakeover`; a lease released and taken again is none.
   Wiki → Several-instances.
 - **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
   under — the root's for a root, its `ParentInstance` children and `ThisWorkflow` levels, an

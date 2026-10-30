@@ -97,7 +97,9 @@ export async function buildApp(
   const paused = pausedRunBook({ pauses, answers: log, withdrawn }, current, clock);
   const live = new LiveRuns();
   const leasing = leasingOf(parts.infrastructure);
-  const leases = executionLeasesOf(leasing.repository, leasing.clock);
+  const leases = executionLeasesOf(leasing.repository, leasing.clock, {
+    events: parts.leaseEvents,
+  });
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);

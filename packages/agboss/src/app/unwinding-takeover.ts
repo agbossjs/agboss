@@ -7,6 +7,8 @@ import type { CancelParts } from "./cancel-requests.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { treeOf } from "./tree-ends.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { rootTakeOf } from "./execution-leases.js";
 import type { TreeState } from "./tree-move-types.js";
 
 /**
@@ -52,7 +54,8 @@ export async function endedUnwindingAtTake(
  * free; `true` either way (its holder, if any, ends it).
  */
 export async function endUnwindingIfFree(parts: CancelParts, state: TreeState): Promise<boolean> {
-  const lease = await parts.leases.tryHold(treeOf(state));
+  const take = rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Unwinding, true);
+  const lease = await parts.leases.tryHold(treeOf(state), take);
   if (lease !== undefined) await endedUnwindingAtTake(parts, state, lease);
   return true;
 }

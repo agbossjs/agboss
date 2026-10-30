@@ -3,7 +3,15 @@ import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../clock.js";
-import { ExecutionLeaseRepository, type ExecutionLease } from "../execution-lease.repository.js";
+import {
+  ExecutionLeaseRepository,
+  takenOverFromOf,
+  type ExecutionLease,
+} from "../execution-lease.repository.js";
+import {
+  ExecutionLeaseEventRepository,
+  type ExecutionLeaseEventRecord,
+} from "../execution-lease-event.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
@@ -60,6 +68,12 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         holderInstanceId: this.applicationContext.instanceId,
         leaseEpoch: (stored?.lease_epoch ?? 0) + 1,
         expiresAt: new Date(now + lease),
+        ...takenOverFromOf(
+          stored === undefined
+            ? undefined
+            : { holderInstanceId: stored.holder_instance_id, leaseEpoch: stored.lease_epoch },
+          stored?.released === 0,
+        ),
       };
       database
         .prepare("INSERT OR REPLACE INTO execution_leases VALUES (?, ?, ?, ?, ?, 0)")
@@ -109,3 +123,71 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 }
 
 sqliteImplementation(SqliteExecutionLeaseRepository);
+
+const EVENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lease_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
+  occurred_at INTEGER NOT NULL, record TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS execution_lease_events_tree
+  ON execution_lease_events (tenant_id, root_execution_id, occurred_at, id);
+CREATE INDEX IF NOT EXISTS execution_lease_events_occurred ON execution_lease_events (occurred_at);`;
+
+const EventRow = z.object({ record: z.string() });
+
+/** A row's record (written by `save`: the record as JSON). */
+const recordOf = (row: unknown): ExecutionLeaseEventRecord =>
+  // the column holds exactly what `save` wrote
+  JSON.parse(EventRow.parse(row).record) as ExecutionLeaseEventRecord;
+
+/**
+ * `ExecutionLeaseEventRepository` on the application's SQLite file (#501): one row per event, its
+ * record as JSON beside the columns it is found by, ordered by the time it happened and then by the
+ * order it was saved. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ */
+@Injectable({ deps: [SqliteConnection] })
+export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepository {
+  constructor(private readonly connection: SqliteConnection) {
+    super();
+    connection.ensureSchema("execution_lease_events", EVENTS_SCHEMA);
+  }
+
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
+  save(record: ExecutionLeaseEventRecord): Promise<void> {
+    this.connection.database
+      .prepare(
+        `INSERT INTO execution_lease_events (tenant_id, root_execution_id, occurred_at, record)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(
+        record.tenantId,
+        record.rootExecutionId,
+        Date.parse(record.occurredAt),
+        JSON.stringify(record),
+      );
+    return Promise.resolve();
+  }
+
+  findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+    tenantId: string,
+    rootExecutionId: string,
+  ): Promise<readonly ExecutionLeaseEventRecord[]> {
+    const rows = this.connection.database
+      .prepare(
+        `SELECT record FROM execution_lease_events WHERE tenant_id = ? AND root_execution_id = ?
+         ORDER BY occurred_at, id`,
+      )
+      .all(tenantId, rootExecutionId);
+    return Promise.resolve(rows.map(recordOf));
+  }
+
+  deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
+    this.connection.database
+      .prepare("DELETE FROM execution_lease_events WHERE occurred_at < ?")
+      .run(cutoff.getTime());
+    return Promise.resolve();
+  }
+}
+
+sqliteImplementation(SqliteExecutionLeaseEventRepository);

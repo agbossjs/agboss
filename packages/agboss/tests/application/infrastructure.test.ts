@@ -18,6 +18,7 @@ import { UnknownThreadError } from "../../src/run/thread.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
+import { InMemoryExecutionLeaseEventRepository } from "../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryRateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -59,6 +60,7 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     expect(infrastructure.rateLimits).toBeInstanceOf(InMemoryRateLimitRepository);
     expect(infrastructure.meshRequests).toBeInstanceOf(InMemoryMeshRequestRepository); // #398
     expect(infrastructure.executionHistory).toBeInstanceOf(InMemoryExecutionHistoryRepository); // #401
+    expect(infrastructure.leaseEvents).toBeInstanceOf(InMemoryExecutionLeaseEventRepository); // #501
     await app.close();
   });
 

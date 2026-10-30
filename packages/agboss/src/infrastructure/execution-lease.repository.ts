@@ -26,7 +26,34 @@ export interface ExecutionLease {
   readonly leaseEpoch: number;
   /** When the lease ends unless renewed (the framework's clock). */
   readonly expiresAt: Date;
+  /**
+   * The holder this `acquire` took the lease over from (#501): set only when the key's last lease
+   * had expired without a release — its holder froze, died or was cut off —, never after a release
+   * or for a first lease. Optional: a store that leaves it out still works; its takeovers name no
+   * previous holder.
+   */
+  readonly takenOverFrom?: PreviousLeaseHolder;
 }
+
+/** Who held a lease that expired before another `acquire` took it over (#501). */
+export interface PreviousLeaseHolder {
+  readonly holderInstanceId: string;
+  readonly leaseEpoch: number;
+}
+
+/** The previous holder of a stored lease that expired by `now` without a release (#501). */
+export const takenOverFromOf = (
+  stored: { readonly holderInstanceId: string; readonly leaseEpoch: number } | undefined,
+  isExpired: boolean,
+): { readonly takenOverFrom?: PreviousLeaseHolder } =>
+  stored === undefined || !isExpired
+    ? {}
+    : {
+        takenOverFrom: {
+          holderInstanceId: stored.holderInstanceId,
+          leaseEpoch: stored.leaseEpoch,
+        },
+      };
 
 /**
  * Infrastructure (#265, Q58): one lease per execution tree, keyed by `(tenantId,
@@ -97,6 +124,8 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       holderInstanceId: this.applicationContext.instanceId,
       leaseEpoch: (stored?.lease.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(now.getTime() + lease),
+      // held is false here: a stored lease not released has expired
+      ...takenOverFromOf(stored?.lease, stored?.released === false),
     };
     this.database.executionLeases.set(key, { lease: taken, released: false });
     return Promise.resolve(taken);

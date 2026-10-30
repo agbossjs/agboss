@@ -5,6 +5,7 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
+import type { ExecutionLeaseTakeoverEvent } from "../flow/observers/lease-events.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -164,5 +165,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onCompensationEnd(event: CompensationEndEvent): Promise<void> {
     return this.each("onCompensationEnd", event, (o, e) => o.onCompensationEnd?.(e));
+  }
+  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> {
+    return this.each("onExecutionLeaseTakeover", event, (o, e) => o.onExecutionLeaseTakeover?.(e));
   }
 }

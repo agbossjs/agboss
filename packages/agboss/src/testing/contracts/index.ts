@@ -15,6 +15,7 @@ export { childExecutionQueueContract } from "./child-execution-queue.contract.js
 export { costLedgerContract } from "./cost-ledger.contract.js";
 export { executionHistoryContract } from "./execution-history.contract.js";
 export { executionLeaseContract } from "./execution-lease.contract.js";
+export { executionLeaseEventContract } from "./execution-lease-event.contract.js";
 export { executionRecordContract } from "./execution-record.contract.js";
 export {
   fencedEffectContract,

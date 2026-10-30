@@ -73,6 +73,7 @@ export type { PendingPause } from "../pause/index.js";
 export {
   ExecutionLeaseRepository,
   type ExecutionLease,
+  type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";
 export {
   ExecutionTreeRepository,
@@ -107,6 +108,7 @@ export {
   type CloseOptions,
   type ExecutionOptions,
   type ExecutionOutput,
+  type LeaseEventsQuery,
   type ChannelResumeOptions,
   type DecisionResumeRequest,
   type ReplyResumeRequest,

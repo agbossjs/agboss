@@ -49,6 +49,11 @@ export function executionHistoryContract(target: ContractTarget<ExecutionHistory
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionLeaseEventRepository" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function executionLeaseEventContract(target: ContractTarget<ExecutionLeaseEventRepository>): void;
+
 // Warning: (ae-forgotten-export) The symbol "ExecutionRecordRepository" needs to be exported by the entry point index.d.ts
 //
 // @public

@@ -5,6 +5,7 @@ import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructu
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionHistoryRepository } from "../../../src/infrastructure/execution-history.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
+import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../../src/infrastructure/mesh-request.repository.js";
@@ -16,6 +17,7 @@ import {
   costLedgerContract,
   executionHistoryContract,
   executionLeaseContract,
+  executionLeaseEventContract,
   executionRecordContract,
   executionTreeContract,
   fencedEffectContract,
@@ -57,6 +59,9 @@ executionLeaseContract(
     ({ clock, application, database }) =>
       new InMemoryExecutionLeaseRepository(clock, application, database),
   ),
+);
+executionLeaseEventContract(
+  fixtureStore(({ database }) => new InMemoryExecutionLeaseEventRepository(database)),
 );
 executionRecordContract(
   fixtureStore((seam) =>

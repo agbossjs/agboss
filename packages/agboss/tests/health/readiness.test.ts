@@ -68,6 +68,11 @@ describe("#300 AC2: readiness", () => {
         kind: HealthComponentKind.Store,
         status: "healthy",
       },
+      {
+        name: "InMemoryExecutionLeaseEventRepository", // #501
+        kind: HealthComponentKind.Store,
+        status: "healthy",
+      },
       { name: "SharedCheckpointSaver", kind: HealthComponentKind.Store, status: "healthy" },
       {
         name: "openrouter-model-provider",

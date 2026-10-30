@@ -154,9 +154,10 @@ export type DecisionState = string | Readonly<Record<string, unknown>> | readonl
 // Warning: (ae-forgotten-export) The symbol "OnQuorumDecided" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "OnCompensationStart" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "OnCompensationEnd" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnExecutionLeaseTakeover" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd>;
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & OnExecutionLeaseTakeover>;
 
 // @public
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
@@ -191,6 +192,10 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     //
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseTakeoverEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -757,74 +762,75 @@ export class WorkflowSettings {
 // src/core/observability.ts:131:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:133:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observer-hooks.ts:46:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-hooks.ts:66:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-hooks.ts:74:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-hooks.ts:76:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
-// src/core/observer-hooks.ts:77:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-hooks.ts:79:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
-// src/core/observer-hooks.ts:80:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-hooks.ts:82:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
-// src/core/observer-hooks.ts:83:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-hooks.ts:85:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
-// src/core/observer-hooks.ts:86:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-hooks.ts:88:1 - (ae-undocumented) Missing documentation for "OnToolStart".
-// src/core/observer-hooks.ts:89:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-hooks.ts:91:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
-// src/core/observer-hooks.ts:92:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-hooks.ts:96:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-hooks.ts:98:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
-// src/core/observer-hooks.ts:99:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-hooks.ts:101:1 - (ae-undocumented) Missing documentation for "OnRagStart".
-// src/core/observer-hooks.ts:102:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-hooks.ts:104:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
-// src/core/observer-hooks.ts:105:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-hooks.ts:107:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
-// src/core/observer-hooks.ts:108:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-hooks.ts:110:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
-// src/core/observer-hooks.ts:111:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-hooks.ts:113:1 - (ae-undocumented) Missing documentation for "OnActionStart".
-// src/core/observer-hooks.ts:114:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-hooks.ts:116:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
-// src/core/observer-hooks.ts:117:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-hooks.ts:119:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
-// src/core/observer-hooks.ts:120:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-hooks.ts:122:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
-// src/core/observer-hooks.ts:123:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-hooks.ts:125:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
-// src/core/observer-hooks.ts:126:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-hooks.ts:128:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
-// src/core/observer-hooks.ts:129:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-hooks.ts:241:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:81:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-manager.ts:84:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-manager.ts:87:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-manager.ts:90:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-manager.ts:93:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-manager.ts:96:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-manager.ts:99:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:123:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:126:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:129:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-manager.ts:132:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-manager.ts:135:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-manager.ts:138:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-manager.ts:147:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-manager.ts:150:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-manager.ts:153:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-manager.ts:156:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
-// src/core/observer-manager.ts:159:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/core/observer-manager.ts:162:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
-// src/core/observer-manager.ts:165:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
+// src/core/observer-hooks.ts:47:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-hooks.ts:67:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-hooks.ts:75:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-hooks.ts:77:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
+// src/core/observer-hooks.ts:78:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-hooks.ts:80:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
+// src/core/observer-hooks.ts:81:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-hooks.ts:83:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
+// src/core/observer-hooks.ts:84:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-hooks.ts:86:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
+// src/core/observer-hooks.ts:87:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-hooks.ts:89:1 - (ae-undocumented) Missing documentation for "OnToolStart".
+// src/core/observer-hooks.ts:90:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-hooks.ts:92:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
+// src/core/observer-hooks.ts:93:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-hooks.ts:97:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-hooks.ts:99:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
+// src/core/observer-hooks.ts:100:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-hooks.ts:102:1 - (ae-undocumented) Missing documentation for "OnRagStart".
+// src/core/observer-hooks.ts:103:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-hooks.ts:105:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
+// src/core/observer-hooks.ts:106:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-hooks.ts:108:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
+// src/core/observer-hooks.ts:109:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-hooks.ts:111:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
+// src/core/observer-hooks.ts:112:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-hooks.ts:114:1 - (ae-undocumented) Missing documentation for "OnActionStart".
+// src/core/observer-hooks.ts:115:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-hooks.ts:117:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
+// src/core/observer-hooks.ts:118:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-hooks.ts:120:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
+// src/core/observer-hooks.ts:121:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-hooks.ts:123:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
+// src/core/observer-hooks.ts:124:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-hooks.ts:126:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
+// src/core/observer-hooks.ts:127:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-hooks.ts:129:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
+// src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-hooks.ts:254:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
+// src/core/observer-manager.ts:82:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-manager.ts:85:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-manager.ts:88:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-manager.ts:91:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts:94:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-manager.ts:97:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-manager.ts:100:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-manager.ts:103:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts:106:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-manager.ts:109:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-manager.ts:112:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-manager.ts:115:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-manager.ts:118:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-manager.ts:121:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-manager.ts:124:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-manager.ts:127:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-manager.ts:130:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-manager.ts:133:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-manager.ts:136:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-manager.ts:139:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-manager.ts:142:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-manager.ts:145:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-manager.ts:148:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-manager.ts:151:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-manager.ts:154:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
+// src/core/observer-manager.ts:157:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
+// src/core/observer-manager.ts:160:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts:163:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
+// src/core/observer-manager.ts:166:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
+// src/core/observer-manager.ts:169:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
 // src/flow/decorators/workflow.ts:116:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
