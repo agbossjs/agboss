@@ -30,3 +30,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0023 — The execution fence on the context](ADR-0023-Execution-fence-on-the-context) | Accepted |
 | [0024 — Published store contract suites](ADR-0024-Published-store-contract-suites) | Accepted |
 | [0025 — Examples live in agbossjs/agboss-examples](ADR-0025-Examples-live-in-agbossjs-agboss-examples) | Accepted |
+| [0026 — Fenced effects check the lease in the same transaction](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction) | Accepted |

@@ -329,6 +329,71 @@ checkpointed with the lease released), and a step that starts while the lease is
 back first, under a new token. A step that cannot take it back (another instance holds it) is
 handed over.
 
+## The fenced effect (#500)
+
+The check above is the same in every application that writes business rows: a mark per scope, the
+idempotency key, and their order — **a stale token is refused before the key is read**, so a zombie
+never receives the new holder's result. For rows in the store's own database the framework makes it
+one call, and the application defines no fencing or idempotency table:
+
+```ts no-check: a fragment of a step; the full action is in README → Several instances
+const key = fencedEffectKeyOf(this.executionContext, "charge");
+const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(
+  key,
+  (database) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
+);
+```
+
+`FencedEffectRepository<TTransaction>` is infrastructure, like the lease store: the built-in
+`InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`), or
+`SqliteFencedEffectRepository` (the `work` gets the connection's `DatabaseSync`), listed in
+`@Application({ providers })`. In **one transaction**, in this order:
+
+| Step | What happens |
+| --- | --- |
+| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `leaseEpoch` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
+| 2. the mark | `token < highest` for `scopeKey` → `ExecutionFencedError(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
+| 3. the key | `(scopeKey, idempotencyKey, name)` found → `FencedEffectStatus.Replayed`, its stored result and the token it was written under; `work` is not called. |
+| 4. the write | `work(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
+
+- **A throwing `work`** rolls back everything — its rows, the mark, the key — and its error is
+  rethrown as it is; the next call runs it again.
+- **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
+  its result or its error) — a map of the calls in flight, never component state. Across instances
+  the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.
+- **SQLite runs `work` synchronously**: a returned promise rolls back with
+  `FencedEffectAsyncWorkError` (`fenced-effect.async-work`) — do the step's I/O before the call or
+  after it. The in-memory store takes an asynchronous `work` (one transaction per scope at a time)
+  and checks the lease and the mark again before it commits.
+- **The key** is `fencedEffectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
+  `leaseExecutionId`, `token` and the step's `idempotencyKey`; several effects of one step differ by
+  `name`. Where no lease is held it throws `ExecutionContextUnavailableError`, as `fence` does.
+- **The result** is `JsonResult<T>` (an interface or a DTO class is fine; a function, `undefined`
+  or a `Date` does not compile), at most `@Application({ fencedEffects: { maxResultSize } })`
+  (default `kilobytes(64)`) — else `FencedEffectResultTooLargeError`
+  (`fenced-effect.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
+  receipt, not a document.
+- **Retention:** results and marks are removed by the recovery sweep once older than
+  `fencedEffects.retention` (default `hours(24)`; above the lease's 30 s, else
+  `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
+- **One database:** the store reads the leases of its own database, so it is listed with that lease
+  store — each implementation declares it (`static leaseRepository`):
+  `SqliteFencedEffectRepository` beside another lease store fails assembly with
+  `[application.fenced-effect-lease-store]`, naming both. Nothing listed → the in-memory store,
+  which needs the in-memory leases: beside a SQLite lease store it fails at its first call
+  (`FencedEffectStoreMismatchError`), not at assembly — an application that never uses an effect is
+  not refused.
+- **Typed transaction:** inject the listed store's own class (`deps: [SqliteFencedEffectRepository]`);
+  the contract token gives `FencedEffectRepository<unknown>`.
+- **What it does not do:** exactly-once for systems outside that database (HTTP APIs, email,
+  webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
+  results are not logged; what reaches a record or a trace is the step's output, masked as always.
+
+A store of another database (PostgreSQL, #482) extends the contract, implements `runInTransaction`
+(the four steps), `deleteByStoredAtBefore` and `ping`, reads `FencedEffectSettings` from the
+container, and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
+cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
+
 ## Recovery
 
 An execution whose instance died mid-step is continued by another instance, automatically (#265
@@ -712,6 +777,12 @@ step frozen after `fence.assertHeld()` and before its write (inside the window),
 clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over under token 2 and write;
 the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A stalled
 instance is resumed at the end of its test.
+
+The fenced effect is tested the same way (#500): a step frozen **before** its
+`saveResultIfAbsent` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
+is frozen before its own effect; a step frozen **after** it (a crash before the checkpoint) lets
+`apps[1]` replay the stored result, the write made once. Unit runners give the store their held
+lease (`fence: { token }`; `isLost` or a clock past `confirmedUntil` refuses).
 
 `clock` is the test's `VirtualClock` — one for all the instances of the test, the `Clock` every one
 of them reads ([Testing → The clock](Testing#the-clock)). `await clock.advance(d)` lets the work

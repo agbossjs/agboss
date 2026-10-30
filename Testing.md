@@ -1110,7 +1110,11 @@ confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { tok
 leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` sets each part — `isLost` makes
 `assertHeld()` and `confirmNow()` refuse with `ExecutionLeaseLostError`, `confirmNowFails` (`true`
 or an error) only `confirmNow()` (a store error right before a webhook). Every unit runner takes the
-same `fence` option, its `confirmedUntil` on `run.clock`.
+same `fence` option, its `confirmedUntil` on `run.clock`. A component's fenced effect (#500) runs on the runner's held
+lease: the in-memory store by default, and every fenced-effect store the runner creates — the SQLite
+one too, on `environment: { sqlitePath: ":memory:" }` — gets the lease written into the lease store
+it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `confirmedUntil` →
+expired). A second call of one runner is the step run again: `Replayed`.
 
 <!-- snippet-context
 import { ExecutionContext, Injectable } from "@agboss/core";

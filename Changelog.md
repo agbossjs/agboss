@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the fenced effect (#500)
+
+- **Added — `FencedEffectRepository<TTransaction>`** ([Several instances](Several-instances#the-fenced-effect-500),
+  [ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)):
+  `saveResultIfAbsent(fencedEffectKeyOf(executionContext, name), work)` makes a protected write once
+  per step — the lease, the scope's mark and the key checked in the write's transaction;
+  `FencedEffectStatus.Ran` / `Replayed` / `Joined`; a zombie gets `ExecutionFencedError`. The
+  built-in `InMemoryFencedEffectRepository` and `SqliteFencedEffectRepository` (with
+  `SqliteExecutionLeaseRepository`; its work synchronous, `FencedEffectAsyncWorkError` otherwise).
+- **Added — `@Application({ fencedEffects: { maxResultSize, retention } })`** (64 KB, 24 h;
+  `[application.fenced-effects-invalid]`), `FencedEffectSettings`, `FencedEffectResultTooLargeError`,
+  `[application.fenced-effect-lease-store]` and `FencedEffectStoreMismatchError`; the recovery sweep
+  removes the rows past the retention.
+- **Added — `fencedEffectContract`** in `@agboss/core/testing/contracts`; unit runners hold their
+  lease in the store's lease store.
+- **Changed — flow-patterns' credit desk** charges through `SqliteFencedEffectRepository`:
+  `PaymentService` and `PaymentKeyReusedError` are gone, `payment_charges` has no idempotency key.
+- `agboss describe` lists `FencedEffectRepository` among the infrastructure contracts.
+
 ## Unreleased — 0.1.1: a vitest preset loads AGBoss in the test's module graph (#497)
 
 - **Fixed — `workflowOf(W)` on the package installed from npm** ([Testing](Testing#the-vitest-preset-one-module-graph-497)):
