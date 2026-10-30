@@ -96,6 +96,11 @@ export interface FrameLease {
   recordFencedEffect?(report: FencedEffectReport): void;
   /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
   recordOutboundCall?(report: OutboundCallReport): void;
+  /**
+   * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
+   * keeps it open — renewed on — so no other instance takes its pending intent for gone.
+   */
+  keepWhile?(attempt: Promise<unknown>): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

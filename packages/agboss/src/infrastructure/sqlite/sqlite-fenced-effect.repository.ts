@@ -213,14 +213,17 @@ function sqliteLeaseOf(
   return row === undefined ? undefined : LeaseRow.parse(row);
 }
 
-/** Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` at `now` (#508). */
-export function isSqliteLeaseHeld(
+/**
+ * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
+ * released nor superseded by a later token. An expired one is open: only a takeover proves its
+ * holder gone.
+ */
+export function isSqliteLeaseOpen(
   database: DatabaseSync,
   lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
-  now: number,
 ): boolean {
   const found = sqliteLeaseOf(database, lease);
-  return found?.released === 0 && found.lease_epoch === lease.token && found.expires_at > now;
+  return found?.released === 0 && found.lease_epoch === lease.token;
 }
 
 sqliteImplementation(SqliteFencedEffectRepository);

@@ -234,3 +234,16 @@ export function fencedEffectStoreViolations(
     ),
   ];
 }
+
+/**
+ * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
+ * released nor superseded by a later token. An expired one is open: only a takeover proves its
+ * holder gone.
+ */
+export function isInMemoryLeaseOpen(
+  database: InMemoryDatabase,
+  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+): boolean {
+  const row = database.executionLeases.get(treeKeyOf(lease.tenantId, lease.leaseExecutionId));
+  return row !== undefined && !row.released && row.lease.leaseEpoch === lease.token;
+}

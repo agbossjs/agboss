@@ -10,7 +10,7 @@ import {
 } from "../infrastructure/outbound-call.repository.js";
 import {
   callKeyOf,
-  checkedBusinessCall,
+  checkedCall,
   keyedByRequest,
   replayedFromOf,
   reportedKeyOf,
@@ -101,7 +101,7 @@ async function movedAndSent<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const claim = { attempt: found.attempt + 1, attemptOwner: randomUUID() };
   const { attempt, attemptOwner } = claim;
-  return owning(run.parts.owners, attemptOwner, async () => {
+  return owning(run, attemptOwner, async () => {
     if (!(await run.parts.repository.markPending(run.key, stateOf(found), claim))) return undefined;
     if (isNotSent)
       told(run, OutboundCallEventOutcome.NotSent, [OutboundCallStatus.Pending, attempt]);
@@ -151,7 +151,7 @@ async function recordedAndSent<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult>> {
   const { frame, key, options } = run;
   const owner = randomUUID();
-  return owning(run.parts.owners, owner, async () => {
+  return owning(run, owner, async () => {
     const isSaved = await run.parts.repository.saveIfAbsent(key, {
       rootExecutionId: rootFactsOf(frame.execution).executionId,
       executionId: frame.execution.executionId,
@@ -182,7 +182,7 @@ async function settled<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
-  await checkedBusinessCall(run, found);
+  await checkedCall(run, found);
   if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
   if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
   if (read > 1) throw inFlight(run);

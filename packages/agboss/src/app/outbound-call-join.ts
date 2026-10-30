@@ -62,16 +62,20 @@ export async function joinedOrMade<TRequest, TResult>(
 /**
  * `work` as the owner of an attempt (#508): live in this instance from before its intent is recorded
  * or claimed until the attempt ends — a failure and a hand-over too — so no caller of this instance
- * ever takes it for gone.
+ * ever takes it for gone; its lease is released only once it settled, so no other instance does.
  */
-export async function owning<TValue>(
-  owners: Set<string>,
+export async function owning<TRequest, TResult, TValue>(
+  run: CallRun<TRequest, TResult>,
   owner: string,
   work: () => Promise<TValue>,
 ): Promise<TValue> {
+  const { owners } = run.parts;
   owners.add(owner);
   try {
-    return await work();
+    const attempt = work();
+    // its lease stays open until it settled (#508): no other instance takes it for gone
+    run.frame.execution.lease?.keepWhile?.(attempt);
+    return await attempt;
   } finally {
     owners.delete(owner);
   }

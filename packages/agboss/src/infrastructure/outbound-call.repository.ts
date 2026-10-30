@@ -9,7 +9,7 @@ import {
 import {
   checkInMemoryFence,
   inMemoryLeaseMismatch,
-  isInMemoryLeaseHeld,
+  isInMemoryLeaseOpen,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
 import { businessFactsOf, identityOf } from "./fenced-effect-key.js";
@@ -126,10 +126,12 @@ export abstract class OutboundCallRepository {
   abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
 
   /**
-   * Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` now — not released, not
-   * expired (#508): a pending call under a business key belongs to a live holder or to nobody.
+   * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
+   * released nor superseded by a later token — an expired one is open, since only a takeover proves
+   * its holder gone. A pending attempt written under an open lease of another instance is in flight:
+   * its holder releases the lease only once its attempts settled.
    */
-  abstract isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
+  abstract isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
 }
 
 /**
@@ -220,9 +222,9 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#where((row) => row.tenantId === tenantId && row.status === status);
   }
 
-  isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+  isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
     const lease = { tenantId, leaseExecutionId, token };
-    return Promise.resolve(isInMemoryLeaseHeld(this.database, this.clock, lease));
+    return Promise.resolve(isInMemoryLeaseOpen(this.database, lease));
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {

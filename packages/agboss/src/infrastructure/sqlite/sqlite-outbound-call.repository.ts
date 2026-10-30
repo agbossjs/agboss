@@ -25,7 +25,7 @@ import {
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
-  isSqliteLeaseHeld,
+  isSqliteLeaseOpen,
   RAISE_MARK,
 } from "./sqlite-fenced-effect.repository.js";
 
@@ -164,10 +164,10 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(rows.map(recordOf));
   }
 
-  isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+  isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
     const lease = { tenantId, leaseExecutionId, token };
     return Promise.resolve(
-      isSqliteLeaseHeld(this.connection.database, lease, this.clock.now().getTime()),
+      isSqliteLeaseOpen(this.connection.database, lease),
     );
   }
 

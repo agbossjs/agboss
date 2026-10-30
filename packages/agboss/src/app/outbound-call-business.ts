@@ -34,28 +34,31 @@ export const callKeyOf = (key: FencedEffectKey): string =>
     : `${encodeURIComponent(key.tenantId)}:${key.businessKey}:${key.name}`;
 
 /**
- * Checks a found intent of a business key: another fingerprint → `IdempotencyKeyConflictError`;
- * pending while its attempt's owner lives → `OutboundCallInFlightError`. The owner is the attempt's
- * `attemptOwner`: alive here when this instance is sending under it now; else alive when the lease
- * that wrote the attempt is held by another instance. The lease this step runs under is held here,
- * so an attempt it wrote whose owner is not sending here has ended: it is reconciled, by whoever
- * wins the compare-and-set.
+ * Checks a found intent (#505, #508): under a business key another fingerprint is
+ * `IdempotencyKeyConflictError`; for any key, a pending attempt whose owner lives is
+ * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
+ * when this instance is sending under it now, whatever the key; under a business key also while
+ * the lease that wrote it is open on another instance (released only once its attempts settled;
+ * expired counts as open — only a takeover proves its holder gone). The lease this step runs under
+ * is this instance's: an attempt it wrote whose owner is not sending here has ended. One that ended
+ * is reconciled by whoever wins the compare-and-set.
  */
-export async function checkedBusinessCall<TRequest, TResult>(
+export async function checkedCall<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): Promise<void> {
   const { key, options } = run;
-  if (key.businessKey === undefined) return;
-  if (found.fingerprint !== key.fingerprint)
+  if (key.businessKey !== undefined && found.fingerprint !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   if (found.status !== OutboundCallStatus.Pending) return;
   const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
-  const isHeldHere = found.leaseExecutionId === key.leaseExecutionId && found.token === key.token;
-  if (isHeldHere) return;
+  if (key.businessKey === undefined) return;
+  const isUnderThisLease =
+    found.leaseExecutionId === key.leaseExecutionId && found.token === key.token;
+  if (isUnderThisLease) return;
   const lease = [found.tenantId, found.leaseExecutionId, found.token] as const;
-  if (await run.parts.repository.isLeaseHeld(...lease)) throw inFlight;
+  if (await run.parts.repository.isLeaseOpen(...lease)) throw inFlight;
 }
 
 /**

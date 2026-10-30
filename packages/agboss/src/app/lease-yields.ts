@@ -65,3 +65,34 @@ export class LeaseTurns {
     return turn;
   }
 }
+
+/**
+ * The outbound calls' attempts in flight under a lease (#508): its holder releases it only once
+ * they settled — renewed on meanwhile — so no other instance takes a pending intent for gone while
+ * its owner still sends. A lost lease waits for nothing: its taker's token proves the owner gone.
+ */
+export class LeaseAttempts {
+  readonly #attempts = new Set<Promise<void>>();
+
+  keep(attempt: Promise<unknown>): void {
+    const settled = attempt.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.#attempts.add(settled);
+    void settled.then(() => {
+      this.#attempts.delete(settled);
+    });
+  }
+
+  /** Once every attempt kept settled, or `lost` aborted. */
+  async settled(lost: AbortSignal): Promise<void> {
+    const aborted = new Promise<void>((resolve) => {
+      lost.addEventListener("abort", () => {
+        resolve();
+      });
+    });
+    while (this.#attempts.size > 0 && !lost.aborted)
+      await Promise.race([Promise.all([...this.#attempts]), aborted]);
+  }
+}
