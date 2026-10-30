@@ -4,11 +4,13 @@ import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
+  isInState,
   OutboundCallRepository,
   OutboundCallStatus,
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
+  type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -97,12 +99,17 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     });
   }
 
-  markPending(key: FencedEffectKey, attempt: number): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Pending,
-      attempt,
-    }));
+  markPending(
+    key: FencedEffectKey,
+    expected: OutboundCallState,
+    attempt: number,
+  ): Promise<boolean> {
+    return this.#fenced(key, () => {
+      const found = this.#found(key);
+      if (found === undefined || !isInState(found, expected)) return false;
+      this.#write(key, { ...withoutEnd(found), status: OutboundCallStatus.Pending, attempt });
+      return true;
+    });
   }
 
   markCompleted(key: FencedEffectKey, result: string): Promise<void> {
@@ -168,20 +175,24 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   ): Promise<void> {
     return this.#fenced(key, () => {
       const found = this.#found(key);
-      if (found === undefined) return;
-      const record = { ...change(found), token: key.token };
-      const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
-      this.connection.database
-        .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${BY_KEY}`)
-        .run(
-          record.status,
-          endedAt,
-          JSON.stringify(record),
-          key.scopeKey,
-          key.idempotencyKey,
-          key.name,
-        );
+      if (found !== undefined) this.#write(key, change(found));
     });
+  }
+
+  /** Writes `change` as the key's intent, under the key's token (inside a fenced transaction). */
+  #write(key: FencedEffectKey, change: OutboundCallRecord): void {
+    const record = { ...change, token: key.token };
+    const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
+    this.connection.database
+      .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${BY_KEY}`)
+      .run(
+        record.status,
+        endedAt,
+        JSON.stringify(record),
+        key.scopeKey,
+        key.idempotencyKey,
+        key.name,
+      );
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

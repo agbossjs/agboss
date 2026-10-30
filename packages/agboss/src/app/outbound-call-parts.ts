@@ -33,6 +33,8 @@ import {
 export interface OutboundCallParts {
   readonly repository: OutboundCallRepository;
   readonly settings: OutboundCallSettings;
+  /** The keys the instance is sending now (`OutboundCalls`' own). */
+  readonly sending: Set<string>;
 }
 
 /** One call in flight: its parts, key, options, the step's frame and the key it goes with. */

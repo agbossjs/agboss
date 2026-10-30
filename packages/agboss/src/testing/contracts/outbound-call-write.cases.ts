@@ -95,8 +95,13 @@ const pendingAgain: OutboundCallCase = {
     await recorded(first, key);
     await first.calls.markFailed(key, FAILURE);
 
-    await first.calls.markPending(key, 2);
+    const isMoved = await first.calls.markPending(
+      key,
+      { status: OutboundCallStatus.Failed, attempt: 1, token: 1 },
+      2,
+    );
 
+    expect(isMoved).toBe(true);
     const found = await first.calls.findByKey(key);
     expect(found).toMatchObject({ status: OutboundCallStatus.Pending, attempt: 2 });
     expect(found?.failure).toBeUndefined();

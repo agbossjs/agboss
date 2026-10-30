@@ -1980,7 +1980,11 @@ send, reconcile })` records an intent before the call and settles it after, over
   `reconcile(lookup)` → `OutboundCallReconciliation.completed(result)` (`Reconciled`) / `.notSent()`
   (sent once more, the same key, attempt + 1) / `.unknown({ reason })` →
   `OutboundCallUnreconciledError` (`outbound-call.unreconciled`, a `StepFailedError`, the intent kept
-  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Masked **when
+  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. A new attempt is
+  a compare-and-set (`markPending(key, expected, attempt)`, `OutboundCallState`): the loser sends
+  nothing and reads again — the winner's result replayed, its pending attempt
+  `OutboundCallInFlightError` (`outbound-call.in-flight`; also a key sent again while this instance
+  still sends it), at most three reads. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
   child's own): the request, the result and a failure's text — every read shows what is stored; `send`
   and the step get real values, a replay the masked result, `reconcile` the stored request

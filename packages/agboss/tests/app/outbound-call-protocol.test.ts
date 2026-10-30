@@ -221,8 +221,8 @@ describe("#505: what the protocol refuses", () => {
     const run = testAction(TwiceAtOnceAction);
 
     await expect(run(order)).rejects.toMatchObject({
-      code: "outbound-call.unreconciled",
-      reason: "another call recorded the same key at the same moment",
+      code: "outbound-call.in-flight",
+      call: "charge",
     });
     expect(gateway.calls).toHaveLength(1);
   });

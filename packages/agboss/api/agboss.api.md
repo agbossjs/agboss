@@ -2942,7 +2942,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     // (undocumented)
     markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
     // (undocumented)
-    markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+    markPending(key: FencedEffectKey, expected: OutboundCallState, attempt: number): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -4076,6 +4076,31 @@ export interface OutboundCallFailure {
 }
 
 // @public
+export class OutboundCallInFlightError extends StepFailedError {
+    constructor(options: OutboundCallInFlightErrorOptions);
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallInFlightErrorOptions {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
 export interface OutboundCallIntent {
     readonly attempt: number;
     readonly executionId: string;
@@ -4200,7 +4225,7 @@ export abstract class OutboundCallRepository {
     static readonly leaseRepository: Class | undefined;
     abstract markCompleted(key: FencedEffectKey, result: string): Promise<void>;
     abstract markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
-    abstract markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+    abstract markPending(key: FencedEffectKey, expected: OutboundCallState, attempt: number): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
 }
@@ -4229,6 +4254,16 @@ export interface OutboundCallsOptions {
 export interface OutboundCallsQuery {
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export interface OutboundCallState {
+    // (undocumented)
+    readonly attempt: number;
+    // (undocumented)
+    readonly status: OutboundCallStatus;
+    // (undocumented)
+    readonly token: number;
 }
 
 // @public
@@ -5571,7 +5606,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     // (undocumented)
     markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void>;
     // (undocumented)
-    markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+    markPending(key: FencedEffectKey, expected: OutboundCallState, attempt: number): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -6498,33 +6533,41 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/outbound-calls.ts:87:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/app/outbound-calls.ts:102:3 - (ae-undocumented) Missing documentation for "reason".
 // src/app/outbound-calls.ts:112:3 - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-calls.ts:175:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:176:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:177:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:178:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-calls.ts:179:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts:188:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:189:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:190:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:191:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:192:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:193:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-calls.ts:194:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts:215:3 - (ae-undocumented) Missing documentation for "Request".
-// src/app/outbound-calls.ts:216:3 - (ae-undocumented) Missing documentation for "Result".
-// src/app/outbound-calls.ts:221:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:222:3 - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-calls.ts:223:3 - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-calls.ts:224:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-calls.ts:233:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:234:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:235:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:236:3 - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-calls.ts:237:3 - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-calls.ts:238:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-calls.ts:257:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:258:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:259:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:179:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:180:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:181:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:182:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:183:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:192:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:193:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:194:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:195:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:196:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:197:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:198:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:219:3 - (ae-undocumented) Missing documentation for "Request".
+// src/app/outbound-calls.ts:220:3 - (ae-undocumented) Missing documentation for "Result".
+// src/app/outbound-calls.ts:225:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:226:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:227:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:228:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:237:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:238:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:239:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:240:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:241:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:242:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:261:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:262:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:263:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:278:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:279:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:280:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:290:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:291:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:292:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:293:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:294:3 - (ae-undocumented) Missing documentation for "operation".
 // src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/resume.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
@@ -7276,23 +7319,26 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/mesh-request.repository.ts:18:3 - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts:19:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/infrastructure/mesh-request.repository.ts:30:1 - (ae-undocumented) Missing documentation for "MeshRequestRepository".
-// src/infrastructure/outbound-call.repository.ts:39:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/outbound-call.repository.ts:42:3 - (ae-undocumented) Missing documentation for "message".
-// src/infrastructure/outbound-call.repository.ts:47:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/outbound-call.repository.ts:48:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/outbound-call.repository.ts:69:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/outbound-call.repository.ts:74:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/outbound-call.repository.ts:77:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/outbound-call.repository.ts:152:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/outbound-call.repository.ts:162:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/outbound-call.repository.ts:166:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/outbound-call.repository.ts:173:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/outbound-call.repository.ts:189:3 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/outbound-call.repository.ts:197:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/outbound-call.repository.ts:206:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/outbound-call.repository.ts:215:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/outbound-call.repository.ts:224:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/outbound-call.repository.ts:231:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/outbound-call-record.ts:10:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/outbound-call-record.ts:13:3 - (ae-undocumented) Missing documentation for "message".
+// src/infrastructure/outbound-call-record.ts:18:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/outbound-call-record.ts:19:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/outbound-call-record.ts:40:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/outbound-call-record.ts:45:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/outbound-call-record.ts:48:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/outbound-call-record.ts:63:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/outbound-call-record.ts:64:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/infrastructure/outbound-call-record.ts:65:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/outbound-call.repository.ts:122:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/outbound-call.repository.ts:132:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/outbound-call.repository.ts:136:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/outbound-call.repository.ts:143:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/outbound-call.repository.ts:159:3 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/outbound-call.repository.ts:174:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/outbound-call.repository.ts:183:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/outbound-call.repository.ts:192:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/outbound-call.repository.ts:201:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/outbound-call.repository.ts:208:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
 // src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
@@ -7349,16 +7395,16 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:68:3 - (ae-undocumented) Missing documentation for "saveResponse".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:75:3 - (ae-undocumented) Missing documentation for "deleteByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:82:3 - (ae-undocumented) Missing documentation for "deleteCreatedBefore".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:52:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:64:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:68:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:72:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:97:3 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:105:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:114:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:123:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:135:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:147:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:57:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:69:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:73:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:77:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:102:3 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:115:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:124:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:133:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:145:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:157:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:117:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:121:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:131:3 - (ae-undocumented) Missing documentation for "save".

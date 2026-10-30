@@ -92,6 +92,7 @@ export {
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
+  type OutboundCallState,
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
