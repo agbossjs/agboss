@@ -12,6 +12,8 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    # a backstop (#509): make check takes ~17 min; a hang fails here, never after GitHub's 6 h
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

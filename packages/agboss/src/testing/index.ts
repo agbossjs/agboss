@@ -113,6 +113,7 @@ export {
   type CompactionRunner,
 } from "./units/test-compaction.js";
 export {
+  AppCloseTimeoutError,
   CassetteChange,
   CassetteMissingError,
   StaleCassetteError,

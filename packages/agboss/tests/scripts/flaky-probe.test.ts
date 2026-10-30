@@ -57,6 +57,9 @@ const projectWith = (name: string, body: string): string => {
   return file;
 };
 
+/** Each case below spawns whole vitest processes: seconds each on a loaded runner, never a race. */
+const SPAWNS = { timeout: 60_000 };
+
 afterAll(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
@@ -77,7 +80,7 @@ describe("#509 AC1: flaky-probe's command line", () => {
     expect(() => parseArguments(["a.test.ts", "1.5"])).toThrow(UsageError);
   });
 
-  it("AC1: a usage error exits 2 with its message; --help exits 0 with the usage", () => {
+  it("AC1: a usage error exits 2 with its message; --help exits 0 with the usage", SPAWNS, () => {
     expect(flakyProbe("x.test.ts", "zero")).toMatchObject({ status: 2 });
     expect(flakyProbe("no-such.test.ts", "1").out).toContain("no such test file");
     const help = flakyProbe("--help");
@@ -108,7 +111,7 @@ describe("#509 AC1: what flaky-probe reports", () => {
     expect(() => projectOf("/no-config-anywhere/a.test.ts")).toThrow("no vitest config above");
   });
 
-  it("AC1: every cold run passed → exit 0 and N/N", () => {
+  it("AC1: every cold run passed → exit 0 and N/N", SPAWNS, () => {
     const ran = flakyProbe(projectWith("passing", "expect(1).toBe(1);"), "2");
 
     expect(ran.status).toBe(0);
@@ -116,7 +119,7 @@ describe("#509 AC1: what flaky-probe reports", () => {
     expect(ran.out).toContain("flaky-probe: 2/2 passed");
   });
 
-  it("AC1: a failing run → exit 1, its output printed", () => {
+  it("AC1: a failing run → exit 1, its output printed", SPAWNS, () => {
     const ran = flakyProbe(projectWith("failing", "expect(1).toBe(2);"), "1");
 
     expect(ran.status).toBe(1);

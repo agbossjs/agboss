@@ -227,6 +227,11 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   test that moves the `VirtualClock` in a bounded loop while it runs spends its steps before the
   work reaches the clock — warm the path first in the file's `beforeAll` (one execution to its
   finish), and make the loop fail by name when the work never settles, not hang.
+  Wait for background work in real time (`until` in `tests/helpers/until.ts`), never for a count
+  of event-loop turns, which a loaded machine spends before slow work is done; a lever that freezes
+  runs is disarmed when let go, so a late run does not freeze after the test. Vitest bounds no
+  fixture's teardown: `testWith` bounds each app's close in real time (`AppCloseTimeoutError`,
+  `test.close-timeout`), and CI's `check` job has a `timeout-minutes` backstop.
 
 ## Self-review checklist (before PR)
 

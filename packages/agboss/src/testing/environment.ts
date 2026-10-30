@@ -15,7 +15,9 @@ import {
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
+import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
+import type { Milliseconds } from "../units/index.js";
 import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
@@ -228,9 +230,11 @@ export class TestEnvironment {
     this.#beforeClose.push(work);
   }
 
-  /** Closes every app (their `onStop` hooks). */
-  async close(): Promise<void> {
+  /** Closes every app (their `onStop` hooks), each bounded in real time (#509: never a hung run). */
+  async close(timeout: Milliseconds = CLOSE_TIMEOUT): Promise<void> {
     for (const work of this.#beforeClose) work();
-    for (const built of this.#apps) await built.app.close();
+    for (const [index, built] of this.#apps.entries()) {
+      await closedWithin(built.app.close(), index + 1, timeout);
+    }
   }
 }
