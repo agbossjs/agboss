@@ -343,6 +343,48 @@ A peer's public key comes from `mesh.peers`, or from the listener's `meshVerifie
 `@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM, or `undefined`) listed in `providers`
 and asked first: `a2aHttpListener(app, { expose, callerResolver, meshVerifier })`.
 
+**Signing as a peer in a test (#521):** `signedMeshEnvelope` (`@agboss/core/testing`) gives the
+`agboss-mesh` value an application with `mesh.signingKey` sends — the framework's own encoder, so
+the same call gives the very header the A2A client sends, and a listener trusts it exactly as a
+real client's request (a store's deduplication test, a receiver's limits):
+
+<!-- snippet-context
+import type { KeyObject } from "node:crypto";
+declare const ordersPrivateKey: KeyObject; // or its PKCS #8 PEM
+declare const billingUrl: string;
+-->
+
+```ts
+import { signedMeshEnvelope } from "@agboss/core/testing";
+
+const body = JSON.stringify({ input: { text: "is invoice 7 paid?" } });
+const mesh = signedMeshEnvelope({
+  issuer: "orders-application",
+  audience: "billing-application", // optional: another receiver refuses it, 401
+  signingKey: ordersPrivateKey,
+  body, // its sha256 is the envelope's bodyHash
+  issuedAt: new Date(), // the caller's clock — a test's clock.now()
+  origin: {
+    rootExecutionId: "orders-root-1",
+    executionId: "orders-root-1",
+    workflow: { name: "orders-workflow", version: "1.0.0" },
+    // a retry repeats the key: a receiver answers it once
+    step: { component: "orders-desk-agent", idempotencyKey: "orders-root-1:orders-desk-agent:1:call_1" },
+  },
+  callChain: [
+    { application: "orders-application", start: "orders-workflow-start", executionId: "orders-root-1" },
+  ],
+  // lifetime (default 60 s), budget and deadline claims are optional
+});
+await fetch(`${billingUrl}/execute`, {
+  method: "POST",
+  headers: { "content-type": "application/json", "agboss-mesh": mesh },
+  body,
+});
+```
+
+A key that is not an Ed25519 private key is a `TestSetupError`, never an unsigned envelope.
+
 What a trusted request gets — an untrusted one none of it:
 
 | From the caller                      | The receiver                                                                                                  |

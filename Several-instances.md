@@ -1010,7 +1010,19 @@ What `@agboss/postgres` needed and the core now gives every store outside it:
 - **Every type a contract names is exported** by the root entry — `Tern`, `NewTern`, `TernOutcome`,
   `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`, `ExecutionData`, `CostReport`, `Usd`,
   `Milliseconds`, … — never derived with `Parameters` / `ReturnType`; a test of the core fails when a
-  contract's member names one that is not.
+  contract's member names one that is not. A ledger sums the records `saveAll` hands it with the
+  core's own **`totalCost(records)`** (#521), never a copy of it.
+- **Any text comes back as it was handed over (#521)** — a NUL character (U+0000) included, which a
+  model's or a tool's answer may hold: each suite of a contract that keeps text or JSON (records and
+  summaries, history, paused executions, the tree, the child queue, the lease log, mesh requests,
+  fenced effects, outbound calls, checkpoints) has a case `#521 AC4: … with a NUL character (U+0000)
+  reads back unchanged`. PostgreSQL's `jsonb` and `text` reject U+0000: keep framework JSON as
+  `text` holding JSON (where U+0000 is the escape `\u0000`), and free text as JSON text too. The
+  core's SQLite record store does so for a task, an answer, a stop reason and a summary
+  (`node:sqlite` reads a TEXT value only up to a NUL), migration 14 rewriting an older file's rows.
+- **Its mesh tests sign as a peer with `signedMeshEnvelope`** (`@agboss/core/testing`, #521,
+  [A2A](A2A#trusted-peers--signed-envelopes-398-pr-2)) — the real client's header, never a JWS built
+  by hand.
 - **Its connection declares its environment fields**, checked at assembly like `sqlitePath`
   ([Environments](Environments)):
 

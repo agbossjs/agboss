@@ -469,6 +469,12 @@ keeping some headroom (about 80 %) for other clients of the same key:
 - Its state — the failures in the window, the open breaker — is in the application's
   `RateLimitRepository` (#265 S52), so a breaker opened on one instance is open on every instance;
   its time is the application's `Clock` (no longer the system's, #262 S75 d).
+- **Required** on every provider, like `retryPolicy`: the type requires it, and a provider without
+  it — a JavaScript project, a cast — fails the application's assembly (`agboss check`,
+  `createApp`), a breaker's `fallback` too:
+  `[model-provider.circuit-breaker-required] unguarded-model-provider (UnguardedModelProvider) has
+  no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its
+  @ModelProvider` (#521; before, its first read crashed with `Cannot read properties of undefined`).
 
 ## Fail fast: settings must fit their models
 

@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what a store outside the core needs (#521)
+
+- **Fixed — a `@ModelProvider` without `circuitBreakerPolicy`** (a JavaScript project, a cast) no
+  longer crashes `agboss check` and `createApp` with `Cannot read properties of undefined (reading
+  'fallback')`: it fails assembly with **`[model-provider.circuit-breaker-required]`**, naming the
+  provider, its class and the field — a breaker's `fallback` too
+  ([Model providers](Model-providers#circuitbreakerpolicy)). The policy stays required, as its type says.
+- **Added — `signedMeshEnvelope(options)`** (`@agboss/core/testing`, `SignedMeshEnvelopeOptions`):
+  the `agboss-mesh` header a peer sends, signed by the framework's own encoder — a test signs
+  envelopes through it instead of building the JWS by hand ([A2A](A2A#trusted-peers--signed-envelopes-398-pr-2)).
+- **Added — `totalCost(records)`** on the root entry: the sum `CostLedgerRepository.saveAll` adds to
+  each counter, for a ledger outside the core.
+- **Fixed — a NUL character (U+0000) in a record's task, answer or stop reason, or in a summary,**
+  came back cut at it from the in-memory and SQLite record stores (`node:sqlite` reads a TEXT value
+  only up to a NUL): free text is now kept as JSON text; **migration 14** rewrites an existing
+  file's rows, which read back as they were.
+- **Added — a NUL case in every contract suite that keeps text or JSON**
+  (`@agboss/core/testing/contracts`, [Several instances](Several-instances#on-the-public-surface-alone-511)):
+  every store gives back what it is handed, U+0000 included. Migration: a store of your own runs the
+  new cases — on PostgreSQL keep framework JSON as `text`, not `jsonb`.
+
 ## Unreleased — 0.1.1: a parent waiting for remote children keeps its tree (#516)
 
 - **Fixed — a parent waiting for `ChildPlacement.AnyInstance` children is no longer taken over**
