@@ -60,7 +60,7 @@ afterAll(() => {
 });
 
 // ESLint with types and a spawned docs check: slower than 5 s on CI runners
-describe("#289 AC1 (#489 AC2: on flow-patterns): workflow modules have one call per line", { timeout: 60_000 }, () => {
+describe("#289 AC1: workflow modules have one call per line", { timeout: 60_000 }, () => {
   it("a chain of three calls on one line fails the lint with newline-per-chained-call", async () => {
     const messages = await lint(JOINED);
 

@@ -41,8 +41,8 @@ describe("framework and examples apart (#91)", () => {
       scripts: Readonly<Record<string, string>>;
     };
     const lock = readFileSync(join(root, "package-lock.json"), "utf8");
-    const configs = ["knip.jsonc", ".prettierignore", "scripts/check-suppressions.mjs"].map((file) =>
-      readFileSync(join(root, file), "utf8"),
+    const configs = ["knip.jsonc", ".prettierignore", "scripts/check-suppressions.mjs"].map(
+      (file) => readFileSync(join(root, file), "utf8"),
     );
 
     expect(pkg.workspaces).toEqual(["packages/*", "examples/*"]);

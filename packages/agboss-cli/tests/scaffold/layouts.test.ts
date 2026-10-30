@@ -32,7 +32,11 @@ const KINDS: readonly (readonly [string, string, GenerateOptions])[] = [
   ["mcp", "tickets", { workflow, dir: join(project, "data/policies"), agent: "billing-agent" }],
   ["rag", "policies-rag", { workflow, folder: "policies", agent: "billing-agent" }],
   ["router", "escalation-router", { workflow: credit }],
-  ["openapi", "pets", { workflow: credit, agent: "approval-agent", url: pets, operations: "getPet" }],
+  [
+    "openapi",
+    "pets",
+    { workflow: credit, agent: "approval-agent", url: pets, operations: "getPet" },
+  ],
 ];
 /** The kinds an agent's own wiring comes from: regenerated with --force, never doubled. */
 const AGENT_WIRING = KINDS.filter(([kind]) => ["tool", "mcp", "rag"].includes(kind));

@@ -46,7 +46,11 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
             },
           ],
           modelProviders: [
-            { name: "harness-model-provider", className: "HarnessModelProvider", isTransport: true },
+            {
+              name: "harness-model-provider",
+              className: "HarnessModelProvider",
+              isTransport: true,
+            },
           ],
           channels: [],
           executionBudgets: [{ workflow: "desk-workflow", name: "execution-budget", isOwn: false }],
@@ -69,10 +73,12 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
       result: {
         application: {
           name: "flow-patterns-application",
-          modelProviders: expect.arrayContaining([
-            { name: "openrouter-model-provider", className: "OpenRouterModelProvider" },
-            { name: "decisions-model-provider", className: "DecisionsModelProvider" },
-          ].map((provider) => expect.objectContaining(provider) as unknown)),
+          modelProviders: expect.arrayContaining(
+            [
+              { name: "openrouter-model-provider", className: "OpenRouterModelProvider" },
+              { name: "decisions-model-provider", className: "DecisionsModelProvider" },
+            ].map((provider) => expect.objectContaining(provider) as unknown),
+          ),
           channels: [
             expect.objectContaining({
               name: "purchase-approval-channel",

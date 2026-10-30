@@ -45,7 +45,10 @@ describe("#489 AC4: no link to examples/job-scout outside ADRs and the Changelog
   it.each([
     ["a Markdown link to the folder", "See [the example](examples/job-scout)."],
     ["a link into the folder", "See [its workflow](examples/job-scout/src/job-scout.workflow.ts)."],
-    ["a GitHub URL of the folder", "https://github.com/agbossjs/agboss/tree/main/examples/job-scout"],
+    [
+      "a GitHub URL of the folder",
+      "https://github.com/agbossjs/agboss/tree/main/examples/job-scout",
+    ],
     ["a relative path into the folder", "Open ./examples/job-scout/README.md"],
     ["a command in a code span", "Run `cd examples/job-scout && npm run chat`."],
     ["the folder with a trailing slash", "In `examples/job-scout/` there is …"],
