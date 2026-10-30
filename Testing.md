@@ -43,6 +43,10 @@ The guard: `npm run check:packed` (CI's `packed-project` job, on every pull requ
 (`agboss create`), installs the tarballs (checked: installed, not linked), runs its tests with a
 `workflowOf` test of its own, `agboss describe` and `agboss check` — then the same `workflowOf` test
 under a plain config, which must fail with that `TestSetupError`.
+Its installs are reproducible (#523): the tarballs go in by path, and their dependencies' ranges
+resolve to releases at least three days old (`npm install --before=<now − 3 days>`; the maintainer
+may set `AGBOSS_NPM_BEFORE` to an ISO date at release time, locally) — a release minutes old never
+enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
@@ -835,6 +839,14 @@ The framework reads no time any other way: `Date.now()`, `new Date()` and `Date(
 arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and the
 `node:timers` modules in its sources fail lint (`agboss/no-direct-time`, in `make check`) — the one
 real implementation, `SystemClock`, excepted.
+
+A test does not read real time either, to assert on it (#509, #523): no test compares real elapsed
+time with a fixed number — on a loaded runner a 300 ms floor measures 299 ms. It advances a
+`VirtualClock` and asserts what happened before and after (a request still pending at 49 ms of a
+50 ms timeout, rejected at 50), or on the order of events (one call started after the other ended);
+a "never hangs" bound is the test's own timeout. `npm run check:real-time` (in `make check`) fails
+on a comparison matcher against a number whose argument is a duration or a real time read, and
+`node scripts/flaky-probe.mjs <file> 50` proves a rewritten test.
 
 ## Ids
 

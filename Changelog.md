@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: no CI install takes a release nobody reviewed (#523)
+
+- **Changed — CI installs are reproducible** in agbossjs/agboss, agbossjs/postgres and
+  agbossjs/agboss-examples: every workflow installs from its lockfile (`npm ci`); an install that
+  resolves ranges — `npm run check:packed`'s probe project here — takes no release younger than three
+  days (`npm install --before`, overridden by `AGBOSS_NPM_BEFORE` only by the maintainer, locally, at
+  release time); an `npx` only at an exact version. `npm run check:installs` (in `make check`)
+  enforces it ([Testing](Testing#the-vitest-preset-one-module-graph-497)). No API change.
+- **Changed — no test asserts real elapsed time against a fixed number**: the model call and Jev
+  timeout tests run on a `VirtualClock`; `npm run check:real-time` (in `make check`) fails on a new
+  one ([Testing](Testing#the-clock)).
+
 ## Unreleased — 0.1.1: what a store outside the core needs (#521)
 
 - **Fixed — a `@ModelProvider` without `circuitBreakerPolicy`** (a JavaScript project, a cast) no
