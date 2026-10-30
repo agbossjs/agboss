@@ -395,6 +395,90 @@ A store of another database (PostgreSQL, #482) extends the contract, implements 
 container, and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
+## Calls that leave the system (#505)
+
+A fenced effect covers rows of the store's own database. A call to **another system** — a payment
+API, an e-mail, a webhook — cannot share that transaction: a step that sent a charge and died before
+the answer leaves nobody knowing whether the charge happened. `OutboundCalls` records an **intent**
+before the call and settles it after, so a step run again never sends blindly:
+
+```ts no-check: a fragment of an action; the whole one is tests/app/fixtures/outbound-call.workflow.ts
+const outcome = await this.outboundCalls.send(fencedEffectKeyOf(this.executionContext, "charge"), {
+  target: "payments", // what it goes to, for operators
+  operation: "charge",
+  request: { orderId: order.id, amountUsd: order.amountUsd }, // JSON; send gets it as it is
+  send: (call) => this.paymentClient.charge(call.request, { idempotencyKey: call.idempotencyKey }),
+  reconcile: async (lookup) => {
+    // asked only for an intent left pending: look the call up by its key, never by the request
+    const found = await this.paymentClient.findByIdempotencyKey(lookup.idempotencyKey);
+    if (found === undefined) return OutboundCallReconciliation.notSent();
+    return found.status === "settled"
+      ? OutboundCallReconciliation.completed(found.receipt)
+      : OutboundCallReconciliation.unknown({ reason: `charge ${found.status}` });
+  },
+});
+// outcome.status: OutboundCallOutcomeStatus.Sent | Replayed | Reconciled
+```
+
+`OutboundCalls` is a core service (`deps: [ExecutionContext, OutboundCalls]`, nothing to list); the
+intents live in `OutboundCallRepository`, infrastructure like the lease store — the built-in
+`InMemoryOutboundCallRepository`, or a store of the application's database listed in
+`@Application({ providers })`. One key is one intent (`fencedEffectKeyOf(executionContext, name)`);
+the key sent with the call is the step's `idempotencyKey` and the name (`call.idempotencyKey`), the
+same on every attempt, replay and holder.
+
+| The intent found | What happens |
+| --- | --- |
+| none | recorded `Pending` (fenced), the lease renewed (`fence.confirmNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
+| `Completed` | its stored result, nothing sent — `Replayed` |
+| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1; `unknown({ reason })` → `OutboundCallUnreconciledError` |
+| `Failed` | the other system answered with an error: sent again with the same key, attempt + 1 |
+
+- **Fenced like a fenced effect:** every read and write of an intent checks the key's lease and the
+  scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
+  (`ExecutionFencedError`, a hand-over). A completion refused after the send (the lease was lost
+  meanwhile) is a hand-over too: the new holder finds the intent pending and reconciles it.
+- **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
+  a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason`) — also when
+  `reconcile` throws (its error the `cause`) or gives no verdict. Nothing is sent; the intent stays
+  `Pending` for an operator or a retry policy; `.onError(OutboundCallUnreconciledError, …)` takes it.
+- **A send that fails** records `Failed` with the error's name, code and message, and rethrows. A
+  send aborted by the step's signal (a lost lease, a cancel, a timeout) records nothing: the intent
+  stays `Pending`, because nobody knows what arrived.
+- **Masked when written.** Everything an intent stores — its request, its result, its failure's text
+  — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
+  also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
+  stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCalls`, a kept record, an export.
+  `send` and the step get the real values in memory; a **replay** gives the result as stored —
+  masked — so a result should carry receipts and ids, not personal data. `reconcile` gets the
+  **stored, masked** request (`lookup.storedRequest`) and the key: look the call up by
+  `lookup.idempotencyKey`, which is not personal data. A step with no mask while the application
+  lists PII policies is refused before anything is stored (`OutboundCallUnmaskedError`,
+  `outbound-call.unmasked`); a failure's text is stored `[redacted]` there.
+- **Limits:** `@Application({ outboundCalls: { maxPayloadSize, retention } })` — a stored request or
+  result above `maxPayloadSize` (default `kilobytes(64)`) is `OutboundCallPayloadTooLargeError`
+  (`outbound-call.payload-too-large`): a request is neither recorded nor sent; a result leaves the
+  intent pending, so the next attempt reconciles it. `Completed` and `Failed` intents are removed by
+  the recovery sweep once they ended longer ago than `retention` (default `hours(168)`, above the
+  lease, else `[application.outbound-calls-invalid]`); a `Pending` one never is.
+- **For operators:** `app.outboundCallsOf({ tenantId, rootExecutionId })` (every call of a tree, in
+  the order recorded) and `app.pendingOutboundCalls({ tenantId })` (what waits for reconciliation) —
+  `OutboundCallRecord`: the step, the workflow, `target`, `operation`, `idempotencyKey`, `status`,
+  `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`.
+- **What exactly-once means here:** the framework never sends twice without a `notSent()` from
+  `reconcile`; whether the other system charged twice depends on it — idempotency keys and a lookup
+  by key.
+- **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
+  on a gate, `leases.stall(apps[0])` and `clock.advance` past the lease, then the other instance's
+  recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
+  runner's held lease; a second run of one runner is the same step run again.
+
+A store of another database implements `OutboundCallRepository` (fenced `findByKey`,
+`saveIfAbsent`, `markPending`, `markCompleted`, `markFailed`; the two listings;
+`deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
+`outboundCallContract` of `@agboss/core/testing/contracts`
+([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
+
 ## Recovery
 
 An execution whose instance died mid-step is continued by another instance, automatically (#265

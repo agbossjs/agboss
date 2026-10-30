@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: calls that leave the system (#505 PR 1)
+
+- **Added — `OutboundCalls`** ([Several instances](Several-instances#calls-that-leave-the-system-505)):
+  `send(key, { target, operation, request, send, reconcile })` records an intent before the call
+  and settles it after; an intent left pending is reconciled (`OutboundCallReconciliation.completed`
+  / `.notSent()` / `.unknown({ reason })`), never sent again blindly. `OutboundCallOutcome`
+  (`OutboundCallOutcomeStatus.Sent | Replayed | Reconciled`), `OutboundCall`, `OutboundCallLookup`.
+- **Added — `OutboundCallRepository`** (infrastructure, every method but the listings fenced), its
+  in-memory default `InMemoryOutboundCallRepository`, `OutboundCallRecord`, `OutboundCallStatus`,
+  and `outboundCallContract` in `@agboss/core/testing/contracts`.
+- **Added — `app.outboundCallsOf({ tenantId, rootExecutionId })`** and
+  **`app.pendingOutboundCalls({ tenantId })`**.
+- **Added — `@Application({ outboundCalls: { maxPayloadSize, retention } })`** (64 KB, a week),
+  `OutboundCallSettings`, `[application.outbound-calls-invalid]`; errors `OutboundCallUnreconciledError`,
+  `OutboundCallPayloadTooLargeError`, `OutboundCallUnmaskedError`.
+- **Fixed — a `ChildPlacement.AnyInstance` child's frame** carries its workflow's PII mask, and a
+  `ParentInstance` child's its own workflow's (it carried its parent's).
+- **Moved —** `ApplicationStoppingError` to `core/errors.ts` (still a root export), and the
+  internal `thread-map-key.ts` into `in-memory-database.ts`, for the root import's module budget.
+
 ## Unreleased — 0.1.1: core gaps found by @agboss/postgres (#511)
 
 - **Added — `@Injectable({ environmentFields })`**, `EnvironmentField`, `EnvironmentFields`,

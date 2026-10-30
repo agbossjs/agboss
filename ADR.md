@@ -31,3 +31,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0024 — Published store contract suites](ADR-0024-Published-store-contract-suites) | Accepted |
 | [0025 — Examples live in agbossjs/agboss-examples](ADR-0025-Examples-live-in-agbossjs-agboss-examples) | Accepted |
 | [0026 — Fenced effects check the lease in the same transaction](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction) | Accepted |
+| [0027 — An intent before every outbound call; reconcile, never resend blindly](ADR-0027-An-intent-before-every-outbound-call) | Accepted |
