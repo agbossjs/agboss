@@ -82,6 +82,8 @@ export type RuleCode =
   // the instance's cap on steps (#332), reported at the application's assembly
   | "limits.max-concurrent-steps-invalid"
   | "limits.max-mesh-hops-invalid"
+  // the fenced effects' settings (#500), and their store beside its lease store
+  | "application.fenced-effects-invalid"
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"
   | "mesh.duplicate-peer"

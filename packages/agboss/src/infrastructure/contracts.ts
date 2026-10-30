@@ -30,6 +30,8 @@ import {
   ChildExecutionQueueRepository,
   InMemoryChildExecutionQueueRepository,
 } from "./child-execution-queue.repository.js";
+import { FencedEffectRepository } from "./fenced-effect.repository.js";
+import { InMemoryFencedEffectRepository } from "./in-memory-fenced-effect.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
@@ -62,6 +64,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
+  [FencedEffectRepository, InMemoryFencedEffectRepository],
 ]);
 
 /**
@@ -101,6 +104,8 @@ export interface Infrastructure {
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
   readonly childQueue: ChildExecutionQueueRepository;
+  /** The protected writes of steps (#500): their results and the scopes' marks. */
+  readonly fencedEffects: FencedEffectRepository<unknown>;
   /**
    * What the holders of leases take and renew them in, and their timers (the background renewal,
    * the local expiry) sleep on — a test's `leases.stall` gate (#471); absent = `executionLeases` on
@@ -138,6 +143,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
+  fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
 });
 
 /**

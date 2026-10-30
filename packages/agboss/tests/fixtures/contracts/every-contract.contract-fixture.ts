@@ -18,11 +18,13 @@ import {
   executionLeaseContract,
   executionRecordContract,
   executionTreeContract,
+  fencedEffectContract,
   meshRequestContract,
   pausedExecutionContract,
   rateLimitContract,
   type ContractTarget,
 } from "../../../src/testing/contracts/index.js";
+import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import {
   inMemoryTarget,
   sharedInMemory,
@@ -68,6 +70,7 @@ executionRecordContract(
 executionTreeContract(
   fixtureStore(({ database }) => new InMemoryExecutionTreeRepository(database)),
 );
+fencedEffectContract(fixtureStore(inMemoryFencedEffects(false)));
 meshRequestContract(fixtureStore(({ database }) => new InMemoryMeshRequestRepository(database)));
 pausedExecutionContract(
   fixtureStore((seam) =>

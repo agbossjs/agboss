@@ -215,6 +215,8 @@ export function stopOf(
     idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
     executionHistory: parts.infrastructure.executionHistory,
     executionRecordRetention: assembled.executionRecordRetention,
+    fencedEffects: parts.infrastructure.fencedEffects,
+    fencedEffectRetention: assembled.fencedEffects.retention,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

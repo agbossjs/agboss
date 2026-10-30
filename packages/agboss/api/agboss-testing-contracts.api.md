@@ -59,6 +59,23 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
 // @public
 export function executionTreeContract(target: ContractTarget<ExecutionTreeRepository>): void;
 
+// @public
+export interface FencedEffectBusinessRows<TTransaction> {
+    committed(): Promise<readonly string[]>;
+    insert(transaction: TTransaction, row: string): void | Promise<void>;
+}
+
+// @public
+export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectStores<TTransaction>>): void;
+
+// @public
+export interface FencedEffectStores<TTransaction> {
+    // Warning: (ae-forgotten-export) The symbol "FencedEffectRepository" needs to be exported by the entry point index.d.ts
+    readonly effects: FencedEffectRepository<TTransaction>;
+    readonly leases: ExecutionLeaseRepository;
+    readonly rows: FencedEffectBusinessRows<TTransaction>;
+}
+
 // Warning: (ae-forgotten-export) The symbol "MeshRequestRepository" needs to be exported by the entry point index.d.ts
 //
 // @public

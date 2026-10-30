@@ -16,6 +16,11 @@ export { costLedgerContract } from "./cost-ledger.contract.js";
 export { executionHistoryContract } from "./execution-history.contract.js";
 export { executionLeaseContract } from "./execution-lease.contract.js";
 export { executionRecordContract } from "./execution-record.contract.js";
+export {
+  fencedEffectContract,
+  type FencedEffectBusinessRows,
+  type FencedEffectStores,
+} from "./fenced-effect.contract.js";
 export { executionTreeContract } from "./execution-tree.contract.js";
 export { meshRequestContract } from "./mesh-request.contract.js";
 export { pausedExecutionContract } from "./paused-execution.contract.js";

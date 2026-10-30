@@ -23,6 +23,7 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
 import { DEFAULT_MAX_MESH_HOPS } from "../mesh/mesh-defaults.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
+import { FencedEffectSettings } from "../infrastructure/fenced-effect-settings.js";
 
 /** `@Application({ maxMeshHops, mesh })` (#398), as assembled. */
 const meshOptionsOf = (
@@ -69,6 +70,8 @@ export interface AssembledApplication {
   readonly executionRecordRetention?: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
+  /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
+  readonly fencedEffects: FencedEffectSettings;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Application({ maxMeshHops })` (#398): the longest call chain it accepts. */
@@ -221,6 +224,7 @@ export async function applicationOf(
       ? {}
       : { executionRecordRetention: options.executionRecordRetention }),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
+    fencedEffects: new FencedEffectSettings(options.fencedEffects),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

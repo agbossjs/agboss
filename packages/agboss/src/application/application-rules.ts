@@ -19,6 +19,7 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { healthCheckRuleViolations } from "../health/health-check.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
+import { fencedEffectsViolations } from "../infrastructure/fenced-effect-settings.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -186,6 +187,7 @@ export function applicationRuleViolations(
     ...healthCheckRuleViolations(options),
     ...stepCapViolations(options),
     ...meshHopsViolations(options),
+    ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...meshRuleViolations(
       options.name,
       options.mesh,
