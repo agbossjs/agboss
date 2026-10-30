@@ -42,6 +42,8 @@ export enum OutboundCallEventOutcome {
   Unknown = "unknown",
   /** The other system answered with an error: the intent is failed. */
   Failed = "failed",
+  /** The same call was being made by this instance: its outcome shared, nothing sent again. */
+  Joined = "joined",
 }
 
 /** How one call of a fenced effect (#500) went, as the lease log keeps it. */

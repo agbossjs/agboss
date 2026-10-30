@@ -89,6 +89,7 @@ export type { Milliseconds, Usd } from "../units/index.js";
 export {
   OutboundCallRepository,
   OutboundCallStatus,
+  type OutboundCallClaim,
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,

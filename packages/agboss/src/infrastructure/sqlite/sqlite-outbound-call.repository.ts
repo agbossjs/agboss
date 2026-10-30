@@ -10,6 +10,7 @@ import {
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
+  type OutboundCallClaim,
   type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
@@ -102,12 +103,12 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   markPending(
     key: FencedEffectKey,
     expected: OutboundCallState,
-    attempt: number,
+    claim: OutboundCallClaim,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
       const found = this.#found(key);
       if (found === undefined || !isInState(found, expected)) return false;
-      this.#write(key, { ...withoutEnd(found), status: OutboundCallStatus.Pending, attempt });
+      this.#write(key, { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim });
       return true;
     });
   }

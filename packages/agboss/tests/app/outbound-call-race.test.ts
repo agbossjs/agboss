@@ -50,7 +50,8 @@ class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
   }
 
   async #moved(key: FencedEffectKey, found: OutboundCallRecord): Promise<void> {
-    if (!(await super.markPending(key, stateOf(found), found.attempt + 1))) return;
+    const claim = { attempt: found.attempt + 1, attemptOwner: "rival" };
+    if (!(await super.markPending(key, stateOf(found), claim))) return;
     rival.moves += 1;
     if (rival.move === RivalMove.Completes)
       await this.markCompleted(key, '{"chargeId":"ch-rival"}');

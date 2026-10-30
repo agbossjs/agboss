@@ -1980,11 +1980,12 @@ send, reconcile })` records an intent before the call and settles it after, over
   `reconcile(lookup)` → `OutboundCallReconciliation.completed(result)` (`Reconciled`) / `.notSent()`
   (sent once more, the same key, attempt + 1) / `.unknown({ reason })` →
   `OutboundCallUnreconciledError` (`outbound-call.unreconciled`, a `StepFailedError`, the intent kept
-  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. A new attempt is
-  a compare-and-set (`markPending(key, expected, attempt)`, `OutboundCallState`): the loser sends
-  nothing and reads again — the winner's result replayed, its pending attempt
-  `OutboundCallInFlightError` (`outbound-call.in-flight`; also a key sent again while this instance
-  still sends it), at most three reads. Masked **when
+  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Every attempt
+  has an owner (`attemptOwner`, a random id per claim); a new attempt is a compare-and-set on status,
+  attempt and owner (`markPending(key, expected, claim)`, `OutboundCallState`, `OutboundCallClaim`):
+  the loser sends nothing and reads again — the winner's result replayed, its pending attempt
+  `OutboundCallInFlightError` (`outbound-call.in-flight`), at most three reads; the same call this
+  instance is making meanwhile is joined (`Joined`), never reconciled or resent. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
   child's own): the request, the result and a failure's text — every read shows what is stored; `send`
   and the step get real values, a replay the masked result, `reconcile` the stored request
@@ -1994,7 +1995,7 @@ send, reconcile })` records an intent before the call and settles it after, over
   pending ones never). Read by `app.outboundCallsOf({ tenantId, rootExecutionId })` /
   `app.pendingOutboundCalls({ tenantId })`, `ExecutionHistoryRecord.outboundCalls`, each move an
   `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
-  `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`; never a payload);
+  `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at

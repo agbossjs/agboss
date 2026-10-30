@@ -14,6 +14,7 @@ import {
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type {
+  OutboundCallClaim,
   OutboundCallFailure,
   OutboundCallIntent,
   OutboundCallRecord,
@@ -41,6 +42,7 @@ export enum OutboundCallStatus {
 }
 
 export type {
+  OutboundCallClaim,
   OutboundCallFailure,
   OutboundCallIntent,
   OutboundCallRecord,
@@ -75,15 +77,16 @@ export abstract class OutboundCallRepository {
   abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
 
   /**
-   * The intent goes `Pending` for `attempt` (a resend after `notSent()` or a failure) only while it
-   * is still as `expected` — its status, attempt and token as the caller read them: a
-   * compare-and-set in the fenced transaction, the caller's lease checked first. `false` when
-   * another call moved it first (or it is gone): the caller must not send.
+   * The intent goes `Pending` at `claim` — the next attempt and its new owner (a resend after
+   * `notSent()` or a failure) — only while it is still as `expected`: its status, attempt and
+   * attempt owner as the caller read them. A compare-and-set in the fenced transaction, the
+   * caller's lease checked first; `false` when another call moved it first (or it is gone): the
+   * caller must not send.
    */
   abstract markPending(
     key: FencedEffectKey,
     expected: OutboundCallState,
-    attempt: number,
+    claim: OutboundCallClaim,
   ): Promise<boolean>;
 
   /** The intent is `Completed` with `result` (its JSON) — fenced. */
@@ -159,13 +162,13 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   markPending(
     key: FencedEffectKey,
     expected: OutboundCallState,
-    attempt: number,
+    claim: OutboundCallClaim,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
       const row = rowKeyOf(key);
       const found = this.database.outboundCalls.get(row);
       if (found === undefined || !isInState(found, expected)) return false;
-      const moved = { ...withoutEnd(found), status: OutboundCallStatus.Pending, attempt };
+      const moved = { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim };
       this.database.outboundCalls.set(row, { ...moved, token: key.token });
       return true;
     });
@@ -248,14 +251,14 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 export const stateOf = (found: OutboundCallRecord): OutboundCallState => ({
   status: found.status,
   attempt: found.attempt,
-  token: found.token,
+  attemptOwner: found.attemptOwner,
 });
 
 /** Whether `found` is still as `expected`. */
 export const isInState = (found: OutboundCallRecord, expected: OutboundCallState): boolean =>
   found.status === expected.status &&
   found.attempt === expected.attempt &&
-  found.token === expected.token;
+  found.attemptOwner === expected.attemptOwner;
 
 /** A record without its last ending (`result`, `failure`, `endedAt`): sent again, or ending now. */
 export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
@@ -269,6 +272,7 @@ export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
   idempotencyKey: found.idempotencyKey,
   request: found.request,
   attempt: found.attempt,
+  attemptOwner: found.attemptOwner,
   step: found.step,
   status: found.status,
   token: found.token,

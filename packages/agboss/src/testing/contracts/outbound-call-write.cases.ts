@@ -97,8 +97,8 @@ const pendingAgain: OutboundCallCase = {
 
     const isMoved = await first.calls.markPending(
       key,
-      { status: OutboundCallStatus.Failed, attempt: 1, token: 1 },
-      2,
+      { status: OutboundCallStatus.Failed, attempt: 1, attemptOwner: "owner-1" },
+      { attempt: 2, attemptOwner: "owner-2" },
     );
 
     expect(isMoved).toBe(true);

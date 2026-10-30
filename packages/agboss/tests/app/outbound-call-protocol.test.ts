@@ -14,6 +14,7 @@ import {
   ExecutionFencedError,
   ExecutionLeaseLostError,
   fencedEffectKeyOf,
+  OutboundCallOutcomeStatus,
   OutboundCallReconciliation,
   OutboundCallVerdict,
   OutboundCalls,
@@ -209,21 +210,35 @@ class TwiceAtOnceAction {
       reconcile: (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
         this.paymentGateway.reconcile(lookup),
     };
-    await Promise.all([
+    const outcomes = await Promise.allSettled([
       this.outboundCalls.send(key, options),
       this.outboundCalls.send(key, options),
     ]);
+    for (const outcome of outcomes) {
+      if (outcome.status === "rejected") throw outcome.reason;
+      runs.outcomes.push({ status: outcome.value.status, attempt: outcome.value.attempt });
+    }
   }
 }
 
 describe("#505: what the protocol refuses", () => {
-  it("one key sent twice at once in a step: the second is refused, the provider called once", async () => {
+  it("one key sent twice at once in a step: the second joins the first, the provider called once", async () => {
     const run = testAction(TwiceAtOnceAction);
 
-    await expect(run(order)).rejects.toMatchObject({
-      code: "outbound-call.in-flight",
-      call: "charge",
-    });
+    await run(order);
+
+    expect(runs.outcomes).toEqual([
+      { status: OutboundCallOutcomeStatus.Sent, attempt: 1 },
+      { status: OutboundCallOutcomeStatus.Joined, attempt: 1 },
+    ]);
+    expect(gateway.calls).toHaveLength(1);
+  });
+
+  it("a joined call gets the first call's error, the provider called once", async () => {
+    const run = testAction(TwiceAtOnceAction);
+    gateway.failNext = 1;
+
+    await expect(run(order)).rejects.toBeInstanceOf(PaymentDeclinedError);
     expect(gateway.calls).toHaveLength(1);
   });
 

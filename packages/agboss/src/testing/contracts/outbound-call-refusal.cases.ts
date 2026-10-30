@@ -33,8 +33,8 @@ const FENCED_CALLS: readonly (readonly [
     (stores, key) =>
       stores.calls.markPending(
         key,
-        { status: OutboundCallStatus.Pending, attempt: 1, token: 1 },
-        2,
+        { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" },
+        { attempt: 2, attemptOwner: "owner-2" },
       ),
   ],
   ["markCompleted", (stores, key) => stores.calls.markCompleted(key, '"zombie"')],

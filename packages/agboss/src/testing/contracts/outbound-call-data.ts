@@ -35,6 +35,7 @@ export const intentOf = (
   idempotencyKey: `${key.idempotencyKey}:${key.name}`,
   request: JSON.stringify({ orderId: "order-7", amountUsd: 10 }),
   attempt: 1,
+  attemptOwner: "owner-1",
   step: { nodeId: "charge-action", visitNumber: 1 },
   ...overrides,
 });

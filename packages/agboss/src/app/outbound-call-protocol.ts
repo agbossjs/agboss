@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
@@ -37,8 +38,9 @@ export type { OutboundCallParts } from "./outbound-call-parts.js";
  * (fenced) and, by its state — completed: replayed; pending: reconciled; failed: sent again; none:
  * recorded (fenced), then sent. Before the network the lease is renewed (`confirmNow`); the answer
  * is written back fenced — a refusal there is a hand-over, and the new holder reconciles. A new
- * attempt is a compare-and-set on the intent as read: a call that loses it sends nothing and reads
- * the intent again, a bounded number of times.
+ * attempt is a compare-and-set on the intent as read — its status, attempt and attempt owner (a
+ * random id per claim): a call that loses it sends nothing and reads the intent again, a bounded
+ * number of times. A call this instance is making now is joined, never reconciled or resent.
  */
 
 /** How many times a call reads its intent when other calls keep moving it first. */
@@ -48,8 +50,8 @@ const MAX_READS = 3;
 const inFlight = <TRequest, TResult>(run: CallRun<TRequest, TResult>): OutboundCallInFlightError =>
   new OutboundCallInFlightError({ ...run.options, name: run.key.name });
 
-/** The step key a call of this instance holds while it sends. */
-const sendingKeyOf = (key: FencedEffectKey): string =>
+/** What a call of this instance is known by while it is made: its key's row. */
+const liveKeyOf = (key: FencedEffectKey): string =>
   [key.tenantId, key.scopeKey, key.idempotencyKey, key.name].join("\u0000");
 
 /** Sends attempt `attempt`: the lease renewed first, the answer stored fenced; an error recorded. */
@@ -86,8 +88,9 @@ async function movedAndSent<TRequest, TResult>(
   found: OutboundCallRecord,
   isNotSent: boolean,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
-  const attempt = found.attempt + 1;
-  if (!(await run.parts.repository.markPending(run.key, stateOf(found), attempt))) return undefined;
+  const claim = { attempt: found.attempt + 1, attemptOwner: randomUUID() };
+  const { attempt } = claim;
+  if (!(await run.parts.repository.markPending(run.key, stateOf(found), claim))) return undefined;
   if (isNotSent) told(run, OutboundCallEventOutcome.NotSent, [OutboundCallStatus.Pending, attempt]);
   return sendNow(run, attempt);
 }
@@ -135,6 +138,7 @@ async function recordedAndSent<TRequest, TResult>(
     idempotencyKey: run.idempotencyKey,
     request,
     attempt: 1,
+    attemptOwner: randomUUID(),
     step: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
   });
   if (!isSaved) throw inFlight(run); // another call recorded the same key at the same moment
@@ -177,6 +181,16 @@ async function sendOnce<TRequest, TResult>(
   throw inFlight(run);
 }
 
+/** The outcome of the same call this instance is making now: shared, or its error. */
+async function joinedTo<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  joined: Promise<OutboundCallOutcome<unknown>>,
+): Promise<OutboundCallOutcome<TResult>> {
+  const first = await joined;
+  told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
+  return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
+}
+
 /** `OutboundCalls.send`: the protocol, in the step's frame. */
 export async function sendOutboundCall<TRequest, TResult>(
   parts: OutboundCallParts,
@@ -195,12 +209,14 @@ export async function sendOutboundCall<TRequest, TResult>(
   };
   // masked for the store, within the limit, before anything is read, recorded or sent
   const request = await storedJson(run, OutboundCallPart.Request, options.request);
-  const sending = sendingKeyOf(key);
-  if (parts.sending.has(sending)) throw inFlight(run);
-  parts.sending.add(sending);
+  const live = liveKeyOf(key);
+  const joined = parts.live.get(live);
+  if (joined !== undefined) return joinedTo(run, joined);
+  const outcome = sendOnce(run, request);
+  parts.live.set(live, outcome);
   try {
-    return await sendOnce(run, request);
+    return await outcome;
   } finally {
-    parts.sending.delete(sending);
+    parts.live.delete(live);
   }
 }

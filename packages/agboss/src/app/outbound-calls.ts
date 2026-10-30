@@ -77,6 +77,11 @@ export enum OutboundCallOutcomeStatus {
   Replayed = "replayed",
   /** Left pending: `reconcile` found that it happened — its result, nothing sent. */
   Reconciled = "reconciled",
+  /**
+   * The same call was being sent by this instance (two tool calls, two branches): its outcome,
+   * shared — nothing sent again.
+   */
+  Joined = "joined",
 }
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */
@@ -150,8 +155,8 @@ export class OutboundCallReconciliation<TResult> {
  */
 @Injectable({ deps: [OutboundCallRepository, OutboundCallSettings] })
 export class OutboundCalls {
-  /** The keys this instance is sending now: a second send of one meanwhile is in flight. */
-  readonly #sending = new Set<string>();
+  /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
+  readonly #live = new Map<string, Promise<OutboundCallOutcome<unknown>>>();
 
   constructor(
     private readonly repository: OutboundCallRepository,
@@ -169,7 +174,7 @@ export class OutboundCalls {
     options: OutboundCallOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
     const { sendOutboundCall } = await import("./outbound-call-protocol.js");
-    const parts = { repository: this.repository, settings: this.settings, sending: this.#sending };
+    const parts = { repository: this.repository, settings: this.settings, live: this.#live };
     return sendOutboundCall(parts, key, options);
   }
 }

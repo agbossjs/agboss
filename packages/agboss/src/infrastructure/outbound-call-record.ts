@@ -37,6 +37,11 @@ export interface OutboundCallIntent {
   readonly request: string;
   /** The attempt about to be sent, from 1. */
   readonly attempt: number;
+  /**
+   * Who owns that attempt: a random id the caller minted when it claimed it (recorded it, or moved
+   * it on with `markPending`). A new attempt is claimed only from the owner the claimer read.
+   */
+  readonly attemptOwner: string;
   readonly step: OutboundCallStep;
 }
 
@@ -59,8 +64,14 @@ export interface OutboundCallRecord extends OutboundCallIntent {
 }
 
 /** An intent's state as a caller read it: what `markPending` compares before it moves it. */
+/** A new attempt as its caller claims it: its number and the owner id the caller minted. */
+export interface OutboundCallClaim {
+  readonly attempt: number;
+  readonly attemptOwner: string;
+}
+
 export interface OutboundCallState {
   readonly status: OutboundCallStatus;
   readonly attempt: number;
-  readonly token: number;
+  readonly attemptOwner: string;
 }
