@@ -2,25 +2,21 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { buildCostReport } from "../finops/usage.js";
 import { compensationRecordsOf } from "../flow/compensation.js";
-import type { ApplicationContext } from "../flow/context/application-context.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
-import type { Clock } from "../infrastructure/clock.js";
 import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
-  type ExecutionHistoryRepository,
 } from "../infrastructure/execution-history.repository.js";
-import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { TrustedMesh } from "../mesh/inbound-mesh.js";
-import type { ObservabilityMask } from "../pii/observability-mask.js";
-import type { PiiRuntime } from "../pii/runtime.js";
-import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { runConfig } from "../run/paused.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import type { AppDeps } from "./app-deps.js";
+import type { ExecutionHistoryKeeper } from "./app-deps-parts.js";
+
+export { historyKeeperOf, type ExecutionHistoryKeeper } from "./app-deps-parts.js";
 import { executionEventAt } from "./run-events.js";
 import type { TreeState } from "./tree-move-types.js";
 import { ExecutionStatus } from "./types.js";
@@ -34,42 +30,6 @@ import { ExecutionStatus } from "./types.js";
  * warning in the log (`execution-history.failed`), never the execution's failure; work handed over
  * (a lost lease, the app's stop) saves nothing — the next holder does.
  */
-
-/** What a workflow saves its roots' history with: the store and what a record is made of. */
-export interface ExecutionHistoryKeeper {
-  readonly repository: ExecutionHistoryRepository;
-  readonly clock: Clock;
-  readonly application: ApplicationContext;
-  /** The workflow's observability mask: what a trace shows of a value. */
-  readonly mask: ObservabilityMask;
-  /** Who answered each pause of a tree (#267 S107). */
-  readonly answers: Pick<ExecutionRecordRepository, "findPauseAnswersByTenantIdAndRootExecutionId">;
-}
-
-/** What a keeper is made from: the workflow's clock, contexts, PII runtime and pause answers. */
-export interface ExecutionHistoryParts {
-  readonly clock: Clock;
-  readonly contexts: Pick<RuntimeContexts, "application">;
-  readonly pii: Pick<PiiRuntime, "observability">;
-  readonly answers: ExecutionHistoryKeeper["answers"];
-}
-
-/** A workflow's keeper, when its application keeps the history; nothing otherwise. */
-export const historyKeeperOf = (
-  repository: ExecutionHistoryRepository | undefined,
-  parts: ExecutionHistoryParts,
-): { readonly executionHistory?: ExecutionHistoryKeeper } =>
-  repository === undefined
-    ? {}
-    : {
-        executionHistory: {
-          repository,
-          clock: parts.clock,
-          application: parts.contexts.application,
-          mask: parts.pii.observability,
-          answers: parts.answers,
-        },
-      };
 
 /** How the tree stands now: its status, and the error that ended it. */
 export interface HistoryEnd {
@@ -219,7 +179,14 @@ async function maskedRecordOf(
     children: withChildPauses(record.children, answers),
   };
   // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden
-  return (await keeper.mask.traceData(answered)) as typeof answered;
+  const masked = (await keeper.mask.traceData(answered)) as typeof answered;
+  // the lease log's rows were masked when they were written (#501)
+  const leaseEvents =
+    await keeper.leaseEvents?.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+      record.tenantId,
+      record.executionId,
+    );
+  return leaseEvents === undefined ? masked : { ...masked, leaseEvents };
 }
 
 /** Saves the tree's record as it stands now, when the application keeps its history. */

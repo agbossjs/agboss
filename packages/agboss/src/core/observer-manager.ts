@@ -5,7 +5,10 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type { ExecutionLeaseTakeoverEvent } from "../flow/observers/lease-events.js";
+import type {
+  ExecutionLeaseTakeoverEvent,
+  StepHandedOverEvent,
+} from "../flow/observers/lease-events.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -168,5 +171,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> {
     return this.each("onExecutionLeaseTakeover", event, (o, e) => o.onExecutionLeaseTakeover?.(e));
+  }
+  onStepHandedOver(event: StepHandedOverEvent): Promise<void> {
+    return this.each("onStepHandedOver", event, (o, e) => o.onStepHandedOver?.(e));
   }
 }

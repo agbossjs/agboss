@@ -6,6 +6,8 @@ import {
   type ExecutionLease,
   type ExecutionLeaseTakeoverEvent,
   type OnExecutionLeaseTakeover,
+  type OnStepHandedOver,
+  type StepHandedOverEvent,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
@@ -14,12 +16,17 @@ import {
   type ExecutionLeaseEventRecord,
 } from "../../../src/infrastructure/execution-lease-event.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
-import type { Milliseconds } from "../../../src/units/index.js";
+import { hours, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { FarParentWorkflow } from "./fence-children.workflow.js";
-import { AgentReleaseWorkflow, ReleaseWorkflow, ToolEndLog } from "./fence.workflow.js";
+import {
+  AgentReleaseWorkflow,
+  BookedReleaseWorkflow,
+  ReleaseWorkflow,
+  ToolEndLog,
+} from "./fence.workflow.js";
 
 /**
  * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyInstance` child
@@ -31,24 +38,32 @@ import { AgentReleaseWorkflow, ReleaseWorkflow, ToolEndLog } from "./fence.workf
 /** What the lease hooks saw, in order (reset with `resetLeaseEvents`). */
 export const leaseSeen = {
   takeovers: [] as ExecutionLeaseTakeoverEvent[],
+  handOvers: [] as StepHandedOverEvent[],
 };
 
 export function resetLeaseEvents(): void {
   leaseSeen.takeovers.length = 0;
+  leaseSeen.handOvers.length = 0;
 }
 
-/** Keeps every takeover event. */
+/** Keeps every takeover and hand-over event. */
 @Injectable()
-export class LeaseEventObserver implements OnExecutionLeaseTakeover {
+export class LeaseEventObserver implements OnExecutionLeaseTakeover, OnStepHandedOver {
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
     leaseSeen.takeovers.push(event);
+  }
+  onStepHandedOver(event: StepHandedOverEvent): void {
+    leaseSeen.handOvers.push(event);
   }
 }
 
 /** Throws at every lease event: a broken observer. */
 @Injectable()
-export class ThrowingLeaseObserver implements OnExecutionLeaseTakeover {
+export class ThrowingLeaseObserver implements OnExecutionLeaseTakeover, OnStepHandedOver {
   onExecutionLeaseTakeover(): void {
+    throw new Error("the lease observer is broken");
+  }
+  onStepHandedOver(): void {
     throw new Error("the lease observer is broken");
   }
 }
@@ -82,7 +97,7 @@ export class DownLeaseEventRepository extends InMemoryExecutionLeaseEventReposit
   }
 }
 
-const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, FarParentWorkflow];
+const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow, FarParentWorkflow];
 
 @Application({
   name: "lease-events-application",
@@ -126,3 +141,14 @@ export class SilentTakeoverApplication {}
   budgets: TEST_BUDGETS,
 })
 export class DownLeaseLogApplication {}
+
+@Application({
+  name: "kept-lease-events-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: WORKFLOWS,
+  observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
+  executionRecordRetention: hours(24),
+  budgets: TEST_BUDGETS,
+})
+export class KeptLeaseEventsApplication {}

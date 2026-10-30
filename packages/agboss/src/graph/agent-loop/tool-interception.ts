@@ -1,4 +1,5 @@
-import { handedOverOf } from "../../app/handed-over.js";
+import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
+import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
 import { DtoValidationError, pathOf } from "../../dto/errors.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import {
@@ -50,7 +51,7 @@ async function called(interceptor: RuntimeToolInterceptor, work: () => unknown):
   } catch (error) {
     // a fenced write of an interceptor (#471) is a hand-over, never the interceptor's failure
     const handedOver = handedOverOf(error, undefined);
-    if (handedOver !== undefined) throw handedOver;
+    if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.ToolInterceptor);
     throw new InterceptorFailure(interceptor.name, error);
   }
 }

@@ -16,6 +16,12 @@ import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
+import type { ApplicationContext } from "../flow/context/application-context.js";
+import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
+import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
+import type { PiiRuntime } from "../pii/runtime.js";
 
 /**
  * The workflow's channel of a name (#267). The channels are created here, with the app (so their
@@ -135,3 +141,54 @@ export async function versionWarnings(deps: AgentExecutionDeps<string>): Promise
       ]
     : [];
 }
+
+/** What a workflow saves its roots' history with: the store and what a record is made of. */
+export interface ExecutionHistoryKeeper {
+  readonly repository: ExecutionHistoryRepository;
+  readonly clock: Clock;
+  readonly application: ApplicationContext;
+  /** The workflow's observability mask: what a trace shows of a value. */
+  readonly mask: ObservabilityMask;
+  /** Who answered each pause of a tree (#267 S107). */
+  readonly answers: Pick<ExecutionRecordRepository, "findPauseAnswersByTenantIdAndRootExecutionId">;
+  /** The lease log (#501): a record carries its tree's rows as they stand when it is saved. */
+  readonly leaseEvents?: LeaseEventsReader | undefined;
+}
+
+/** What a record reads of the lease log: its tree's rows. */
+export type LeaseEventsReader = Pick<
+  ExecutionLeaseEventRepository,
+  "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt"
+>;
+
+/** What a keeper is made from: the workflow's clock, contexts, PII runtime and pause answers. */
+export interface ExecutionHistoryParts {
+  readonly clock: Clock;
+  readonly contexts: Pick<RuntimeContexts, "application">;
+  readonly pii: Pick<PiiRuntime, "observability">;
+  readonly answers: ExecutionHistoryKeeper["answers"];
+}
+
+/** Where a workflow's history goes (#401) and what it reads of the lease log (#501). */
+export interface HistorySources {
+  readonly executionHistory?: ExecutionHistoryRepository | undefined;
+  readonly infrastructure: { readonly leaseEvents?: LeaseEventsReader | undefined };
+}
+
+/** A workflow's keeper, when its application keeps the history; nothing otherwise. */
+export const historyKeeperOf = (
+  sources: HistorySources,
+  parts: ExecutionHistoryParts,
+): { readonly executionHistory?: ExecutionHistoryKeeper } =>
+  sources.executionHistory === undefined
+    ? {}
+    : {
+        executionHistory: {
+          repository: sources.executionHistory,
+          clock: parts.clock,
+          application: parts.contexts.application,
+          mask: parts.pii.observability,
+          answers: parts.answers,
+          leaseEvents: sources.infrastructure.leaseEvents,
+        },
+      };

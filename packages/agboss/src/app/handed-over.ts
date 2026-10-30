@@ -1,3 +1,6 @@
+import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
+import { nodeEventOf } from "../flow/observers/execution-event.js";
+import type { HandOverSite } from "../infrastructure/execution-lease-event.repository.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
 
@@ -87,4 +90,27 @@ export function handedOverOf(
   if (fenced === undefined) return handedOverReason(signal);
   holders.get(holderKeyOf(fenced.scopeKey, fenced.token))?.(fenced);
   return fenced;
+}
+
+/** The lease scopes each hand-over error was recorded for (#501): once per error and scope. */
+const recorded = new WeakMap<HandedOver, Set<string>>();
+
+/**
+ * `handedOver`, recorded first (#501): its row of the lease log and `onStepHandedOver`, for the
+ * step of `frame` (the current one by default) — once per error and lease scope, so the innermost
+ * site records it and the sites it is rethrown through do not. Nothing without a frame or a lease
+ * that records (a unit runner, an ancestor rebuilt elsewhere).
+ */
+export function recordedHandOver<T extends HandedOver>(
+  handedOver: T,
+  site: HandOverSite,
+  frame: FrameSpec | undefined = currentFrame(),
+): T {
+  const lease = frame?.execution.lease;
+  if (frame === undefined || lease?.recordHandOver === undefined) return handedOver;
+  const scopes = recorded.get(handedOver) ?? new Set<string>();
+  if (scopes.has(lease.scopeKey)) return handedOver;
+  recorded.set(handedOver, scopes.add(lease.scopeKey));
+  lease.recordHandOver({ event: nodeEventOf(frame), error: handedOver, site });
+  return handedOver;
 }

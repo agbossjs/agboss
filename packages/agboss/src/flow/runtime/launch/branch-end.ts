@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { handedOverOf } from "../../../app/handed-over.js";
+import { handedOverOf, recordedHandOver } from "../../../app/handed-over.js";
+import { HandOverSite } from "../../../infrastructure/execution-lease-event.repository.js";
 import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { StepFailedError } from "../../../graph/errors.js";
@@ -52,7 +53,7 @@ export function passThroughStops(
   error?: unknown,
 ): void {
   const handedOver = handedOverOf(error, config?.signal);
-  if (handedOver !== undefined) throw handedOver;
+  if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Branch);
   if (executionSignalOf(config, runId).aborted || config?.signal?.aborted === true)
     throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");
 }

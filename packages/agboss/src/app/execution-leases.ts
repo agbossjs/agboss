@@ -1,5 +1,6 @@
 import { scopeKeyOf } from "./lease-lost.js";
 import type * as LeaseEvents from "./lease-events.js";
+import type { HandOverReport } from "./lease-events.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
@@ -260,3 +261,33 @@ export const rootTakeOf = (
             ?.checkpoint.id,
       }),
 });
+
+/**
+ * The hand-overs a held lease records (#501): each written through the instance's lease log, the
+ * lease released only once they were — so the moving call rejects after its rows exist.
+ */
+export class HandOverReports {
+  readonly #pending = new Set<Promise<void>>();
+  #holder: Pick<ExecutionLease, "holderInstanceId" | "leaseEpoch"> | undefined;
+
+  /** The lease now held: its holder and token name a later hand-over. */
+  held(lease: ExecutionLease): void {
+    this.#holder = lease;
+  }
+
+  record(events: LeaseEventLog | undefined, report: HandOverReport, scopeKey: string): void {
+    const holder = this.#holder;
+    if (events === undefined || holder === undefined) return;
+    const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.leaseEpoch };
+    const written = events.recording.then(({ recordHandOver }) =>
+      recordHandOver(events, report, lease),
+    );
+    this.#pending.add(written);
+    void written.finally(() => this.#pending.delete(written));
+  }
+
+  /** Once every hand-over recorded so far is written (recording never rejects). */
+  async settled(): Promise<void> {
+    await Promise.all([...this.#pending]);
+  }
+}

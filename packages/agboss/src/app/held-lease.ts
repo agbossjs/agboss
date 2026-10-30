@@ -6,7 +6,14 @@ import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
-import { reacquiredOf, reportTake, type LeaseTake, type LeaseTaking } from "./execution-leases.js";
+import {
+  HandOverReports,
+  reacquiredOf,
+  reportTake,
+  type LeaseTake,
+  type LeaseTaking,
+} from "./execution-leases.js";
+import type { HandOverReport } from "./lease-events.js";
 import { FencedHolders, isHandedOver } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
@@ -51,6 +58,8 @@ export class HeldLease implements HeldExecutionLease {
   readonly #holder: FencedHolders;
   /** Why it was taken (#501): a re-acquire is recorded for the same tree. */
   readonly #take: LeaseTake | undefined;
+  /** The hand-overs being recorded (#501): the lease is released only after them. */
+  readonly #reports = new HandOverReports();
 
   private readonly repository: ExecutionLeaseRepository;
   private readonly clock: Clock;
@@ -64,6 +73,7 @@ export class HeldLease implements HeldExecutionLease {
     this.repository = taking.repository;
     this.clock = taking.clock;
     this.#take = take;
+    this.#reports.held(initial);
     const { clock } = taking;
     this.rootExecutionId = tree.rootExecutionId;
     this.leaseExecutionId = tree.rootExecutionId;
@@ -151,7 +161,12 @@ export class HeldLease implements HeldExecutionLease {
     }
   }
 
+  recordHandOver(report: HandOverReport): void {
+    this.#reports.record(this.taking.events, report, this.scopeKey);
+  }
+
   async release(): Promise<void> {
+    await this.#reports.settled();
     if (this.#stopped.signal.aborted) return;
     this.#stopped.abort();
     this.#holder.forget();
@@ -183,6 +198,7 @@ export class HeldLease implements HeldExecutionLease {
     );
     if (next === undefined) this.#fence.lose();
     this.#current = next;
+    this.#reports.held(next);
     this.#holder.hold(next.leaseEpoch);
     this.#fence.reacquired(at);
     await reportTake(this.taking.events, next, reacquiredOf(this.#take));

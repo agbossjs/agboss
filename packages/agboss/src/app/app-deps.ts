@@ -33,9 +33,10 @@ import {
   toolLookup,
 } from "./parts.js";
 import { closeOf, observedBy, treeDepsOf, releaseOf, versionWarnings } from "./app-deps-parts.js";
+import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
-import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
+
 import type { ApplicationPiiKey } from "../application/application-pii.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { LeaseEventLog } from "./execution-leases.js";
@@ -261,7 +262,7 @@ export async function createWorkflowDeps(
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure.idGenerator, parts),
-    ...historyKeeperOf(parts.executionHistory, { clock, contexts, pii, answers: terns }),
+    ...historyKeeperOf(parts, { clock, contexts, pii, answers: terns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);

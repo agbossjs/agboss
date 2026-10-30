@@ -86,8 +86,6 @@ export interface ExecutionLeaseEventBase {
   readonly token: number;
   /** The instance that took the lease over, or whose step was handed over. */
   readonly holderInstanceId: string;
-  /** The checkpoint it is about, when the site read it (a takeover's head checkpoint). */
-  readonly checkpointId?: string;
 }
 
 /** A takeover of a tree's lease (`ExecutionLeaseEventKind.Takeover`). */
@@ -97,6 +95,8 @@ export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
   /** The holder whose lease had expired (the store's `takenOverFrom`), when the store names it. */
   readonly previousHolderInstanceId?: string;
   readonly previousToken?: number;
+  /** The tree's head checkpoint when the lease was taken, where the take reads it. */
+  readonly checkpointId?: string;
 }
 
 /** A step handed over (`ExecutionLeaseEventKind.HandedOver`). */

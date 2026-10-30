@@ -21,7 +21,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   `ExecutionLeaseEventRepository` (in-memory default, `SqliteExecutionLeaseEventRepository`, the
   published `executionLeaseEventContract`), always written, read with `app.leaseEventsOf({ tenantId,
 rootExecutionId })` and removed by the recovery sweep after `@Application({ leaseEventRetention })`
-  (default `hours(24)`).
+  (default `hours(24)`). A step handed over (a lost lease, a fenced write, the app's stop) is told
+  and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
+  `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
+  a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
+  `agboss records export`).
 
 ### Fixed
 

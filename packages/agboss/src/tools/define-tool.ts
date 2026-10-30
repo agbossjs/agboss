@@ -1,4 +1,5 @@
-import { handedOverOf } from "../app/handed-over.js";
+import { handedOverOf, recordedHandOver } from "../app/handed-over.js";
+import { HandOverSite } from "../infrastructure/execution-lease-event.repository.js";
 import { AGBossError } from "../core/errors.js";
 import type { z } from "zod";
 import { pathOf } from "../dto/errors.js";
@@ -114,7 +115,7 @@ const isPause = (error: unknown): boolean =>
  */
 function failedRun(error: unknown, signal: AbortSignal | undefined): ToolOutput<never> {
   const handedOver = handedOverOf(error, signal);
-  if (handedOver !== undefined) throw handedOver;
+  if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Tool);
   return failure(errorMessage(error), error);
 }
 

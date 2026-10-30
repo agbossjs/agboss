@@ -11,6 +11,7 @@ import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
+import type { HandOverReport } from "../../app/lease-events.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -71,6 +72,11 @@ export interface FrameLease {
   confirmNow(): Promise<void>;
   /** A step of the tree runs (#471): the lease is not yielded under it; the function leaves. */
   enterStep(): Promise<() => void>;
+  /**
+   * A step under it was handed over (#501): its row of the lease log and `onStepHandedOver`,
+   * recorded before the lease is released; absent where no lease log is kept (a unit runner).
+   */
+  recordHandOver?(report: HandOverReport): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */
