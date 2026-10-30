@@ -11,7 +11,7 @@ import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
-import type { HandOverReport } from "../../app/lease-events.js";
+import type { FencedEffectReport, HandOverReport } from "../../app/lease-events.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -77,6 +77,8 @@ export interface FrameLease {
    * recorded before the lease is released; absent where no lease log is kept (a unit runner).
    */
   recordHandOver?(report: HandOverReport): void;
+  /** A step under it called a fenced effect (#501): its row and `onFencedEffect`, in order. */
+  recordFencedEffect?(report: FencedEffectReport): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

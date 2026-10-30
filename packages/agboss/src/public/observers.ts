@@ -12,7 +12,9 @@ export type {
 } from "../flow/observers/compensation-events.js";
 export type {
   ExecutionLeaseTakeoverEvent,
+  FencedEffectEvent,
   OnExecutionLeaseTakeover,
+  OnFencedEffect,
   OnStepHandedOver,
   StepHandedOverEvent,
 } from "../flow/observers/lease-events.js";

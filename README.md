@@ -1376,7 +1376,8 @@ cause chain, it is a hand-over: no `.onError`, no undo, the record stays `runnin
 rejects with it — and it is kept (#501): a `HandedOver` row of the lease log
 (`app.leaseEventsOf`) and an `onStepHandedOver` (`reason`, `site`, the step, `token`,
 `observedToken`), so a zombie refused at a write is told apart from one that never wrote again,
-from the public API alone. Key the mark by `fence.scopeKey`, never by a shared business row: parallel
+from the public API alone; a fenced effect's call (#500) is a `FencedEffect` row and an
+`onFencedEffect` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
 `ChildPlacement.AnyInstance` children each hold a lease (and a token) of their own. Exactly-once
 holds only when the external system checks both atomically. A test freezes a writer with
 `testWith(App, { instances: 2 })` and `leases.stall(apps[0])` on the `VirtualClock`; a unit runner's

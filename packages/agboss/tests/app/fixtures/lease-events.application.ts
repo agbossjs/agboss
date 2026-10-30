@@ -6,8 +6,11 @@ import {
   type ExecutionLease,
   type ExecutionLeaseTakeoverEvent,
   type OnExecutionLeaseTakeover,
+  type FencedEffectEvent,
+  type OnFencedEffect,
   type OnStepHandedOver,
   type StepHandedOverEvent,
+  InMemoryFencedEffectRepository,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
@@ -17,7 +20,16 @@ import {
 } from "../../../src/infrastructure/execution-lease-event.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
 import { hours, type Milliseconds } from "../../../src/units/index.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import {
+  TEST_BUDGETS,
+  TestApplicationDailyBudget,
+  TestTenantDailyBudget,
+} from "../../flow/fixtures/budgets.js";
+import {
+  ChargeWorkflow,
+  DoubleChargeWorkflow,
+  FencedExecutionBudget,
+} from "./fenced-effect.workflow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { FarParentWorkflow } from "./fence-children.workflow.js";
@@ -39,31 +51,43 @@ import {
 export const leaseSeen = {
   takeovers: [] as ExecutionLeaseTakeoverEvent[],
   handOvers: [] as StepHandedOverEvent[],
+  fencedEffects: [] as FencedEffectEvent[],
 };
 
 export function resetLeaseEvents(): void {
   leaseSeen.takeovers.length = 0;
   leaseSeen.handOvers.length = 0;
+  leaseSeen.fencedEffects.length = 0;
 }
 
 /** Keeps every takeover and hand-over event. */
 @Injectable()
-export class LeaseEventObserver implements OnExecutionLeaseTakeover, OnStepHandedOver {
+export class LeaseEventObserver
+  implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
+{
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
     leaseSeen.takeovers.push(event);
   }
   onStepHandedOver(event: StepHandedOverEvent): void {
     leaseSeen.handOvers.push(event);
   }
+  onFencedEffect(event: FencedEffectEvent): void {
+    leaseSeen.fencedEffects.push(event);
+  }
 }
 
 /** Throws at every lease event: a broken observer. */
 @Injectable()
-export class ThrowingLeaseObserver implements OnExecutionLeaseTakeover, OnStepHandedOver {
+export class ThrowingLeaseObserver
+  implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
+{
   onExecutionLeaseTakeover(): void {
     throw new Error("the lease observer is broken");
   }
   onStepHandedOver(): void {
+    throw new Error("the lease observer is broken");
+  }
+  onFencedEffect(): void {
     throw new Error("the lease observer is broken");
   }
 }
@@ -152,3 +176,26 @@ export class DownLeaseLogApplication {}
   budgets: TEST_BUDGETS,
 })
 export class KeptLeaseEventsApplication {}
+
+/** #501 PR 3 — the charge of fenced-effect.workflow.ts, its fenced effect told to the lease log. */
+@Application({
+  name: "fenced-effect-events-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ChargeWorkflow, DoubleChargeWorkflow],
+  observers: [RecoveryLog, LeaseEventObserver],
+  budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
+  providers: [InMemoryFencedEffectRepository],
+})
+export class FencedEffectEventsApplication {}
+
+@Application({
+  name: "throwing-fenced-effect-observer-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ChargeWorkflow, DoubleChargeWorkflow],
+  observers: [ThrowingLeaseObserver, RecoveryLog, LeaseEventObserver],
+  budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
+  providers: [InMemoryFencedEffectRepository, RecordingLogger],
+})
+export class ThrowingFencedEffectObserverApplication {}

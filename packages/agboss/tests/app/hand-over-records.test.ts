@@ -2,18 +2,21 @@
  * #501 PR 2 — the hand-over's record, unit by unit: `recordedHandOver` records once per error and
  * lease scope, at the first site with a frame and a lease that records (so the sites a hand-over is
  * rethrown through record nothing); `handOverEventOf` names why and with which tokens; the recording
- * never throws; a held lease's `HandOverReports` is settled only once its rows are written.
+ * never throws; a held lease's `LeaseEventReports` is settled only once its rows are written.
  */
 import { describe, expect, it } from "vitest";
 import { ApplicationStoppingError } from "../../src/app/application-stopping.js";
 import { recordedHandOver } from "../../src/app/handed-over.js";
 import {
+  fencedEffectEventOf,
   handOverEventOf,
+  recordFencedEffect,
   recordHandOver,
+  type FencedEffectReport,
   type HandOverReport,
 } from "../../src/app/lease-events.js";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { HandOverReports, type LeaseEventLog } from "../../src/app/execution-leases.js";
+import { LeaseEventReports, type LeaseEventLog } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
@@ -21,6 +24,7 @@ import type { StepHandedOverEvent } from "../../src/flow/observers/lease-events.
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   ExecutionLeaseEventKind,
+  FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
   InMemoryExecutionLeaseEventRepository,
@@ -263,11 +267,11 @@ const LEASE: ExecutionLease = {
 describe("#501: a held lease's hand-overs", () => {
   it("are written under the token held then; settled() waits for them", async () => {
     const { events, rows } = handOverLog();
-    const reports = new HandOverReports();
+    const reports = new LeaseEventReports();
     reports.held(LEASE);
     reports.held({ ...LEASE, leaseEpoch: 3 });
 
-    reports.record(events, reportOf(lost()), "default:execution-1");
+    reports.handOver(events, reportOf(lost()), "default:execution-1");
     await reports.settled();
 
     expect(rows.map((row) => row.token)).toEqual([3]);
@@ -275,12 +279,86 @@ describe("#501: a held lease's hand-overs", () => {
 
   it("nothing without a lease log, or before any lease is held", async () => {
     const { events, rows } = handOverLog();
-    const unheld = new HandOverReports();
-    const unlogged = new HandOverReports();
+    const unheld = new LeaseEventReports();
+    const unlogged = new LeaseEventReports();
     unlogged.held(LEASE);
 
-    unheld.record(events, reportOf(lost()), "default:execution-1");
-    unlogged.record(undefined, reportOf(lost()), "default:execution-1");
+    unheld.handOver(events, reportOf(lost()), "default:execution-1");
+    unlogged.handOver(undefined, reportOf(lost()), "default:execution-1");
+    await Promise.all([unheld.settled(), unlogged.settled()]);
+
+    expect(rows).toEqual([]);
+  });
+});
+
+/** A refused call of the effect `charge` at the test frame's step. */
+const refusedCharge = (): FencedEffectReport => ({
+  event: nodeEventOf(testFrame()),
+  name: "charge",
+  scopeKey: "default:execution-1",
+  token: 1,
+  outcome: FencedEffectEventOutcome.Refused,
+  observedToken: 2,
+});
+
+describe("#501: a fenced effect's call in the lease log", () => {
+  it("its event is the step's node event with the call, the instance, and only the tokens it has", () => {
+    const event = fencedEffectEventOf(
+      {
+        ...refusedCharge(),
+        outcome: FencedEffectEventOutcome.Ran,
+        observedToken: undefined,
+        writtenToken: 1,
+      },
+      "instance-1",
+    );
+
+    expect(event).toMatchObject({
+      name: "charge",
+      token: 1,
+      writtenToken: 1,
+      holderInstanceId: "instance-1",
+    });
+    expect(event).not.toHaveProperty("observedToken");
+    expect(Object.keys(event)).toContain("parentExecutionId");
+  });
+
+  it("a mask that fails: a warning, nothing written, nothing told, no throw", async () => {
+    const { events, rows, entries } = handOverLog({
+      mask: () => Promise.reject(new Error("the mask failed")),
+    });
+
+    await expect(
+      recordFencedEffect(events, refusedCharge(), "instance-1"),
+    ).resolves.toBeUndefined();
+
+    expect(rows).toEqual([]);
+    expect(entries.map((entry) => entry.code)).toEqual(["lease-event.failed"]);
+  });
+
+  it("a held lease writes its events in the order recorded: the refusal before its hand-over", async () => {
+    const { events, rows } = handOverLog();
+    const reports = new LeaseEventReports();
+    reports.held(LEASE);
+
+    reports.fencedEffect(events, refusedCharge());
+    reports.handOver(events, reportOf(lost()), "default:execution-1");
+    await reports.settled();
+
+    expect(rows.map((row) => row.kind)).toEqual([
+      ExecutionLeaseEventKind.FencedEffect,
+      ExecutionLeaseEventKind.HandedOver,
+    ]);
+  });
+
+  it("nothing before any lease is held, or without a lease log", async () => {
+    const { events, rows } = handOverLog();
+    const unheld = new LeaseEventReports();
+    const unlogged = new LeaseEventReports();
+    unlogged.held(LEASE);
+
+    unheld.fencedEffect(events, refusedCharge());
+    unlogged.fencedEffect(undefined, refusedCharge());
     await Promise.all([unheld.settled(), unlogged.settled()]);
 
     expect(rows).toEqual([]);

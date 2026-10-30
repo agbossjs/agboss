@@ -1,11 +1,14 @@
 import type { NodeEvent } from "../flow/observers/execution-event.js";
 import type {
   ExecutionLeaseTakeoverEvent,
+  FencedEffectEvent,
   StepHandedOverEvent,
 } from "../flow/observers/lease-events.js";
 import {
   ExecutionLeaseEventKind,
   HandOverReason,
+  type FencedEffectEventOutcome,
+  type FencedEffectRecord,
   type ExecutionLeaseEventRecord,
   type HandOverSite,
   type LeaseTakeoverRecord,
@@ -153,6 +156,75 @@ export async function recordHandOver(
     await events.observer.onStepHandedOver(shown);
   } catch (error) {
     const text = `the hand-over of execution ${event.executionId} could not be recorded: ${String(error)}`;
+    events.log.warn("lease-event.failed", text, {
+      executionId: event.executionId,
+      tenantId: event.tenantId,
+    });
+  }
+}
+
+/** What a fenced effect's wrapper saw of one call: the step's event, the call, how it went. */
+export interface FencedEffectReport {
+  readonly event: NodeEvent;
+  readonly name: string;
+  readonly scopeKey: string;
+  readonly token: number;
+  readonly outcome: FencedEffectEventOutcome;
+  readonly writtenToken?: number | undefined;
+  readonly observedToken?: number | undefined;
+}
+
+/** The event of a fenced effect's call: the step's own event, the call, the instance. */
+export const fencedEffectEventOf = (
+  report: FencedEffectReport,
+  holderInstanceId: string,
+): FencedEffectEvent => {
+  const { event, writtenToken, observedToken, ...call } = report;
+  return {
+    ...event,
+    ...call,
+    ...(writtenToken === undefined ? {} : { writtenToken }),
+    ...(observedToken === undefined ? {} : { observedToken }),
+    holderInstanceId,
+  };
+};
+
+/** The row of a fenced effect's call: never its result. */
+const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectRecord =>
+  definedOf({
+    kind: ExecutionLeaseEventKind.FencedEffect,
+    occurredAt: at.toISOString(),
+    tenantId: event.tenantId,
+    rootExecutionId: event.rootExecutionId,
+    executionId: event.executionId,
+    scopeKey: event.scopeKey,
+    token: event.token,
+    holderInstanceId: event.holderInstanceId,
+    name: event.name,
+    outcome: event.outcome,
+    step: {
+      nodeId: event.step.nodeId,
+      visitNumber: event.step.visitNumber,
+      idempotencyKey: event.step.idempotencyKey,
+    },
+    writtenToken: event.writtenToken,
+    observedToken: event.observedToken,
+  });
+
+/** A fenced effect's call: its row first, then `onFencedEffect`; never throws. */
+export async function recordFencedEffect(
+  events: LeaseEventLog,
+  report: FencedEffectReport,
+  holderInstanceId: string,
+): Promise<void> {
+  const event = fencedEffectEventOf(report, holderInstanceId);
+  try {
+    // the mask keeps an event's shape: every string masked
+    const shown = (await events.mask(event)) as FencedEffectEvent;
+    await saved(events, fencedEffectRowOf(shown, events.clock.now()));
+    await events.observer.onFencedEffect(shown);
+  } catch (error) {
+    const text = `the fenced effect "${report.name}" of execution ${event.executionId} could not be recorded: ${String(error)}`;
     events.log.warn("lease-event.failed", text, {
       executionId: event.executionId,
       tenantId: event.tenantId,
