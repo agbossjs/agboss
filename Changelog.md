@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what a payment gateway must support (#508)
+
+- **Added — [Payment gateways](Payment-gateways)**: the requirements G1–G6, what holds with and
+  without each, and what Stripe, Adyen, PayPal, Braintree, Checkout.com and Square document (each
+  cell with its source, read 2026-10-30).
+- **Added — `FakeOutboundGateway`** (`FULL_GATEWAY_CAPABILITIES`, `FakeGatewayFault`,
+  `FakeGatewayError`, `FakeGatewayErrorKind`) and **`outboundGatewayChecklist`**
+  (`GatewayRequirement`, `GatewayCheckStatus`, `GatewayChecklistReport`) in `@agboss/core/testing`.
+
 ## Unreleased — 0.1.1: business idempotency keys (#508)
 
 - **Added — `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`**

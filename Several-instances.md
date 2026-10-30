@@ -708,6 +708,8 @@ export class ChargeOrderAction {
   land before the new holder reads, or be refused), and one business key's row moved under two
   leases at once — no lease lock serializes those, only the row's own compare-and-set. An effect's
   name is checked again at every store method, for a key built by hand.
+- **What a gateway must do as well** — keys, lookups, retention, and the checklist that probes
+  them: [Payment gateways](Payment-gateways).
 
 ## Recovery
 

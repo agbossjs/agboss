@@ -1097,6 +1097,13 @@ it("the model reads a token; its answer gets the address back", async () => {
 });
 ```
 
+## A payment gateway's checklist — `outboundGatewayChecklist` (#508)
+
+`FakeOutboundGateway` is a payment gateway in memory, with each capability a call that leaves the
+system relies on switched on or off, and faults to inject; `outboundGatewayChecklist` probes G1–G5
+through an adapter — the fake's offline, a sandbox's by hand. The requirements, what each one
+gives and what the widely used gateways document: [Payment gateways](Payment-gateways).
+
 ## Store contract suites — `@agboss/core/testing/contracts` (#481)
 
 A store implementation outside the core runs the core's own contract suites against itself: one
