@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: business idempotency keys (#508)
+
+- **Added — `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`**
+  (`FencedEffectKeyOptions`) ([Several instances](Several-instances#business-idempotency-keys-508)):
+  one fenced effect or outbound call per tenant, name and business key, whatever step, execution or
+  thread; `FencedEffectKey.businessKey` / `fingerprint` / `origin`, `FencedEffectOrigin`,
+  `FencedEffectOutcome.replayedFrom`, `OutboundCallOutcome.replayedFrom`, `OutboundCallRecord.businessKey`
+  / `fingerprint` / `leaseExecutionId`.
+- **Added — errors** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`, `effect`,
+  `businessKeyHash`) and `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`); a business
+  key never appears in an error — `OutboundCallUnreconciledError.idempotencyKey` names it by hash.
+- **Added — `OutboundCallRepository.isLeaseHeld(tenantId, leaseExecutionId, token)`**: whether a
+  pending business-key call's owner lives on another instance.
+- **Added — `callTools(…)`** ([Testing](Testing)): one scripted move calling several tools at once.
+- **Changed — the contract suites** carry the business-key cases; the SQLite stores add
+  `fenced_effect_business_results` and the business-key index of `outbound_calls`.
+- **Changed — flow-patterns' credit desk** charges once per credit application
+  (`credit:<applicationId>`, `CreditOrderDto.applicationId`).
+
 ## Unreleased — 0.1.1: no CI install takes a release nobody reviewed (#523)
 
 - **Changed — CI installs are reproducible** in agbossjs/agboss, agbossjs/postgres and

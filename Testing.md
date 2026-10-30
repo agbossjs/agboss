@@ -232,6 +232,7 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | `replyWith(text, { cost?, truncated? })`             | the agent's model answers; `cost: usd(0.002)` is priced as output tokens       |
 | `replyWith(Dto, value, { cost? })`                  | an agent with `output` answers through its answer tool (`answer-<dto>`): a class of its output — a class outside its `oneOf` does not compile (#262); a list output with an array; `cost` is the execution's spend |
 | `callTool(Tool, args)`                            | the agent's model calls a tool — `args` typed by the tool's input DTO          |
+| `callTools(callTool(A, a), callTool(B, b), …)`    | one move calling several tools at once (#508): each call its own task — at once under `TestConcurrency.Real` |
 | `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.chooseOne(…)`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
 | `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
 | `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |

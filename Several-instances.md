@@ -563,6 +563,88 @@ attempt_owner = ?` with one row changed —, `markCompleted`, `markFailed`; the 
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
 
+## Business idempotency keys (#508)
+
+A fenced effect or a call that leaves the system is keyed by its step: a second step that charges the
+same order — the model calling the charge tool twice, a second request on another thread — is a
+charge of its own. A **business key** keys it by what it is about instead:
+
+<!-- snippet-context
+import {
+  Action,
+  ExecutionContext,
+  OutboundCalls,
+  OutboundCallReconciliation,
+  fencedEffectKeyOf,
+} from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
+declare const paymentClient: {
+  charge(request: { orderId: string; amountUsd: number }, idempotencyKey: string): Promise<{ chargeId: string }>;
+};
+export class ChargeDto {
+  @Text({ prompt: "the order" })
+  orderId!: string;
+  @Integer({ prompt: "the amount in dollars" })
+  amountUsd!: number;
+}
+-->
+
+```ts
+@Action({
+  name: "charge-order-action",
+  description: "Charges an order once, whoever asks",
+  input: { order: ChargeDto },
+  output: ChargeDto,
+  deps: [ExecutionContext, OutboundCalls],
+})
+export class ChargeOrderAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly outboundCalls: OutboundCalls,
+  ) {}
+
+  async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
+    const { orderId, amountUsd } = input.order.value;
+    const key = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
+    await this.outboundCalls.send(key, {
+      target: "payments",
+      operation: "charge",
+      request: { orderId, amountUsd }, // its fingerprint: another amount under order:42 is a conflict
+      send: (call) => paymentClient.charge(call.request, call.idempotencyKey),
+      reconcile: () => OutboundCallReconciliation.unknown({ reason: "no lookup" }),
+    });
+    return { orderId, amountUsd };
+  }
+}
+```
+
+- **One row per tenant, name and business key**, whatever step, execution or thread writes it.
+  Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
+  refused before any lookup — even where the business key already has a result.
+- **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`, 1–200
+  characters, no control characters — else `InvalidBusinessKeyError`
+  (`fenced-effect.invalid-business-key`), before anything runs. It is never sent to a model.
+- **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:
+  `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
+  the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is
+  SHA-256 over canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the request's.
+- **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  `effect`, `businessKeyHash` — a short hash, never the key), nothing run or sent. A concurrent
+  call of this instance under another fingerprint is refused the same way, never joined.
+- **A call in flight** under a business key belongs to its attempt's owner (`attemptOwner`): one this
+  instance is sending now is **joined** (`Joined`, its outcome or its error); one under a lease
+  another instance holds is `OutboundCallInFlightError`, nothing sent. Once its owner is gone — a
+  crash, an aborted step — the next caller reconciles it, and only the winner of the
+  compare-and-set sends.
+- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the same from
+  every step and execution — give it to the other system as its idempotency key. An error names it by
+  hash only (`OutboundCallUnreconciledError.idempotencyKey`: `business-key:<hash>:<name>`).
+- **Stores:** the in-memory default; SQLite keeps business results in
+  `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
+  `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the
+  business-key cases (two scopes run once, a fingerprint conflict, a stale token refused, two
+  instances racing write once, the lease check).
+
 ## Recovery
 
 An execution whose instance died mid-step is continued by another instance, automatically (#265
