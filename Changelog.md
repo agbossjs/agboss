@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a parent waiting for remote children keeps its tree (#516)
+
+- **Fixed — a parent waiting for `ChildPlacement.AnyInstance` children is no longer taken over**
+  ([Several instances](Several-instances#a-parent-waiting-for-remote-children-516)): the yield was a
+  release plus a mark in the holder's process, so another instance's recovery sweep took the
+  waiting root over and the caller of a successful `execute` got `ExecutionLeaseLostError` or
+  "child execution … is no longer queued". The yielded lease now stays the holder's in the store,
+  renewed; a dead holder's lease expires and the tree is recovered as before.
+- **Breaking — `ExecutionLeaseRepository.yield(lease)`** (`Promise<boolean>`: `false` when the
+  caller no longer holds it) and **`reclaim(lease, duration)`** (`Promise<ExecutionLease |
+  undefined>`: the holder's lease at `leaseEpoch + 1`, held again) are new abstract members. A
+  yielded lease is refused to every other `acquire` until it expires, `renew` keeps it, and once
+  expired it is taken over with `takenOverFrom`. Migration: a store of your own implements both —
+  `executionLeaseContract` (`@agboss/core/testing/contracts`) has the cases ("a yielded lease"); the
+  in-memory and SQLite stores implement them (SQLite adds a `yielded` column to an existing file).
+- **Changed —** a reclaim that finds the lease taken rejects with `ExecutionLeaseLostError` worded
+  "expired while it waited for remote children and another instance took it".
+
 ## Unreleased — 0.1.1: calls that leave the system on SQLite, told (#505 PR 2)
 
 - **Added — `SqliteOutboundCallRepository`** ([Several instances](Several-instances#calls-that-leave-the-system-505)):

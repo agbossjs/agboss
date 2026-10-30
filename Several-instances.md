@@ -222,6 +222,8 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   not a setting) and right before every checkpoint write;
 - releases it when its pass ends — the tree paused, finished or failed. A paused or finished tree
   holds no lease;
+- while a parent node waits for children on any instance, **yields** it — in the store, not by a
+  release (#516, [below](#a-parent-waiting-for-remote-children-516)): still its own, renewed on;
 - when a renewal answers `false` (the lease expired — the instance was frozen or cut off for longer
   than 30 seconds — and another instance took it, `leaseEpoch + 1`), stops: its work is aborted
   through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
@@ -328,8 +330,34 @@ moment before. A business error still takes its `.onError`.
 yields the root's lease only when every waiting caller waits **and no other step of the tree
 runs** — a sibling `ParentInstance` branch running a step keeps the lease (before #471 it ran and
 checkpointed with the lease released), and a step that starts while the lease is yielded takes it
-back first, under a new token. A step that cannot take it back (another instance holds it) is
-handed over.
+back first, under a new token. A step that cannot take it back (another instance took the lease
+over after it expired) is handed over.
+
+### A parent waiting for remote children (#516)
+
+A yielded lease is **not released**: it stays the holder's in `ExecutionLeaseRepository` and is
+renewed every 10 s like a held one. What every instance sees of a tree whose parent waits for its
+`AnyInstance` children:
+
+| Who | What they get |
+| --- | --- |
+| Another instance's recovery sweep | `acquire` is refused — the tree is live and owned; nothing is taken over, no `Takeover` row |
+| `app.resume` of a pause in the tree, on any instance | the decision is recorded, then the call waits for the lease; the holder takes the decision before the tree rests (the drain), and the call returns the tree's current output |
+| `app.cancel` on any instance | a cancel request; the holder reads it after its next renewal — renewals go on while it waits — and stops |
+| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `leaseEpoch + 1` (a `Reacquired` row of the [lease log](#the-lease-log-501)); `fence.token` rises |
+
+If the holder **dies** while it waits, its renewals stop and the lease expires 30 s later; the next
+sweep takes it over (`takenOverFrom` names the dead holder), re-enters the parent's node, finds
+its children's queue rows and waits for them — they go on where they run, each once — and the
+tree ends once. A holder that only froze (a GC pause, `SIGSTOP`) and wakes after that finds the
+lease taken: its `reclaim` fails and its call rejects with `ExecutionLeaseLostError` ("expired
+while it waited for remote children and another instance took it") — a hand-over, as for any
+lost lease.
+
+Before #516 the yield was a release plus a mark in the holder's process memory, so only that
+process knew the tree was live: another instance's sweep with a free step slot took the waiting
+root over, and the caller of an execution that succeeded got `ExecutionLeaseLostError` or "child
+execution … is no longer queued".
 
 ## The fenced effect (#500)
 
@@ -818,6 +846,12 @@ export class LeaseTableService {
   deleteIfHeld(_executionLease: ExecutionLease): Promise<void> {
     return Promise.resolve();
   }
+  markYieldedIfHeld(_executionLease: ExecutionLease): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  nextEpochIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<ExecutionLease | undefined> {
+    return Promise.resolve(undefined);
+  }
   selectOne(): Promise<void> {
     return Promise.resolve();
   }
@@ -848,6 +882,19 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   override release(executionLease: ExecutionLease): Promise<void> {
     return this.leaseTableService.deleteIfHeld(executionLease);
+  }
+
+  // #516: the holder waits for remote children — still its lease, refused to every other acquire
+  override yield(executionLease: ExecutionLease): Promise<boolean> {
+    return this.leaseTableService.markYieldedIfHeld(executionLease);
+  }
+
+  // #516: the holder's lease again, at leaseEpoch + 1 (undefined once another took it over)
+  override reclaim(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    return this.leaseTableService.nextEpochIfHeld(executionLease, lease);
   }
 
   override ping(): Promise<void> {
@@ -1109,7 +1156,8 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    thread, its parents as plain data, serialized with the checkpointer's `serde`) — and waits inside
    its step on that row: woken at once when the child ends in the same process, else reading the row
    every second on the `Clock`. While waiting, the parent yields its lease in
-   `ExecutionLeaseRepository` and re-acquires it before continuing (#333 PR 4, S9).
+   `ExecutionLeaseRepository` and reclaims it before continuing (#333 PR 4, S9) — yielded, not
+   released: other instances see the tree held ([#516](#a-parent-waiting-for-remote-children-516)).
 2. Every instance whose workflows launch such a child claims queued rows while it has a free step
    slot ([#332](#an-instances-cap-on-steps-332); no cap → always): at once when a child is queued in
    its own process, and at every sweep (30 s) for the ones queued elsewhere.
