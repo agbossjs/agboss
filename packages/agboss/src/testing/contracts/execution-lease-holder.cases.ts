@@ -58,6 +58,39 @@ export const LEASE_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
+    name: "a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at leaseEpoch + 1",
+    run: async ({ clock, first, second }: Instances): Promise<void> => {
+      const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
+      let endWait = (): void => undefined;
+      const waited = holder.yieldWhile(
+        () =>
+          new Promise<void>((resolve) => {
+            endWait = resolve;
+          }),
+      );
+      let isTaken = false;
+      const waiting = executionLeasesOf(second, clock)
+        .hold(ROOT_1)
+        .then((lease) => {
+          isTaken = true;
+          return lease;
+        });
+
+      for (let step = 0; step < 9; step += 1) await clock.advance(seconds(10));
+      const isYielded = holder.isYielded;
+      endWait();
+      await waited;
+
+      expect(isYielded).toBe(true);
+      expect(isTaken).toBe(false);
+      expect(holder.signal.aborted).toBe(false);
+      expect(holder.token).toBe(2);
+      await holder.release();
+      await (await waiting).release();
+      expect(isTaken).toBe(true);
+    },
+  },
+  {
     name: "a release wakes the waiting call at once, without the clock",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const holder = await executionLeasesOf(first, clock).hold(ROOT_1);

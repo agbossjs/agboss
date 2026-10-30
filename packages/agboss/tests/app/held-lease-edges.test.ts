@@ -1,6 +1,7 @@
 /**
  * #471 — the held lease at its edges: `confirmNow()` while yielded, a wait that ends in a hand-over
- * or in an ordinary failure, `release()` after the lease was lost, while yielded and twice, and a
+ * or in an ordinary failure, `release()` after the lease was lost, while yielded (#516: the yielded
+ * lease is still in the store, so the release gives it up) and twice, and a
  * step's leave called twice. Against the in-memory and the SQLite lease store, the lease timers on a
  * gate the test holds closed.
  */
@@ -17,7 +18,7 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { LeaseGate } from "../../src/testing/leases.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
-import { seconds } from "../../src/units/index.js";
+import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
 import { withTarget } from "../../src/testing/contracts/seam.js";
 
@@ -43,6 +44,32 @@ function countingReleases(store: ExecutionLeaseRepository): {
     },
   });
   return { store: counted, released };
+}
+
+/** The store with its renewals held at a gate the test opens (`hold`, then `letGo`). */
+function heldRenewals(store: ExecutionLeaseRepository): {
+  readonly store: ExecutionLeaseRepository;
+  readonly hold: () => void;
+  readonly letGo: () => void;
+} {
+  const gate = { passed: Promise.resolve(), open: (): void => undefined };
+  const held = Object.assign(Object.create(store) as ExecutionLeaseRepository, {
+    renew: async (lease: ExecutionLease, duration: Milliseconds): Promise<boolean> => {
+      await gate.passed;
+      return store.renew(lease, duration);
+    },
+  });
+  return {
+    store: held,
+    hold: () => {
+      gate.passed = new Promise((resolve) => {
+        gate.open = resolve;
+      });
+    },
+    letGo: () => {
+      gate.open();
+    },
+  };
 }
 
 async function heldOn(
@@ -100,7 +127,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
   );
 
   it(
-    "a wait that ends in a hand-over rises as it is; the lease is not taken back",
+    "a wait that ends in a hand-over rises as it is; the lease is not taken back, only given up at the release",
     withTarget(target, async ({ clock, first, second }) => {
       const lease = await heldOn(first, clock);
       const { wait, end } = heldWait();
@@ -113,7 +140,34 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
 
       await expect(waiting).rejects.toBe(handedOver);
       expect(lease.token).toBeUndefined();
+      expect(await acquireBy(second)).toBeUndefined();
+      await lease.release();
       expect((await acquireBy(second))?.leaseEpoch).toBe(2);
+    }),
+  );
+
+  it(
+    "#516: a renewal still in flight when the holder reclaims its yielded lease: the reclaim waits for it, and the lease is kept at the next token",
+    withTarget(target, async ({ clock, first, second }) => {
+      const renewals = heldRenewals(first);
+      const lease = await executionLeasesOf(renewals.store, clock).hold(TREE);
+      const { wait, end } = heldWait();
+      const waiting = lease.yieldWhile(wait);
+      await settled();
+      renewals.hold();
+      // the background renewal of token 1 starts, and waits in the store
+      await clock.advance(seconds(10));
+
+      end();
+      await settled();
+      const isYieldedWhileRenewing = lease.isYielded;
+      renewals.letGo();
+      await waiting;
+
+      expect(isYieldedWhileRenewing).toBe(true);
+      expect(lease.token).toBe(2);
+      expect(lease.signal.aborted).toBe(false);
+      expect(await acquireBy(second)).toBeUndefined();
       await lease.release();
     }),
   );
@@ -159,7 +213,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
   );
 
   it(
-    "release() while yielded and release() twice give the store nothing more",
+    "#516: a yield releases nothing; release() while yielded gives the lease up once, release() twice nothing more",
     withTarget(target, async ({ clock, first }) => {
       const { store, released } = countingReleases(first);
       const lease = await heldOn(store, clock);
@@ -167,12 +221,14 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       const waiting = lease.yieldWhile(wait);
       waiting.catch(() => undefined);
       await settled();
-      expect(released).toHaveLength(1);
+      expect(lease.isYielded).toBe(true);
+      expect(released).toHaveLength(0);
 
       await lease.release();
       await lease.release();
 
       expect(released).toHaveLength(1);
+      expect(lease.isYielded).toBe(false);
       end();
       await waiting;
     }),

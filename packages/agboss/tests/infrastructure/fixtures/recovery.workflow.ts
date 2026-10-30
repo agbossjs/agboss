@@ -232,6 +232,20 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
     if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
     return super.renew(executionLease, lease);
   }
+  override yield(executionLease: ExecutionLease): Promise<boolean> {
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+    return super.yield(executionLease);
+  }
+
+  override async reclaim(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    if (levers.dead.has(this.#instanceId)) return undefined;
+    const reclaimed = await super.reclaim(executionLease, lease);
+    if (reclaimed !== undefined) seen.leases.push(reclaimed);
+    return reclaimed;
+  }
 }
 
 /** The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. */

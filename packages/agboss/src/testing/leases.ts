@@ -106,6 +106,19 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     await this.gate.passed();
     return this.repository.release(executionLease);
   }
+
+  async yield(executionLease: ExecutionLease): Promise<boolean> {
+    await this.gate.passed();
+    return this.repository.yield(executionLease);
+  }
+
+  async reclaim(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    await this.gate.passed();
+    return this.repository.reclaim(executionLease, lease);
+  }
 }
 
 /** The clock the instance's lease timers sleep on: a sleep that ends while stalled waits for resume. */

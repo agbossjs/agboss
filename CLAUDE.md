@@ -606,7 +606,8 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
   (woken in-process, else every second on the `Clock`; the parent yields its lease in
-  `ExecutionLeaseRepository` while waiting and re-acquires it before continuing, #333 PR 4);
+  `ExecutionLeaseRepository` while waiting and reclaims it before continuing, #333 PR 4 — yielded,
+  not released: still its own there and renewed, so no other instance's sweep takes it over, #516);
   an instance with a free step slot (#332) claims it at once in-process, else at its sweep
   (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
   `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row;
@@ -1237,7 +1238,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
 - **Infrastructure (#261):** a framework contract with a built-in in-memory default, one per
   application — `CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
-  `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`),
+  `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`, `yield` /
+  `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1925,7 +1927,11 @@ export class PlanService {
   checkpoint write go on, at that moment the execution's `signal` aborts with
   `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call.
   While a parent node waits for `AnyInstance` children it yields the lease only when no other step
-  of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first).
+  of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first)
+  — in the store (#516, `yield` / `reclaim`): still its holder's, renewed on, so every instance sees
+  the waiting tree held, a dead holder's lease expires and normal recovery takes the tree over, and a
+  reclaim that finds it taken stops the holder (`ExecutionLeaseLostError`, "expired while it waited
+  for remote children").
   A take of an expired lease names its holder (`ExecutionLease.takenOverFrom`, #501, optional for an
   external store); a takeover — that, or any take of the recovery sweep, an undo's takeover, a remote
   child's reclaim or a re-acquire after a yield (`LeaseTakeoverReason`) — is a `Takeover` row of the

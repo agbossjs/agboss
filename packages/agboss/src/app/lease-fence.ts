@@ -11,8 +11,8 @@ export const RENEW_EVERY: Milliseconds = seconds(10);
 
 /**
  * How long the holder may trust its lease (#335 S1): until `confirmedUntil`, the `Clock` read
- * before the last acquire or renewal its store confirmed plus the lease's length. While the holder
- * yields the lease waiting for remote children (#333 PR 4), the fence waits until it is re-acquired.
+ * before the last acquire or renewal its store confirmed plus the lease's length — also while the
+ * holder yields the lease waiting for remote children (#516: the yielded lease is renewed on).
  */
 export class LeaseFence {
   #confirmedUntil: number;
@@ -26,17 +26,12 @@ export class LeaseFence {
     this.#confirmedUntil = askedAt + EXECUTION_LEASE;
   }
 
-  /** The time (ms) up to which the lease is valid here (`POSITIVE_INFINITY` while yielded). */
+  /** The time (ms) up to which the lease is valid here. */
   get confirmedUntil(): number {
     return this.#confirmedUntil;
   }
 
-  /** The lease was yielded while remote children run (#333 PR 4): it cannot expire until re-acquired. */
-  yield(): void {
-    this.#confirmedUntil = Number.POSITIVE_INFINITY;
-  }
-
-  /** The lease was re-acquired after a remote child wait (#333 PR 4), asked at `askedAt`. */
+  /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), asked at `askedAt`. */
   reacquired(askedAt: number): void {
     this.lost.signal.throwIfAborted();
     this.#confirmedUntil = askedAt + EXECUTION_LEASE;

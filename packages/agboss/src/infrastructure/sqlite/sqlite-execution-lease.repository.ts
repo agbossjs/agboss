@@ -18,7 +18,22 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
   lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-  PRIMARY KEY (tenant_id, root_execution_id));`;
+  yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));`;
+
+/** The column of a yielded lease (#516), added to a file an older version wrote. */
+const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT 0"] as const;
+
+/** The holder's own lease, as `renew`, `yield` and `reclaim` match it. */
+const HELD_BY = `tenant_id = ? AND root_execution_id = ? AND holder_instance_id = ? AND lease_epoch = ?
+  AND released = 0`;
+
+/** The key, holder and epoch of `lease`, in `HELD_BY`'s order. */
+const heldBy = (lease: ExecutionLease): readonly [string, string, string, number] => [
+  lease.tenantId,
+  lease.rootExecutionId,
+  lease.holderInstanceId,
+  lease.leaseEpoch,
+];
 
 const LeaseRow = z.object({
   holder_instance_id: z.string(),
@@ -31,8 +46,9 @@ const LeaseRow = z.object({
  * `ExecutionLeaseRepository` on the application's SQLite file (#265, S32): one row per tree with
  * its latest lease (a released one kept for its epoch). `acquire` reads and writes in one
  * `BEGIN IMMEDIATE` transaction, so of two instances on one file exactly one takes a free lease;
- * `renew` and `release` are one statement each, matching the holder and the epoch. Times are the
- * framework clock's milliseconds. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * `renew`, `release`, `yield` and `reclaim` (#516: `yielded`, the next epoch) are one statement each,
+ * matching the holder and the epoch. Times are the framework clock's milliseconds. Listed in
+ * `@Application({ providers })`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
@@ -43,6 +59,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   ) {
     super();
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
+    connection.addColumn(...YIELDED_COLUMN);
   }
 
   ping(): Promise<void> {
@@ -76,7 +93,11 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         ),
       };
       database
-        .prepare("INSERT OR REPLACE INTO execution_leases VALUES (?, ?, ?, ?, ?, 0)")
+        .prepare(
+          `INSERT OR REPLACE INTO execution_leases (tenant_id, root_execution_id,
+           holder_instance_id, lease_epoch, expires_at, released, yielded)
+           VALUES (?, ?, ?, ?, ?, 0, 0)`,
+        )
         .run(
           tenantId,
           rootExecutionId,
@@ -92,17 +113,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
     const expiresAt = this.clock.now().getTime() + lease;
     const { changes } = this.connection.database
-      .prepare(
-        `UPDATE execution_leases SET expires_at = ? WHERE tenant_id = ? AND root_execution_id = ?
-         AND holder_instance_id = ? AND lease_epoch = ? AND released = 0`,
-      )
-      .run(
-        expiresAt,
-        executionLease.tenantId,
-        executionLease.rootExecutionId,
-        executionLease.holderInstanceId,
-        executionLease.leaseEpoch,
-      );
+      .prepare(`UPDATE execution_leases SET expires_at = ? WHERE ${HELD_BY}`)
+      .run(expiresAt, ...heldBy(executionLease));
     return Promise.resolve(Number(changes) === 1);
   }
 
@@ -112,13 +124,38 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         `UPDATE execution_leases SET released = 1 WHERE tenant_id = ? AND root_execution_id = ?
          AND holder_instance_id = ? AND lease_epoch = ?`,
       )
-      .run(
-        executionLease.tenantId,
-        executionLease.rootExecutionId,
-        executionLease.holderInstanceId,
-        executionLease.leaseEpoch,
-      );
+      .run(...heldBy(executionLease));
     return Promise.resolve();
+  }
+
+  yield(executionLease: ExecutionLease): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(`UPDATE execution_leases SET yielded = 1 WHERE ${HELD_BY}`)
+      .run(...heldBy(executionLease));
+    return Promise.resolve(Number(changes) === 1);
+  }
+
+  reclaim(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    const expiresAt = this.clock.now().getTime() + lease;
+    const { changes } = this.connection.database
+      .prepare(
+        `UPDATE execution_leases SET lease_epoch = lease_epoch + 1, expires_at = ?, yielded = 0
+         WHERE ${HELD_BY}`,
+      )
+      .run(expiresAt, ...heldBy(executionLease));
+    if (Number(changes) !== 1) return Promise.resolve(undefined);
+    const { tenantId, rootExecutionId, holderInstanceId } = executionLease;
+    const leaseEpoch = executionLease.leaseEpoch + 1;
+    return Promise.resolve({
+      tenantId,
+      rootExecutionId,
+      holderInstanceId,
+      leaseEpoch,
+      expiresAt: new Date(expiresAt),
+    });
   }
 }
 

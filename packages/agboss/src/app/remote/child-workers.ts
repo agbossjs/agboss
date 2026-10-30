@@ -1,5 +1,4 @@
 import type { ExecutionLeases, HeldExecutionLease } from "../execution-leases.js";
-import { leaseReleases } from "../lease-releases.js";
 import type {
   ChildExecutionQueueRepository,
   QueuedChildExecution,
@@ -186,7 +185,8 @@ class Workers implements ChildWorkers {
   #canReclaim(key: string): boolean {
     if (this.#stopped.signal.aborted || this.#room() <= 0) return false;
     if (this.#running.has(key) || this.#reclaiming.has(key)) return false;
-    return !remoteChildSignals.isClaiming(key) && !leaseReleases.isYielded(key);
+    // a child that waits for its own remote children keeps its lease, yielded in the store (#516)
+    return !remoteChildSignals.isClaiming(key);
   }
 
   async #reclaim(row: QueuedChildExecution): Promise<void> {

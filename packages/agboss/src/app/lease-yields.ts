@@ -51,3 +51,17 @@ export class LeaseYields {
     return next;
   }
 }
+
+/**
+ * One renewal or reclaim of a held lease at a time (#516): a renewal reads the lease when its turn
+ * comes, so it never answers for a token a reclaim moved on meanwhile (which would read as lost).
+ */
+export class LeaseTurns {
+  #turns: Promise<unknown> = Promise.resolve();
+
+  run<T>(work: () => Promise<T>): Promise<T> {
+    const turn = this.#turns.then(work);
+    this.#turns = turn.catch((): undefined => undefined);
+    return turn;
+  }
+}
