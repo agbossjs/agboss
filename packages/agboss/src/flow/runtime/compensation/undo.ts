@@ -1,4 +1,5 @@
-import { handedOverOf, handedOverReason } from "../../../app/handed-over.js";
+import { handedOverOf, handedOverReason, recordedHandOver } from "../../../app/handed-over.js";
+import { HandOverSite } from "../../../infrastructure/execution-lease-event.repository.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { ExecutionObserverManager } from "../../../core/observer-manager.js";
 import type { Class } from "../../../components/injection.js";
@@ -147,7 +148,7 @@ async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorR
     // a fenced write (#471) is a hand-over, never a failed undo: the instance that holds the lease
     // runs it again
     const handedOver = handedOverOf(thrown, undefined);
-    if (handedOver !== undefined) throw handedOver;
+    if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Compensation);
     error = errorRecordOf(thrown);
   }
   const status = error === undefined ? CompensationStatus.Compensated : CompensationStatus.Failed;
@@ -178,7 +179,8 @@ export async function undone(entry: CompensationEntry, site: UndoSite): Promise<
       runInFrame(frame, () => ranUndo(site, entry)),
     );
     const handedOver = handedOverReason(site.execution.signal);
-    if (handedOver !== undefined) throw handedOver;
+    if (handedOver !== undefined)
+      throw recordedHandOver(handedOver, HandOverSite.Compensation, frame);
     const record: CompensationRecord = {
       compensated: entry.compensated,
       compensator: plainRecordOf(frame.step.component),

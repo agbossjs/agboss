@@ -1255,10 +1255,13 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
 [--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
   only — `records.tenant-required`, `records.not-kept`), `ExecutionLeaseEventRepository` (#501: the
   lease log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
-  `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord`, identities and
+  `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord` |
+  `StepHandedOverRecord` (the step's `nodeId`, `visitNumber`, `idempotencyKey`), identities and
   tokens only, masked like observer events; always written, whatever `executionRecordRetention` says,
   readable mid-run with `app.leaseEventsOf({ tenantId, rootExecutionId })`, removed by the recovery
-  sweep after `@Application({ leaseEventRetention })`, default `hours(24)`) — and the
+  sweep after `@Application({ leaseEventRetention })`, default `hours(24)`; a kept
+  `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents`, so `agboss records export` does)
+  — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
   `[di.infrastructure-in-workflow]` too). Listed **only** in
@@ -1443,7 +1446,11 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `tenantId`, `rootExecutionId`, `leaseExecutionId`, `scopeKey`, `token`, `holderInstanceId`,
   `previousHolderInstanceId?` / `previousToken?`, `checkpointId?`, `reason: LeaseTakeoverReason` —
   no workflow, like a rejection) once per takeover of a tree's lease, its row of the lease log written
-  first.
+  first; `onStepHandedOver` (#501, `StepHandedOverEvent`, a node event: `reason: HandOverReason` —
+  `LeaseLost` / `Fenced` / `ApplicationStopping` —, `site: HandOverSite` — `Step`, `Tool`,
+  `ToolInterceptor`, `Compensation`, `Branch`, `Child` —, `scopeKey`, `holderInstanceId`, `token`,
+  `observedToken?`) once per hand-over error and lease scope, at the innermost site that found it
+  (`recordedHandOver`, `src/app/handed-over.ts`), its row written before the lease is released.
 - **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
   line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
   in tests unless listed). At start, once, only what the decorators say: what started and the worst
@@ -1920,7 +1927,9 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   found anywhere in a cause chain or an `AggregateError` and a hand-over at every site — no
   `.onError`, no undo, no `onToolEnd`, nothing to the model, the record stays `running`, no
   `onExecutionError`; the moving call rejects with the fenced error itself (`fencedErrorOf` before
-  the signal's reason). Exactly-once only when the external system checks both atomically; a mark
+  the signal's reason) — and a `HandedOver` row of the lease log with `onStepHandedOver` (#501): a
+  zombie refused at a write leaves one, a zombie that never wrote again none. Exactly-once only when
+  the external system checks both atomically; a mark
   keyed by a shared aggregate fences parallel `AnyInstance` children wrongly. Frames with no lease
   (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) and an
   ancestor's `parent.fence` / `root.fence` throw `ExecutionContextUnavailableError`. Wiki →

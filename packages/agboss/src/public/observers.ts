@@ -10,4 +10,9 @@ export type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-export type { ExecutionLeaseTakeoverEvent } from "../flow/observers/lease-events.js";
+export type {
+  ExecutionLeaseTakeoverEvent,
+  OnExecutionLeaseTakeover,
+  OnStepHandedOver,
+  StepHandedOverEvent,
+} from "../flow/observers/lease-events.js";

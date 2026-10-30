@@ -1,6 +1,7 @@
 import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
-import { handedOverOf } from "../../app/handed-over.js";
+import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
+import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
 import { errorRecordOf } from "../../core/error-record.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
@@ -125,7 +126,7 @@ export function childFailureOf(
 ): ChildFailure {
   if (isGraphInterrupt(error)) throw error;
   const handedOver = handedOverOf(error, signal);
-  if (handedOver !== undefined) throw handedOver;
+  if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Child);
   const usage = [...spent, ...unrecordedSpendOf(error)];
   if (signal.aborted || error instanceof ExecutionCancelledError) {
     const cancelled =

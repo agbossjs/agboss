@@ -1,4 +1,9 @@
-import type { LeaseTakeoverReason } from "../../infrastructure/execution-lease-event.repository.js";
+import type {
+  HandOverReason,
+  HandOverSite,
+  LeaseTakeoverReason,
+} from "../../infrastructure/execution-lease-event.repository.js";
+import type { NodeEvent } from "./execution-event.js";
 
 /**
  * An instance took a tree's lease over (#501, `onExecutionLeaseTakeover`): who took it at which
@@ -25,4 +30,45 @@ export interface ExecutionLeaseTakeoverEvent {
   /** The tree's head checkpoint when the lease was taken, where the take reads it. */
   readonly checkpointId?: string;
   readonly reason: LeaseTakeoverReason;
+}
+
+/**
+ * A step was handed over (#501, `onStepHandedOver`): it stopped without failing because its lease
+ * was lost or fenced, or the instance stopped — no `.onError`, no undo, its record stays `running`,
+ * another instance goes on. A node event: `step` is the step that stopped (its `nodeId`,
+ * `visitNumber`, `idempotencyKey`); once per error, at the innermost part of the step that found it
+ * (`site`). Identities and tokens only; the same facts are a `HandedOver` row of the lease log,
+ * written first.
+ */
+export interface StepHandedOverEvent extends NodeEvent {
+  readonly reason: HandOverReason;
+  readonly site: HandOverSite;
+  /** The lease scope the step ran under — a fenced write's own scope when it was refused. */
+  readonly scopeKey: string;
+  /** The instance whose step stopped. */
+  readonly holderInstanceId: string;
+  /** The token the step held — a refused write's own token. */
+  readonly token: number;
+  /** The newer token the external system saw, when it said (`ExecutionFencedError.observedToken`). */
+  readonly observedToken?: number;
+}
+
+/**
+ * An instance took a tree's lease over (#501): the recovery sweep, an undo's takeover, a remote
+ * child's reclaim or a re-acquire after a yield — and any take whose store names the holder whose
+ * lease expired. Its `Takeover` row of the lease log is written first; a throw is only a warning.
+ */
+export interface OnExecutionLeaseTakeover {
+  /** Called once per takeover, after its row is written, before the tree moves on. */
+  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> | void;
+}
+
+/**
+ * A step stopped without failing (#501): its lease was lost or an external system fenced its write
+ * (`ExecutionFencedError`), or the instance stopped. Once per error, its `HandedOver` row of the
+ * lease log written first; a throw is only a warning and never reaches the hand-over.
+ */
+export interface OnStepHandedOver {
+  /** Called once per hand-over, before the moving call rejects. */
+  onStepHandedOver(event: StepHandedOverEvent): Promise<void> | void;
 }
