@@ -6,6 +6,7 @@ import {
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqliteFencedEffectRepository,
+  SqliteOutboundCallRepository,
   SqliteConnection,
   SqlitePausedExecutionRepository,
 } from "@agboss/core";
@@ -100,6 +101,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
     SqliteExecutionLeaseRepository,
     SqliteExecutionTreeRepository,
     SqliteFencedEffectRepository, // the credit desk's charge, once per step (#500)
+    SqliteOutboundCallRepository, // the travel desk's flight booking, an intent before the call (#505)
     SqliteConnection, // the file's one connection, for the project's own repositories too
     PaymentLedgerRepository, // the credit desk's payment ledger, on the same SQLite file
   ],

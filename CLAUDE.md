@@ -1275,7 +1275,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
   `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
-  `SqliteChildExecutionQueueRepository`, `SqliteExecutionLeaseEventRepository`) —
+  `SqliteChildExecutionQueueRepository`, `SqliteExecutionLeaseEventRepository`,
+  `SqliteFencedEffectRepository`, `SqliteOutboundCallRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; flow-patterns' applications list seven of them. A project subclasses
@@ -1968,6 +1969,29 @@ status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one tra
   after `fencedEffects.retention` (default `hours(24)`, above the lease: `[application.fenced-effects-invalid]`).
   Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own.
+- **Calls that leave the system (#505):** `OutboundCalls` (a core service, `deps: [ExecutionContext,
+OutboundCalls]`) — `send(fencedEffectKeyOf(executionContext, name), { target, operation, request,
+send, reconcile })` records an intent before the call and settles it after, over the infrastructure
+  contract `OutboundCallRepository` (`InMemoryOutboundCallRepository`; `SqliteOutboundCallRepository`
+  listed with `SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]`; every
+  read and write of an intent fenced like a fenced effect — a zombie can neither record nor send):
+  none → recorded `Pending`, `fence.confirmNow()`, `send(call)` with `call.idempotencyKey` (the step's
+  key and the name) → `Completed` (`Sent`); `Completed` → its stored result (`Replayed`); `Pending` →
+  `reconcile(lookup)` → `OutboundCallReconciliation.completed(result)` (`Reconciled`) / `.notSent()`
+  (sent once more, the same key, attempt + 1) / `.unknown({ reason })` →
+  `OutboundCallUnreconciledError` (`outbound-call.unreconciled`, a `StepFailedError`, the intent kept
+  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Masked **when
+  written** by the calling frame's mask (the application's and that workflow's PII policies; a
+  child's own): the request, the result and a failure's text — every read shows what is stored; `send`
+  and the step get real values, a replay the masked result, `reconcile` the stored request
+  (`lookup.storedRequest`) and the key to look the call up by; no mask where policies exist →
+  `OutboundCallUnmaskedError`. `@Application({ outboundCalls: { maxPayloadSize, retention } })`
+  (64 KB, `hours(168)`; `OutboundCallPayloadTooLargeError`; ended intents removed by the sweep,
+  pending ones never). Read by `app.outboundCallsOf({ tenantId, rootExecutionId })` /
+  `app.pendingOutboundCalls({ tenantId })`, `ExecutionHistoryRecord.outboundCalls`, each move an
+  `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
+  `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`; never a payload);
+  `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose
