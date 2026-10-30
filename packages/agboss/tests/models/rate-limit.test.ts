@@ -2,8 +2,10 @@
  * #266 AC3, AC4, AC7: `rateLimitPolicy` is one limit per provider, shared by every execution,
  * tenant and application instance through `RateLimitRepository`; a call without room waits — its
  * signal ends the wait, its timeout starts only with the room; without a policy there is no limit.
+ * #509: the execution path is loaded first (`warmUp`) — on a cold worker the first execution's lazy
+ * imports took real time while `advanceUntil` spent its steps.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import {
@@ -21,11 +23,13 @@ import { LimitedApplication, LimitedModelProvider } from "./fixtures/limited.wor
 import { instanceCalls, KEYS } from "./gateway.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ModelProviderDirectory } from "../../src/models/index.js";
-import { advanceUntil, instancesOf, slowProvider } from "./slow-provider.js";
+import { advanceUntil, instancesOf, slowProvider, warmUp } from "./slow-provider.js";
 import { completion } from "./stub.js";
 
 const URL = "http://limited.test/v1/chat/completions";
 const LIMITED = { models: ["limited/model"], replies: [completion("done")] };
+
+beforeAll(() => warmUp(LimitedApplication, ChatStart, LIMITED.models));
 
 /** A provider client of one instance under `rateLimitPolicy` (none = no limit). */
 function clientOf(

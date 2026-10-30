@@ -219,6 +219,14 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   `it("returns a fallback answer when the model output is empty")`.
 - Arrange / Act / Assert, one behaviour per test, no logic in tests.
 - Required per ticket: happy path, edge cases from the spec, regression for touched behaviour.
+- **A suspected flake is probed, never re-run away (#509):**
+  `node scripts/flaky-probe.mjs <test file> 50` runs the file 50 times, each cold (its own vitest
+  process, `--no-cache`), and prints each run's time and `flaky-probe: N/50 passed`; `.github/workflows/flaky-probe.yml` runs the same
+  on a CI matrix (`gh workflow run flaky-probe.yml -f file=<test file> -f runs=50`). Fix the cause
+  the timings show, not the timeout. A cold first execution loads modules lazily in real time: a
+  test that moves the `VirtualClock` in a bounded loop while it runs spends its steps before the
+  work reaches the clock — warm the path first in the file's `beforeAll` (one execution to its
+  finish), and make the loop fail by name when the work never settles, not hang.
 
 ## Self-review checklist (before PR)
 

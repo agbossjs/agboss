@@ -1,0 +1,45 @@
+name: Flaky probe
+
+# #509: one test file run N times, each cold (its own vitest process, --no-cache), on a matrix of
+# runners — `gh workflow run flaky-probe.yml -f file=<test file> -f runs=50` for a suspected flake
+# (QUALITY.md → Tests). A pull request that changes the probe runs it on its default file.
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: The test file, from the repository root
+        required: true
+        default: packages/agboss/tests/models/rate-limit.test.ts
+      runs:
+        description: How many cold runs
+        required: true
+        default: "50"
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/flaky-probe.mjs
+      - .github/workflows/flaky-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Probe ${{ inputs.file || 'packages/agboss/tests/models/rate-limit.test.ts' }}
+        env:
+          FILE: ${{ inputs.file || 'packages/agboss/tests/models/rate-limit.test.ts' }}
+          RUNS: ${{ inputs.runs || '50' }}
+        run: node scripts/flaky-probe.mjs "$FILE" "$RUNS"
