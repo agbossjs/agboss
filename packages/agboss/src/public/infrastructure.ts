@@ -42,6 +42,7 @@ export {
   type FencedEffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
+  type JsonPrimitive,
   type JsonResult,
 } from "../infrastructure/fenced-effect.repository.js";
 export {
@@ -52,3 +53,31 @@ export {
   FencedEffectSettings,
   type FencedEffectsOptions,
 } from "../infrastructure/fenced-effect-settings.js";
+// every type an infrastructure contract's members name (#511 AC4, tests/public-api/contract-types):
+// a store outside the core implements the contract with these, never derives them from the class
+export type {
+  ConfigSnapshot,
+  NewSummary,
+  NewTern,
+  Summary,
+  Tern,
+  TernOutcome,
+  TernStatus,
+  TernStep,
+  VersionScore,
+} from "../terns/index.js";
+export type {
+  CostCategory,
+  CostLine,
+  CostReport,
+  CostSource,
+  TokenUsage,
+} from "../finops/usage.js";
+export type { CompensationEntry, CompensationEntryStatus } from "../flow/compensation.js";
+export type { ScopeRecords } from "../flow/runtime/records.js";
+export type { WaitingPause } from "../pause/types.js";
+export type { Compacted } from "../run/compaction.js";
+export type { ExecutionData } from "../run/types.js";
+export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
+export type { Brand } from "../types/brand.js";
+export type { Milliseconds, Usd } from "../units/index.js";

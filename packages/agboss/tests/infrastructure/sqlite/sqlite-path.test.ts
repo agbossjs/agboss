@@ -75,7 +75,8 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
     expect(violations).toEqual(
       ALL_SQLITE.map(
         (implementation) =>
-          `[environment.missing-field] ${implementation.name} needs sqlitePath: string in EmptyEnvironment`,
+          // #511: the field is SqliteConnection's, read through each implementation's deps
+          `[environment.missing-field] ${implementation.name} needs sqlitePath: string in EmptyEnvironment (read by SqliteConnection)`,
       ),
     );
     expect(await violationsOf(InMemoryApplication)).toEqual([]);

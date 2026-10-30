@@ -12,7 +12,7 @@ const thread = (threadId: string): RunnableConfig => ({
   configurable: { thread_id: threadId, checkpoint_ns: "" },
 });
 
-/** A checkpoint with an id that sorts by time, and one channel value. */
+/** A checkpoint with an id that sorts by time, and one channel value at version `step`. */
 const checkpointOf = (id: string, step: number): ReturnType<typeof emptyCheckpoint> => ({
   ...emptyCheckpoint(),
   id,
@@ -20,19 +20,23 @@ const checkpointOf = (id: string, step: number): ReturnType<typeof emptyCheckpoi
   channel_versions: { messages: step },
 });
 
-/** Two checkpoints of `threadId`, the second a child of the first; the second's config. */
+/**
+ * Two checkpoints of `threadId`, the second a child of the first; the second's config. Each `put`
+ * passes the versions of the channels it changed, as LangGraph does (#511): a saver that writes a
+ * channel's value only for the versions it is given (LangGraph's `PostgresSaver`) passes as it is.
+ */
 async function twoSteps(saver: BaseCheckpointSaver, threadId: string): Promise<RunnableConfig> {
   const first = await saver.put(
     thread(threadId),
     checkpointOf("checkpoint-1", 1),
     { source: "input", step: 1, parents: {} },
-    {},
+    { messages: 1 },
   );
   return saver.put(
     first,
     checkpointOf("checkpoint-2", 2),
     { source: "loop", step: 2, parents: {} },
-    {},
+    { messages: 2 },
   );
 }
 

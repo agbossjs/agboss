@@ -6,7 +6,7 @@ import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { OnDestroy } from "../../components/container/lifecycle.js";
-import { EnvironmentFieldType, requireEnvironmentFields } from "../../environments/contract.js";
+import { EnvironmentField } from "../../environments/contract.js";
 
 /**
  * The SQLite file of an application instance (#265 S32): one `DatabaseSync` (`node:sqlite`, loaded
@@ -65,7 +65,10 @@ export function inImmediateTransaction<TResult>(
  * SQLite stores — and the DI token a subclass of a SQLite implementation names in its `deps`
  * (`@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })`, #265 S70).
  */
-@Injectable({ deps: [ApplicationContext] })
+@Injectable({
+  deps: [ApplicationContext],
+  environmentFields: { sqlitePath: EnvironmentField.Text },
+})
 export class SqliteConnection implements OnDestroy {
   /** The file (`sqlitePath`); `:memory:` keeps the database in this connection only. */
   readonly path: string;
@@ -142,15 +145,12 @@ export class SqliteConnection implements OnDestroy {
 const sqliteImplementations = new WeakSet<Class>();
 
 /**
- * Marks a framework class as a SQLite implementation (internal): `[environment.missing-field]` when
- * the application lists it and its contract lacks `sqlitePath`, and never reused by a later app
- * of a test (its rows are in the file, its connection is its instance's).
+ * Marks a framework class as a SQLite implementation (internal): never reused by a later app of a
+ * test (its rows are in the file, its connection is its instance's). Its `sqlitePath` is
+ * `SqliteConnection`'s declared field (#511), checked through the class's `deps`.
  */
 export function sqliteImplementation(implementation: Class): void {
   sqliteImplementations.add(implementation);
-  requireEnvironmentFields(implementation, [
-    { field: "sqlitePath", type: EnvironmentFieldType.Text },
-  ]);
 }
 
 /** Whether an instance is of a SQLite implementation or a subclass of one (it keeps nothing outside its file). */

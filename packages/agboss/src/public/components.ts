@@ -16,6 +16,7 @@ export {
   type GuardrailComputedOptions,
   type GuardrailRefusal,
   type GuardrailTextOptions,
+  type InjectableOptions,
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
@@ -172,7 +173,9 @@ export {
   Secret,
   EnvironmentError,
   EnvironmentErrorCode,
+  EnvironmentField,
   type Environment,
+  type EnvironmentFields,
   type EnvironmentValueOptions,
   type EnvironmentValueReader,
   type EnvironmentVariableReader,

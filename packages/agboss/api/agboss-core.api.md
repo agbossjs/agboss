@@ -293,10 +293,10 @@ export enum ImageDetail {
     Low = "low"
 }
 
+// Warning: (ae-forgotten-export) The symbol "InjectableOptions" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: {
-    readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
 
 // @public
 export class InjectionToken<T> {

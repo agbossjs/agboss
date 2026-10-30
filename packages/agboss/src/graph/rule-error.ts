@@ -125,6 +125,7 @@ export type RuleCode =
   // environments and defaults (#261 PR 4), reported at the application's assembly
   | "environment.contract-value"
   | "environment.missing-field"
+  | "environment.conflicting-field"
   // guardrails (#120 PR 2), reported at each workflow's assembly
   | "guardrail.no-model"
   | "guardrail.not-a-guardrail"

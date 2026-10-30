@@ -18,7 +18,7 @@ import type { FencedEffectSettings } from "./fenced-effect-settings.js";
  */
 
 /** The values JSON keeps as they are. */
-type JsonPrimitive = string | number | boolean | null;
+export type JsonPrimitive = string | number | boolean | null;
 
 /**
  * `T` as a fenced effect stores it — `JSON.stringify`, then `JSON.parse` on a replay: text,
