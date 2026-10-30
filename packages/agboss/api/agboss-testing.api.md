@@ -282,6 +282,162 @@ export interface FailureTurn {
 export const failWith: (failure: ModelFailure) => FailureTurn;
 
 // @public
+export interface FakeGatewayCapabilities {
+    readonly conflictOnMismatch: boolean;
+    readonly firstResponseOnRepeat: boolean;
+    readonly idempotencyKeys: boolean;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly keyRetention: Milliseconds;
+    readonly lookupByKey: boolean;
+}
+
+// @public
+export interface FakeGatewayCharge {
+    // (undocumented)
+    readonly amount: number;
+    // (undocumented)
+    readonly idempotencyKey: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class FakeGatewayError extends AGBossError {
+    constructor(kind: FakeGatewayErrorKind, message: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly kind: FakeGatewayErrorKind;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export enum FakeGatewayErrorKind {
+    Conflict = "conflict",
+    NoLookup = "no-lookup",
+    Timeout = "timeout",
+    Unavailable = "unavailable"
+}
+
+// @public
+export enum FakeGatewayFault {
+    AnswerThenDrop = "answer-then-drop",
+    FailBeforeProcessing = "fail-before-processing",
+    Slow = "slow"
+}
+
+// @public
+export interface FakeGatewayFaultOptions {
+    // (undocumented)
+    readonly delay?: Milliseconds;
+    // (undocumented)
+    readonly times?: number;
+}
+
+// @public
+export interface FakeGatewayPayment {
+    // (undocumented)
+    readonly amount: number;
+    // (undocumented)
+    readonly firstReceipt: FakeGatewayReceipt;
+    // (undocumented)
+    readonly idempotencyKey: string;
+    readonly madeAt: number;
+    // (undocumented)
+    readonly paymentId: string;
+}
+
+// @public
+export interface FakeGatewayReceipt {
+    // (undocumented)
+    readonly amount: number;
+    readonly answer: number;
+    // (undocumented)
+    readonly paymentId: string;
+}
+
+// @public (undocumented)
+export class FakeOutboundGateway {
+    constructor(options: FakeOutboundGatewayOptions);
+    // (undocumented)
+    readonly capabilities: FakeGatewayCapabilities;
+    charge(request: FakeGatewayCharge): Promise<FakeGatewayReceipt>;
+    injectFault(fault: FakeGatewayFault, options?: FakeGatewayFaultOptions): void;
+    lookup(idempotencyKey: string): Promise<FakeGatewayReceipt | undefined>;
+    get payments(): readonly FakeGatewayPayment[];
+}
+
+// @public
+export interface FakeOutboundGatewayOptions {
+    // (undocumented)
+    readonly capabilities?: Partial<FakeGatewayCapabilities>;
+    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly clock: Clock;
+}
+
+// @public
+export const FULL_GATEWAY_CAPABILITIES: FakeGatewayCapabilities;
+
+// @public
+export interface GatewayChecklistClock {
+    // (undocumented)
+    advance(delay: Milliseconds): Promise<unknown>;
+}
+
+// @public
+export interface GatewayChecklistReport {
+    // (undocumented)
+    readonly isPassed: boolean;
+    // (undocumented)
+    readonly results: readonly GatewayCheckResult[];
+}
+
+// @public
+export interface GatewayCheckResult {
+    // (undocumented)
+    readonly evidence: string;
+    // (undocumented)
+    readonly requirement: GatewayRequirement;
+    // (undocumented)
+    readonly status: GatewayCheckStatus;
+}
+
+// @public (undocumented)
+export enum GatewayCheckStatus {
+    // (undocumented)
+    Failed = "failed",
+    // (undocumented)
+    Passed = "passed",
+    Skipped = "skipped"
+}
+
+// @public
+export interface GatewayProbeCharge {
+    // (undocumented)
+    readonly amount: number;
+    // (undocumented)
+    readonly idempotencyKey: string;
+}
+
+// @public
+export interface GatewayProbeReceipt {
+    // (undocumented)
+    readonly paymentId: string;
+}
+
+// @public
+export enum GatewayRequirement {
+    ConflictOnMismatch = "G5",
+    FirstResponseOnRepeat = "G4",
+    IdempotencyKeys = "G1",
+    KeyRetention = "G3",
+    LookupByKey = "G2"
+}
+
+// @public
 export interface GuardrailCallOptions extends UnitCallOptions {
     readonly element?: string;
 }
@@ -433,6 +589,18 @@ export interface OrderedStep {
     readonly input?: RecordedInput;
     // (undocumented)
     readonly node: Class;
+}
+
+// @public
+export function outboundGatewayChecklist(options: OutboundGatewayChecklistOptions): Promise<GatewayChecklistReport>;
+
+// @public
+export interface OutboundGatewayChecklistOptions {
+    readonly clock?: GatewayChecklistClock;
+    readonly keyPrefix?: string;
+    readonly lookup?: (idempotencyKey: string) => Promise<GatewayProbeReceipt | undefined>;
+    readonly requiredRetention?: Milliseconds;
+    readonly send: (charge: GatewayProbeCharge) => Promise<GatewayProbeReceipt>;
 }
 
 // @public
@@ -672,7 +840,6 @@ export function testExecutionContext<TExecution extends ExecutionContext = Execu
 
 // @public
 export interface TestExecutionContextOptions {
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     readonly clock?: Clock;
     // (undocumented)
     readonly executionId?: string;
@@ -1074,6 +1241,35 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:133:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/execution-context.ts:134:3 - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts:152:3 - (ae-undocumented) Missing documentation for "application".
+// src/testing/gateway/fake-outbound-gateway.ts:47:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-outbound-gateway.ts:48:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-outbound-gateway.ts:55:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-outbound-gateway.ts:56:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-outbound-gateway.ts:61:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-outbound-gateway.ts:62:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-outbound-gateway.ts:63:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-outbound-gateway.ts:66:3 - (ae-undocumented) Missing documentation for "firstReceipt".
+// src/testing/gateway/fake-outbound-gateway.ts:71:3 - (ae-undocumented) Missing documentation for "times".
+// src/testing/gateway/fake-outbound-gateway.ts:72:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/gateway/fake-outbound-gateway.ts:77:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/gateway/fake-outbound-gateway.ts:78:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/fake-outbound-gateway.ts:95:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/gateway/fake-outbound-gateway.ts:96:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/gateway/fake-outbound-gateway.ts:99:5 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/gateway/fake-outbound-gateway.ts:112:1 - (ae-undocumented) Missing documentation for "FakeOutboundGateway".
+// src/testing/gateway/fake-outbound-gateway.ts:113:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/outbound-gateway-checklist.ts:25:1 - (ae-undocumented) Missing documentation for "GatewayCheckStatus".
+// src/testing/gateway/outbound-gateway-checklist.ts:26:3 - (ae-undocumented) Missing documentation for "Passed".
+// src/testing/gateway/outbound-gateway-checklist.ts:27:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/testing/gateway/outbound-gateway-checklist.ts:34:3 - (ae-undocumented) Missing documentation for "requirement".
+// src/testing/gateway/outbound-gateway-checklist.ts:35:3 - (ae-undocumented) Missing documentation for "status".
+// src/testing/gateway/outbound-gateway-checklist.ts:36:3 - (ae-undocumented) Missing documentation for "evidence".
+// src/testing/gateway/outbound-gateway-checklist.ts:41:3 - (ae-undocumented) Missing documentation for "results".
+// src/testing/gateway/outbound-gateway-checklist.ts:42:3 - (ae-undocumented) Missing documentation for "isPassed".
+// src/testing/gateway/outbound-gateway-checklist.ts:47:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/outbound-gateway-checklist.ts:48:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/outbound-gateway-checklist.ts:53:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/outbound-gateway-checklist.ts:58:3 - (ae-undocumented) Missing documentation for "advance".
 // src/testing/invalid-turns.ts:61:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
