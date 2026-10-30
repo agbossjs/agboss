@@ -10,7 +10,8 @@ export type TestFailureCode =
   | "vcr.stale-cassette"
   | "test.no-matching-script"
   | "test.unused-script"
-  | "test.unreachable-step";
+  | "test.unreachable-step"
+  | "test.close-timeout";
 
 /** A failure the toolkit raises for a test: it carries a stable code. */
 export class TestFailure extends Error {
@@ -80,6 +81,24 @@ export class StaleCassetteError extends TestFailure {
     this.file = file;
     this.component = component;
     this.changes = changes;
+  }
+}
+
+/**
+ * A test's app did not close within its bound of real time (#509): an execution still running — a
+ * frozen step, a stalled lease, a wait on the `VirtualClock` nobody advances — would keep the
+ * test's teardown waiting forever, and vitest bounds no fixture's teardown.
+ */
+export class AppCloseTimeoutError extends TestFailure {
+  override name = "AppCloseTimeoutError";
+
+  constructor(instance: number, timeout: number) {
+    super(
+      "test.close-timeout",
+      `instance ${String(instance)} of the test's application did not close within ${String(timeout)} ms ` +
+        "of real time — an execution still runs (a frozen step, a stalled lease, a wait on the " +
+        "VirtualClock nobody advances); the test's own failure, if any, is the cause",
+    );
   }
 }
 

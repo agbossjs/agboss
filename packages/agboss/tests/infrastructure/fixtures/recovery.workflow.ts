@@ -1,3 +1,4 @@
+import { until } from "../../helpers/until.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -91,8 +92,11 @@ export const kill = (instanceId: string): void => {
 
 /** Until the observers saw `count` ends (a recovery runs in the background of its instance). */
 export async function ends(count: number): Promise<readonly EndSeen[]> {
-  for (let tick = 0; tick < 2000 && seen.ends.length < count; tick += 1) {
-    await new Promise((resolve) => setImmediate(resolve));
+  // in real time, not in turns (#509); short of `count`, the test's own expectation names it
+  try {
+    await until(() => seen.ends.length >= count, `${String(count)} ends seen`);
+  } catch {
+    // fewer ends than asked for: the caller's expectation reports it
   }
   return seen.ends;
 }

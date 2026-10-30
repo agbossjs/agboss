@@ -33,6 +33,10 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Fixed
 
+- **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
+  10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
+  `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,
+  `@agboss/core/testing`) instead of hanging the run: vitest bounds no fixture's teardown.
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
   by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
   `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the

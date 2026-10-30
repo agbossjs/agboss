@@ -1,3 +1,4 @@
+import { until } from "../../helpers/until.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -65,16 +66,20 @@ export function resetFencedEffect(): void {
   gates.frozen.length = 0;
 }
 
-/** Lets every frozen run go, in the order they froze. */
+/**
+ * Lets every frozen run go, in the order they froze, and disarms the levers (#509): a run that
+ * reaches its gate later — after a test failed while it was still on its way — goes through
+ * instead of freezing with no one to let it go, which kept the test's apps from closing.
+ */
 export function letAllGo(): void {
+  gates.before = 0;
+  gates.after = 0;
   for (const letGo of gates.frozen.splice(0)) letGo();
 }
 
-/** Until `count` runs are frozen (each in the background of its instance). */
+/** Until `count` runs are frozen (each in the background of its instance), in real time (#509). */
 export async function frozenRuns(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && gates.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (gates.frozen.length < count) throw new Error(`${String(count)} runs never froze`);
+  await until(() => gates.frozen.length >= count, `${String(count)} runs froze`);
 }
 
 /** Waits at a gate when the lever says so. */
