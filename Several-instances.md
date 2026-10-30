@@ -629,7 +629,10 @@ export class ChargeOrderAction {
   the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is
   SHA-256 over canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the request's.
 - **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
-  `effect`, `businessKeyHash` — a short hash, never the key), nothing run or sent. A concurrent
+  `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of the key's
+  HMAC-SHA256 under the execution's PII key — its own (#334), else the application's
+  `pseudonymKey` — never a plain hash, which `order:42` would give away; a key made outside an
+  execution has none, and the error then shows none. A concurrent
   call of this instance under another fingerprint is refused the same way, never joined.
 - **A call in flight** under a business key belongs to its attempt's owner (`attemptOwner`): one this
   instance is sending now is **joined** (`Joined`, its outcome or its error); one under a lease
@@ -638,7 +641,7 @@ export class ChargeOrderAction {
   compare-and-set sends.
 - **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the same from
   every step and execution — give it to the other system as its idempotency key. An error names it by
-  hash only (`OutboundCallUnreconciledError.idempotencyKey`: `business-key:<hash>:<name>`).
+  its handle only (`OutboundCallUnreconciledError.idempotencyKey`: `business-key:<handle>:<name>`).
 - **Stores:** the in-memory default; SQLite keeps business results in
   `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
   `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the

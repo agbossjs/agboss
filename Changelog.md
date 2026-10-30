@@ -12,8 +12,10 @@ Breaking changes and notable additions, newest first. The API reports
   `FencedEffectOutcome.replayedFrom`, `OutboundCallOutcome.replayedFrom`, `OutboundCallRecord.businessKey`
   / `fingerprint` / `leaseExecutionId`.
 - **Added — errors** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`, `effect`,
-  `businessKeyHash`) and `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`); a business
-  key never appears in an error — `OutboundCallUnreconciledError.idempotencyKey` names it by hash.
+  `businessKeyHash?`) and `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`); a business
+  key never appears in an error, only its handle — HMAC-SHA256 under the execution's PII key
+  (`FencedEffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
+  is `business-key:<handle>:<name>`.
 - **Added — `OutboundCallRepository.isLeaseHeld(tenantId, leaseExecutionId, token)`**: whether a
   pending business-key call's owner lives on another instance.
 - **Added — `callTools(…)`** ([Testing](Testing)): one scripted move calling several tools at once.
