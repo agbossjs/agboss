@@ -1,4 +1,5 @@
 import { fingerprintOf, IdempotencyKeyConflictError } from "../infrastructure/fenced-effect-key.js";
+import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
 import type {
   FencedEffectKey,
   FencedEffectOrigin,
@@ -41,27 +42,29 @@ export const callKeyOf = (key: FencedEffectKey): string =>
  * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
  * when this instance is sending under it now, whatever the key; under a business key also while
  * the lease that wrote it is live on another instance (released only once its attempts settled,
- * never yielded under one); one expired is superseded by the check (`isLeaseLive`), so its holder
- * writes nothing under it again, and the attempt is reconciled here. The lease this step runs under
+ * never yielded under one); one expired is closed by the check (`leaseStateOf`: `Superseded`, what
+ * the caller tells), so its holder writes nothing under it again, and the attempt is reconciled here. The lease this step runs under
  * is this instance's: an attempt it wrote whose owner is not sending here has ended. One that ended
  * is reconciled by whoever wins the compare-and-set.
  */
 export async function checkedCall<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
-): Promise<void> {
+): Promise<OutboundCallLeaseState | undefined> {
   const { key, options } = run;
   if (key.businessKey !== undefined && found.fingerprint !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
-  if (found.status !== OutboundCallStatus.Pending) return;
+  if (found.status !== OutboundCallStatus.Pending) return undefined;
   const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
-  if (key.businessKey === undefined) return;
+  if (key.businessKey === undefined) return undefined;
   const isUnderThisLease =
     found.leaseExecutionId === key.leaseExecutionId && found.token === key.token;
-  if (isUnderThisLease) return;
-  const lease = [found.tenantId, found.leaseExecutionId, found.token] as const;
-  if (await run.parts.repository.isLeaseLive(...lease)) throw inFlight;
+  if (isUnderThisLease) return undefined;
+  const { tenantId, leaseExecutionId, token } = found;
+  const state = await run.parts.repository.leaseStateOf({ tenantId, leaseExecutionId, token });
+  if (state === OutboundCallLeaseState.Live) throw inFlight;
+  return state;
 }
 
 /**

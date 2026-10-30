@@ -71,6 +71,13 @@ export interface OutboundCallRecord extends OutboundCallIntent {
   readonly endedAt?: string;
 }
 
+/** The lease a pending intent was written under (#508): its tree key and the token it was held at. */
+export interface OutboundCallLease {
+  readonly tenantId: string;
+  readonly leaseExecutionId: string;
+  readonly token: number;
+}
+
 /** An intent's state as a caller read it: what `markPending` compares before it moves it. */
 /** A new attempt as its caller claims it: its number and the owner id the caller minted. */
 export interface OutboundCallClaim {

@@ -4,6 +4,7 @@ import {
   ExecutionLeaseEventKind,
   type OutboundCallEventOutcome,
   type OutboundCallEventRecord,
+  type OutboundCallSupersededLease,
 } from "../infrastructure/execution-lease-event.repository.js";
 import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
@@ -29,6 +30,7 @@ export interface OutboundCallReport {
   readonly token: number;
   readonly replayedFrom?: FencedEffectOrigin;
   readonly supersededBy?: number;
+  readonly supersededLease?: OutboundCallSupersededLease;
 }
 
 /** The row of a move: identities, the intent's state and tokens only. */
@@ -49,6 +51,7 @@ const outboundCallRowOf = (event: OutboundCallEvent, at: Date): OutboundCallEven
   outcome: event.outcome,
   ...(event.replayedFrom === undefined ? {} : { replayedFrom: event.replayedFrom }),
   ...(event.supersededBy === undefined ? {} : { supersededBy: event.supersededBy }),
+  ...(event.supersededLease === undefined ? {} : { supersededLease: event.supersededLease }),
   step: {
     nodeId: event.step.nodeId,
     visitNumber: event.step.visitNumber,

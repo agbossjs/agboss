@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
 import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
@@ -8,6 +9,7 @@ import {
   isInState,
   OutboundCallRepository,
   OutboundCallStatus,
+  type OutboundCallLease,
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
@@ -167,11 +169,9 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(rows.map(recordOf));
   }
 
-  async isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
-    const lease = { tenantId, leaseExecutionId, token };
-    const now = this.clock.now();
-    const { isSqliteLeaseLive } = await import("../live-lease.js");
-    return isSqliteLeaseLive(this.connection.database, lease, now);
+  async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
+    const { sqliteLeaseStateOf } = await import("../live-lease.js");
+    return sqliteLeaseStateOf(this.connection.database, lease, this.clock.now());
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {

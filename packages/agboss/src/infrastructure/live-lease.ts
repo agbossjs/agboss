@@ -1,58 +1,57 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import type { FencedEffectKey } from "./fenced-effect.repository.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
+import { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
+import type { OutboundCallLease } from "./outbound-call-record.js";
 
 /**
- * Whether a lease that wrote a pending outbound call is live (#508), loaded on the first check — in
- * memory and on SQLite: an expired one is superseded by the check itself.
+ * The state of a lease that wrote a pending outbound call (#508), loaded on the first check — in
+ * memory and on SQLite. An expired one is closed by the check itself, in the same atomic step:
+ * released at its token, so its holder can neither renew it nor write under it again.
  */
 
 /** A lease row as read here. */
 const LeaseRow = z.object({ lease_epoch: z.number(), released: z.number() });
 
-/**
- * Whether the lease of `(tenantId, leaseExecutionId)` is live at `token` (#508): neither released,
- * superseded by a later token, nor expired. One expired at `token` is superseded here, at once — its
- * epoch moved past `token`, the row kept unreleased — so its holder can neither renew it nor write
- * under it again, and its tree is taken over as after any expiry.
- */
-export function isInMemoryLeaseLive(
+/** The in-memory store's `leaseStateOf`: one synchronous step on the shared database. */
+export function inMemoryLeaseStateOf(
   database: InMemoryDatabase,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+  lease: OutboundCallLease,
   now: Date,
-): boolean {
+): OutboundCallLeaseState {
   const key = treeKeyOf(lease.tenantId, lease.leaseExecutionId);
   const row = database.executionLeases.get(key);
-  if (row === undefined || row.released || row.lease.leaseEpoch !== lease.token) return false;
-  if (row.lease.expiresAt > now) return true;
-  const superseded = { ...row.lease, leaseEpoch: row.lease.leaseEpoch + 1 };
-  database.executionLeases.set(key, { ...row, lease: superseded });
-  return false;
+  if (row === undefined || row.released || row.lease.leaseEpoch !== lease.token)
+    return OutboundCallLeaseState.Ended;
+  if (row.lease.expiresAt > now) return OutboundCallLeaseState.Live;
+  database.executionLeases.set(key, { ...row, released: true });
+  return OutboundCallLeaseState.Superseded;
 }
 
 /**
- * Whether the lease of `(tenantId, leaseExecutionId)` is live at `token` (#508): neither released,
- * superseded by a later token, nor expired. One expired at `token` is superseded here, in one
- * statement — its epoch moved past `token`, the row kept unreleased — so its holder can neither
- * renew it nor write under it again, and its tree is taken over as after any expiry.
+ * The SQLite store's `leaseStateOf`: the close is one conditional `UPDATE` (still at `token`, not
+ * released, expired) — one row changed is `Superseded`; else the row read after it says `Live` (a
+ * renewal landed first) or `Ended`.
  */
-export function isSqliteLeaseLive(
+export function sqliteLeaseStateOf(
   database: DatabaseSync,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+  lease: OutboundCallLease,
   now: Date,
-): boolean {
+): OutboundCallLeaseState {
   const { tenantId, leaseExecutionId, token } = lease;
-  database
+  const closed = database
     .prepare(
-      "UPDATE execution_leases SET lease_epoch = lease_epoch + 1 WHERE tenant_id = ? AND root_execution_id = ? AND lease_epoch = ? AND released = 0 AND expires_at <= ?",
+      "UPDATE execution_leases SET released = 1 WHERE tenant_id = ? AND root_execution_id = ? AND lease_epoch = ? AND released = 0 AND expires_at <= ?",
     )
     .run(tenantId, leaseExecutionId, token, now.getTime());
+  if (closed.changes === 1) return OutboundCallLeaseState.Superseded;
   const row = database
     .prepare(
       "SELECT lease_epoch, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
     )
     .get(tenantId, leaseExecutionId);
   const found = row === undefined ? undefined : LeaseRow.parse(row);
-  return found?.released === 0 && found.lease_epoch === token;
+  return found?.released === 0 && found.lease_epoch === token
+    ? OutboundCallLeaseState.Live
+    : OutboundCallLeaseState.Ended;
 }

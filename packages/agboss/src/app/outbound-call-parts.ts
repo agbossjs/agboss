@@ -2,7 +2,10 @@ import { errorRecordOf } from "../core/error-record.js";
 import { reportedKeyOf } from "./outbound-call-business.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
-import type { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
+import type {
+  OutboundCallEventOutcome,
+  OutboundCallSupersededLease,
+} from "../infrastructure/execution-lease-event.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
 import type {
@@ -201,20 +204,28 @@ export const outcomeOf = <TRequest, TResult>(
   idempotencyKey: reportedKeyOf(run.key, run.idempotencyKey),
 });
 
+/** What a move tells besides its state (#508): who made a replay, the newer attempt, a closed lease. */
+export interface OutboundCallMoveFacts {
+  readonly replayedFrom?: FencedEffectOrigin | undefined;
+  readonly supersededBy?: number | undefined;
+  readonly supersededLease?: OutboundCallSupersededLease | undefined;
+}
+
 /** Tells the lease log and `onOutboundCall` of a move of the call (#505): never its payload. */
 export function told<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   outcome: OutboundCallEventOutcome,
   [status, attempt]: readonly [OutboundCallStatus, number],
-  replayedFrom?: FencedEffectOrigin,
-  supersededBy?: number,
+  extras: OutboundCallMoveFacts = {},
 ): void {
   const { key, options, frame } = run;
+  const facts = Object.fromEntries(
+    Object.entries(extras).filter(([, value]) => value !== undefined),
+  );
   frame.execution.lease?.recordOutboundCall?.({
     event: nodeEventOf(frame),
     ...{ name: key.name, target: options.target, operation: options.operation },
     ...{ status, attempt, outcome, scopeKey: key.scopeKey, token: key.token },
-    ...(replayedFrom === undefined ? {} : { replayedFrom }),
-    ...(supersededBy === undefined ? {} : { supersededBy }),
+    ...facts,
   });
 }

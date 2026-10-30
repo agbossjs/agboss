@@ -3,11 +3,14 @@
  * SELECT-then-UPDATE port (the fenced read, the network, a write keyed by row only), alone or
  * serialized per lease row (as `SELECT … FROM execution_leases FOR UPDATE` would), fails them — a
  * business key's one row is moved under two leases, which no lease lock serializes — while the
- * core's in-memory store passes them.
+ * core's in-memory store passes them — and a `leaseStateOf` that reads, then closes in a
+ * second step, fails its race with a late renewal.
  */
 import { describe, expect, it } from "vitest";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { identityOf } from "../../src/infrastructure/fenced-effect-key.js";
+import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import {
   endedOf,
@@ -16,10 +19,12 @@ import {
   OutboundCallStatus,
   withoutEnd,
   type OutboundCallClaim,
+  type OutboundCallLease,
   type OutboundCallFailure,
   type OutboundCallRecord,
   type OutboundCallState,
 } from "../../src/infrastructure/outbound-call.repository.js";
+import { outboundLeaseRaceCases } from "../../src/testing/contracts/outbound-call-lease.cases.js";
 import { outboundRaceCases } from "../../src/testing/contracts/outbound-call-race.cases.js";
 import type { OutboundCallStores } from "../../src/testing/contracts/index.js";
 import { withTarget } from "../../src/testing/contracts/seam.js";
@@ -96,6 +101,34 @@ const naive =
     return { calls: new CheckThenWrite(seam.clock, seam.database, leases), leases };
   };
 
+/**
+ * A store whose `leaseStateOf` is a SELECT, a round trip, then the close as a conditional UPDATE —
+ * `Superseded` whatever the UPDATE matched: a renewal landing between them is missed.
+ */
+const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
+  const leases = new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database);
+  const rows = seam.database.executionLeases;
+  class SelectThenUpdate extends InMemoryOutboundCallRepository {
+    override async leaseStateOf({ tenantId, leaseExecutionId, token }: OutboundCallLease) {
+      const key = treeKeyOf(tenantId, leaseExecutionId);
+      const read = rows.get(key);
+      if (read === undefined || read.released || read.lease.leaseEpoch !== token)
+        return OutboundCallLeaseState.Ended;
+      if (read.lease.expiresAt > seam.clock.now()) return OutboundCallLeaseState.Live;
+      await roundTrip();
+      const row = rows.get(key);
+      const isStillExpired =
+        row !== undefined &&
+        !row.released &&
+        row.lease.leaseEpoch === token &&
+        row.lease.expiresAt <= seam.clock.now();
+      if (isStillExpired) rows.set(key, { ...row, released: true });
+      return OutboundCallLeaseState.Superseded;
+    }
+  }
+  return { calls: new SelectThenUpdate(seam.clock, seam.database, leases), leases };
+};
+
 const unlocked: Lock = (_key, work) => work();
 
 const core: StoreFactory<OutboundCallStores> = (seam) => {
@@ -105,7 +138,8 @@ const core: StoreFactory<OutboundCallStores> = (seam) => {
 
 /** Whether the race case named like `pattern` fails on the stores `make` builds. */
 async function failsOn(make: StoreFactory<OutboundCallStores>, pattern: RegExp): Promise<boolean> {
-  const race = outboundRaceCases().cases.find((contractCase) => pattern.test(contractCase.name));
+  const cases = [...outboundRaceCases().cases, ...outboundLeaseRaceCases().cases];
+  const race = cases.find((contractCase) => pattern.test(contractCase.name));
   if (race === undefined) throw new Error(`no race case like ${String(pattern)}`);
   return withTarget(inMemoryTarget(make), race.run)().then(
     () => false,
@@ -116,6 +150,10 @@ async function failsOn(make: StoreFactory<OutboundCallStores>, pattern: RegExp):
 const CROSS_LEASE = [
   /its attempt's markCompleted under one lease/u,
   /a new attempt's claim under one lease/u,
+];
+const LIVENESS = [
+  /leaseStateOf of an expired lease racing its holder's renewal/u,
+  /leaseStateOf of an expired lease racing another instance's take/u,
 ];
 const ONE_LEASE = [
   /two instances moving one pending intent/u,
@@ -141,8 +179,14 @@ describe("#508 re-review MEDIUM5: the races fail every store that is not atomic"
       });
   });
 
+  it("a leaseStateOf that is a SELECT, a round trip, then a conditional UPDATE fails the race with its holder's renewal: it says Superseded while the holder renewed and sends on", async () => {
+    const pattern = LIVENESS[0] ?? /none/u;
+
+    expect(await failsOn(naiveLeaseState, pattern)).toBe(true);
+  });
+
   it("the core's in-memory store passes every one of them", async () => {
-    for (const pattern of [...ONE_LEASE, ...CROSS_LEASE])
+    for (const pattern of [...ONE_LEASE, ...CROSS_LEASE, ...LIVENESS])
       expect({ pattern, fails: await failsOn(core, pattern) }).toEqual({ pattern, fails: false });
   });
 });

@@ -25,7 +25,7 @@ export async function superseded<TRequest, TResult>(
   const found = await run.parts.repository.findByKey(run.key).catch(() => undefined);
   const newer = found === undefined || found.attempt === attempt ? undefined : found.attempt;
   const status = found?.status ?? OutboundCallStatus.Pending;
-  told(run, OutboundCallEventOutcome.Superseded, [status, attempt], undefined, newer);
+  told(run, OutboundCallEventOutcome.Superseded, [status, attempt], { supersededBy: newer });
   const { name } = run.key;
   const { operation, target } = run.options;
   const by =
@@ -55,6 +55,24 @@ export async function fencedEnd<TRequest, TResult>(
     }
     throw error;
   }
+}
+
+/**
+ * `found` was pending under another execution's lease, expired and closed by this call's check
+ * (#508): told `LeaseSuperseded`, naming that lease and the token it was held at, and logged as a
+ * warning — its holder writes nothing under it again; what it still sends is fenced.
+ */
+export function leaseSuperseded<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  found: OutboundCallRecord,
+): void {
+  const { rootExecutionId, leaseExecutionId, token } = found;
+  const supersededLease = { rootExecutionId, leaseExecutionId, token };
+  const moved = [found.status, found.attempt] as const;
+  told(run, OutboundCallEventOutcome.LeaseSuperseded, moved, { supersededLease });
+  const { operation, target } = run.options;
+  const text = `outbound call "${run.key.name}" (${operation} on ${target}) attempt ${String(found.attempt)} was pending under the lease of execution ${leaseExecutionId} at token ${String(token)}, expired: closed, the call is reconciled here — a send of it still hung may reach ${target} too, deduplicated only by call.idempotencyKey`;
+  run.parts.log.warn("outbound-call.lease-superseded", text, subjectOf(run));
 }
 
 /**

@@ -82,7 +82,7 @@ describe("#508 re-review HIGH1: a release waits for its attempts within their bo
   });
 });
 
-describe("#508 re-review MEDIUM3: a live attempt blocks a yield", () => {
+describe("#508 re-review MEDIUM3 / final N5: a live attempt blocks a yield — within its bound", () => {
   it("a step ended with its attempt still sending while a caller waits for remote children: the lease is held until the attempt settled, then yielded", async () => {
     const moves: boolean[] = [];
     const yields = new LeaseYields((shouldYield) => {
@@ -103,6 +103,30 @@ describe("#508 re-review MEDIUM3: a live attempt blocks a yield", () => {
     await flushed();
 
     expect(whileSending.every((shouldYield) => !shouldYield)).toBe(true);
+    expect(moves.at(-1)).toBe(true);
+  });
+
+  it("a send that never returns holds the yield back only until its attemptTimeout: then the lease is yielded", async () => {
+    const moves: boolean[] = [];
+    const yields = new LeaseYields((shouldYield) => {
+      moves.push(shouldYield);
+      return Promise.resolve();
+    });
+    const clock = new VirtualClock();
+    const attempts = new LeaseAttempts(clock);
+    const leaveStep = await yields.enterStep();
+    attempts.keep(attemptInFlight().attempt, minutes(2), () => yields.enterStep());
+    await flushed();
+    leaveStep();
+    await yields.startWaiting();
+
+    await clock.advance("119999ms");
+    await flushed();
+    const beforeBound = [...moves];
+    await clock.advance("1ms");
+    await flushed();
+
+    expect(beforeBound.every((shouldYield) => !shouldYield)).toBe(true);
     expect(moves.at(-1)).toBe(true);
   });
 });

@@ -5,9 +5,14 @@
  * Superseded attempt is logged on the instance's log; a joined call is told apart by `instanceof`
  * alone.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LeaseAttempts } from "../../src/app/lease-yields.js";
+import { DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
   EmptyEnvironment,
+  ExecutionCancelledError,
+  OutboundCallEventOutcome,
+  OutboundCallInFlightError,
   ExecutionHistoryRepository,
   ExecutionLeaseRepository,
   Injectable,
@@ -29,8 +34,14 @@ import { Clock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { ChargeOrderAction } from "./fixtures/outbound-call.workflow.js";
 import { REDACTED } from "../../src/app/outbound-calls.js";
-import { override, testAction, testWith } from "../../src/testing/index.js";
-import { hours, kilobytes, minutes, seconds } from "../../src/units/index.js";
+import {
+  override,
+  testAction,
+  testWith,
+  type TestApp,
+  type VirtualClock,
+} from "../../src/testing/index.js";
+import { hours, kilobytes, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, recordingLog, resetLogged } from "../helpers/log.js";
 import { instance, settle } from "./fixtures/fence-takeover.js";
@@ -97,6 +108,51 @@ class KeptBusinessKeyApplication {}
 
 const kept = testWith(KeptBusinessKeyApplication);
 
+/**
+ * `app` sends a charge that never returns, then cancels its thread: the unwind of the cancelled pass
+ * is event-loop turns only — no wait on the clock — so they run without moving time, until its
+ * lease's release waits for the hung attempt. Its execution, which settles when that wait ends.
+ */
+async function hungAndCancelled(
+  app: TestApp,
+  threadId: string,
+): Promise<{ readonly execution: Promise<unknown> }> {
+  const released = vi.spyOn(LeaseAttempts.prototype, "settled");
+  hungCharge();
+  const execution = execute(app, SendChargeStart, charge, { threadId });
+  execution.catch(() => undefined);
+  await frozenLedger(1);
+  const isCancelled = settledFlag(app.cancel(threadId, { tenantId: "default" }));
+  const isReleasing = () => isCancelled() && released.mock.calls.length > 0;
+  for (let turn = 0; turn < 300 && !isReleasing(); turn += 1) await settle();
+  if (!isReleasing()) throw new Error("the cancelled pass never reached its lease's release");
+  return { execution };
+}
+
+/** When the attempt sent at `sentAt` stops being waited for: its start + `attemptTimeout`. */
+const deadlineOf = (sentAt: number): number => sentAt + DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT;
+
+/**
+ * Moves `clock` to the hung attempt's `deadline`, then runs the turns until `execution` settled —
+ * its lease's release given up, its renewals stopped — so the lease's 30 s run from there.
+ */
+async function givenUpAt(
+  clock: VirtualClock,
+  deadline: number,
+  execution: Promise<unknown>,
+): Promise<void> {
+  const isDone = settledFlag(execution);
+  await advancedTo(clock, deadline);
+  for (let turn = 0; turn < 300 && !isDone(); turn += 1) await settle();
+  if (!isDone()) throw new Error("the execution never settled at its attempt's deadline");
+}
+
+/** Moves `clock` to `at`, exactly. */
+const advancedTo = async (clock: VirtualClock, at: number): Promise<void> => {
+  await clock.advance((at - clock.now().getTime()) as Milliseconds);
+  await settle();
+};
+
 beforeEach(() => {
   resetRuns();
   resetLedger();
@@ -105,6 +161,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   letLedgerGo();
   letChargesGo();
 });
@@ -128,23 +185,22 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
     expect(isClosed()).toBe(true);
   });
 
-  test("cancel with a hung send: the cancel returns, and the execution settles once the attempt's timeout bounds its wait — never hung", async ({
+  test("cancel with a hung send: the cancel returns at once, and the execution settles exactly at the attempt's start + attemptTimeout — never hung", async ({
     app,
     clock,
   }) => {
     await app.ready();
-    hungCharge();
-    const isDone = settledFlag(execute(app, SendChargeStart, charge, { threadId: "thread-c" }));
-    await frozenLedger(1);
+    const deadline = deadlineOf(clock.now().getTime());
+    const { execution } = await hungAndCancelled(app, "thread-c");
+    const isDone = settledFlag(execution);
 
-    const isCancelled = settledFlag(app.cancel("thread-c", { tenantId: "default" }));
-    for (let tick = 0; tick < 20 && !(isCancelled() && isDone()); tick += 1) {
-      await clock.advance(seconds(10));
-      await settle();
-    }
+    await advancedTo(clock, deadline - 1);
+    const isDoneBefore = isDone();
+    await advancedTo(clock, deadline);
 
-    expect(isCancelled()).toBe(true);
+    expect(isDoneBefore).toBe(false);
     expect(isDone()).toBe(true);
+    await expect(execution).rejects.toBeInstanceOf(ExecutionCancelledError);
   });
 
   two(
@@ -152,19 +208,37 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
     async ({ apps, clock }) => {
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       await Promise.all([a.ready(), b.ready()]);
-      hungCharge();
-      execute(a, SendChargeStart, charge, { threadId: "thread-a" }).catch(() => undefined);
-      await frozenLedger(1);
-      void a.cancel("thread-a", { tenantId: "default" }).catch(() => undefined);
-      for (let tick = 0; tick < 6; tick += 1) {
-        await clock.advance(minutes(1));
-        await settle();
-      }
+      const deadline = deadlineOf(clock.now().getTime());
+      const { execution } = await hungAndCancelled(a, "thread-a");
+      await givenUpAt(clock, deadline, execution);
+      const atDeadline = execute(b, SendChargeStart, charge);
+      await expect(atDeadline).rejects.toFailWith(OutboundCallInFlightError, { call: "charge" });
 
+      // renewed until the deadline, the lease expires within its 30 s after it
+      await advancedTo(clock, deadline + seconds(31));
       const settledByB = await execute(b, SendChargeStart, charge);
 
       expect(settledByB.output).toEqual({ chargeId: "ch-42-1" });
       expect(gateway.calls).toHaveLength(1);
+      // the close of the lease is in the caller's lease log: the execution, the token it was held at
+      const rows = await b.leaseEventsOf({
+        tenantId: "default",
+        rootExecutionId: settledByB.executionId,
+      });
+      expect(rows).toContainEqual(
+        expect.objectContaining({
+          outcome: OutboundCallEventOutcome.LeaseSuperseded,
+          executionId: settledByB.executionId,
+          supersededLease: {
+            rootExecutionId: "execution-1",
+            leaseExecutionId: "execution-1",
+            token: 1,
+          },
+        }),
+      );
+      expect(logged).toContainEqual(
+        expect.objectContaining({ level: "warn", code: "outbound-call.lease-superseded" }),
+      );
     },
   );
 
@@ -173,19 +247,13 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
     async ({ apps, clock }) => {
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       await Promise.all([a.ready(), b.ready()]);
-      hungCharge();
-      const first = execute(a, SendChargeStart, charge, { threadId: "thread-late" });
-      first.catch(() => undefined);
-      await frozenLedger(1);
-      void a.cancel("thread-late", { tenantId: "default" }).catch(() => undefined);
-      for (let tick = 0; tick < 6; tick += 1) {
-        await clock.advance(minutes(1));
-        await settle();
-      }
+      const deadline = deadlineOf(clock.now().getTime());
+      const { execution: first } = await hungAndCancelled(a, "thread-late");
+      await givenUpAt(clock, deadline, first);
+      await advancedTo(clock, deadline + seconds(31));
       await execute(b, SendChargeStart, charge);
 
       letLedgerGo();
-      await first.catch(() => undefined);
       await settle();
       const replayed = await execute(b, SendChargeStart, charge);
 

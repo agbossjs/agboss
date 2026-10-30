@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
@@ -38,7 +39,7 @@ import {
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
 
-import { fencedEnd, superseded, unreconciledOf } from "./outbound-call-endings.js";
+import { fencedEnd, leaseSuperseded, superseded, unreconciledOf } from "./outbound-call-endings.js";
 import { joinedOrMade, owning } from "./outbound-call-join.js";
 
 export type { OutboundCallParts } from "./outbound-call-parts.js";
@@ -181,7 +182,8 @@ async function settled<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
-  await checkedCall(run, found);
+  if ((await checkedCall(run, found)) === OutboundCallLeaseState.Superseded)
+    leaseSuperseded(run, found);
   if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
   if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
   if (read > 1) throw inFlight(run);
@@ -203,7 +205,7 @@ function replayed<TRequest, TResult>(
     throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
   const replayedFrom = replayedFromOf(run.key, found);
   const moved = [OutboundCallStatus.Completed, found.attempt] as const;
-  told(run, OutboundCallEventOutcome.Replayed, moved, replayedFrom);
+  told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });
   const outcome = outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
   return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
 }

@@ -82,8 +82,9 @@ export class LeaseAttempts {
   constructor(private readonly clock: Clock) {}
 
   /**
-   * Keeps `attempt` for at most `maxWait` from now, entered as a step while it runs (`enterStep`): a
-   * lease is never yielded under an attempt in flight, as under a running step.
+   * Keeps `attempt` for at most `maxWait` from now, entered as a step while it runs (`enterStep`) —
+   * up to the same bound: a lease is never yielded under an attempt in flight within its
+   * `attemptTimeout`, as under a running step; past it, a hung attempt holds no yield back.
    */
   keep(
     attempt: Promise<unknown>,
@@ -94,8 +95,15 @@ export class LeaseAttempts {
       () => undefined,
       () => undefined,
     );
+    // a step for the lease's yields until it settled or its bound passed (then a reclaim may move
+    // its token on: what it answers late is fenced, and other executions reconcile its intent)
+    const bounded = new AbortController();
+    void settled.then(() => {
+      bounded.abort();
+    });
+    const held = Promise.race([settled, this.clock.sleep(maxWait, bounded.signal)]);
     void enterStep().then(
-      (leave) => settled.then(leave),
+      (leave) => held.then(leave),
       () => undefined,
     );
     this.#attempts.set(settled, this.clock.now().getTime() + maxWait);

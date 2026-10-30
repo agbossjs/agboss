@@ -84,9 +84,14 @@ export interface OutboundCallsOptions {
    */
   readonly retention?: Milliseconds;
   /**
-   * How long a holder keeps its lease for an attempt still in flight once its pass ended (default
-   * `minutes(2)`; #508): then it stops renewing without releasing — the lease expires, and only a
-   * takeover lets another instance reconcile the call. Bounded by the shutdown timeout too.
+   * The bound of an attempt in flight, from the moment it started (default `minutes(2)`; #508):
+   * until then its holder releases its lease only once the attempt settled, and yields it under none.
+   * Past it — or the instance's stop, or a lost lease — the holder stops renewing without releasing:
+   * the lease expires within its 30 s, so another instance sees the call in flight for
+   * `attemptTimeout` plus up to the lease's TTL, then closes the lease and reconciles; a hung attempt
+   * no longer holds a yield back either (a reclaim moves its token on). **A send still hung past this
+   * bound can coincide with a reconcile and a resend; the provider must deduplicate on
+   * `call.idempotencyKey` (G1).** Its late answer is fenced, never stored.
    */
   readonly attemptTimeout?: Milliseconds;
 }
@@ -109,7 +114,7 @@ export class OutboundCallSettings {
   readonly maxPayloadSize: Bytes;
   /** How long ended intents are kept. */
   readonly retention: Milliseconds;
-  /** How long a holder keeps its lease for an attempt still in flight. */
+  /** The bound of an attempt in flight, from its start: its lease's wait, and its hold on yields. */
   readonly attemptTimeout: Milliseconds;
   /**
    * Whether a request is stored only masked (set by the assembly): the application or one of its

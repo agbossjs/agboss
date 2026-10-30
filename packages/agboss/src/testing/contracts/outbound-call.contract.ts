@@ -1,5 +1,6 @@
 import { registerContract } from "./define.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
+import { outboundLeaseRaceCases } from "./outbound-call-lease.cases.js";
 import { outboundBusinessKeyCases } from "./outbound-call-business.cases.js";
 import { outboundRaceCases } from "./outbound-call-race.cases.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
@@ -31,6 +32,7 @@ export function outboundCallContract(target: ContractTarget<OutboundCallStores>)
       outboundTextCases(),
       outboundBusinessKeyCases(),
       outboundRaceCases(),
+      outboundLeaseRaceCases(),
     ],
     (stores) => stores.calls.ping(),
   );

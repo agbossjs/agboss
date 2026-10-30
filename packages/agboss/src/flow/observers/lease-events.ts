@@ -3,6 +3,7 @@ import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repo
 import type {
   FencedEffectEventOutcome,
   OutboundCallEventOutcome,
+  OutboundCallSupersededLease,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -134,6 +135,11 @@ export interface OutboundCallEvent extends NodeEvent {
    * both reached the other system.
    */
   readonly supersededBy?: number;
+  /**
+   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * this intent's attempt pending under it — the token it was held at, never one nobody held.
+   */
+  readonly supersededLease?: OutboundCallSupersededLease;
 }
 
 /**

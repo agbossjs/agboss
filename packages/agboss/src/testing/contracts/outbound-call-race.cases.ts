@@ -18,14 +18,14 @@ import {
  */
 
 /** How many rounds each race runs. */
-const ROUNDS = 12;
+export const ROUNDS = 12;
 
 /** The two callers of a round: the order alternates. */
-const inTurn = <T>(round: number, a: () => Promise<T>, b: () => Promise<T>): Promise<T[]> =>
+export const inTurn = <T>(round: number, a: () => Promise<T>, b: () => Promise<T>): Promise<T[]> =>
   round % 2 === 0 ? Promise.all([a(), b()]) : Promise.all([b(), a()]).then(([y, x]) => [x, y]);
 
 /** A pending first attempt of owner `owner-1` (as `recorded` writes it), as a caller reads it. */
-const PENDING = { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" };
+export const PENDING = { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" };
 
 const FAILURE = { name: "PaymentDeclinedError", code: "PaymentDeclinedError", message: "declined" };
 
@@ -131,48 +131,6 @@ const writeRacingTakeover: OutboundCallCase = {
   },
 };
 
-/** Round `round`'s keys of one business key under two leases: two executions, two instances. */
-const crossLeaseKeys = (
-  one: FencedEffectKey,
-  other: FencedEffectKey,
-  round: number,
-): readonly [FencedEffectKey, FencedEffectKey] => {
-  const businessKey = `order:${String(round)}`;
-  return [
-    { ...one, businessKey, fingerprint: "f" },
-    { ...other, businessKey, fingerprint: "f" },
-  ];
-};
-
-/**
- * A business key's one row moved under two leases at once (#508 re-review): a lock of either lease
- * does not serialize them — only the row's own compare-and-set does.
- */
-const crossLeaseRaced = (ending: "markCompleted" | "markPending"): OutboundCallCase => ({
-  name: `#508: one business key's pending intent, ${ending === "markCompleted" ? "its attempt's markCompleted under one lease racing a new attempt's claim" : "a new attempt's claim under one lease racing another's"} under another, round after round: exactly one changes the intent`,
-  run: async ({ first, second }) => {
-    const one = keyOf(await leaseOf(first, "execution-1"));
-    const other = keyOf(await leaseOf(second, "execution-2"));
-    for (let round = 0; round < ROUNDS; round += 1) {
-      const [a, b] = crossLeaseKeys(one, other, round);
-      await recorded(first, a);
-      const byFirst = () =>
-        ending === "markCompleted"
-          ? first.calls.markCompleted(a, "owner-1", '"r"')
-          : first.calls.markPending(a, PENDING, { attempt: 2, attemptOwner: "owner-a" });
-
-      const [isFirst, isSecond] = await inTurn(round, byFirst, () =>
-        second.calls.markPending(b, PENDING, { attempt: 2, attemptOwner: "owner-2" }),
-      );
-
-      expect([isFirst, isSecond].filter(Boolean)).toHaveLength(1);
-      const found = await second.calls.findByKey(b);
-      const firstOwner = ending === "markCompleted" ? "owner-1" : "owner-a";
-      expect(found?.attemptOwner).toBe(isFirst === true ? firstOwner : "owner-2");
-    }
-  },
-});
-
 /** The race cases. */
 export const outboundRaceCases = (): ContractGroup<OutboundCallStores> => ({
   title: "races",
@@ -182,7 +140,5 @@ export const outboundRaceCases = (): ContractGroup<OutboundCallStores> => ({
     endingRaced("markCompleted"),
     endingRaced("markFailed"),
     writeRacingTakeover,
-    crossLeaseRaced("markCompleted"),
-    crossLeaseRaced("markPending"),
   ],
 });

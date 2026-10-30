@@ -50,6 +50,21 @@ export enum OutboundCallEventOutcome {
   Superseded = "superseded",
   /** The same call was being made by this instance: its outcome shared, nothing sent again. */
   Joined = "joined",
+  /**
+   * Found pending under another execution's lease that had expired (#508): that lease closed now
+   * (`supersededLease`), so its holder writes nothing under it again — the call is reconciled here.
+   */
+  LeaseSuperseded = "lease-superseded",
+}
+
+/** The state of the lease that wrote a pending intent, as `leaseStateOf` finds it (#508). */
+export enum OutboundCallLeaseState {
+  /** Held at the token, not expired: its attempt is in flight. */
+  Live = "live",
+  /** Released, or its token moved on: the attempt's owner is gone. */
+  Ended = "ended",
+  /** Expired at the token, closed by the check now: the owner is gone, and fenced from here on. */
+  Superseded = "superseded",
 }
 
 /** How one call of a fenced effect (#500) went, as the lease log keeps it. */
@@ -189,6 +204,18 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
    * both reached the other system.
    */
   readonly supersededBy?: number;
+  /**
+   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * this intent's attempt pending under it — the token it was held at, never one nobody held.
+   */
+  readonly supersededLease?: OutboundCallSupersededLease;
+}
+
+/** A lease an outbound call closed (#508): its tree, its execution and the token it was held at. */
+export interface OutboundCallSupersededLease {
+  readonly rootExecutionId: string;
+  readonly leaseExecutionId: string;
+  readonly token: number;
 }
 
 /** One row of the lease log. */

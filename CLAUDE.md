@@ -2021,13 +2021,17 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 
   this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
   this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other
   system's own error, whatever was thrown, else makes its own call), or, under a business key, under
-  a lease still live on another instance (`OutboundCallRepository.isLeaseLive`: neither released,
-  superseded nor expired — one expired is superseded by the check itself, its epoch moved on, so its
-  holder writes nothing under it again; a holder releases its lease only once its attempts settled,
-  never yields it under one, and past `@Application({ outboundCalls: { attemptTimeout } })`
-  (default `minutes(2)`) or its instance's stop it stops renewing without releasing, so the lease
-  expires) → `OutboundCallInFlightError`; once its owner is gone, the next caller reconciles it, by
-  the compare-and-set. An answer that comes after its lease was handed over is fenced, not stored,
+  a lease still live on another instance (`OutboundCallRepository.leaseStateOf(lease)` →
+  `OutboundCallLeaseState.Live`; `Ended` once released or its token moved on; an expired one is
+  closed by the check itself in one atomic step, `Superseded` — released at the token it was held
+  at, so its holder writes nothing under it again; a late renewal and the check never both win —,
+  the close an `OutboundCall` row `LeaseSuperseded` with `supersededLease` and a warning
+  `outbound-call.lease-superseded`; a holder releases its lease only once its attempts settled and
+  never yields it under one, both bounded by `@Application({ outboundCalls: { attemptTimeout } })`
+  (default `minutes(2)`, from the attempt's start) and its instance's stop: past it, it stops
+  renewing without releasing, so the call is in flight for `attemptTimeout` plus up to the lease's
+  30 s; a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1)) → `OutboundCallInFlightError`; once its owner is gone, the next
+  caller reconciles it, by the compare-and-set. An answer that comes after its lease was handed over is fenced, not stored,
   and logged (`outbound-call.answered-after-hand-over`). An attempt answered after a newer one took
   the intent over is `Superseded` (both reached the other system; an error `outbound-call.superseded`
   on the instance's log, the newer attempt named — "unknown" when the intent cannot be read). An

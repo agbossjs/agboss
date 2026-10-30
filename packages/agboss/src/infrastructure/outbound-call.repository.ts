@@ -14,8 +14,10 @@ import {
 import { businessFactsOf, identityOf } from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
+import type { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
 import type {
   OutboundCallClaim,
+  OutboundCallLease,
   OutboundCallEnding,
   OutboundCallFailure,
   OutboundCallIntent,
@@ -45,6 +47,7 @@ export enum OutboundCallStatus {
 
 export type {
   OutboundCallClaim,
+  OutboundCallLease,
   OutboundCallEnding,
   OutboundCallFailure,
   OutboundCallIntent,
@@ -125,15 +128,16 @@ export abstract class OutboundCallRepository {
   abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
 
   /**
-   * Whether the lease of `(tenantId, leaseExecutionId)` is live at `token` (#508): neither released,
-   * superseded by a later token, nor expired. A pending attempt written under a live lease of
-   * another instance is in flight: its holder releases the lease only once its attempts settled (or
-   * stops renewing it, past their `attemptTimeout`), and never yields it under one. One expired at
-   * `token` is superseded here, in the same step — its epoch moved past `token`, the row kept
-   * unreleased — so its holder can neither renew it nor write under it again (what it sends late is
-   * fenced), and its tree is taken over as after any expiry.
+   * The state of `lease` — `(tenantId, leaseExecutionId)` at `token` (#508) —, in one atomic step:
+   * `Live` — held at `token`, not expired: a pending attempt written under it on another instance is
+   * in flight (its holder releases the lease only once its attempts settled, or stops renewing it
+   * past their `attemptTimeout`, and never yields it under one); `Ended` — released, or its token
+   * moved on: its owner is gone; `Superseded` — expired at `token`, and closed by this check: released
+   * at `token`, so its holder can neither renew it nor write under it again (what it sends late is
+   * fenced) and its tree is taken again as a released lease. A late renewal and this check never
+   * both win: the lease is renewed and `Live`, or `Superseded` and not renewable.
    */
-  abstract isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
+  abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
 }
 
 /**
@@ -170,11 +174,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
       if (this.database.outboundCalls.has(row)) return false;
       this.database.outboundCalls.set(row, {
         ...structuredClone(intent),
-        tenantId: key.tenantId,
-        name: key.name,
-        status: OutboundCallStatus.Pending,
-        token: key.token,
-        leaseExecutionId: key.leaseExecutionId,
+        ...{ tenantId: key.tenantId, name: key.name, token: key.token },
+        ...{ status: OutboundCallStatus.Pending, leaseExecutionId: key.leaseExecutionId },
         ...businessFactsOf(key),
         recordedAt: this.clock.now().toISOString(),
       });
@@ -224,10 +225,9 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#where((row) => row.tenantId === tenantId && row.status === status);
   }
 
-  async isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
-    const lease = { tenantId, leaseExecutionId, token };
-    const { isInMemoryLeaseLive } = await import("./live-lease.js");
-    return isInMemoryLeaseLive(this.database, lease, this.clock.now());
+  async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
+    const { inMemoryLeaseStateOf } = await import("./live-lease.js");
+    return inMemoryLeaseStateOf(this.database, lease, this.clock.now());
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
