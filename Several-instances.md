@@ -562,7 +562,8 @@ same on every attempt, replay and holder.
 A store of another database implements `OutboundCallRepository` (fenced `findByKey`,
 `saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
 attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
-on the attempt owner —; the two listings; `isLeaseHeld`;
+on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
+the two listings; `isLeaseOpen`;
 `deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
@@ -627,11 +628,19 @@ export class ChargeOrderAction {
   refused before any lookup — even where the business key already has a result.
 - **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`, 1–200
   characters, no control characters — else `InvalidBusinessKeyError`
-  (`fenced-effect.invalid-business-key`), before anything runs. It is never sent to a model.
+  (`fenced-effect.invalid-business-key`), before anything runs. It is never sent to a model. The
+  name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
+  it is part of the keys that go out.
 - **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:
   `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
-  the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is
-  SHA-256 over canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the request's.
+  the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is an
+  HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the
+  request's — under `HMAC(pseudonymKey, "agboss/fingerprint/v1")`: the application's own key, so it
+  is the same in every execution and on every instance and gives no guessable request away. Without
+  a `pseudonymKey` the instances share no key, and it is a SHA-256 under that label
+  (`[application.pii-instance-key]` warns). The handle below is keyed the same way when a
+  `pseudonymKey` is set — stable across executions; with per-execution keys (#334) it is stable
+  within one tree only.
 - **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
   `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
@@ -641,19 +650,35 @@ export class ChargeOrderAction {
   other use of the PII key than its tokens derives a subkey under a label of its own. A key made
   outside an execution has no handle, and the error then shows none. A concurrent
   call of this instance under another fingerprint is refused the same way, never joined.
-- **A call in flight** under a business key belongs to its attempt's owner (`attemptOwner`): one this
-  instance is sending now is **joined** (`Joined`, its outcome or its error); one under a lease
-  another instance holds is `OutboundCallInFlightError`, nothing sent. Once its owner is gone — a
-  crash, an aborted step — the next caller reconciles it, and only the winner of the
-  compare-and-set sends.
-- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the same from
-  every step and execution — give it to the other system as its idempotency key. An error names it by
-  its handle only (`OutboundCallUnreconciledError.idempotencyKey`: `business-key:<handle>:<name>`).
+- **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
+  now, whatever its key, is **joined** (`Joined`): the joiner shares a success or the other system's
+  own error, and on anything else of the first call's — its hand-over, its cancel — makes its own
+  call under its own frame. Under a business key, one written under a lease still **open** on
+  another instance (`isLeaseOpen`: neither released nor superseded by a later token) is
+  `OutboundCallInFlightError`, nothing sent. An expired lease counts as open: only a takeover —
+  which bumps the token — proves its holder gone; and a holder releases its lease only once the
+  attempts under it settled (renewed meanwhile), so a cancelled step whose client ignores its signal
+  keeps its call in flight until the call returns. Once the owner is gone the next caller
+  reconciles, and only the winner of the compare-and-set sends.
+- **A lost completion is never silent:** an attempt answered after a newer one took the intent over
+  is `OutboundCallOutcomeStatus.Superseded` — both reached the other system — with the event's
+  `supersededBy` naming the newer attempt and an error `outbound-call.superseded` in the log.
+- **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
+  the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, never `Failed` (which
+  would send it again); a failure or `reconcile` reason the mask cannot mask is `[redacted]`.
+- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the tenant and
+  the business key `encodeURIComponent`-encoded, the same from every step and execution — give it to
+  the other system as its idempotency key. Everything else names it by its handle only,
+  `business-key:<handle>:<name>`: `OutboundCallUnreconciledError.idempotencyKey`,
+  `OutboundCallOutcome.idempotencyKey` (what a tool might hand a model), `app.outboundCallsOf`,
+  `app.pendingOutboundCalls`, a kept record and its export — none shows `businessKey`.
 - **Stores:** the in-memory default; SQLite keeps business results in
   `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
   `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the
   business-key cases (two scopes run once, a fingerprint conflict, a stale token refused, two
-  instances racing write once, the lease check).
+  instances racing write once, the lease check) and the races a port must make atomic, each run
+  for several rounds in both orders: two moves from one read, two records of one business key, an
+  ending against a newer claim, a write against its lease's release and the next take.
 
 ## Recovery
 

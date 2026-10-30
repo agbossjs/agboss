@@ -16,8 +16,16 @@ Breaking changes and notable additions, newest first. The API reports
   key never appears in an error, only its handle — HMAC-SHA256 under the execution's PII key
   (`FencedEffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
   is `business-key:<handle>:<name>`.
-- **Added — `OutboundCallRepository.isLeaseHeld(tenantId, leaseExecutionId, token)`**: whether a
-  pending business-key call's owner lives on another instance.
+- **Added — `OutboundCallRepository.isLeaseOpen(tenantId, leaseExecutionId, token)`**: whether the
+  lease a pending business-key call was written under is still open — neither released nor
+  superseded; expired counts as open. A holder releases its lease only once its attempts settled.
+- **Added — `OutboundCallOutcomeStatus.Superseded`** and `OutboundCallEventOutcome.Superseded`
+  (`supersededBy` on the event and its row, an error `outbound-call.superseded`); an answered call
+  whose result cannot be stored ends `Completed` with a marker; `InvalidFencedEffectNameError`
+  (`fenced-effect.invalid-name`); the key sent out encodes the business key; reads, records and
+  `OutboundCallOutcome.idempotencyKey` show a business key by its handle only; a fingerprint is an
+  HMAC under the application's `pseudonymKey` (`"agboss/fingerprint/v1"`); an unreconciled reason is
+  masked.
 - **Changed — `markCompleted(key, attemptOwner, result)` / `markFailed(key, attemptOwner, failure)`**
   return whether they ended the attempt: a compare-and-set on its owner, so a stale attempt never
   overwrites a newer one's outcome. The attempt's owner is live in the instance from before its
