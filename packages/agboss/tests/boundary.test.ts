@@ -20,16 +20,50 @@ describe("framework and examples apart (#91)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("AC4: the examples are job-scout and flow-patterns (#295); the framework ships no workflow", () => {
+  it("AC4: the framework ships no workflow", () => {
     const decorated = (file: string): boolean => /^@Workflow\(/m.test(readFileSync(file, "utf8"));
 
-    // the generator tests' temporary copies of job-scout (#197, git-ignored) are not examples
+    expect(sources(framework).filter(decorated)).toEqual([]);
+  });
+
+  it("#489 AC2: the only in-repo example is flow-patterns (job-scout lives in agbossjs/agboss-examples)", () => {
+    // the generator tests' temporary copies of flow-patterns (#197, git-ignored) are not examples
     const examples = readdirSync(join(root, "examples")).filter(
       (name) => !name.startsWith(".scaffold-tmp-"),
     );
 
-    expect([...examples].sort()).toEqual(["flow-patterns", "job-scout"]);
-    expect(sources(framework).filter(decorated)).toEqual([]);
+    expect(examples).toEqual(["flow-patterns"]);
+  });
+
+  it("#489 AC2: no workspace, script or check names job-scout's package or folder", () => {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      workspaces: readonly string[];
+      scripts: Readonly<Record<string, string>>;
+    };
+    const lock = readFileSync(join(root, "package-lock.json"), "utf8");
+    const configs = ["knip.jsonc", ".prettierignore", "scripts/check-suppressions.mjs"].map((file) =>
+      readFileSync(join(root, file), "utf8"),
+    );
+
+    expect(pkg.workspaces).toEqual(["packages/*", "examples/*"]);
+    expect(Object.values(pkg.scripts).filter((script) => script.includes("job-scout"))).toEqual([]);
+    expect(lock).not.toContain("job-scout");
+    expect(configs.filter((text) => text.includes("job-scout"))).toEqual([]);
+  });
+
+  it("#489 AC2: the root's studio and check:models run on flow-patterns", () => {
+    const { scripts } = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      scripts: Readonly<Record<string, string>>;
+    };
+    const flowPatterns = JSON.parse(
+      readFileSync(join(root, "examples/flow-patterns/package.json"), "utf8"),
+    ) as { scripts: Readonly<Record<string, string>> };
+
+    expect(scripts.studio).toBe("npm run build && npm run studio -w flow-patterns-example");
+    expect(scripts["check:models"]).toBe("npm run check:models -w flow-patterns-example");
+    expect(flowPatterns.scripts["check:models"]).toBe("agboss check --models --env test");
+    expect(scripts.check).toContain("npm run check -w flow-patterns-example");
+    expect(scripts.check).toMatch(/&& npm run check:models$/);
   });
 
   it("AC5: the public API says workflow, not bundle (the command help: agboss-cli)", () => {

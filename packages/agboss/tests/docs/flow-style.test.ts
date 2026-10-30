@@ -13,24 +13,28 @@ import { afterAll, describe, expect, it } from "vitest";
 import { checkDocs, repo, scratch, writeDocs } from "./docs-check.js";
 
 const RULE = "@stylistic/newline-per-chained-call";
-// linted as the example's workflow module: the repo's config, types and all
-const WORKFLOW = join(repo, "examples/job-scout/src/job-scout.workflow.ts");
+// linted as the in-repo example's longest workflow module (#489: flow-patterns' send-offer, job-scout's
+// before): the repo's config, types and all
+const WORKFLOW = join(
+  repo,
+  "examples/flow-patterns/src/hiring/workflows/send-offer/send-offer.workflow.ts",
+);
 
 const imports = [
   'import { start } from "@agboss/core";',
-  'import { WorkflowStartTextDto } from "@agboss/core/dto";',
-  'import { ChatWorkflowFinish } from "./workflow-finishes/chat.workflow-finish.js";',
-  'import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";',
+  'import { OfferRequestDto } from "../../dto/offer.dto.js";',
+  'import { OfferConfirmedWorkflowFinish } from "./offer-confirmed.workflow-finish.js";',
+  'import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";',
   "",
 ].join("\n");
 const JOINED = `${imports}
-export const paths = [start(ChatWorkflowStart).returns(WorkflowStartTextDto).toFinish(ChatWorkflowFinish)];
+export const paths = [start(SendOfferWorkflowStart).returns(OfferRequestDto).toFinish(OfferConfirmedWorkflowFinish)];
 `;
 const SPLIT = `${imports}
 export const paths = [
-  start(ChatWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toFinish(ChatWorkflowFinish),
+  start(SendOfferWorkflowStart)
+    .returns(OfferRequestDto)
+    .toFinish(OfferConfirmedWorkflowFinish),
 ];
 `;
 
@@ -56,7 +60,7 @@ afterAll(() => {
 });
 
 // ESLint with types and a spawned docs check: slower than 5 s on CI runners
-describe("#289 AC1: workflow modules have one call per line", { timeout: 60_000 }, () => {
+describe("#289 AC1 (#489 AC2: on flow-patterns): workflow modules have one call per line", { timeout: 60_000 }, () => {
   it("a chain of three calls on one line fails the lint with newline-per-chained-call", async () => {
     const messages = await lint(JOINED);
 

@@ -1,0 +1,72 @@
+desk-application 1.0.0 (src/desk.application.ts)
+workflows
+  desk-workflow 1.0.0
+    start desk-workflow-start (DeskQuestionDto)
+implementations
+  Clock → SystemClock (built-in default: none listed)
+  IdGenerator → RandomIdGenerator (built-in default: none listed)
+  Logger → ConsoleLogger (built-in default: none listed)
+  BaseCheckpointSaver → SqliteCheckpointSaver (listed in @Application providers)
+  ExecutionRecordRepository → SqliteExecutionRecordRepository (listed in @Application providers)
+  CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application providers)
+  PausedExecutionRepository → InMemoryPausedExecutionRepository (built-in default: none listed)
+  ExecutionLeaseRepository → InMemoryExecutionLeaseRepository (built-in default: none listed)
+  ExecutionTreeRepository → InMemoryExecutionTreeRepository (built-in default: none listed)
+  RateLimitRepository → InMemoryRateLimitRepository (built-in default: none listed)
+  MeshRequestRepository → InMemoryMeshRequestRepository (built-in default: none listed)
+  ExecutionHistoryRepository → SqliteExecutionHistoryRepository (listed in @Application providers)
+  ChildExecutionQueueRepository → InMemoryChildExecutionQueueRepository (built-in default: none listed)
+model providers
+  harness-model-provider → HarnessModelProvider (listed in @Application providers) · serves /^harness\// · transport: HarnessModelProvider.complete()
+budgets
+  application: application-daily-budget (day)
+  tenant: tenant-daily-budget (day)
+  execution: execution-budget (default)
+  desk-workflow: execution-budget (the default) — applies when it is the root of app.execute; nested, it spends from its root's
+observers DeskMetricsObserver
+maxConcurrentSteps 16 (set) · agent, router and action steps of this instance at work at once
+channels none
+environment dev
+  openRouterApiKey = <missing OPENROUTER_API_KEY>
+  openRouterBaseUrl = <unset OPENROUTER_BASE_URL, optional>
+  sqlitePath = ".agboss/flow-patterns.sqlite"
+  piiPseudonymKey = <missing PII_PSEUDONYM_KEY>
+
+desk-workflow 1.0.0 · config <hash>
+guardrails
+  no-credentials-guardrail — input · decidedBy: code · refusal: "Please never send passwords or card codes to the help desk." · on desk-agent
+  no-promises-guardrail — output · decidedBy: code · refusal: "We will follow up with a confirmed delivery date." · on desk-agent
+tool interceptors
+  desk-audit-tool-interceptor — before, after · on desk-agent: order-status-tool, close-account-tool
+pii policies
+  customer-id-pii-policy — findMatches(): replaceWithToken() · on desk-agent · masks logs and traces
+memory
+  case-notes-compaction — strategy: custom (CaseNotesCompaction.compact()) every 1 turns · older than 2 turns
+pause     on — tools with channel wait for external signal
+flow
+  start(DeskWorkflowStart)
+    .returns(DeskQuestionDto)
+    .toAgent(DeskAgent)
+    .toFinish(DeskAnswerWorkflowFinish)
+inputs
+  desk-agent ← question: desk-workflow-start
+routers
+limits
+  maxSteps 3 (default: (agents + routers) × 3) · steps 1–1
+  Worst case of one desk-workflow-start call
+    workflow executions     1  1 desk-workflow
+    at the same time        1  1 desk-workflow
+    agent and router steps  1  1 in desk-workflow (longest path)
+    nesting depth           1  desk-workflow
+models
+  agents.desk-agent  model: harness/desk → harness-model-provider
+agents
+  desk-agent  harness/desk · reasoning the provider's · max 8192 tokens · uncompactedTurns 2 · compaction case-notes-compaction (desk-workflow)
+    Answers questions about orders
+    limits: modelCalls 12 (default) · toolCalls 3
+    rag: shipping-policy-rag (tool, k 2)
+    defaults: temperature 0 (built-in) · maxTokens 8192 (built-in) · uncompactedTurns 2 (desk-workflow)
+    · order-status-tool (local) ← OrderDeskService — Where an order is · maxResultSize 128 KB (built-in)
+    · close-account-tool (local) — Closes a customer's account · maxResultSize 128 KB (built-in)
+    · search-shipping-policy-rag-tool (local) — Shipping and refund articles. Returns the most relevant search results with their source; cite them as [source]. · maxResultSize 128 KB (built-in)
+unassigned tools: none

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { runCli } from "../../src/cli/run-cli.js";
 
 /** One `agboss` call in-process: its exit code and everything it wrote. */
@@ -31,6 +32,27 @@ export async function agboss(
     registerTypeScript: false,
   });
   return { code, stdout, stderr };
+}
+
+const main = new URL("../../src/cli/main.ts", import.meta.url).pathname;
+
+/**
+ * `agboss <argv…>` from source in a child process, as a user runs it: tsx registered, so every
+ * module of a project is seen (an in-process call sees only its component files — enough for one
+ * workflow, not for flow-patterns' shared DTOs and channel roles, #489). The environment is `PATH`
+ * and `env` only: no API key, no terminal.
+ */
+export function agbossProcess(
+  argv: readonly string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+): AgbossCall {
+  const result = spawnSync(process.execPath, ["--import", "tsx", main, ...argv], {
+    cwd,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH, NO_COLOR: "1", ...env },
+  });
+  return { code: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
 }
 
 /** The `--json` envelope on stdout (throws when stdout is not exactly one JSON value). */

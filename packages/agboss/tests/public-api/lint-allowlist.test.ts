@@ -87,7 +87,6 @@ describe("the examples' import allowlist (#195)", () => {
 
   it("AC1: the examples and the generator templates carry no no-restricted-imports suppression", () => {
     const files = [
-      ...walk(join(repo, "examples/job-scout")),
       ...walk(join(repo, "examples/flow-patterns")),
       ...walk(join(repo, "packages/agboss-cli/templates")),
     ];

@@ -1,65 +1,93 @@
 /**
- * #268 AC4 — `agboss describe` of job-scout, as printed (M1): the tree with its start, each
- * contract's implementation and why, the model providers, the channel the shortlist tool names, the
- * budgets by scope, the environment with its secret masked, then the workflow — its guardrails and
- * PII policies, flow, inputs with their producers, limits with the worst case, `model → provider`.
- * No API key, no network (the config hash, which depends on the checkout, is masked). A change to
- * job-scout or to describe updates the snapshot
- * (`npx vitest run -u`), reviewed like code.
+ * #268 AC4 — `agboss describe` as printed (M1), on flow-patterns' desk application since job-scout
+ * left the repository (#489 AC2): the tree with its start, each contract's implementation and why
+ * (listed SQLite stores beside built-in defaults), the transport model provider, the budgets by
+ * scope, the observers and `maxConcurrentSteps`, the environment with its secrets masked, then the
+ * workflow — its guardrails, tool interceptors, PII policies and compaction, flow, inputs with their
+ * producers, limits with the worst case, `model → provider`. The patterns' own application gives the
+ * built-in model providers and the channels a tool names. No API key, no network (the config hash,
+ * which depends on the checkout, is masked). A change to the desk or to describe updates the
+ * snapshot (`npx vitest run -u`), reviewed like code.
  */
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { agboss, envelope } from "./agboss.js";
 
-const JOB_SCOUT = fileURLToPath(new URL("../../../../examples/job-scout/", import.meta.url));
 const FLOW_PATTERNS = fileURLToPath(
   new URL("../../../../examples/flow-patterns/", import.meta.url),
 );
+const DESK = ["--application", "src/desk.application.ts"];
 
-describe("#268 AC4: agboss describe on job-scout", () => {
+describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application", () => {
   it("the whole application, as printed (snapshot)", async () => {
-    const call = await agboss(["describe"], JOB_SCOUT);
+    const call = await agboss(["describe", ...DESK], FLOW_PATTERNS);
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     // the config hash depends on where the project is checked out: its format is checked, not its value
-    expect(call.stdout).toMatch(/^job-scout-workflow 3\.0\.0 · config [0-9a-f]{8}$/m);
+    expect(call.stdout).toMatch(/^desk-workflow 1\.0\.0 · config [0-9a-f]{8}$/m);
     const printed = call.stdout.replace(/ · config [0-9a-f]{8}$/gm, " · config <hash>");
-    await expect(printed).toMatchFileSnapshot("./__snapshots__/job-scout.describe.txt");
+    await expect(printed).toMatchFileSnapshot("./__snapshots__/flow-patterns-desk.describe.txt");
   });
 
-  it("--json: the application's tree, implementations, model providers, channels and budgets", async () => {
-    const call = await agboss(["describe", "--json"], JOB_SCOUT);
+  it("--json: the application's tree, its transport model provider, budgets and PII policies", async () => {
+    const call = await agboss(["describe", "--json", ...DESK], FLOW_PATTERNS);
 
     expect(envelope(call)).toMatchObject({
       ok: true,
       result: {
         application: {
-          name: "job-scout-application",
-          maxConcurrentSteps: null,
+          name: "desk-application",
+          maxConcurrentSteps: 16,
           tree: [
             {
-              name: "job-scout-workflow",
-              starts: ["chat-workflow-start (WorkflowStartTextDto)"],
+              name: "desk-workflow",
+              starts: ["desk-workflow-start (DeskQuestionDto)"],
               children: [],
             },
           ],
           modelProviders: [
+            { name: "harness-model-provider", className: "HarnessModelProvider", isTransport: true },
+          ],
+          channels: [],
+          executionBudgets: [{ workflow: "desk-workflow", name: "execution-budget", isOwn: false }],
+        },
+        workflows: [
+          {
+            name: "desk-workflow",
+            piiPolicies: [{ name: "customer-id-pii-policy", elements: ["desk-agent"] }],
+          },
+        ],
+      },
+    });
+  });
+
+  it("--json on the patterns' application: the built-in model providers and the channels tools name", async () => {
+    const call = await agboss(["describe", "--json"], FLOW_PATTERNS);
+
+    expect(envelope(call)).toMatchObject({
+      ok: true,
+      result: {
+        application: {
+          name: "flow-patterns-application",
+          modelProviders: expect.arrayContaining([
             { name: "openrouter-model-provider", className: "OpenRouterModelProvider" },
             { name: "decisions-model-provider", className: "DecisionsModelProvider" },
-          ],
+          ].map((provider) => expect.objectContaining(provider) as unknown)),
           channels: [
-            {
-              name: "terminal-user-channel",
-              question: "ChosenJobs",
+            expect.objectContaining({
+              name: "purchase-approval-channel",
+              question: "PurchaseOrder",
               answer: "ToolCallApprovalDecisionDto",
-              tools: ["save-shortlist-tool (job-scout-workflow)"],
-            },
-          ],
-          executionBudgets: [
-            { workflow: "job-scout-workflow", name: "execution-budget", isOwn: false },
+              implementation: "TerminalPurchaseApprovalChannel",
+              tools: ["place-purchase-tool (offsite-booking-workflow)"],
+            }),
+            expect.objectContaining({
+              name: "recruiter-approval-channel",
+              implementation: "RecruiterInboxChannel",
+              tools: ["send-offer-letter-tool (send-offer-workflow)"],
+            }),
           ],
         },
-        workflows: [{ name: "job-scout-workflow", piiPolicies: [] }],
       },
     });
   });
