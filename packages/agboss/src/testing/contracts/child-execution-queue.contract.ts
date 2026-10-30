@@ -7,6 +7,7 @@ import { ExecutionRecordStatus } from "../../infrastructure/execution-record.rep
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { QUEUE_REQUEUE_CASE } from "./child-execution-queue-requeue.case.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { queuedChild as child } from "./queued-child.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -97,6 +98,25 @@ const QUEUE_CASES: readonly ContractCase<ChildExecutionQueueRepository>[] = [
     },
   },
   QUEUE_REQUEUE_CASE,
+  {
+    name: nulCaseName("a child's run and its failure"),
+    run: async ({ first, second }) => {
+      const run = JSON.stringify({ input: { text: NUL_TEXT } });
+      const failure = JSON.stringify({ name: "E", message: NUL_TEXT });
+      await first.saveIfAbsent(child("c-1", { run }));
+      await claimNext(first);
+
+      await first.completeByTenantIdAndExecutionId("default", "c-1", {
+        status: ExecutionRecordStatus.Failed,
+        failure,
+      });
+
+      expect(await second.findByTenantIdAndExecutionId("default", "c-1")).toMatchObject({
+        run,
+        failure,
+      });
+    },
+  },
 ];
 
 /**

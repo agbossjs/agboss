@@ -7,6 +7,7 @@
 import type { Assertion } from 'vitest';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { IncomingMessage } from 'node:http';
+import { KeyObject } from 'node:crypto';
 import type { MessageContent } from '@langchain/core/messages';
 import { Mocked } from 'vitest';
 import { TestAPI } from 'vitest';
@@ -556,6 +557,28 @@ export class SequentialIdGenerator extends IdGenerator {
 }
 
 // @public
+export function signedMeshEnvelope(options: SignedMeshEnvelopeOptions): string;
+
+// @public
+export interface SignedMeshEnvelopeOptions {
+    readonly audience?: string;
+    readonly body: string;
+    // Warning: (ae-forgotten-export) The symbol "MeshBudgetClaim" needs to be exported by the entry point index.d.ts
+    readonly budget?: MeshBudgetClaim;
+    // Warning: (ae-forgotten-export) The symbol "MeshHop" needs to be exported by the entry point index.d.ts
+    readonly callChain: readonly MeshHop[];
+    // Warning: (ae-forgotten-export) The symbol "MeshDeadlineClaim" needs to be exported by the entry point index.d.ts
+    readonly deadline?: MeshDeadlineClaim;
+    readonly issuedAt: Date;
+    readonly issuer: string;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly lifetime?: Milliseconds;
+    // Warning: (ae-forgotten-export) The symbol "MeshOrigin" needs to be exported by the entry point index.d.ts
+    readonly origin: MeshOrigin;
+    readonly signingKey: KeyObject | string;
+}
+
+// @public
 export class StaleCassetteError extends TestFailure {
     constructor(file: string, component: string, changes: readonly CassetteChange[]);
     // (undocumented)
@@ -869,7 +892,6 @@ export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : NameO
 
 // @public
 export interface UnitCallOptions {
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeout?: Milliseconds;
 }
 

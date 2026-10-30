@@ -215,6 +215,10 @@ export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   return { caller: `tool:${tool}`, model: tool, ...ZERO_USAGE, costUsd, costSource: "tool" };
 }
 
+/**
+ * What calls cost together, in USD: the sum of their records' `costUsd` — what
+ * `CostLedgerRepository.saveAll` adds to each counter (a store of your own sums with it, #521).
+ */
 export function totalCost(records: readonly UsageRecord[]): number {
   return records.reduce((sum, record) => sum + record.costUsd, 0);
 }

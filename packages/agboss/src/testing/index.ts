@@ -152,5 +152,6 @@ export {
 } from "./execution-context.js";
 
 export { mcpServerStub } from "../components/mcp-client.js";
+export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envelope.js";
 
 export { VCRMode, type VcrConfig } from "./vcr.js";

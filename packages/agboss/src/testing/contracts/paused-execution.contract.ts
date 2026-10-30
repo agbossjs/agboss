@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
 import { PAUSE_RECORD_CASES, PAUSE_TRANSITION_CASES } from "./paused-execution-resolution.cases.js";
 import type { ContractTarget } from "./seam.js";
@@ -28,6 +29,30 @@ const BY_THREAD_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
 
       expect(latest?.run.runId).toBe("run-2");
       expect(await first.findByTenantIdAndThreadId("default", "thread-1")).toBeUndefined();
+    },
+  },
+];
+
+/** #521 AC4: a paused run and a pause whose texts hold a NUL character. */
+const NUL_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
+  {
+    name: nulCaseName("a paused run's input and a pause's question"),
+    run: async ({ first, second }) => {
+      const base = pausedRunOf("thread-1");
+      const paused = { ...base, run: { ...base.run, startInput: { text: NUL_TEXT } } };
+      const ask = {
+        callId: "call-1",
+        tool: "charge",
+        arguments: { text: NUL_TEXT },
+        summary: NUL_TEXT,
+      };
+      const asked = { ...pauseOf("pause-a"), ask };
+
+      await first.save(paused);
+      await first.findOrCreateByStepKey(asked);
+
+      expect(await second.findByTenantIdAndThreadId("default", "thread-1")).toEqual(paused);
+      expect(await second.findByTenantIdAndPauseId("default", "pause-a")).toEqual(asked);
     },
   },
 ];
@@ -98,6 +123,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       { title: "one pause per step key", cases: STEP_KEY_CASES },
       { title: "a pause goes from Pending to Resolved once", cases: PAUSE_TRANSITION_CASES },
       { title: "how each pause was resolved, and how long it is kept", cases: PAUSE_RECORD_CASES },
+      { title: "texts as they were handed over", cases: NUL_CASES },
     ],
     pingOf,
   );

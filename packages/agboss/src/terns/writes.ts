@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
+import { storedTextOf } from "./schema.js";
 import type { Tern, TernOutcome, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
@@ -10,9 +11,9 @@ const COMPLETE = `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, r
   cost_usd = ? WHERE id = ?`;
 
 const outcomeParams = (o: TernOutcome): SQLInputValue[] => [
-  o.replyWith,
+  storedTextOf(o.replyWith),
   o.status,
-  o.stopReason,
+  storedTextOf(o.stopReason),
   JSON.stringify(o.route),
   JSON.stringify(o.steps),
   o.costUsd,
@@ -72,10 +73,10 @@ export function ternWrites(
         t.threadId,
         t.bundle,
         t.createdAt,
-        t.task,
-        t.replyWith,
+        storedTextOf(t.task),
+        storedTextOf(t.replyWith),
         t.status,
-        t.stopReason,
+        storedTextOf(t.stopReason),
         JSON.stringify(t.route),
         JSON.stringify(t.steps),
         t.costUsd,

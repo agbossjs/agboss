@@ -22,7 +22,8 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). Provider names end with `-model-provider` (`[name.kind-suffix]`).
   A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
   place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
-  `[model-provider.both-modes]`): `ModelProviderRequest` (`model`, `messages:
+  `[model-provider.both-modes]`; no `circuitBreakerPolicy` — a JS project or a cast — is
+  `[model-provider.circuit-breaker-required]`, #521): `ModelProviderRequest` (`model`, `messages:
 ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
   `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
@@ -1296,7 +1297,12 @@ name, instance(seam), reset?, close? })`, one function per contract and the chec
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
   every type a contract's members name is exported by the root entry (`Tern`, `ExecutionData`, …,
-  `tests/public-api/contract-types.test.ts`); and a class declares the environment fields it reads —
+  `tests/public-api/contract-types.test.ts`), with `totalCost(records)`, the sum a ledger adds
+  (#521); every text and JSON value a store is handed comes back unchanged, a NUL character
+  (U+0000) included — a NUL case in each JSON-storing suite (#521: the SQLite record store keeps
+  free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
+  signs mesh envelopes as a peer with `signedMeshEnvelope({ issuer, signingKey, body, issuedAt,
+origin, callChain, … })` (`@agboss/core/testing`, the real client's header); and a class declares the environment fields it reads —
   `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.Secret, postgresPoolSize:
 EnvironmentField.OptionalInteger } })` — checked at assembly for every class the application or
   a workflow lists and every class their `deps` reach: a required one the contract lacks is

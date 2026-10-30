@@ -76,6 +76,8 @@ export type {
   CostSource,
   TokenUsage,
 } from "../finops/usage.js";
+// the sum a ledger adds to its counters (#521): stores outside the core use the core's own
+export { totalCost } from "../finops/usage.js";
 export type { CompensationEntry, CompensationEntryStatus } from "../flow/compensation.js";
 export type { ScopeRecords } from "../flow/runtime/records.js";
 export type { WaitingPause } from "../pause/types.js";

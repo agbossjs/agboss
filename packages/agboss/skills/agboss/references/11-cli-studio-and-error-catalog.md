@@ -339,6 +339,7 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[model.unserved]`                            | no listed model provider serves a model                                                                           | list a `@ModelProvider` that `serves` it (with one listed, the built-ins are not added)      |
 | `[model.ambiguous-provider]`                  | two listed providers serve one model                                                                              | one model string per provider: narrow one `serves`                                           |
 | `[model-provider.both-modes]`                 | a `@ModelProvider` is HTTP and a transport at once (or neither)                                                   | `complete(request)` with `baseUrl` → drop `baseUrl` / `apiKey`; HTTP with `deps` → drop them |
+| `[model-provider.circuit-breaker-required]`   | a `@ModelProvider` (or a breaker's `fallback`) has no `circuitBreakerPolicy` — a JS project or a cast (#521)      | `circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) }`    |
 
 ### Guardrails, PII, compaction, channels, judges, eval suites
 

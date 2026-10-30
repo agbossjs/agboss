@@ -5,6 +5,7 @@ import type {
   MeshRequestRepository,
 } from "../../infrastructure/mesh-request.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 const key: MeshRequestKey = {
@@ -56,6 +57,17 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
       });
       expect(await second.findByKey(other)).toBeUndefined();
       expect(await second.saveIfAbsent(at("2026-01-05T09:01:00.000Z", other))).toBe(true);
+    },
+  },
+  {
+    name: nulCaseName("an answer"),
+    run: async ({ first, second }) => {
+      const response = { status: "finished", output: { text: NUL_TEXT } };
+      await first.saveIfAbsent(at(NINE));
+
+      await first.saveResponse(key, response);
+
+      expect((await second.findByKey(key))?.response).toEqual(response);
     },
   },
   {

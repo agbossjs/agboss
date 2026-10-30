@@ -98,6 +98,10 @@ const MIGRATIONS: readonly string[] = [
   // 13 — a thread has the summaries of each of its compactions (#120 PR 3); older rows have none
   `ALTER TABLE summaries ADD COLUMN compaction TEXT NOT NULL DEFAULT '';
    CREATE INDEX summaries_compaction ON summaries(tenant_id, thread_id, compaction, to_seq);`,
+  // 14 — free text is kept as JSON text (#521): node:sqlite reads a TEXT value only up to a NUL
+  `UPDATE terns SET task = json_quote(task), replyWith = json_quote(replyWith),
+     stop_reason = json_quote(stop_reason);
+   UPDATE summaries SET text = json_quote(text);`,
 ];
 
 const TernRow = z.object({
@@ -132,6 +136,15 @@ const SummaryRow = z.object({
   cost_usd: z.number(),
 });
 
+/**
+ * Free text — a task, an answer, a summary — as its column keeps it (#521): JSON text, where a NUL
+ * character is the escape `\u0000`, since node:sqlite reads a TEXT value only up to a NUL.
+ */
+export const storedTextOf = (text: string): string => JSON.stringify(text);
+
+/** The free text a column keeps (`storedTextOf`). */
+export const textOf = (stored: string): string => z.string().parse(JSON.parse(stored));
+
 /** A database row → a typed Tern; rows are validated, never trusted. */
 export function toTern(row: unknown): Tern {
   const r = TernRow.parse(row);
@@ -142,10 +155,10 @@ export function toTern(row: unknown): Tern {
     tenantId: r.tenant_id,
     bundle: r.bundle,
     createdAt: r.created_at,
-    task: r.task,
-    replyWith: r.replyWith,
+    task: textOf(r.task),
+    replyWith: textOf(r.replyWith),
     status: r.status,
-    stopReason: r.stop_reason,
+    stopReason: textOf(r.stop_reason),
     route: Route.parse(JSON.parse(r.route)),
     steps: Steps.parse(JSON.parse(r.steps)),
     costUsd: r.cost_usd,

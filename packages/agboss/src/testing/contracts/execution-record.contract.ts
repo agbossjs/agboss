@@ -5,6 +5,7 @@ import {
 } from "../../infrastructure/execution-record.repository.js";
 import type { NewTern, TernOutcome } from "../../terns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 /** An outcome with `status`. */
@@ -92,6 +93,53 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 
       expect(late).toBe(false);
       expect((await first.byIds([id]))[0]?.status).toBe(ExecutionRecordStatus.Answered);
+    },
+  },
+  {
+    name: nulCaseName("a record's task and answer"),
+    run: async ({ first, second }) => {
+      const thread = await first.createThread({ workflow: "desk-workflow", tenantId: "default" });
+      const appended = await first.append({
+        ...record(thread, "run-1", ExecutionRecordStatus.Running),
+        task: NUL_TEXT,
+      });
+
+      await first.complete(appended.id, {
+        ...outcome(ExecutionRecordStatus.Answered),
+        replyWith: NUL_TEXT,
+      });
+
+      expect((await second.byIds([appended.id]))[0]).toMatchObject({
+        task: NUL_TEXT,
+        replyWith: NUL_TEXT,
+      });
+    },
+  },
+  {
+    name: nulCaseName("a summary's text"),
+    run: async ({ first, second }) => {
+      const thread = await first.createThread({ workflow: "desk-workflow", tenantId: "default" });
+      const turn = await first.append(record(thread, "run-1", ExecutionRecordStatus.Answered));
+
+      await first.addSummary({
+        tenantId: "default",
+        threadId: thread,
+        bundle: "desk-workflow",
+        compaction: "conversation-compaction",
+        fromTernId: turn.id,
+        toTernId: turn.id,
+        turns: 1,
+        text: NUL_TEXT,
+        costUsd: 0,
+      });
+
+      const [summary] = await second.latestSummaries(
+        "default",
+        thread,
+        "conversation-compaction",
+        1,
+      );
+      expect(summary?.text).toBe(NUL_TEXT);
     },
   },
   {

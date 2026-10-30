@@ -603,7 +603,11 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
 
 An implementation over another store keeps every operation atomic, takes every time value from the
 framework (durations as parameters, now from `Clock`), never from the store's clock, and implements
-`ping()` — one fast round trip that readiness calls.
+`ping()` — one fast round trip that readiness calls. It gives back every text and JSON value it is
+handed unchanged — a model's or a tool's answer may hold a NUL character (U+0000), which
+PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as
+the core's SQLite record store keeps free text (#521; each contract suite has a NUL case). A ledger
+sums a call's records with the core's `totalCost(records)` (root entry).
 
 It proves that with the core's own contract suites (#481), published as
 `@agboss/core/testing/contracts` — one function per contract (`executionLeaseContract`,
