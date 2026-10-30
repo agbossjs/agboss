@@ -8,11 +8,41 @@ through a small test `@Application` of its own. Vitest (≥ 3.2) is an
 optional peer dependency.
 
 ```ts
-// vitest.config.ts — one line registers the matchers
+// vitest.config.ts — agbossTest() loads AGBoss in the test's module graph and registers the matchers
 import { defineConfig } from "vitest/config";
+import { agbossTest } from "@agboss/core/testing/vitest";
 
-export default defineConfig({ test: { setupFiles: ["@agboss/core/testing/setup"] } });
+export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
 ```
+
+## The vitest preset: one module graph (#497)
+
+`agbossTest(test?)` (`@agboss/core/testing/vitest`) returns the `test` options of a vitest config:
+
+- `server.deps.inline` gains `/@agboss\/core/`. Installed from npm, `@agboss/core` is an external
+  dependency of vitest: Node loads it, and every project file the core loads by path — the
+  `*.application.ts` `workflowOf(W)` finds next to `W`, the application's environments, eval suites —
+  bypasses vite. Node cannot run their decorators, and even through tsx they would be a second module
+  graph, whose application lists another class object than the test's `W`. Inlined, the core and
+  every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
+  is inlined anyway, which is why only the published package showed it.)
+- `setupFiles` gains `@agboss/core/testing/setup`, once.
+- Your own `setupFiles` and `server.deps.inline` are merged, never replaced (`inline: true` is kept as
+  it is); every other option passes through, and calling it twice adds nothing twice. The entry
+  imports only vitest's types.
+
+Without it, `workflowOf(W)` (testing only; the CLI loads everything through tsx in one graph) throws
+`TestSetupError` when the application file's import fails, or when the file's application lists a
+class named like `W` but not `W` itself:
+`the application of <workflow> was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`,
+the original error as its `cause`. The older form — a raw `setupFiles: ["@agboss/core/testing/setup"]`
+— still registers the matchers, but leaves the core external.
+
+The guard: `npm run check:packed` (CI's `packed-project` job, on every pull request) packs
+`@agboss/core` and `@agboss/cli`, creates a project outside the workspace with the packed CLI
+(`agboss create`), installs the tarballs (checked: installed, not linked), runs its tests with a
+`workflowOf` test of its own, `agboss describe` and `agboss check` — then the same `workflowOf` test
+under a plain config, which must fail with that `TestSetupError`.
 
 <!--
 ```ts file=job-scout.ts

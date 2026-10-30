@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a vitest preset loads AGBoss in the test's module graph (#497)
+
+- **Fixed — `workflowOf(W)` on the package installed from npm** ([Testing](Testing#the-vitest-preset-one-module-graph-497)):
+  the application next to `W` was imported by Node, outside vitest — no decorators, or a second
+  module graph. **Added — `@agboss/core/testing/vitest`**: `agbossTest(test?)`, the `test` options
+  with `server.deps.inline` gaining `/@agboss\/core/` and `setupFiles` gaining
+  `@agboss/core/testing/setup` (merged, never replaced). `agboss create` writes it.
+- **Added — `TestSetupError` from `workflowOf(W)`** without the preset: `the application of
+  <workflow> was loaded outside vitest's module graph; use agbossTest() from
+  @agboss/core/testing/vitest in vitest.config.ts`, the original error as its `cause`.
+- **Added — `npm run check:packed`** and CI's `packed-project` job: the packed packages in a project
+  of their own, the positive run and the negative one; `RELEASE_CHECKLIST.md` runs it too.
+- **Migration** — in an existing `vitest.config.ts`, wrap the `test` options:
+
+  ```ts
+  import { defineConfig } from "vitest/config";
+  import { agbossTest } from "@agboss/core/testing/vitest";
+
+  export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
+  ```
+
+  The `setupFiles: ["@agboss/core/testing/setup"]` entry may go; kept, it is not added twice.
+
 ## Unreleased — job-scout moves to agbossjs/agboss-examples (#489)
 
 - **Removed — `examples/job-scout`** ([Example](Example),
