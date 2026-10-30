@@ -186,7 +186,14 @@ async function joinedTo<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   joined: Promise<OutboundCallOutcome<unknown>>,
 ): Promise<OutboundCallOutcome<TResult>> {
-  const first = await joined;
+  const { signal } = run.frame.execution;
+  signal.throwIfAborted();
+  const aborted = new Promise<never>((_, reject) => {
+    signal.addEventListener("abort", () => {
+      reject(signal.reason as Error);
+    });
+  });
+  const first = await Promise.race([joined, aborted]);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
 }
@@ -214,9 +221,16 @@ export async function sendOutboundCall<TRequest, TResult>(
   if (joined !== undefined) return joinedTo(run, joined);
   const outcome = sendOnce(run, request);
   parts.live.set(live, outcome);
+  // a step aborted (a lost lease, a cancel, its timeout) owns its call no more: never joined again
+  const { signal } = frame.execution;
+  const leave = (): void => {
+    if (parts.live.get(live) === outcome) parts.live.delete(live);
+  };
+  signal.addEventListener("abort", leave, { once: true });
   try {
     return await outcome;
   } finally {
-    parts.live.delete(live);
+    signal.removeEventListener("abort", leave);
+    leave();
   }
 }
