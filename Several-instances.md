@@ -507,7 +507,10 @@ same on every attempt, replay and holder.
   fenced transaction with the caller's lease check. A caller that loses it sends nothing and reads
   the intent again: completed → the winner's result (`Replayed`), pending → the winner is sending
   (`OutboundCallInFlightError`, `outbound-call.in-flight`, a `StepFailedError`), at most three
-  reads, then in flight. A call this instance is making now — two tool calls or two branches with
+  reads, then in flight. An attempt ends only for its owner: `markCompleted` / `markFailed` take the
+  attempt owner and change nothing once a newer attempt owns the intent. The owner is live in this
+  instance from before the intent is recorded or claimed, and nothing is sent once the step aborted
+  (checked after the lease's renewal). A call this instance is making now — two tool calls or two branches with
   one key — is **joined**, never reconciled or resent: the second gets the first's outcome
   (`OutboundCallOutcomeStatus.Joined`) or its error. Two instances recording one key at the same
   moment: the second is in flight, nothing sent.
@@ -558,7 +561,8 @@ same on every attempt, replay and holder.
 
 A store of another database implements `OutboundCallRepository` (fenced `findByKey`,
 `saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
-attempt_owner = ?` with one row changed —, `markCompleted`, `markFailed`; the two listings;
+attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
+on the attempt owner —; the two listings; `isLeaseHeld`;
 `deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
@@ -629,10 +633,13 @@ export class ChargeOrderAction {
   the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is
   SHA-256 over canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the request's.
 - **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
-  `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of the key's
-  HMAC-SHA256 under the execution's PII key — its own (#334), else the application's
-  `pseudonymKey` — never a plain hash, which `order:42` would give away; a key made outside an
-  execution has none, and the error then shows none. A concurrent
+  `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
+  `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
+  own (#334), else the application's `pseudonymKey` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
+  Never a plain hash, which `order:42` would give away, and never the PII key itself: a handle must
+  not equal the PII token of the same text, or errors would tie business keys to pseudonyms. Every
+  other use of the PII key than its tokens derives a subkey under a label of its own. A key made
+  outside an execution has no handle, and the error then shows none. A concurrent
   call of this instance under another fingerprint is refused the same way, never joined.
 - **A call in flight** under a business key belongs to its attempt's owner (`attemptOwner`): one this
   instance is sending now is **joined** (`Joined`, its outcome or its error); one under a lease

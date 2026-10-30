@@ -18,6 +18,13 @@ Breaking changes and notable additions, newest first. The API reports
   is `business-key:<handle>:<name>`.
 - **Added — `OutboundCallRepository.isLeaseHeld(tenantId, leaseExecutionId, token)`**: whether a
   pending business-key call's owner lives on another instance.
+- **Changed — `markCompleted(key, attemptOwner, result)` / `markFailed(key, attemptOwner, failure)`**
+  return whether they ended the attempt: a compare-and-set on its owner, so a stale attempt never
+  overwrites a newer one's outcome. The attempt's owner is live in the instance from before its
+  intent is recorded or claimed, and nothing is sent once the step aborted.
+- **Security — a business key's handle** is `HMAC(HMAC(piiKey, "agboss/business-key-handle/v1"),
+  "business-key\0" + key)`: a subkey of its own (domain separation), never the PII key directly,
+  so a handle never equals a PII token of the same text.
 - **Added — `callTools(…)`** ([Testing](Testing)): one scripted move calling several tools at once.
 - **Changed — the contract suites** carry the business-key cases; the SQLite stores add
   `fenced_effect_business_results` and the business-key index of `outbound_calls`.
