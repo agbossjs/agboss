@@ -25,7 +25,8 @@ shared implementation of each:
 | `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
 | `ExecutionLeaseEventRepository` | the lease log is read through the public API whichever instance took a lease over (#501, [below](#the-lease-log-501)) |
 
-Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
+Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreSQL** one
+([below](#postgresql--several-instances-on-several-machines)), or a project lists its own
 (`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
 
 ## SQLite — several instances on one machine
@@ -210,6 +211,37 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
   }
 }
 ```
+
+## PostgreSQL — several instances on several machines
+
+[`@agboss/postgres`](https://github.com/agbossjs/postgres) (#482, #483) implements every store on
+one PostgreSQL database, for pods on different machines with no shared disk. With all of them
+listed, a whole application runs on PostgreSQL alone: nothing of it is per pod. Each store is
+listed in `@Application({ providers })` like a SQLite one; they share one `pg` pool per instance
+(`PostgresConnection`, the environment's `postgresUrl: Secret`, optional `postgresPoolSize`).
+
+| Contract                        | PostgreSQL implementation               | Shared across pods                                                    |
+| ------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `BaseCheckpointSaver`           | `PostgresCheckpointSaver`               | checkpoints (LangGraph's `PostgresSaver` on the shared pool)          |
+| `PausedExecutionRepository`     | `PostgresPausedExecutionRepository`     | a pause made on one pod is answered on another                        |
+| `ExecutionRecordRepository`     | `PostgresExecutionRecordRepository`     | threads, records, scores, summaries                                   |
+| `ExecutionLeaseRepository`      | `PostgresExecutionLeaseRepository`      | one holder per tree, fenced by epoch; a dead pod's tree is taken over |
+| `ExecutionTreeRepository`       | `PostgresExecutionTreeRepository`       | the shared state of one request                                       |
+| `ChildExecutionQueueRepository` | `PostgresChildExecutionQueueRepository` | an `AnyInstance` child is claimed by one pod (`FOR UPDATE SKIP LOCKED`) |
+| `FencedEffectRepository`        | `PostgresFencedEffectRepository`        | an effect's write fenced by the tree's lease, in one transaction      |
+| `ExecutionLeaseEventRepository` | `PostgresExecutionLeaseEventRepository` | the lease log, read by `app.leaseEventsOf` on any pod                 |
+| `CostLedgerRepository`          | `PostgresCostLedgerRepository`          | budgets count every pod's spend: a tenant's $10 day is $10 in all     |
+| `ExecutionHistoryRepository`    | `PostgresExecutionHistoryRepository`    | `agboss records export` on any pod lists every pod's executions       |
+| `RateLimitRepository`           | `PostgresRateLimitRepository`           | `maxConcurrentCalls`, per-minute windows, a 429 pause, an open breaker |
+| `MeshRequestRepository`         | `PostgresMeshRequestRepository`         | a mesh request retried against another pod runs once                  |
+
+The calls that leave the system (`OutboundCallRepository`, #505) have no PostgreSQL store yet.
+Each store runs its contract's published suite against PostgreSQL, and two-process tests prove it
+across real processes: a takeover, `AnyInstance` children, a pause resumed elsewhere, a shared
+budget, a rate limit across pods, the history export and mesh deduplication. The semantics are the
+SQLite stores' — the same contracts; each store's locking is in its doc comment. The schema is
+migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job before a
+rollout, or `postgresMigrateOnStart` for one instance.
 
 ## The execution lease
 
