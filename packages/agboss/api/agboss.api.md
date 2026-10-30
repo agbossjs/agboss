@@ -7284,7 +7284,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-lease-event.repository.ts:172:3 - (ae-undocumented) Missing documentation for "attempt".
 // src/infrastructure/execution-lease-event.repository.ts:173:3 - (ae-undocumented) Missing documentation for "outcome".
 // src/infrastructure/execution-lease-event.repository.ts:174:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-lease-event.repository.ts:184:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
+// src/infrastructure/execution-lease-event.repository.ts:181:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
 // src/infrastructure/execution-lease.repository.ts:40:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:41:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
 // src/infrastructure/execution-record.repository.ts:76:3 - (ae-undocumented) Missing documentation for "append".
