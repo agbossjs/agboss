@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import { toTern } from "./schema.js";
+import { storedTextOf, textOf, toTern } from "./schema.js";
 import type { MemoryStore, Summary, Tern } from "./types.js";
 
 const SummaryRow = z.object({
@@ -29,7 +29,7 @@ const toSummary = (row: unknown): Summary => {
     fromTernId: r.from_tern,
     toTernId: r.to_tern,
     turns: r.turns,
-    text: r.text,
+    text: textOf(r.text),
     costUsd: r.cost_usd,
     createdAt: r.created_at,
   };
@@ -114,7 +114,7 @@ function summaryMethods(
         seqOf(db, stored.fromTernId),
         seqOf(db, stored.toTernId),
         stored.turns,
-        stored.text,
+        storedTextOf(stored.text),
         stored.costUsd,
         stored.createdAt,
         stored.compaction,

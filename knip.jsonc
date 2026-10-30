@@ -60,6 +60,7 @@
       "entry": [
         "src/cli/main.ts",
         "tests/fixtures/**/*.workflow.ts",
+        "tests/fixtures/**/*.application.ts",
         "tests/fixtures/**/*.environment.ts",
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],

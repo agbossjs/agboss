@@ -3,6 +3,7 @@ import type { Provider } from "../components/injection.js";
 import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import {
+  circuitBreakerPolicyOf,
   isModelProviderClass,
   isTransportClass,
   modelProviderOf,
@@ -42,7 +43,7 @@ export const transportProviderClassesOf = (
 /** Model provider classes and their breakers' fallbacks, each once. */
 export function withFallbacks(classes: readonly ModelProviderType[]): readonly ModelProviderType[] {
   const fallbacks = classes.flatMap(
-    (cls) => modelProviderOf(cls).circuitBreakerPolicy.fallback ?? [],
+    (cls) => circuitBreakerPolicyOf(modelProviderOf(cls))?.fallback ?? [],
   );
   return [...new Set([...classes, ...fallbacks.filter(isModelProviderClass)])];
 }

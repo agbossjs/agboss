@@ -7,6 +7,7 @@
  */
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { totalCost, type UsageRecord } from "../../src/index.js";
 import { INFRASTRUCTURE_DEFAULTS } from "../../src/infrastructure/contracts.js";
 
 const src = new URL("../../src/", import.meta.url).pathname;
@@ -123,5 +124,28 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
     ]) {
       expect(names.has(name), name).toBe(true);
     }
+  });
+});
+
+/** A call's usage record of `costUsd`. */
+const costing = (costUsd: number): UsageRecord => ({
+  caller: "agent:desk-agent",
+  model: "moonshotai/kimi-k2.6",
+  inputTokens: 10,
+  outputTokens: 5,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  costUsd,
+  costSource: "api",
+});
+
+describe("#521 AC3: what a ledger store needs beside the contract's types is a root export", () => {
+  it("AC3: totalCost — the sum CostLedgerRepository.saveAll adds — is exported by the root entry", () => {
+    expect(rootExports.map((symbol) => symbol.name)).toContain("totalCost");
+  });
+
+  it("AC3: totalCost sums the records' costUsd; no records cost nothing", () => {
+    expect(totalCost([costing(0.25), costing(0.5), costing(0)])).toBeCloseTo(0.75);
+    expect(totalCost([])).toBe(0);
   });
 });

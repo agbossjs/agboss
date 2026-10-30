@@ -2,6 +2,7 @@ import { registerContract } from "./define.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { outboundListingCases, outboundRefusalCases } from "./outbound-call-refusal.cases.js";
+import { outboundTextCases } from "./outbound-call-text.cases.js";
 import { outboundWriteCases } from "./outbound-call-write.cases.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -20,7 +21,13 @@ export function outboundCallContract(target: ContractTarget<OutboundCallStores>)
   registerContract(
     "outbound call contract",
     target,
-    [outboundWriteCases(), outboundRefusalCases(), outboundListingCases(), outboundAttemptCases()],
+    [
+      outboundWriteCases(),
+      outboundRefusalCases(),
+      outboundListingCases(),
+      outboundAttemptCases(),
+      outboundTextCases(),
+    ],
     (stores) => stores.calls.ping(),
   );
 }

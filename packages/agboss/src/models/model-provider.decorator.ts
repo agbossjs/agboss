@@ -145,6 +145,15 @@ export function modelProviderOf(cls: object): KeptModelProviderOptions {
   return options;
 }
 
+/**
+ * A provider's breaker as the decorator was given it: required by the type, absent only from a JS
+ * project or a cast — `[model-provider.circuit-breaker-required]` at assembly (#521).
+ */
+export const circuitBreakerPolicyOf = (
+  options: ModelProviderOptions,
+): CircuitBreakerPolicy | undefined =>
+  (options as Partial<Pick<ModelProviderOptions, "circuitBreakerPolicy">>).circuitBreakerPolicy;
+
 /** Whether a class (or a value listed in `providers`) is a `@ModelProvider` class. */
 export const isModelProviderClass = (value: unknown): value is ModelProviderType =>
   typeof value === "function" && providers.has(value);

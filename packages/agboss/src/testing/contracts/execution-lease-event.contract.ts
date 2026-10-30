@@ -14,6 +14,7 @@ import {
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 /** A takeover of `root-1` at `at` (ISO 8601). */
@@ -104,6 +105,20 @@ const LEASE_EVENT_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] 
       );
 
       expect(found).toEqual([outboundCall(NINE)]);
+    },
+  },
+  {
+    name: nulCaseName("a row's names"),
+    run: async ({ first, second }) => {
+      const row = { ...outboundCall(NINE), target: NUL_TEXT, operation: NUL_TEXT };
+      await first.save(row);
+
+      const found = await second.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+        "default",
+        "root-1",
+      );
+
+      expect(found).toEqual([row]);
     },
   },
   {

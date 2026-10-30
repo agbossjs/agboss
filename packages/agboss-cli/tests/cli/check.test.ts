@@ -16,6 +16,7 @@ import {
 const BROKEN = fixture("cli/broken.workflow.ts");
 const BAD_PROMPTS = fixture("cli/bad-prompts.workflow.ts");
 const WORKFLOW = fixture("test-workflow/test.workflow.ts");
+const NO_BREAKER = fixture("cli/no-breaker.application.ts");
 /** A prompt file: reported by its path from the working directory. */
 const TYPO = relative(process.cwd(), fixture("cli/typo.prompt.md"));
 
@@ -147,5 +148,20 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
     expect((envelope(strict).result as CheckResult).problems).toContainEqual(
       expect.objectContaining({ file: WORKFLOW, code: "application.pii-instance-key" }),
     );
+  });
+});
+
+describe("#521 AC1: agboss check on a model provider without circuitBreakerPolicy", () => {
+  it("AC1: one [model-provider.circuit-breaker-required] problem naming the provider and the field, exit 3, no crash", async () => {
+    const call = await agboss(["check", "--application", NO_BREAKER, "--json"], CWD);
+
+    expect(call.code).toBe(3);
+    expect((envelope(call).result as CheckResult).problems).toContainEqual({
+      file: NO_BREAKER,
+      code: "model-provider.circuit-breaker-required",
+      message:
+        "unguarded-model-provider (UnguardedModelProvider) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
+    });
+    expect(call.stderr).not.toMatch(/Cannot read properties/);
   });
 });

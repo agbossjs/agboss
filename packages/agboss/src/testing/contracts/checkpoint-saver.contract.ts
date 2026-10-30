@@ -3,6 +3,7 @@ import { emptyCheckpoint, type BaseCheckpointSaver } from "@langchain/langgraph"
 import { expect } from "vitest";
 import { pingCheckpointSaver } from "../../health/readiness-checks.js";
 import { registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 /** The options `list` takes. */
@@ -94,6 +95,28 @@ const CHECKPOINT_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
       const before = { configurable: { checkpoint_id: "checkpoint-2" } };
       expect(await listedIds(second, { before })).toEqual(["checkpoint-1"]);
       expect(await listedIds(second, { filter: { source: "input" } })).toEqual(["checkpoint-1"]);
+    },
+  },
+  {
+    name: nulCaseName("a checkpoint's values and a pending write"),
+    run: async ({ first, second }) => {
+      const checkpoint = {
+        ...checkpointOf("checkpoint-1", 1),
+        channel_values: { messages: [NUL_TEXT], answer: NUL_TEXT },
+        channel_versions: { messages: 1, answer: 1 },
+      };
+      const config = await first.put(
+        thread("thread-1"),
+        checkpoint,
+        { source: "input", step: 1, parents: {} },
+        { messages: 1, answer: 1 },
+      );
+
+      await first.putWrites(config, [["messages", NUL_TEXT]], "task-1");
+
+      const tuple = await second.getTuple(config);
+      expect(tuple?.checkpoint.channel_values).toEqual({ messages: [NUL_TEXT], answer: NUL_TEXT });
+      expect(tuple?.pendingWrites).toEqual([["task-1", "messages", NUL_TEXT]]);
     },
   },
   {

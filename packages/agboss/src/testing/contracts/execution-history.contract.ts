@@ -7,6 +7,7 @@ import {
   type ExecutionHistoryRepository,
 } from "../../infrastructure/execution-history.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 /** A record of the desk's execution — ended at 09:00:05 unless it rests paused. */
@@ -100,6 +101,19 @@ const HISTORY_CASES: readonly ContractCase<ExecutionHistoryRepository>[] = [
       expect(idsOf(all)).toEqual(["e1", "e3", "e2"]);
       expect(idsOf(page)).toEqual(["e3"]);
       expect(idsOf(acme)).toEqual(["e1", "e2"]);
+    },
+  },
+  {
+    name: nulCaseName("a record's input and output"),
+    run: async ({ first, second }) => {
+      const record = recordOf("e1", {
+        input: { text: NUL_TEXT },
+        output: { text: NUL_TEXT, parts: [NUL_TEXT] },
+      });
+
+      await first.save(record);
+
+      expect(await second.findByTenantIdAndExecutionId("acme", "e1")).toEqual(record);
     },
   },
   {

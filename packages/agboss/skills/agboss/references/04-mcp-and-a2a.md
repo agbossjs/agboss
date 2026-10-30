@@ -628,7 +628,9 @@ resolver the listener checks a signed envelope of a known issuer — its signatu
 (`bodyHash`, else `401 mesh.body-mismatch`). `a2aHttpListener(app, { …, meshVerifier })` takes the
 peers' public keys from an `@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM) besides
 `mesh.peers`, asked first. Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
-the session's peer.
+the session's peer. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
+signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/core/testing`,
+#521) — the framework's own encoder, the very header a real client sends for that call.
 
 What a trusted request gets — never an untrusted one:
 

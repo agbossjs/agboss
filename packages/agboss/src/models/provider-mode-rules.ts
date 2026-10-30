@@ -1,6 +1,7 @@
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
+  circuitBreakerPolicyOf,
   hasProviderMethod,
   isModelProviderClass,
   isTransportClass,
@@ -50,4 +51,24 @@ export function providerModeViolations(
     const message = `${modelProviderOf(cls).name} (${cls.name}) ${problem}`;
     return [violation("model-provider.both-modes", message, [application])];
   });
+}
+
+/**
+ * `[model-provider.circuit-breaker-required]` for every listed model provider and breaker fallback
+ * without `circuitBreakerPolicy` (#521): the type requires it, a JS project or a cast can leave it
+ * out — named at assembly, never a crash on its first read.
+ */
+export function providerBreakerViolations(
+  application: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  return classes
+    .filter((cls) => circuitBreakerPolicyOf(modelProviderOf(cls)) === undefined)
+    .map((cls) => {
+      const message =
+        `${modelProviderOf(cls).name} (${cls.name}) has no circuitBreakerPolicy — set ` +
+        "circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider";
+      return violation("model-provider.circuit-breaker-required", message, [application]);
+    });
 }

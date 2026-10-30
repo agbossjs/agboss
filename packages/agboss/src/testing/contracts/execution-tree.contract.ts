@@ -5,6 +5,7 @@ import type {
   ExecutionTreeRepository,
 } from "../../infrastructure/execution-tree.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
 const tree: ExecutionTree = { tenantId: "default", rootExecutionId: "root-1" };
@@ -63,6 +64,16 @@ const TREE_CASES: readonly ContractCase<ExecutionTreeRepository>[] = [
       await first.saveIfAbsentInTree(tree, "plan", value);
 
       expect(await second.findByIdInTree(tree, "plan")).toEqual(value);
+    },
+  },
+  {
+    name: nulCaseName("a value"),
+    run: async ({ first, second }) => {
+      const value = { text: NUL_TEXT, list: [NUL_TEXT] };
+
+      await first.saveIfAbsentInTree(tree, "answer", value);
+
+      expect(await second.findByIdInTree(tree, "answer")).toEqual(value);
     },
   },
   {

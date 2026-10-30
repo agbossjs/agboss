@@ -154,6 +154,7 @@ export type RuleCode =
   | "model.unserved"
   | "model.ambiguous-provider"
   | "model-provider.both-modes"
+  | "model-provider.circuit-breaker-required"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"
   // channels (#267 PR 1): roles found from the graph, implementations in the application's providers

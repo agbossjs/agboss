@@ -2,6 +2,7 @@ import { registerContract } from "./define.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { housekeepingCases, isolationCases } from "./fenced-effect-isolation.cases.js";
 import { concurrencyCases, rollbackCases } from "./fenced-effect-rollback.cases.js";
+import { textCases } from "./fenced-effect-text.cases.js";
 import { refusalCases, writeCases } from "./fenced-effect-write.cases.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -27,6 +28,7 @@ export function fencedEffectContract<TTransaction>(
       concurrencyCases<TTransaction>(),
       isolationCases<TTransaction>(),
       housekeepingCases<TTransaction>(),
+      textCases<TTransaction>(),
     ],
     (stores) => stores.effects.ping(),
   );
