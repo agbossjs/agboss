@@ -3,8 +3,13 @@ import { AGBossError } from "../core/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
-import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
+import type {
+  FencedEffectKey,
+  FencedEffectOrigin,
+  JsonResult,
+} from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+import type { LiveCall } from "./outbound-call-parts.js";
 
 /**
  * `OutboundCalls` (#505): a call that leaves the system, sent through the protocol — the intent
@@ -90,6 +95,8 @@ export interface OutboundCallOutcome<TResult> {
   readonly result: TResult;
   readonly attempt: number;
   readonly idempotencyKey: string;
+  /** A business key's replay of a call another step or execution made (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
 }
 
 /** What `reconcile` found. */
@@ -156,7 +163,9 @@ export class OutboundCallReconciliation<TResult> {
 @Injectable({ deps: [OutboundCallRepository, OutboundCallSettings] })
 export class OutboundCalls {
   /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
-  readonly #live = new Map<string, Promise<OutboundCallOutcome<unknown>>>();
+  readonly #live = new Map<string, LiveCall>();
+  /** The attempt owners it is sending under now. */
+  readonly #owners = new Set<string>();
 
   constructor(
     private readonly repository: OutboundCallRepository,
@@ -174,7 +183,8 @@ export class OutboundCalls {
     options: OutboundCallOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
     const { sendOutboundCall } = await import("./outbound-call-protocol.js");
-    const parts = { repository: this.repository, settings: this.settings, live: this.#live };
+    const { repository, settings } = this;
+    const parts = { repository, settings, live: this.#live, owners: this.#owners };
     return sendOutboundCall(parts, key, options);
   }
 }
@@ -278,7 +288,7 @@ export class OutboundCallUnmaskedError extends AGBossError {
 /** What is stored of a failure's text where no mask can be applied (#505): never the text. */
 export const REDACTED = "[redacted]";
 
-/** What an in-flight call knows: the call, never its request. */
+/** What an in-flight call knows: the call, never its request or its business key. */
 export interface OutboundCallInFlightErrorOptions {
   readonly name: string;
   readonly target: string;
@@ -286,10 +296,11 @@ export interface OutboundCallInFlightErrorOptions {
 }
 
 /**
- * Another call holds the key's intent and has not ended (#505): the same key sent again while a
- * call of this instance still sends it, recorded at the same moment, or moved to a new attempt
- * first. Nothing was sent — two callers never race on one payment. A `StepFailedError`:
- * `.onError(…)` or a retry policy decides; the next attempt finds what that call left.
+ * Another call holds the key's intent and has not ended (#505, #508): recorded by another instance
+ * at the same moment, moved to a new attempt first, or — under a business key — pending under a
+ * lease another instance holds. Nothing was sent: two callers never race on one payment. A
+ * `StepFailedError`: `.onError(…)` or a retry policy decides; the next attempt finds what that call
+ * left.
  */
 export class OutboundCallInFlightError extends StepFailedError {
   static override readonly code: string = "outbound-call.in-flight";

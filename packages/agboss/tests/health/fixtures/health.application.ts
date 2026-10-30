@@ -17,7 +17,7 @@ import {
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
 import type { Tern } from "../../../src/terns/index.js";
 import { seconds } from "../../../src/units/index.js";

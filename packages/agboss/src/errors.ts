@@ -95,8 +95,12 @@ export {
 export {
   FencedEffectResultTooLargeError,
   FencedEffectStoreMismatchError,
+  IdempotencyKeyConflictError,
+  InvalidBusinessKeyError,
   type FencedEffectResultTooLargeErrorOptions,
   type FencedEffectStoreMismatchErrorOptions,
+  type IdempotencyKeyConflictErrorOptions,
+  type InvalidBusinessKeyErrorOptions,
 } from "./infrastructure/fenced-effect.repository.js";
 export {
   ExecutionFencedError,

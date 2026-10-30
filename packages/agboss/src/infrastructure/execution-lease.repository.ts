@@ -2,8 +2,12 @@ import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
-import { treeKeyOf, type ExecutionLeaseRow, type InMemoryDatabase } from "./in-memory-database.js";
+import {
+  IN_MEMORY_DATABASE,
+  treeKeyOf,
+  type ExecutionLeaseRow,
+  type InMemoryDatabase,
+} from "./in-memory-database.js";
 
 /**
  * The lease of one execution tree (#265, Q58): whoever moves the tree (`app.execute`,

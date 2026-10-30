@@ -43,6 +43,8 @@ export {
   FencedEffectRepository,
   FencedEffectStatus,
   type FencedEffectKey,
+  type FencedEffectKeyOptions,
+  type FencedEffectOrigin,
   type FencedEffectOutcome,
   type FencedEffectWork,
   type JsonPrimitive,

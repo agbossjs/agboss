@@ -57,6 +57,12 @@ export interface OutboundCallRecord extends OutboundCallIntent {
   readonly failure?: OutboundCallFailure;
   /** The lease token of its last write. */
   readonly token: number;
+  /** The execution whose lease made its last write (#508): whose lease tells whether its owner lives. */
+  readonly leaseExecutionId: string;
+  /** Its business key (#508): one call per tenant, name and business key. */
+  readonly businessKey?: string;
+  /** What it does, as a hash of its request (#508): another one under its business key conflicts. */
+  readonly fingerprint?: string;
   /** When it was recorded (ISO 8601, the application's `Clock`). */
   readonly recordedAt: string;
   /** When it last ended — `Completed` or `Failed`; none while `Pending`. */

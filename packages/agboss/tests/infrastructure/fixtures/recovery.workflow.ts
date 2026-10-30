@@ -22,7 +22,7 @@ import {
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";

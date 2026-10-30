@@ -9,9 +9,11 @@ import {
 import {
   checkInMemoryFence,
   inMemoryLeaseMismatch,
+  isInMemoryLeaseHeld,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { businessFactsOf, identityOf } from "./fenced-effect-key.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type {
   OutboundCallClaim,
@@ -109,11 +111,13 @@ export abstract class OutboundCallRepository {
 
   /** Removes the `Completed` and `Failed` intents that ended before `cutoff`; never a `Pending` one. */
   abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
-}
 
-/** The row of a key: its scope, the step's idempotency key and the call's name. */
-const rowKeyOf = (key: FencedEffectKey): string =>
-  [key.scopeKey, key.idempotencyKey, key.name].join("\u0000");
+  /**
+   * Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` now — not released, not
+   * expired (#508): a pending call under a business key belongs to a live holder or to nobody.
+   */
+  abstract isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
+}
 
 /**
  * The built-in default (#505): the intents in the instance's `InMemoryDatabase`, beside the
@@ -138,14 +142,14 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 
   findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
-      const found = this.database.outboundCalls.get(rowKeyOf(key));
+      const found = this.database.outboundCalls.get(identityOf(key));
       return found === undefined ? undefined : structuredClone(found);
     });
   }
 
   saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = rowKeyOf(key);
+      const row = identityOf(key);
       if (this.database.outboundCalls.has(row)) return false;
       this.database.outboundCalls.set(row, {
         ...structuredClone(intent),
@@ -153,6 +157,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
         name: key.name,
         status: OutboundCallStatus.Pending,
         token: key.token,
+        leaseExecutionId: key.leaseExecutionId,
+        ...businessFactsOf(key),
         recordedAt: this.clock.now().toISOString(),
       });
       return true;
@@ -164,18 +170,15 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    return this.#fenced(key, () => {
-      const row = rowKeyOf(key);
-      const found = this.database.outboundCalls.get(row);
-      if (found === undefined || !isInState(found, expected)) return false;
-      const moved = { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim };
-      this.database.outboundCalls.set(row, { ...moved, token: key.token });
-      return true;
-    });
+    return this.#changed(key, (found) =>
+      isInState(found, expected)
+        ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
+        : undefined,
+    );
   }
 
-  markCompleted(key: FencedEffectKey, result: string): Promise<void> {
-    return this.#update(key, (found) => ({
+  async markCompleted(key: FencedEffectKey, result: string): Promise<void> {
+    await this.#changed(key, (found) => ({
       ...withoutEnd(found),
       status: OutboundCallStatus.Completed,
       result,
@@ -183,8 +186,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     }));
   }
 
-  markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void> {
-    return this.#update(key, (found) => ({
+  async markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void> {
+    await this.#changed(key, (found) => ({
       ...withoutEnd(found),
       status: OutboundCallStatus.Failed,
       failure: { ...failure },
@@ -208,6 +211,11 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#where((row) => row.tenantId === tenantId && row.status === status);
   }
 
+  isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+    const lease = { tenantId, leaseExecutionId, token };
+    return Promise.resolve(isInMemoryLeaseHeld(this.database, this.clock, lease));
+  }
+
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
     const before = cutoff.getTime();
     for (const [row, found] of this.database.outboundCalls)
@@ -222,16 +230,22 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(found.map((row) => structuredClone(row)));
   }
 
-  /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
-  #update(
+  /**
+   * A fenced change of the key's intent, written under the key's lease and token; none recorded, or
+   * `change` declines (`undefined`) → nothing, `false`.
+   */
+  #changed(
     key: FencedEffectKey,
-    change: (found: OutboundCallRecord) => OutboundCallRecord,
-  ): Promise<void> {
+    change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
+  ): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = rowKeyOf(key);
+      const row = identityOf(key);
       const found = this.database.outboundCalls.get(row);
-      if (found !== undefined)
-        this.database.outboundCalls.set(row, { ...change(found), token: key.token });
+      const changed = found === undefined ? undefined : change(found);
+      if (changed === undefined) return false;
+      const owner = { token: key.token, leaseExecutionId: key.leaseExecutionId };
+      this.database.outboundCalls.set(row, { ...changed, ...owner });
+      return true;
     });
   }
 
@@ -246,13 +260,6 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     });
   }
 }
-
-/** The state `markPending` expects of `found`: as it was read. */
-export const stateOf = (found: OutboundCallRecord): OutboundCallState => ({
-  status: found.status,
-  attempt: found.attempt,
-  attemptOwner: found.attemptOwner,
-});
 
 /** Whether `found` is still as `expected`. */
 export const isInState = (found: OutboundCallRecord, expected: OutboundCallState): boolean =>
@@ -276,5 +283,8 @@ export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
   step: found.step,
   status: found.status,
   token: found.token,
+  leaseExecutionId: found.leaseExecutionId,
   recordedAt: found.recordedAt,
+  ...(found.businessKey === undefined ? {} : { businessKey: found.businessKey }),
+  ...(found.fingerprint === undefined ? {} : { fingerprint: found.fingerprint }),
 });

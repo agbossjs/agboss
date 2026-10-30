@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { ExecutionFencedError } from "@agboss/core";
+import { ExecutionFencedError, IdempotencyKeyConflictError } from "@agboss/core";
 import { testAction } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../src/credit/actions/charge-card.action.js";
 import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-intake.agent.js";
 
 /**
- * #472, #500: the charge is a fenced effect of its step. `testAction` runs every call as the same
- * step of the same execution — one key — under the runner's held lease, on one container and one
- * SQLite connection, so a second call is the step run again.
+ * #472, #500, #508: the charge is a fenced effect keyed by its credit application
+ * (`credit:<applicationId>`). `testAction` runs every call as the same step of the same execution
+ * under the runner's held lease, on one container and one SQLite connection: a second call for one
+ * application is the step run again, another application a charge of its own.
  */
 
-const order = (customerId: string, total: number) => ({
-  order: { producer: OrderIntakeAgent, value: { customerId, total } },
+const order = (customerId: string, total: number, applicationId = `app-${customerId}`) => ({
+  order: { producer: OrderIntakeAgent, value: { applicationId, customerId, total } },
 });
 const onFile = { environment: { sqlitePath: ":memory:" } };
 const runner = () => testAction(ChargeCardAction, onFile);
 
-describe("#500: one charge per step", () => {
+describe("#500, #508: one charge per credit application", () => {
   it("the step run again gets the charge it made", async () => {
     const runCharge = runner();
 
@@ -29,13 +30,24 @@ describe("#500: one charge per step", () => {
     expect(again.output).toEqual(first.output);
   });
 
-  it("the step's effect is the step's, not its input's: run again with another order, it replays", async () => {
+  it("#508: another application is a charge of its own, even from the same step", async () => {
     const runCharge = runner();
     await runCharge(order("c-1", 50));
 
-    const replayed = await runCharge(order("c-2", 70));
+    const other = await runCharge(order("c-2", 70));
 
-    expect(replayed.output).toEqual({ chargeId: "charge-c-1-1" });
+    expect(other.output).toEqual({ chargeId: "charge-c-2-2" });
+  });
+
+  it("#508 AC3: the same application with another total is IdempotencyKeyConflictError, nothing charged", async () => {
+    const runCharge = runner();
+    await runCharge(order("c-1", 50, "app-7"));
+
+    await expect(runCharge(order("c-1", 70, "app-7"))).rejects.toBeInstanceOf(
+      IdempotencyKeyConflictError,
+    );
+    const again = await runCharge(order("c-3", 20));
+    expect(again.output).toEqual({ chargeId: "charge-c-3-2" });
   });
 
   it("each runner is its own file: a fresh one charges from number 1", async () => {

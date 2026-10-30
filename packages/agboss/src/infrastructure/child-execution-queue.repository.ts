@@ -2,7 +2,7 @@ import { Injectable } from "../components/decorators.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
 import { ExecutionRecordStatus } from "./execution-record.repository.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
 /** One queued child execution, as the queue keeps it (#333 PR 2). */

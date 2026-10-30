@@ -14,6 +14,7 @@ import {
   type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
+import { businessFactsOf } from "../fenced-effect-key.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import {
   EXECUTION_LEASES_SCHEMA,
@@ -22,6 +23,7 @@ import {
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
+  isSqliteLeaseHeld,
   RAISE_MARK,
 } from "./sqlite-fenced-effect.repository.js";
 
@@ -39,7 +41,14 @@ CREATE INDEX IF NOT EXISTS outbound_calls_by_status ON outbound_calls (tenant_id
 
 const RecordRow = z.object({ record: z.string() });
 
-const BY_KEY = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
+const BY_STEP = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
+const BY_BUSINESS_KEY = "tenant_id = ? AND name = ? AND business_key = ?";
+
+/** Where `key`'s row is (#508): by its step, or by its tenant, name and business key. */
+const whereOf = (key: FencedEffectKey): readonly [string, readonly string[]] =>
+  key.businessKey === undefined
+    ? [BY_STEP, [key.scopeKey, key.idempotencyKey, key.name]]
+    : [BY_BUSINESS_KEY, [key.tenantId, key.name, key.businessKey]];
 
 /** A row's record, as the store wrote it. */
 const recordOf = (row: unknown): OutboundCallRecord =>
@@ -83,10 +92,12 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         name: key.name,
         status: OutboundCallStatus.Pending,
         token: key.token,
+        leaseExecutionId: key.leaseExecutionId,
+        ...businessFactsOf(key),
         recordedAt: this.clock.now().toISOString(),
       };
       const { changes } = this.connection.database
-        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL)")
+        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)")
         .run(
           key.scopeKey,
           key.idempotencyKey,
@@ -95,6 +106,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
           intent.rootExecutionId,
           record.status,
           JSON.stringify(record),
+          key.businessKey ?? null,
         );
       return Number(changes) === 1;
     });
@@ -155,6 +167,13 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(rows.map(recordOf));
   }
 
+  isLeaseHeld(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+    const lease = { tenantId, leaseExecutionId, token };
+    return Promise.resolve(
+      isSqliteLeaseHeld(this.connection.database, lease, this.clock.now().getTime()),
+    );
+  }
+
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM outbound_calls WHERE ended_at IS NOT NULL AND ended_at < ?")
@@ -164,8 +183,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   #found(key: FencedEffectKey): OutboundCallRecord | undefined {
     const row = this.connection.database
-      .prepare(`SELECT record FROM outbound_calls WHERE ${BY_KEY}`)
-      .get(key.scopeKey, key.idempotencyKey, key.name);
+      .prepare(`SELECT record FROM outbound_calls WHERE ${whereOf(key)[0]}`)
+      .get(...whereOf(key)[1]);
     return row === undefined ? undefined : recordOf(row);
   }
 
@@ -182,18 +201,12 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   /** Writes `change` as the key's intent, under the key's token (inside a fenced transaction). */
   #write(key: FencedEffectKey, change: OutboundCallRecord): void {
-    const record = { ...change, token: key.token };
+    const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
     const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
+    const [where, values] = whereOf(key);
     this.connection.database
-      .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${BY_KEY}`)
-      .run(
-        record.status,
-        endedAt,
-        JSON.stringify(record),
-        key.scopeKey,
-        key.idempotencyKey,
-        key.name,
-      );
+      .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${where}`)
+      .run(record.status, endedAt, JSON.stringify(record), ...values);
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

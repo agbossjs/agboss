@@ -2009,6 +2009,23 @@ send, reconcile })` records an intent before the call and settles it after, over
   `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
   `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
+- **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
+fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 1–200 characters,
+  no control characters, else `InvalidBusinessKeyError`, `fenced-effect.invalid-business-key`) —
+  one row per tenant, name and business key, whatever step, execution or thread makes it; fencing
+  is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
+  The same key and fingerprint (SHA-256 of canonical JSON; `OutboundCalls` takes its request's) →
+  `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
+  visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  `effect`, `businessKeyHash` — never the key), nothing run or sent, also for a concurrent call of
+  this instance (never joined). A pending call under a business key is in flight while its attempt's
+  owner lives — sending in this instance (joined, `Joined`) or under a lease another instance holds
+  (`OutboundCallInFlightError`); once its owner is gone, the next caller reconciles it, by the
+  compare-and-set. The key sent with the call is `<tenant>:<businessKey>:<name>`; an error names it
+  by hash only (`business-key:<hash>:<name>`). SQLite: `fenced_effect_business_results` and the
+  `outbound_calls` partial unique index on `(tenant_id, name, business_key)`. flow-patterns' credit
+  desk charges under `credit:<applicationId>`. Tests: `callTools(callTool(A, …), callTool(B, …))` —
+  one move calling several tools at once (each its own task under `TestConcurrency.Real`).
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose

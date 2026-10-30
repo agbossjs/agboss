@@ -6,6 +6,7 @@ import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
+import { replayedFromOf, storedFactsOf, type StoredKeyFacts } from "../fenced-effect-key.js";
 import {
   FencedEffectRepository,
   FencedEffectStatus,
@@ -26,7 +27,11 @@ CREATE TABLE IF NOT EXISTS fenced_effect_marks (
 CREATE TABLE IF NOT EXISTS fenced_effect_results (
   scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
   token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL,
-  PRIMARY KEY (scope_key, idempotency_key, name));`;
+  PRIMARY KEY (scope_key, idempotency_key, name));
+CREATE TABLE IF NOT EXISTS fenced_effect_business_results (
+  tenant_id TEXT NOT NULL, name TEXT NOT NULL, business_key TEXT NOT NULL,
+  token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL, facts TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, name, business_key));`;
 
 const LeaseRow = z.object({
   lease_epoch: z.number(),
@@ -34,7 +39,52 @@ const LeaseRow = z.object({
   released: z.number(),
 });
 const MarkRow = z.object({ highest_token: z.number() });
-const ResultRow = z.object({ token: z.number(), result: z.string() });
+const ResultRow = z.object({
+  token: z.number(),
+  result: z.string(),
+  facts: z.string().default("{}"),
+});
+
+/** A stored row of `key`: in the step's table, or by its business key (#508). */
+function storedRowOf(database: DatabaseSync, key: FencedEffectKey): unknown {
+  if (key.businessKey === undefined)
+    return database
+      .prepare(
+        "SELECT token, result FROM fenced_effect_results WHERE scope_key = ? AND idempotency_key = ? AND name = ?",
+      )
+      .get(key.scopeKey, key.idempotencyKey, key.name);
+  return database
+    .prepare(
+      "SELECT token, result, facts FROM fenced_effect_business_results WHERE tenant_id = ? AND name = ? AND business_key = ?",
+    )
+    .get(key.tenantId, key.name, key.businessKey);
+}
+
+/** Writes `key`'s result `text` under `token` at `now`, in the table of its kind. */
+function insertRowOf(
+  database: DatabaseSync,
+  key: FencedEffectKey,
+  now: number,
+  text: string,
+): void {
+  if (key.businessKey === undefined) {
+    database
+      .prepare("INSERT INTO fenced_effect_results VALUES (?, ?, ?, ?, ?, ?)")
+      .run(key.scopeKey, key.idempotencyKey, key.name, key.token, now, text);
+    return;
+  }
+  database
+    .prepare("INSERT INTO fenced_effect_business_results VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(
+      key.tenantId,
+      key.name,
+      key.businessKey,
+      key.token,
+      now,
+      text,
+      JSON.stringify(storedFactsOf(key)),
+    );
+}
 
 export const RAISE_MARK = `INSERT INTO fenced_effect_marks (scope_key, highest_token, stored_at) VALUES (?, ?, ?)
   ON CONFLICT (scope_key) DO UPDATE SET
@@ -88,6 +138,9 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     this.connection.transaction(() => {
       const { database } = this.connection;
       database.prepare("DELETE FROM fenced_effect_results WHERE stored_at < ?").run(before);
+      database
+        .prepare("DELETE FROM fenced_effect_business_results WHERE stored_at < ?")
+        .run(before);
       database.prepare("DELETE FROM fenced_effect_marks WHERE stored_at < ?").run(before);
     });
     return Promise.resolve();
@@ -101,14 +154,17 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     const now = this.clock.now().getTime();
     checkSqliteFence(this.connection.database, key, now);
     database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now);
-    const stored = database
-      .prepare(
-        "SELECT token, result FROM fenced_effect_results WHERE scope_key = ? AND idempotency_key = ? AND name = ?",
-      )
-      .get(key.scopeKey, key.idempotencyKey, key.name);
+    const stored = storedRowOf(database, key);
     if (stored !== undefined) {
-      const { token, result } = ResultRow.parse(stored);
-      return { status: FencedEffectStatus.Replayed, result: JSON.parse(result) as TResult, token };
+      const { token, result, facts } = ResultRow.parse(stored);
+      // written by this store from the key's facts
+      const replayedFrom = replayedFromOf(key, JSON.parse(facts) as StoredKeyFacts);
+      return {
+        status: FencedEffectStatus.Replayed,
+        result: JSON.parse(result) as TResult,
+        token,
+        ...(replayedFrom === undefined ? {} : { replayedFrom }),
+      };
     }
     const result = work(database);
     if (isThenable(result)) {
@@ -117,9 +173,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
       throw new FencedEffectAsyncWorkError(key.name);
     }
     const text = this.storedResultOf(key, result);
-    database
-      .prepare("INSERT INTO fenced_effect_results VALUES (?, ?, ?, ?, ?, ?)")
-      .run(key.scopeKey, key.idempotencyKey, key.name, key.token, now, text);
+    insertRowOf(database, key, now, text);
     return {
       status: FencedEffectStatus.Ran,
       result: JSON.parse(text) as TResult,
@@ -135,12 +189,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
  */
 export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {
   const { scopeKey, token } = key;
-  const row = database
-    .prepare(
-      "SELECT lease_epoch, expires_at, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
-    )
-    .get(key.tenantId, key.leaseExecutionId);
-  const lease = row === undefined ? undefined : LeaseRow.parse(row);
+  const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
   if (!isHeld)
     throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.lease_epoch });
@@ -149,6 +198,29 @@ export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, n
     .get(scopeKey);
   const highest = mark === undefined ? 0 : MarkRow.parse(mark).highest_token;
   if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
+}
+
+/** The lease row of `(tenantId, leaseExecutionId)` on the file, if any. */
+function sqliteLeaseOf(
+  database: DatabaseSync,
+  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId">,
+): z.infer<typeof LeaseRow> | undefined {
+  const row = database
+    .prepare(
+      "SELECT lease_epoch, expires_at, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
+    )
+    .get(lease.tenantId, lease.leaseExecutionId);
+  return row === undefined ? undefined : LeaseRow.parse(row);
+}
+
+/** Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` at `now` (#508). */
+export function isSqliteLeaseHeld(
+  database: DatabaseSync,
+  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+  now: number,
+): boolean {
+  const found = sqliteLeaseOf(database, lease);
+  return found?.released === 0 && found.lease_epoch === lease.token && found.expires_at > now;
 }
 
 sqliteImplementation(SqliteFencedEffectRepository);

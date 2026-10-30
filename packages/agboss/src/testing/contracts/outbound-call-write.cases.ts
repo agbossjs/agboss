@@ -29,6 +29,7 @@ const savedThenFound: OutboundCallCase = {
       name: "charge",
       status: OutboundCallStatus.Pending,
       token: 1,
+      leaseExecutionId: "execution-1",
       recordedAt: clock.now().toISOString(),
     });
   },

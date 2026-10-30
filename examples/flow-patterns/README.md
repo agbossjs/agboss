@@ -9,7 +9,7 @@ and which serves the desk over A2A to the helpline of the first:
 | Folder           | Pattern                                                                                                                                                                                                            | Start                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
 | `src/offer/`     | a review loop                                                                                                                                                                                                      | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router; a charge made once per step under its idempotency key (#472)                                                                                                                  | `credit-workflow-start`           |
+| `src/credit/`    | a code router beside a model router; a charge made once per credit application under its business key (#472, #508)                                                                                                 | `credit-workflow-start`           |
 | `src/review/`    | parallel launches in waves (#273)                                                                                                                                                                                  | `review-workflow-start`           |
 | `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                                                                                                                    | `panel-workflow-start`            |
 | `src/vendor/`    | a child workflow per vendor (#263)                                                                                                                                                                                 | `vendor-screening-workflow-start` |
@@ -70,14 +70,17 @@ change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-casse
 `AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
 only what changed.
 
-## A side effect made once: the credit desk's charge (#472, #500)
+## A side effect made once: the credit desk's charge (#472, #500, #508)
 
 AGBoss runs a step **at least once**: when an instance dies after a step did its work but before the
 step's checkpoint is saved, another instance continues the execution from the last checkpoint and
 runs that step again — with the same `executionContext.step.idempotencyKey`
 (`<executionId>:charge-card-action:1`) under the next lease token. The charge is a **fenced effect**
 (#500): `ChargeCardAction` calls `SqliteFencedEffectRepository.saveResultIfAbsent(fencedEffectKeyOf(
-executionContext, "charge"), (database) => …)`, and the write — `PaymentLedgerRepository.recordCharge`,
+executionContext, "charge", { businessKey, fingerprint: { customerId, total } }), (database) => …)` with
+the business key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
+same application, on another thread, gets the first receipt too, and the same application with another
+total is `IdempotencyKeyConflictError`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
 one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
@@ -85,7 +88,7 @@ one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is give
 | ---------------------------- | ------------------------------------------------------------------------------------------------- |
 | the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionFencedError`, nothing written |
 | the scope's high-water mark  | a token below it → `ExecutionFencedError`, before any key is read                                 |
-| the step's key               | written before → the stored receipt, the charge not made again                                    |
+| the application's key        | written before → the stored receipt (another total: the conflict), the charge not made again      |
 | the write                    | the charge row and its receipt, committed together                                                |
 
 The ledger has no idempotency key and no fencing table of its own (`src/credit/sql/payment-charges.sql`).

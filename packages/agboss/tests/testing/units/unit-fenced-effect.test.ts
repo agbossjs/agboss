@@ -19,7 +19,7 @@ import {
   InMemoryFencedEffectRepository,
   Injectable,
 } from "../../../src/index.js";
-import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { testAction } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import {

@@ -14,7 +14,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
-import { IN_MEMORY_DATABASE } from "../../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../../src/infrastructure/in-memory-database.js";
 import type { Milliseconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";

@@ -1,6 +1,7 @@
 import { Injectable } from "../components/decorators.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
+import type { FencedEffectOrigin } from "./fenced-effect.repository.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 
 /**
@@ -155,6 +156,8 @@ export interface FencedEffectRecord extends ExecutionLeaseEventBase {
   readonly step: LeaseEventStep;
   /** The token the stored result was first written under (a replay on a newer lease: the older). */
   readonly writtenToken?: number;
+  /** A business key's replay of what another step or execution wrote (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
   /** The newer token the store saw, when it refused the call. */
   readonly observedToken?: number;
 }
@@ -174,6 +177,8 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   readonly attempt: number;
   readonly outcome: OutboundCallEventOutcome;
   readonly step: LeaseEventStep;
+  /** A business key's replay of a call another step or execution made (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
 }
 
 /** One row of the lease log. */

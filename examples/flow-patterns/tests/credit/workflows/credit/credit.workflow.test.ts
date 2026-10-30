@@ -42,7 +42,34 @@ import { CreditWorkflowStart } from "../../../../src/credit/workflows/credit/cre
 
 const test = testWith(FlowPatternsApplication);
 
-const order = (total: number) => replyWith(CreditOrderDto, { customerId: "c-1", total });
+/** The order of credit application `app-<total>`: each total its own application. */
+const order = (total: number) =>
+  replyWith(CreditOrderDto, { applicationId: `app-${String(total)}`, customerId: "c-1", total });
+
+describe("#508 AC2: one credit application, two executions on two threads", () => {
+  test("AC2: the second execution gets the first charge; the next application is charge 2", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(DeskRouter).thenReturn(
+      routeTo(OrderIntakeAgent),
+      routeTo(OrderIntakeAgent),
+      routeTo(OrderIntakeAgent),
+    );
+    mockLlm(OrderIntakeAgent).thenReturn(order(50), order(50), order(60));
+
+    const first = await app.execute(CreditWorkflowStart, {
+      text: "application app-50: $50 of tea",
+    });
+    const second = await app.execute(CreditWorkflowStart, { text: "application app-50 again" });
+    const next = await app.execute(CreditWorkflowStart, { text: "application app-60: $60 of tea" });
+
+    expect(second.threadId).not.toBe(first.threadId);
+    expect(first).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-1" });
+    expect(second).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-1" });
+    expect(next).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-2" });
+  });
+});
 
 describe("route() decides by the credit limit ($100 for c-1)", () => {
   test("$50 → charge-card-action, $500 → approval-agent", async ({ app, mockLlm }) => {
@@ -70,7 +97,7 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
       ChargeCardAction,
       CreditWorkflowFinish,
     ]);
-    // two orders are two charges: each step has its own idempotency key
+    // two orders are two charges: each credit application has its own business key (#508)
     expect(small).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-1" });
     expect(large).toFinishWith(CreditWorkflowFinish, { chargeId: "charge-c-1-2" });
   });
@@ -120,7 +147,11 @@ describe("a failing route()", () => {
       CreditLimitRouter,
       OrderHeldWorkflowFinish,
     ]);
-    expect(result).toFinishWith(OrderHeldWorkflowFinish, { customerId: "c-1", total: 50 });
+    expect(result).toFinishWith(OrderHeldWorkflowFinish, {
+      applicationId: "app-50",
+      customerId: "c-1",
+      total: 50,
+    });
   });
 
   test("another error fails the run: RouterFailedError, the original as its cause", async ({
@@ -147,7 +178,11 @@ describe("budgets (#261): the credit desk's own execution budget, the tenant's d
   test("the desk's $0.05 is spent: the next step never runs", async ({ app, mockLlm }) => {
     mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
     mockLlm(OrderIntakeAgent).thenReturn(
-      replyWith(CreditOrderDto, { customerId: "c-1", total: 500 }, { cost: usd(0.06) }),
+      replyWith(
+        CreditOrderDto,
+        { applicationId: "app-1", customerId: "c-1", total: 500 },
+        { cost: usd(0.06) },
+      ),
     );
 
     const run = app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
@@ -178,7 +213,11 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
   mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
   mockLlm(OrderIntakeAgent).thenReturn(
     ...[1, 2, 3].map(() =>
-      replyWithInvalidAnswer(CreditOrderDto, { customerId: "c-1", total: "lots" }),
+      replyWithInvalidAnswer(CreditOrderDto, {
+        applicationId: "app-1",
+        customerId: "c-1",
+        total: "lots",
+      }),
     ),
   );
 
@@ -211,7 +250,7 @@ describe("#472, #500 AC1: a crash after the charge, before its checkpoint", () =
     async ({ apps, clock, mockLlm }) => {
       mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
       mockLlm(OrderIntakeAgent).thenReturn(
-        replyWith(CreditOrderDto, { customerId: "c-crash", total: 50 }),
+        replyWith(CreditOrderDto, { applicationId: "app-1", customerId: "c-crash", total: 50 }),
       );
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");

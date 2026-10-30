@@ -13,7 +13,7 @@ import {
 } from "../../infrastructure/fenced-effect-settings.js";
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "../../infrastructure/in-memory-fenced-effect.repository.js";
-import { IN_MEMORY_DATABASE } from "../../infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../infrastructure/in-memory-database.js";
 import { InMemoryOutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
 import { OutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
 import { InMemoryDatabase } from "../../infrastructure/in-memory-database.js";

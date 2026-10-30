@@ -3,7 +3,7 @@ import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase, WindowEntry } from "./in-memory-database.js";
 
 /** One slot taken under a key (a model provider's `maxConcurrentCalls`, #266), held as a lease. */

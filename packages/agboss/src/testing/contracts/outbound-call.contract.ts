@@ -1,5 +1,6 @@
 import { registerContract } from "./define.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
+import { outboundBusinessKeyCases } from "./outbound-call-business.cases.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { outboundListingCases, outboundRefusalCases } from "./outbound-call-refusal.cases.js";
 import { outboundTextCases } from "./outbound-call-text.cases.js";
@@ -15,7 +16,7 @@ export type { OutboundCallStores } from "./outbound-call-data.js";
  * attempt only from the state its caller read (a compare-and-set, one winner); every fenced
  * method refused for a stale token, a released or an expired lease, changing nothing; listed by
  * tree and by status in the order recorded; removed by the retention cutoff on the `Clock` once
- * ended, never while pending.
+ * ended, never while pending; under a business key (#508) one intent per tenant, name and key.
  */
 export function outboundCallContract(target: ContractTarget<OutboundCallStores>): void {
   registerContract(
@@ -27,6 +28,7 @@ export function outboundCallContract(target: ContractTarget<OutboundCallStores>)
       outboundListingCases(),
       outboundAttemptCases(),
       outboundTextCases(),
+      outboundBusinessKeyCases(),
     ],
     (stores) => stores.calls.ping(),
   );

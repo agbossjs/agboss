@@ -16,6 +16,7 @@ import type {
   RouteTurn,
   ScriptedAnswer,
   ToolCallTurn,
+  ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
 
@@ -80,6 +81,14 @@ export function callTool<TInput extends object>(
     tool: toolNameOf(tool),
     args: Object.fromEntries(Object.entries(args)),
   };
+}
+
+/**
+ * An agent's model calls several tools in one move (#508): `callTools(callTool(ChargeTool, a),
+ * callTool(ChargeTool, b))` — each call its own task, at once under `TestConcurrency.Real`.
+ */
+export function callTools(...calls: readonly [ToolCallTurn, ...ToolCallTurn[]]): ToolCallsTurn {
+  return { kind: "tool-calls", calls };
 }
 
 /**

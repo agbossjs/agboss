@@ -5,6 +5,7 @@ import {
   type OutboundCallEventOutcome,
   type OutboundCallEventRecord,
 } from "../infrastructure/execution-lease-event.repository.js";
+import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import type { LeaseEventLog } from "./execution-leases.js";
 import { saved } from "./lease-events.js";
@@ -26,6 +27,7 @@ export interface OutboundCallReport {
   readonly outcome: OutboundCallEventOutcome;
   readonly scopeKey: string;
   readonly token: number;
+  readonly replayedFrom?: FencedEffectOrigin;
 }
 
 /** The row of a move: identities, the intent's state and tokens only. */
@@ -44,6 +46,7 @@ const outboundCallRowOf = (event: OutboundCallEvent, at: Date): OutboundCallEven
   status: event.status,
   attempt: event.attempt,
   outcome: event.outcome,
+  ...(event.replayedFrom === undefined ? {} : { replayedFrom: event.replayedFrom }),
   step: {
     nodeId: event.step.nodeId,
     visitNumber: event.step.visitNumber,

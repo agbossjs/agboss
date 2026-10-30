@@ -14,6 +14,7 @@ import {
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
 } from "../infrastructure/execution-lease-event.repository.js";
+import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import type { HandedOver } from "./handed-over.js";
 import { ExecutionFencedError } from "./lease-lost.js";
@@ -173,6 +174,7 @@ export interface FencedEffectReport {
   readonly token: number;
   readonly outcome: FencedEffectEventOutcome;
   readonly writtenToken?: number | undefined;
+  readonly replayedFrom?: FencedEffectOrigin | undefined;
   readonly observedToken?: number | undefined;
 }
 
@@ -210,6 +212,7 @@ const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectReco
       idempotencyKey: event.step.idempotencyKey,
     },
     writtenToken: event.writtenToken,
+    replayedFrom: event.replayedFrom,
     observedToken: event.observedToken,
   });
 

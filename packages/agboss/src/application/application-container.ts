@@ -11,7 +11,7 @@ import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js
 import { ComponentError } from "../components/metadata.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { Clock, IdGenerator } from "../infrastructure/clock.js";
-import { IN_MEMORY_DATABASE } from "../infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
   FencedEffectSettings,

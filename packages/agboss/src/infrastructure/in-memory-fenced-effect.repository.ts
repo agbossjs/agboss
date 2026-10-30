@@ -16,7 +16,8 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { identityOf, replayedFromOf, storedFactsOf } from "./fenced-effect-key.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
 /** Applies a committed transaction's writes, in order (module-private: only the store commits). */
@@ -40,9 +41,6 @@ export class InMemoryFencedEffectTransaction {
     this.#writes.push(write);
   }
 }
-
-const resultKeyOf = (key: FencedEffectKey): string =>
-  [key.scopeKey, key.idempotencyKey, key.name].join("\u0000");
 
 /**
  * The built-in default (#500): marks and results in the instance's `InMemoryDatabase` beside the
@@ -73,7 +71,9 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   ): Promise<FencedEffectOutcome<TResult>> {
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
-    return this.#serialized(key.scopeKey, () => this.#transaction(key, work));
+    // a business key is one row for every scope of the tenant: its transactions in turn too (#508)
+    const lock = key.businessKey === undefined ? key.scopeKey : identityOf(key);
+    return this.#serialized(lock, () => this.#transaction(key, work));
   }
 
   deleteByStoredAtBefore(cutoff: Date): Promise<void> {
@@ -89,11 +89,17 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
-    const stored = this.database.fencedEffectResults.get(resultKeyOf(key));
+    const stored = this.database.fencedEffectResults.get(identityOf(key));
     if (stored !== undefined) {
+      const replayedFrom = replayedFromOf(key, stored);
       raiseInMemoryMark(this.database, this.clock, key);
       const result = JSON.parse(stored.result) as TResult;
-      return { status: FencedEffectStatus.Replayed, result, token: stored.token };
+      return {
+        status: FencedEffectStatus.Replayed,
+        result,
+        token: stored.token,
+        ...(replayedFrom === undefined ? {} : { replayedFrom }),
+      };
     }
     const transaction = new InMemoryFencedEffectTransaction();
     const text = this.storedResultOf(key, await work(transaction));
@@ -101,8 +107,14 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     checkInMemoryFence(this.database, this.clock, key);
     raiseInMemoryMark(this.database, this.clock, key);
     const storedAt = this.clock.now().getTime();
-    const row = { scopeKey: key.scopeKey, token: key.token, storedAt, result: text };
-    this.database.fencedEffectResults.set(resultKeyOf(key), row);
+    const row = {
+      scopeKey: key.scopeKey,
+      token: key.token,
+      storedAt,
+      result: text,
+      ...storedFactsOf(key),
+    };
+    this.database.fencedEffectResults.set(identityOf(key), row);
     applyWrites(transaction);
     return {
       status: FencedEffectStatus.Ran,
@@ -138,15 +150,25 @@ export function checkInMemoryFence(
 ): void {
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
-  const isHeld =
-    row !== undefined &&
-    !row.released &&
-    row.lease.leaseEpoch === token &&
-    row.lease.expiresAt > clock.now();
-  if (!isHeld)
+  if (!isInMemoryLeaseHeld(database, clock, key))
     throw new ExecutionFencedError({ scopeKey, token, observedToken: row?.lease.leaseEpoch });
   const highest = database.fencedEffectMarks.get(scopeKey)?.highestToken ?? 0;
   if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
+}
+
+/** Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` now (not released or expired). */
+export function isInMemoryLeaseHeld(
+  database: InMemoryDatabase,
+  clock: Clock,
+  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+): boolean {
+  const row = database.executionLeases.get(treeKeyOf(lease.tenantId, lease.leaseExecutionId));
+  return (
+    row !== undefined &&
+    !row.released &&
+    row.lease.leaseEpoch === lease.token &&
+    row.lease.expiresAt > clock.now()
+  );
 }
 
 /** The scope's high-water mark moves up to the key's token (one mark per scope, every store's). */
