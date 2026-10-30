@@ -168,7 +168,7 @@ export async function buildApplication(
   const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
   const { database, reused: instances, quiet } = seams;
   const shared = applicationContainerOf(
-    { ...sources, database, instances, quiet },
+    { ...sources, database, instances, quiet, fencedEffects: assembled.fencedEffects },
     { ...options.container, onCreate },
   );
   const container: ContainerOptions = { ...options.container, application: shared };

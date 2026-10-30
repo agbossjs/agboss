@@ -395,6 +395,7 @@ export interface ApplicationOptions {
     readonly executionContext?: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes?: readonly Class[];
+    readonly fencedEffects?: FencedEffectsOptions;
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly maxConcurrentSteps?: number;
@@ -2100,6 +2101,111 @@ export enum FailurePolicy {
 }
 
 // @public
+export interface FencedEffectKey {
+    readonly idempotencyKey: string;
+    readonly leaseExecutionId: string;
+    readonly name: string;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+}
+
+// @public
+export function fencedEffectKeyOf(executionContext: ExecutionContext, name: string): FencedEffectKey;
+
+// @public
+export interface FencedEffectOutcome<TResult> {
+    // (undocumented)
+    readonly result: TResult;
+    // (undocumented)
+    readonly status: FencedEffectStatus;
+    readonly token: number;
+}
+
+// @public
+export abstract class FencedEffectRepository<TTransaction> {
+    constructor(
+    settings: FencedEffectSettings);
+    abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    abstract ping(): Promise<void>;
+    protected abstract runInTransaction<TResult>(key: FencedEffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    saveResultIfAbsent<TResult>(key: FencedEffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected readonly settings: FencedEffectSettings;
+    protected storedResultOf(key: FencedEffectKey, result: unknown): string;
+}
+
+// @public
+export class FencedEffectResultTooLargeError extends AGBossError {
+    constructor(options: FencedEffectResultTooLargeErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly maxResultSize: number;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly size: number;
+}
+
+// @public
+export interface FencedEffectResultTooLargeErrorOptions {
+    readonly effect: string;
+    // (undocumented)
+    readonly maxResultSize: number;
+    // (undocumented)
+    readonly size: number;
+}
+
+// @public
+export class FencedEffectSettings {
+    constructor(options?: FencedEffectsOptions);
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxResultSize: Bytes;
+    readonly retention: Milliseconds;
+}
+
+// @public
+export interface FencedEffectsOptions {
+    readonly maxResultSize?: Bytes;
+    readonly retention?: Milliseconds;
+}
+
+// @public
+export enum FencedEffectStatus {
+    Joined = "joined",
+    Ran = "ran",
+    Replayed = "replayed"
+}
+
+// @public
+export class FencedEffectStoreMismatchError extends AGBossError {
+    constructor(options: FencedEffectStoreMismatchErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly fencedEffectRepository: string;
+    // (undocumented)
+    readonly leaseRepository: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export interface FencedEffectStoreMismatchErrorOptions {
+    readonly expectedLeaseRepository: string;
+    // (undocumented)
+    readonly fencedEffectRepository: string;
+    // (undocumented)
+    readonly leaseRepository: string;
+}
+
+// @public
+export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonResult<TResult>) | Promise<TResult & JsonResult<TResult>>;
+
+// @public
 export function file(filePath: string): string;
 
 // @public
@@ -2549,6 +2655,23 @@ export class InjectionToken<T> {
 }
 
 // @public
+export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
+    // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
+    constructor(clock: Clock, database: InMemoryDatabase, settings: FencedEffectSettings, leases: ExecutionLeaseRepository);
+    // (undocumented)
+    deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    protected runInTransaction<TResult>(key: FencedEffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+}
+
+// @public
+export class InMemoryFencedEffectTransaction {
+    onCommit(write: () => void): void;
+}
+
+// @public
 export type InputFields = Readonly<Record<string, InputFieldShape>>;
 
 // @public
@@ -2644,6 +2767,13 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
     // (undocumented)
     readonly takesAbout: true;
 }
+
+// Warning: (ae-forgotten-export) The symbol "JsonPrimitive" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type JsonResult<T> = T extends JsonPrimitive ? T : T extends (...args: never[]) => unknown ? never : T extends object ? {
+    readonly [K in keyof T]: JsonResult<T[K]>;
+} : never;
 
 // @public
 export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
@@ -4473,7 +4603,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -5088,7 +5218,6 @@ export enum ToolCallStatus {
 
 // @public (undocumented)
 export interface ToolDefaults {
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxResultSize?: Bytes;
     // (undocumented)
     readonly maxToolCalls?: number;
@@ -5527,7 +5656,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:182:3 - (ae-undocumented) Missing documentation for "spend".
 // src/app/types.ts:223:3 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:224:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:188:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:195:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -6108,11 +6237,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:183:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:184:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:185:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:196:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:197:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:185:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:186:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:187:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:198:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:199:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -6155,6 +6284,25 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:120:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:143:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/fenced-effect.repository.ts:36:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:201:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect.repository.ts:202:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect.repository.ts:211:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect.repository.ts:212:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect.repository.ts:213:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect.repository.ts:214:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect.repository.ts:215:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect.repository.ts:229:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect.repository.ts:230:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/fenced-effect.repository.ts:242:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect.repository.ts:243:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect.repository.ts:244:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/fenced-effect.repository.ts:245:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:62:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:66:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:81:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".

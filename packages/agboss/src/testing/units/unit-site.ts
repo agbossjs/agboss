@@ -36,6 +36,7 @@ import { createScriptedGateway } from "../scripted-gateway.js";
 import type { UnitModelScript, UnitOptions, UnitRun } from "./unit-types.js";
 import { replacementsOf } from "./override.js";
 import { testFenceLeaseOf } from "../fence.js";
+import { unitFencedEffects } from "./unit-fenced-effects.js";
 import type { FrameLease } from "../../flow/context/frame.js";
 
 /**
@@ -94,8 +95,15 @@ const noRouterFactory = new UnavailableValue(
     `${dependant} injects ROUTER_FACTORY, which a unit runner does not have — override the class that uses it`,
 );
 
-function unitContainer(clock: Clock, contexts: RuntimeContexts, options: UnitOptions): Container {
+function unitContainer(
+  clock: Clock,
+  contexts: RuntimeContexts,
+  options: UnitOptions,
+  lease: FrameLease,
+): Container {
+  const fencedEffects = unitFencedEffects(lease, options.fence ?? {});
   const core = new Map<Token, unknown>([
+    ...fencedEffects.core,
     [ROUTER_FACTORY, noRouterFactory],
     ...contextValuesOf(contexts),
     [JudgeModel, new DependantValue((dependant) => new LiveJudgeModel(dependant))],
@@ -103,7 +111,7 @@ function unitContainer(clock: Clock, contexts: RuntimeContexts, options: UnitOpt
     [Clock, clock],
   ]);
   return createContainer(
-    { modules: [], core },
+    { modules: [], core, defaults: fencedEffects.defaults },
     { replacements: replacementsOf(options.overrides) },
   );
 }
@@ -139,7 +147,6 @@ export class UnitSite {
 
   constructor(options: UnitOptions) {
     this.contexts = unitContexts(this.clock, options);
-    this.container = unitContainer(this.clock, this.contexts, options);
     this.#tenant = tenantFieldsOf(this.contexts.tenantContext, options.tenant);
     this.#execution = executionFieldsOf(this.contexts.executionContext, options.execution);
     this.#lease = testFenceLeaseOf(options.fence ?? {}, {
@@ -147,6 +154,7 @@ export class UnitSite {
       executionId: UNIT_EXECUTION,
       clock: this.clock,
     });
+    this.container = unitContainer(this.clock, this.contexts, options, this.#lease);
   }
 
   /** The component's instance (its `deps` resolved, `overrides` applied). */

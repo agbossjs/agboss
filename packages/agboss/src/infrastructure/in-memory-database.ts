@@ -28,6 +28,26 @@ export class InMemoryDatabase {
   readonly executionHistory = new Map<string, ExecutionHistoryRecord>();
   /** The queued children by `tenantId` + `executionId` (#333 PR 2), in the order queued. */
   readonly childQueue = new Map<string, QueuedChildExecution>();
+  /** The high-water mark of each lease scope (#500), by `scopeKey`. */
+  readonly fencedEffectMarks = new Map<string, FencedEffectMarkRow>();
+  /** The stored results of fenced effects (#500), by scope, idempotency key and name. */
+  readonly fencedEffectResults = new Map<string, FencedEffectResultRow>();
+  /** The tail of each scope's fenced-effect transactions (#500): one at a time per scope. */
+  readonly fencedEffectLocks = new Map<string, Promise<void>>();
+}
+
+/** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */
+export interface FencedEffectMarkRow {
+  readonly highestToken: number;
+  readonly storedAt: number;
+}
+
+/** A stored fenced-effect result: its JSON, the token it was written under, when. */
+export interface FencedEffectResultRow {
+  readonly scopeKey: string;
+  readonly token: number;
+  readonly storedAt: number;
+  readonly result: string;
 }
 
 /** An amount counted under a window's key, at a moment (the framework clock's milliseconds). */

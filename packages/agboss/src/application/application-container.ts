@@ -13,6 +13,7 @@ import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtim
 import { Clock, IdGenerator } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/instance-tokens.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
+import { FencedEffectSettings } from "../infrastructure/fenced-effect-settings.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
   TEST_INFRASTRUCTURE_DEFAULTS,
@@ -47,6 +48,8 @@ export interface ApplicationContainerSources {
   readonly instances?: ReadonlyMap<Class, unknown>;
   /** A test's instance (`testWith`): an unlisted `Logger` is silent. */
   readonly quiet?: boolean | undefined;
+  /** `@Application({ fencedEffects })` (#500), as the fenced-effect store reads it; else the defaults. */
+  readonly fencedEffects?: FencedEffectSettings | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -62,6 +65,7 @@ export function applicationContainerOf(
       [Clock, clock],
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
+      [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
       ...contextValuesOf(sources.contexts),
     ]),
     defaults: sources.quiet === true ? TEST_INFRASTRUCTURE_DEFAULTS : INFRASTRUCTURE_DEFAULTS,

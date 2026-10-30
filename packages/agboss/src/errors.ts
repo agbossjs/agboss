@@ -83,6 +83,12 @@ export {
 } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./app/application-stopping.js";
 export {
+  FencedEffectResultTooLargeError,
+  FencedEffectStoreMismatchError,
+  type FencedEffectResultTooLargeErrorOptions,
+  type FencedEffectStoreMismatchErrorOptions,
+} from "./infrastructure/fenced-effect.repository.js";
+export {
   ExecutionFencedError,
   ExecutionLeaseLostError,
   type ExecutionFencedErrorOptions,

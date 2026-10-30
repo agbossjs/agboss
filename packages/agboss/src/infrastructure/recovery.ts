@@ -10,6 +10,7 @@ import {
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { Clock } from "./clock.js";
+import type { FencedEffectRepository } from "./fenced-effect.repository.js";
 import type { FrameworkLog } from "./logger.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 import type { StepCapacity } from "../app/step-slots.js";
@@ -20,7 +21,9 @@ import type { StepCapacity } from "../app/step-slots.js";
  * holder died, or stopped and released it) from its last checkpoint. A root this instance is not
  * compatible with is left to another one and logged once. With the in-memory defaults nothing
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
- * Each look also removes the resolved pause records older than `pauseRecordRetention` (#267 S107).
+ * Each look also removes what the stores keep past its retention: the resolved pause records
+ * (#267 S107), the mesh requests' answers (#398), the kept executions (#401), the fenced effects'
+ * results and marks (#500).
  * An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
  * many recoveries per look as it has free step slots, none when it is full — the orphans are left to
  * an idle instance; a look cut short by that goes on from where it stopped next time, so every
@@ -69,6 +72,9 @@ export interface RecoverySources {
    */
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
   readonly executionRecordRetention?: Milliseconds | undefined;
+  /** The fenced effects' results and marks (#500), removed after `fencedEffects.retention`. */
+  readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
+  readonly fencedEffectRetention?: Milliseconds | undefined;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
 }
@@ -141,53 +147,45 @@ class Sweeper implements RecoverySweep {
           isBroken: true,
         });
       }
-      await this.#forgetResolvedPauses();
-      await this.#forgetMeshRequests();
-      await this.#forgetExecutionRecords();
+      await this.#forgetExpired();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
   }
 
-  /** The resolved pause records whose retention is over, removed (#267 S107). */
-  async #forgetResolvedPauses(): Promise<void> {
-    const { clock, pauses, pauseRecordRetention } = this.sources;
-    const cutoff = new Date(clock.now().getTime() - pauseRecordRetention);
-    try {
-      await pauses.deleteResolvedBefore(cutoff);
-    } catch (error) {
-      this.#log({
-        code: "recovery.failed",
-        text: `the resolved pause records could not be removed: ${String(error)}`,
-        isBroken: true,
-      });
-    }
+  /** What the stores keep past its retention, removed: each store on its own (a failure is logged). */
+  async #forgetExpired(): Promise<void> {
+    const { pauses, meshRequests, executionHistory, fencedEffects } = this.sources;
+    // #267 S107, #398 PR 2, #401 PR 1, #500
+    await this.#forget("the resolved pause records", this.sources.pauseRecordRetention, (cutoff) =>
+      pauses.deleteResolvedBefore(cutoff),
+    );
+    await this.#forget("the mesh requests' answers", this.sources.idempotencyRetention, (cutoff) =>
+      meshRequests?.deleteCreatedBefore(cutoff),
+    );
+    await this.#forget(
+      "the kept execution records",
+      this.sources.executionRecordRetention,
+      (cutoff) => executionHistory?.deleteByEndedAtBefore(cutoff),
+    );
+    await this.#forget(
+      "the fenced effects' results",
+      this.sources.fencedEffectRetention,
+      (cutoff) => fencedEffects?.deleteByStoredAtBefore(cutoff),
+    );
   }
 
-  /** The trusted mesh requests whose retention is over, removed (#398 PR 2). */
-  async #forgetMeshRequests(): Promise<void> {
-    const { clock, meshRequests, idempotencyRetention } = this.sources;
-    if (meshRequests === undefined || idempotencyRetention === undefined) return;
+  /** `remove(now - retention)`; nothing without a retention or a store; a failure is logged. */
+  async #forget(
+    what: string,
+    retention: number | undefined,
+    remove: (cutoff: Date) => Promise<void> | undefined,
+  ): Promise<void> {
+    if (retention === undefined) return;
     try {
-      await meshRequests.deleteCreatedBefore(
-        new Date(clock.now().getTime() - idempotencyRetention),
-      );
+      await remove(new Date(this.sources.clock.now().getTime() - retention));
     } catch (error) {
-      const text = `the mesh requests' answers could not be removed: ${String(error)}`;
-      this.#log({ code: "recovery.failed", text, isBroken: true });
-    }
-  }
-
-  /** The kept executions that ended longer ago than their retention, removed (#401 PR 1). */
-  async #forgetExecutionRecords(): Promise<void> {
-    const { clock, executionHistory, executionRecordRetention } = this.sources;
-    if (executionHistory === undefined || executionRecordRetention === undefined) return;
-    try {
-      await executionHistory.deleteByEndedAtBefore(
-        new Date(clock.now().getTime() - executionRecordRetention),
-      );
-    } catch (error) {
-      const text = `the kept execution records could not be removed: ${String(error)}`;
+      const text = `${what} could not be removed: ${String(error)}`;
       this.#log({ code: "recovery.failed", text, isBroken: true });
     }
   }

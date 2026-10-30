@@ -1,3 +1,4 @@
+import type { FencedEffectsOptions } from "../infrastructure/fenced-effect-settings.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
@@ -109,6 +110,12 @@ export interface ApplicationOptions {
    * bound. Default `seconds(15)`.
    */
   readonly compensationTimeout?: Milliseconds;
+  /**
+   * The fenced effects of the application's steps (#500, `FencedEffectRepository`): the largest
+   * result stored (`maxResultSize`, default `kilobytes(64)`) and how long results and marks are kept
+   * (`retention`, default `hours(24)`, above the lease's 30 s — `[application.fenced-effects-invalid]`).
+   */
+  readonly fencedEffects?: FencedEffectsOptions;
   /**
    * The environment contract, required — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
