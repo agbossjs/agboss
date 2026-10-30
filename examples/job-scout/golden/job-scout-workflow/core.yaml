@@ -1,8 +1,0 @@
-name: core
-bundle: job-scout-workflow
-created: 2026-09-25T00:00:00.000Z
-tasks:
-  - task: "my resume src/data/sample-resume.md — search now: Israel, senior backend Java or Kotlin, 10 jobs, all boards"
-    note: resume + full brief in one message → the scout searches
-  - task: "my resume src/data/sample-resume.md — search now: Israel, LLM / agentic systems engineer, 10 jobs, all boards"
-    note: same resume, a different specialisation

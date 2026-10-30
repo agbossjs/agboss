@@ -2,16 +2,18 @@
  * #268 AC5 — the report of `agboss check`: per start the worst case of one call, each number with
  * how it is made up, read from the decorators only (no `maxSpend()`); with `--env <name>` the
  * process variables that environment needs — names marked `value` / `secret` / optional, never a
- * value (M1: `agboss check --env prod` in job-scout).
+ * value (M1: `agboss check --env dev` in flow-patterns, #489 — job-scout's `prod` before).
  */
 import { fileURLToPath } from "node:url";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { agboss, envelope, fixture } from "./agboss.js";
+import { agboss, agbossProcess, envelope, fixture } from "./agboss.js";
 
-const JOB_SCOUT = fileURLToPath(new URL("../../../../examples/job-scout/", import.meta.url));
+const FLOW_PATTERNS = fileURLToPath(
+  new URL("../../../../examples/flow-patterns/", import.meta.url),
+);
 const REPORT = fixture("cli/report.workflow.ts");
 const CWD = mkdtempSync(join(tmpdir(), "agboss-check-report-"));
 
@@ -68,48 +70,57 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
   });
 });
 
-describe("#268 AC5: --env lists the process variables by name, never a value", () => {
-  it("job-scout's prod: secret, optional and defaulted variables, no values (M1)", async () => {
-    const call = await agboss(["check", "--env", "prod"], JOB_SCOUT, {
+describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a value", () => {
+  it("flow-patterns' dev: secret, optional and defaulted variables, no values (M1)", () => {
+    const call = agbossProcess(["check", "--env", "dev"], FLOW_PATTERNS, {
       OPENROUTER_API_KEY: "sk-or-not-printed",
       AGBOSS_SQLITE_PATH: ":memory:",
+      PII_PSEUDONYM_KEY: "pii-key-not-printed",
     });
 
     expect(call.code).toBe(0);
     expect(call.stdout).toContain(
       [
-        "job-scout-application 1.0.0, environment prod",
+        "flow-patterns-application 1.0.0, environment dev",
         "",
-        "Worst case of one chat-workflow-start call",
-        "  workflow executions     1  1 job-scout-workflow",
-        "  at the same time        1  1 job-scout-workflow",
-        "  agent and router steps  2  2 in job-scout-workflow (longest path)",
-        "  nesting depth           1  job-scout-workflow",
+        "Worst case of one offer-workflow-start call",
+        "  workflow executions     1   1 offer-workflow",
+        "  at the same time        1   1 offer-workflow",
+        "  agent and router steps  12  12 in offer-workflow (maxSteps)",
+        "  nesting depth           1   offer-workflow",
         "",
-        "prod environment needs 3 process variables:",
+      ].join("\n"),
+    );
+    expect(call.stdout).toContain(
+      [
+        "dev environment needs 4 process variables:",
         "  OPENROUTER_API_KEY   secret",
         "  OPENROUTER_BASE_URL  value, optional",
         "  AGBOSS_SQLITE_PATH   value, has a default",
+        "  PII_PSEUDONYM_KEY    secret",
         "",
       ].join("\n"),
     );
     expect(call.stdout).not.toContain("sk-or-not-printed");
+    expect(call.stdout).not.toContain("pii-key-not-printed");
     expect(call.stdout).not.toContain(":memory:");
-    expect(call.stdout).not.toContain("/var/lib/job-scout");
+    expect(call.stdout).not.toContain(".agboss/flow-patterns.sqlite");
   });
 
-  it("--json: the environment's variables as data", async () => {
-    const call = await agboss(["check", "--env", "prod", "--json"], JOB_SCOUT);
+  it("--json: the environment's variables as data", () => {
+    const call = agbossProcess(["check", "--env", "dev", "--json"], FLOW_PATTERNS);
 
     expect(envelope(call)).toMatchObject({
+      ok: true,
       result: {
         report: {
           environment: {
-            name: "prod",
+            name: "dev",
             variables: [
               { variable: "OPENROUTER_API_KEY", use: "secret", required: true },
               { variable: "OPENROUTER_BASE_URL", use: "value", optional: true },
               { variable: "AGBOSS_SQLITE_PATH", use: "value", required: false, optional: false },
+              { variable: "PII_PSEUDONYM_KEY", use: "secret", required: true },
             ],
           },
         },
@@ -117,10 +128,11 @@ describe("#268 AC5: --env lists the process variables by name, never a value", (
     });
   });
 
-  it("without --env no variables are listed; the title names the default environment", async () => {
-    const call = await agboss(["check"], JOB_SCOUT);
+  it("without --env no variables are listed; the title names the default environment", () => {
+    const call = agbossProcess(["check"], FLOW_PATTERNS);
 
-    expect(call.stdout).toContain("job-scout-application 1.0.0, environment dev\n");
+    expect(call.code).toBe(0);
+    expect(call.stdout).toContain("flow-patterns-application 1.0.0, environment dev\n");
     expect(call.stdout).not.toContain("process variable");
   });
 });

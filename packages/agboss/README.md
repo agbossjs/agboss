@@ -454,7 +454,7 @@ framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev
 
 ### Standalone Verified Showcase ([`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples))
 
-7 self-contained, CI-verified applications proving AGBoss's compile-time and runtime guarantees (`npx agboss check` + `npm test` on every project, with canonical `1 class = 1 file` component folders and symmetric Spring-style `tests/` mirroring `src/`):
+8 self-contained, CI-verified applications proving AGBoss's compile-time and runtime guarantees (`npx agboss check` + `npm test` on every project, with canonical `1 class = 1 file` component folders and symmetric Spring-style `tests/` mirroring `src/`):
 
 1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
@@ -463,16 +463,9 @@ framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev
 5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 `agboss-mesh` JWS envelope, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
+8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — resume → proposed search brief → Greenhouse jobs ranked by Jev, the job scout the snippets above come from: typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent, offline at $0 against the published `@agboss/core`.
 
-### In-Repository Examples
-
-[`examples/job-scout`](https://github.com/agbossjs/agboss/tree/main/examples/job-scout) — resume → proposed search brief → Greenhouse jobs ranked
-by Jev. It depends on `agboss` exactly like your project would:
-
-```bash
-npm install && npm run build          # at the repo root
-cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
-```
+### In-Repository Example
 
 [`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
 (no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
@@ -486,7 +479,7 @@ Point the CLI at it:
 cd examples/flow-patterns && npx agboss describe   # every workflow of its application
 ```
 
-More: [Examples Showcase](https://agboss.dev/examples/job-scout/) · [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
+More: [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) · [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
 
 ## Public entries
 
@@ -524,7 +517,6 @@ deprecated re-exports for one minor release (`/concurrency` went with the old fl
 ```
 packages/agboss/      the framework runtime (published as `@agboss/core`)
 packages/agboss-cli/  the CLI, static compiler & UI tools (published as `@agboss/cli`)
-examples/job-scout/   the example (uses only the public API)
 examples/flow-patterns/ the flow's patterns: a review loop, a code router, parallel launches (scripted tests only)
 ```
 

@@ -6,7 +6,9 @@
 //      `agboss …` the CLI's own sources print;
 //   3. the ts blocks that build paths have one call per line in their chains (#289, docs/flow-lint.mjs);
 //   4. the project skills (packages/agboss/skills/**, #305): their header, codes and matrix coverage
-//      (docs/skills.mjs).
+//      (docs/skills.mjs);
+//   5. no doc but an ADR or the Changelog points at a folder that left the repository —
+//      `examples/job-scout`, now agbossjs/agboss-examples' 08-job-scout (#489, docs/removed-paths.mjs).
 // Options: --docs a.md,b.md (default: the root docs and docs/**), --wiki <dir> (instead: every page
 // of a GitHub Wiki checkout, whose links to other pages must name existing pages; CI clones the
 // wiki and runs this — #240), --out <dir> (keep the written snippets there; default a temporary
@@ -31,6 +33,7 @@ import { wikiLinkProblems, wikiPages } from "./docs/wiki.mjs";
 import { writeDocTypes } from "./docs/flow-types.mjs";
 import { flowLintProblems } from "./docs/flow-lint.mjs";
 import { skillsProblems } from "./docs/skills.mjs";
+import { removedPathProblems } from "./docs/removed-paths.mjs";
 
 const REPO = realpathSync(new URL("..", import.meta.url).pathname);
 const ROOT_DOCS = [
@@ -87,7 +90,7 @@ for (const path of docs) {
   read.push({ doc, path, markdown });
   const snippets = snippetsOf(markdown, doc);
   problems.push(...conventionProblems(snippets), ...referenceProblems(doc, markdown, known));
-  problems.push(...flowLintProblems(snippets));
+  problems.push(...flowLintProblems(snippets), ...removedPathProblems(doc, markdown));
   if (values.wiki !== undefined) problems.push(...wikiLinkProblems(doc, markdown, docs));
   const { folder, files } = writeDoc(root, doc, snippets);
   compiled += files.length;

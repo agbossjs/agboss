@@ -63,20 +63,6 @@
       // the version a generated project depends on (src/scaffold/project.ts), run by the e2e tests
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
-    "examples/job-scout": {
-      // the application (package.json → "agboss": { "application" }), the workflow, scripts, the
-      // environments of `--env` and environment.ts, their contract (a `declare module "agboss"`
-      // augmentation)
-      "entry": [
-        "src/job-scout.application.ts",
-        "src/job-scout.workflow.ts",
-        "src/scripts/*.ts",
-        "src/environments/{environment,*.environment}.ts",
-      ],
-      "project": ["src/**/*.ts", "tests/**/*.ts"],
-      // the shortlist MCP server process, started by path (src/config/paths.ts), never imported
-      "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
-    },
     "examples/flow-patterns": {
       // the applications, loaded by path (package.json → "agboss": { "application" }, #268, and the
       // offline desk's `--application`, #419), their workflows, the environments of `--env`, the

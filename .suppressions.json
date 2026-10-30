@@ -18,7 +18,7 @@
   "src eslint:complexity": 1,
   "src eslint:max-lines-per-function": 1,
   "tests @ts-ignore": 1,
-  "tests as any": 6,
+  "tests as any": 4,
   "tests eslint:@typescript-eslint/ban-ts-comment": 1,
   "tests eslint:@typescript-eslint/only-throw-error": 1
 }

@@ -163,7 +163,7 @@ describe("#268 AC7: the LangGraph dev server on the written config", () => {
   });
 
   it.each([
-    ["job-scout-workflow", "jobScoutWorkflow"],
+    ["send-offer-workflow", "sendOfferWorkflow"],
     ["vendor-check-workflow", "vendorCheckWorkflow"],
     ["v2-workflow", "v2Workflow"],
     ["2fa-workflow", "_2faWorkflow"],
