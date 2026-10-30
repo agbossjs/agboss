@@ -1,5 +1,7 @@
+import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type {
   FencedEffectEventOutcome,
+  OutboundCallEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -102,3 +104,39 @@ export interface OnFencedEffect {
   /** Called once per call of `saveResultIfAbsent`, after its outcome is known. */
   onFencedEffect(event: FencedEffectEvent): Promise<void> | void;
 }
+
+/**
+ * A step's call that leaves the system moved (#505, `onOutboundCall`): its intent recorded, the
+ * call sent and answered, replayed, reconciled — completed, not sent or unknown — or failed. A node
+ * event: the step's `step`, the call's `name`, `target`, `operation`, the intent's `status` and
+ * `attempt`, the lease scope and token, never the request or the result. Its `OutboundCall` row of
+ * the lease log is written first.
+ */
+export interface OutboundCallEvent extends NodeEvent {
+  readonly name: string;
+  readonly target: string;
+  readonly operation: string;
+  readonly status: OutboundCallStatus;
+  readonly attempt: number;
+  readonly outcome: OutboundCallEventOutcome;
+  readonly scopeKey: string;
+  /** The token the call ran under (`fencedEffectKeyOf(…).token`). */
+  readonly token: number;
+  /** The instance that made the call. */
+  readonly holderInstanceId: string;
+}
+
+/**
+ * A step's call that leaves the system moved (#505). Its row of the lease log is written first; a
+ * throw is only a warning and never reaches the call or its step.
+ */
+export interface OnOutboundCall {
+  /** Called once per move of the call, in the order of the moves. */
+  onOutboundCall(event: OutboundCallEvent): Promise<void> | void;
+}
+
+/** The hooks of the lease log (#501, #505): what happened to a tree's leases and its steps' calls. */
+export type LeaseEventHooks = OnExecutionLeaseTakeover &
+  OnStepHandedOver &
+  OnFencedEffect &
+  OnOutboundCall;

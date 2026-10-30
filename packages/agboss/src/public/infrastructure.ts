@@ -13,6 +13,8 @@ export {
   type ExecutionLeaseEventBase,
   type ExecutionLeaseEventRecord,
   type FencedEffectRecord,
+  OutboundCallEventOutcome,
+  type OutboundCallEventRecord,
   type LeaseEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
@@ -33,6 +35,7 @@ export { SqliteExecutionTreeRepository } from "../infrastructure/sqlite/sqlite-e
 export { SqlitePausedExecutionRepository } from "../infrastructure/sqlite/sqlite-paused-execution.repository.js";
 export { SqliteRateLimitRepository } from "../infrastructure/sqlite/sqlite-rate-limit.repository.js";
 export { SqliteFencedEffectRepository } from "../infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+export { SqliteOutboundCallRepository } from "../infrastructure/sqlite/sqlite-outbound-call.repository.js";
 export { SqliteChildExecutionQueueRepository } from "../infrastructure/sqlite/sqlite-child-execution-queue.repository.js";
 // the fenced effect (#500): the contract, its key and outcome, the in-memory store, its settings
 export {
@@ -86,9 +89,11 @@ export type { Milliseconds, Usd } from "../units/index.js";
 export {
   OutboundCallRepository,
   OutboundCallStatus,
+  type OutboundCallClaim,
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
+  type OutboundCallState,
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";

@@ -1,7 +1,7 @@
 import { errorRecordOf } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
-import { timeoutError, timeoutOn } from "../../../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../../../infrastructure/clock.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import type { Milliseconds } from "../../../units/index.js";
 import {

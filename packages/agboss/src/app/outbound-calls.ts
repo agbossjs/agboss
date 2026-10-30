@@ -77,6 +77,11 @@ export enum OutboundCallOutcomeStatus {
   Replayed = "replayed",
   /** Left pending: `reconcile` found that it happened — its result, nothing sent. */
   Reconciled = "reconciled",
+  /**
+   * The same call was being sent by this instance (two tool calls, two branches): its outcome,
+   * shared — nothing sent again.
+   */
+  Joined = "joined",
 }
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */
@@ -150,6 +155,9 @@ export class OutboundCallReconciliation<TResult> {
  */
 @Injectable({ deps: [OutboundCallRepository, OutboundCallSettings] })
 export class OutboundCalls {
+  /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
+  readonly #live = new Map<string, Promise<OutboundCallOutcome<unknown>>>();
+
   constructor(
     private readonly repository: OutboundCallRepository,
     private readonly settings: OutboundCallSettings,
@@ -166,7 +174,8 @@ export class OutboundCalls {
     options: OutboundCallOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
     const { sendOutboundCall } = await import("./outbound-call-protocol.js");
-    return sendOutboundCall({ repository: this.repository, settings: this.settings }, key, options);
+    const parts = { repository: this.repository, settings: this.settings, live: this.#live };
+    return sendOutboundCall(parts, key, options);
   }
 }
 
@@ -268,3 +277,38 @@ export class OutboundCallUnmaskedError extends AGBossError {
 
 /** What is stored of a failure's text where no mask can be applied (#505): never the text. */
 export const REDACTED = "[redacted]";
+
+/** What an in-flight call knows: the call, never its request. */
+export interface OutboundCallInFlightErrorOptions {
+  readonly name: string;
+  readonly target: string;
+  readonly operation: string;
+}
+
+/**
+ * Another call holds the key's intent and has not ended (#505): the same key sent again while a
+ * call of this instance still sends it, recorded at the same moment, or moved to a new attempt
+ * first. Nothing was sent — two callers never race on one payment. A `StepFailedError`:
+ * `.onError(…)` or a retry policy decides; the next attempt finds what that call left.
+ */
+export class OutboundCallInFlightError extends StepFailedError {
+  static override readonly code: string = "outbound-call.in-flight";
+  override name = "OutboundCallInFlightError";
+  readonly call: string;
+  readonly target: string;
+  readonly operation: string;
+
+  constructor(options: OutboundCallInFlightErrorOptions) {
+    const { name, target, operation } = options;
+    super(
+      `outbound call "${name}" (${operation} on ${target}) is already in flight: another call holds its key and has not ended — nothing was sent`,
+      [],
+      undefined,
+      stepCoordinatesOf(name, ComponentKind.Action),
+      { call: name, target, operation },
+    );
+    this.call = name;
+    this.target = target;
+    this.operation = operation;
+  }
+}

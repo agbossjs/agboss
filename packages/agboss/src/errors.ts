@@ -84,9 +84,11 @@ export {
 export { ApplicationStoppingError } from "./core/errors.js";
 export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export {
+  OutboundCallInFlightError,
   OutboundCallPayloadTooLargeError,
   OutboundCallUnmaskedError,
   OutboundCallUnreconciledError,
+  type OutboundCallInFlightErrorOptions,
   type OutboundCallPayloadTooLargeErrorOptions,
   type OutboundCallUnreconciledErrorOptions,
 } from "./app/outbound-calls.js";

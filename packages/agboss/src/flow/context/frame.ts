@@ -11,7 +11,11 @@ import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
-import type { FencedEffectReport, HandOverReport } from "../../app/lease-events.js";
+import type {
+  FencedEffectReport,
+  HandOverReport,
+  OutboundCallReport,
+} from "../../app/lease-events.js";
 import type { ObservabilityMask } from "../../pii/observability-mask.js";
 
 /**
@@ -85,6 +89,8 @@ export interface FrameLease {
   recordHandOver?(report: HandOverReport): void;
   /** A step under it called a fenced effect (#501): its row and `onFencedEffect`, in order. */
   recordFencedEffect?(report: FencedEffectReport): void;
+  /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
+  recordOutboundCall?(report: OutboundCallReport): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

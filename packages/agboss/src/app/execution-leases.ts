@@ -1,6 +1,6 @@
 import { scopeKeyOf } from "./lease-lost.js";
 import type * as LeaseEvents from "./lease-events.js";
-import type { FencedEffectReport, HandOverReport } from "./lease-events.js";
+import type { HandOverReport } from "./lease-events.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
@@ -284,13 +284,17 @@ export class LeaseEventReports {
     this.#append(events, (recording, log) => recording.recordHandOver(log, report, lease));
   }
 
-  fencedEffect(events: LeaseEventLog | undefined, report: FencedEffectReport): void {
-    const holder = this.#holder;
-    if (holder === undefined) return;
-    const { holderInstanceId } = holder;
-    this.#append(events, (recording, log) =>
-      recording.recordFencedEffect(log, report, holderInstanceId),
-    );
+  /**
+   * A call a step under the lease made — a fenced effect's (#501) or one that leaves the system
+   * (#505): `write` records it with the holder's instance, in the lease's order.
+   */
+  stepCall(
+    events: LeaseEventLog | undefined,
+    write: (recording: typeof LeaseEvents, log: LeaseEventLog, holder: string) => Promise<void>,
+  ): void {
+    const holderInstanceId = this.#holder?.holderInstanceId;
+    if (holderInstanceId === undefined) return;
+    this.#append(events, (recording, log) => write(recording, log, holderInstanceId));
   }
 
   /** Once every event recorded so far is written (recording never rejects). */

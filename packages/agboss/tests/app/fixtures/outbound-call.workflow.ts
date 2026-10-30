@@ -3,6 +3,7 @@ import {
   Action,
   EmptyEnvironment,
   ExecutionContext,
+  Injectable,
   OutboundCallReconciliation,
   OutboundCallUnreconciledError,
   OutboundCalls,
@@ -14,11 +15,14 @@ import {
   WorkflowStart,
   fencedEffectKeyOf,
   pii,
+  type OnOutboundCall,
+  type OutboundCallEvent,
   type OutboundCallOutcomeStatus,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { hours } from "../../../src/units/index.js";
 import { start, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
@@ -43,6 +47,20 @@ export function resetRuns(): void {
   runs.freezeBefore = 0;
   runs.freezeAfter = 0;
   runs.frozen.length = 0;
+  heard.events.length = 0;
+  heard.throws = false;
+}
+
+/** What `onOutboundCall` heard, in order (reset with `resetRuns`); `throws` makes it throw. */
+export const heard = { events: [] as OutboundCallEvent[], throws: false };
+
+/** Hears every move of every call that left the system. */
+@Injectable()
+export class OutboundCallLog implements OnOutboundCall {
+  onOutboundCall(event: OutboundCallEvent): void {
+    heard.events.push(event);
+    if (heard.throws) throw new Error("the observer is broken");
+  }
 }
 
 /** Lets every frozen run go. */
@@ -150,7 +168,11 @@ export class ChargeAndNotifyAction {
   }
 }
 
-@WorkflowStart({ name: "charge-workflow-start", description: "An order", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "charge-workflow-start",
+  description: "An order",
+  input: WorkflowStartTextDto,
+})
 export class ChargeWorkflowStart {}
 
 @WorkflowStart({
@@ -160,7 +182,11 @@ export class ChargeWorkflowStart {}
 })
 export class ChargeAndNotifyWorkflowStart {}
 
-@WorkflowFinish({ name: "charged-workflow-finish", description: "The receipt", output: ChargeReceiptDto })
+@WorkflowFinish({
+  name: "charged-workflow-finish",
+  description: "The receipt",
+  output: ChargeReceiptDto,
+})
 export class ChargedWorkflowFinish {}
 
 @WorkflowFinish({
@@ -213,8 +239,40 @@ export class ChargeAndNotifyWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
-  observers: [RecoveryLog],
+  observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],
 })
 export class OutboundCallApplication {}
+
+/** The charge with its PII policy on the workflow, not on the application (#505). */
+@Workflow({
+  name: "kept-charge-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ChargeWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAction(ChargeOrderAction)
+      .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
+      .returns(ChargeReceiptDto)
+      .toFinish(ChargedWorkflowFinish),
+  ],
+  providers: [PaymentGateway],
+  piiPolicies: [EmailPiiPolicy],
+})
+export class KeptChargeWorkflow {}
+
+/**
+ * Its root executions kept (#401): their records carry their calls. The e-mail policy is the
+ * workflow's only — the application's own mask would leave an address as it is.
+ */
+@Application({
+  name: "kept-outbound-call-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [KeptChargeWorkflow],
+  observers: [RecoveryLog, OutboundCallLog],
+  budgets: TEST_BUDGETS,
+  executionRecordRetention: hours(24),
+})
+export class KeptOutboundCallApplication {}

@@ -106,10 +106,18 @@ export class UnmaskedChargeAction {
   }
 }
 
-@WorkflowStart({ name: "child-charge-workflow-start", description: "An order", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "child-charge-workflow-start",
+  description: "An order",
+  input: WorkflowStartTextDto,
+})
 export class ChildChargeWorkflowStart {}
 
-@WorkflowFinish({ name: "child-charged-workflow-finish", description: "Charged", output: ChargedDto })
+@WorkflowFinish({
+  name: "child-charged-workflow-finish",
+  description: "Charged",
+  output: ChargedDto,
+})
 export class ChildChargedWorkflowFinish {}
 
 @Workflow({
@@ -126,13 +134,25 @@ export class ChildChargedWorkflowFinish {}
 })
 export class ChildChargeWorkflow {}
 
-@WorkflowStart({ name: "near-charge-workflow-start", description: "An order", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "near-charge-workflow-start",
+  description: "An order",
+  input: WorkflowStartTextDto,
+})
 export class NearChargeWorkflowStart {}
 
-@WorkflowStart({ name: "far-charge-workflow-start", description: "An order", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "far-charge-workflow-start",
+  description: "An order",
+  input: WorkflowStartTextDto,
+})
 export class FarChargeWorkflowStart {}
 
-@WorkflowFinish({ name: "near-charged-workflow-finish", description: "Charged", output: ChargedDto })
+@WorkflowFinish({
+  name: "near-charged-workflow-finish",
+  description: "Charged",
+  output: ChargedDto,
+})
 export class NearChargedWorkflowFinish {}
 
 @WorkflowFinish({ name: "far-charged-workflow-finish", description: "Charged", output: ChargedDto })

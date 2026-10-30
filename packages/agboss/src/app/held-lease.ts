@@ -13,7 +13,7 @@ import {
   type LeaseTake,
   type LeaseTaking,
 } from "./execution-leases.js";
-import type { FencedEffectReport, HandOverReport } from "./lease-events.js";
+import type { FencedEffectReport, HandOverReport, OutboundCallReport } from "./lease-events.js";
 import { FencedHolders, isHandedOver } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
@@ -166,7 +166,15 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   recordFencedEffect(report: FencedEffectReport): void {
-    this.#reports.fencedEffect(this.taking.events, report);
+    this.#reports.stepCall(this.taking.events, (recording, log, holder) =>
+      recording.recordFencedEffect(log, report, holder),
+    );
+  }
+
+  recordOutboundCall(report: OutboundCallReport): void {
+    this.#reports.stepCall(this.taking.events, (recording, log, holder) =>
+      recording.recordOutboundCall(log, report, holder),
+    );
   }
 
   async release(): Promise<void> {

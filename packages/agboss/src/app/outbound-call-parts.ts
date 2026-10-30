@@ -1,10 +1,13 @@
 import { errorRecordOf } from "../core/error-record.js";
 import type { FrameSpec } from "../flow/context/frame.js";
+import { nodeEventOf } from "../flow/observers/execution-event.js";
+import type { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FencedEffectKey } from "../infrastructure/fenced-effect.repository.js";
 import type {
   OutboundCallFailure,
   OutboundCallRepository,
+  OutboundCallStatus,
 } from "../infrastructure/outbound-call.repository.js";
 import {
   OutboundCallPayloadTooLargeError,
@@ -30,6 +33,8 @@ import {
 export interface OutboundCallParts {
   readonly repository: OutboundCallRepository;
   readonly settings: OutboundCallSettings;
+  /** The calls the instance is making now, by key (`OutboundCalls`' own): what a second one joins. */
+  readonly live: Map<string, Promise<OutboundCallOutcome<unknown>>>;
 }
 
 /** One call in flight: its parts, key, options, the step's frame and the key it goes with. */
@@ -117,3 +122,17 @@ export const outcomeOf = <TRequest, TResult>(
   attempt,
   idempotencyKey: run.idempotencyKey,
 });
+
+/** Tells the lease log and `onOutboundCall` of a move of the call (#505): never its payload. */
+export function told<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  outcome: OutboundCallEventOutcome,
+  [status, attempt]: readonly [OutboundCallStatus, number],
+): void {
+  const { key, options, frame } = run;
+  frame.execution.lease?.recordOutboundCall?.({
+    event: nodeEventOf(frame),
+    ...{ name: key.name, target: options.target, operation: options.operation },
+    ...{ status, attempt, outcome, scopeKey: key.scopeKey, token: key.token },
+  });
+}

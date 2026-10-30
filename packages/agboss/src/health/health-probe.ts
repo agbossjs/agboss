@@ -1,5 +1,5 @@
 import type { Clock } from "../infrastructure/clock.js";
-import { timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
+import { timeoutOn, waitOf } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import {
   HealthStatus,

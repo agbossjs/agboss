@@ -20,6 +20,7 @@ import type { ApplicationContext } from "../flow/context/application-context.js"
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
+import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 
@@ -153,7 +154,15 @@ export interface ExecutionHistoryKeeper {
   readonly answers: Pick<ExecutionRecordRepository, "findPauseAnswersByTenantIdAndRootExecutionId">;
   /** The lease log (#501): a record carries its tree's rows as they stand when it is saved. */
   readonly leaseEvents?: LeaseEventsReader | undefined;
+  /** The calls that left the system (#505): a record carries its tree's as they stand when saved. */
+  readonly outboundCalls?: OutboundCallsReader | undefined;
 }
+
+/** What a record reads of the outbound calls: its tree's. */
+export type OutboundCallsReader = Pick<
+  OutboundCallRepository,
+  "findAllByTenantIdAndRootExecutionId"
+>;
 
 /** What a record reads of the lease log: its tree's rows. */
 export type LeaseEventsReader = Pick<
@@ -172,7 +181,10 @@ export interface ExecutionHistoryParts {
 /** Where a workflow's history goes (#401) and what it reads of the lease log (#501). */
 export interface HistorySources {
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
-  readonly infrastructure: { readonly leaseEvents?: LeaseEventsReader | undefined };
+  readonly infrastructure: {
+    readonly leaseEvents?: LeaseEventsReader | undefined;
+    readonly outboundCalls?: OutboundCallsReader | undefined;
+  };
 }
 
 /** A workflow's keeper, when its application keeps the history; nothing otherwise. */
@@ -190,5 +202,6 @@ export const historyKeeperOf = (
           mask: parts.pii.observability,
           answers: parts.answers,
           leaseEvents: sources.infrastructure.leaseEvents,
+          outboundCalls: sources.infrastructure.outboundCalls,
         },
       };

@@ -8,6 +8,7 @@ import type {
 import type {
   ExecutionLeaseTakeoverEvent,
   FencedEffectEvent,
+  OutboundCallEvent,
   StepHandedOverEvent,
 } from "../flow/observers/lease-events.js";
 import type {
@@ -178,5 +179,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onFencedEffect(event: FencedEffectEvent): Promise<void> {
     return this.each("onFencedEffect", event, (o, e) => o.onFencedEffect?.(e));
+  }
+  onOutboundCall(event: OutboundCallEvent): Promise<void> {
+    return this.each("onOutboundCall", event, (o, e) => o.onOutboundCall?.(e));
   }
 }

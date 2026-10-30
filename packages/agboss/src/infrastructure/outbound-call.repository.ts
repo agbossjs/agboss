@@ -13,6 +13,13 @@ import {
 } from "./in-memory-fenced-effect.repository.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
+import type {
+  OutboundCallClaim,
+  OutboundCallFailure,
+  OutboundCallIntent,
+  OutboundCallRecord,
+  OutboundCallState,
+} from "./outbound-call-record.js";
 
 /**
  * Calls that leave the system (#505): before a step sends a request to another system (a payment
@@ -34,58 +41,14 @@ export enum OutboundCallStatus {
   Failed = "failed",
 }
 
-/** The error a failed call ended with: names and text only, never a payload. */
-export interface OutboundCallFailure {
-  readonly name: string;
-  /** The code of its class (`static code`, else the class name; `Error` for a plain one). */
-  readonly code: string;
-  readonly message: string;
-}
-
-/** The step that made a call: its join keys. */
-export interface OutboundCallStep {
-  readonly nodeId: string;
-  readonly visitNumber: number;
-}
-
-/** What is recorded before a call is sent. */
-export interface OutboundCallIntent {
-  /** The tree's root: what `app.outboundCallsOf` finds the call by. */
-  readonly rootExecutionId: string;
-  /** The execution whose step made the call. */
-  readonly executionId: string;
-  /** The workflow of that execution, by `name`: whose PII policies an operator's read masks it by. */
-  readonly workflow: string;
-  /** What the call goes to, for operators: `"payments"`. */
-  readonly target: string;
-  /** What it does there: `"charge"`. */
-  readonly operation: string;
-  /** The key sent with the call: the step's idempotency key and the call's name. */
-  readonly idempotencyKey: string;
-  /** The request as stored: its JSON, masked by the application's and the workflow's PII policies. */
-  readonly request: string;
-  /** The attempt about to be sent, from 1. */
-  readonly attempt: number;
-  readonly step: OutboundCallStep;
-}
-
-/** One call that left the system, as the store keeps it. */
-export interface OutboundCallRecord extends OutboundCallIntent {
-  readonly tenantId: string;
-  /** The call's name (`fencedEffectKeyOf(executionContext, name)`). */
-  readonly name: string;
-  readonly status: OutboundCallStatus;
-  /** The result's JSON, once `Completed`. */
-  readonly result?: string;
-  /** Why it failed, once `Failed`. */
-  readonly failure?: OutboundCallFailure;
-  /** The lease token of its last write. */
-  readonly token: number;
-  /** When it was recorded (ISO 8601, the application's `Clock`). */
-  readonly recordedAt: string;
-  /** When it last ended — `Completed` or `Failed`; none while `Pending`. */
-  readonly endedAt?: string;
-}
+export type {
+  OutboundCallClaim,
+  OutboundCallFailure,
+  OutboundCallIntent,
+  OutboundCallRecord,
+  OutboundCallState,
+  OutboundCallStep,
+} from "./outbound-call-record.js";
 
 /**
  * Infrastructure (#505): the intents of calls that leave the system, one per key. Every write and
@@ -113,8 +76,18 @@ export abstract class OutboundCallRepository {
   /** Records `intent` `Pending` under `key` — fenced; `false` when the key has one already. */
   abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
 
-  /** The intent goes `Pending` again for `attempt` (a resend after `notSent()` or a failure) — fenced. */
-  abstract markPending(key: FencedEffectKey, attempt: number): Promise<void>;
+  /**
+   * The intent goes `Pending` at `claim` — the next attempt and its new owner (a resend after
+   * `notSent()` or a failure) — only while it is still as `expected`: its status, attempt and
+   * attempt owner as the caller read them. A compare-and-set in the fenced transaction, the
+   * caller's lease checked first; `false` when another call moved it first (or it is gone): the
+   * caller must not send.
+   */
+  abstract markPending(
+    key: FencedEffectKey,
+    expected: OutboundCallState,
+    claim: OutboundCallClaim,
+  ): Promise<boolean>;
 
   /** The intent is `Completed` with `result` (its JSON) — fenced. */
   abstract markCompleted(key: FencedEffectKey, result: string): Promise<void>;
@@ -186,12 +159,19 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     });
   }
 
-  markPending(key: FencedEffectKey, attempt: number): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Pending,
-      attempt,
-    }));
+  markPending(
+    key: FencedEffectKey,
+    expected: OutboundCallState,
+    claim: OutboundCallClaim,
+  ): Promise<boolean> {
+    return this.#fenced(key, () => {
+      const row = rowKeyOf(key);
+      const found = this.database.outboundCalls.get(row);
+      if (found === undefined || !isInState(found, expected)) return false;
+      const moved = { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim };
+      this.database.outboundCalls.set(row, { ...moved, token: key.token });
+      return true;
+    });
   }
 
   markCompleted(key: FencedEffectKey, result: string): Promise<void> {
@@ -267,8 +247,21 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 }
 
+/** The state `markPending` expects of `found`: as it was read. */
+export const stateOf = (found: OutboundCallRecord): OutboundCallState => ({
+  status: found.status,
+  attempt: found.attempt,
+  attemptOwner: found.attemptOwner,
+});
+
+/** Whether `found` is still as `expected`. */
+export const isInState = (found: OutboundCallRecord, expected: OutboundCallState): boolean =>
+  found.status === expected.status &&
+  found.attempt === expected.attempt &&
+  found.attemptOwner === expected.attemptOwner;
+
 /** A record without its last ending (`result`, `failure`, `endedAt`): sent again, or ending now. */
-const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
+export const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
   tenantId: found.tenantId,
   rootExecutionId: found.rootExecutionId,
   executionId: found.executionId,
@@ -279,6 +272,7 @@ const withoutEnd = (found: OutboundCallRecord): OutboundCallRecord => ({
   idempotencyKey: found.idempotencyKey,
   request: found.request,
   attempt: found.attempt,
+  attemptOwner: found.attemptOwner,
   step: found.step,
   status: found.status,
   token: found.token,

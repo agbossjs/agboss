@@ -1,5 +1,5 @@
 import { SWEEP_EVERY } from "../infrastructure/recovery.js";
-import { waitOf } from "../infrastructure/clock-timeout.js";
+import { waitOf } from "../infrastructure/clock.js";
 import { componentReportOf, type ProbeOutcome } from "./health-probe.js";
 import {
   HealthComponentKind,

@@ -28,7 +28,15 @@ const FENCED_CALLS: readonly (readonly [
     "saveIfAbsent",
     (stores, key) => stores.calls.saveIfAbsent({ ...key, name: "other" }, intentOf(key)),
   ],
-  ["markPending", (stores, key) => stores.calls.markPending(key, 2)],
+  [
+    "markPending",
+    (stores, key) =>
+      stores.calls.markPending(
+        key,
+        { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" },
+        { attempt: 2, attemptOwner: "owner-2" },
+      ),
+  ],
   ["markCompleted", (stores, key) => stores.calls.markCompleted(key, '"zombie"')],
   [
     "markFailed",

@@ -19,7 +19,8 @@ import {
   SqliteExecutionLeaseRepository,
 } from "./sqlite-execution-lease.repository.js";
 
-const SCHEMA = `
+/** The scopes' marks and the results (#500); the marks are every fenced store's of the file. */
+export const FENCED_EFFECTS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS fenced_effect_marks (
   scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL, stored_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS fenced_effect_results (
@@ -35,7 +36,7 @@ const LeaseRow = z.object({
 const MarkRow = z.object({ highest_token: z.number() });
 const ResultRow = z.object({ token: z.number(), result: z.string() });
 
-const RAISE_MARK = `INSERT INTO fenced_effect_marks (scope_key, highest_token, stored_at) VALUES (?, ?, ?)
+export const RAISE_MARK = `INSERT INTO fenced_effect_marks (scope_key, highest_token, stored_at) VALUES (?, ?, ?)
   ON CONFLICT (scope_key) DO UPDATE SET
   highest_token = max(highest_token, excluded.highest_token), stored_at = excluded.stored_at`;
 
@@ -66,7 +67,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   ) {
     super(settings);
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
-    connection.ensureSchema("fenced_effects", SCHEMA);
+    connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
   }
 
   ping(): Promise<void> {
@@ -98,7 +99,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   ): FencedEffectOutcome<TResult> {
     const { database } = this.connection;
     const now = this.clock.now().getTime();
-    this.#checkFence(key, now);
+    checkSqliteFence(this.connection.database, key, now);
     database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now);
     const stored = database
       .prepare(
@@ -125,27 +126,29 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
       token: key.token,
     };
   }
+}
 
-  /** The lease is the key's (held, not expired, its epoch) and no newer token wrote the scope. */
-  #checkFence(key: FencedEffectKey, now: number): void {
-    const { database } = this.connection;
-    const { scopeKey, token } = key;
-    const row = database
-      .prepare(
-        "SELECT lease_epoch, expires_at, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
-      )
-      .get(key.tenantId, key.leaseExecutionId);
-    const lease = row === undefined ? undefined : LeaseRow.parse(row);
-    const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
-    if (!isHeld)
-      throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.lease_epoch });
-    const mark = database
-      .prepare("SELECT highest_token FROM fenced_effect_marks WHERE scope_key = ?")
-      .get(scopeKey);
-    const highest = mark === undefined ? 0 : MarkRow.parse(mark).highest_token;
-    if (token < highest)
-      throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
-  }
+/**
+ * The fencing checks of the SQLite stores (#500, #505), inside the caller's transaction: the key's
+ * lease is held, not expired and its epoch, and no newer token wrote the scope — else
+ * `ExecutionFencedError`, a hand-over.
+ */
+export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {
+  const { scopeKey, token } = key;
+  const row = database
+    .prepare(
+      "SELECT lease_epoch, expires_at, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
+    )
+    .get(key.tenantId, key.leaseExecutionId);
+  const lease = row === undefined ? undefined : LeaseRow.parse(row);
+  const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
+  if (!isHeld)
+    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.lease_epoch });
+  const mark = database
+    .prepare("SELECT highest_token FROM fenced_effect_marks WHERE scope_key = ?")
+    .get(scopeKey);
+  const highest = mark === undefined ? 0 : MarkRow.parse(mark).highest_token;
+  if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
 }
 
 sqliteImplementation(SqliteFencedEffectRepository);

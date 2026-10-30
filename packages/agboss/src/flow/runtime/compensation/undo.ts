@@ -5,7 +5,7 @@ import type { ExecutionObserverManager } from "../../../core/observer-manager.js
 import type { Class } from "../../../components/injection.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
-import { timeoutError, timeoutOn } from "../../../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
 import type { ResolvedField } from "../../analyse/fields.js";
 import { actionDeclarationOf } from "../../analyse/compensation.js";

@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { NodeRunContext } from "../../core/run-context.js";
-import { timeoutOn } from "../../infrastructure/clock-timeout.js";
+import { timeoutOn } from "../../infrastructure/clock.js";
 import { ToolTimeoutError, type AnyTool } from "../../tools/index.js";
 
 /** A tool call's signal and the release of its timer once the call has ended. */

@@ -1,5 +1,5 @@
 import type { Clock } from "../infrastructure/clock.js";
-import { waitOf } from "../infrastructure/clock-timeout.js";
+import { waitOf } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { ExecutionLeaseLostError, leaseExpiredError } from "./lease-lost.js";
 

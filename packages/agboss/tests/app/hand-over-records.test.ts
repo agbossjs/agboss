@@ -341,7 +341,9 @@ describe("#501: a fenced effect's call in the lease log", () => {
     const reports = new LeaseEventReports();
     reports.held(LEASE);
 
-    reports.fencedEffect(events, refusedCharge());
+    reports.stepCall(events, (recording, log, holder) =>
+      recording.recordFencedEffect(log, refusedCharge(), holder),
+    );
     reports.handOver(events, reportOf(lost()), "default:execution-1");
     await reports.settled();
 
@@ -357,8 +359,13 @@ describe("#501: a fenced effect's call in the lease log", () => {
     const unlogged = new LeaseEventReports();
     unlogged.held(LEASE);
 
-    unheld.fencedEffect(events, refusedCharge());
-    unlogged.fencedEffect(undefined, refusedCharge());
+    const charged = refusedCharge();
+    unheld.stepCall(events, (recording, log, holder) =>
+      recording.recordFencedEffect(log, charged, holder),
+    );
+    unlogged.stepCall(undefined, (recording, log, holder) =>
+      recording.recordFencedEffect(log, charged, holder),
+    );
     await Promise.all([unheld.settled(), unlogged.settled()]);
 
     expect(rows).toEqual([]);

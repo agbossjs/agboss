@@ -4,11 +4,14 @@ import {
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
+  OutboundCallEventOutcome,
   type ExecutionLeaseEventRecord,
+  type OutboundCallEventRecord,
   type ExecutionLeaseEventRepository,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
 } from "../../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./seam.js";
@@ -46,6 +49,25 @@ const handedOver = (at: string): StepHandedOverRecord => ({
   observedToken: 2,
 });
 
+/** A call of `root-1`'s step that left the system, reconciled at `at` (#505). */
+const outboundCall = (at: string): OutboundCallEventRecord => ({
+  kind: ExecutionLeaseEventKind.OutboundCall,
+  occurredAt: at,
+  tenantId: "default",
+  rootExecutionId: "root-1",
+  executionId: "root-1",
+  scopeKey: "default:root-1",
+  token: 2,
+  holderInstanceId: "instance-2",
+  name: "charge",
+  target: "payments",
+  operation: "charge",
+  status: OutboundCallStatus.Completed,
+  attempt: 1,
+  outcome: OutboundCallEventOutcome.Reconciled,
+  step: { nodeId: "charge-action", visitNumber: 1, idempotencyKey: "root-1:charge-action:1" },
+});
+
 /** Saves `rows` one after the other on `store`. */
 async function saveAll(
   store: ExecutionLeaseEventRepository,
@@ -69,6 +91,19 @@ const LEASE_EVENT_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] 
       );
 
       expect(found).toEqual([takeover(NINE), handedOver(NINE_ONE)]);
+    },
+  },
+  {
+    name: "#505: an outbound call's row is read back as it was",
+    run: async ({ first, second }) => {
+      await saveAll(first, [outboundCall(NINE)]);
+
+      const found = await second.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+        "default",
+        "root-1",
+      );
+
+      expect(found).toEqual([outboundCall(NINE)]);
     },
   },
   {

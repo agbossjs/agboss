@@ -4,6 +4,7 @@ import type { WorkflowRecord } from "../flow/context/execution-context.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
+import type { OutboundCallRecord } from "./outbound-call.repository.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
@@ -68,6 +69,11 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
    * lease over and which of its steps were handed over. None in a record saved before #501.
    */
   readonly leaseEvents?: readonly ExecutionLeaseEventRecord[];
+  /**
+   * Every call its tree made that left the system (#505), in the order recorded, masked like the
+   * record — so `agboss records export` carries them. None in a record saved before #505.
+   */
+  readonly outboundCalls?: readonly OutboundCallRecord[];
 }
 
 /** A page of a listing: `limit` records after the first `offset`, oldest start first. */

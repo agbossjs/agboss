@@ -173,10 +173,16 @@ async function maskedRecordOf(
     record.tenantId,
     record.executionId,
   );
+  const calls = await keeper.outboundCalls?.findAllByTenantIdAndRootExecutionId(
+    record.tenantId,
+    record.executionId,
+  );
   const answered = {
     ...record,
     pauses: answers,
     children: withChildPauses(record.children, answers),
+    // its calls that left the system (#505), masked with the record: results and failure texts too
+    ...(calls === undefined ? {} : { outboundCalls: calls }),
   };
   // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden
   const masked = (await keeper.mask.traceData(answered)) as typeof answered;
