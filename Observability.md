@@ -91,6 +91,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
 | `OnCompensationStart` / `OnCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
 | `OnExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
+| `OnStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -304,6 +305,38 @@ export class TakeoverAlert implements OnExecutionLeaseTakeover {
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent) {
     if (event.reason === LeaseTakeoverReason.Recovered && event.previousHolderInstanceId !== undefined)
       console.warn(`${event.previousHolderInstanceId} lost ${event.scopeKey}; token ${event.token}`);
+  }
+}
+```
+
+## Hand-overs (#501)
+
+A step that stops without failing — its lease was lost (`ExecutionLeaseLostError`), an external
+system refused one of its writes (`ExecutionFencedError`) or the instance stopped past its shutdown
+timeout (`ApplicationStoppingError`) — reaches no `.onError`, no undo and no `onExecutionError`
+([Several instances](Several-instances#fencing-external-writes-471)), but `onStepHandedOver` tells
+it: `StepHandedOverEvent` is a node event — the common fields and the `step` that stopped (its
+`nodeId`, `visitNumber`, `idempotencyKey`, a tool call's `callId`) — with `reason`
+(`HandOverReason.LeaseLost`, `Fenced`, `ApplicationStopping`), `site` (`HandOverSite.Step`, `Tool`,
+`ToolInterceptor`, `Compensation`, `Branch`, `Child`: the innermost part of the step that found
+it), `scopeKey` and `token` (a refused write's own), `observedToken` (the token the external system
+saw, when it said) and `holderInstanceId`. One event per error and lease scope: a fenced tool call
+rethrown through the agent's loop and its step is one `Tool` event. Its row of the lease log is
+written first, and the lease is released — the moving call rejects — only after it.
+
+```ts
+import {
+  HandOverReason,
+  Injectable,
+  type OnStepHandedOver,
+  type StepHandedOverEvent,
+} from "@agboss/core";
+
+@Injectable()
+export class ZombieWriteAlert implements OnStepHandedOver {
+  onStepHandedOver(event: StepHandedOverEvent) {
+    if (event.reason === HandOverReason.Fenced)
+      console.warn(`${event.step.idempotencyKey}: token ${event.token} refused, ${String(event.observedToken)} seen`);
   }
 }
 ```

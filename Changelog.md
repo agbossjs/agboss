@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: handover telemetry, a step handed over (#501 PR 2)
+
+- **Added — `onStepHandedOver`** (`OnStepHandedOver`, `StepHandedOverEvent`, `HandOverReason`,
+  `HandOverSite`) ([Observability](Observability#hand-overs-501)): a step stopped by a lost lease, a
+  fenced write or the app's stop is told once per error, at the innermost site — a step, a tool call,
+  a tool interceptor, an undo, a branch, a child.
+- **Added — `StepHandedOverRecord`**, the lease log's `HandedOver` row
+  ([Several instances](Several-instances#the-lease-log-501)), written before the moving call rejects;
+  `ExecutionLeaseEventRecord` is now `LeaseTakeoverRecord | StepHandedOverRecord` and `checkpointId`
+  is the takeover's own field.
+- **Added — `ExecutionHistoryRecord.leaseEvents`**: a kept execution carries its tree's rows of the
+  lease log ([Execution history](Execution-history)), and so does `agboss records export`.
+
 ## Unreleased — 0.1.1: handover telemetry, the lease log (#501 PR 1)
 
 - **Added — `ExecutionLease.takenOverFrom`** (`PreviousLeaseHolder`: `holderInstanceId`,

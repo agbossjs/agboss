@@ -63,6 +63,7 @@ what it was:
 | `finish?`, `output?` | its finish and output, when it finished |
 | `contexts` | `ExecutionContextRecord`: its `tenant` and `execution` values |
 | `error?` | the `ErrorRecord` that failed or cancelled it |
+| `leaseEvents?` | its tree's rows of the lease log when it was saved (#501): who took its lease over, which of its steps were handed over ([Several instances → The lease log](Several-instances#the-lease-log-501)); none in a record saved before #501 |
 | `path`, `scope`, `outdatedValues`, `lastError?`, `spend`, `children`, `pauses`, `compensations`, `toolCalls`, `steps`, `origin?` | its `ExecutionRecord` ([App → The result](App#the-result--executionoutput)): who answered each pause, its tool calls and step records (#395), where a trusted mesh request came from (#398) |
 
 **Masked like its traces**: every string through the application's and the workflow's PII policies

@@ -497,6 +497,34 @@ and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
   pause and taken by the resume is none;
 - **the head checkpoint** (`checkpointId`) the taking instance continues from, where it reads it.
 
+**A step handed over** is a `HandedOver` row (`StepHandedOverRecord`) and an
+[`onStepHandedOver`](Observability#hand-overs-501): the step that stopped (`step`: `nodeId`,
+`visitNumber`, `idempotencyKey`), `reason` (`LeaseLost`, `Fenced`, `ApplicationStopping`), `site`
+(`Step`, `Tool`, `ToolInterceptor`, `Compensation`, `Branch`, `Child`), the stopped holder and its
+`token`, and `observedToken` for a refused write — once per error, at the innermost site, written
+before the moving call rejects. So the public log alone tells two zombies apart:
+
+| What the old holder did | Rows of its tree |
+| ----------------------- | ---------------- |
+| woke, reached a step and was refused at its write | `takeover` (the new holder), then `handed-over` (`reason: fenced`, `site`, `token` 1, `observedToken` 2) |
+| froze or died before it reached a step again | `takeover` only |
+
+<!-- snippet-context
+import { ExecutionLeaseEventKind, HandOverReason, type App } from "@agboss/core";
+declare const app: App;
+declare const rootExecutionId: string;
+-->
+
+```ts
+const rows = await app.leaseEventsOf({ tenantId: "acme", rootExecutionId });
+const refused = rows.some(
+  (row) => row.kind === ExecutionLeaseEventKind.HandedOver && row.reason === HandOverReason.Fenced,
+);
+```
+
+A kept execution ([Execution history](Execution-history)) carries its tree's rows as they stood when
+it was saved, `ExecutionHistoryRecord.leaseEvents`, and so does its line of `agboss records export`.
+
 The rows carry identities and tokens only — never a payload — masked like observer events. They are
 **always written**, whatever `executionRecordRetention` says, before the observers hear of them, and
 read while the tree runs, from any instance, through the public API:
