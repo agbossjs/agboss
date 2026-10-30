@@ -1,5 +1,6 @@
 import {
   checkResume,
+  IncompatibleResumeError,
   type IncompatibleResumePolicy,
   type ResumeVersions,
 } from "../run/resume-guard.js";
@@ -50,3 +51,30 @@ export const recoverRootOf =
     const ownerId = thread?.owner;
     await moves.recovered(interrupted, { signal, ownerId });
   };
+
+/** A recovery problem, for the log: at risk (left to another instance) or broken. */
+export interface RecoveryProblem {
+  readonly code: string;
+  readonly text: string;
+  readonly isBroken: boolean;
+  readonly executionId?: string;
+  readonly tenantId?: string;
+}
+
+/** The problem of one record's recovery. */
+export const problemOf = (record: Tern, error: unknown): RecoveryProblem => {
+  const ids = { executionId: record.runId ?? record.id, tenantId: record.tenantId };
+  return error instanceof IncompatibleResumeError
+    ? {
+        code: "recovery.incompatible",
+        text: `execution ${ids.executionId} is left to an instance of a compatible version: ${error.message}`,
+        isBroken: false,
+        ...ids,
+      }
+    : {
+        code: "recovery.failed",
+        text: `recovery of execution ${ids.executionId} failed: ${error instanceof Error ? error.message : String(error)}`,
+        isBroken: true,
+        ...ids,
+      };
+};

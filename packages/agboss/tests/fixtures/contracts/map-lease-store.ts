@@ -15,6 +15,8 @@ import type { Milliseconds } from "../../../src/units/index.js";
 /** The backing store: the leases by tree. */
 export class LeaseTable {
   readonly rows = new Map<string, ExecutionLease>();
+  /** The trees whose last lease was released, not left to expire (#501: no previous holder). */
+  readonly released = new Set<string>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -60,8 +62,17 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
       holderInstanceId: this.application.instanceId,
       leaseEpoch: (stored?.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(this.now() + lease),
+      ...(stored === undefined || this.table.released.has(key)
+        ? {}
+        : {
+            takenOverFrom: {
+              holderInstanceId: stored.holderInstanceId,
+              leaseEpoch: stored.leaseEpoch,
+            },
+          }),
     };
     this.table.rows.set(key, taken);
+    this.table.released.delete(key);
     return Promise.resolve(taken);
   }
 
@@ -77,6 +88,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     if (isSameLease(this.table.rows.get(key), executionLease)) {
       // kept, expired now: the next holder's epoch counts on from it
       this.table.rows.set(key, { ...executionLease, expiresAt: new Date(this.now()) });
+      this.table.released.add(key);
     }
     return Promise.resolve();
   }

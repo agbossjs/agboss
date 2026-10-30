@@ -1444,7 +1444,13 @@ holder died (its lease expired) or stopped (released it), and continues it from 
 checkpoint — a decision recorded meanwhile first — so only the interrupted step runs again; a root
 started under another config is left to a compatible instance (logged once), unless
 `onIncompatibleResume` says `"resume"`. Observers get `onExecutionResume` with
-`reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
+`reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`), and the takeover of
+the lease is told and kept (#501): `onExecutionLeaseTakeover` names the new holder and token, the
+expired holder when the lease store says (`ExecutionLease.takenOverFrom`) and why
+(`LeaseTakeoverReason`); the same facts are a row of the lease log, `ExecutionLeaseEventRepository`
+(listed like the other stores; `SqliteExecutionLeaseEventRepository`), read through the public API
+with `app.leaseEventsOf({ tenantId, rootExecutionId })` while the tree runs and removed after
+`@Application({ leaseEventRetention })` (default `hours(24)`). With the in-memory
 defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
 machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —

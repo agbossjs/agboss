@@ -1,18 +1,18 @@
+import type { PausedExecutionRepository } from "./paused-execution.repository.js";
+import type { MeshRequestRepository } from "./mesh-request.repository.js";
+import type { FencedEffectRepository } from "./fenced-effect.repository.js";
+import type { ExecutionLeaseEventRepository } from "./execution-lease-event.repository.js";
+import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
+import type { Clock } from "./clock.js";
 import { isHandedOver } from "../app/handed-over.js";
-import type { RecoverRoot } from "../app/recover-root.js";
-import { IncompatibleResumeError } from "../run/resume-guard.js";
+import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
 import type { Tern } from "../terns/index.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import {
   ExecutionRecordStatus,
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
-import type { MeshRequestRepository } from "./mesh-request.repository.js";
-import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
-import type { Clock } from "./clock.js";
-import type { FencedEffectRepository } from "./fenced-effect.repository.js";
 import type { FrameworkLog } from "./logger.js";
-import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 import type { StepCapacity } from "../app/step-slots.js";
 
 /**
@@ -21,9 +21,9 @@ import type { StepCapacity } from "../app/step-slots.js";
  * holder died, or stopped and released it) from its last checkpoint. A root this instance is not
  * compatible with is left to another one and logged once. With the in-memory defaults nothing
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
- * Each look also removes what the stores keep past its retention: the resolved pause records
- * (#267 S107), the mesh requests' answers (#398), the kept executions (#401), the fenced effects'
- * results and marks (#500).
+ * Each look also removes what the stores keep past its retention: the resolved
+ * pause records (#267 S107), the mesh requests' answers (#398), the kept executions (#401), the
+ * fenced effects' results and marks (#500) and the lease log's rows (#501).
  * An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
  * many recoveries per look as it has free step slots, none when it is full — the orphans are left to
  * an idle instance; a look cut short by that goes on from where it stopped next time, so every
@@ -49,62 +49,20 @@ export interface RecoverySweep {
   isStopped(): boolean;
 }
 
-/** What the sweep reads and continues: the records, each workflow's recovery by its name, the clock. */
-export interface RecoverySources {
+/**
+ * What the sweep reads and continues: the records, each workflow's recovery by its name, the clock;
+ * and the stores it removes old rows from.
+ */
+export interface RecoverySources extends RetentionSources {
   readonly records: ExecutionRecordRepository;
   readonly workflows: ReadonlyMap<string, RecoverRoot>;
-  readonly clock: Clock;
   /** Where its problems go: the application's log. */
   readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
   readonly signal: AbortSignal;
-  /** The application's pause records: the resolved ones are removed after their retention. */
-  readonly pauses: PausedExecutionRepository;
-  /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
-  readonly pauseRecordRetention: Milliseconds;
-  /** The trusted mesh requests' answers (#398 PR 2): removed after their retention. */
-  readonly meshRequests?: MeshRequestRepository | undefined;
-  /** `@Application({ mesh: { idempotencyRetention } })`: how long an answer is kept. */
-  readonly idempotencyRetention?: number | undefined;
-  /**
-   * The kept root executions (#401 PR 1) and `@Application({ executionRecordRetention })`: a record
-   * that ended longer ago than it is removed; none set → nothing is kept, nothing removed.
-   */
-  readonly executionHistory?: ExecutionHistoryRepository | undefined;
-  readonly executionRecordRetention?: Milliseconds | undefined;
-  /** The fenced effects' results and marks (#500), removed after `fencedEffects.retention`. */
-  readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
-  readonly fencedEffectRetention?: Milliseconds | undefined;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
 }
-
-/** A recovery problem, for the log: at risk (left to another instance) or broken. */
-interface RecoveryProblem {
-  readonly code: string;
-  readonly text: string;
-  readonly isBroken: boolean;
-  readonly executionId?: string;
-  readonly tenantId?: string;
-}
-
-/** The problem of one record's recovery. */
-const problemOf = (record: Tern, error: unknown): RecoveryProblem => {
-  const ids = { executionId: record.runId ?? record.id, tenantId: record.tenantId };
-  return error instanceof IncompatibleResumeError
-    ? {
-        code: "recovery.incompatible",
-        text: `execution ${ids.executionId} is left to an instance of a compatible version: ${error.message}`,
-        isBroken: false,
-        ...ids,
-      }
-    : {
-        code: "recovery.failed",
-        text: `recovery of execution ${ids.executionId} failed: ${error instanceof Error ? error.message : String(error)}`,
-        isBroken: true,
-        ...ids,
-      };
-};
 
 /** One instance's sweep: its look-ups, the recoveries it started, the problems it logged. */
 class Sweeper implements RecoverySweep {
@@ -147,46 +105,11 @@ class Sweeper implements RecoverySweep {
           isBroken: true,
         });
       }
-      await this.#forgetExpired();
+      await removeExpired(this.sources, (text) => {
+        this.#log({ code: "recovery.failed", text, isBroken: true });
+      });
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
-    }
-  }
-
-  /** What the stores keep past its retention, removed: each store on its own (a failure is logged). */
-  async #forgetExpired(): Promise<void> {
-    const { pauses, meshRequests, executionHistory, fencedEffects } = this.sources;
-    // #267 S107, #398 PR 2, #401 PR 1, #500
-    await this.#forget("the resolved pause records", this.sources.pauseRecordRetention, (cutoff) =>
-      pauses.deleteResolvedBefore(cutoff),
-    );
-    await this.#forget("the mesh requests' answers", this.sources.idempotencyRetention, (cutoff) =>
-      meshRequests?.deleteCreatedBefore(cutoff),
-    );
-    await this.#forget(
-      "the kept execution records",
-      this.sources.executionRecordRetention,
-      (cutoff) => executionHistory?.deleteByEndedAtBefore(cutoff),
-    );
-    await this.#forget(
-      "the fenced effects' results",
-      this.sources.fencedEffectRetention,
-      (cutoff) => fencedEffects?.deleteByStoredAtBefore(cutoff),
-    );
-  }
-
-  /** `remove(now - retention)`; nothing without a retention or a store; a failure is logged. */
-  async #forget(
-    what: string,
-    retention: number | undefined,
-    remove: (cutoff: Date) => Promise<void> | undefined,
-  ): Promise<void> {
-    if (retention === undefined) return;
-    try {
-      await remove(new Date(this.sources.clock.now().getTime() - retention));
-    } catch (error) {
-      const text = `${what} could not be removed: ${String(error)}`;
-      this.#log({ code: "recovery.failed", text, isBroken: true });
     }
   }
 
@@ -255,3 +178,89 @@ class Sweeper implements RecoverySweep {
 
 /** Starts the sweep of one application instance: a look-up now, then every lease length. */
 export const startRecoverySweep = (sources: RecoverySources): RecoverySweep => new Sweeper(sources);
+
+/**
+ * What every look of the recovery sweep removes once its retention is over, on the `Clock`: the
+ * resolved pause records (#267 S107), the trusted mesh requests' answers (#398 PR 2), the kept
+ * executions that ended (#401 PR 1), the fenced effects' results and marks (#500) and the lease
+ * log's rows (#501). A store that fails is reported
+ * and asked again at the next look.
+ */
+
+/** The stores the sweep removes old rows from, and how long each keeps them. */
+export interface RetentionSources {
+  readonly clock: Clock;
+  /** The application's pause records: the resolved ones are removed after their retention. */
+  readonly pauses: PausedExecutionRepository;
+  /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
+  readonly pauseRecordRetention: Milliseconds;
+  /** The trusted mesh requests' answers (#398 PR 2): removed after their retention. */
+  readonly meshRequests?: MeshRequestRepository | undefined;
+  /** `@Application({ mesh: { idempotencyRetention } })`: how long an answer is kept. */
+  readonly idempotencyRetention?: number | undefined;
+  /**
+   * The kept root executions (#401 PR 1) and `@Application({ executionRecordRetention })`: a record
+   * that ended longer ago than it is removed; none set → nothing is kept, nothing removed.
+   */
+  readonly executionHistory?: ExecutionHistoryRepository | undefined;
+  readonly executionRecordRetention?: Milliseconds | undefined;
+  /** The fenced effects' results and marks (#500), removed after `fencedEffects.retention`. */
+  readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
+  readonly fencedEffectRetention?: Milliseconds | undefined;
+  /** The lease log (#501) and `@Application({ leaseEventRetention })`: older rows are removed. */
+  readonly leaseEvents?: ExecutionLeaseEventRepository | undefined;
+  readonly leaseEventRetention?: Milliseconds | undefined;
+}
+
+/** One kind of rows: what they are, how they are removed before a cutoff, and how long they stay. */
+interface Expiry {
+  readonly what: string;
+  readonly remove: ((cutoff: Date) => Promise<void>) | undefined;
+  readonly retention: number | undefined;
+}
+
+const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
+  const { pauses, meshRequests, executionHistory, fencedEffects, leaseEvents } = sources;
+  return [
+    {
+      what: "the resolved pause records",
+      remove: (cutoff) => pauses.deleteResolvedBefore(cutoff),
+      retention: sources.pauseRecordRetention,
+    },
+    {
+      what: "the mesh requests' answers",
+      remove: meshRequests && ((cutoff) => meshRequests.deleteCreatedBefore(cutoff)),
+      retention: sources.idempotencyRetention,
+    },
+    {
+      what: "the kept execution records",
+      remove: executionHistory && ((cutoff) => executionHistory.deleteByEndedAtBefore(cutoff)),
+      retention: sources.executionRecordRetention,
+    },
+    {
+      what: "the fenced effects' results",
+      remove: fencedEffects && ((cutoff) => fencedEffects.deleteByStoredAtBefore(cutoff)),
+      retention: sources.fencedEffectRetention,
+    },
+    {
+      what: "the lease log's old rows",
+      remove: leaseEvents && ((cutoff) => leaseEvents.deleteByOccurredAtBefore(cutoff)),
+      retention: sources.leaseEventRetention,
+    },
+  ];
+};
+
+/** Removes every kind of rows past its retention; `report` hears of each store that failed. */
+export async function removeExpired(
+  sources: RetentionSources,
+  report: (text: string) => void,
+): Promise<void> {
+  for (const { what, remove, retention } of expiriesOf(sources)) {
+    if (remove === undefined || retention === undefined) continue;
+    try {
+      await remove(new Date(sources.clock.now().getTime() - retention));
+    } catch (error) {
+      report(`${what} could not be removed: ${String(error)}`);
+    }
+  }
+}

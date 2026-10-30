@@ -12,6 +12,7 @@ import { waitOf } from "../infrastructure/clock-timeout.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
+import type { LeaseEventLog } from "../app/execution-leases.js";
 
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
@@ -153,6 +154,8 @@ export interface InstanceParts {
   readonly stepSlots?: StepCapacity | undefined;
   /** The instance's running step bodies at its stop (#367). */
   readonly stepsAtStop: StepsAtStop;
+  /** The instance's lease log (#501): its remote children's takeovers and hand-overs. */
+  readonly leaseEvents?: LeaseEventLog;
 }
 
 /** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
@@ -176,7 +179,7 @@ function childWorkersOf(
   ]).then(([workers, registry]) =>
     workers.startChildWorkers({
       queue: infrastructure.childQueue,
-      leases: leasesOf(infrastructure),
+      leases: leasesOf(infrastructure, parts.leaseEvents),
       trees: infrastructure.executionTrees,
       clock: infrastructure.clock,
       log,
@@ -217,6 +220,8 @@ export function stopOf(
     executionRecordRetention: assembled.executionRecordRetention,
     fencedEffects: parts.infrastructure.fencedEffects,
     fencedEffectRetention: assembled.fencedEffects.retention,
+    leaseEvents: parts.infrastructure.leaseEvents,
+    leaseEventRetention: assembled.leaseEventRetention,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;
@@ -241,7 +246,7 @@ export function stopOf(
 }
 
 /** The leases of the instance's lease holders (its child workers), on its leasing (#471). */
-function leasesOf(infrastructure: Infrastructure): ExecutionLeases {
+function leasesOf(infrastructure: Infrastructure, events?: LeaseEventLog): ExecutionLeases {
   const { repository, clock } = leasingOf(infrastructure);
-  return executionLeasesOf(repository, clock);
+  return executionLeasesOf(repository, clock, { events });
 }

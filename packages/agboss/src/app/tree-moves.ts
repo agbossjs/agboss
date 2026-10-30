@@ -24,6 +24,8 @@ import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { rootTakeOf } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import type * as CancelRequests from "./cancel-requests.js";
@@ -78,7 +80,8 @@ class TreeMover implements TreeMoves {
           runningOutcome(run.path, run.cost.totalUsd),
         );
       }
-      const lease = await leases.hold(treeOf(state), call.signal);
+      const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed);
+      const lease = await leases.hold(treeOf(state), call.signal, take);
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
@@ -104,7 +107,9 @@ class TreeMover implements TreeMoves {
     if (this.#isBusy(interrupted)) return undefined;
     const { runId, threadId, tenantId, startedVersion } = interrupted;
     const state = { runId, threadId, tenantId, startedVersion };
-    const lease = await this.parts.leases.tryHold(treeOf(state));
+    const { Recovered } = LeaseTakeoverReason;
+    const take = rootTakeOf(this.parts.deps.pause, state.runId, Recovered, true);
+    const lease = await this.parts.leases.tryHold(treeOf(state), take);
     if (lease === undefined) return undefined;
     if ((await this.endedAtTake(state, lease)) !== undefined) return undefined;
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(

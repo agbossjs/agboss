@@ -1,3 +1,7 @@
+import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
+import { stopOf, type InstanceParts } from "./graceful-stop.js";
+import type { BuiltApplication } from "./create-app.js";
+import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { appWorkflowOf, rememberAppWorkflow } from "../app/app-workflow.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
@@ -14,6 +18,7 @@ import type {
 } from "../health/health-sources.js";
 import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
@@ -50,12 +55,14 @@ export interface InstanceSurface {
   readonly health: ApplicationHealth;
   /** The assembly warnings, then each workflow's (a config changed without a version bump). */
   readonly warnings: readonly string[];
+  /** `app.leaseEventsOf` (#501): the instance's lease log. */
+  readonly leaseEvents: ExecutionLeaseEventRepository;
 }
 
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  { stop, warnings, health }: InstanceSurface,
+  { stop, warnings, health, leaseEvents }: InstanceSurface,
 ): App {
   const [first] = workflows;
   // the assembly rejects an application without workflows
@@ -94,6 +101,8 @@ export function composeApp(
     close: (options) => stop.close(options),
     checkLiveness: () => health.checkLiveness(),
     checkReadiness: () => health.checkReadiness(),
+    leaseEventsOf: ({ tenantId, rootExecutionId }) =>
+      leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   };
@@ -167,3 +176,45 @@ export function instanceHealthOf(
     stepSlots: parts.stepSlots,
   });
 }
+
+/**
+ * An application instance once its workflows are built and started (#261): its recovery sweep and
+ * graceful stop, its start logged with its warnings, its probes and its app.
+ */
+
+/** What an instance's app is made of once its workflows are built. */
+export interface InstanceAppParts extends InstanceParts {
+  readonly contexts: RuntimeContexts;
+  readonly quiet: boolean | undefined;
+  readonly isInstanceKey: boolean;
+}
+
+/** The instance's stop and sweep started, its start logged, its app composed. */
+export function instanceAppOf(
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+  parts: InstanceAppParts,
+): Pick<BuiltApplication, "app" | "infrastructure" | "closed" | "log"> {
+  const { infrastructure, log } = parts;
+  const { stop, sweep } = stopOf(assembled, workflows, parts);
+  const warnings = startupWarningsOf(assembled, workflows, parts.isInstanceKey);
+  if (parts.quiet !== true)
+    logStart(log, parts.contexts.application, assembled.workflows, warnings);
+  const health = instanceHealthOf(assembled, workflows, { stop, sweep, ...parts });
+  const app = composeApp(assembled, workflows, { stop, warnings, health, ...infrastructure });
+  return { app, infrastructure, closed: stop.closed, log };
+}
+
+/**
+ * The assembly warnings (a PII key of the instance only when it made one, S94 — never under
+ * `testWith`, which has a fixed key), then each workflow's own (a config changed without a version
+ * bump).
+ */
+const startupWarningsOf = (
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+  isInstanceKey: boolean,
+): readonly string[] => [
+  ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
+  ...workflows.flatMap((workflow) => workflow.app.warnings),
+];

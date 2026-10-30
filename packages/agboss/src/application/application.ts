@@ -103,6 +103,13 @@ export interface ApplicationOptions {
    */
   readonly executionRecordRetention?: Milliseconds;
   /**
+   * How long a row of the lease log is kept after it happened (#501): every takeover of a tree's
+   * lease and every step handed over is written to the `ExecutionLeaseEventRepository` — whatever
+   * `executionRecordRetention` says — and read by `app.leaseEventsOf`; the recovery sweep removes it
+   * on the `Clock` after this. Default `hours(24)`.
+   */
+  readonly leaseEventRetention?: Milliseconds;
+  /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up
    * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not

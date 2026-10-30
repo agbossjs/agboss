@@ -19,13 +19,12 @@ import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { gatedInfrastructure, type ExecutionLeaseGate } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
-import { composeApp, instanceHealthOf } from "./compose-app.js";
-import { stopOf } from "./graceful-stop.js";
+import { instanceAppOf } from "./compose-app.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import { observerManagerOf } from "./observers.js";
-import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
+import { leaseEventLogOf } from "../app/execution-leases.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -184,10 +183,12 @@ export async function buildApplication(
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const instance = await instancePartsOf(assembled, clock, log, infrastructure);
   const workflows: BuiltApp[] = [];
+  const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
+  const leaseEvents = leaseEventLogOf(infrastructure, { observer, mask, log }); // #501
+  const common = { infrastructure, created, leaseEvents, ...instance };
   try {
-    const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
-    const parts = { infrastructure, created, contexts, budgets, observer, piiKey, ...instance };
+    const parts = { ...common, contexts, budgets, observer, piiKey };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
     await startComponents(created);
@@ -195,14 +196,8 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const stopParts = { created, infrastructure, log, ...instance };
-  const { stop, sweep } = stopOf(assembled, workflows, stopParts);
-  const warnings = startupWarningsOf(assembled, workflows, piiKey.isInstanceKey);
-  if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
-  const probed = { stop, sweep, infrastructure, ...instance };
-  const health = instanceHealthOf(assembled, workflows, probed);
-  const app = composeApp(assembled, workflows, { stop, warnings, health });
-  return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
+  const surface = { ...common, log, contexts, quiet, isInstanceKey: piiKey.isInstanceKey };
+  return { ...instanceAppOf(assembled, workflows, surface), assembled, workflows };
 }
 
 /** The store of the root executions' history, when the application keeps it (#401). */
@@ -210,20 +205,6 @@ const historyOf = (assembled: AssembledApplication, infrastructure: Infrastructu
   assembled.executionRecordRetention === undefined
     ? {}
     : { executionHistory: infrastructure.executionHistory };
-
-/**
- * The assembly warnings (a PII key of the instance only when it made one, S94 — never under
- * `testWith`, which has a fixed key), then each workflow's own (a config changed without a version
- * bump).
- */
-const startupWarningsOf = (
-  assembled: AssembledApplication,
-  workflows: readonly BuiltApp[],
-  isInstanceKey: boolean,
-): readonly string[] => [
-  ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
-  ...workflows.flatMap((workflow) => workflow.app.warnings),
-];
 
 /** Where an assembled application's environments are, and its contract. */
 export const environmentOwnerOf = (assembled: AssembledApplication): EnvironmentOwner => ({

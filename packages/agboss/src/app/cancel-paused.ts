@@ -4,6 +4,8 @@ import type { CancelParts } from "./cancel-requests.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import type { ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { rootTakeOf } from "./execution-leases.js";
 
 /**
  * `app.cancel` of a thread whose tree rests paused on this application (#340 PR 3, Q6): under the
@@ -21,7 +23,8 @@ export async function cancelledPaused(parts: CancelParts, thread: ThreadKey): Pr
   const { run } = found;
   const startedVersion = run.startedVersion ?? deps.config.version;
   const state = { ...thread, runId: run.runId, startedVersion };
-  const lease = await leases.hold(treeOf(state));
+  const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Cancelled);
+  const lease = await leases.hold(treeOf(state), undefined, take);
   try {
     // a holder moved it meanwhile: not paused any more — the caller asks its holder instead
     if ((await paused.drop(thread)) === undefined) return false;

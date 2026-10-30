@@ -12,6 +12,17 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ## [Unreleased] — 0.1.1
 
+### Added
+
+- **Handover telemetry: the lease log** (#501) — a takeover of a tree's lease is told and kept:
+  `onExecutionLeaseTakeover` (`ExecutionLeaseTakeoverEvent`: the new holder and token, the expired
+  holder when the store names it — `ExecutionLease.takenOverFrom`, optional for an external store —,
+  `LeaseTakeoverReason`, the head checkpoint) and a `Takeover` row of the new infrastructure contract
+  `ExecutionLeaseEventRepository` (in-memory default, `SqliteExecutionLeaseEventRepository`, the
+  published `executionLeaseEventContract`), always written, read with `app.leaseEventsOf({ tenantId,
+rootExecutionId })` and removed by the recovery sweep after `@Application({ leaseEventRetention })`
+  (default `hours(24)`).
+
 ### Fixed
 
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported

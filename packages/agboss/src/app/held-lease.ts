@@ -6,6 +6,7 @@ import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
+import { reacquiredOf, reportTake, type LeaseTake, type LeaseTaking } from "./execution-leases.js";
 import { FencedHolders, isHandedOver } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
@@ -16,6 +17,12 @@ import {
 import { scopeKeyOf, type ExecutionFencedError } from "./lease-lost.js";
 import { leaseReleases } from "./lease-releases.js";
 import { LeaseYields } from "./lease-yields.js";
+
+/** How a held lease began: when it was asked for (the clock's ms) and why it was taken (#501). */
+export interface HeldLeaseStart {
+  readonly askedAt: number;
+  readonly take?: LeaseTake | undefined;
+}
 
 /**
  * A tree's lease held by this instance (`execution-leases.ts`): renewed and watched in the
@@ -42,14 +49,22 @@ export class HeldLease implements HeldExecutionLease {
   });
   /** Who a fenced write of the current token stops: this holder (#471). */
   readonly #holder: FencedHolders;
+  /** Why it was taken (#501): a re-acquire is recorded for the same tree. */
+  readonly #take: LeaseTake | undefined;
+
+  private readonly repository: ExecutionLeaseRepository;
+  private readonly clock: Clock;
 
   constructor(
-    private readonly repository: ExecutionLeaseRepository,
-    private readonly clock: Clock,
+    private readonly taking: LeaseTaking,
     private readonly tree: ExecutionTree,
     initial: ExecutionLease,
-    askedAt: number,
+    { askedAt, take }: HeldLeaseStart,
   ) {
+    this.repository = taking.repository;
+    this.clock = taking.clock;
+    this.#take = take;
+    const { clock } = taking;
     this.rootExecutionId = tree.rootExecutionId;
     this.leaseExecutionId = tree.rootExecutionId;
     this.tenantId = tree.tenantId;
@@ -170,6 +185,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#current = next;
     this.#holder.hold(next.leaseEpoch);
     this.#fence.reacquired(at);
+    await reportTake(this.taking.events, next, reacquiredOf(this.#take));
   }
 
   /** A renewal in the store, asked now: `undefined` when the store did not answer. */

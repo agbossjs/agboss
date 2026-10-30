@@ -17,6 +17,7 @@ import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
+import type { ExecutionLeaseEventRecord } from "../infrastructure/execution-lease-event.repository.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
@@ -270,11 +271,27 @@ export interface App {
    * that throws or times out is `Unhealthy` with its reason; the call never rejects.
    */
   checkReadiness(): Promise<HealthReport>;
+  /**
+   * The lease log of one execution tree (#501), oldest first: who took its lease over and which of
+   * its steps stopped because it lost it — the rows of `ExecutionLeaseEventRepository`, masked like
+   * observer events, readable while the tree runs and kept `leaseEventRetention`. Another tenant's
+   * tree has none.
+   */
+  leaseEventsOf(tree: LeaseEventsQuery): Promise<readonly ExecutionLeaseEventRecord[]>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
 }
 
-/** One workflow of an application at run time (internal): the app without the instance's probes. */
-export type WorkflowApp = Omit<App, "checkLiveness" | "checkReadiness">;
+/** Which tree's lease log `app.leaseEventsOf` reads: the tenant's root execution. */
+export interface LeaseEventsQuery {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}
+
+/**
+ * One workflow of an application at run time (internal): the app without the instance's probes and
+ * lease log.
+ */
+export type WorkflowApp = Omit<App, "checkLiveness" | "checkReadiness" | "leaseEventsOf">;

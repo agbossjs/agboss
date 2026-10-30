@@ -9,6 +9,8 @@ import { CompensationFailedError } from "../flow/compensation.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { rootTakeOf } from "./execution-leases.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
@@ -119,7 +121,11 @@ async function endHeld(
   isWaiting: boolean,
 ): Promise<Error | undefined> {
   const tree = treeOf(state);
-  const lease = isWaiting ? await parts.leases.hold(tree) : await parts.leases.tryHold(tree);
+  // the sweep's take (not waiting) is a takeover of a root another pass was moving (#501)
+  const take = rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Cancelled, !isWaiting);
+  const lease = isWaiting
+    ? await parts.leases.hold(tree, undefined, take)
+    : await parts.leases.tryHold(tree, take);
   if (lease === undefined) return undefined;
   try {
     return await endCancelled(parts, state, lease);

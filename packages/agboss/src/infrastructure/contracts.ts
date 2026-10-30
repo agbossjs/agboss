@@ -32,6 +32,10 @@ import {
 } from "./child-execution-queue.repository.js";
 import { FencedEffectRepository } from "./fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "./in-memory-fenced-effect.repository.js";
+import {
+  ExecutionLeaseEventRepository,
+  InMemoryExecutionLeaseEventRepository,
+} from "./execution-lease-event.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
@@ -65,6 +69,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
+  [ExecutionLeaseEventRepository, InMemoryExecutionLeaseEventRepository],
 ]);
 
 /**
@@ -106,6 +111,8 @@ export interface Infrastructure {
   readonly childQueue: ChildExecutionQueueRepository;
   /** The protected writes of steps (#500): their results and the scopes' marks. */
   readonly fencedEffects: FencedEffectRepository<unknown>;
+  /** The lease log (#501): takeovers and hand-overs, always written. */
+  readonly leaseEvents: ExecutionLeaseEventRepository;
   /**
    * What the holders of leases take and renew them in, and their timers (the background renewal,
    * the local expiry) sleep on — a test's `leases.stall` gate (#471); absent = `executionLeases` on
@@ -144,6 +151,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
+  leaseEvents: resolve(ExecutionLeaseEventRepository) as ExecutionLeaseEventRepository,
 });
 
 /**

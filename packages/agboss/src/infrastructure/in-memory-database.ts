@@ -4,6 +4,7 @@ import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
 import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
+import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
 
 /**
  * The rows of the in-memory defaults of the shared contracts (#265): leases, tree keys and
@@ -34,6 +35,8 @@ export class InMemoryDatabase {
   readonly fencedEffectResults = new Map<string, FencedEffectResultRow>();
   /** The tail of each scope's fenced-effect transactions (#500): one at a time per scope. */
   readonly fencedEffectLocks = new Map<string, Promise<void>>();
+  /** The lease log (#501), in the order saved. */
+  readonly executionLeaseEvents: ExecutionLeaseEventRecord[] = [];
 }
 
 /** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */

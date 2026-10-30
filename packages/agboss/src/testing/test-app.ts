@@ -27,7 +27,14 @@ import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
  */
 export interface TestApp extends Pick<
   App,
-  "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "resolve"
+  | "execute"
+  | "resume"
+  | "close"
+  | "cancel"
+  | "checkLiveness"
+  | "checkReadiness"
+  | "leaseEventsOf"
+  | "resolve"
 > {
   readonly clock: VirtualClock;
   /**
@@ -141,6 +148,9 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     // the probes answer during and after close() too: an orchestrator asks while the app stops
     checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
     checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
+    // the lease log is read during and after close() too (#501): a test reads a stopped zombie's
+    leaseEventsOf: (tree) =>
+      checked(environment, async () => (await probed()).app.leaseEventsOf(tree)),
     ready: () =>
       checked(environment, async () => {
         await built();

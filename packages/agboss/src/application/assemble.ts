@@ -68,6 +68,8 @@ export interface AssembledApplication {
   readonly pauseRecordRetention: Milliseconds;
   /** How long a root execution's history is kept (`@Application({ executionRecordRetention })`, #401); unset = not kept. */
   readonly executionRecordRetention?: Milliseconds;
+  /** How long a row of the lease log is kept (`@Application({ leaseEventRetention })`, #501). */
+  readonly leaseEventRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
   /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
@@ -91,6 +93,9 @@ export interface AssembledApplication {
 
 /** How long a resolved pause record is kept by default (#267 S107): a late answer is told apart a day. */
 const PAUSE_RECORD_RETENTION: Milliseconds = hours(24);
+
+/** How long a row of the lease log is kept by default (#501): a day of takeovers and hand-overs. */
+const LEASE_EVENT_RETENTION: Milliseconds = hours(24);
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
 const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
@@ -193,6 +198,15 @@ export const declaredContextsOf = (
 const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
   contract === undefined ? {} : { environment: contract };
 
+/** How long the sweep keeps each kind of rows: the pause records, the history, the lease log. */
+const retentionsOf = (options: ApplicationOptions) => ({
+  pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
+  ...(options.executionRecordRetention === undefined
+    ? {}
+    : { executionRecordRetention: options.executionRecordRetention }),
+  leaseEventRetention: options.leaseEventRetention ?? LEASE_EVENT_RETENTION,
+});
+
 export async function applicationOf(
   application: Class,
   assembly: ApplicationAssembly = {},
@@ -219,10 +233,7 @@ export async function applicationOf(
     ...listedOf(options),
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
-    pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
-    ...(options.executionRecordRetention === undefined
-      ? {}
-      : { executionRecordRetention: options.executionRecordRetention }),
+    ...retentionsOf(options),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     fencedEffects: new FencedEffectSettings(options.fencedEffects),
     ...(options.maxConcurrentSteps === undefined
