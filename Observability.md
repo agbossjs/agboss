@@ -354,6 +354,38 @@ refused it), `writtenToken` (the token the result was first written under) and `
 for itself (a result too large, a business error) is no outcome. Its row of the lease log comes
 first, in the lease's order: a refused call before the hand-over it causes.
 
+## Outbound calls (#505)
+
+Each move of a step's call that leaves the system (`OutboundCalls.send` —
+[Several instances](Several-instances#calls-that-leave-the-system-505)) is told by `onOutboundCall`:
+`OutboundCallEvent` is a node event — the step that made the call — with the call's `name`,
+`target` and `operation`, the intent's `status` (`OutboundCallStatus`) and `attempt` after the
+move, `outcome` (`OutboundCallEventOutcome.Recorded` — the intent written, nothing sent yet —,
+`Sent`, `Replayed`, `Reconciled`, `NotSent` — `reconcile` found it never arrived, it goes out again
+—, `Unknown` — the step fails with `OutboundCallUnreconciledError` —, `Failed`, `Joined` — the same
+call of this instance was made meanwhile, its outcome shared), the lease's
+`scopeKey` and `token`, and `holderInstanceId`. Never the request or the result. Its
+`OutboundCall` row of the lease log is written first; an observer that throws is a warning.
+
+<!-- snippet-context
+import {
+  Injectable,
+  OutboundCallEventOutcome,
+  type OnOutboundCall,
+  type OutboundCallEvent,
+} from "@agboss/core";
+-->
+
+```ts
+@Injectable()
+export class UnreconciledCallAlert implements OnOutboundCall {
+  onOutboundCall(event: OutboundCallEvent) {
+    if (event.outcome === OutboundCallEventOutcome.Unknown)
+      console.warn(`${event.target} ${event.operation}: left pending at attempt ${event.attempt}`);
+  }
+}
+```
+
 ## Pause answers
 
 Who answered each pause, and how, is not an event of its own — it is in the execution record

@@ -42,6 +42,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
 | `ExecutionHistoryRepository` | `SqliteExecutionHistoryRepository` | `execution_history` ([Execution history](Execution-history)) |
 | `ChildExecutionQueueRepository` | `SqliteChildExecutionQueueRepository` | `child_execution_queue` ([below](#children-on-any-instance-333)) |
+| `OutboundCallRepository` | `SqliteOutboundCallRepository` | `outbound_calls`, and the fenced effect's marks ([below](#calls-that-leave-the-system-505)) |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
@@ -431,6 +432,7 @@ same on every attempt, replay and holder.
 | --- | --- |
 | none | recorded `Pending` (fenced), the lease renewed (`fence.confirmNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
 | `Completed` | its stored result, nothing sent — `Replayed` |
+| (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
 | `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1; `unknown({ reason })` → `OutboundCallUnreconciledError` |
 | `Failed` | the other system answered with an error: sent again with the same key, attempt + 1 |
 
@@ -438,6 +440,17 @@ same on every attempt, replay and holder.
   scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
   (`ExecutionFencedError`, a hand-over). A completion refused after the send (the lease was lost
   meanwhile) is a hand-over too: the new holder finds the intent pending and reconciles it.
+- **One sender per attempt:** every attempt has an **owner** — `attemptOwner`, a random id the
+  caller mints when it claims the attempt (records the intent, or moves it on). A new attempt
+  (after `notSent()` or a failure) is a compare-and-set — `markPending(key, expected, claim)` moves
+  the intent only while its status, attempt and attempt owner are as the caller read them, in the
+  fenced transaction with the caller's lease check. A caller that loses it sends nothing and reads
+  the intent again: completed → the winner's result (`Replayed`), pending → the winner is sending
+  (`OutboundCallInFlightError`, `outbound-call.in-flight`, a `StepFailedError`), at most three
+  reads, then in flight. A call this instance is making now — two tool calls or two branches with
+  one key — is **joined**, never reconciled or resent: the second gets the first's outcome
+  (`OutboundCallOutcomeStatus.Joined`) or its error. Two instances recording one key at the same
+  moment: the second is in flight, nothing sent.
 - **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
   a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason`) — also when
   `reconcile` throws (its error the `cause`) or gives no verdict. Nothing is sent; the intent stays
@@ -473,8 +486,19 @@ same on every attempt, replay and holder.
   recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
   runner's held lease; a second run of one runner is the same step run again.
 
+- **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its
+  intents in `outbound_calls` of the application's file, every fenced method one `BEGIN IMMEDIATE`
+  transaction with the lease check and the scope's mark (the fenced effect's `fenced_effect_marks`:
+  one mark per scope for both). Beside another lease store it fails assembly with
+  `[application.fenced-effect-lease-store]`, as `SqliteFencedEffectRepository` does; the in-memory
+  default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
+- **Told:** every move of a call is an `OutboundCall` row of the [lease log](#the-lease-log-501) and
+  an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
+  intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
+
 A store of another database implements `OutboundCallRepository` (fenced `findByKey`,
-`saveIfAbsent`, `markPending`, `markCompleted`, `markFailed`; the two listings;
+`saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
+attempt_owner = ?` with one row changed —, `markCompleted`, `markFailed`; the two listings;
 `deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
@@ -617,6 +641,13 @@ const replayed = rows.some(
     row.outcome === FencedEffectEventOutcome.Replayed,
 );
 ```
+
+**A call that leaves the system** (#505, [above](#calls-that-leave-the-system-505)) is an
+`OutboundCall` row (`OutboundCallEventRecord`) per move: the step, the call's `name`, `target` and
+`operation`, the intent's `status` and `attempt` after the move, and `outcome`
+(`OutboundCallEventOutcome.Recorded`, `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`,
+`Failed`, `Joined`) — never the request or the result. A crash before the answer reads `recorded`, the
+`takeover`, then the new holder's `reconciled` (or `not-sent` and `sent`): the call went out once.
 
 A kept execution ([Execution history](Execution-history)) carries its tree's rows as they stood when
 it was saved, `ExecutionHistoryRecord.leaseEvents`, and so does its line of `agboss records export`.

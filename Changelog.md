@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: calls that leave the system on SQLite, told (#505 PR 2)
+
+- **Added — `SqliteOutboundCallRepository`** ([Several instances](Several-instances#calls-that-leave-the-system-505)):
+  the intents in `outbound_calls` of the application's file, fenced in one transaction with the
+  fenced effect's marks; listed with `SqliteExecutionLeaseRepository`, else
+  `[application.fenced-effect-lease-store]`.
+- **Added — `onOutboundCall`** (`OnOutboundCall`, `OutboundCallEvent`, `OutboundCallEventOutcome`:
+  `Recorded`, `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`)
+  ([Observability](Observability#outbound-calls-505)), and **`OutboundCallEventRecord`**, the lease
+  log's `OutboundCall` row ([Several instances](Several-instances#the-lease-log-501)) — never a payload.
+- **Added — `ExecutionHistoryRecord.outboundCalls`** ([Execution history](Execution-history)):
+  a kept execution carries its tree's intents, and so does `agboss records export`.
+- **Changed — `OutboundCallRepository.markPending(key, expected, claim)`** is a compare-and-set
+  (`OutboundCallState`: `status`, `attempt`, `attemptOwner`; `OutboundCallClaim`: `attempt`,
+  `attemptOwner`) and returns whether it moved the intent; a caller that loses it sends nothing.
+  **Added — `OutboundCallIntent.attemptOwner`**, the random id of the attempt's claimer;
+  **`OutboundCallOutcomeStatus.Joined`** — the same call made meanwhile by this instance is joined,
+  never reconciled or resent; **`OutboundCallInFlightError`** (`outbound-call.in-flight`) for a key
+  another call holds — it replaces the `OutboundCallUnreconciledError` a second record of one key
+  gave. `outboundCallContract` gains the new-attempt cases.
+- **Changed — flow-patterns' travel desk** books its flight through `OutboundCalls`, reconciling by
+  the booking desk's lookup.
+
 ## Unreleased — 0.1.1: calls that leave the system (#505 PR 1)
 
 - **Added — `OutboundCalls`** ([Several instances](Several-instances#calls-that-leave-the-system-505)):

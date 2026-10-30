@@ -64,6 +64,7 @@ what it was:
 | `contexts` | `ExecutionContextRecord`: its `tenant` and `execution` values |
 | `error?` | the `ErrorRecord` that failed or cancelled it |
 | `leaseEvents?` | its tree's rows of the lease log when it was saved (#501): who took its lease over, which of its steps were handed over ([Several instances → The lease log](Several-instances#the-lease-log-501)); none in a record saved before #501 |
+| `outboundCalls?` | every call its tree made that left the system (#505), in the order recorded — `OutboundCallRecord`, masked when it was written ([Several instances → Calls that leave the system](Several-instances#calls-that-leave-the-system-505)); none in a record saved before #505 |
 | `path`, `scope`, `outdatedValues`, `lastError?`, `spend`, `children`, `pauses`, `compensations`, `toolCalls`, `steps`, `origin?` | its `ExecutionRecord` ([App → The result](App#the-result--executionoutput)): who answered each pause, its tool calls and step records (#395), where a trusted mesh request came from (#398) |
 
 **Masked like its traces**: every string through the application's and the workflow's PII policies
