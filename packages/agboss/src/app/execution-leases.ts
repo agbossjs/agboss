@@ -292,9 +292,8 @@ export class LeaseEventReports {
     events: LeaseEventLog | undefined,
     write: (recording: typeof LeaseEvents, log: LeaseEventLog, holder: string) => Promise<void>,
   ): void {
-    const holder = this.#holder;
-    if (holder === undefined) return;
-    const { holderInstanceId } = holder;
+    const holderInstanceId = this.#holder?.holderInstanceId;
+    if (holderInstanceId === undefined) return;
     this.#append(events, (recording, log) => write(recording, log, holderInstanceId));
   }
 
