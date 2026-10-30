@@ -7,7 +7,7 @@
 //     (`npx tsx@4.20.3`): an unpinned one downloads whatever is newest;
 //   - a script (`scripts/**/*.mjs`) that passes `"install"` to npm itself, or runs `"npx"`: its
 //     install arguments come from `rangeInstallArguments()` (`scripts/packed/npm-before.mjs`, the
-//     minimum release age) and a local tool runs from `node_modules/.bin`.
+//     minimum release age) and a local tool runs from `node_modules/.bin` (its `*.test.mjs` aside).
 // `npm run check:installs`, part of `make check`. Exit 0 clean, 1 with every problem listed.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -110,7 +110,9 @@ export function problemsOf(root) {
   const workflows = join(root, ".github", "workflows");
   for (const path of filesUnder(workflows, (name) => /\.ya?ml$/u.test(name)))
     problems.push(...workflowProblems(readFileSync(path, "utf8"), relative(root, path)));
-  for (const path of filesUnder(join(root, "scripts"), (name) => name.endsWith(".mjs"))) {
+  // a script's own tests (`*.test.mjs`) plant what the check forbids
+  const isScript = (name) => name.endsWith(".mjs") && !name.endsWith(".test.mjs");
+  for (const path of filesUnder(join(root, "scripts"), isScript)) {
     const file = relative(root, path);
     if (!SCRIPT_EXEMPT.has(file))
       problems.push(...scriptProblems(readFileSync(path, "utf8"), file));
