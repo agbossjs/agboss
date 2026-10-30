@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: handover telemetry, the fenced effect told (#501 PR 3)
+
+- **Added — `onFencedEffect`** (`OnFencedEffect`, `FencedEffectEvent`, `FencedEffectEventOutcome`:
+  `Ran`, `Replayed`, `Joined`, `Refused`) ([Observability](Observability#fenced-effects-501)): every
+  call of `FencedEffectRepository.saveResultIfAbsent` from a step, never its result.
+- **Added — `FencedEffectRecord`**, the lease log's `FencedEffect` row
+  ([Several instances](Several-instances#the-lease-log-501)): with the takeover and the hand-over,
+  a refused zombie, one that never wrote and a replay are told apart from `app.leaseEventsOf` alone.
+- **Moved — `FencedEffectAsyncWorkError`** to the SQLite store's module; still exported from the
+  root entry.
+
 ## Unreleased — 0.1.1: handover telemetry, a step handed over (#501 PR 2)
 
 - **Added — `onStepHandedOver`** (`OnStepHandedOver`, `StepHandedOverEvent`, `HandOverReason`,

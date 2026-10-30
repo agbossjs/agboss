@@ -92,6 +92,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnCompensationStart` / `OnCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
 | `OnExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
 | `OnStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
+| `OnFencedEffect`                          | `FencedEffectEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#fenced-effects-501)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -340,6 +341,18 @@ export class ZombieWriteAlert implements OnStepHandedOver {
   }
 }
 ```
+
+## Fenced effects (#501)
+
+Each call of a step's fenced effect (`FencedEffectRepository.saveResultIfAbsent`, #500 —
+[Several instances](Several-instances#the-fenced-effect-500)) is told by `onFencedEffect`:
+`FencedEffectEvent` is a node event — the step that called it — with the effect's `name`, the
+call's `scopeKey` and `token`, `outcome` (`FencedEffectEventOutcome.Ran`, `Replayed` — the stored
+result came back, nothing written again —, `Joined`, `Refused` — the lease or the scope's mark
+refused it), `writtenToken` (the token the result was first written under) and `observedToken`
+(the newer token behind a refusal), and `holderInstanceId`. Never the result. A write that fails
+for itself (a result too large, a business error) is no outcome. Its row of the lease log comes
+first, in the lease's order: a refused call before the hand-over it causes.
 
 ## Pause answers
 

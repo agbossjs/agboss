@@ -506,11 +506,18 @@ before the moving call rejects. So the public log alone tells two zombies apart:
 
 | What the old holder did | Rows of its tree |
 | ----------------------- | ---------------- |
-| woke, reached a step and was refused at its write | `takeover` (the new holder), then `handed-over` (`reason: fenced`, `site`, `token` 1, `observedToken` 2) |
-| froze or died before it reached a step again | `takeover` only |
+| woke, reached its fenced effect and was refused | `takeover` (the new holder), `fenced-effect` `ran` (the new holder's write), `fenced-effect` `refused` (`token` 1, `observedToken` 2), `handed-over` (`reason: fenced`) |
+| woke, reached a write of its own fencing and was refused | `takeover`, then `handed-over` (`reason: fenced`, `site`, `token` 1, `observedToken` 2) |
+| froze or died before it reached a step again | `takeover` (and the new holder's `fenced-effect` `ran`) only |
+| wrote, then crashed before its checkpoint | its `fenced-effect` `ran`, the `takeover`, then the new holder's `fenced-effect` `replayed` (`writtenToken` 1): no second write |
 
 <!-- snippet-context
-import { ExecutionLeaseEventKind, HandOverReason, type App } from "@agboss/core";
+import {
+  ExecutionLeaseEventKind,
+  FencedEffectEventOutcome,
+  HandOverReason,
+  type App,
+} from "@agboss/core";
 declare const app: App;
 declare const rootExecutionId: string;
 -->
@@ -519,6 +526,11 @@ declare const rootExecutionId: string;
 const rows = await app.leaseEventsOf({ tenantId: "acme", rootExecutionId });
 const refused = rows.some(
   (row) => row.kind === ExecutionLeaseEventKind.HandedOver && row.reason === HandOverReason.Fenced,
+);
+const replayed = rows.some(
+  (row) =>
+    row.kind === ExecutionLeaseEventKind.FencedEffect &&
+    row.outcome === FencedEffectEventOutcome.Replayed,
 );
 ```
 
