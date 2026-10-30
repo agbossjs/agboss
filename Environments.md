@@ -79,7 +79,17 @@ export class AuditApplication {}
 - **Fields of the framework's own implementations** (`sqlitePath`, `langfusePublicKey`, …) are written
   by the project in its contract; nothing is added implicitly. A listed implementation whose field
   is missing fails assembly: `[environment.missing-field] SqliteExecutionRecordRepository needs
-  sqlitePath: string in AppEnvironment` (the SQLite implementations come with #265).
+  sqlitePath: string in AppEnvironment (read by SqliteConnection)` (the SQLite implementations come
+  with #265).
+- **A class declares the fields it reads (#511)**: `@Injectable({ environmentFields: { postgresUrl:
+  EnvironmentField.Secret, postgresPoolSize: EnvironmentField.OptionalInteger } })` — `Text`,
+  `Integer`, `Flag`, `Secret` and their `Optional…` forms. At assembly every class the application
+  or a workflow lists in `providers`, and every class their `deps` reach, is checked: a required
+  field the contract lacks is `[environment.missing-field]` naming the listed class and the one that
+  reads it; an optional one may be absent; one field declared with two types by two classes is
+  `[environment.conflicting-field]`. `SqliteConnection` declares `sqlitePath` this way; a store
+  outside the core declares its connection's ([Several instances](Several-instances#writing-your-own-store-the-published-contract-suites-481)).
+  The variables behind them are what `agboss check --env <name>` lists, as for every field.
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
   same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)

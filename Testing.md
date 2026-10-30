@@ -790,6 +790,13 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   jumps and every wait that is due wakes in time order (two due at one moment: in the order they
   began), each one's work running before the next wakes. A jump longer than a lease is a holder
   frozen for that long.
+- **Work with real I/O (#511)**: one turn of the event loop is enough for in-memory work, not for a
+  database round trip. `clock.track(promise)` registers work `advance` waits for — before the jump
+  and after each wait it wakes — and returns the promise as it is (a rejection reaches its caller,
+  not `advance`). The [store contract suites](#store-contract-suites--agbosscoretestingcontracts-481)
+  track every store call of their targets. Work that does not settle within
+  `new VirtualClock(start, { settleTimeout })` of real time (default 2 s) fails `advance` with
+  `UnsettledWorkError` (`test.unsettled-work`, its `inFlight` count): the test never hangs.
 - What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
   records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
   the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's timeout, the waits
@@ -1082,7 +1089,7 @@ it("the model reads a token; its answer gets the address back", async () => {
 A store implementation outside the core runs the core's own contract suites against itself: one
 function per contract (`executionLeaseContract(target)`, …, `checkpointSaverContract(target)`), each
 registering `<contract> contract (<target name>)` with a case per rule, every case on two instances
-over one backing store and its own `VirtualClock`. The target is `{ name, instance(seam), reset?,
+over one backing store and its own `VirtualClock`, each store call tracked on it (#511). The target is `{ name, instance(seam), reset?,
 close? }` — [Several instances → Writing your own store](Several-instances#writing-your-own-store-the-published-contract-suites-481).
 It is an entry of its own: `@agboss/core/testing` does not load it.
 

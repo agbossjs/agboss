@@ -54,7 +54,7 @@ driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, ser
 LangGraph's `serde`) and share **one file**: the environment contract's `sqlitePath`, required only
 when a SQLite implementation is listed — a contract without it fails assembly with
 `[environment.missing-field] SqliteExecutionLeaseRepository needs sqlitePath: string in
-AppEnvironment` ([Environments](Environments)), an empty value fails the start naming it.
+AppEnvironment (read by SqliteConnection)` ([Environments](Environments)), an empty value fails the start naming it.
 
 <!-- snippet-context
 import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
@@ -799,6 +799,46 @@ the core names them (`a tree's lease held by one instance is not given to the ot
 core. The suites test the store, not the framework over it: the cases that run a whole application
 (`testWith`) stay in the core's own tests. `@agboss/core/testing` does not re-export them, so a
 project's ordinary tests never load them ([ADR-0024](ADR-0024-Published-store-contract-suites)).
+
+
+#### On the public surface alone (#511)
+
+What `@agboss/postgres` needed and the core now gives every store outside it:
+
+- **Its round trips finish inside `advance`**: each case's stores are wrapped so every call that
+  returns a promise is tracked on the case's `VirtualClock` (`clock.track`, [Testing](Testing)) — the
+  framework's lease holder renewing through the store included. No wait of the store's own around
+  `advance` is needed.
+- **LangGraph's savers pass as they are**: `checkpointSaverContract` passes `put` the versions of the
+  channels it changed, as LangGraph does, so a saver that writes a value only for the versions it is
+  given (LangGraph's `PostgresSaver`, blobs by channel and version) passes without a wrapper writing
+  every channel; the core runs the suite on LangGraph's `MemorySaver` and on such a saver.
+- **Every type a contract names is exported** by the root entry — `Tern`, `NewTern`, `TernOutcome`,
+  `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`, `ExecutionData`, `CostReport`, `Usd`,
+  `Milliseconds`, … — never derived with `Parameters` / `ReturnType`; a test of the core fails when a
+  contract's member names one that is not.
+- **Its connection declares its environment fields**, checked at assembly like `sqlitePath`
+  ([Environments](Environments)):
+
+<!-- snippet-context
+import { ApplicationContext, EnvironmentField, Injectable } from "@agboss/core";
+-->
+
+```ts
+@Injectable({
+  deps: [ApplicationContext],
+  environmentFields: {
+    postgresUrl: EnvironmentField.Secret,
+    postgresPoolSize: EnvironmentField.OptionalInteger,
+  },
+})
+export class PostgresConnection {
+  constructor(readonly applicationContext: ApplicationContext) {}
+}
+// a store with deps: [PostgresConnection, …] listed while the contract lacks postgresUrl:
+// [environment.missing-field] PostgresExecutionLeaseRepository needs postgresUrl: Secret in
+// AppEnvironment (read by PostgresConnection)
+```
 
 ## Testing several instances
 

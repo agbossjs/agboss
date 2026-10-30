@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: core gaps found by @agboss/postgres (#511)
+
+- **Added — `@Injectable({ environmentFields })`**, `EnvironmentField`, `EnvironmentFields`,
+  `InjectableOptions` ([Environments](Environments)): a class declares the environment fields it
+  reads; every class listed in `providers` and every class their `deps` reach is checked at assembly
+  — `[environment.missing-field]` (now naming the class that reads it, `… (read by
+  SqliteConnection)`), and the new `[environment.conflicting-field]`. `SqliteConnection` declares
+  `sqlitePath` so.
+- **Added — `VirtualClock.track(work)`** and `new VirtualClock(start, { settleTimeout })`
+  ([Testing](Testing)): `advance` waits for tracked work, bounded by `UnsettledWorkError`
+  (`test.unsettled-work`). The published contract suites track every store call of their targets, so
+  a networked store needs no wait of its own around `advance`.
+- **Added — the types the infrastructure contracts name**, exported by the root entry (`Tern`,
+  `NewTern`, `TernOutcome`, `TernStatus`, `TernStep`, `Summary`, `NewSummary`, `ConfigSnapshot`,
+  `VersionScore`, `ExecutionData`, `ScopeRecords`, `CompensationEntry`, `CompensationEntryStatus`,
+  `WaitingPause`, `Compacted`, `CostReport`, `CostLine`, `CostCategory`, `CostSource`, `TokenUsage`,
+  `ToolCallApprovalAskDto`, `JsonPrimitive`, `Brand`, `Milliseconds`, `Usd` — types only).
+- **Changed — `checkpointSaverContract`**: `put` is given the changed channels' versions, as LangGraph
+  passes them; LangGraph's `PostgresSaver` passes as it is
+  ([Several instances](Several-instances#on-the-public-surface-alone-511)).
 ## Unreleased — 0.1.1: handover telemetry, the fenced effect told (#501 PR 3)
 
 - **Added — `onFencedEffect`** (`OnFencedEffect`, `FencedEffectEvent`, `FencedEffectEventOutcome`:
