@@ -32,6 +32,12 @@ left the system. I would store the request before sending it, not after."
   `reconcile` gets the stored (masked) request — a call is looked up by its key, which is not
   personal data. No mask where policies exist fails closed (`OutboundCallUnmaskedError`).
 - **Ended intents are kept a week, pending ones for ever:** reconciliation may come days later.
+- **One sender per attempt (#505 PR 2):** every attempt has an owner — a random id minted by the
+  caller that claims it — and a new attempt is a compare-and-set on status, attempt and owner in the
+  fenced transaction: of two callers that read one intent, exactly one moves it and sends; the other
+  sends nothing. A call this instance is making now is joined, never reconciled or resent. Rejected:
+  a read-then-write move (two readers both resend) and an ownership test by lease alone (two calls of
+  one execution share the lease).
 - **One published contract suite** (`outboundCallContract`) for the in-memory, SQLite and
   PostgreSQL stores.
 
