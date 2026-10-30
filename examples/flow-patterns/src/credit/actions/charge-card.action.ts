@@ -1,7 +1,9 @@
 import {
   Action,
   ExecutionContext,
+  fencedEffectKeyOf,
   optional,
+  SqliteFencedEffectRepository,
   type ActionHandler,
   type InputOf,
   type OutputOf,
@@ -9,12 +11,14 @@ import {
 import { ChargeResultDto } from "../dto/charge-result.dto.js";
 import { CreditApprovalDto } from "../dto/credit-approval.dto.js";
 import { CreditOrderDto } from "../dto/credit-order.dto.js";
-import { PaymentService } from "../services/payment.service.js";
+import { PaymentLedgerRepository } from "../repositories/payment-ledger.repository.js";
 
 /**
  * Charges the customer's card for the order; reached from the router and from the approval. A
- * side effect: the step runs at least once, so the charge carries the step's idempotency key and
- * the payment provider makes one charge per key (`PaymentService`).
+ * side effect: the step runs at least once, so the charge is a fenced effect (#500) — its row and
+ * its receipt in one transaction of the application's SQLite file, checked against the step's
+ * lease. A step run again (a crash before its checkpoint) gets the first receipt; an instance that
+ * lost the lease is refused (`ExecutionFencedError`, a hand-over) and writes nothing.
  */
 @Action({
   name: "charge-card-action",
@@ -24,21 +28,21 @@ import { PaymentService } from "../services/payment.service.js";
     approval: optional(CreditApprovalDto), // present after ApprovalAgent
   },
   output: ChargeResultDto,
-  deps: [ExecutionContext, PaymentService],
+  deps: [ExecutionContext, SqliteFencedEffectRepository, PaymentLedgerRepository],
 })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly paymentService: PaymentService,
+    private readonly sqliteFencedEffectRepository: SqliteFencedEffectRepository,
+    private readonly paymentLedgerRepository: PaymentLedgerRepository,
   ) {}
 
   async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
     const { customerId, total } = input.order.value;
-    const charge = await this.paymentService.charge({
-      customerId,
-      total,
-      idempotencyKey: this.executionContext.step.idempotencyKey, // the same on a recovered retry
-    });
-    return { chargeId: charge.chargeId };
+    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const { result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(key, (database) =>
+      this.paymentLedgerRepository.recordCharge(database, { customerId, total }),
+    );
+    return { chargeId: result.chargeId };
   }
 }

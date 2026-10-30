@@ -5,45 +5,26 @@ import { PaymentLedgerRepository } from "../../../src/credit/repositories/paymen
 import { FlowPatternsApplication } from "../../../src/flow-patterns.application.js";
 
 /**
- * #472: the offline payment provider's ledger on its own — one row per idempotency key.
+ * #500: the offline payment provider's ledger on its own — one row per charge, written on the
+ * database it is given (a fenced effect's transaction in the application).
  */
 
 const test = testWith(FlowPatternsApplication);
 
-const record = (idempotencyKey: string, customerId: string, total: number) => ({
-  idempotencyKey,
-  customerId,
-  total,
-});
-
-describe("#472: PaymentLedgerRepository", () => {
-  test("recordOnce numbers new keys in order and answers a known key with its row", async ({
+describe("#500: PaymentLedgerRepository", () => {
+  test("recordCharge numbers the charges in order and names each by its customer", async ({
     app,
   }) => {
     await app.ready();
     const ledger = app.resolve(PaymentLedgerRepository);
+    const { database } = app.resolve(SqliteConnection);
 
-    const first = ledger.recordOnce(record("k-1", "c-1", 50));
-    const second = ledger.recordOnce(record("k-2", "c-1", 70));
-    const repeated = ledger.recordOnce(record("k-1", "c-1", 50));
+    const first = ledger.recordCharge(database, { customerId: "c-1", total: 50 });
+    const second = ledger.recordCharge(database, { customerId: "c-2", total: 70 });
 
-    expect(first).toEqual({ chargeNumber: 1, customerId: "c-1", total: 50 });
-    expect(second).toEqual({ chargeNumber: 2, customerId: "c-1", total: 70 });
-    expect(repeated).toEqual(first);
-    expect(ledger.chargesOf("c-1")).toEqual([first, second]);
-  });
-
-  test("a known key with another customer or total keeps the first row unchanged", async ({
-    app,
-  }) => {
-    await app.ready();
-    const ledger = app.resolve(PaymentLedgerRepository);
-    const first = ledger.recordOnce(record("k-1", "c-1", 50));
-
-    expect(ledger.recordOnce(record("k-1", "c-2", 50))).toEqual(first);
-    expect(ledger.recordOnce(record("k-1", "c-1", 60))).toEqual(first);
-    expect(ledger.chargesOf("c-1")).toEqual([first]);
-    expect(ledger.chargesOf("c-2")).toEqual([]);
+    expect(first).toEqual({ chargeId: "charge-c-1-1" });
+    expect(second).toEqual({ chargeId: "charge-c-2-2" });
+    expect(ledger.chargesOf("c-1")).toEqual([{ chargeNumber: 1, customerId: "c-1", total: 50 }]);
   });
 
   test("chargesOf lists one customer's charges, oldest first, and none of another's", async ({
@@ -51,19 +32,14 @@ describe("#472: PaymentLedgerRepository", () => {
   }) => {
     await app.ready();
     const ledger = app.resolve(PaymentLedgerRepository);
-    ledger.recordOnce(record("k-1", "c-1", 10));
-    ledger.recordOnce(record("k-2", "c-2", 20));
-    ledger.recordOnce(record("k-3", "c-1", 30));
+    const { database } = app.resolve(SqliteConnection);
+    ledger.recordCharge(database, { customerId: "c-1", total: 10 });
+    ledger.recordCharge(database, { customerId: "c-2", total: 20 });
+    ledger.recordCharge(database, { customerId: "c-1", total: 30 });
 
     expect(ledger.chargesOf("c-1").map((row) => row.total)).toEqual([10, 30]);
     expect(ledger.chargesOf("c-2").map((row) => row.total)).toEqual([20]);
     expect(ledger.chargesOf("nobody")).toEqual([]);
-  });
-
-  test("chargesOf before any charge creates the table and finds nothing", async ({ app }) => {
-    await app.ready();
-
-    expect(app.resolve(PaymentLedgerRepository).chargesOf("c-1")).toEqual([]);
   });
 
   test("a row whose total is not a number is refused, never returned half-read", async ({
@@ -71,17 +47,13 @@ describe("#472: PaymentLedgerRepository", () => {
   }) => {
     await app.ready();
     const ledger = app.resolve(PaymentLedgerRepository);
-    ledger.chargesOf("c-1");
     app
       .resolve(SqliteConnection)
-      .database.prepare(
-        "INSERT INTO payment_charges (idempotency_key, customer_id, total) VALUES (?, ?, ?)",
-      )
-      .run("k-bad", "c-1", "fifty");
+      .database.prepare("INSERT INTO payment_charges (customer_id, total) VALUES (?, ?)")
+      .run("c-1", "fifty");
 
-    expect(() => ledger.chargesOf("c-1")).toThrow(/without its charge number, customer or total/);
-    expect(() => ledger.recordOnce(record("k-bad", "c-1", 50))).toThrow(
-      /without its charge number, customer or total/,
+    expect(() => ledger.chargesOf("c-1")).toThrow(
+      "payment_charges: a row without its charge number, customer or total",
     );
   });
 });

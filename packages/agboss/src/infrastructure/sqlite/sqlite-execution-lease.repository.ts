@@ -6,7 +6,8 @@ import { Clock } from "../clock.js";
 import { ExecutionLeaseRepository, type ExecutionLease } from "../execution-lease.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
+/** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
+export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
   lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
   PRIMARY KEY (tenant_id, root_execution_id));`;
@@ -33,7 +34,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    connection.ensureSchema("execution_leases", SCHEMA);
+    connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
   }
 
   ping(): Promise<void> {

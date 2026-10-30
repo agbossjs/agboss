@@ -5,7 +5,21 @@
  * or past its confirmation.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { ExecutionFencedError, FencedEffectStatus } from "../../../src/index.js";
+import type { Class } from "../../../src/components/injection.js";
+import { WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  Action,
+  Clock,
+  ExecutionContext,
+  ExecutionFencedError,
+  ExecutionLeaseRepository,
+  FencedEffectSettings,
+  FencedEffectStatus,
+  fencedEffectKeyOf,
+  InMemoryFencedEffectRepository,
+  Injectable,
+} from "../../../src/index.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
 import { testAction } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import {
@@ -56,5 +70,69 @@ describe("#500: a unit runner's fenced effect", () => {
 
     await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
     expect(book.charges).toEqual([]);
+  });
+});
+
+/** A project's store that names no lease store: the runner has nowhere to hold its lease. */
+@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+class UnleasedFencedEffectRepository extends InMemoryFencedEffectRepository {
+  static override readonly leaseRepository: Class | undefined = undefined;
+}
+
+/** A service that is no lease store. */
+@Injectable()
+class NotALeaseStore {}
+
+/** A project's store that names a class that is no lease store. */
+@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
+  static override readonly leaseRepository: Class | undefined = NotALeaseStore;
+}
+
+const writeOnce = (store: InMemoryFencedEffectRepository, executionContext: ExecutionContext) =>
+  store.saveResultIfAbsent(fencedEffectKeyOf(executionContext, "charge"), () => "done");
+
+@Action({
+  name: "unleased-charge-action",
+  description: "Charges through a store that names no lease store",
+  input: { message: WorkflowStartTextDto },
+  deps: [ExecutionContext, UnleasedFencedEffectRepository],
+})
+class UnleasedChargeAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly store: UnleasedFencedEffectRepository,
+  ) {}
+
+  async execute(): Promise<void> {
+    await writeOnce(this.store, this.executionContext);
+  }
+}
+
+@Action({
+  name: "misdeclared-charge-action",
+  description: "Charges through a store that names no lease store class",
+  input: { message: WorkflowStartTextDto },
+  deps: [ExecutionContext, MisdeclaredFencedEffectRepository],
+})
+class MisdeclaredChargeAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly store: MisdeclaredFencedEffectRepository,
+  ) {}
+
+  async execute(): Promise<void> {
+    await writeOnce(this.store, this.executionContext);
+  }
+}
+
+describe("#500: a store whose lease store the runner cannot find", () => {
+  it.each([
+    ["names none", UnleasedChargeAction],
+    ["names a class that is no lease store", MisdeclaredChargeAction],
+  ])("%s: the runner holds no lease for it, so its effect is refused", async (_case, action) => {
+    const run = testAction(action);
+
+    await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
   });
 });

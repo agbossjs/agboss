@@ -5,6 +5,7 @@ import {
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
+  SqliteFencedEffectRepository,
   SqliteConnection,
   SqlitePausedExecutionRepository,
 } from "@agboss/core";
@@ -98,6 +99,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
     SqliteCheckpointSaver,
     SqliteExecutionLeaseRepository,
     SqliteExecutionTreeRepository,
+    SqliteFencedEffectRepository, // the credit desk's charge, once per step (#500)
     SqliteConnection, // the file's one connection, for the project's own repositories too
     PaymentLedgerRepository, // the credit desk's payment ledger, on the same SQLite file
   ],

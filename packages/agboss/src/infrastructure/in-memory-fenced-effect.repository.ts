@@ -1,5 +1,7 @@
 import { ExecutionFencedError } from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
+import type { Class, Provider } from "../components/injection.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
@@ -50,6 +52,8 @@ const resultKeyOf = (key: FencedEffectKey): string =>
  */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
+  static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
+
   constructor(
     private readonly clock: Clock,
     private readonly database: InMemoryDatabase,
@@ -151,4 +155,40 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     });
     return current;
   }
+}
+
+const isClass = (provider: Provider): provider is Class => !("provide" in provider);
+
+/** Whether `cls` is `base` or extends it. */
+const isOrExtends = (cls: Class, base: Class): boolean =>
+  cls === base || Object.prototype.isPrototypeOf.call(base.prototype, cls.prototype);
+
+/**
+ * The fenced-effect store and the lease store are of one database (#500): a listed store reads the
+ * leases of the lease store it declares (`static leaseRepository`) in its own transaction, so the
+ * application's lease store — listed, else the in-memory default — must be that one (or extend it).
+ */
+export function fencedEffectStoreViolations(
+  application: string,
+  providers: readonly Provider[],
+): RuleViolation[] {
+  const classes = providers.filter(isClass);
+  const store = classes.find((cls) => isOrExtends(cls, FencedEffectRepository));
+  const expected: unknown = store === undefined ? undefined : Reflect.get(store, "leaseRepository");
+  if (store === undefined || typeof expected !== "function") return [];
+  const leases =
+    classes.find((cls) => isOrExtends(cls, ExecutionLeaseRepository)) ??
+    InMemoryExecutionLeaseRepository;
+  if (
+    leases === expected ||
+    Object.prototype.isPrototypeOf.call(expected.prototype, leases.prototype)
+  )
+    return [];
+  return [
+    violation(
+      "application.fenced-effect-lease-store",
+      `${store.name} checks the leases of ${expected.name}, but the application's leases are in ${leases.name} — list the two stores of one database together (SqliteFencedEffectRepository with SqliteExecutionLeaseRepository)`,
+      [application],
+    ),
+  ];
 }
