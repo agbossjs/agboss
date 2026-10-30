@@ -40,8 +40,9 @@ export const callKeyOf = (key: FencedEffectKey): string =>
  * `IdempotencyKeyConflictError`; for any key, a pending attempt whose owner lives is
  * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
  * when this instance is sending under it now, whatever the key; under a business key also while
- * the lease that wrote it is open on another instance (released only once its attempts settled;
- * expired counts as open — only a takeover proves its holder gone). The lease this step runs under
+ * the lease that wrote it is live on another instance (released only once its attempts settled,
+ * never yielded under one); one expired is superseded by the check (`isLeaseLive`), so its holder
+ * writes nothing under it again, and the attempt is reconciled here. The lease this step runs under
  * is this instance's: an attempt it wrote whose owner is not sending here has ended. One that ended
  * is reconciled by whoever wins the compare-and-set.
  */
@@ -60,7 +61,7 @@ export async function checkedCall<TRequest, TResult>(
     found.leaseExecutionId === key.leaseExecutionId && found.token === key.token;
   if (isUnderThisLease) return;
   const lease = [found.tenantId, found.leaseExecutionId, found.token] as const;
-  if (await run.parts.repository.isLeaseOpen(...lease)) throw inFlight;
+  if (await run.parts.repository.isLeaseLive(...lease)) throw inFlight;
 }
 
 /**

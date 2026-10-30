@@ -5,6 +5,8 @@ import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+import { Clock, SystemClock } from "../infrastructure/clock.js";
+import { frameworkLogOf, Logger, SilentLogger } from "../infrastructure/logger.js";
 import type { LiveCall } from "./outbound-call-parts.js";
 import type {
   OutboundCallInFlightErrorOptions,
@@ -112,18 +114,19 @@ export class OutboundCallReconciliation<TResult> {
  * The application's calls that leave the system (#505): a core service a component injects
  * (`deps: [ExecutionContext, OutboundCalls]`), over the listed `OutboundCallRepository`.
  */
-@Injectable({ deps: [OutboundCallRepository, OutboundCallSettings] })
+@Injectable({ deps: [OutboundCallRepository, OutboundCallSettings, Logger, Clock] })
 export class OutboundCalls {
   /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
   readonly #live = new Map<string, LiveCall>();
   /** The attempt owners it is sending under now. */
   readonly #owners = new Set<string>();
-  /** The errors the other system answered its calls with: shared with a joined call. */
-  readonly #providerErrors = new WeakSet<object>();
 
   constructor(
     private readonly repository: OutboundCallRepository,
     private readonly settings: OutboundCallSettings,
+    // the instance's log (#508), names and ids only; built by hand (a test), it logs nothing
+    private readonly logger: Logger = new SilentLogger(),
+    private readonly clock: Clock = new SystemClock(),
   ) {}
 
   /**
@@ -144,7 +147,7 @@ export class OutboundCalls {
       settings,
       live,
       owners: this.#owners,
-      providerErrors: this.#providerErrors,
+      log: frameworkLogOf(this.logger, this.clock),
     };
     return sendOutboundCall(parts, key, options);
   }
@@ -258,5 +261,35 @@ export class OutboundCallInFlightError extends StepFailedError {
     this.call = name;
     this.target = target;
     this.operation = operation;
+  }
+}
+
+/**
+ * A completed call whose result could not be stored (#508: above `maxPayloadSize`, refused by the
+ * mask) was found again: the call happened — its intent is `Completed`, nothing is sent again — but
+ * there is no result to replay. A `StepFailedError`: `.onError(…)` decides; the other system has
+ * the result (`reason`: the code of what kept it from being stored).
+ */
+export class OutboundCallResultNotStoredError extends StepFailedError {
+  static override readonly code: string = "outbound-call.result-not-stored";
+  override name = "OutboundCallResultNotStoredError";
+  readonly call: string;
+  readonly target: string;
+  readonly operation: string;
+  readonly reason: string;
+
+  constructor(options: OutboundCallInFlightErrorOptions, reason: string) {
+    const { name, target, operation } = options;
+    super(
+      `outbound call "${name}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
+      [],
+      undefined,
+      stepCoordinatesOf(name, ComponentKind.Action),
+      { call: name, target, operation, reason },
+    );
+    this.call = name;
+    this.target = target;
+    this.operation = operation;
+    this.reason = reason;
   }
 }

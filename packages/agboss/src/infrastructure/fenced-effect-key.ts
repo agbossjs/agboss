@@ -56,12 +56,20 @@ export function fingerprintOf(value: unknown): string {
  * `maxSpend()`, a yielded lease, an ancestor's context) it throws `ExecutionContextUnavailableError`,
  * as `fence` does.
  */
+/**
+ * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `InvalidFencedEffectNameError` —
+ * by `fencedEffectKeyOf` and again at every store's entry, for a key built by hand.
+ */
+export function checkedEffectName(name: string): void {
+  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
+}
+
 export function fencedEffectKeyOf<TFingerprint>(
   executionContext: ExecutionContext,
   name: string,
   options?: FencedEffectKeyOptions<TFingerprint>,
 ): FencedEffectKey {
-  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
+  checkedEffectName(name);
   const { fence, step } = executionContext;
   const origin = {
     executionId: executionContext.executionId,
@@ -291,11 +299,13 @@ export const businessFactsOf = (
 
 /**
  * A call as an operator's read, a kept record and an export show it (#508): a business key only by
- * its handle — never the key, in itself or inside the key the call went with.
+ * its handle — never the key, in itself or inside the key the call went with — and never its
+ * fingerprint (a digest of the request, kept in the store's row only, to tell a conflict).
  */
 export function shownCallOf(record: OutboundCallRecord): OutboundCallRecord {
-  if (record.businessKey === undefined) return record;
   const shown = { ...record };
+  delete shown.fingerprint;
+  if (record.businessKey === undefined) return shown;
   delete shown.businessKey;
   const handle = record.businessKeyHash === undefined ? "" : `${record.businessKeyHash}:`;
   return { ...shown, idempotencyKey: `business-key:${handle}${record.name}` };

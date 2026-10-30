@@ -99,6 +99,7 @@ export async function buildApp(
   const leasing = leasingOf(parts.infrastructure);
   const leases = executionLeasesOf(leasing.repository, leasing.clock, {
     events: parts.leaseEvents,
+    stopping: live.interruption,
   });
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);

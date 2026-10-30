@@ -79,17 +79,15 @@ export interface ExecutionLeases {
 }
 
 /** What a holder records its takeovers with: the instance's lease log, absent = none. */
-export interface LeaseTakeoverLog {
-  readonly events?: LeaseEventLog | undefined;
-}
+export type LeaseTakeoverLog = Pick<LeaseTaking, "events" | "stopping">;
 
 export function executionLeasesOf(
   repository: ExecutionLeaseRepository,
   clock: Clock,
-  { events }: LeaseTakeoverLog = {},
+  { events, stopping }: LeaseTakeoverLog = {},
 ): ExecutionLeases {
   const take = (tree: ExecutionTree, why?: LeaseTake): Promise<HeldExecutionLease | undefined> =>
-    takeLease({ repository, clock, events }, tree, why);
+    takeLease({ repository, clock, events, stopping }, tree, why);
   return {
     tryHold: take,
     hold: async (tree, signal, why) => {
@@ -184,6 +182,8 @@ export interface LeaseTaking {
   readonly repository: ExecutionLeaseRepository;
   readonly clock: Clock;
   readonly events?: LeaseEventLog | undefined;
+  /** Aborted when the instance's stop interrupts what still runs: no release waits past it (#508). */
+  readonly stopping?: AbortSignal | undefined;
 }
 
 /** Whether a take of `lease` is a takeover the lease log records. */

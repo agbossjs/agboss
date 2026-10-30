@@ -35,6 +35,7 @@ import { stableJson } from "../../src/terns/index.js";
 import { override, testAction, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
+import { recordingLog } from "../helpers/log.js";
 import { instance, settle } from "./fixtures/fence-takeover.js";
 import {
   BusinessKeyApplication,
@@ -167,7 +168,9 @@ describe("#508 review 5: an answered call always ends Completed", () => {
   it("a failure's text the mask cannot mask is stored [redacted], never as it is", async () => {
     const run = {
       frame: { execution: { observability: { traceData: () => Promise.reject(new Error("x")) } } },
-      parts: { settings: { requiresMask: false } },
+      parts: { settings: { requiresMask: false }, log: recordingLog().log },
+      key: { name: "charge", tenantId: "default" },
+      options: { target: "payments", operation: "charge" },
     } as never;
 
     expect(await maskedTextOf(run, "card of ann@example.com declined")).toBe(REDACTED);
@@ -179,10 +182,10 @@ describe("#508 review 6: what a business key derives is keyed", () => {
     app,
   }) => {
     const result = await execute(app, SendChargeStart, charge);
-    const [call] = await app.outboundCallsOf({
-      tenantId: "default",
-      rootExecutionId: result.executionId,
-    });
+    // the store's row: no read surface shows a fingerprint (#508 re-review MEDIUM4)
+    const [call] = await app
+      .resolve(OutboundCallRepository)
+      .findAllByTenantIdAndRootExecutionId("default", result.executionId);
     const text = `fingerprint\u0000${stableJson(charge)}`;
     const subkey = keyedDigestOf(TEST_PSEUDONYM_KEY, FINGERPRINT_LABEL);
 

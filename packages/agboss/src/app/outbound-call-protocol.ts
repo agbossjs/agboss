@@ -19,6 +19,7 @@ import {
   callOf,
   lookupOf,
   maskedFailureOf,
+  notStoredOf,
   outcomeOf,
   storedJson,
   storedResultOf,
@@ -31,12 +32,13 @@ import {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
+  OutboundCallResultNotStoredError,
   OutboundCallVerdict,
   type OutboundCallOptions,
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
 
-import { superseded, unreconciledOf } from "./outbound-call-endings.js";
+import { fencedEnd, superseded, unreconciledOf } from "./outbound-call-endings.js";
 import { joinedOrMade, owning } from "./outbound-call-join.js";
 
 export type { OutboundCallParts } from "./outbound-call-parts.js";
@@ -78,16 +80,18 @@ async function sendNow<TRequest, TResult>(
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
     if (!call.signal.aborted) {
-      if (error instanceof Object) run.parts.providerErrors.add(error);
+      run.answer.isAnswered = true;
       const failure = await maskedFailureOf(run, error);
-      if (!(await repository.markFailed(run.key, owner, failure))) await superseded(run, attempt);
+      const isFailed = () => repository.markFailed(run.key, owner, failure);
+      if (!(await fencedEnd(run, attempt, isFailed))) await superseded(run, attempt);
       else told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
     }
     throw error;
   }
   // stored masked (or a marker: the call happened); the step gets the answer as it is
   const stored = await storedResultOf(run, answer);
-  if (!(await repository.markCompleted(run.key, owner, stored))) {
+  const isCompleted = () => repository.markCompleted(run.key, owner, stored);
+  if (!(await fencedEnd(run, attempt, isCompleted))) {
     await superseded(run, attempt);
     return outcomeOf(run, OutboundCallOutcomeStatus.Superseded, answer, attempt);
   }
@@ -184,12 +188,19 @@ async function settled<TRequest, TResult>(
   return reconciled(run, found);
 }
 
-/** A completed intent's stored result — masked by the PII policies — and who made it (#508). */
+/**
+ * A completed intent's stored result — masked by the PII policies — and who made it (#508); one
+ * whose result was not stored is `OutboundCallResultNotStoredError`, nothing sent again.
+ */
 function replayed<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): OutboundCallOutcome<TResult> {
   const stored: unknown = JSON.parse(found.result ?? "null");
+  // answered, its result not stored (#508): no result to give, never the marker as one
+  const notStored = notStoredOf(stored);
+  if (notStored !== undefined)
+    throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
   const replayedFrom = replayedFromOf(run.key, found);
   const moved = [OutboundCallStatus.Completed, found.attempt] as const;
   told(run, OutboundCallEventOutcome.Replayed, moved, replayedFrom);
@@ -225,6 +236,7 @@ export async function sendOutboundCall<TRequest, TResult>(
     options,
     frame,
     idempotencyKey: callKeyOf(key),
+    answer: { isAnswered: false },
   };
   // masked for the store, within the limit, before anything is read, recorded or sent
   const request = await storedJson(run, OutboundCallPart.Request, options.request);

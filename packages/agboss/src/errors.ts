@@ -86,6 +86,7 @@ export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fence
 export {
   OutboundCallInFlightError,
   OutboundCallPayloadTooLargeError,
+  OutboundCallResultNotStoredError,
   OutboundCallUnmaskedError,
   OutboundCallUnreconciledError,
   type OutboundCallInFlightErrorOptions,

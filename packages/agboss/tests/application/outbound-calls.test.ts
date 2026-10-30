@@ -17,7 +17,14 @@ import {
   type OutboundCallsOptions,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
-import { hours, kilobytes, minutes, seconds, type Bytes } from "../../src/units/index.js";
+import {
+  hours,
+  kilobytes,
+  minutes,
+  seconds,
+  type Bytes,
+  type Milliseconds,
+} from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -60,7 +67,23 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
     expect(assembled.outboundCalls).toMatchObject({
       maxPayloadSize: 65_536,
       retention: hours(168),
+      attemptTimeout: minutes(2),
     });
+  });
+
+  it.each([0, -1, Number.NaN])(
+    "#508 re-review HIGH1: an attemptTimeout of %s ms fails assembly",
+    async (timeout) => {
+      await expect(assembledWith({ attemptTimeout: timeout as Milliseconds })).rejects.toThrow(
+        `[application.outbound-calls-invalid] its outboundCalls.attemptTimeout is ${String(timeout)} ms, not a positive duration`,
+      );
+    },
+  );
+
+  it("#508 re-review HIGH1: takes the attemptTimeout it sets", async () => {
+    const assembled = await assembledWith({ attemptTimeout: seconds(45) });
+
+    expect(assembled.outboundCalls.attemptTimeout).toBe(seconds(45));
   });
 
   it.each([0, -1])("a maxPayloadSize of %s bytes fails assembly", async (size) => {

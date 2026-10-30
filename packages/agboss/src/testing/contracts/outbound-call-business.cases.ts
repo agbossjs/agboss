@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { ExecutionFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
@@ -15,7 +16,7 @@ import {
 /**
  * The outbound-call contract's business keys (#508): one intent per tenant, name and business key,
  * whatever execution records it — read and settled by another execution's key, which the record
- * then names — and `isLeaseOpen`, what tells a live holder of a pending intent from a gone one.
+ * then names — and `isLeaseLive`, what tells a live holder of a pending intent from a gone one.
  */
 
 /** `lease`'s step key under business key `order:42`. */
@@ -91,22 +92,51 @@ const tenantsApart: OutboundCallCase = {
   },
 };
 
-const openLease: OutboundCallCase = {
-  name: "#508: isLeaseOpen is true for the lease's current token on either instance — and once it expired, until a takeover",
+const liveLease: OutboundCallCase = {
+  name: "#508: isLeaseLive is true for the lease's current token on either instance while it is not expired",
+  run: async ({ first, second }) => {
+    const lease = await leaseOf(first, "execution-1", seconds(30));
+
+    expect(await second.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch)).toBe(true);
+    expect(await first.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch)).toBe(true);
+  },
+};
+
+const expiredLease: OutboundCallCase = {
+  name: "#508: isLeaseLive supersedes an expired lease — false, its holder can renew and write under it no more, its tree is taken over",
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
-    const isOpen = await second.calls.isLeaseOpen("default", "execution-1", lease.leaseEpoch);
-
     await clock.advance(seconds(31));
 
-    expect(isOpen).toBe(true);
-    expect(await first.calls.isLeaseOpen("default", "execution-1", lease.leaseEpoch)).toBe(true);
-    expect(await second.calls.isLeaseOpen("default", "execution-1", lease.leaseEpoch)).toBe(true);
+    expect(await second.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch)).toBe(false);
+    expect(await first.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch)).toBe(false);
+    expect(await first.leases.renew(lease, seconds(30))).toBe(false);
+    await expect(recorded(first, businessKeyOf(lease))).rejects.toBeInstanceOf(
+      ExecutionFencedError,
+    );
+    const taken = await leaseOf(second, "execution-1");
+    expect(taken.leaseEpoch).toBeGreaterThan(lease.leaseEpoch + 1);
+    expect(await first.calls.isLeaseLive("default", "execution-1", taken.leaseEpoch)).toBe(true);
+  },
+};
+
+const reclaimedLease: OutboundCallCase = {
+  name: "#508: a yield and a reclaim by the same holder supersede its token — isLeaseLive is false for the old token, true for the reclaimed one (the runtime never yields under a live attempt)",
+  run: async ({ first, second }) => {
+    const lease = await leaseOf(first, "execution-1", seconds(30));
+    await first.leases.yield(lease);
+    const reclaimed = await first.leases.reclaim(lease, seconds(30));
+
+    expect(reclaimed?.leaseEpoch).toBe(lease.leaseEpoch + 1);
+    expect(await second.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch)).toBe(false);
+    expect(await second.calls.isLeaseLive("default", "execution-1", lease.leaseEpoch + 1)).toBe(
+      true,
+    );
   },
 };
 
 const closedLease: OutboundCallCase = {
-  name: "#508: isLeaseOpen is false for a released lease, an older token after a takeover and a lease never taken",
+  name: "#508: isLeaseLive is false for a released lease, an older token after a takeover and a lease never taken",
   run: async ({ clock, first, second }) => {
     const released = await leaseOf(first, "execution-1");
     await first.leases.release(released);
@@ -115,7 +145,7 @@ const closedLease: OutboundCallCase = {
     const taken = await leaseOf(second, "execution-3");
 
     const at = (executionId: string, token: number) =>
-      first.calls.isLeaseOpen("default", executionId, token);
+      first.calls.isLeaseLive("default", executionId, token);
     expect(await at("execution-1", released.leaseEpoch)).toBe(false);
     expect(await at("execution-3", old.leaseEpoch)).toBe(false);
     expect(await at("execution-3", taken.leaseEpoch)).toBe(true);
@@ -131,7 +161,9 @@ export const outboundBusinessKeyCases = (): ContractGroup<OutboundCallStores> =>
     settledByAnother,
     stepKeyApart,
     tenantsApart,
-    openLease,
+    liveLease,
+    expiredLease,
+    reclaimedLease,
     closedLease,
   ],
 });

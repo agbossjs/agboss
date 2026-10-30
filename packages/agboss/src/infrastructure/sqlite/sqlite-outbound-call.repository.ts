@@ -25,7 +25,6 @@ import {
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
-  isSqliteLeaseOpen,
   RAISE_MARK,
 } from "./sqlite-fenced-effect.repository.js";
 
@@ -168,9 +167,11 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(rows.map(recordOf));
   }
 
-  isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+  async isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
     const lease = { tenantId, leaseExecutionId, token };
-    return Promise.resolve(isSqliteLeaseOpen(this.connection.database, lease));
+    const now = this.clock.now();
+    const { isSqliteLeaseLive } = await import("../live-lease.js");
+    return isSqliteLeaseLive(this.connection.database, lease, now);
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {

@@ -4,6 +4,7 @@ import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
+import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
 import type {
   FencedEffectKey,
   FencedEffectOrigin,
@@ -41,14 +42,23 @@ export interface OutboundCallParts {
   readonly live: Map<string, LiveCall>;
   /** The attempt owners this instance is sending under now (#508): their attempts are in flight. */
   readonly owners: Set<string>;
-  /** The errors the other system answered with (#508): what a joined call shares. */
-  readonly providerErrors: WeakSet<object>;
+  /** The instance's log (#508): two attempts that reached the other system, a late answer. */
+  readonly log: FrameworkLog;
 }
 
-/** A call this instance is making now: what it does (#508: its fingerprint) and its outcome. */
+/** How a call this instance makes ended (#508): `isAnswered` once the other system answered it. */
+export interface CallAnswer {
+  isAnswered: boolean;
+}
+
+/**
+ * A call this instance is making now: what it does (#508: its fingerprint), its outcome and whether
+ * its error, if any, is the other system's answer — whatever was thrown, an object or not.
+ */
 export interface LiveCall {
   readonly fingerprint: string | undefined;
   readonly outcome: Promise<OutboundCallOutcome<unknown>>;
+  readonly answer: CallAnswer;
 }
 
 /** One call in flight: its parts, key, options, the step's frame and the key it goes with. */
@@ -58,6 +68,8 @@ export interface CallRun<TRequest, TResult> {
   readonly options: OutboundCallOptions<TRequest, TResult>;
   readonly frame: FrameSpec;
   readonly idempotencyKey: string;
+  /** Whether the other system answered its attempt with an error: what a joined call shares. */
+  readonly answer: CallAnswer;
 }
 
 /**
@@ -103,8 +115,29 @@ export async function maskedTextOf<TRequest, TResult>(
   text: string,
 ): Promise<string> {
   const mask = run.frame.execution.observability;
-  if (mask === undefined) return run.parts.settings.requiresMask ? REDACTED : text;
-  return mask.traceData(text).then(String, () => REDACTED);
+  const redacted = (): string => {
+    const why = `a text of outbound call "${run.key.name}" (${run.options.operation} on ${run.options.target}) is stored ${REDACTED}: no mask could be applied to it`;
+    run.parts.log.warn("outbound-call.text-redacted", why, subjectOf(run));
+    return REDACTED;
+  };
+  if (mask === undefined) return run.parts.settings.requiresMask ? redacted() : text;
+  return mask.traceData(text).then(String, redacted);
+}
+
+/** What a log entry of `run` is about: its execution and tenant. */
+export const subjectOf = <TRequest, TResult>(run: CallRun<TRequest, TResult>): LogSubject => ({
+  executionId: run.frame.execution.executionId,
+  tenantId: run.key.tenantId,
+});
+
+/** The key of what a completed attempt stores in place of a result it could not store (#508). */
+export const RESULT_NOT_STORED = "agboss:result-not-stored";
+
+/** The code a stored result's marker names, when `stored` is one (#508). */
+export function notStoredOf(stored: unknown): string | undefined {
+  if (typeof stored !== "object" || stored === null || !(RESULT_NOT_STORED in stored))
+    return undefined;
+  return String((stored as Record<string, unknown>)[RESULT_NOT_STORED]);
 }
 
 /**
@@ -119,7 +152,10 @@ export async function storedResultOf<TRequest, TResult>(
   try {
     return await storedJson(run, OutboundCallPart.Result, result);
   } catch (error) {
-    return JSON.stringify({ "agboss:result-not-stored": errorRecordOf(error).code });
+    const { code } = errorRecordOf(error);
+    const why = `the result of outbound call "${run.key.name}" (${run.options.operation} on ${run.options.target}) was not stored (${code}): its intent is completed without it — a replay fails with OutboundCallResultNotStoredError`;
+    run.parts.log.warn("outbound-call.result-not-stored", why, subjectOf(run));
+    return JSON.stringify({ [RESULT_NOT_STORED]: code });
   }
 }
 

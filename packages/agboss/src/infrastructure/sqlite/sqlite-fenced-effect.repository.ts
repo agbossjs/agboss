@@ -6,7 +6,12 @@ import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
-import { replayedFromOf, storedFactsOf, type StoredKeyFacts } from "../fenced-effect-key.js";
+import {
+  checkedEffectName,
+  replayedFromOf,
+  storedFactsOf,
+  type StoredKeyFacts,
+} from "../fenced-effect-key.js";
 import {
   FencedEffectRepository,
   FencedEffectStatus,
@@ -184,10 +189,11 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 
 /**
  * The fencing checks of the SQLite stores (#500, #505), inside the caller's transaction: the key's
- * lease is held, not expired and its epoch, and no newer token wrote the scope — else
+ * name is valid (#508), its lease is held, not expired and its epoch, and no newer token wrote the scope — else
  * `ExecutionFencedError`, a hand-over.
  */
 export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {
+  checkedEffectName(key.name);
   const { scopeKey, token } = key;
   const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
@@ -211,19 +217,6 @@ function sqliteLeaseOf(
     )
     .get(lease.tenantId, lease.leaseExecutionId);
   return row === undefined ? undefined : LeaseRow.parse(row);
-}
-
-/**
- * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
- * released nor superseded by a later token. An expired one is open: only a takeover proves its
- * holder gone.
- */
-export function isSqliteLeaseOpen(
-  database: DatabaseSync,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
-): boolean {
-  const found = sqliteLeaseOf(database, lease);
-  return found?.released === 0 && found.lease_epoch === lease.token;
 }
 
 sqliteImplementation(SqliteFencedEffectRepository);

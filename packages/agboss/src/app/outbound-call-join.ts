@@ -28,21 +28,39 @@ async function joinedTo<TRequest, TResult>(
   const { key } = run;
   if (key.businessKey !== undefined && joined.fingerprint !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
-  const { signal } = run.frame.execution;
-  signal.throwIfAborted();
-  const aborted = new Promise<never>((_, reject) => {
-    signal.addEventListener("abort", () => {
-      reject(signal.reason as Error);
-    });
-  });
-  const shared = joined.outcome.catch((error: unknown) => {
-    if (error instanceof Object && run.parts.providerErrors.has(error)) throw error;
-    return undefined;
-  });
-  const first = await Promise.race([shared, aborted]);
+  const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
+}
+
+/**
+ * What the first call shares with `run`, which waits on it: its outcome, its error when the other
+ * system answered with it (whatever was thrown), else `undefined`; `run`'s abort rejects the wait,
+ * its listener removed once it ends.
+ */
+async function sharedOf<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  joined: LiveCall,
+): Promise<OutboundCallOutcome<unknown> | undefined> {
+  const { signal } = run.frame.execution;
+  signal.throwIfAborted();
+  let stop = (): void => undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    stop = () => {
+      reject(signal.reason as Error);
+    };
+    signal.addEventListener("abort", stop, { once: true });
+  });
+  const shared = joined.outcome.catch((error: unknown) => {
+    if (joined.answer.isAnswered) throw error;
+    return undefined;
+  });
+  try {
+    return await Promise.race([shared, aborted]);
+  } finally {
+    signal.removeEventListener("abort", stop);
+  }
 }
 
 /** The call of `run` joined when this instance is making it now; else made by `make`, live meanwhile. */
@@ -54,7 +72,7 @@ export async function joinedOrMade<TRequest, TResult>(
   const live = liveKeyOf(key);
   const joined = parts.live.get(live);
   if (joined !== undefined) return joinedTo(run, joined, make);
-  const call = { fingerprint: key.fingerprint, outcome: make() };
+  const call = { fingerprint: key.fingerprint, outcome: make(), answer: run.answer };
   parts.live.set(live, call);
   const { signal } = run.frame.execution;
   const leave = (): void => {
@@ -84,7 +102,7 @@ export async function owning<TRequest, TResult, TValue>(
   try {
     const attempt = work();
     // its lease stays open until it settled (#508): no other instance takes it for gone
-    run.frame.execution.lease?.keepWhile?.(attempt);
+    run.frame.execution.lease?.keepWhile?.(attempt, run.parts.settings.attemptTimeout);
     return await attempt;
   } finally {
     owners.delete(owner);

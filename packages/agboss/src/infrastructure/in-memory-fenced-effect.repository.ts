@@ -16,7 +16,12 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
-import { identityOf, replayedFromOf, storedFactsOf } from "./fenced-effect-key.js";
+import {
+  checkedEffectName,
+  identityOf,
+  replayedFromOf,
+  storedFactsOf,
+} from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
@@ -140,14 +145,16 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
 }
 
 /**
- * The fencing checks of the in-memory stores (#500, #505): the key's lease is held, not expired
- * and its epoch, and no newer token wrote the scope — else `ExecutionFencedError`, a hand-over.
+ * The fencing checks of the in-memory stores (#500, #505): the key's name is valid (#508), its lease
+ * is held, not expired and its epoch, and no newer token wrote the scope — else
+ * `ExecutionFencedError`, a hand-over.
  */
 export function checkInMemoryFence(
   database: InMemoryDatabase,
   clock: Clock,
   key: FencedEffectKey,
 ): void {
+  checkedEffectName(key.name);
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))
@@ -233,17 +240,4 @@ export function fencedEffectStoreViolations(
       [application],
     ),
   ];
-}
-
-/**
- * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
- * released nor superseded by a later token. An expired one is open: only a takeover proves its
- * holder gone.
- */
-export function isInMemoryLeaseOpen(
-  database: InMemoryDatabase,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
-): boolean {
-  const row = database.executionLeases.get(treeKeyOf(lease.tenantId, lease.leaseExecutionId));
-  return row !== undefined && !row.released && row.lease.leaseEpoch === lease.token;
 }

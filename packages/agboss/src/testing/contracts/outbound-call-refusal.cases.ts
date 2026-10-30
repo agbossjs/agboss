@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
+import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
 import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { hours, seconds } from "../../units/index.js";
@@ -163,10 +164,30 @@ const retentionKeepsPending: OutboundCallCase = {
   },
 };
 
+const badNameRefused: OutboundCallCase = {
+  name: "#508: a key built by hand with an invalid name (a ':', empty, above 100) is refused at every method — InvalidFencedEffectNameError, nothing written",
+  run: async ({ first }) => {
+    const lease = await leaseOf(first);
+    for (const name of ["charge:twice", "", "x".repeat(101)]) {
+      const key = { ...keyOf(lease), name };
+      const calls = [
+        first.calls.findByKey(key),
+        first.calls.saveIfAbsent(key, intentOf(key)),
+        ...FENCED_CALLS.slice(2).map(([, call]) => call(first, key)),
+      ];
+      for (const call of calls)
+        expect(await rejectionOf(call)).toBeInstanceOf(InvalidFencedEffectNameError);
+    }
+    expect(await first.calls.findAllByTenantIdAndRootExecutionId("default", "execution-1")).toEqual(
+      [],
+    );
+  },
+};
+
 /** The fencing refusals. */
 export const outboundRefusalCases = (): ContractGroup<OutboundCallStores> => ({
   title: "refusals",
-  cases: [...FENCED_CALLS.map(staleTokenRefused), releasedRefused, expiredRefused],
+  cases: [...FENCED_CALLS.map(staleTokenRefused), releasedRefused, expiredRefused, badNameRefused],
 });
 
 /** The listings and the retention. */

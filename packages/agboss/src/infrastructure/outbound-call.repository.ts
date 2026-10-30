@@ -9,7 +9,6 @@ import {
 import {
   checkInMemoryFence,
   inMemoryLeaseMismatch,
-  isInMemoryLeaseOpen,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
 import { businessFactsOf, identityOf } from "./fenced-effect-key.js";
@@ -126,12 +125,15 @@ export abstract class OutboundCallRepository {
   abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
 
   /**
-   * Whether the lease of `(tenantId, leaseExecutionId)` is still open at `token` (#508): neither
-   * released nor superseded by a later token — an expired one is open, since only a takeover proves
-   * its holder gone. A pending attempt written under an open lease of another instance is in flight:
-   * its holder releases the lease only once its attempts settled.
+   * Whether the lease of `(tenantId, leaseExecutionId)` is live at `token` (#508): neither released,
+   * superseded by a later token, nor expired. A pending attempt written under a live lease of
+   * another instance is in flight: its holder releases the lease only once its attempts settled (or
+   * stops renewing it, past their `attemptTimeout`), and never yields it under one. One expired at
+   * `token` is superseded here, in the same step — its epoch moved past `token`, the row kept
+   * unreleased — so its holder can neither renew it nor write under it again (what it sends late is
+   * fenced), and its tree is taken over as after any expiry.
    */
-  abstract isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
+  abstract isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean>;
 }
 
 /**
@@ -222,9 +224,10 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#where((row) => row.tenantId === tenantId && row.status === status);
   }
 
-  isLeaseOpen(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
+  async isLeaseLive(tenantId: string, leaseExecutionId: string, token: number): Promise<boolean> {
     const lease = { tenantId, leaseExecutionId, token };
-    return Promise.resolve(isInMemoryLeaseOpen(this.database, lease));
+    const { isInMemoryLeaseLive } = await import("./live-lease.js");
+    return isInMemoryLeaseLive(this.database, lease, this.clock.now());
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {

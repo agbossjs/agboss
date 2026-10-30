@@ -1,10 +1,11 @@
+import { ExecutionFencedError } from "./lease-lost.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
 import { reportedKeyOf } from "./outbound-call-business.js";
-import { maskedTextOf, told, type CallRun } from "./outbound-call-parts.js";
+import { maskedTextOf, subjectOf, told, type CallRun } from "./outbound-call-parts.js";
 import { OutboundCallUnreconciledError } from "./outbound-calls.js";
 
 /**
@@ -14,16 +15,46 @@ import { OutboundCallUnreconciledError } from "./outbound-calls.js";
 
 /**
  * Attempt `attempt` was answered after a newer one took the intent over (#508): both reached the
- * other system. Told as `Superseded`, naming the newer attempt, and logged as an error.
+ * other system. Told as `Superseded`, naming the newer attempt when the intent can still be read —
+ * else "unknown", never a guess — and logged as an error on the instance's log, lease or none.
  */
 export async function superseded<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
 ): Promise<void> {
   const found = await run.parts.repository.findByKey(run.key).catch(() => undefined);
-  const newer = found?.attempt ?? attempt + 1;
+  const newer = found === undefined || found.attempt === attempt ? undefined : found.attempt;
   const status = found?.status ?? OutboundCallStatus.Pending;
   told(run, OutboundCallEventOutcome.Superseded, [status, attempt], undefined, newer);
+  const { name } = run.key;
+  const { operation, target } = run.options;
+  const by =
+    newer === undefined ? "a newer attempt (which one is unknown)" : `attempt ${String(newer)}`;
+  const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — check it there`;
+  run.parts.log.error("outbound-call.superseded", text, subjectOf(run));
+}
+
+/**
+ * Writes the end of attempt `attempt` (`write`, fenced): a refusal — its lease handed over while it
+ * was in flight, its answer come too late — is logged as an error, then thrown: the answer is not
+ * stored, the new holder reconciles the intent, the other system may have it twice.
+ */
+export async function fencedEnd<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  attempt: number,
+  write: () => Promise<boolean>,
+): Promise<boolean> {
+  try {
+    return await write();
+  } catch (error) {
+    if (error instanceof ExecutionFencedError) {
+      const { name } = run.key;
+      const { operation, target } = run.options;
+      const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after its lease was handed over: the answer is not stored and the new holder reconciles the intent — check ${target} if it was sent again`;
+      run.parts.log.error("outbound-call.answered-after-hand-over", text, subjectOf(run));
+    }
+    throw error;
+  }
 }
 
 /**

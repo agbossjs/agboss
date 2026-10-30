@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
+import type { Milliseconds } from "../../units/index.js";
 import { idempotencyKeyOf } from "./idempotency.js";
 import type { StepDescriptor, WorkflowDescriptor } from "./execution-context.js";
 import type { ContextFields } from "./context-values.js";
@@ -105,7 +106,7 @@ export interface FrameLease {
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.
    */
-  keepWhile?(attempt: Promise<unknown>): void;
+  keepWhile?(attempt: Promise<unknown>, maxWait: Milliseconds): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

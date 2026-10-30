@@ -56,13 +56,6 @@ const outboundCallRowOf = (event: OutboundCallEvent, at: Date): OutboundCallEven
   },
 });
 
-/** Two attempts of one call reached the other system (#508): an error for a person to look at. */
-function loggedSuperseded(events: LeaseEventLog, event: OutboundCallEvent, newer: number): void {
-  const text = `outbound call "${event.name}" (${event.operation} on ${event.target}) attempt ${String(event.attempt)} was answered after attempt ${String(newer)} took its intent over: both reached ${event.target} — check it there`;
-  const ids = { executionId: event.executionId, tenantId: event.tenantId };
-  events.log.error("outbound-call.superseded", text, ids);
-}
-
 /** A move of a call: its row first, then `onOutboundCall`; never throws. */
 export async function recordOutboundCall(
   events: LeaseEventLog,
@@ -71,7 +64,6 @@ export async function recordOutboundCall(
 ): Promise<void> {
   const { event: step, ...call } = report;
   const event: OutboundCallEvent = { ...step, ...call, holderInstanceId };
-  if (report.supersededBy !== undefined) loggedSuperseded(events, event, report.supersededBy);
   try {
     // the mask keeps an event's shape: every string masked
     const shown = (await events.mask(event)) as OutboundCallEvent;

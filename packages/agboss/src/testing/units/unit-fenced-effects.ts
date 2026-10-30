@@ -18,6 +18,7 @@ import { InMemoryOutboundCallRepository } from "../../infrastructure/outbound-ca
 import { OutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
 import { InMemoryDatabase } from "../../infrastructure/in-memory-database.js";
 import { seconds } from "../../units/index.js";
+import { Logger, SilentLogger } from "../../infrastructure/logger.js";
 import type { TestFenceOptions } from "../fence.js";
 
 /**
@@ -44,6 +45,8 @@ export class UnitFencedEffects {
     [OutboundCallRepository, InMemoryOutboundCallRepository],
     [InMemoryOutboundCallRepository, InMemoryOutboundCallRepository],
     [OutboundCalls, OutboundCalls],
+    // what `OutboundCalls` logs: nothing, unless the runner lists a logger
+    [Logger, SilentLogger],
   ]);
 
   /** The fenced-effect stores created and not yet given the runner's lease. */
