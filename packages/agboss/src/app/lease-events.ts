@@ -32,8 +32,10 @@ function definedOf<T extends object>(event: T): T {
   return Object.fromEntries(Object.entries(event).filter(([, value]) => value !== undefined)) as T;
 }
 
+export { recordOutboundCall, type OutboundCallReport } from "./outbound-call-events.js";
+
 /** Writes `row`; a store that fails is a warning, never the caller's failure. */
-async function saved(events: LeaseEventLog, row: ExecutionLeaseEventRecord): Promise<void> {
+export async function saved(events: LeaseEventLog, row: ExecutionLeaseEventRecord): Promise<void> {
   try {
     await events.repository.save(row);
   } catch (error) {

@@ -15,6 +15,8 @@ export type {
   FencedEffectEvent,
   OnExecutionLeaseTakeover,
   OnFencedEffect,
+  OnOutboundCall,
   OnStepHandedOver,
+  OutboundCallEvent,
   StepHandedOverEvent,
 } from "../flow/observers/lease-events.js";

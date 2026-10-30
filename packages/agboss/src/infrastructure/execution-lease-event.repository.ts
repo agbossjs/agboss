@@ -1,6 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
+import type { OutboundCallStatus } from "./outbound-call.repository.js";
 
 /**
  * Infrastructure (#501): the lease log — an append-only record of what happened to the leases of an
@@ -21,6 +22,26 @@ export enum ExecutionLeaseEventKind {
   HandedOver = "handed-over",
   /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onFencedEffect`). */
   FencedEffect = "fenced-effect",
+  /** A step's call that leaves the system (#505) moved: recorded, sent, reconciled… (`onOutboundCall`). */
+  OutboundCall = "outbound-call",
+}
+
+/** What happened to a call that leaves the system (#505), as the lease log keeps it. */
+export enum OutboundCallEventOutcome {
+  /** Its intent was recorded, before anything was sent. */
+  Recorded = "recorded",
+  /** It was sent and answered: its result stored. */
+  Sent = "sent",
+  /** It was completed before: its stored result came back, nothing sent. */
+  Replayed = "replayed",
+  /** Left pending, `reconcile` found that it happened: its result stored, nothing sent. */
+  Reconciled = "reconciled",
+  /** Left pending, `reconcile` found that it never arrived: it goes out again, the same key. */
+  NotSent = "not-sent",
+  /** Left pending, nobody could say what happened: the step fails, the intent stays pending. */
+  Unknown = "unknown",
+  /** The other system answered with an error: the intent is failed. */
+  Failed = "failed",
 }
 
 /** How one call of a fenced effect (#500) went, as the lease log keeps it. */
@@ -136,9 +157,29 @@ export interface FencedEffectRecord extends ExecutionLeaseEventBase {
   readonly observedToken?: number;
 }
 
+/**
+ * One move of a step's call that leaves the system (`ExecutionLeaseEventKind.OutboundCall`, #505):
+ * never its request or its result.
+ */
+export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
+  readonly kind: ExecutionLeaseEventKind.OutboundCall;
+  /** The call's name (`fencedEffectKeyOf(executionContext, name)`). */
+  readonly name: string;
+  readonly target: string;
+  readonly operation: string;
+  /** The intent's state after the move. */
+  readonly status: OutboundCallStatus;
+  readonly attempt: number;
+  readonly outcome: OutboundCallEventOutcome;
+  readonly step: LeaseEventStep;
+}
+
 /** One row of the lease log. */
 export type ExecutionLeaseEventRecord =
-  LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord;
+  | LeaseTakeoverRecord
+  | StepHandedOverRecord
+  | FencedEffectRecord
+  | OutboundCallEventRecord;
 
 export abstract class ExecutionLeaseEventRepository {
   /** Whether the store answers (#300): one fast round trip. */

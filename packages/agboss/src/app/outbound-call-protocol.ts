@@ -1,6 +1,7 @@
 import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
+import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
 import type { FencedEffectKey } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
@@ -12,6 +13,7 @@ import {
   maskedFailureOf,
   outcomeOf,
   storedJson,
+  told,
   type CallRun,
   type OutboundCallParts,
 } from "./outbound-call-parts.js";
@@ -48,12 +50,15 @@ async function sendNow<TRequest, TResult>(
     answer = await run.options.send(call);
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
-    if (!call.signal.aborted)
+    if (!call.signal.aborted) {
       await repository.markFailed(run.key, await maskedFailureOf(run, error));
+      told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
+    }
     throw error;
   }
   // stored masked; the step gets the answer as it is
   await repository.markCompleted(run.key, await storedJson(run, OutboundCallPart.Result, answer));
+  told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Sent, answer, attempt);
 }
 
@@ -62,11 +67,13 @@ async function reconciled<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): Promise<OutboundCallOutcome<TResult>> {
-  const unreconciled = (reason: string, cause?: unknown): OutboundCallUnreconciledError =>
-    new OutboundCallUnreconciledError(
+  const unreconciled = (reason: string, cause?: unknown): OutboundCallUnreconciledError => {
+    told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
+    return new OutboundCallUnreconciledError(
       { ...run.options, name: run.key.name, idempotencyKey: run.idempotencyKey, reason },
       cause,
     );
+  };
   let verdict: unknown;
   try {
     verdict = await run.options.reconcile(lookupOf(run, found.request, found.attempt));
@@ -77,11 +84,13 @@ async function reconciled<TRequest, TResult>(
     throw unreconciled("reconcile gave no OutboundCallReconciliation verdict");
   if (verdict.verdict === OutboundCallVerdict.NotSent) {
     await run.parts.repository.markPending(run.key, found.attempt + 1);
+    told(run, OutboundCallEventOutcome.NotSent, [OutboundCallStatus.Pending, found.attempt + 1]);
     return sendNow(run, found.attempt + 1);
   }
   if (verdict.verdict === OutboundCallVerdict.Unknown) throw unreconciled(verdict.reason);
   const stored = await storedJson(run, OutboundCallPart.Result, verdict.result);
   await run.parts.repository.markCompleted(run.key, stored);
+  told(run, OutboundCallEventOutcome.Reconciled, [OutboundCallStatus.Completed, found.attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Reconciled, verdict.result, found.attempt);
 }
 
@@ -102,6 +111,7 @@ async function recordedAndSent<TRequest, TResult>(
     attempt: 1,
     step: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
   });
+  if (isSaved) told(run, OutboundCallEventOutcome.Recorded, [OutboundCallStatus.Pending, 1]);
   if (!isSaved)
     throw new OutboundCallUnreconciledError({
       ...options,
@@ -135,6 +145,7 @@ export async function sendOutboundCall<TRequest, TResult>(
   if (found.status === OutboundCallStatus.Completed) {
     // a replay gives the result as it was stored: masked by the PII policies
     const stored: unknown = JSON.parse(found.result ?? "null");
+    told(run, OutboundCallEventOutcome.Replayed, [OutboundCallStatus.Completed, found.attempt]);
     return outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
   }
   if (found.status === OutboundCallStatus.Pending) return reconciled(run, found);

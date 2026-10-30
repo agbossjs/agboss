@@ -13,6 +13,8 @@ export {
   type ExecutionLeaseEventBase,
   type ExecutionLeaseEventRecord,
   type FencedEffectRecord,
+  OutboundCallEventOutcome,
+  type OutboundCallEventRecord,
   type LeaseEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,

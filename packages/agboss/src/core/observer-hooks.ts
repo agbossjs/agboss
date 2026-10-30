@@ -6,11 +6,7 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type {
-  OnExecutionLeaseTakeover,
-  OnFencedEffect,
-  OnStepHandedOver,
-} from "../flow/observers/lease-events.js";
+import type { LeaseEventHooks } from "../flow/observers/lease-events.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -202,9 +198,7 @@ export type ExecutionObserver = Partial<
     OnQuorumDecided &
     OnCompensationStart &
     OnCompensationEnd &
-    OnExecutionLeaseTakeover &
-    OnStepHandedOver &
-    OnFencedEffect
+    LeaseEventHooks
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
@@ -247,6 +241,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onExecutionLeaseTakeover: true,
   onStepHandedOver: true,
   onFencedEffect: true,
+  onOutboundCall: true,
 };
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(
