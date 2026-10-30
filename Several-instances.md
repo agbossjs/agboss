@@ -563,7 +563,8 @@ A store of another database implements `OutboundCallRepository` (fenced `findByK
 `saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
 attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
 on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
-the two listings; `isLeaseLive` — which supersedes an expired lease in the same step —;
+the two listings; `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
+renewal and the check never both win —;
 `deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
@@ -657,17 +658,25 @@ export class ChargeOrderAction {
   now, whatever its key, is **joined** (`Joined`): the joiner shares a success or the other system's
   own error, and on anything else of the first call's — its hand-over, its cancel — makes its own
   call under its own frame — whatever the first call threw, an object or not. Under a business key,
-  one written under a lease still **live** on another instance (`isLeaseLive`: neither released,
-  superseded by a later token nor expired) is `OutboundCallInFlightError`, nothing sent. A holder
+  one written under a lease still **live** on another instance (`leaseStateOf` →
+  `OutboundCallLeaseState.Live`: held at its token, not expired) is `OutboundCallInFlightError`,
+  nothing sent; `Ended` — released, or its token moved on — means its owner is gone. A holder
   releases its lease only once the attempts under it settled (renewed meanwhile) and never yields it
   under one, so a cancelled step whose client ignores its signal keeps its call in flight while it
-  sends. The wait is bounded: past `@Application({ outboundCalls: { attemptTimeout } })` (default
-  `minutes(2)`) or the instance's stop (`app.close()`'s timeout) the holder stops renewing without
-  releasing, and the lease expires. `isLeaseLive` then supersedes it in the same step — its epoch
-  moved on, the row unreleased — so its holder can neither renew it nor write under it again, and
-  the call is reconciled here; the tree itself is taken over as after any expiry. An answer that
-  comes back after that is fenced, not stored, and logged as an error,
-  `outbound-call.answered-after-hand-over`: the other system may then have the call twice. Once the
+  sends. The wait is bounded by `@Application({ outboundCalls: { attemptTimeout } })` (default
+  `minutes(2)`), counted from the attempt's start, and by the instance's stop (`app.close()`'s
+  timeout): past it the holder stops renewing without releasing, so the call stays in flight for
+  `attemptTimeout` plus up to the lease's 30 s; a hung attempt no longer holds a yield back either,
+  and a reclaim moves its token on. `leaseStateOf` then closes the expired lease in the same atomic
+  step (`Superseded`: released at the token it was held at), so its holder can neither renew it nor
+  write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
+  caller's lease log, `LeaseSuperseded` with `supersededLease` (the tree, the execution, the token),
+  and a warning `outbound-call.lease-superseded`. The tree itself is taken again as a released lease
+  — the next token, no takeover from a token nobody held. An answer that comes back after that is
+  fenced, not stored, and logged as an error, `outbound-call.answered-after-hand-over`. **A send
+  still hung past this bound can coincide with a reconcile and a resend; the provider must
+  deduplicate on `call.idempotencyKey` (G1).** A tree that never yields keeps its lease — and the
+  call in flight — until it ends or loses the lease. Once the
   owner is gone the next caller reconciles, and only the winner of the compare-and-set sends.
 - **A lost completion is never silent:** an attempt answered after a newer one took the intent over
   is `OutboundCallOutcomeStatus.Superseded` — both reached the other system — with the event's

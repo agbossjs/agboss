@@ -16,13 +16,17 @@ Breaking changes and notable additions, newest first. The API reports
   key never appears in an error, only its handle — HMAC-SHA256 under the execution's PII key
   (`FencedEffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
   is `business-key:<handle>:<name>`.
-- **Added — `OutboundCallRepository.isLeaseLive(tenantId, leaseExecutionId, token)`**: whether the
-  lease a pending business-key call was written under is still live — neither released, superseded
-  nor expired; an expired one is superseded by the check itself (its epoch moved on), so its holder
-  writes nothing under it again. A holder releases its lease only once its attempts settled, never
-  yields it under one, and stops renewing it without releasing past
-  `@Application({ outboundCalls: { attemptTimeout } })` (**added**, default `minutes(2)`;
-  `[application.outbound-calls-invalid]`) or its instance's stop.
+- **Added — `OutboundCallRepository.leaseStateOf(lease)`** → `OutboundCallLeaseState` (`Live`,
+  `Ended`, `Superseded`; `OutboundCallLease`): the state of the lease a pending business-key call
+  was written under; an expired one is closed by the check in one atomic step — released at the
+  token it was held at — so a late renewal and the check never both win (`outboundCallContract`'s
+  races across leases). The close is an `OutboundCall` row `LeaseSuperseded` (**added**
+  `OutboundCallEventOutcome.LeaseSuperseded`, `supersededLease`, `OutboundCallSupersededLease`) and a
+  warning `outbound-call.lease-superseded`; the next take is the very next token. A holder releases
+  its lease only once its attempts settled and never yields it under one, both bounded by
+  `@Application({ outboundCalls: { attemptTimeout } })` (**added**, default `minutes(2)`, from the
+  attempt's start; `[application.outbound-calls-invalid]`) and its instance's stop — the call is in
+  flight for `attemptTimeout` plus up to the lease's 30 s. A send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1).
 - **Added — `OutboundCallResultNotStoredError`** (`outbound-call.result-not-stored`, a
   `StepFailedError`): a replay of a call whose result was not stored — nothing sent, never the
   marker as a result. Warnings `outbound-call.result-not-stored` and `outbound-call.text-redacted`;
