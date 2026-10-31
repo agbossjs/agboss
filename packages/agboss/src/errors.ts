@@ -8,6 +8,7 @@
 export {
   AGBossError,
   ExecutionCancelledError,
+  InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
   type ErrorDetails,

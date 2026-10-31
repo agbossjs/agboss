@@ -10,7 +10,13 @@ import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import { ComponentError } from "../components/metadata.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import { Clock, DatabaseStoreClock, IdGenerator, StoreClock } from "../infrastructure/clock.js";
+import {
+  CheckedIdGenerator,
+  Clock,
+  DatabaseStoreClock,
+  IdGenerator,
+  StoreClock,
+} from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
@@ -66,7 +72,9 @@ export function applicationContainerOf(
   options: ContainerOptions = {},
 ): ApplicationContainer {
   const { clock } = sources;
-  const idGenerator = idGeneratorOf(sources.modules, options, sources.idGenerator);
+  const minting = idGeneratorOf(sources.modules, options, sources.idGenerator);
+  // every id the framework mints is checked at the mint (#578); its own class gets it as it is
+  const idGenerator = new CheckedIdGenerator(minting);
   return {
     modules: sources.modules,
     core: new Map<Token, unknown>([
@@ -83,7 +91,7 @@ export function applicationContainerOf(
     instances: new Map([
       ...(sources.instances ?? []),
       [clock.constructor as Class, clock],
-      [idGenerator.constructor as Class, idGenerator],
+      [minting.constructor as Class, minting],
     ]),
   };
 }

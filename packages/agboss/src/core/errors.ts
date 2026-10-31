@@ -171,3 +171,30 @@ export function keyTextRuleOf(text: string): KeyTextRule | undefined {
   if (text.length === 0 || text.length > MAX_KEY_LENGTH) return KeyTextRule.Length;
   return BREACHES.find(([, breaks]) => breaks(text))?.[0];
 }
+
+/**
+ * An id the application's `IdGenerator` minted that is no key's text (#578): a thread id or an
+ * execution id keys threads, leases, the lease log and fenced effects like an id that comes in, so
+ * it is held to the same rules at the mint — never used, never stored. Names the generator's class,
+ * the method and the rule, never the id (a non-string is `length`).
+ */
+export class InvalidMintedIdError extends AGBossError {
+  static override readonly code: string = "run.invalid-minted-id";
+  override name = "InvalidMintedIdError";
+  /** The generator's class name. */
+  readonly generator: string;
+  /** The method that minted the id. */
+  readonly method: "newThreadId" | "newExecutionId";
+  /** The first rule the id breaks. */
+  readonly rule: KeyTextRule;
+
+  constructor(generator: string, method: "newThreadId" | "newExecutionId", rule: KeyTextRule) {
+    super(
+      `${generator}.${method}() minted an id that is no key (${rule}): ${KEY_TEXT_RULE_TEXT[rule]} — fix the IdGenerator`,
+      { details: { generator, method, rule } },
+    );
+    this.generator = generator;
+    this.method = method;
+    this.rule = rule;
+  }
+}

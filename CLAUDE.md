@@ -1377,7 +1377,10 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   built-in `RandomIdGenerator` (random UUIDs, the formats before #313) unless
   `@Application({ providers })` lists a class that `extends IdGenerator` (two →
   `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`);
-  created before the stores that inject it, so it may not depend on the contexts. Never a `pauseId`
+  created before the stores that inject it, so it may not depend on the contexts. Every id it mints
+  is a key's text (#578, `keyTextRuleOf`: the framework mints through `CheckedIdGenerator`), else
+  `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`, never the id)
+  before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8. Never a `pauseId`
   (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
