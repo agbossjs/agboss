@@ -87,6 +87,14 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Fixed
 
+- **`circuitBreakerPolicy: null`** (#529) is a missing policy: `[model-provider.circuit-breaker-required]`
+  at assembly and in `agboss check`, never a `TypeError` in `createApp`.
+- **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
+  `InvalidThreadIdError`): SQLite and PostgreSQL keep text as UTF-8, where two such keys were one
+  row, and an outbound call's key threw `URIError`.
+- **`check:installs` and `check:real-time`** (#531) miss no common form: `npm install-test`, a line
+  continued with `\`, every `--package=`, `["i", …]` and `"npm install …"` in scripts; a duration
+  through a second variable, a limit named by a constant.
 - **No test asserts real elapsed time against a fixed number** (#523, after #509): the model
   call and Jev timeout tests run on a `VirtualClock`; `npm run check:real-time` (in `make check`)
   fails on a new real-time threshold.

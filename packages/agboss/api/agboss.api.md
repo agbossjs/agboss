@@ -7814,13 +7814,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:46:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:36:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:37:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:38:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:42:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
 // src/run/thread.ts:43:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:44:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/thread.ts:49:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:50:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:55:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:56:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:39:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:62:3 - (ae-undocumented) Missing documentation for "scope".
