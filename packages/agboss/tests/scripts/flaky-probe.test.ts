@@ -22,7 +22,10 @@ interface ProbeSummary {
 }
 interface FlakyProbe {
   readonly UsageError: new (message: string) => Error;
-  readonly parseArguments: (args: readonly string[]) => { readonly runs?: number };
+  readonly parseArguments: (args: readonly string[]) => {
+    readonly runs?: number;
+    readonly maxWorkers?: number;
+  };
   readonly projectOf: (file: string) => string;
   readonly summaryOf: (results: readonly ProbeRun[]) => ProbeSummary;
 }
@@ -68,6 +71,19 @@ describe("#509 AC1: flaky-probe's command line", () => {
   it("AC1: <test file> <runs> is read; --help is help", () => {
     expect(parseArguments(["a.test.ts", "50"])).toMatchObject({ runs: 50 });
     expect(parseArguments(["--help"])).toEqual({ help: true });
+    // #484: each cold run's vitest gets one worker unless told otherwise — a probe is one file
+    expect(parseArguments(["a.test.ts", "5"])).toMatchObject({ maxWorkers: 1 });
+    expect(parseArguments(["a.test.ts", "5", "--max-workers", "2"])).toMatchObject({
+      runs: 5,
+      maxWorkers: 2,
+    });
+    expect(parseArguments(["--max-workers", "3", "a.test.ts", "5"])).toMatchObject({
+      maxWorkers: 3,
+    });
+    expect(() => parseArguments(["a.test.ts", "5", "--max-workers"])).toThrow("needs a number");
+    expect(() => parseArguments(["a.test.ts", "5", "--max-workers", "0"])).toThrow(
+      "--max-workers must be a whole number ≥ 1, got 0",
+    );
   });
 
   it("AC1: missing, extra or unknown arguments and a wrong count are usage errors", () => {

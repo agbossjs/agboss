@@ -10,24 +10,49 @@ import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 
-export const USAGE = "usage: node scripts/flaky-probe.mjs <test file> <runs>";
+export const USAGE = "usage: node scripts/flaky-probe.mjs <test file> <runs> [--max-workers <n>]";
+
+/** One file needs no pool of workers: each cold run starts one (default `--max-workers 1`, #484). */
+export const DEFAULT_MAX_WORKERS = 1;
 
 const CONFIGS = ["vitest.config.ts", "vitest.config.mjs", "vitest.config.js"];
 
 export class UsageError extends Error {}
 
-/** `<test file> <runs>` → `{ file, runs }`; `--help` → `{ help: true }`. */
+/** A whole number ≥ 1 of `what` from `text`, else a usage error. */
+function wholeOf(text, what) {
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new UsageError(`${what} must be a whole number ≥ 1, got ${text}`);
+  }
+  return value;
+}
+
+/** `--max-workers <n>` taken out of `args`: the workers of each run's vitest, and the rest. */
+function maxWorkersOf(args) {
+  const at = args.indexOf("--max-workers");
+  if (at === -1) return { maxWorkers: DEFAULT_MAX_WORKERS, rest: args };
+  const value = args[at + 1];
+  if (value === undefined) throw new UsageError("--max-workers needs a number");
+  const rest = [...args.slice(0, at), ...args.slice(at + 2)];
+  return { maxWorkers: wholeOf(value, "--max-workers"), rest };
+}
+
+/** `<test file> <runs> [--max-workers <n>]` → `{ file, runs, maxWorkers }`; `--help` → `{ help: true }`. */
 export function parseArguments(args) {
   if (args.includes("--help")) return { help: true };
+  const { maxWorkers, rest: positional } = maxWorkersOf(args);
+  const parsed = positionalOf(positional);
+  return { ...parsed, maxWorkers };
+}
+
+/** The file and the count. */
+function positionalOf(args) {
   const unknown = args.find((arg) => arg.startsWith("--"));
   if (unknown !== undefined) throw new UsageError(`unknown argument: ${unknown}`);
   const [file, count, ...rest] = args;
   if (file === undefined || count === undefined || rest.length > 0) throw new UsageError(USAGE);
-  const runs = Number(count);
-  if (!Number.isInteger(runs) || runs < 1) {
-    throw new UsageError(`runs must be a whole number ≥ 1, got ${count}`);
-  }
-  return { file: resolve(file), runs };
+  return { file: resolve(file), runs: wholeOf(count, "runs") };
 }
 
 /** The folder of the nearest vitest config above `file` — where vitest runs it. */
@@ -54,11 +79,11 @@ export function summaryOf(results) {
 }
 
 /** One cold run: a fresh vitest process, no transform cache. */
-function runOnce(vitest, project, file) {
+function runOnce(vitest, project, file, maxWorkers) {
   const startedAt = performance.now();
   const result = spawnSync(
     process.execPath,
-    [vitest, "run", relative(project, file), "--no-cache"],
+    [vitest, "run", relative(project, file), "--no-cache", `--maxWorkers=${String(maxWorkers)}`],
     {
       cwd: project,
       encoding: "utf8",
@@ -71,7 +96,7 @@ function runOnce(vitest, project, file) {
   };
 }
 
-function probe({ file, runs }) {
+function probe({ file, runs, maxWorkers }) {
   if (!existsSync(file)) throw new UsageError(`no such test file: ${file}`);
   const project = projectOf(file);
   // the repository's own vitest, whatever folder the file is in
@@ -81,7 +106,7 @@ function probe({ file, runs }) {
   );
   const results = [];
   for (let run = 1; run <= runs; run++) {
-    const result = runOnce(vitest, project, file);
+    const result = runOnce(vitest, project, file, maxWorkers);
     results.push(result);
     console.log(
       `run ${String(run)}: ${result.passed ? "passed" : "FAILED"} in ${result.seconds.toFixed(2)} s`,
