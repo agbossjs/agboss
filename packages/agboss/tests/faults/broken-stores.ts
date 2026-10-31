@@ -16,6 +16,7 @@ import {
   type OutboundCallIntent,
 } from "../../src/index.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import type { Milliseconds } from "../../src/units/index.js";
 
 /**
  * #484 — deliberately broken SQLite stores, the fault suite's negative fixtures: each breaks one
@@ -64,6 +65,20 @@ export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepo
 export class ReleasingSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   override finish(executionLease: ExecutionLease): Promise<void> {
     return this.release(executionLease);
+  }
+}
+
+/**
+ * #608: a lease store whose renewal says yes to a lease that is over — taken over, or expired: the
+ * old holder keeps believing it holds the tree, so its `confirmNow()` right before a send passes.
+ */
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
+export class StaleRenewingSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
+  override async renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
+    return (await super.renew(executionLease, lease)) ?? lease;
   }
 }
 

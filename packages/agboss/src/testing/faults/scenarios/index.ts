@@ -4,6 +4,7 @@ import { s02Kill } from "./s02-kill.js";
 import { s03FencedEffect, s03Payment } from "./s03-crash-after-effect.js";
 import { s04LeaseExpiry } from "./s04-lease-expiry.js";
 import { s05ZombieAfter, s05ZombieFirst, s05ZombiePaysFirst } from "./s05-zombie.js";
+import { s05ZombieRecordedNotSent } from "./s05d-recorded-not-sent.js";
 import { s06FinishedChild, s06ScaleDown } from "./s06-children.js";
 import { s07NewPod } from "./s07-new-pod.js";
 import { s08Back, s08Cut } from "./s08-database-loss.js";
@@ -23,6 +24,7 @@ export const FAULT_SCENARIOS: readonly FaultScenario[] = [
   s05ZombieAfter,
   s05ZombieFirst,
   s05ZombiePaysFirst,
+  s05ZombieRecordedNotSent,
   s06ScaleDown,
   s06FinishedChild,
   s07NewPod,

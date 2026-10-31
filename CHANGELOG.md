@@ -14,6 +14,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Fault scenario 5d** (#608, the gap #584 left) — `s05d-zombie-recorded-not-sent`: a pod frozen
+  right after recording its payment's intent and before sending it, thawed after another pod took
+  the tree over. The new holder reconciles the pending intent and pays once; the zombie is refused
+  at its renewal before the send and hands over: one gateway request, one payment. A lease store
+  whose renewal says yes to a lease that is over fails it on `effects-once` and `linearizable`.
 - **Mutation testing of the fencing modules** (#533) — Stryker on the leases, the holder's fence,
   the held lease, the fenced effect, the outbound call's protocol and store, and the store's clock,
   in a CI job of its own: every mutant is killed by a test or justified at the code; the job fails

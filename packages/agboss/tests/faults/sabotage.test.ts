@@ -10,7 +10,10 @@
  *   scenario 6b's frozen pod is granted the finished child's lease — finished work is touched;
  * - no fencing check on the payment's intent (`UnfencedSqliteOutboundCallRepository`, #584):
  *   scenario 5c's zombie records its payment at its stale token after the new holder was granted
- *   the lease — one owner per tree is broken.
+ *   the lease — one owner per tree is broken;
+ * - a lease renewal that says yes to a lease that is over (`StaleRenewingSqliteExecutionLeaseRepository`,
+ *   #608): scenario 5d's zombie, frozen between its payment's intent and its send, passes its
+ *   `confirmNow()` after the new holder paid and sends the payment a second time.
  *
  * #533 item 5: every run's store history also fails the linearizability checker (`linearizable`).
  */
@@ -27,6 +30,7 @@ import {
   s05ZombiePaysFirst,
 } from "../../src/testing/faults/scenarios/s05-zombie.js";
 import { s06FinishedChild } from "../../src/testing/faults/scenarios/s06-children.js";
+import { s05ZombieRecordedNotSent } from "../../src/testing/faults/scenarios/s05d-recorded-not-sent.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 
 const unfenced = sqliteFaultTarget(
@@ -34,6 +38,9 @@ const unfenced = sqliteFaultTarget(
 );
 const unfencedCalls = sqliteFaultTarget(
   fileURLToPath(new URL("./unfenced-calls.fault-stores.ts", import.meta.url)),
+);
+const staleRenewing = sqliteFaultTarget(
+  fileURLToPath(new URL("./stale-renewing.fault-stores.ts", import.meta.url)),
 );
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-finish.fault-stores.ts", import.meta.url)),
@@ -79,6 +86,16 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
         /outboundCall\.saveIfAbsent .* at token 1 .* was accepted after epoch 2 was granted/u,
       ),
     );
+    expect(failure.invariants).toContain(FaultInvariant.Linearizable);
+  }, 120_000);
+
+  it("a renewal that says yes to a lease that is over: 5d's zombie sends the payment again — it fails effects-once", async () => {
+    const failure = await failureOf(s05ZombieRecordedNotSent, staleRenewing);
+    expect(failure.invariants).toContain(FaultInvariant.EffectsOnce);
+    expect(failure.violations.map((found) => found.message)).toContainEqual(
+      expect.stringMatching(/o-5d reached the gateway 2 times \(from b, a\)/u),
+    );
+    // the stale renewal accepted after epoch 2 was granted: no sequential order explains it
     expect(failure.invariants).toContain(FaultInvariant.Linearizable);
   }, 120_000);
 });
