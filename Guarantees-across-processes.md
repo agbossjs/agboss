@@ -53,7 +53,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 | --- | --- |
 | `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N. **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
-| `children-once` | Every order of a batch is one child of it, finished. No execution ended twice. |
+| `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
 | `no-undo-on-hand-over` | A hand-over undoes nothing. A real failure undoes once. |
 | `trees-finish` | Every order finished (a declined one failed), and every batch finished, within the scenario's bound. |
@@ -132,7 +132,9 @@ The suite proves the framework's side under the faults above. These parts are yo
   that acts on the event and then reads the history may find the record not yet saved. The suite
   waits for the history store's `save` before it reads.
 - An `AnyInstance` child's `onExecutionEnd` may be heard on the instance of its parent, not on the
-  instance that ran it.
+  instance that ran it. After a takeover of the parent's tree it can be heard **twice**: from the
+  recovered parent and from the old one (#562). The child still ran once. An observer that counts
+  ends must key them by `executionId`.
 
 ## For a store author
 
