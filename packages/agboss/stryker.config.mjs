@@ -1,4 +1,3 @@
-// @ts-check
 /**
  * Mutation testing of the fencing modules (#533 item 3, AC3): the leases, the holder's fence, the
  * held lease, the fenced effect, the outbound call's protocol and store, and the store's clock.
@@ -6,7 +5,6 @@
  * comment with its reason). The score is gated in CI (`thresholds.break`); the run is incremental
  * (`reports/stryker-incremental.json`, cached by CI) and scoped to these modules and the tests of
  * `vitest.mutation.config.ts`. Locally: `npm run test:mutation` (3 workers at most).
- * @type {import("@stryker-mutator/api/core").PartialStrykerOptions}
  */
 export default {
   testRunner: "vitest",
