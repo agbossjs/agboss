@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { OutboundCallStatus } from "../../src/index.js";
-import type { App } from "../../src/app/types.js";
+import type { TestApp } from "../../src/testing/test-app.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -40,7 +40,7 @@ afterEach(letChargesGo);
 const REPLACED = "t�";
 
 /** Every read of an operator that takes a tenant id. */
-const reads = (app: App, tenantId: string) =>
+const reads = (app: TestApp, tenantId: string) =>
   [
     ["leaseEventsOf", () => app.leaseEventsOf({ tenantId, rootExecutionId: "execution-1" })],
     ["outboundCallsOf", () => app.outboundCallsOf({ tenantId, rootExecutionId: "execution-1" })],
