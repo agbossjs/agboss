@@ -11,12 +11,7 @@ import { ExecutionHistoryRepository } from "../infrastructure/execution-history.
 import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import {
-  FENCING_CONTRACTS,
-  implementationsOf,
-  isInMemory,
-  notAtomicStoresOf,
-} from "./implementations.js";
+import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -124,7 +119,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
   ];
   return [
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),
-    ...notAtomicStoresOf(sources.providers, FENCING_CONTRACTS).map(notAtomic),
+    ...notAtomicStoresOf(sources.providers).map(notAtomic),
   ];
 }
 
