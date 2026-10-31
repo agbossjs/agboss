@@ -1,6 +1,5 @@
 import { describe, expect, it, type TestContext } from "vitest";
 import { isOptedOutStore, optedOutRefusal, OPTED_OUT_REASON } from "../fencing-gate.js";
-import { LeaseCheck } from "../../../infrastructure/execution-lease.repository.js";
 import type { FencedEffectStores } from "../fenced-effect-data.js";
 import type { OutboundCallStores } from "../outbound-call-data.js";
 import type { ContractTarget } from "../seam.js";
