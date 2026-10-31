@@ -36,6 +36,7 @@ export {
 export { DatabaseProxy, ProxyState, type ProxyTarget } from "./database-proxy.js";
 export { ScaledClock } from "./fault-clock.js";
 export { faultSuite, selectedScenarios, type FaultSuiteOptions } from "./fault-suite.js";
+export { FaultSuiteOptedOutError } from "./opt-out-check.js";
 export {
   FaultScenarioFailedError,
   runFaultScenario,

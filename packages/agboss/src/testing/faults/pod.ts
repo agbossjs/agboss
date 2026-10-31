@@ -83,6 +83,8 @@ export class FaultPod {
   readonly events: PodEvent[] = [];
   readonly exited: Promise<PodExit>;
   instanceId = "";
+  /** The pod's store classes that opt out of the atomic lease check (#584). */
+  optedOut: readonly string[] = [];
   #output = "";
   #commands = 0;
   readonly #watchers = new Set<() => void>();
@@ -243,5 +245,6 @@ export async function launchPod(launch: PodLaunch): Promise<FaultPod> {
   const pod = new FaultPod(launch.name, child, launch);
   const ready = await pod.next("ready", (event) => event.type === "ready");
   pod.instanceId = String(ready.instanceId);
+  pod.optedOut = Array.isArray(ready.optedOut) ? ready.optedOut.map(String) : [];
   return pod;
 }

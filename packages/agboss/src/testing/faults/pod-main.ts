@@ -14,7 +14,7 @@ import { hostClockOfPod } from "./fault-clock.js";
 import { closeOnStopSignals } from "../../application/stop-signals.js";
 import { resolveEnvironment } from "../../environments/resolve.js";
 import { waitOf } from "../../infrastructure/clock.js";
-import { FAULT_STORES_EXPORT, type FaultStores } from "./fault-stores.js";
+import { FAULT_STORES_EXPORT, optedOutStoresOf, type FaultStores } from "./fault-stores.js";
 import { faultApplicationOf } from "./fixture/fault.application.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
 import { heldStoreSeam } from "./held-stores.js";
@@ -109,4 +109,5 @@ const parts: PodParts = {
 process.on("message", (message: ToPod) => {
   void answer(parts, message);
 });
-send({ kind: "event", event: { type: "ready", instanceId, pid: process.pid } });
+const optedOut = optedOutStoresOf(stores);
+send({ kind: "event", event: { type: "ready", instanceId, pid: process.pid, optedOut } });

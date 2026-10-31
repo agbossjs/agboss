@@ -1,5 +1,6 @@
 import type * as Vitest from "vitest";
 import { faultViolationsOf } from "./invariants/check.js";
+import { ATOMIC_FENCING_CASE, checkAtomicFencing } from "./opt-out-check.js";
 import { killPods } from "./pod.js";
 import { runFaultScenario, type FaultScenario, type FaultScenarioOptions } from "./scenario.js";
 import { FAULT_SCENARIOS } from "./scenarios/index.js";
@@ -8,7 +9,8 @@ import { FAULT_SCENARIOS } from "./scenarios/index.js";
  * `faultSuite({ name, stores, database })` (#484 AC4): registers the fault scenarios with vitest
  * as `fault suite (<name>)`, one test each, run one after another (their pods spawned, killed and
  * frozen for real). Each resets the database, runs on fresh pods and checks every invariant;
- * every pod it started is killed at its end, whatever happened.
+ * every pod it started is killed at its end, whatever happened. Before them, one case fails a set
+ * whose fenced-effect or outbound-call store opts out of the atomic lease check (#584).
  */
 
 /**
@@ -50,6 +52,13 @@ export function faultSuite(options: FaultSuiteOptions): void {
     afterEach(() => {
       killPods();
     });
+    it(
+      ATOMIC_FENCING_CASE,
+      async () => {
+        await expect(checkAtomicFencing(options)).resolves.toBeUndefined();
+      },
+      timeout,
+    );
     for (const scenario of scenarios)
       it(
         scenario.title,

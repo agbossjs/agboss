@@ -127,6 +127,7 @@ export class FaultPod {
     readonly name: string;
     // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     next(what: string, matches: (event: PodEvent) => boolean, timeout?: Milliseconds): Promise<PodEvent>;
+    optedOut: readonly string[];
     get output(): string;
     get pid(): number;
     stop(): void;
@@ -208,6 +209,15 @@ export interface FaultStores<TTransaction = unknown> {
 
 // @public
 export function faultSuite(options: FaultSuiteOptions): void;
+
+// @public
+export class FaultSuiteOptedOutError extends Error {
+    constructor(stores: readonly string[]);
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly stores: readonly string[];
+}
 
 // @public
 export interface FaultSuiteOptions extends FaultScenarioOptions {
@@ -649,8 +659,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/fault-clock.ts:67:3 - (ae-undocumented) Missing documentation for "sleep".
 // src/testing/faults/fault-gateway.ts:23:1 - (ae-undocumented) Missing documentation for "FaultGateway".
 // src/testing/faults/fault-gateway.ts:24:3 - (ae-undocumented) Missing documentation for "requests".
-// src/testing/faults/fault-stores.ts:43:3 - (ae-undocumented) Missing documentation for "environment".
-// src/testing/faults/fault-stores.ts:44:3 - (ae-undocumented) Missing documentation for "businessRows".
+// src/testing/faults/fault-stores.ts:44:3 - (ae-undocumented) Missing documentation for "environment".
+// src/testing/faults/fault-stores.ts:45:3 - (ae-undocumented) Missing documentation for "businessRows".
 // src/testing/faults/fixture/pod-link.ts:49:3 - (ae-undocumented) Missing documentation for "Reserve".
 // src/testing/faults/fixture/pod-link.ts:50:3 - (ae-undocumented) Missing documentation for "ChargeBefore".
 // src/testing/faults/fixture/pod-link.ts:53:3 - (ae-undocumented) Missing documentation for "PayBefore".
@@ -678,6 +688,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/operation-history.ts:47:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/faults/operation-history.ts:48:3 - (ae-undocumented) Missing documentation for "complete".
 // src/testing/faults/operation-history.ts:55:3 - (ae-undocumented) Missing documentation for "record".
+// src/testing/faults/opt-out-check.ts:17:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/opt-out-check.ts:19:15 - (ae-undocumented) Missing documentation for "stores".
 // src/testing/faults/pod-protocol.ts:22:3 - (ae-undocumented) Missing documentation for "orderId".
 // src/testing/faults/pod-protocol.ts:55:3 - (ae-undocumented) Missing documentation for "type".
 // src/testing/faults/pod-protocol.ts:56:3 - (ae-undocumented) Missing documentation for "__index".
@@ -697,7 +709,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/pod.ts:83:3 - (ae-undocumented) Missing documentation for "events".
 // src/testing/faults/pod.ts:84:3 - (ae-undocumented) Missing documentation for "exited".
 // src/testing/faults/pod.ts:85:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/faults/pod.ts:91:5 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:93:5 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/scenario.ts:29:3 - (ae-undocumented) Missing documentation for "database".
 // src/testing/faults/scenario.ts:36:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-outage.ts:19:12 - (ae-undocumented) Missing documentation for "name".
