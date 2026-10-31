@@ -89,7 +89,7 @@ against the same model.
   histories (`tests/testing/faults/linearizability.test.ts`: an epoch granted twice, a take of a
   live lease, a renewal or a write after a newer grant, a take of finished work, two won claims). It
   fails on the recorded history of scenario 5b on a store without the fencing check, naming the
-  zombie's write (`tests/testing/faults/recorded-history.test.ts`). The three sabotage runs (5b, 5c,
+  zombie's write (`tests/testing/faults/recorded-history.test.ts`). The sabotage runs (5b, 5c, 5d,
   6b) fail it too.
 
 ## What the suite proves, scenario by scenario
@@ -107,6 +107,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 5 | `SIGSTOP` at the charge's write, `SIGCONT` after the new holder charged | The zombie's write is refused by the store (`ExecutionFencedError`); it hands over; nothing is undone | `s05-zombie-write-refused` (`s05-zombie.test.ts`) |
 | 5b | The same, the zombie's write reaching the store **before** the new holder's | Refused by the store's lease check; the new holder charges once | `s05b-zombie-reaches-charge-first` |
 | 5c | The same at the payment: the zombie frozen at its intent (`outboundCall.saveIfAbsent`), reaching the outbound-call store before the new holder's (#584) | Refused by the outbound-call store's lease check: a zombie records no payment; one payment | `s05c-zombie-reaches-payment-first` |
+| 5d | The zombie frozen **after** recording its payment's intent (`Pending`, held right after `outboundCall.saveIfAbsent` answered) and before sending it, thawed after the new holder finished the tree (#608) | The new holder finds the intent of a lease that is no longer live, reconciles it with the gateway (not sent) and pays once; the zombie's renewal right before its send (`confirmNow()`) is refused, so it hands over and never reaches the gateway: one request, one payment | `s05d-zombie-recorded-not-sent` |
 | 6 | Scale-down (`SIGTERM`) while three children run on three pods | The stopped pod's child is reclaimed from its checkpoint by a live pod: no child lost, none run twice | `s06-scale-down-children` (`s06-children.test.ts`) |
 | 6b | A pod frozen at its ask for another pod's child's lease, thawed after that child finished | The store refuses the finished child's lease in `acquire` itself; no takeover is written (#520 AC1) | `s06b-finished-child-not-taken` |
 | 7 | A new pod joins while the busy pod's child waits in the queue | It claims and runs the waiting child; each child runs once | `s07-new-pod-claims-pending` (`s07-new-pod.test.ts`) |
@@ -129,6 +130,10 @@ negative tests prove it (`tests/faults/sabotage.test.ts`):
   because the frozen pod was granted the finished child's lease.
 - An outbound-call store with **no fencing check on the payment's intent** (#584): it fails 5c on
   `one-owner`, because the zombie's intent was accepted after the new epoch was granted.
+- A lease store whose **renewal says yes to a lease that is over** (taken over or expired, #608):
+  it fails 5d on `effects-once` and `linearizable`. The zombie's `confirmNow()` right before its
+  send passes, so the order reaches the gateway twice (the gateway's own idempotency key makes it
+  one payment, but the framework sent twice), and the stale renewal fits no sequential order.
 
 **A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
 no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or

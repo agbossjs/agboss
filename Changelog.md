@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: fault scenario 5d, a zombie between its payment's intent and its send (#608)
+
+- **Added**: `s05d-zombie-recorded-not-sent`. The pod is frozen right after the outbound-call store
+  recorded its payment's intent, before the gateway is called, and thawed after another pod took
+  the tree over and paid. The new holder reconciles the pending intent and sends once; the zombie's
+  renewal before its send is refused and it hands over. One request, one payment. Its sabotage: a
+  lease store whose renewal says yes to a lease that is over fails it on `effects-once` and
+  `linearizable`. [Guarantees across processes](Guarantees-across-processes).
+
 ## Unreleased — 0.1.1: a repeated execution id never joins another tree (#591)
 
 - **Fixed**: an `IdGenerator` that repeats `newExecutionId()` gave a new root, child or recursion
