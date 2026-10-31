@@ -99,7 +99,11 @@ export enum KeyTextRule {
   /**
    * No code point unassigned in this runtime's Unicode (`Cn`, #556): a later runtime may make it a
    * format character or give it a decomposition, and refuse a key stored before a rolling upgrade.
-   * Unassigned code points only become assigned as Unicode grows, so a key accepted now stays one.
+   * A code point never becomes unassigned again, so this rule never refuses a key it accepted
+   * before; NFC is stable for assigned characters too (Unicode's normalization stability). The
+   * other rules read a character's category and `Default_Ignorable_Code_Point`, which Unicode does
+   * not promise to keep (#587: U+00AD went from `Pd` to `Cf` in 4.0, U+180E from `Zs` to `Cf` in
+   * 6.3): a newer runtime may refuse a key an older one accepted — a refusal, never a second charge.
    */
   Unassigned = "unassigned",
   /** No blank-looking symbol outside the property above (#556): U+2800 BRAILLE PATTERN BLANK. */
