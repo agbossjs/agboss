@@ -19,6 +19,7 @@ import {
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
   FencedEffectStatus,
+  type FencedEffectOutcome,
   type FencedEffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../src/terns/versions.js";
@@ -163,7 +164,7 @@ async function outcomesOf(
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },
     };
     expected.push(expectedOf(call, first));
-    const write = (): Promise<unknown> =>
+    const write = (): Promise<FencedEffectOutcome<{ request: string }>> =>
       stores.effects.saveResultIfAbsent(key, (transaction) => {
         void stores.rows.insert(transaction, `${tree}:${call.request}`);
         return { request: call.request };
