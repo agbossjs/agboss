@@ -1948,7 +1948,7 @@ export class PlanService {
   before the tree rests (the drain), and the waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
   failed record. Fencing is local too (#335): the holder trusts its lease until `sentAt + remaining
-  − LEASE_SAFETY_MARGIN` (1 s) of its last confirmed acquire or renewal (#533: `remaining` the time
+− LEASE_SAFETY_MARGIN` (1 s) of its last confirmed acquire or renewal (#533: `remaining` the time
   the store says is left — `ExecutionLease.remaining`, `renew`'s answer, `undefined` once over —,
   `sentAt` the holder's `Clock.monotonicNow()` when it sent the request, never its wall clock; the
   store decides expiry by its own time, `StoreClock` — a networked store's database clock in each
