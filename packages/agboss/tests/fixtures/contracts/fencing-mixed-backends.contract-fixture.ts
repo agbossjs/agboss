@@ -1,0 +1,22 @@
+// #542: storeConformance on a set whose lease store is in-memory and whose fenced-effect store is SQLite.
+import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
+import { storeConformance } from "../../../src/testing/contracts/index.js";
+import { sqliteFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
+import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
+import { inMemoryTarget, sqliteTarget } from "../../infrastructure/contracts/store-kinds.js";
+
+storeConformance({
+  name: "in-memory leases, SQLite fenced effects",
+  stores: {
+    executionLease: inMemoryTarget(
+      ({ clock, application, database }) =>
+        new InMemoryExecutionLeaseRepository(clock, application, database),
+    ),
+    executionLeaseEvent: inMemoryTarget(
+      ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
+    ),
+    fencedEffect: sqliteTarget(sqliteFencedEffects),
+    outboundCall: inMemoryTarget(inMemoryOutboundCalls),
+  },
+});
