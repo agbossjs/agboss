@@ -9,6 +9,21 @@ import { ChildProcess } from 'node:child_process';
 // @public
 export function assertFaultInvariants(scenario: string, run: FaultRun): void;
 
+// @public
+export interface CheckedOperation {
+    readonly from: number;
+    readonly holder: string;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly input: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly kind: StoreHoldPoint;
+    readonly output: unknown;
+    // (undocumented)
+    readonly to: number;
+}
+
 // @public (undocumented)
 export class DatabaseProxy {
     constructor(target: ProxyTarget);
@@ -80,6 +95,7 @@ export enum FaultInvariant {
     ChildrenOnce = "children-once",
     EffectsOnce = "effects-once",
     FinishedWorkUntouched = "finished-work-untouched",
+    Linearizable = "linearizable",
     NoUndoOnHandOver = "no-undo-on-hand-over",
     OneOwner = "one-owner",
     TreesFinish = "trees-finish"
@@ -160,6 +176,7 @@ export interface FaultRun extends FaultFacts {
     readonly payments: readonly GatewayPaymentFact[];
     // (undocumented)
     readonly requests: readonly GatewayRequest[];
+    readonly timeScale?: number;
 }
 
 // @public
@@ -180,6 +197,7 @@ export interface FaultScenarioOptions {
     // (undocumented)
     readonly database: FaultDatabase;
     readonly stores: string;
+    readonly storeTimeScale?: number;
     readonly timeScale?: number;
 }
 
@@ -306,6 +324,7 @@ export interface FaultWorldOptions {
     readonly database: FaultDatabase;
     // (undocumented)
     readonly stores: string;
+    readonly storeTimeScale?: number;
     // (undocumented)
     readonly timeScale: number;
 }
@@ -408,6 +427,26 @@ export function killPods(): void;
 
 // @public
 export function launchPod(launch: PodLaunch): Promise<FaultPod>;
+
+// @public
+export function linearizabilityOf(history: OperationHistory, options?: LinearizabilityOptions): NotLinearizable[];
+
+// @public
+export interface LinearizabilityOptions {
+    readonly slack?: number;
+    readonly timeScale?: number;
+}
+
+// @public
+export function linearizabilityViolations(run: FaultRun): FaultViolation[];
+
+// @public
+export interface NotLinearizable {
+    readonly longest: readonly CheckedOperation[];
+    // (undocumented)
+    readonly operations: readonly CheckedOperation[];
+    readonly stuck: readonly CheckedOperation[];
+}
 
 // @public
 export interface OperationEvent {
@@ -675,11 +714,16 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/hold-points.ts:34:3 - (ae-undocumented) Missing documentation for "point".
 // src/testing/faults/hold-points.ts:35:3 - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/hold-points.ts:36:3 - (ae-undocumented) Missing documentation for "key".
-// src/testing/faults/invariants/violations.ts:22:3 - (ae-undocumented) Missing documentation for "invariant".
-// src/testing/faults/invariants/violations.ts:23:3 - (ae-undocumented) Missing documentation for "message".
-// src/testing/faults/invariants/violations.ts:28:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/invariants/violations.ts:31:5 - (ae-undocumented) Missing documentation for "scenario".
-// src/testing/faults/invariants/violations.ts:32:5 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/invariants/violations.ts:24:3 - (ae-undocumented) Missing documentation for "invariant".
+// src/testing/faults/invariants/violations.ts:25:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/faults/invariants/violations.ts:30:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/invariants/violations.ts:33:5 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:34:5 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/linearizability/operations.ts:17:3 - (ae-undocumented) Missing documentation for "id".
+// src/testing/faults/linearizability/operations.ts:18:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/faults/linearizability/operations.ts:21:3 - (ae-undocumented) Missing documentation for "input".
+// src/testing/faults/linearizability/operations.ts:26:3 - (ae-undocumented) Missing documentation for "to".
+// src/testing/faults/linearizability/search.ts:19:3 - (ae-undocumented) Missing documentation for "operations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".
@@ -711,7 +755,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/pod.ts:85:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/faults/pod.ts:93:5 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/scenario.ts:29:3 - (ae-undocumented) Missing documentation for "database".
-// src/testing/faults/scenario.ts:36:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/scenario.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-outage.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-points.ts:15:3 - (ae-undocumented) Missing documentation for "LeaseAcquire".
 // src/testing/faults/store-points.ts:16:3 - (ae-undocumented) Missing documentation for "LeaseRenew".
@@ -730,8 +774,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/world-options.ts:17:3 - (ae-undocumented) Missing documentation for "stores".
 // src/testing/faults/world-options.ts:18:3 - (ae-undocumented) Missing documentation for "database".
 // src/testing/faults/world-options.ts:19:3 - (ae-undocumented) Missing documentation for "timeScale".
-// src/testing/faults/world-options.ts:24:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
-// src/testing/faults/world-options.ts:25:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
+// src/testing/faults/world-options.ts:26:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/world-options.ts:27:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
 // src/testing/faults/world.ts:35:3 - (ae-undocumented) Missing documentation for "history".
 // src/testing/faults/world.ts:36:3 - (ae-undocumented) Missing documentation for "gateway".
 // src/testing/faults/world.ts:37:3 - (ae-undocumented) Missing documentation for "events".
