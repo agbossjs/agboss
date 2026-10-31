@@ -156,6 +156,11 @@ fails the execution with `InvalidMintedIdError` (`run.invalid-minted-id`; `gener
 thread id is minted once the budgets passed, so their `maxSpend()` is kept as for any admitted
 execution; a child's refused id fails its launch before the child starts.
 
+`app.resolve(IdGenerator)` gives that check around the listed generator (`CheckedIdGenerator`, what
+every part of the framework mints through); `app.resolve(<the listed class>)` gives the listed
+instance itself, **unchecked** — the same object the check wraps (#614). A component that mints ids
+of its own injects `IdGenerator` (`deps: [IdGenerator]`), never its generator's own class.
+
 An id is never handed out twice (#591), whatever the generator does: every execution id it mints —
 a root's, a child's, a recursion level's — is kept by the lease store before anything else of the
 execution is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`: one insert-if-absent by
