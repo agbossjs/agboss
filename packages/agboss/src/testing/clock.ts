@@ -93,6 +93,11 @@ export class VirtualClock extends Clock {
     return new Date(this.#current);
   }
 
+  /** Its monotonic time is its own (#533): it moves only by `advance`, as `now()` does. */
+  override monotonicNow(): number {
+    return this.#current;
+  }
+
   /** Resolves when an `advance` reaches `delay` from now, or at once when `signal` aborts. */
   sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void> {
     return new Promise<void>((resolve) => {

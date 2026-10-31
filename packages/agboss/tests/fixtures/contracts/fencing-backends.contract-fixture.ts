@@ -10,21 +10,22 @@ storeConformance({
   name: "stores of no backend or another",
   stores: {
     executionLease: inMemoryTarget(
-      ({ clock, application, database }) => new UndeclaredLeases(clock, application, database),
+      ({ storeClock, application, database }) =>
+        new UndeclaredLeases(storeClock, application, database),
     ),
     fencedEffect: inMemoryTarget((seam) => {
       const stores = inMemoryFencedEffects(false)(seam);
       const settings = new FencedEffectSettings();
-      const effects = new ElsewhereEffects(seam.clock, seam.database, settings, stores.leases);
+      const effects = new ElsewhereEffects(seam.storeClock, seam.database, settings, stores.leases);
       return { ...stores, effects };
     }),
     outboundCall: inMemoryTarget((seam) => {
       const leases = new InMemoryExecutionLeaseRepository(
-        seam.clock,
+        seam.storeClock,
         seam.application,
         seam.database,
       );
-      return { calls: new UndeclaredCalls(seam.clock, seam.database, leases), leases };
+      return { calls: new UndeclaredCalls(seam.storeClock, seam.database, leases), leases };
     }),
   },
   without: ["executionLeaseEvent"],

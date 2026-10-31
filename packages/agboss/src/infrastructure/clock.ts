@@ -18,6 +18,17 @@ export abstract class Clock {
 
   /** Resolves after `delay`, or at once when `signal` aborts — it never rejects. */
   abstract sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+
+  /**
+   * Milliseconds on a clock that never jumps (#533), from an arbitrary origin — only the difference
+   * of two readings means anything: the elapsed time a lease's holder fences itself with, so an
+   * offset or a step of its wall clock does not move its fence. The default is the process's
+   * monotonic clock (`performance.now()`), whatever `now()` says; a clock whose time is not real
+   * time (a test's virtual clock) overrides it with its own.
+   */
+  monotonicNow(): number {
+    return performance.now();
+  }
 }
 
 /**
@@ -46,6 +57,36 @@ export class SystemClock extends Clock {
       timer.unref();
       signal?.addEventListener("abort", done, { once: true });
     });
+  }
+}
+
+/**
+ * The time a store decides a lease's expiry by (#533) — a seam, never listed. In production
+ * (`isDatabaseTime`) a networked store reads its database's own time inside each statement that
+ * takes, renews, fences or closes a lease (PostgreSQL's `clock_timestamp()`), so every instance
+ * agrees on the instant of expiry whatever its wall clock says; the in-memory and SQLite stores, on
+ * one host, read `now()` — the application's clock. A test injects its clock instead
+ * (`isDatabaseTime` false: every store reads `now()`), so `clock.advance` crosses an expiry. A store
+ * takes it in its `deps`: `@Injectable({ deps: [PostgresConnection, StoreClock, ApplicationContext] })`.
+ */
+export abstract class StoreClock {
+  /** Whether a networked store reads its database's time (production) rather than `now()`. */
+  abstract readonly isDatabaseTime: boolean;
+
+  /** The time of a store that has no clock of its own (in-memory, SQLite), and of every store in a test. */
+  abstract now(): Date;
+}
+
+/** The store clock of an application instance: the database's time, the host's clock for a store on it. */
+export class DatabaseStoreClock extends StoreClock {
+  readonly isDatabaseTime: boolean = true;
+
+  constructor(private readonly clock: Pick<Clock, "now">) {
+    super();
+  }
+
+  now(): Date {
+    return this.clock.now();
   }
 }
 

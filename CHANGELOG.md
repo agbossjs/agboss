@@ -93,6 +93,31 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `ExecutionLeaseLostError`'s message no longer says another instance took the lease (#551): since
   #534 a renewal or a reclaim at the expiry is refused whether or not one did, so it says the lease
   is over — expired, or taken — and that the next take continues the execution.
+- **The store's time decides a lease's expiry; the holder fences itself on elapsed time** (#533) —
+  instances whose wall clocks disagree no longer disagree on when a lease ends.
+  `ExecutionLease.remaining` (new, required) is the time the store says the lease has left;
+  `ExecutionLeaseRepository.renew` answers it (`Promise<Milliseconds | undefined>`, `undefined` once
+  the lease is over) instead of `true` / `false`, and `acquire` and `reclaim` return it on the lease.
+  The holder trusts its lease until `sentAt + remaining − LEASE_SAFETY_MARGIN` (1 s), `sentAt` its
+  time when it sent the request, counted on its monotonic clock (`Clock.monotonicNow()`, new:
+  `performance.now()` unless a clock overrides it) and on its wall clock, the earlier ending it — an
+  offset moves neither, a step back is bounded by the monotonic count, a step forward or a host
+  suspend by the wall count; a `remaining` that is not a finite number ≥ 0 is 0 (the holder fails
+  closed), one above the lease asked for is that lease; the margin covers
+  the drift of the holder's and the store's clocks over one lease, ≤ 1 s / 30 s together. The
+  framework's renewal now reaches the store with 19 s of trust left (9 s after a failed one), and an
+  outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new; `TestStoreClock` in `@agboss/core/testing`) is the time a
+  store decides by: a networked store's database time in production, the host's clock for in-memory
+  and SQLite — and in `testWith` and the contract suites the test's clock, unskewed, injected through
+  the seam (`StoreSeam.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
+ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time, monotonic time and
+  sleeps — over the test's. New contract cases run on real time with the other instance's clock off
+  by ± lease/2, ± lease and ± 10 × lease: a store that decides by the caller's clock fails them.
+  **Migration:** return `remaining` (`remainingOf(expiresAt, now)`, both on the store's clock) from
+  `acquire`, `renew` and `reclaim`; a networked store compares and writes `expires_at` with its
+  database's time inside each statement (PostgreSQL `clock_timestamp()`) unless
+  `StoreClock.isDatabaseTime` is false (a test's clock), and builds from `seam.storeClock` in its
+  contract target. A test that expected a holder to trust its lease for the full 30 s counts 29 s.
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
   `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
   and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.

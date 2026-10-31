@@ -38,6 +38,7 @@ const LEASE: ExecutionLease = {
   holderInstanceId: "instance-2",
   leaseEpoch: 2,
   expiresAt: new Date("2026-01-05T09:00:30.000Z"),
+  remaining: seconds(30),
 };
 
 const TAKEN_OVER: ExecutionLease = {

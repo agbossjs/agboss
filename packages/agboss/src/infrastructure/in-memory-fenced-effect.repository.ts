@@ -2,7 +2,7 @@ import { ExecutionFencedError } from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { AGBossError } from "../core/errors.js";
-import { Clock } from "./clock.js";
+import { StoreClock, type Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
@@ -53,13 +53,15 @@ export class InMemoryFencedEffectTransaction {
  * lease scope; the lease and the mark are checked again at commit, so a lease taken over while an
  * asynchronous `work` ran refuses its write.
  */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
   static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
   static override readonly backend: string | undefined = "in-memory";
 
   constructor(
-    private readonly clock: Clock,
+    private readonly clock: Pick<Clock, "now">,
     private readonly database: InMemoryDatabase,
     settings: FencedEffectSettings,
     private readonly leases: ExecutionLeaseRepository,
@@ -152,7 +154,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
  */
 export function checkInMemoryFence(
   database: InMemoryDatabase,
-  clock: Clock,
+  clock: Pick<Clock, "now">,
   key: FencedEffectKey,
 ): void {
   checkedEffectName(key.name);
@@ -171,7 +173,7 @@ export function checkInMemoryFence(
  */
 export function isInMemoryLeaseHeld(
   database: InMemoryDatabase,
-  clock: Clock,
+  clock: Pick<Clock, "now">,
   lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
 ): boolean {
   const row = database.executionLeases.get(treeKeyOf(lease.tenantId, lease.leaseExecutionId));
@@ -186,7 +188,7 @@ export function isInMemoryLeaseHeld(
 /** The scope's high-water mark moves up to the key's token (one mark per scope, every store's). */
 export function raiseInMemoryMark(
   database: InMemoryDatabase,
-  clock: Clock,
+  clock: Pick<Clock, "now">,
   key: FencedEffectKey,
 ): void {
   const highest = database.fencedEffectMarks.get(key.scopeKey)?.highestToken ?? 0;

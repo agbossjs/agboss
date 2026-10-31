@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
 import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
-import { Clock } from "../clock.js";
+import { StoreClock, type Clock } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
   endedOf,
@@ -69,14 +69,14 @@ const recordOf = (row: unknown): OutboundCallRecord =>
  * lease and the scope's mark checked, the mark raised, then the read or the write. Listed in
  * `@Application({ providers })` with `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, Clock] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 export class SqliteOutboundCallRepository extends OutboundCallRepository {
   static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
   static override readonly backend: string | undefined = "sqlite";
 
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly clock: Clock,
+    private readonly clock: Pick<Clock, "now">,
   ) {
     super();
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);

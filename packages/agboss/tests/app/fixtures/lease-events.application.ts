@@ -109,6 +109,7 @@ export class SilentTakeoverLeaseRepository extends InMemoryExecutionLeaseReposit
           holderInstanceId: taken.holderInstanceId,
           leaseEpoch: taken.leaseEpoch,
           expiresAt: taken.expiresAt,
+          remaining: taken.remaining,
         };
   }
 }

@@ -38,11 +38,11 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
     super(time, application, rows);
   }
 
-  override renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+  override renew(lease: ExecutionLease, length: Milliseconds): Promise<Milliseconds | undefined> {
     const stored = this.#held(lease);
     if (stored !== undefined)
       this.#write(lease, { ...stored.lease, expiresAt: this.#from(length) });
-    return Promise.resolve(stored !== undefined);
+    return Promise.resolve(stored === undefined ? undefined : length);
   }
 
   override yield(lease: ExecutionLease): Promise<boolean> {
@@ -65,6 +65,7 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
       holderInstanceId,
       leaseEpoch: leaseEpoch + 1,
       expiresAt: this.#from(length),
+      remaining: length,
     };
     this.rows.executionLeases.set(this.#key(lease), { lease: reclaimed, released: false });
     return Promise.resolve(reclaimed);
@@ -131,16 +132,21 @@ export class FromOldEndLeaseRepository extends InMemoryExecutionLeaseRepository 
     super(time, application, rows);
   }
 
-  override async renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+  override async renew(
+    lease: ExecutionLease,
+    length: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
     const end = this.rows.executionLeases.get(key)?.lease.expiresAt.getTime();
-    if (!(await super.renew(lease, length)) || end === undefined) return false;
+    const renewed = await super.renew(lease, length);
+    if (renewed === undefined || end === undefined) return undefined;
     const stored = this.rows.executionLeases.get(key);
-    if (stored !== undefined && this.time.now().getTime() < end)
-      this.rows.executionLeases.set(key, {
-        ...stored,
-        lease: { ...stored.lease, expiresAt: new Date(end + length) },
-      });
-    return true;
+    if (stored === undefined || this.time.now().getTime() >= end) return renewed;
+    this.rows.executionLeases.set(key, {
+      ...stored,
+      lease: { ...stored.lease, expiresAt: new Date(end + length) },
+    });
+    // it answers the lease asked for (#533): what a store renewing from now would answer
+    return renewed;
   }
 }

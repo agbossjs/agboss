@@ -26,7 +26,7 @@ async function expectStillHeld(
   other: ExecutionLeaseRepository,
   held: ExecutionLease,
 ): Promise<void> {
-  expect(await holder.renew(held, LEASE)).toBe(true);
+  expect(await holder.renew(held, LEASE)).toBe(LEASE);
   expect(await other.acquire("default", held.rootExecutionId, LEASE)).toBeUndefined();
   await holder.release(held);
 }
@@ -90,6 +90,7 @@ export const LEASE_FINISH_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposi
         holderInstanceId: "instance-1",
         leaseEpoch: 1,
         expiresAt: new Date(clock.now().getTime() + LEASE),
+        remaining: LEASE,
       };
 
       await first.finish(never);
@@ -115,7 +116,7 @@ export const LEASE_FINISH_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposi
       ]);
 
       expect(attempts).toEqual([undefined, undefined, undefined]);
-      expect(await first.renew(held, LEASE)).toBe(false);
+      expect(await first.renew(held, LEASE)).toBeUndefined();
     },
   },
 ];

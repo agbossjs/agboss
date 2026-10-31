@@ -10,7 +10,7 @@ import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import { ComponentError } from "../components/metadata.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import { Clock, IdGenerator } from "../infrastructure/clock.js";
+import { Clock, DatabaseStoreClock, IdGenerator, StoreClock } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
@@ -33,6 +33,8 @@ export interface ApplicationContainerSources {
   readonly modules: readonly ProviderModule[];
   /** The instance's clock, created first (`clockOf`): every part of the instance reads it. */
   readonly clock: Clock;
+  /** The time the stores decide a lease's expiry by (#533): a test's clock, else the database's. */
+  readonly storeClock?: StoreClock | undefined;
   /**
    * The ids of a test's instance (#313, shared by its instances): used unless the application
    * lists an `IdGenerator`. Resolved before the stores, which inject it (`idGeneratorOf`).
@@ -69,6 +71,7 @@ export function applicationContainerOf(
     modules: sources.modules,
     core: new Map<Token, unknown>([
       [Clock, clock],
+      [StoreClock, sources.storeClock ?? new DatabaseStoreClock(clock)],
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],

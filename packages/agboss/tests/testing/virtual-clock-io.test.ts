@@ -38,8 +38,8 @@ const NEVER = new Promise<never>(() => undefined);
 
 describe("#511 AC1: lease-holder cases pass on a store with real I/O latency", () => {
   executionLeaseContract({
-    ...inMemoryTarget(({ clock, application, database }) =>
-      behindNetwork(new InMemoryExecutionLeaseRepository(clock, application, database)),
+    ...inMemoryTarget(({ storeClock, application, database }) =>
+      behindNetwork(new InMemoryExecutionLeaseRepository(storeClock, application, database)),
     ),
     name: "in-memory behind 20 ms of network",
   });

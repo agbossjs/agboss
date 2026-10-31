@@ -14,31 +14,98 @@ export const EXECUTION_LEASE: Milliseconds = seconds(30);
 export const RENEW_EVERY: Milliseconds = seconds(10);
 
 /**
- * How long the holder may trust its lease (#335 S1): until `confirmedUntil`, the `Clock` read
- * before the last acquire or renewal its store confirmed plus the lease's length — also while the
- * holder yields the lease waiting for remote children (#516: the yielded lease is renewed on).
+ * What the holder takes off the time its store says a lease has left (#533): the drift of its
+ * monotonic clock and of the store's over one lease — the bound ρ_holder + ρ_store ≤ 1 s / 30 s.
+ */
+export const LEASE_SAFETY_MARGIN: Milliseconds = seconds(1);
+
+/**
+ * When the holder sent a request to its store (#533): its monotonic time and its wall time, read
+ * together right before the request — never when the answer came.
+ */
+export interface SentAt {
+  readonly monotonic: number;
+  readonly wall: number;
+}
+
+/** Now, on both of the holder's clocks: the `sentAt` of a request about to be sent. */
+export const sentAtOf = (clock: Clock): SentAt => ({
+  monotonic: clock.monotonicNow(),
+  wall: clock.now().getTime(),
+});
+
+/**
+ * The time a store's answer says is left, as the holder trusts it (#533): a finite number of ms ≥ 0,
+ * never more than the lease it asked for. Anything else — no `remaining` (a store on the contract
+ * before #533), `NaN`, `Infinity`, a boolean — is 0: the holder fails closed.
+ */
+export const trustedRemaining = (
+  remaining: unknown,
+  asked: Milliseconds = EXECUTION_LEASE,
+): Milliseconds =>
+  waitOf(
+    typeof remaining === "number" && Number.isFinite(remaining) ? Math.min(remaining, asked) : 0,
+  );
+
+/** How a fence begins: its first answer, the request's `sentAt`, and the margin (default 1 s). */
+export interface FenceStart {
+  readonly sentAt: SentAt;
+  readonly remaining: unknown;
+  readonly margin?: Milliseconds | undefined;
+}
+
+/** The two deadlines of a fence: on the monotonic clock and on the wall clock. */
+interface Deadlines {
+  readonly monotonic: number;
+  readonly wall: number;
+}
+
+/** The deadlines of an answer `remaining` to a request sent at `sentAt`, less `margin`. */
+const deadlinesOf = (sentAt: SentAt, remaining: unknown, margin: Milliseconds): Deadlines => {
+  const trusted = trustedRemaining(remaining) - margin;
+  return { monotonic: sentAt.monotonic + trusted, wall: sentAt.wall + trusted };
+};
+
+/**
+ * How long the holder may trust its lease (#335 S1, #533): until `sentAt + remaining −
+ * LEASE_SAFETY_MARGIN` of the last acquire or renewal its store confirmed — `sentAt` when the holder
+ * sent that request, `remaining` the store's answer. Counted on both of its clocks from `sentAt`,
+ * and over at the earlier: an offset of its wall clock moves neither; a step of its wall clock back
+ * is bounded by the monotonic count, a step forward or a suspend of the host (which stops the
+ * monotonic clock while the store's time runs on) by the wall count. The wall clock only ever ends
+ * the fence earlier, never later. `confirmedUntil` is that deadline on the wall clock, for reading.
  */
 export class LeaseFence {
-  #confirmedUntil: number;
+  #until: Deadlines;
+  /** What it takes off each answer: `LEASE_SAFETY_MARGIN` (a test proves it bites with less). */
+  private readonly margin: Milliseconds;
 
   constructor(
     private readonly clock: Clock,
-    askedAt: number,
+    start: FenceStart,
     private readonly lost: AbortController,
     private readonly rootExecutionId: string,
   ) {
-    this.#confirmedUntil = askedAt + EXECUTION_LEASE;
+    this.margin = start.margin ?? LEASE_SAFETY_MARGIN;
+    this.#until = deadlinesOf(start.sentAt, start.remaining, this.margin);
   }
 
-  /** The time (ms) up to which the lease is valid here. */
+  /** The time (wall-clock ms) up to which the lease is valid here, for reading. */
   get confirmedUntil(): number {
-    return this.#confirmedUntil;
+    return this.clock.now().getTime() + this.left;
   }
 
-  /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), asked at `askedAt`. */
-  reacquired(askedAt: number): void {
+  /** How long (ms) the lease is still valid here, the earlier of its two counts; ≤ 0 once over. */
+  get left(): number {
+    const monotonic = this.#until.monotonic - this.clock.monotonicNow();
+    const wall = this.#until.wall - this.clock.now().getTime();
+    return Math.min(monotonic, wall);
+  }
+
+  /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), sent at `sentAt`. */
+  reacquired(sentAt: SentAt, remaining: unknown): void {
     this.lost.signal.throwIfAborted();
-    this.#confirmedUntil = askedAt + EXECUTION_LEASE;
+    this.#until = deadlinesOf(sentAt, remaining, this.margin);
   }
 
   /**
@@ -55,20 +122,30 @@ export class LeaseFence {
     if (!this.lost.signal.aborted) this.lost.abort(leaseExpiredError(this.rootExecutionId));
   }
 
+  /** Expires the lease once it ran out here (#533: the earlier of its two counts); throws once lost. */
+  check(): void {
+    this.lost.signal.throwIfAborted();
+    if (!(this.left > 0)) this.expire();
+    this.lost.signal.throwIfAborted();
+  }
+
   /**
-   * A renewal asked at `renewedAt` answered: `true` moves the fence on, `false` (taken) aborts,
-   * `undefined` (the store did not answer) aborts only once the lease ran out here — before that
-   * the caller's write goes on. Throws the holder's `ExecutionLeaseLostError` once aborted.
+   * A renewal sent at `sentAt` answered: a `remaining` time moves each deadline on (never back),
+   * `false` (over) aborts, `undefined` (the store did not answer) aborts only once the lease ran out
+   * here — before that the caller's write goes on. Throws the holder's `ExecutionLeaseLostError` once
+   * aborted.
    */
-  settle(renewedAt: number, isRenewed: boolean | undefined): void {
+  settle(sentAt: SentAt, renewed: Milliseconds | false | undefined): void {
     this.lost.signal.throwIfAborted();
-    if (isRenewed === true) {
-      this.#confirmedUntil = Math.max(this.#confirmedUntil, renewedAt + EXECUTION_LEASE);
-      return;
+    if (renewed === false) this.lose();
+    if (renewed !== undefined) {
+      const next = deadlinesOf(sentAt, renewed, this.margin);
+      this.#until = {
+        monotonic: Math.max(this.#until.monotonic, next.monotonic),
+        wall: Math.max(this.#until.wall, next.wall),
+      };
     }
-    if (isRenewed === false) this.lose();
-    if (this.clock.now().getTime() >= this.#confirmedUntil) this.expire();
-    this.lost.signal.throwIfAborted();
+    this.check();
   }
 }
 
@@ -102,8 +179,8 @@ export async function expireInBackground(
   fence: LeaseFence,
 ): Promise<void> {
   for (;;) {
-    const left = fence.confirmedUntil - clock.now().getTime();
-    if (left <= 0) {
+    const { left } = fence;
+    if (!(left > 0)) {
       fence.expire();
       return;
     }
@@ -113,12 +190,19 @@ export async function expireInBackground(
   }
 }
 
-/** A renewal of `held` in the store, asked now: `isRenewed` `undefined` when the store did not answer. */
+/**
+ * A renewal of `held` in the store, sent now (`sentAt`, the monotonic clock, #533): `renewed` the
+ * time the store says the lease has left, `false` when it is over, `undefined` when the store did not
+ * answer.
+ */
 export async function renewalOf(
   { clock, repository }: { readonly clock: Clock; readonly repository: ExecutionLeaseRepository },
   held: ExecutionLease,
-): Promise<{ readonly renewedAt: number; readonly isRenewed: boolean | undefined }> {
-  const renewedAt = clock.now().getTime();
-  const isRenewed = await repository.renew(held, EXECUTION_LEASE).catch((): undefined => undefined);
-  return { renewedAt, isRenewed };
+): Promise<{ readonly sentAt: SentAt; readonly renewed: Milliseconds | false | undefined }> {
+  const sentAt = sentAtOf(clock);
+  const renewed = await repository.renew(held, EXECUTION_LEASE).then(
+    (remaining) => remaining ?? false,
+    (): undefined => undefined,
+  );
+  return { sentAt, renewed };
 }

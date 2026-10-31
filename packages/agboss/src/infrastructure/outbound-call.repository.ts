@@ -1,7 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { FencedEffectKey } from "./fenced-effect.repository.js";
 import { Injectable } from "../components/decorators.js";
-import { Clock } from "./clock.js";
+import { StoreClock, type Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
@@ -161,13 +161,13 @@ export abstract class OutboundCallRepository {
  * in-memory leases and the scopes' marks it checks — the instances of one test share them. Every
  * fenced method checks the key's lease and the scope's mark first, then raises the mark.
  */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
   static override readonly backend: string | undefined = "in-memory";
 
   constructor(
-    private readonly clock: Clock,
+    private readonly clock: Pick<Clock, "now">,
     private readonly database: InMemoryDatabase,
     private readonly leases: ExecutionLeaseRepository,
   ) {

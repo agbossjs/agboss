@@ -32,7 +32,7 @@ const isSameLease = (stored: ExecutionLease | undefined, held: ExecutionLease): 
 export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
   constructor(
     private readonly table: LeaseTable,
-    private readonly clock: Clock,
+    private readonly clock: Pick<Clock, "now">,
     private readonly application: ApplicationContext,
   ) {
     super();
@@ -42,7 +42,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
-  /** The time, in milliseconds: the framework's clock. */
+  /** The time, in milliseconds: the store's clock (#533: `seam.storeClock`). */
   protected now(): number {
     return this.clock.now().getTime();
   }
@@ -66,6 +66,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
       holderInstanceId: this.application.instanceId,
       leaseEpoch: (stored?.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(this.now() + lease),
+      remaining: lease,
       ...(stored === undefined || this.table.released.has(key)
         ? {}
         : {
@@ -80,11 +81,11 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(taken);
   }
 
-  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined> {
     const key = this.#heldKeyOf(executionLease);
-    if (key === undefined) return Promise.resolve(false);
+    if (key === undefined) return Promise.resolve(undefined);
     this.table.rows.set(key, { ...executionLease, expiresAt: new Date(this.now() + lease) });
-    return Promise.resolve(true);
+    return Promise.resolve(lease);
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
@@ -119,7 +120,10 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     const { tenantId, rootExecutionId, holderInstanceId } = executionLease;
     const leaseEpoch = executionLease.leaseEpoch + 1;
     const expiresAt = new Date(this.now() + lease);
-    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt };
+    const reclaimed = {
+      ...{ tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt },
+      remaining: lease,
+    };
     this.table.rows.set(key, reclaimed);
     this.table.yielded.delete(key);
     return Promise.resolve(reclaimed);

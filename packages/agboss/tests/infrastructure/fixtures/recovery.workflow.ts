@@ -225,11 +225,14 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
     return taken;
   }
 
-  override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  override renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     if (levers.storeDown.has(this.#instanceId)) {
       return Promise.reject(new Error("the lease store does not answer"));
     }
-    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.renew(executionLease, lease);
   }
   override yield(executionLease: ExecutionLease): Promise<boolean> {

@@ -80,7 +80,7 @@ const stateRacingRenew: OutboundCallCase = {
             leaseExecutionId: executionId,
             token: lease.leaseEpoch,
           }),
-        () => first.leases.renew(lease, seconds(30)),
+        async () => (await first.leases.renew(lease, seconds(30))) !== undefined,
       );
 
       // #534: past its expiry the lease is over for its holder too — the renewal never wins
@@ -124,7 +124,7 @@ const stateRacingAcquire: OutboundCallCase = {
       const held = taken as ExecutionLease | undefined;
       if (held === undefined) throw new Error("the take of the expired lease failed");
       expect(held.leaseEpoch).toBe(lease.leaseEpoch + 1);
-      expect(await second.leases.renew(held, seconds(30))).toBe(true);
+      expect(await second.leases.renew(held, seconds(30))).toBe(seconds(30));
       expect(
         await first.calls.leaseStateOf({
           tenantId: "default",

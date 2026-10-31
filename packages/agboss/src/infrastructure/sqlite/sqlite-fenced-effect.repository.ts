@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
-import { Clock } from "../clock.js";
+import { StoreClock, type Clock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
   checkedBusinessKey,
@@ -112,14 +112,14 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  * `FencedEffectAsyncWorkError`. Listed in `@Application({ providers })` with
  * `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
   static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
   static override readonly backend: string | undefined = "sqlite";
 
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly clock: Clock,
+    private readonly clock: Pick<Clock, "now">,
     settings: FencedEffectSettings,
   ) {
     super(settings);

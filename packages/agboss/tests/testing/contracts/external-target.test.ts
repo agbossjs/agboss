@@ -20,7 +20,7 @@ describe("#481 AC1: an external-style target passes the lease contract", () => {
     reset: () => {
       table = new LeaseTable();
     },
-    instance: (seam) => new MapExecutionLeaseRepository(table, seam.clock, seam.application),
+    instance: (seam) => new MapExecutionLeaseRepository(table, seam.storeClock, seam.application),
   });
 });
 
@@ -36,7 +36,7 @@ const asyncTarget: ContractTarget<MapExecutionLeaseRepository> = {
   instance: async (seam) => {
     await Promise.resolve();
     lifecycle.built += 1;
-    return new MapExecutionLeaseRepository(table, seam.clock, seam.application);
+    return new MapExecutionLeaseRepository(table, seam.storeClock, seam.application);
   },
   close: async (store) => {
     await Promise.resolve();
@@ -48,13 +48,13 @@ describe("#481: an async instance and an async reset", () => {
   executionLeaseContract(asyncTarget);
 
   it("each case reset the store once and closed both instances it built", () => {
-    // the lease contract's 69 cases ran above, in order (#501: two of takenOverFrom; #516: ten of
+    // the lease contract's 75 cases ran above, in order (#501: two of takenOverFrom; #516: ten of
     // a yielded lease, four of its edges; #520: eight of a finished lease, five of its edges, four
     // of the take of finished work; #534: the two cases exactly at the expiry replaced by fifteen of
     // the lease's expiry and six of the framework's holder at it; its acceptance: six races at the
-    // edges and the renewal's end counted from it)
-    expect(lifecycle.resets).toBe(69);
-    expect(lifecycle.built).toBe(138);
-    expect(lifecycle.closed.size).toBe(138);
+    // edges and the renewal's end counted from it; #533: six of the store's time as the authority)
+    expect(lifecycle.resets).toBe(75);
+    expect(lifecycle.built).toBe(150);
+    expect(lifecycle.closed.size).toBe(150);
   });
 });

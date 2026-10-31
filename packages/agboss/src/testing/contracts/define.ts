@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { withTarget, type ContractCaseBody, type ContractTarget } from "./seam.js";
+import {
+  withTarget,
+  type ContractCaseBody,
+  type ContractTarget,
+  type DatabaseTime,
+} from "./seam.js";
 
 /**
  * How a published contract suite (#481) is written: its cases as data, grouped as the core's own
@@ -11,6 +16,8 @@ import { withTarget, type ContractCaseBody, type ContractTarget } from "./seam.j
 export interface ContractCase<TStore> {
   readonly name: string;
   readonly run: ContractCaseBody<TStore>;
+  /** Run on real time, the stores deciding by the database's time (#533); absent: the suite's clock. */
+  readonly databaseTime?: DatabaseTime;
 }
 
 /** Cases registered together; with a `title`, inside a `describe` of their own. */
@@ -37,7 +44,8 @@ const registerCases = <TStore>(
   target: ContractTarget<TStore>,
   cases: readonly ContractCase<TStore>[],
 ): void => {
-  for (const contractCase of cases) it(contractCase.name, withTarget(target, contractCase.run));
+  for (const contractCase of cases)
+    it(contractCase.name, withTarget(target, contractCase.run, contractCase.databaseTime));
 };
 
 /** Registers the suite `<contract> (<target name>)`: every group's cases, then the ping case. */

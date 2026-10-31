@@ -9,9 +9,13 @@ import type { StoreFactory } from "./store-kinds.js";
 
 /** The in-memory store over the test's database, beside the in-memory leases it checks. */
 export const inMemoryOutboundCalls: StoreFactory<OutboundCallStores> = (seam) => {
-  const leases = new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database);
+  const leases = new InMemoryExecutionLeaseRepository(
+    seam.storeClock,
+    seam.application,
+    seam.database,
+  );
   return {
-    calls: new InMemoryOutboundCallRepository(seam.clock, seam.database, leases),
+    calls: new InMemoryOutboundCallRepository(seam.storeClock, seam.database, leases),
     leases,
   };
 };
@@ -20,7 +24,7 @@ export const inMemoryOutboundCalls: StoreFactory<OutboundCallStores> = (seam) =>
 export const sqliteOutboundCalls: StoreFactory<OutboundCallStores> = (seam) => {
   const connection = seam.connection();
   return {
-    calls: new SqliteOutboundCallRepository(connection, seam.clock),
-    leases: new SqliteExecutionLeaseRepository(connection, seam.clock, seam.application),
+    calls: new SqliteOutboundCallRepository(connection, seam.storeClock),
+    leases: new SqliteExecutionLeaseRepository(connection, seam.storeClock, seam.application),
   };
 };

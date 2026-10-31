@@ -172,6 +172,8 @@ export interface StoreSeam {
     // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     readonly clock: Clock;
     readonly instanceId: string;
+    // Warning: (ae-forgotten-export) The symbol "StoreClock" needs to be exported by the entry point index.d.ts
+    readonly storeClock: StoreClock;
 }
 
 // Warnings were encountered during analysis:

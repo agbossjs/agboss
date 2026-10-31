@@ -82,8 +82,11 @@ export class MortalSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRe
     return taken;
   }
 
-  override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
-    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+  override renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.renew(executionLease, lease);
   }
   override yield(executionLease: ExecutionLease): Promise<boolean> {

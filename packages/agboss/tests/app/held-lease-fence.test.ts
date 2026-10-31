@@ -26,8 +26,12 @@ import {
 import { SqliteOutboundCallRepository } from "../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
+import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../src/app/lease-fence.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
 import { withTarget } from "../../src/testing/contracts/seam.js";
+
+/** How long a lease just confirmed is trusted (#533): the store's 30 s, less the safety margin. */
+const TRUSTED = EXECUTION_LEASE - LEASE_SAFETY_MARGIN;
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ clock, application, database }) =>
@@ -48,7 +52,7 @@ class FlakyLeases {
   wrap(): ExecutionLeaseRepository {
     const flaky = this.store;
     return Object.assign(Object.create(flaky) as ExecutionLeaseRepository, {
-      renew: (lease: ExecutionLease, length: Milliseconds): Promise<boolean> => {
+      renew: (lease: ExecutionLease, length: Milliseconds): Promise<Milliseconds | undefined> => {
         this.renewals += 1;
         return this.isDown ? Promise.reject(new Error("store down")) : flaky.renew(lease, length);
       },
@@ -117,7 +121,8 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       expect(lease.leaseExecutionId).toBe("root:1");
       expect(lease.token).toBe(1);
       expect(lease.isYielded).toBe(false);
-      expect(lease.confirmedUntil).toBe(clock.now().getTime() + seconds(30));
+      // #533: the time the store said is left, less the safety margin
+      expect(lease.confirmedUntil).toBe(clock.now().getTime() + TRUSTED);
       await lease.release();
     }),
   );
@@ -127,12 +132,12 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
     withTarget(target, async ({ clock, first }) => {
       const { lease } = await heldOn(first, clock);
 
-      await clock.advance(seconds(29));
+      await clock.advance(seconds(28.999));
       expect(() => {
         lease.assertHeld();
       }).not.toThrow();
       expect(lease.signal.aborted).toBe(false);
-      await clock.advance(seconds(1));
+      await clock.advance(seconds(0.001));
 
       expect(() => {
         lease.assertHeld();
@@ -157,7 +162,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       await lease.confirmNow();
 
       expect(checks).toEqual(["cancel looked for"]);
-      expect(lease.confirmedUntil).toBe(clock.now().getTime() + seconds(30));
+      expect(lease.confirmedUntil).toBe(clock.now().getTime() + TRUSTED);
       await clock.advance(seconds(20));
       expect(() => {
         lease.assertHeld();

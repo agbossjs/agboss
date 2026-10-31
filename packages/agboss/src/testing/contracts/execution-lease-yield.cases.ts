@@ -52,7 +52,7 @@ export const LEASE_YIELD_CASES: readonly ContractCase<ExecutionLeaseRepository>[
       const refused = await second.acquire("default", "root-1", LEASE);
       const reclaimed = await first.reclaim(held, LEASE);
 
-      expect(renewed).toBe(true);
+      expect(renewed).toBe(LEASE);
       expect(refused).toBeUndefined();
       expect(reclaimed).toMatchObject({ holderInstanceId: "instance-1", leaseEpoch: 2 });
     },
@@ -71,10 +71,11 @@ export const LEASE_YIELD_CASES: readonly ContractCase<ExecutionLeaseRepository>[
         holderInstanceId: "instance-1",
         leaseEpoch: 2,
         expiresAt: new Date("2026-01-05T09:00:35.000Z"),
+        remaining: LEASE,
       });
       expect(reclaimed?.takenOverFrom).toBeUndefined();
-      expect(await first.renew(held, LEASE)).toBe(false);
-      expect(reclaimed && (await first.renew(reclaimed, LEASE))).toBe(true);
+      expect(await first.renew(held, LEASE)).toBeUndefined();
+      expect(reclaimed && (await first.renew(reclaimed, LEASE))).toBe(LEASE);
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
     },
   },
@@ -103,9 +104,9 @@ export const LEASE_YIELD_CASES: readonly ContractCase<ExecutionLeaseRepository>[
         takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
       });
       expect(await first.reclaim(held, LEASE)).toBeUndefined();
-      expect(await first.renew(held, LEASE)).toBe(false);
+      expect(await first.renew(held, LEASE)).toBeUndefined();
       expect(await first.yield(held)).toBe(false);
-      expect(taken && (await second.renew(taken, LEASE))).toBe(true);
+      expect(taken && (await second.renew(taken, LEASE))).toBe(LEASE);
     },
   },
   {

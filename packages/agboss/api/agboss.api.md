@@ -966,6 +966,7 @@ export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
 // @public
 export abstract class Clock {
+    monotonicNow(): number;
     abstract now(): Date;
     abstract sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
 }
@@ -1354,6 +1355,15 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
     readonly name: string;
     // (undocumented)
     readonly rules?: never;
+}
+
+// @public
+export class DatabaseStoreClock extends StoreClock {
+    constructor(clock: Pick<Clock, "now">);
+    // (undocumented)
+    readonly isDatabaseTime: boolean;
+    // (undocumented)
+    now(): Date;
 }
 
 // @public
@@ -1882,6 +1892,7 @@ export interface ExecutionLease {
     readonly expiresAt: Date;
     readonly holderInstanceId: string;
     readonly leaseEpoch: number;
+    readonly remaining: Milliseconds;
     readonly rootExecutionId: string;
     readonly takenOverFrom?: PreviousLeaseHolder;
     readonly tenantId: string;
@@ -1938,7 +1949,7 @@ export abstract class ExecutionLeaseRepository {
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
-    abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+    abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
     abstract yield(executionLease: ExecutionLease): Promise<boolean>;
 }
 
@@ -2966,7 +2977,7 @@ export class InjectionToken<T> {
 // @public
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
     // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
-    constructor(clock: Clock, database: InMemoryDatabase, settings: FencedEffectSettings, leases: ExecutionLeaseRepository);
+    constructor(clock: Pick<Clock, "now">, database: InMemoryDatabase, settings: FencedEffectSettings, leases: ExecutionLeaseRepository);
     // (undocumented)
     static readonly backend: string | undefined;
     // (undocumented)
@@ -2986,7 +2997,7 @@ export class InMemoryFencedEffectTransaction {
 
 // @public
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
-    constructor(clock: Clock, database: InMemoryDatabase, leases: ExecutionLeaseRepository);
+    constructor(clock: Pick<Clock, "now">, database: InMemoryDatabase, leases: ExecutionLeaseRepository);
     // (undocumented)
     static readonly backend: string | undefined;
     // (undocumented)
@@ -5203,6 +5214,9 @@ export abstract class RateLimitRepository {
 }
 
 // @public
+export const remainingOf: (expiresAt: Date, now: Date) => Milliseconds;
+
+// @public
 export interface ReplacePartAction {
     // (undocumented)
     readonly kind: PiiActionKind.ReplacePart;
@@ -5720,7 +5734,7 @@ export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepo
 
 // @public
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
-    constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
+    constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">, applicationContext: ApplicationContext);
     // (undocumented)
     acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     // (undocumented)
@@ -5734,7 +5748,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     release(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
-    renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+    renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
     // (undocumented)
     yield(executionLease: ExecutionLease): Promise<boolean>;
 }
@@ -5763,7 +5777,7 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 
 // @public
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
-    constructor(connection: SqliteConnection, clock: Clock, settings: FencedEffectSettings);
+    constructor(connection: SqliteConnection, clock: Pick<Clock, "now">, settings: FencedEffectSettings);
     // (undocumented)
     static readonly backend: string | undefined;
     // (undocumented)
@@ -5795,7 +5809,7 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
 
 // @public
 export class SqliteOutboundCallRepository extends OutboundCallRepository {
-    constructor(connection: SqliteConnection, clock: Clock);
+    constructor(connection: SqliteConnection, clock: Pick<Clock, "now">);
     // (undocumented)
     static readonly backend: string | undefined;
     // (undocumented)
@@ -5988,6 +6002,12 @@ export interface StepValues<TInstance> extends ValuesSource {
     readonly label: NameOf<TInstance>;
     // (undocumented)
     readonly takesAbout: [KindOf<TInstance>] extends [NodeKind.Start] ? false : true;
+}
+
+// @public
+export abstract class StoreClock {
+    abstract readonly isDatabaseTime: boolean;
+    abstract now(): Date;
 }
 
 // @public
@@ -7473,6 +7493,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/clock.ts:82:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/infrastructure/clock.ts:88:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
@@ -7520,8 +7542,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-lease-event.repository.ts:217:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/infrastructure/execution-lease-event.repository.ts:218:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-lease-event.repository.ts:225:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
-// src/infrastructure/execution-lease.repository.ts:44:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:45:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
+// src/infrastructure/execution-lease.repository.ts:53:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:54:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
 // src/infrastructure/execution-record.repository.ts:76:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:91:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:109:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -7556,17 +7578,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/fenced-effect.repository.ts:97:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:98:3 - (ae-undocumented) Missing documentation for "result".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:70:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:74:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:85:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:215:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:216:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:228:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:229:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:230:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:231:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:76:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:87:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:217:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:218:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:230:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:231:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:232:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:233:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -7631,18 +7653,18 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:74:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:90:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:135:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:143:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:147:3 - (ae-undocumented) Missing documentation for "finish".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:162:3 - (ae-undocumented) Missing documentation for "yield".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:169:3 - (ae-undocumented) Missing documentation for "reclaim".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:222:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:226:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:241:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:254:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:75:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:91:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:137:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:145:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:149:3 - (ae-undocumented) Missing documentation for "finish".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:164:3 - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:171:3 - (ae-undocumented) Missing documentation for "reclaim".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:218:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:222:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:237:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:250:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:29:12 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".

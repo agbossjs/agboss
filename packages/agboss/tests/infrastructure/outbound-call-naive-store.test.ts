@@ -55,12 +55,12 @@ const naive =
   (lock: Lock): StoreFactory<OutboundCallStores> =>
   (seam) => {
     const leases = new InMemoryExecutionLeaseRepository(
-      seam.clock,
+      seam.storeClock,
       seam.application,
       seam.database,
     );
     const rows = seam.database.outboundCalls;
-    const endedAt = () => seam.clock.now().toISOString();
+    const endedAt = () => seam.storeClock.now().toISOString();
     class CheckThenWrite extends InMemoryOutboundCallRepository {
       #written(
         key: FencedEffectKey,
@@ -99,7 +99,7 @@ const naive =
         return this.#written(key, (found) => endedOf(found, owner, ending, endedAt()));
       }
     }
-    return { calls: new CheckThenWrite(seam.clock, seam.database, leases), leases };
+    return { calls: new CheckThenWrite(seam.storeClock, seam.database, leases), leases };
   };
 
 /**
@@ -107,7 +107,11 @@ const naive =
  * `Superseded` whatever the UPDATE matched: a renewal landing between them is missed.
  */
 const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
-  const leases = new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database);
+  const leases = new InMemoryExecutionLeaseRepository(
+    seam.storeClock,
+    seam.application,
+    seam.database,
+  );
   const rows = seam.database.executionLeases;
   class SelectThenUpdate extends InMemoryOutboundCallRepository {
     override async leaseStateOf({ tenantId, leaseExecutionId, token }: OutboundCallLease) {
@@ -115,26 +119,33 @@ const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
       const read = rows.get(key);
       if (read === undefined || read.released || read.lease.leaseEpoch !== token)
         return OutboundCallLeaseState.Ended;
-      if (read.lease.expiresAt > seam.clock.now()) return OutboundCallLeaseState.Live;
+      if (read.lease.expiresAt > seam.storeClock.now()) return OutboundCallLeaseState.Live;
       await roundTrip();
       const row = rows.get(key);
       const isStillExpired =
         row !== undefined &&
         !row.released &&
         row.lease.leaseEpoch === token &&
-        row.lease.expiresAt <= seam.clock.now();
+        row.lease.expiresAt <= seam.storeClock.now();
       if (isStillExpired) rows.set(key, { ...row, released: true });
       return OutboundCallLeaseState.Superseded;
     }
   }
-  return { calls: new SelectThenUpdate(seam.clock, seam.database, leases), leases };
+  return { calls: new SelectThenUpdate(seam.storeClock, seam.database, leases), leases };
 };
 
 const unlocked: Lock = (_key, work) => work();
 
 const core: StoreFactory<OutboundCallStores> = (seam) => {
-  const leases = new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database);
-  return { calls: new InMemoryOutboundCallRepository(seam.clock, seam.database, leases), leases };
+  const leases = new InMemoryExecutionLeaseRepository(
+    seam.storeClock,
+    seam.application,
+    seam.database,
+  );
+  return {
+    calls: new InMemoryOutboundCallRepository(seam.storeClock, seam.database, leases),
+    leases,
+  };
 };
 
 /** Whether the race case named like `pattern` fails on the stores `make` builds. */

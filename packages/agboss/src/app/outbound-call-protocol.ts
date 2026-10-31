@@ -72,9 +72,12 @@ async function sendNow<TRequest, TResult>(
   owner: string,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { repository } = run.parts;
-  await run.frame.execution.lease?.confirmNow();
+  const lease = run.frame.execution.lease;
+  await lease?.confirmNow();
   run.frame.execution.signal.throwIfAborted();
   const call = callOf(run, attempt);
+  // nothing leaves after the holder's fence (#533): checked on its monotonic clock right before
+  lease?.assertHeld();
   let answer: TResult;
   try {
     answer = await run.options.send(call);

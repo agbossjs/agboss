@@ -160,7 +160,7 @@ const supersededHolderRefused: OutboundCallCase = {
     await clock.advance(seconds(31));
     expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Superseded);
 
-    expect(await first.leases.renew(lease, seconds(30))).toBe(false);
+    expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();
     for (const [, call] of HOLDER_WRITES)
       expect(await rejectionOf(call(first, key))).toBeInstanceOf(ExecutionFencedError);
     const taken = await leaseOf(second, "execution-2");
@@ -183,7 +183,7 @@ const supersededYieldRefused: OutboundCallCase = {
     expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Superseded);
     expect(await first.leases.reclaim(lease, seconds(30))).toBeUndefined();
     expect(await first.leases.yield(lease)).toBe(false);
-    expect(await first.leases.renew(lease, seconds(30))).toBe(false);
+    expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();
   },
 };
 
@@ -213,7 +213,7 @@ const closedLease: OutboundCallCase = {
     expect(await stateAt(first, "execution-3", old.leaseEpoch)).toBe(Ended);
     expect(await stateAt(first, "execution-3", taken.leaseEpoch)).toBe(Live);
     expect(await stateAt(first, "execution-9", 1)).toBe(Ended);
-    expect(await second.leases.renew(taken, seconds(30))).toBe(true);
+    expect(await second.leases.renew(taken, seconds(30))).toBe(seconds(30));
   },
 };
 

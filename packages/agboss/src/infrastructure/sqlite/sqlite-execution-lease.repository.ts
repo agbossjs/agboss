@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
-import { Clock } from "../clock.js";
+import { StoreClock } from "../clock.js";
 import {
   ExecutionLeaseRepository,
   takenOverFromOf,
@@ -66,16 +66,17 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  * `renew`, `release`, `yield` and `reclaim` (#516: `yielded`, the next epoch) are one statement each,
  * matching the holder and the epoch — `renew`, `yield` and `reclaim` a lease still live too
  * (`expires_at > now`, #534); `finish` (#520) is a release no `acquire` passes (`released =
- * 3`). Times are the framework clock's milliseconds. Listed in
+ * 3`). Times are the host's — the application's clock, read through `StoreClock` (#533: a test's
+ * clock in tests) — in milliseconds; every take and renewal answers the time left. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   static override readonly backend: string | undefined = "sqlite";
 
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly clock: Clock,
+    private readonly clock: Pick<StoreClock, "now">,
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
@@ -106,6 +107,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         holderInstanceId: this.applicationContext.instanceId,
         leaseEpoch: (stored?.lease_epoch ?? 0) + 1,
         expiresAt: new Date(now + lease),
+        remaining: lease,
         ...takenOverFromOf(
           stored === undefined
             ? undefined
@@ -132,12 +134,12 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(taken);
   }
 
-  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined> {
     const now = this.clock.now().getTime();
     const { changes } = this.connection.database
       .prepare(`UPDATE execution_leases SET expires_at = ? WHERE ${HELD_BY}`)
-      .run(now + lease, ...heldBy(executionLease, now));
-    return Promise.resolve(Number(changes) === 1);
+      .run(now + lease, ...heldBy(held, now));
+    return Promise.resolve(Number(changes) === 1 ? lease : undefined);
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
@@ -179,15 +181,9 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
       )
       .run(expiresAt, ...heldBy(executionLease, now));
     if (Number(changes) !== 1) return Promise.resolve(undefined);
-    const { tenantId, rootExecutionId, holderInstanceId } = executionLease;
-    const leaseEpoch = executionLease.leaseEpoch + 1;
-    return Promise.resolve({
-      tenantId,
-      rootExecutionId,
-      holderInstanceId,
-      leaseEpoch,
-      expiresAt: new Date(expiresAt),
-    });
+    const { tenantId, rootExecutionId, holderInstanceId, leaseEpoch } = executionLease;
+    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, leaseEpoch: leaseEpoch + 1 };
+    return Promise.resolve({ ...reclaimed, expiresAt: new Date(expiresAt), remaining: lease });
   }
 }
 

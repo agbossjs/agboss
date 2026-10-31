@@ -70,6 +70,8 @@ export type { CallAssertion, CallMatchers } from "./vitest-types.js";
 export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
 export { VirtualClock, type ClockDuration, type VirtualClockOptions } from "./clock.js";
+export { ClockSkew, SkewedClock } from "./clock-skew.js";
+export { TestStoreClock } from "./store-clock.js";
 // what a payment gateway must support (#508): a fake one, and the checklist a team runs on its own
 export {
   FakeGatewayError,

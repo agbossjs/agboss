@@ -83,7 +83,7 @@ export interface FrameLease {
   readonly scopeKey: string;
   /** The lease's `leaseEpoch`; `undefined` while it is yielded (no lease held). */
   readonly token: number | undefined;
-  /** The `Clock` time (ms) up to which the store confirmed it; `POSITIVE_INFINITY` while yielded. */
+  /** Until when (wall ms, for reading) the holder trusts it (#533); `POSITIVE_INFINITY` while yielded. */
   readonly confirmedUntil: number;
   /** Yielded while remote children run (#333 PR 4): nothing held, nothing to fence with. */
   readonly isYielded: boolean;
