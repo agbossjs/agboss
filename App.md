@@ -146,6 +146,16 @@ without a `threadId`) and every execution id (roots, children, recursion levels)
 random 128-bit token — nor a model call's id. Under `testWith` the ids are `thread-1`,
 `execution-1`, … ([Testing → Ids](Testing#ids)).
 
+Every id it mints is a key's text (#578), checked at the mint by the rules every id that comes in
+follows (`keyTextRuleOf`: 1–200 characters, no lone surrogate, control, format, invisible,
+private-use, unassigned or blank-looking character, no space but single inner U+0020, NFC — see
+[Several instances → Business keys](Several-instances#business-idempotency-keys-508)): one that breaks a rule, or is no string,
+fails the execution with `InvalidMintedIdError` (`run.invalid-minted-id`; `generator`, `method`,
+`rule`, never the id) before it is used or stored — a generator minting `x\uD800` and then
+`x\uDFFF` would otherwise make two trees one lease on SQLite and PostgreSQL, both `x�` in UTF-8. A
+thread id is minted once the budgets passed, so their `maxSpend()` is kept as for any admitted
+execution; a child's refused id fails its launch before the child starts.
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { IdGenerator, Injectable } from "@agboss/core";
