@@ -190,7 +190,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 
 /**
  * The fencing checks of the SQLite stores (#500, #505), inside the caller's transaction: the key's
- * name is valid (#508), its lease is held, not expired and its epoch, and no newer token wrote the scope — else
+ * name is valid (#508), its lease is held, live (`expires_at > now`, #534) and its epoch, and no newer token wrote the scope — else
  * `ExecutionFencedError`, a hand-over.
  */
 export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {

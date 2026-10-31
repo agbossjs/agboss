@@ -163,7 +163,10 @@ export function checkInMemoryFence(
   if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
 }
 
-/** Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` now (not released or expired). */
+/**
+ * Whether the lease of `(tenantId, leaseExecutionId)` is held at `token` now: not released, and live
+ * — `expiresAt > now`, the one boundary of every lease check (#534); at its expiry it is over.
+ */
 export function isInMemoryLeaseHeld(
   database: InMemoryDatabase,
   clock: Clock,

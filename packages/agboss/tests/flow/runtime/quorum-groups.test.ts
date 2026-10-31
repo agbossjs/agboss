@@ -33,6 +33,7 @@ import {
   WaitTool,
 } from "../fixtures/quorum-runtime-parts.js";
 import { DealPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
+import { passLive } from "../../helpers/live-time.js";
 
 /**
  * #279 PR 2 — `.joinQuorumGroups(…)` at run time (AC7, AC9): group(legal, critic) priority 1 → the
@@ -91,7 +92,7 @@ describe("AC7: groups with priority", () => {
 
     const execution = execute(app, DealPanelWorkflowStart, ACME);
     await untilWaiting(2);
-    await clock.advance(seconds(61));
+    await passLive(clock, seconds(61));
     const result = await execution;
 
     expect(result).toFinishWith(SecondOpinionPanelWorkflowFinish, { objection: "the price" });

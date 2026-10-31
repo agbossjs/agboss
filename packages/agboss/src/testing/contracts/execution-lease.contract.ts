@@ -2,6 +2,8 @@ import { expect } from "vitest";
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { LEASE_CONFIRM_CASES } from "./execution-lease-confirm.cases.js";
+import { LEASE_EXPIRY_CASES } from "./execution-lease-expiry.cases.js";
 import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
 import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
@@ -40,18 +42,6 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
       expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
       expect(old && (await first.renew(old, LEASE))).toBe(false);
       expect(taken && (await second.renew(taken, LEASE))).toBe(true);
-    },
-  },
-  {
-    name: "a lease renewed exactly at expiry, not taken meanwhile, is kept",
-    run: async ({ clock, first, second }) => {
-      const held = await first.acquire("default", "root-1", LEASE);
-
-      await clock.advance(LEASE);
-      const renewed = held && (await first.renew(held, LEASE));
-
-      expect(renewed).toBe(true);
-      expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
     },
   },
   {
@@ -113,8 +103,10 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 
 /**
  * `ExecutionLeaseRepository` (#265 AC11, Q58): one lease per tree, keyed by `(tenantId,
- * rootExecutionId)` — not given to another instance while valid, taken with `leaseEpoch + 1` after
- * it expired or was released, the old holder's `renew` then `false` — a take after expiry names the
+ * rootExecutionId)` — not given to another instance while valid (`expiresAt > now`), taken with
+ * `leaseEpoch + 1` after it expired or was released, the old holder's `renew` then `false`; at
+ * `now >= expiresAt` the lease is over for its holder too (#534: `renew`, `yield`, `reclaim` and the
+ * holder's `confirmNow()` refused, taken or not) — a take after expiry names the
  * expired holder (`takenOverFrom`, #501), one after a release none —; a yielded lease (#516) still
  * its holder's, renewed and refused to others until it expires, taken back with `reclaim`; a finished
  * lease (#520) never taken again, so no stale instance takes over finished work; and the
@@ -128,8 +120,10 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
     [
       { cases: LEASE_CASES },
       { title: "a yielded lease", cases: [...LEASE_YIELD_CASES, ...LEASE_YIELD_EDGE_CASES] },
+      { title: "the lease's expiry, for its holder too", cases: LEASE_EXPIRY_CASES },
       { title: "a finished lease", cases: LEASE_FINISH_CASES },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
+      { title: "the framework's holder at the lease's expiry", cases: LEASE_CONFIRM_CASES },
       { title: "the framework's take of finished work", cases: LEASE_FINISH_HOLDER_CASES },
     ],
     pingOf,

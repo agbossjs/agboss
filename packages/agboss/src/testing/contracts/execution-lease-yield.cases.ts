@@ -109,20 +109,6 @@ export const LEASE_YIELD_CASES: readonly ContractCase<ExecutionLeaseRepository>[
     },
   },
   {
-    name: "a yielded lease reclaimed exactly at its expiry, not taken meanwhile, is the holder's again",
-    run: async ({ clock, first, second }: Instances): Promise<void> => {
-      const held = await yieldedBy(first);
-      await clock.advance(LEASE);
-
-      const reclaimed = await first.reclaim(held, LEASE);
-      const refused = await second.acquire("default", "root-1", LEASE);
-
-      expect(reclaimed).toMatchObject({ holderInstanceId: "instance-1", leaseEpoch: 2 });
-      expect(reclaimed?.takenOverFrom).toBeUndefined();
-      expect(refused).toBeUndefined();
-    },
-  },
-  {
     name: "a reclaim racing a takeover attempt: the holder wins while its lease is valid",
     run: async ({ first, second }: Instances): Promise<void> => {
       const held = await yieldedBy(first);

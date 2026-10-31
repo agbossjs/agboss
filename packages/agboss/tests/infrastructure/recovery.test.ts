@@ -17,6 +17,7 @@ import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
 import { execute, answerOf } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
+import { passLive } from "../helpers/live-time.js";
 import {
   Charge,
   Clerk,
@@ -111,8 +112,8 @@ describe("#265 AC12: a root left running by an instance that died", () => {
     await ready(apps);
     await holding(instance(apps, 0));
 
-    await clock.advance(seconds(30));
-    await clock.advance(seconds(30));
+    // a minute of a live holder: its renewals reach the store in time (#534)
+    await passLive(clock, seconds(60));
 
     expect(seen.holds).toHaveLength(1);
     expect(seen.resumes).toEqual([]);

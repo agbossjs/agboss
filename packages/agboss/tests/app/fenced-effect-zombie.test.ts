@@ -26,6 +26,7 @@ import {
   letAllGo,
   resetFencedEffect,
 } from "./fixtures/fenced-effect.workflow.js";
+import { passLive } from "../helpers/live-time.js";
 
 const two = testWith(FencedEffectApplication, { instances: 2 });
 
@@ -52,7 +53,8 @@ async function stalledBeforeEffect(
   await frozenRuns(1);
   leases.stall(a);
   await clock.advance(seconds(31));
-  await clock.advance(seconds(31));
+  // the new holder is live: its renewals reach the store in time (#534)
+  await passLive(clock, seconds(31));
   return { a, call };
 }
 

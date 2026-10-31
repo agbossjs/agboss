@@ -1935,7 +1935,10 @@ export class PlanService {
 
 - **The execution lease (#265, Q58):** `execute` / `resume` move a tree only while holding its lease
   (keyed by `tenantId` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
-  every checkpoint write, released when the pass ends). A `resume` records its decision first —
+  every checkpoint write, released when the pass ends; live while `expiresAt > now` and only then,
+  for its holder too — at `now >= expiresAt` its `renew`, `yield`, `reclaim`, `confirmNow()` and
+  fenced writes are refused, taken or not, and the holder takes the tree again only by `acquire`, a
+  takeover from itself, #534). A `resume` records its decision first —
   the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
   `NotPausedError` — then waits for the lease; the holder continues with one `Command({ resume })`
   mapping LangGraph's interrupt id of every answered pause, takes the decisions resolved meanwhile

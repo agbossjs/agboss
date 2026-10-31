@@ -125,11 +125,15 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(reclaimed);
   }
 
-  /** The key of `executionLease` while it is still its holder's (not taken, not released). */
+  /**
+   * The key of `executionLease` while it is still its holder's: not taken, not released, not
+   * expired (#534: at `expiresAt` it is over for its holder too).
+   */
   #heldKeyOf(executionLease: ExecutionLease): string | undefined {
     const key = keyOf(executionLease.tenantId, executionLease.rootExecutionId);
+    const stored = this.table.rows.get(key);
     const isHeld =
-      isSameLease(this.table.rows.get(key), executionLease) && !this.table.released.has(key);
+      isSameLease(stored, executionLease) && !this.table.released.has(key) && this.isValid(stored);
     return isHeld ? key : undefined;
   }
 }

@@ -61,7 +61,8 @@ const crossLeaseRaced = (ending: "markCompleted" | "markPending"): OutboundCallC
 /**
  * `leaseStateOf` of an expired lease racing its holder's late renewal (#508 final re-review): the
  * check and its close are one step — the lease is renewed and `Live`, or `Superseded` and not
- * renewable, never closed in the caller's eyes while the holder renewed it and sends on.
+ * renewable, never closed in the caller's eyes while the holder renewed it and sends on. Since #534
+ * the renewal past the expiry is refused by the lease store itself, so it is always the latter.
  */
 const stateRacingRenew: OutboundCallCase = {
   name: "#508: leaseStateOf of an expired lease racing its holder's renewal, round after round: renewed and Live, or Superseded and not renewable — never both",
@@ -82,6 +83,8 @@ const stateRacingRenew: OutboundCallCase = {
         () => first.leases.renew(lease, seconds(30)),
       );
 
+      // #534: past its expiry the lease is over for its holder too — the renewal never wins
+      expect(isRenewed).toBe(false);
       const expected =
         isRenewed === true ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Superseded;
       expect(state).toBe(expected);

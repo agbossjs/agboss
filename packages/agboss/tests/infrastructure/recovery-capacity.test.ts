@@ -3,6 +3,7 @@ import { TestConcurrency, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
+import { passLive } from "../helpers/live-time.js";
 import { ends, kill, resetRecovery, seen } from "./fixtures/recovery.workflow.js";
 import {
   resetTreeLog,
@@ -59,10 +60,10 @@ describe("AC3: a full instance leaves orphaned roots to others", () => {
   three("the idle instance recovers the root, the full one does not", async ({ apps, clock }) => {
     await deadAndFull(apps);
 
-    await clock.advance(seconds(31));
+    await passLive(clock, seconds(31));
     const [recovered] = await ends(1);
     const events = [...treeLog.events];
-    await clock.advance(seconds(70)); // the busy step ends: nothing is left running
+    await passLive(clock, seconds(70)); // the busy step ends: nothing is left running
     await ends(2);
 
     expect(recoveredBy()).toEqual(["instance-3"]);
@@ -82,13 +83,13 @@ describe("AC3: a full instance leaves orphaned roots to others", () => {
       kill("instance-2");
 
       // instance-3's one free slot goes on the live root, listed first: its look stops there
-      await clock.advance(seconds(31));
+      await passLive(clock, seconds(31));
       const afterFirstLook = recoveredBy();
       // the next look goes on after the live root: the orphan
-      await clock.advance(seconds(30));
+      await passLive(clock, seconds(30));
       await ends(1);
       const afterSecondLook = recoveredBy();
-      await clock.advance(seconds(40));
+      await passLive(clock, seconds(40));
       await ends(2);
 
       expect(afterFirstLook).toEqual([]);
@@ -107,11 +108,11 @@ describe("AC3: a full instance leaves orphaned roots to others", () => {
     async ({ apps, clock }) => {
       await deadAndFull(apps);
 
-      await clock.advance(seconds(31));
+      await passLive(clock, seconds(31));
       const whileFull = recoveredBy();
-      await clock.advance(seconds(70));
+      await passLive(clock, seconds(70));
       await untilLogged("end busy");
-      await clock.advance(seconds(30));
+      await passLive(clock, seconds(30));
       await ends(2);
 
       expect(whileFull).toEqual([]);

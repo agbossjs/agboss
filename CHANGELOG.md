@@ -65,6 +65,21 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   gone; `static leaseRepository` now only tells unit runners where to hold their lease. **Migration:**
   add `static override readonly backend = "<your backend>"` to your lease, fenced-effect and
   outbound-call stores.
+- **A lease is over at its expiry, for its holder too** (#534) — a lease is live while
+  `expiresAt > now`, and only then: at `now >= expiresAt` `renew` (held or yielded) and `yield` are
+  `false`, `reclaim` is `undefined`, `fence.confirmNow()` loses the lease and every fenced write and
+  outbound-call write under it is `ExecutionFencedError` — whether another instance took it or not;
+  the holder takes its tree again only by `acquire`, at a new epoch, a takeover from itself. The
+  in-memory and SQLite stores renewed a lease past its expiry when nobody had taken it, PostgreSQL
+  refused it (except at the exact instant); every store now draws the same line as `acquire`,
+  `leaseStateOf` and the fence checks. New contract cases at `expiresAt − 1 ms`, exactly at it and
+  `+ 1 ms` for `renew`, `yield`, `reclaim`, the framework's `confirmNow()` and renewal, a fenced
+  write, an outbound call's intent and `leaseStateOf`; the cases "a lease renewed exactly at expiry,
+  not taken meanwhile, is kept" and "a yielded lease reclaimed exactly at its expiry…" are gone.
+  **Migration:** a store of your own matches `expires_at > now` (not `>=`, not holder and epoch only)
+  in `renew`, `yield` and `reclaim`. In tests, one `clock.advance` of a whole lease (30 s) or more is
+  a holder frozen past its expiry, so its lease is lost even when no one took it: to let time pass
+  for a live holder, advance in steps shorter than the lease (`seconds(10)`).
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
   `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
   and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.
