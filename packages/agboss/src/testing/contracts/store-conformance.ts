@@ -27,6 +27,7 @@ import { pausedExecutionContract } from "./paused-execution.contract.js";
 import { rateLimitContract } from "./rate-limit.contract.js";
 import type { ContractTarget, StoreSeam } from "./seam.js";
 import { checkStoreSet, type LeftOutContract } from "./store-conformance-check.js";
+import { registerInterleavings, type InterleavingOptions } from "./explorer/register.js";
 import { registerStoreSet } from "./store-set.cases.js";
 
 /**
@@ -81,6 +82,12 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
    * (`StoreConformanceError`). Such a store must never back payments.
    */
   readonly acceptWithoutDoubleChargeProtection?: boolean;
+  /**
+   * The interleaving explorer's budget (#533): how deep it searches every schedule and how many
+   * seeded walks it takes over the set's fencing stores; `false` leaves it out (never for a store
+   * that claims payment-grade fencing). Default: 8 steps, 200 walks of 30 steps.
+   */
+  readonly interleavings?: InterleavingOptions | false;
 }
 
 /** The target `storeConformance` hands a contract: the set's name, the store's own reset or the set's. */
@@ -149,4 +156,13 @@ export function storeConformance<TTransaction>(
     { executionLease, fencedEffect, outboundCall },
     { isAccepted: set.acceptWithoutDoubleChargeProtection === true },
   );
+  if (executionLease !== undefined && set.interleavings !== false)
+    registerInterleavings(
+      set.name,
+      { fencedEffect, outboundCall },
+      {
+        ...set.interleavings,
+        isOptOutAccepted: set.acceptWithoutDoubleChargeProtection === true,
+      },
+    );
 }

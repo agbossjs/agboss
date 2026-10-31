@@ -75,13 +75,14 @@ describe("#526 AC3: a broken fencing store fails storeConformance", () => {
   it("the run fails, every fixture ran its whole set", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(new Set(FIXTURES));
-    // four contracts and the store set's suite; the backends' set leaves its lease log out
+    // four contracts, the store set's suite and the explorer's (#533); the backends' set leaves its
+    // lease log out
     for (const file of FIXTURES)
       expect(
         new Set(run.cases.filter((found) => found.file === file).map((found) => found.suites[0]))
           .size,
         file,
-      ).toBe(file === BACKENDS ? 4 : 5);
+      ).toBe(file === BACKENDS ? 5 : 6);
   });
 
   it("check, then write: the zombie's race fails — one business row is two — and the two-instance race", () => {

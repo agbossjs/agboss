@@ -14,6 +14,19 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **The interleaving explorer** (#533) — `storeConformance` now runs `interleavings (<name>)` on a
+  set's fencing stores: a deterministic scheduler of simulated instances that take, renew, yield,
+  reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
+  move an outbound call through its protocol, one operation at a time — every schedule of two
+  instances up to a depth (each state once), seeded walks of three, the second instance's clock off
+  by ± lease/2, ± lease and ± 10 × lease while the store keeps the run's time — and every
+  two-outcome race of the contracts forced in both orders (`finish` against a take, a release, a
+  `leaseStateOf`, a write against its hand-over, each compare-and-set of an intent). After each step
+  it checks one live holder, no write at a superseded, closed or expired token, one effect per key,
+  one charge per business key and no takeover of finished work; a failure prints the minimal
+  schedule. Its budget is `storeConformance({ interleavings: { depth, walks, walkDepth, seed } })`
+  (`AGBOSS_EXPLORER_SEED`), `false` to leave it out. Wiki → Your-own-store.
+
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
