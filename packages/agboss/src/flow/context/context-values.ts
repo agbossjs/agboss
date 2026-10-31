@@ -131,6 +131,22 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
   throw new DtoValidationError(options, [{ path: field, reason }]);
 }
 
+/**
+ * Who answers a pause, before it is looked up: its tenant (#552), then the owner the thread was
+ * created with or a `Channel` answerer (#589) — recorded on the pause, in the records and read by a
+ * model. A missing or blank `answeredBy` is left to the role's own check (`PauseAnswererError`).
+ */
+export function checkedCallers(
+  options: string,
+  call: { readonly tenantId: string; readonly ownerId?: unknown; readonly answeredBy?: unknown },
+): void {
+  checkedTenantId(call.tenantId);
+  checkedCallerId(options, "ownerId", call.ownerId);
+  const { answeredBy } = call;
+  if (typeof answeredBy !== "string" || answeredBy.trim() !== "")
+    checkedCallerId(options, "answeredBy", answeredBy);
+}
+
 /** `read`, once `tenantId` is checked as a key's text (#568: the operator's reads by tenant). */
 export async function tenantRead<T>(tenantId: string, read: () => Promise<T>): Promise<T> {
   checkedTenantId(tenantId);
