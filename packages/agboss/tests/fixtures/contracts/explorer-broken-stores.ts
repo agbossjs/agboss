@@ -17,6 +17,7 @@ import {
 } from "../../../src/infrastructure/outbound-call.repository.js";
 import type { FencedEffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
+import { Clock, type StoreClock } from "../../../src/infrastructure/clock.js";
 import type {
   ContractTarget,
   FencedEffectStores,
@@ -31,6 +32,21 @@ import {
   FromOldEndLeaseRepository,
 } from "./naive-expiry.js";
 import { currentToken, rewritingKeys, stepOnly } from "./naive-guarantees.js";
+
+/** The store's time as a `Clock`, for the naive stores that take one. */
+class StoreTime extends Clock {
+  constructor(private readonly storeClock: StoreClock) {
+    super();
+  }
+
+  now(): Date {
+    return this.storeClock.now();
+  }
+
+  sleep(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 /** A lease store whose `finish` only releases: finished work is taken again (#520). */
 class ReleasingFinishLeaseRepository extends InMemoryExecutionLeaseRepository {
@@ -96,7 +112,7 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
   "a lease live through its expiry instant": callsOn(
     (seam) =>
       new NaiveExpiryLeaseRepository(
-        seam.storeClock,
+        new StoreTime(seam.storeClock),
         seam.application,
         seam.database,
         throughExpiry,
@@ -105,14 +121,19 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
   "a lease renewed whatever the time": callsOn(
     (seam) =>
       new NaiveExpiryLeaseRepository(
-        seam.storeClock,
+        new StoreTime(seam.storeClock),
         seam.application,
         seam.database,
         holderAndEpochOnly,
       ),
   ),
   "a renewal from the lease's old end": callsOn(
-    (seam) => new FromOldEndLeaseRepository(seam.storeClock, seam.application, seam.database),
+    (seam) =>
+      new FromOldEndLeaseRepository(
+        new StoreTime(seam.storeClock),
+        seam.application,
+        seam.database,
+      ),
   ),
   "a finish that only releases": callsOn(
     (seam) => new ReleasingFinishLeaseRepository(seam.storeClock, seam.application, seam.database),
