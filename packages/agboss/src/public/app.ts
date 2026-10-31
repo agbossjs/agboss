@@ -46,7 +46,6 @@ export {
   Clock,
   DatabaseStoreClock,
   IdGenerator,
-  idGeneratorNameOf,
   RandomIdGenerator,
   StoreClock,
   type ExecutionIds,
