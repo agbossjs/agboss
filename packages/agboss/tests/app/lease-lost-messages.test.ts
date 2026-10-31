@@ -66,8 +66,8 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
 type AnyStores = FencedEffectStores<unknown>;
 
 const TARGETS: readonly (readonly [string, () => ContractTarget<AnyStores>])[] = [
-  ["in-memory", () => inMemoryTarget(inMemoryFencedEffects(false)) as ContractTarget<AnyStores>],
-  ["SQLite", () => sqliteTarget(sqliteFencedEffects) as ContractTarget<AnyStores>],
+  ["in-memory", () => inMemoryTarget(inMemoryFencedEffects(false))],
+  ["SQLite", () => sqliteTarget(sqliteFencedEffects)],
 ];
 
 /** What a write of `stores` under `key` was refused with. */
