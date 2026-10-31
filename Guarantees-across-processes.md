@@ -59,8 +59,33 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
 | `no-undo-on-hand-over` | A hand-over undoes nothing. A real failure undoes once. |
 | `trees-finish` | Every order finished (a declined one failed), and every batch finished, within the scenario's bound. |
+| `linearizable` | The history has an order the sequential model of the fencing stores explains (#533). See below. |
 
 The checker has its own failing cases, one per invariant (`tests/testing/faults/invariants.test.ts`).
+
+### `linearizable`: the history against the sequential model (#533)
+
+The history is checked in the Porcupine / Knossos way. Each store operation takes effect at one
+instant between its invoke and its complete. The checker looks for one order of all of them, in
+which every answer the store gave is the answer of the **sequential model** of the fencing stores
+(`src/testing/contracts/models/`: the lease, its fence and scope mark, the fenced effect, the
+outbound-call intents and their compare-and-sets). The property tests check the core's stores
+against the same model.
+
+- **Parts.** Operations that share no tree, scope or call are checked apart.
+- **Unknown answers.** An operation that never completed (its pod was killed) or failed with
+  anything but the fence's refusal may have taken effect or not.
+- **Time.** The instants are read on the store's time: the machine's monotonic time times
+  `storeTimeScale` (default the pods' `timeScale`; 1 for a database that decides by its own clock,
+  as PostgreSQL's `clock_timestamp()` does). So an early take of a live lease is no order either.
+- **A failure** names the part, the longest order found and the operations none of which can follow
+  it.
+- **`linearizabilityOf(history, { timeScale })`** checks any recorded history.
+- **Proofs.** It passes every scenario, the clock-skew ones included. It fails on hand-written
+  histories (`tests/testing/faults/linearizability.test.ts`: an epoch granted twice, a take of a
+  live lease, a renewal or a write after a newer grant, a take of finished work, two won claims). It
+  fails on the recorded history of scenario 5b on a store without the fencing check, naming the
+  zombie's write (`tests/testing/faults/recorded-history.test.ts`). Both sabotage runs fail it too.
 
 ## What the suite proves, scenario by scenario
 

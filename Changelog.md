@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the linearizability checker (#533 item 5)
+
+- **Added**: `faultViolationsOf` checks `linearizable`. Every fault run's store history must have an
+  order, each operation at an instant of its span on the store's time, in which every answer is the
+  sequential model's. `linearizabilityOf(history, { timeScale })` checks any history;
+  `faultSuite({ storeTimeScale })` says how fast the store's own clock runs. The history keeps a
+  lease's length, a claim's expected state and an ending's owner. Guarantees-across-processes →
+  `linearizable`.
+
 ## Unreleased — 0.1.1: a root's end is heard once (#597)
 
 - A root's `onExecutionEnd` / `onExecutionError` is announced only while its pass holds the tree's
