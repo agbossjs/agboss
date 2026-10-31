@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
+import { InvalidMintedIdError, KeyTextRule, keyTextRuleOf } from "../core/errors.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -126,6 +127,32 @@ export class RandomIdGenerator extends IdGenerator {
   /** A random UUID. */
   newExecutionId(): string {
     return randomUUID();
+  }
+}
+
+/**
+ * The application's `IdGenerator` as the framework mints through it (#578): every id a key's text
+ * (`keyTextRuleOf`), else `InvalidMintedIdError` before the id is used — a project's own generator
+ * minting `x\uD800` and `x\uDFFF` would make two trees one lease on a UTF-8 store.
+ */
+export class CheckedIdGenerator extends IdGenerator {
+  constructor(readonly minting: IdGenerator) {
+    super();
+  }
+
+  newThreadId(): string {
+    return this.#checked("newThreadId", this.minting.newThreadId());
+  }
+
+  newExecutionId(): string {
+    return this.#checked("newExecutionId", this.minting.newExecutionId());
+  }
+
+  #checked(method: "newThreadId" | "newExecutionId", id: unknown): string {
+    // a JavaScript project's generator may return anything: no text is no key's length
+    const rule = typeof id === "string" ? keyTextRuleOf(id) : KeyTextRule.Length;
+    if (rule === undefined) return id as string;
+    throw new InvalidMintedIdError(this.minting.constructor.name, method, rule);
   }
 }
 

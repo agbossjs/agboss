@@ -209,6 +209,17 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   announcement leaves it unannounced (Wiki → Guarantees-across-processes). The fault suite's
   `children-once` counts the observers' ends again — exactly one per finished child.
 
+- **An id the project's own `IdGenerator` mints is a key's text** (#578, found by #568) — the ids
+  the framework mints (a root's, a child's or a recursion level's execution id, a new thread's id —
+  at `execute`, a workflow run on its own and the eval runner) were never held to the key-text rules
+  every id that comes in follows: a generator minting `x\uD800` and later `x\uDFFF` made two trees
+  one lease, one lease log, one queue row and one fenced-effect scope on SQLite and PostgreSQL
+  (both `x�` in UTF-8). Every minted id is now checked at the mint (`keyTextRuleOf`): one that
+  breaks a rule (or is no string) is `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`,
+  `method`, `rule` — never the id), before it is used or stored. The built-in `RandomIdGenerator`
+  and `SequentialIdGenerator` are unaffected; `app.resolve(IdGenerator)` gives the checked generator
+  (`app.resolve(<its own class>)` the listed one).
+
 - **A minted thread id is always a new thread** (#550, found by #533) — a store's `createThread`
   without a `threadId` handed out an id the tenant already had when its `IdGenerator` repeated one
   (two tests on one database both minting from `thread-1`): another workflow's thread, so the pass
