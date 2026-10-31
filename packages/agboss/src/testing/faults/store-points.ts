@@ -90,19 +90,35 @@ const onKey = (point: StoreHoldPoint, outputOf = asIs): StoreMethod => ({
   outputOf,
 });
 
+/** A method on a held lease that asks for a length (`renew`, `reclaim`): its input says it too. */
+const withLength = (method: StoreMethod): StoreMethod => ({
+  ...method,
+  inputOf: (args) => ({ ...(leaseFacts(first(args)) as object), lease: args[1] }),
+});
+
+/** A fenced method whose input keeps more of its arguments than the key (#533: the model's). */
+const withArguments = (
+  method: StoreMethod,
+  more: (args: readonly unknown[]) => object,
+): StoreMethod => ({
+  ...method,
+  inputOf: (args) => ({ ...(keyFacts(first(args)) as object), ...more(args) }),
+});
+
 /** The lease store's methods. */
 export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   acquire: {
     point: StoreHoldPoint.LeaseAcquire,
     keyOf: (args) => String(args[1]),
-    inputOf: (args) => ({ tenantId: args[0], rootExecutionId: args[1] }),
+    // the lease asked for (#533: the linearizability checker's model needs it)
+    inputOf: (args) => ({ tenantId: args[0], rootExecutionId: args[1], lease: args[2] }),
     outputOf: leaseFacts,
   },
-  renew: onLease(StoreHoldPoint.LeaseRenew),
+  renew: withLength(onLease(StoreHoldPoint.LeaseRenew)),
   release: onLease(StoreHoldPoint.LeaseRelease),
   finish: onLease(StoreHoldPoint.LeaseFinish),
   yield: onLease(StoreHoldPoint.LeaseYield),
-  reclaim: onLease(StoreHoldPoint.LeaseReclaim, leaseFacts),
+  reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
 };
 
 /** The fenced-effect store's transaction (`runInTransaction`, what every write goes through). */
@@ -117,13 +133,22 @@ export const FENCED_EFFECT_METHODS: Readonly<Record<string, StoreMethod>> = {
 export const OUTBOUND_CALL_METHODS: Readonly<Record<string, StoreMethod>> = {
   findByKey: onKey(StoreHoldPoint.OutboundFindByKey, (record) => {
     if (record === undefined) return null;
-    const { status, attempt, token } = record as Record<string, unknown>;
-    return { status, attempt, token };
+    const { status, attempt, token, attemptOwner } = record as Record<string, unknown>;
+    return { status, attempt, token, attemptOwner };
   }),
-  saveIfAbsent: onKey(StoreHoldPoint.OutboundSaveIfAbsent),
-  markPending: onKey(StoreHoldPoint.OutboundMarkPending),
-  markCompleted: onKey(StoreHoldPoint.OutboundMarkCompleted),
-  markFailed: onKey(StoreHoldPoint.OutboundMarkFailed),
+  saveIfAbsent: withArguments(onKey(StoreHoldPoint.OutboundSaveIfAbsent), (args) => ({
+    attemptOwner: (args[1] as { readonly attemptOwner: string }).attemptOwner,
+  })),
+  markPending: withArguments(onKey(StoreHoldPoint.OutboundMarkPending), (args) => ({
+    expected: args[1],
+    claim: args[2],
+  })),
+  markCompleted: withArguments(onKey(StoreHoldPoint.OutboundMarkCompleted), (args) => ({
+    attemptOwner: args[1],
+  })),
+  markFailed: withArguments(onKey(StoreHoldPoint.OutboundMarkFailed), (args) => ({
+    attemptOwner: args[1],
+  })),
   leaseStateOf: {
     point: StoreHoldPoint.OutboundLeaseStateOf,
     keyOf: (args) => (args[0] as { readonly leaseExecutionId: string }).leaseExecutionId,

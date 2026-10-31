@@ -29,6 +29,12 @@ export interface FaultScenarioOptions {
   readonly database: FaultDatabase;
   /** How much faster than real time every pod's clock runs; default 1 (the real clock). */
   readonly timeScale?: number;
+  /**
+   * How fast the store decides a lease's time runs (#533, the linearizability checker reads the
+   * history by it): 1 for a database that decides by its own clock (`clock_timestamp()`); default
+   * `timeScale`, the pods' — the time an in-memory or SQLite store decides by.
+   */
+  readonly storeTimeScale?: number;
 }
 
 /** A scenario's own expectations that did not hold, or a wait that ran past its deadline. */
@@ -44,7 +50,11 @@ const anyLivePod = (world: FaultWorld): FaultPod | undefined =>
  * The scenario run and its facts checked: the invariants first — also when the scenario stopped
  * early, on what a live pod reads then —, then the scenario's own expectations.
  */
-async function checkedRun(scenario: FaultScenario, world: FaultWorld): Promise<FaultRun> {
+async function checkedRun(
+  scenario: FaultScenario,
+  world: FaultWorld,
+  timeScale: number,
+): Promise<FaultRun> {
   let reader: FaultPod | undefined;
   let stopped: Error | undefined;
   try {
@@ -54,7 +64,8 @@ async function checkedRun(scenario: FaultScenario, world: FaultWorld): Promise<F
     reader = anyLivePod(world);
   }
   if (reader === undefined) throw stopped ?? new Error(`${scenario.id} gave no pod to read with`);
-  const run = await world.run(reader);
+  // the history read on the store's own time (#533): the linearizability checker maps it so
+  const run = { ...(await world.run(reader)), timeScale };
   const violations = faultViolationsOf(run);
   const notes = [...world.expectations, ...(stopped === undefined ? [] : [String(stopped)])];
   if (violations.length > 0) throw new FaultInvariantError(scenario.id, violations, notes);
@@ -92,7 +103,7 @@ export async function runFaultScenario(
     timeScale: options.timeScale ?? 1,
   });
   try {
-    return await checkedRun(scenario, world);
+    return await checkedRun(scenario, world, options.storeTimeScale ?? options.timeScale ?? 1);
   } catch (error) {
     dumped(scenario, world);
     throw error;

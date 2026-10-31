@@ -1,4 +1,5 @@
 import type { FaultRun } from "../facts.js";
+import { linearizabilityViolations } from "../linearizability/check.js";
 import { effectsOnceViolations } from "./effects-once.js";
 import { oneOwnerViolations } from "./one-owner.js";
 import { treeViolations } from "./trees.js";
@@ -14,6 +15,7 @@ export const faultViolationsOf = (run: FaultRun): readonly FaultViolation[] => [
   ...oneOwnerViolations(run),
   ...effectsOnceViolations(run),
   ...treeViolations(run),
+  ...linearizabilityViolations(run),
 ];
 
 /** Throws `FaultInvariantError` with every violation when `run` broke an invariant. */

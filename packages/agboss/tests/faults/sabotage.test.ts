@@ -11,6 +11,8 @@
  * - no fencing check on the payment's intent (`UnfencedSqliteOutboundCallRepository`, #584):
  *   scenario 5c's zombie records its payment at its stale token after the new holder was granted
  *   the lease — one owner per tree is broken.
+ *
+ * #533 item 5: every run's store history also fails the linearizability checker (`linearizable`).
  */
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -54,6 +56,8 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
   it("no fencing check on the business write: 5b fails one-owner — the zombie's stale write accepted", async () => {
     const failure = await failureOf(s05ZombieFirst, unfenced);
     expect(failure.invariants).toContain(FaultInvariant.OneOwner);
+    // #533 item 5: the recorded history has no order the sequential model explains
+    expect(failure.invariants).toContain(FaultInvariant.Linearizable);
     expect(failure.violations.map((found) => found.message)).toContainEqual(
       expect.stringMatching(
         /fencedEffect\.write .* at token 1 .* was accepted after epoch 2 was granted/u,
@@ -64,6 +68,7 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
   it("a finish that is a plain release: 6b fails finished-work-untouched — the finished child's lease granted again", async () => {
     const failure = await failureOf(s06FinishedChild, releasing);
     expect(failure.invariants).toContain(FaultInvariant.FinishedWorkUntouched);
+    expect(failure.invariants).toContain(FaultInvariant.Linearizable);
   }, 120_000);
 
   it("no fencing check on the payment's intent: 5c fails one-owner — the zombie's stale intent accepted", async () => {
@@ -74,5 +79,6 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
         /outboundCall\.saveIfAbsent .* at token 1 .* was accepted after epoch 2 was granted/u,
       ),
     );
+    expect(failure.invariants).toContain(FaultInvariant.Linearizable);
   }, 120_000);
 });

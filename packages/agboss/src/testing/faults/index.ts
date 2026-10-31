@@ -69,6 +69,13 @@ export {
 export { FaultStepPoint } from "./fixture/pod-link.js";
 export { faultViolationsOf, assertFaultInvariants } from "./invariants/check.js";
 export {
+  linearizabilityOf,
+  linearizabilityViolations,
+  type LinearizabilityOptions,
+} from "./linearizability/check.js";
+export type { NotLinearizable } from "./linearizability/search.js";
+export type { CheckedOperation } from "./linearizability/operations.js";
+export {
   FaultInvariant,
   FaultInvariantError,
   type FaultViolation,

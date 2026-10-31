@@ -15,6 +15,8 @@ export enum FaultInvariant {
   NoUndoOnHandOver = "no-undo-on-hand-over",
   /** Every tree ended: a finished order paid, a declined one failed, every batch finished. */
   TreesFinish = "trees-finish",
+  /** The store history has an order the sequential model of the fencing stores explains (#533). */
+  Linearizable = "linearizable",
 }
 
 /** One broken invariant, said plainly. */

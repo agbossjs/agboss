@@ -31,6 +31,15 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   how many it left — never a pass, and never goes on resetting the store under later cases (#590).
   Wiki → Your-own-store.
 
+- **The linearizability checker** (#533) — every fault run's store history is checked against the
+  sequential model of the fencing stores (`faultViolationsOf` → `linearizable`): one order of the
+  recorded operations, each at an instant of its span on the store's time, in which every answer is
+  the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
+  reported with the longest order found and what could not follow it. `linearizabilityOf(history,
+{ timeScale })` (`@agboss/core/testing/faults`) checks any history; `faultSuite({ storeTimeScale })`
+  says how fast the store's own clock runs (1 for a database that decides by its clock). The history
+  now keeps a lease's length, a claim's expected state and an ending's owner.
+
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
