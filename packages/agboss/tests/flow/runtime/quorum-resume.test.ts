@@ -31,6 +31,7 @@ import {
   CheckedPanelApplication,
   RecoveryPanelApplication,
 } from "../fixtures/quorum-runtime.fixture.js";
+import { passLive } from "../../helpers/live-time.js";
 
 /**
  * #279 PR 2 (S26) — a pause inside a quorum: the branches that finished before it keep their records
@@ -109,7 +110,8 @@ async function crashAndRecover(
   await clock.advance(seconds(afterStop));
   if (rerun) {
     await untilWaiting(1);
-    await clock.advance(seconds(60));
+    // the other instance holds the tree now: the minute passes for a live holder (#534)
+    await passLive(clock, seconds(60));
   }
   const [recovered] = await ends(1);
   return { call, recovered };

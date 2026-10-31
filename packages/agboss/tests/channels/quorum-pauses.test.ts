@@ -40,6 +40,7 @@ import {
   RefundScoreDto,
   RiskAgent,
 } from "./fixtures/refund-panel.workflow.js";
+import { passLive } from "../helpers/live-time.js";
 
 const test = testWith(RefundPanelApplication);
 const real = testWith(RefundPanelApplication, { concurrency: TestConcurrency.Real });
@@ -129,7 +130,7 @@ describe("#337 AC1: a quorum closed by its deadline", () => {
       await untilWaiting(1);
       await until(() => seen.asks.length === 1);
 
-      await clock.advance(seconds(300));
+      await passLive(clock, seconds(300));
       const result = await run;
 
       expect(result).toFinishWith(RefundDecidedWorkflowFinish, { text: "7" });

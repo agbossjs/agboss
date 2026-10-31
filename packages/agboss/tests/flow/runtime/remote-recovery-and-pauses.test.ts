@@ -44,6 +44,7 @@ import {
   remoteRecoverySeen,
   resetRemoteRecoverySeen,
 } from "./fixtures/remote-recovery.workflow.js";
+import { passLive } from "../../helpers/live-time.js";
 
 const test = testWith(RemoteRecoveryApplication, { instances: 2 });
 const who = { tenant: { tenantId: "acme", plan: "pro" }, execution: { userId: "u1" } };
@@ -212,7 +213,8 @@ describe("#333 PR 4 AC4 & S7: per-child recovery on worker crash and graceful st
     expect(remoteRecoverySeen.holdInstanceId).toBe("instance-1");
 
     kill("instance-1");
-    await clock.advance(seconds(31));
+    // the parent on instance-2 is live: its yielded lease is renewed in time (#534)
+    await passLive(clock, seconds(31));
     const done = await call;
 
     expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, hold, c" });

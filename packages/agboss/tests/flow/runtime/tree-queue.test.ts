@@ -24,6 +24,7 @@ import {
   VotingWorkflowStart,
 } from "./fixtures/tree-vote.workflow.js";
 import { StrictVotingWorkflowStart } from "./fixtures/tree-strict-vote.workflow.js";
+import { passLive } from "../../helpers/live-time.js";
 
 /**
  * #264 PR 2 — the tree's queue (AC9, AC10): a parent that closes its branch goes first, then the
@@ -103,7 +104,7 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
 
     const execution = execute(app, VotingWorkflowStart, items);
     await untilLogged("start w");
-    await clock.advance(seconds(40));
+    await passLive(clock, seconds(40));
     const result = await execution;
 
     // the voters waited 40 s behind w: past the 30 s deadline, but that was the tree's queue
@@ -123,8 +124,8 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
     const execution = execute(app, StrictVotingWorkflowStart, items);
     execution.catch(() => undefined);
     await untilLogged("start w");
-    await clock.advance(seconds(40));
-    await clock.advance(seconds(31));
+    await passLive(clock, seconds(40));
+    await passLive(clock, seconds(31));
 
     // dispatched at 09:00:00 with a 30 s deadline, 40 s in the queue: it passed at 09:01:10
     await expect(execution).rejects.toFailWith(QuorumNotReachedError, {

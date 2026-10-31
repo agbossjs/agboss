@@ -20,6 +20,7 @@ import {
   WaitTool,
 } from "../fixtures/quorum-runtime-parts.js";
 import { CheckedPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
+import { passLive } from "../../helpers/live-time.js";
 
 /**
  * #279 PR 2 — `.joinQuorum({ min: 2, max: 3, deadline: seconds(30) })` on the test's virtual clock
@@ -77,7 +78,7 @@ describe("AC2: between min and max, the deadline", () => {
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilWaiting(1);
-      await clock.advance(seconds(31));
+      await passLive(clock, seconds(31));
       const result = await execution;
 
       expect(result).toFinishWith(PanelReviewWorkflowFinish);
@@ -122,7 +123,7 @@ describe("AC2: between min and max, the deadline", () => {
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilChecked("in-range hire 99");
-      await clock.advance(seconds(31));
+      await passLive(clock, seconds(31));
       const result = await execution;
 
       expect(result).toFinishWith(PanelReviewWorkflowFinish);
@@ -144,7 +145,7 @@ describe("AC10: the deadline counts real time, pauses included", () => {
 
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
-      await clock.advance(seconds(31));
+      await passLive(clock, seconds(31));
       const done = await app.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(PanelReviewWorkflowFinish);

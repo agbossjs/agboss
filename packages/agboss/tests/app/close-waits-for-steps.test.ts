@@ -15,6 +15,7 @@ import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
+import { passLive } from "../helpers/live-time.js";
 import {
   bodies,
   CloseStepsApplication,
@@ -77,7 +78,7 @@ async function interruptedWhileTheBodyRuns(
   call.catch(() => undefined);
   await started;
   const closed = app.close();
-  await clock.advance(INTERRUPTED_AT);
+  await passLive(clock, INTERRUPTED_AT);
   await settle();
   return { call, closed };
 }
@@ -142,7 +143,7 @@ describe("#367 S3: the executions are interrupted a grace before the shutdown ti
     const closedAt = clock.now().getTime();
     const closed = app.close();
 
-    await clock.advance(seconds(54));
+    await passLive(clock, seconds(54));
     await settle();
     expect(sawTheAbort()).toBe(false);
     await clock.advance(seconds(1));

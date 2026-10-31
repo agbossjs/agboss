@@ -69,6 +69,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 import { untilReached } from "../helpers/reached.js";
+import { passLive } from "../helpers/live-time.js";
 
 const overrides = [override(Logger, RecordingLogger)];
 const test = testWith(BusinessKeyApplication, { overrides });
@@ -148,9 +149,9 @@ async function givenUpAt(
   await untilReached(isDone, "the execution never settled at its attempt's deadline");
 }
 
-/** Moves `clock` to `at`, exactly. */
+/** Moves `clock` to `at`, exactly — for live instances: their renewals reach the store in time (#534). */
 const advancedTo = async (clock: VirtualClock, at: number): Promise<void> => {
-  await clock.advance((at - clock.now().getTime()) as Milliseconds);
+  await passLive(clock, (at - clock.now().getTime()) as Milliseconds);
   await settle();
 };
 

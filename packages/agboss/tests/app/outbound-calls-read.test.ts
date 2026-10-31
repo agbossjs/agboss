@@ -26,6 +26,7 @@ import {
   runs,
 } from "./fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "./fixtures/payment-gateway.js";
+import { passLive } from "../helpers/live-time.js";
 
 const test = testWith(OutboundCallApplication);
 const two = testWith(OutboundCallApplication, { instances: 2 });
@@ -56,7 +57,8 @@ async function stalledHolder(
   await frozenRuns(1);
   leases.stall(a);
   await clock.advance(seconds(31));
-  await clock.advance(seconds(31));
+  // the new holder is live: its renewals reach the store in time (#534)
+  await passLive(clock, seconds(31));
   await settle();
   return { call, a };
 }

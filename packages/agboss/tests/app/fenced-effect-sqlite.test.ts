@@ -34,6 +34,7 @@ import {
   letAllGo,
   resetFencedEffect,
 } from "./fixtures/fenced-effect.workflow.js";
+import { passLive } from "../helpers/live-time.js";
 
 const file = sqliteFilePerTest();
 const two = testWith(SqliteFencedEffectApplication, { instances: 2 });
@@ -70,7 +71,8 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
       await frozenRuns(1);
       leases.stall(a);
       await clock.advance(seconds(31));
-      await clock.advance(seconds(31));
+      // the new holder is live: its renewals reach the store in time (#534)
+      await passLive(clock, seconds(31));
       const [end] = await ends(1);
 
       expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
@@ -100,7 +102,8 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
       await frozenRuns(1);
       leases.stall(a);
       await clock.advance(seconds(31));
-      await clock.advance(seconds(31));
+      // the new holder is live: its renewals reach the store in time (#534)
+      await passLive(clock, seconds(31));
       await frozenRuns(2);
       const [zombie, holder] = gates.frozen.splice(0);
 

@@ -33,6 +33,7 @@ import {
   YieldReviewsWorkflowStart,
   yieldSeen,
 } from "./fixtures/remote-child-yield.workflow.js";
+import { passLive } from "../helpers/live-time.js";
 
 const test = testWith(RemoteChildYieldApplication, { instances: 2 });
 
@@ -62,7 +63,8 @@ describe("#520: the recovery sweep of a frozen instance and a finished root", ()
 
     // B freezes; its sweep lists the root still running and asks for its lease at the frozen store
     leases.stall(b);
-    await clock.advance(seconds(30));
+    // A is live meanwhile: its renewals reach the store in time (#534)
+    await passLive(clock, seconds(30));
     await settle();
     // A finishes the tree and releases its lease, then B goes on
     openGate();

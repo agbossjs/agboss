@@ -15,6 +15,7 @@ import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
+import { passLive } from "../helpers/live-time.js";
 import {
   Clerk,
   ends,
@@ -127,7 +128,9 @@ describe("#335 S1: a store error within the lease", () => {
     levers.storeDown.add("instance-1");
     await clock.advance(seconds(15));
     levers.storeDown.delete("instance-1");
-    await clock.advance(seconds(20));
+    // the next renewal reaches the store before the expiry (#534: one jump to 35 s would be a holder
+    // frozen past it)
+    await passLive(clock, seconds(20));
     levers.letGo?.();
 
     expect(await call).toMatchObject({ output: { text: "Done." } });

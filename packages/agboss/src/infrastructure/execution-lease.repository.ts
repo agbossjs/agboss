@@ -113,8 +113,9 @@ export abstract class ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined>;
 
   /**
-   * Extends the lease by `lease` from now; `false` when it was taken by another holder (after it
-   * expired), and the caller must stop moving the tree.
+   * Extends the lease by `lease` from now; `false` once it is over — expired (`now >= expiresAt`,
+   * #534: the instant of expiry belongs to the next taker, the holder included), taken by another
+   * holder, or released — and the caller must stop moving the tree.
    */
   abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
 
@@ -135,14 +136,15 @@ export abstract class ExecutionLeaseRepository {
    * step of the tree runs. It is not a release — the lease stays the holder's: `acquire` of another
    * instance is refused while it is valid, `renew` keeps it (still yielded), and once it expired it
    * is taken over like a held one (`takenOverFrom`). `false` when the caller no longer holds it (as
-   * for `renew`).
+   * for `renew`: expired at `now >= expiresAt` too, #534).
    */
   abstract yield(executionLease: ExecutionLease): Promise<boolean>;
 
   /**
    * The holder takes its lease back (#516: after a yield, before a step runs again) at
    * `leaseEpoch + 1`, held again for `lease` from now, with no `takenOverFrom`; `undefined` when it
-   * is no longer the caller's (taken after it expired, or released) — the lease `renew` would keep.
+   * is no longer the caller's (expired at `now >= expiresAt`, #534 — taken or not —, or released) —
+   * the lease `renew` would keep. An expired holder `acquire`s again: a takeover from itself.
    */
   abstract reclaim(
     executionLease: ExecutionLease,
@@ -152,7 +154,14 @@ export abstract class ExecutionLeaseRepository {
 
 /** Whether `acquire` refuses a stored lease: still held, or finished (#520). */
 const isRefused = (stored: ExecutionLeaseRow, now: Date): boolean =>
-  stored.isFinished === true || (!stored.released && stored.lease.expiresAt > now);
+  stored.isFinished === true || (!stored.released && isLiveAt(stored.lease, now));
+
+/**
+ * Whether a lease is live at `now` (#534): while `expiresAt > now`, and only then — the one boundary
+ * of every check of a lease (`acquire`, `renew`, `yield`, `reclaim`, a fenced write, `leaseStateOf`).
+ */
+export const isLiveAt = (lease: { readonly expiresAt: Date }, now: Date): boolean =>
+  lease.expiresAt.getTime() > now.getTime();
 
 /** Whether `stored` is the very lease the caller holds (its holder and epoch). */
 const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
@@ -207,10 +216,8 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
-    const stored = this.database.executionLeases.get(key);
-    if (stored === undefined || stored.released || !isSameLease(stored.lease, executionLease)) {
-      return Promise.resolve(false);
-    }
+    const stored = this.#heldOf(key, executionLease);
+    if (stored === undefined) return Promise.resolve(false);
     const expiresAt = new Date(this.clock.now().getTime() + lease);
     this.database.executionLeases.set(key, { ...stored, lease: { ...stored.lease, expiresAt } });
     return Promise.resolve(true);
@@ -262,10 +269,17 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(reclaimed);
   }
 
-  /** The stored row of `key` while it is still `held` — as `renew` finds it; `undefined` otherwise. */
+  /**
+   * The stored row of `key` while it is still `held` and live (#534: `expiresAt > now`) — as
+   * `renew`, `yield` and `reclaim` find it; `undefined` otherwise.
+   */
   #heldOf(key: string, held: ExecutionLease): ExecutionLeaseRow | undefined {
     const stored = this.database.executionLeases.get(key);
-    const isHeld = stored !== undefined && !stored.released && isSameLease(stored.lease, held);
+    const isHeld =
+      stored !== undefined &&
+      !stored.released &&
+      isSameLease(stored.lease, held) &&
+      isLiveAt(stored.lease, this.clock.now());
     return isHeld ? stored : undefined;
   }
 }

@@ -282,7 +282,8 @@ describe("waitFor(…): a call takes time on the test's clock", () => {
     const run = app.execute(IntakeWorkflowStart, { text: "jobs?" }).finally(() => {
       settled = true;
     });
-    await clock.advance(seconds(30));
+    // in steps of a renewal: one jump of a whole lease is a holder frozen until its expiry (#534)
+    for (let step = 0; step < 3; step += 1) await clock.advance(seconds(10));
     const before = settled;
     await clock.advance(seconds(1));
 

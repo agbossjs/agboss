@@ -106,10 +106,12 @@ describe("#526 AC3: a broken fencing store fails storeConformance", () => {
     expect(failingSuites(ROWS_OUTSIDE)).toEqual(new Set([suite]));
   });
 
-  it("a check-then-write lease close: leaseStateOf's races with a renewal and a take fail, nothing else", () => {
+  it("a check-then-write lease close: leaseStateOf's race with a take fails, nothing else", () => {
     const suite = "outbound call contract (check-then-write lease close)";
 
-    expect(under(LEASE_CLOSE, suite, "fail")).toEqual([RENEWAL_RACE, TAKE_RACE]);
+    // #534: its race with a renewal is closed by the lease store, which refuses a late renewal
+    expect(under(LEASE_CLOSE, suite, "fail")).toEqual([TAKE_RACE]);
+    expect(under(LEASE_CLOSE, suite, "pass")).toContain(RENEWAL_RACE);
     expect(failingSuites(LEASE_CLOSE)).toEqual(new Set([suite]));
   });
 

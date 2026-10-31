@@ -6,7 +6,8 @@ import type { OutboundCallLease } from "./outbound-call-record.js";
 
 /**
  * The state of a lease that wrote a pending outbound call (#508), loaded on the first check — in
- * memory and on SQLite. An expired one is closed by the check itself, in the same atomic step:
+ * memory and on SQLite. Live while `expiresAt > now`, the one boundary of every lease check (#534); an
+ * expired one (`now >= expiresAt`) is closed by the check itself, in the same atomic step:
  * released at its token — marked superseded (in memory `isSuperseded`, on SQLite `released = 2`), so
  * the next take still names its holder and token (`takenOverFrom`) — and its holder can neither
  * renew it nor write under it again.

@@ -3,8 +3,9 @@
  * SELECT-then-UPDATE port (the fenced read, the network, a write keyed by row only), alone or
  * serialized per lease row (as `SELECT … FROM execution_leases FOR UPDATE` would), fails them — a
  * business key's one row is moved under two leases, which no lease lock serializes — while the
- * core's in-memory store passes them — and a `leaseStateOf` that reads, then closes in a
- * second step, fails its race with a late renewal.
+ * core's in-memory store passes them. A `leaseStateOf` that reads, then closes in a second step,
+ * failed its race with a late renewal before #534; since then the lease store refuses a renewal
+ * past the expiry, so an expired lease stays expired until a take, and it passes both races.
  */
 import { describe, expect, it } from "vitest";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
@@ -179,10 +180,12 @@ describe("#508 re-review MEDIUM5: the races fail every store that is not atomic"
       });
   });
 
-  it("a leaseStateOf that is a SELECT, a round trip, then a conditional UPDATE fails the race with its holder's renewal: it says Superseded while the holder renewed and sends on", async () => {
-    const pattern = LIVENESS[0] ?? /none/u;
-
-    expect(await failsOn(naiveLeaseState, pattern)).toBe(true);
+  it("#534: a leaseStateOf that is a SELECT, a round trip, then a conditional UPDATE no longer loses either race — the lease store refuses a renewal past the expiry, so an expired lease stays expired until a take, which the UPDATE's condition excludes", async () => {
+    for (const pattern of LIVENESS)
+      expect({ pattern, fails: await failsOn(naiveLeaseState, pattern) }).toEqual({
+        pattern,
+        fails: false,
+      });
   });
 
   it("the core's in-memory store passes every one of them", async () => {

@@ -144,22 +144,6 @@ const releasedLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const expiredLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
-  name: "AC2: an expired lease no one took yet is refused",
-  run: async ({ clock, first }) => {
-    const count: WriteCount = { runs: 0 };
-    const lease = await leaseOf(first, "execution-1", SHORT);
-    await clock.advance(seconds(30));
-
-    const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(keyOf(lease), writing(first.rows, "r1", count)),
-    );
-
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
-    expect(count.runs).toBe(0);
-  },
-});
-
 const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   name: "AC2: a scope without a lease is refused, with no observed token",
   run: async ({ first }) => {
@@ -196,7 +180,6 @@ export const refusalCases = <TTransaction>(): ContractGroup<FencedEffectStores<T
     lowerTokenRefused<TTransaction>(),
     zombieFirstRefused<TTransaction>(),
     releasedLeaseRefused<TTransaction>(),
-    expiredLeaseRefused<TTransaction>(),
     noLeaseRefused<TTransaction>(),
   ],
 });
