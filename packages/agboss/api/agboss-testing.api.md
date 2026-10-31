@@ -1326,8 +1326,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/script.ts:34:1 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/script.ts:39:1 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/script.ts:104:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:140:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:141:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:138:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:139:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
@@ -1371,8 +1371,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:128:3 - (ae-undocumented) Missing documentation for "details".
 // src/testing/turns.ts:133:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/turns.ts:134:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/turns.ts:144:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:145:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/turns.ts:143:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:144:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
