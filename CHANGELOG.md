@@ -187,6 +187,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A root's end is heard once** (#597, found in the acceptance of #562) — a root's holder that
+  froze right after its tree's end became durable (its finish checkpoint, its failed step's error),
+  whose tree another instance recovered and announced, announced the end again when it thawed, and
+  its `app.execute` resolved with the output (or rejected with the tree's own error) as if it still
+  held the tree. The end is now announced only while the pass holds the lease: the thawed holder
+  stops at its own fence, rejects with `ExecutionLeaseLostError` and announces nothing.
 - **An announced child failure stays the child's end** (#596, found in the acceptance of #562) — a
   `ParentInstance` child whose failure its parent's holder announced, the holder then frozen before
   its step was checkpointed, was run again by the instance that took the tree over: a step that

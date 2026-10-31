@@ -1501,7 +1501,10 @@ output })` on a successful result, inner first, each output validated against th
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A child's end
+  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`); a root's end only
+  while its pass still holds the tree's lease (#597, `observed-pass.ts`: a holder frozen after the
+  end became durable, whose tree another instance recovered and ended, stops at its own fence —
+  `ExecutionLeaseLostError`, no announcement — at most once, as a child's). A child's end
   (#562) is announced only by the pass that ended it and only while that pass holds the tree's
   lease (`assertAnnouncing`, `flow/runtime/child-failure.ts`): an `AnyInstance` child's finish by the worker whose
   completion of its queue row won (`app/remote/child-end-event.ts`, on that worker's instance), one
