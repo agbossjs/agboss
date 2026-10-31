@@ -120,7 +120,7 @@ function originalOf(store: Class, name: string): (...args: unknown[]) => Promise
 
 /** A listed store class, extended as the concrete class it is (its type may be the abstract contract). */
 const concreteOf = (store: Class): new (...args: unknown[]) => object =>
-  store as Class as new (...args: unknown[]) => object;
+  store as new (...args: unknown[]) => object;
 
 /** The subclass, typed as the store it extends (same constructor, same statics). */
 function sameClass<TStore extends Class>(store: TStore, held: Class): TStore {

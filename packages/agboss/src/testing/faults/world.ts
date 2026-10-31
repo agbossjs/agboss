@@ -1,5 +1,18 @@
 import { systemClock } from "../../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
+import {
+  tcpTargetOf,
+  throughProxy,
+  type FaultPodOptions,
+  type FaultWorldOptions,
+} from "./world-options.js";
+
+export {
+  tcpTargetOf,
+  type FaultDatabase,
+  type FaultPodOptions,
+  type FaultWorldOptions,
+} from "./world-options.js";
 import { DatabaseProxy } from "./database-proxy.js";
 import type { FaultRun, PodEventFact, FaultFacts } from "./facts.js";
 import { FaultGateway } from "./fault-gateway.js";
@@ -17,45 +30,6 @@ import { ExecutionHistoryStatus } from "../../infrastructure/execution-history.r
  * world looks at the events of every pod, dead or alive; it is bounded, and past its deadline it
  * fails naming what it waited for.
  */
-
-/** The database a fault suite runs on. */
-export interface FaultDatabase {
-  /** The address every pod gets (`AGBOSS_FAULT_DATABASE_URL`): a URL, or a file's path. */
-  readonly url: string;
-  /** Before each scenario: an empty database (a new schema, a new file). */
-  readonly reset?: () => void | Promise<void>;
-  /** Whether each pod reaches it through a proxy; default: when `url` is a URL with a port. */
-  readonly proxy?: boolean;
-}
-
-/** What a world is made of. */
-export interface FaultWorldOptions {
-  readonly stores: string;
-  readonly database: FaultDatabase;
-  readonly timeScale: number;
-}
-
-/** What a pod of a scenario is started with. */
-export interface FaultPodOptions {
-  readonly shutdownTimeout?: Milliseconds;
-  readonly maxConcurrentSteps?: number;
-}
-
-/** The host and port of a TCP database's URL; `undefined` for a file. */
-export function tcpTargetOf(url: string): { host: string; port: number } | undefined {
-  if (!URL.canParse(url)) return undefined;
-  const parsed = new URL(url);
-  if (parsed.protocol === "file:" || parsed.port === "") return undefined;
-  return { host: parsed.hostname, port: Number(parsed.port) };
-}
-
-/** `url` with its host and port replaced by the proxy's. */
-const throughProxy = (url: string, port: number): string => {
-  const parsed = new URL(url);
-  parsed.hostname = "127.0.0.1";
-  parsed.port = String(port);
-  return parsed.toString();
-};
 
 export class FaultWorld {
   readonly history = new OperationHistory();
@@ -182,18 +156,9 @@ export class FaultWorld {
       };
       this.#watchers.add(look);
       void systemClock.sleep(timeout, deadline.signal).then(() => {
-        if (!deadline.signal.aborted) {
-          deadline.abort();
-          this.#watchers.delete(look);
-          const event = this.events.find(matches);
-          if (event !== undefined) resolve(event);
-          else
-            reject(
-              new FaultWaitError(
-                `no ${what} within ${String(timeout / 1000)} s; events: ${this.#lastEvents()}`,
-              ),
-            );
-        }
+        if (deadline.signal.aborted) return;
+        deadline.abort();
+        look();
       });
       look();
     });
