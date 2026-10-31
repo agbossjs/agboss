@@ -258,8 +258,9 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   code points) — `KeyTextRule.Ignorable`, `ignorable` —; a private-use character or a noncharacter
   (U+FDD0–U+FDEF, U+xFFFE / U+xFFFF) — `private-or-noncharacter` —; a code point unassigned in the
   runtime's Unicode (`Cn`) — `unassigned`: a later Node may assign it a decomposition or make it a
-  format character, refusing a key stored before; unassigned code points only become assigned, so a
-  key accepted now stays one — and U+2800 BRAILLE PATTERN BLANK — `blank`. The same entry points and
+  format character, refusing a key stored before; a code point never becomes unassigned again, so
+  this rule never refuses a key it accepted (the categories the other rules read may change in a
+  later Unicode — a refusal then, never a second charge, #587) — and U+2800 BRAILLE PATTERN BLANK — `blank`. The same entry points and
   messages, the key never named; in `KeyTextRule`'s order, after `spacing` and before `not-nfc`. During
   a rolling upgrade a key holding a character only the newer runtime's Unicode assigns is refused by
   an older instance — closed, nothing charged. **Migration:** drop variation selectors (an emoji
