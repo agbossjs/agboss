@@ -61,7 +61,8 @@ export abstract class ExecutionRecordRepository {
   /**
    * A new thread (#261 S72: its key is `tenantId` + `threadId` — the same id in two tenants is two
    * threads); with an `ownerId`, only that owner may continue it; with a `threadId`, the caller's
-   * own id (#262 Q4) — one the tenant has already is kept as it is — else one is made. Its id.
+   * own id (#262 Q4) — one the tenant has already is kept as it is — else one is made, never an
+   * id the tenant has a thread of (#550: an `IdGenerator` may repeat one — mint the next). Its id.
    * Every read by thread below names the thread by both, `(tenantId, threadId, …)`.
    */
   abstract createThread(thread: NewThread): Promise<string>;
