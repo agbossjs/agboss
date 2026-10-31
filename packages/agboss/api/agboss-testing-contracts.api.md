@@ -129,6 +129,7 @@ export interface FencingContractOptions {
 export interface InterleavingOptions {
     readonly depth?: number;
     readonly seed?: number;
+    readonly timeLimit?: number;
     readonly walkDepth?: number;
     readonly walks?: number;
 }

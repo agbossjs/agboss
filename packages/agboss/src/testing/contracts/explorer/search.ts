@@ -1,3 +1,4 @@
+import { systemClock } from "../../../infrastructure/clock.js";
 import type { ContractTarget } from "../seam.js";
 import { enabledActions, isSameAction } from "./enabled.js";
 import { ExplorerRun, describe, type RanStep } from "./run.js";
@@ -25,6 +26,26 @@ export interface SearchReport {
   readonly schedules: number;
   readonly states: number;
   readonly violation?: FoundViolation;
+  /** Set when the search stopped before it was done (#590): how much was left, and why. */
+  readonly stopped?: { readonly left: number; readonly reason: string };
+}
+
+/**
+ * When a search must stop (#590): its case's signal (aborted when vitest times the case out — a
+ * search left running would keep resetting the store under the next case) and a deadline on the
+ * real clock (ms). A search that stops says so; it never reports a partial search as a whole one.
+ */
+export interface SearchBudget {
+  readonly signal?: AbortSignal;
+  readonly deadline?: number;
+}
+
+/** Why `budget` says stop now, or nothing. */
+export function stopReasonOf(budget: SearchBudget): string | undefined {
+  if (budget.signal?.aborted === true) return "its case was aborted (timed out or cancelled)";
+  if (budget.deadline !== undefined && systemClock.now().getTime() >= budget.deadline)
+    return "it reached its time limit";
+  return undefined;
 }
 
 /** `actions` replayed on a new run: an action no longer enabled is skipped. */
@@ -90,11 +111,15 @@ export async function exhaustive(
   world: ExplorerWorld,
   target: ContractTarget<ExplorerStores>,
   depth: number,
+  budget: SearchBudget = {},
 ): Promise<SearchReport> {
   const seen = new Set<string>();
   const pending: ExplorerAction[][] = [[]];
   let schedules = 0;
   for (let prefix = pending.shift(); prefix !== undefined; prefix = pending.shift()) {
+    const reason = stopReasonOf(budget);
+    if (reason !== undefined)
+      return { schedules, states: seen.size, stopped: { left: pending.length + 1, reason } };
     const run = await replayed(world, target, prefix);
     schedules += 1;
     const violation = run.observer.violations[0];
@@ -128,9 +153,13 @@ export async function randomWalks(
   world: ExplorerWorld,
   target: ContractTarget<ExplorerStores>,
   options: { readonly runs: number; readonly depth: number; readonly seed: number },
+  budget: SearchBudget = {},
 ): Promise<SearchReport> {
   const random = seededRandom(options.seed);
   for (let walk = 0; walk < options.runs; walk += 1) {
+    const reason = stopReasonOf(budget);
+    if (reason !== undefined)
+      return { schedules: walk, states: 0, stopped: { left: options.runs - walk, reason } };
     const run = await ExplorerRun.open(world, target);
     const actions: ExplorerAction[] = [];
     try {
