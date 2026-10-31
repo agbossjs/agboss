@@ -67,7 +67,6 @@ export interface FaultFacts {
 // @public (undocumented)
 export class FaultGateway {
     answerHeld(orderId: string): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "GatewayCall" needs to be exported by the entry point index.d.ts
     call(pod: FaultPod, id: number, call: GatewayCall): Promise<void>;
     holdAnswer(orderId: string): void;
     get payments(): readonly GatewayPaymentFact[];
@@ -109,13 +108,11 @@ export interface FaultOrder {
 
 // @public (undocumented)
 export class FaultPod {
-    // Warning: (ae-forgotten-export) The symbol "PodLaunch" needs to be exported by the entry point index.d.ts
     constructor(name: string, child: ChildProcess, launch: PodLaunch);
     answerGateway(id: number, answer: {
         readonly result?: unknown;
         readonly error?: string;
     }): void;
-    // Warning: (ae-forgotten-export) The symbol "PodCommand" needs to be exported by the entry point index.d.ts
     command(command: PodCommand, timeout?: Milliseconds): Promise<unknown>;
     cont(): void;
     // (undocumented)
@@ -252,7 +249,7 @@ export enum FaultWorkflow {
     Order = "order"
 }
 
-// @public (undocumented)
+// @public
 export class FaultWorld {
     constructor(options: FaultWorldOptions);
     close(): Promise<void>;
@@ -297,6 +294,18 @@ export interface FaultWorldOptions {
     readonly stores: string;
     // (undocumented)
     readonly timeScale: number;
+}
+
+// @public
+export interface GatewayCall {
+    // (undocumented)
+    readonly amount: number;
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly op: "charge" | "lookup";
+    // (undocumented)
+    readonly orderId: string;
 }
 
 // @public
@@ -384,6 +393,9 @@ export interface HoldRequest {
 export function killPods(): void;
 
 // @public
+export function launchPod(launch: PodLaunch): Promise<FaultPod>;
+
+// @public
 export interface OperationEvent {
     readonly at: string;
     readonly error?: {
@@ -425,6 +437,34 @@ export interface OperationRecorder {
 }
 
 // @public
+export type PodCommand = {
+    readonly op: "arm";
+    readonly request: HoldRequest;
+} | {
+    readonly op: "disarm";
+    readonly armId: string;
+} | {
+    readonly op: "release";
+    readonly holdId: string;
+} | {
+    readonly op: "release-all";
+} | {
+    readonly op: "start";
+    readonly tag: string;
+    readonly workflow: FaultWorkflow;
+    readonly orders: readonly FaultOrder[];
+} | {
+    readonly op: "read";
+    readonly rootExecutionIds: readonly string[];
+} | {
+    readonly op: "close";
+    readonly timeout?: number;
+} | {
+    readonly op: "outage";
+    readonly mode: StoreOutageMode | null;
+};
+
+// @public
 export interface PodEvent {
     // (undocumented)
     readonly [field: string]: unknown;
@@ -443,6 +483,25 @@ export interface PodExit {
     readonly code: number | null;
     // (undocumented)
     readonly signal: NodeJS.Signals | null;
+}
+
+// @public
+export interface PodLaunch {
+    readonly databaseUrl: string;
+    // (undocumented)
+    readonly maxConcurrentSteps?: number | undefined;
+    // (undocumented)
+    readonly name: string;
+    readonly onEvent: (pod: FaultPod, event: PodEvent) => void;
+    readonly onGateway: (pod: FaultPod, id: number, call: GatewayCall) => void;
+    readonly onOperation: (event: OperationEvent) => void;
+    // (undocumented)
+    readonly shutdownTimeout?: Milliseconds | undefined;
+    readonly stores: string;
+    // (undocumented)
+    readonly timeOrigin: number;
+    // (undocumented)
+    readonly timeScale: number;
 }
 
 // @public
@@ -606,6 +665,15 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/pod-protocol.ts:22:3 - (ae-undocumented) Missing documentation for "orderId".
 // src/testing/faults/pod-protocol.ts:55:3 - (ae-undocumented) Missing documentation for "type".
 // src/testing/faults/pod-protocol.ts:56:3 - (ae-undocumented) Missing documentation for "__index".
+// src/testing/faults/pod-protocol.ts:61:3 - (ae-undocumented) Missing documentation for "op".
+// src/testing/faults/pod-protocol.ts:62:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/faults/pod-protocol.ts:63:3 - (ae-undocumented) Missing documentation for "orderId".
+// src/testing/faults/pod-protocol.ts:64:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/faults/pod.ts:29:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:34:3 - (ae-undocumented) Missing documentation for "timeScale".
+// src/testing/faults/pod.ts:35:3 - (ae-undocumented) Missing documentation for "timeOrigin".
+// src/testing/faults/pod.ts:36:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/pod.ts:37:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
 // src/testing/faults/pod.ts:48:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/pod.ts:53:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/faults/pod.ts:54:3 - (ae-undocumented) Missing documentation for "signal".
@@ -631,19 +699,18 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/store-points.ts:28:3 - (ae-undocumented) Missing documentation for "OutboundLeaseStateOf".
 // src/testing/faults/store-points.ts:29:3 - (ae-undocumented) Missing documentation for "ChildClaim".
 // src/testing/faults/store-points.ts:30:3 - (ae-undocumented) Missing documentation for "ChildComplete".
-// src/testing/faults/world.ts:33:3 - (ae-undocumented) Missing documentation for "stores".
-// src/testing/faults/world.ts:34:3 - (ae-undocumented) Missing documentation for "database".
-// src/testing/faults/world.ts:35:3 - (ae-undocumented) Missing documentation for "timeScale".
-// src/testing/faults/world.ts:40:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
-// src/testing/faults/world.ts:41:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
-// src/testing/faults/world.ts:60:1 - (ae-undocumented) Missing documentation for "FaultWorld".
-// src/testing/faults/world.ts:61:3 - (ae-undocumented) Missing documentation for "history".
-// src/testing/faults/world.ts:62:3 - (ae-undocumented) Missing documentation for "gateway".
-// src/testing/faults/world.ts:63:3 - (ae-undocumented) Missing documentation for "events".
-// src/testing/faults/world.ts:64:3 - (ae-undocumented) Missing documentation for "orders".
-// src/testing/faults/world.ts:65:3 - (ae-undocumented) Missing documentation for "pods".
-// src/testing/faults/world.ts:68:3 - (ae-undocumented) Missing documentation for "timeOrigin".
-// src/testing/faults/world.ts:79:15 - (ae-undocumented) Missing documentation for "options".
+// src/testing/faults/world-options.ts:17:3 - (ae-undocumented) Missing documentation for "stores".
+// src/testing/faults/world-options.ts:18:3 - (ae-undocumented) Missing documentation for "database".
+// src/testing/faults/world-options.ts:19:3 - (ae-undocumented) Missing documentation for "timeScale".
+// src/testing/faults/world-options.ts:24:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/world-options.ts:25:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
+// src/testing/faults/world.ts:35:3 - (ae-undocumented) Missing documentation for "history".
+// src/testing/faults/world.ts:36:3 - (ae-undocumented) Missing documentation for "gateway".
+// src/testing/faults/world.ts:37:3 - (ae-undocumented) Missing documentation for "events".
+// src/testing/faults/world.ts:38:3 - (ae-undocumented) Missing documentation for "orders".
+// src/testing/faults/world.ts:39:3 - (ae-undocumented) Missing documentation for "pods".
+// src/testing/faults/world.ts:42:3 - (ae-undocumented) Missing documentation for "timeOrigin".
+// src/testing/faults/world.ts:53:15 - (ae-undocumented) Missing documentation for "options".
 
 // (No @packageDocumentation comment for this package)
 
