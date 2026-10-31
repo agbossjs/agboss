@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { gatedBody, type FencingGate } from "./fencing-gate.js";
 import {
   withTarget,
   type ContractCaseBody,
@@ -18,12 +19,16 @@ export interface ContractCase<TStore> {
   readonly run: ContractCaseBody<TStore>;
   /** Run on real time, the stores deciding by the database's time (#533); absent: the suite's clock. */
   readonly databaseTime?: DatabaseTime;
+  /** A case only an atomic lease check passes (#543): behind the suite's fencing gate. */
+  readonly isFencing?: boolean;
 }
 
 /** Cases registered together; with a `title`, inside a `describe` of their own. */
 export interface ContractGroup<TStore> {
   readonly title?: string;
   readonly cases: readonly ContractCase<TStore>[];
+  /** Every case of the group is a fencing case (#543). */
+  readonly isFencing?: boolean;
 }
 
 /** One fast round trip to a store (its `ping()`), as readiness makes it. */
@@ -42,25 +47,38 @@ export const PING_CASE = "ping() resolves on both instances";
 
 const registerCases = <TStore>(
   target: ContractTarget<TStore>,
-  cases: readonly ContractCase<TStore>[],
+  group: ContractGroup<TStore>,
+  gate: FencingGate<TStore> | undefined,
 ): void => {
-  for (const contractCase of cases)
-    it(contractCase.name, withTarget(target, contractCase.run, contractCase.databaseTime));
+  for (const contractCase of group.cases) {
+    const isGated =
+      gate !== undefined && (group.isFencing === true || contractCase.isFencing === true);
+    const { run, databaseTime } = contractCase;
+    if (isGated)
+      it(contractCase.name, (context) =>
+        withTarget(target, gatedBody(gate, run, context), databaseTime)(),
+      );
+    else it(contractCase.name, withTarget(target, run, databaseTime));
+  }
 };
 
-/** Registers the suite `<contract> (<target name>)`: every group's cases, then the ping case. */
+/**
+ * Registers the suite `<contract> (<target name>)`: every group's cases, then the ping case; the
+ * fencing cases behind `gate` when the contract has one (#543).
+ */
 export function registerContract<TStore>(
   contract: string,
   target: ContractTarget<TStore>,
   groups: readonly ContractGroup<TStore>[],
   ping: StorePing<TStore>,
+  gate?: FencingGate<TStore>,
 ): void {
   describe(`${contract} (${target.name})`, () => {
     for (const group of groups) {
-      if (group.title === undefined) registerCases(target, group.cases);
+      if (group.title === undefined) registerCases(target, group, gate);
       else
         describe(group.title, () => {
-          registerCases(target, group.cases);
+          registerCases(target, group, gate);
         });
     }
     it(

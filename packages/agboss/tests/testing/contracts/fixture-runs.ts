@@ -20,6 +20,8 @@ export interface FixtureCase {
   readonly state: "pass" | "fail" | "skip" | "todo" | "run" | "queued" | "only" | undefined;
   /** The messages of its errors. */
   readonly errors: readonly string[];
+  /** Why it was skipped, when a case skipped itself with a note (#543). */
+  readonly note?: string | undefined;
 }
 
 /** What a fixture run reported. */
@@ -28,6 +30,12 @@ export interface FixtureRun {
   /** Whether the run failed (a failing case, a file that did not load). */
   readonly isFailed: boolean;
 }
+
+/** The note a case skipped itself with (`context.skip(note)`), which the result carries untyped. */
+const noteOf = (task: RunnerTask): string | undefined => {
+  const note: unknown = task.result === undefined ? undefined : Reflect.get(task.result, "note");
+  return typeof note === "string" ? note : undefined;
+};
 
 function casesOf(task: RunnerTask, file: string, suites: readonly string[]): FixtureCase[] {
   if (task.type === "suite") {
@@ -40,6 +48,7 @@ function casesOf(task: RunnerTask, file: string, suites: readonly string[]): Fix
       name: task.name,
       state: task.result?.state,
       errors: (task.result?.errors ?? []).map((error) => error.message),
+      note: noteOf(task),
     },
   ];
 }

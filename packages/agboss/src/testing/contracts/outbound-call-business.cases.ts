@@ -111,6 +111,7 @@ const liveLease: OutboundCallCase = {
 
 const expiredLease: OutboundCallCase = {
   name: "#508: leaseStateOf closes an expired lease at its token — Superseded once, then Ended; the next take is the very next token, taken over from the holder at the token it held",
+  isFencing: true,
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));
@@ -153,6 +154,7 @@ const HOLDER_WRITES: readonly (readonly [
 
 const supersededHolderRefused: OutboundCallCase = {
   name: "#508: after leaseStateOf closed its lease at token N, its holder cannot renew it and every read and write of its at N is ExecutionFencedError — the intent unchanged",
+  isFencing: true,
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     const key = businessKeyOf(lease);
@@ -175,6 +177,7 @@ const supersededHolderRefused: OutboundCallCase = {
 
 const supersededYieldRefused: OutboundCallCase = {
   name: "#508: a yielded lease closed by leaseStateOf at token N: its holder can neither reclaim nor yield it again at N",
+  isFencing: true,
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     expect(await first.leases.yield(lease)).toBe(true);

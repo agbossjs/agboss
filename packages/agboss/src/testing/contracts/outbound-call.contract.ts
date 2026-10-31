@@ -1,4 +1,5 @@
 import { registerContract } from "./define.js";
+import type { FencingContractOptions } from "./fencing-gate.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
 import { outboundExpiryCases } from "./outbound-call-expiry.cases.js";
 import { outboundKeyTextCases } from "./outbound-call-key-text.cases.js";
@@ -20,9 +21,14 @@ export type { OutboundCallStores } from "./outbound-call-data.js";
  * attempt only from the state its caller read (a compare-and-set, one winner); every fenced
  * method refused for a stale token, a released or an expired lease, changing nothing; listed by
  * tree and by status in the order recorded; removed by the retention cutoff on the `Clock` once
- * ended, never while pending; under a business key (#508) one intent per tenant, name and key.
+ * ended, never while pending; under a business key (#508) one intent per tenant, name and key. A
+ * store that opts out of the atomic lease check passes none of the fencing cases (#543): they fail
+ * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`.
  */
-export function outboundCallContract(target: ContractTarget<OutboundCallStores>): void {
+export function outboundCallContract(
+  target: ContractTarget<OutboundCallStores>,
+  options: FencingContractOptions = {},
+): void {
   registerContract(
     "outbound call contract",
     target,
@@ -39,5 +45,9 @@ export function outboundCallContract(target: ContractTarget<OutboundCallStores>)
       outboundExpiryCases(),
     ],
     (stores) => stores.calls.ping(),
+    {
+      storeOf: (stores) => stores.calls,
+      isAccepted: options.acceptWithoutDoubleChargeProtection === true,
+    },
   );
 }

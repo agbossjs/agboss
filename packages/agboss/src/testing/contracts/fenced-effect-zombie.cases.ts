@@ -62,6 +62,7 @@ const settled = <T>(call: Promise<T>): Promise<T | { readonly rejected: unknown 
 
 const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
   name: "#526 AC3: a write racing its lease's release, the next take and the new holder's write of the same key, round after round: one business row — the old holder's before the take, or it is refused",
+  isFencing: true,
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     for (let round = 0; round < ROUNDS; round += 1) {

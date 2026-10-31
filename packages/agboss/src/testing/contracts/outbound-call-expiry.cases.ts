@@ -64,6 +64,7 @@ const stateAtEdge = (edge: ExpiryEdge): OutboundCallCase => {
 /** The outbound-call store against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
 export const outboundExpiryCases = (): ContractGroup<OutboundCallStores> => ({
   title: "the lease's expiry",
+  isFencing: true,
   cases: [
     ...EXPIRY_EDGES.map(recordAt),
     ...EXPIRY_EDGES.map(stateAtEdge),

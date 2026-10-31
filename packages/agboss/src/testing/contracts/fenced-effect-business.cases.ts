@@ -130,6 +130,7 @@ const noFingerprintIsOne = <TTransaction>(): Case<TTransaction> => ({
 
 const staleRefused = <TTransaction>(): Case<TTransaction> => ({
   name: "#508: a stale token is refused even when its business key has a stored result — the zombie gets no receipt",
+  isFencing: true,
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
     const old = await leaseOf(first, "execution-1", seconds(30));

@@ -48,6 +48,7 @@ const FENCED_CALLS: readonly (readonly [
 
 const staleTokenRefused = ([method, call]: (typeof FENCED_CALLS)[number]): OutboundCallCase => ({
   name: `AC5: ${method} with a token below the lease's after a takeover is refused and changes nothing`,
+  isFencing: true,
   run: async ({ clock, first, second }) => {
     const old = await leaseOf(first, "execution-1", seconds(30));
     await recorded(first, keyOf(old));
@@ -70,6 +71,7 @@ const staleTokenRefused = ([method, call]: (typeof FENCED_CALLS)[number]): Outbo
 
 const releasedRefused: OutboundCallCase = {
   name: "AC5: a released lease is refused before anything is recorded",
+  isFencing: true,
   run: async ({ first }) => {
     const lease = await leaseOf(first);
     await first.leases.release(lease);
@@ -87,6 +89,7 @@ const releasedRefused: OutboundCallCase = {
 
 const expiredRefused: OutboundCallCase = {
   name: "AC5: an expired lease nobody took yet is refused too",
+  isFencing: true,
   run: async ({ clock, first }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));

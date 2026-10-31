@@ -64,6 +64,17 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Changed — breaking for stores outside the core
 
+- **An opted-out store is never conformant for fencing** (#543) — `storeConformance` (and
+  `fencedEffectContract` / `outboundCallContract`, `{ acceptWithoutDoubleChargeProtection }`) fails
+  every fencing case of a store that declares `LeaseCheck.WithoutDoubleChargeProtection`
+  (`[store-conformance.opted-out-store]`) unless the call says
+  `acceptWithoutDoubleChargeProtection: true`; then those cases are skipped — never passed — with
+  "store opted out of the lease check: no double-charge protection", every other case runs, and the
+  set shows `gives NO double-charge protection for fenced effects | outbound calls`. Before, an
+  atomic store with the flag on passed every case and an honest one could pass none. The start's
+  `[application.lease-check-not-atomic]` links Wiki → Your-own-store. **Migration:** a set with an
+  opted-out store adds `acceptWithoutDoubleChargeProtection: true`.
+
 - **One transactional backend, checked at assembly** (#526) — `ExecutionLeaseRepository`,
   `FencedEffectRepository` and `OutboundCallRepository` declare `static backend` (`"in-memory"`,
   `"sqlite"`; `"postgres"`, `"postgres:billing"` for a store of your own): a listed fenced-effect or
