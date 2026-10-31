@@ -685,8 +685,8 @@ export class ChargeOrderAction {
   Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
   refused before any lookup — even where the business key already has a result.
 - **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`. A
-  business key — and a thread id — is a **key's text** (#538, `KeyTextRule`), because two texts
-  that look the same must never be two keys, and so two charges:
+  business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
+  `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);
   - no control character, C0 (U+0000–U+001F), U+007F or C1 (U+0080–U+009F) (`control-character`);
   - no format character, Unicode `Cf` — zero-width space and joiners (so emoji joined by U+200D
@@ -705,7 +705,12 @@ export class ChargeOrderAction {
   `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
   `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
-  (`checkedBusinessKey`, for a store of your own), before anything runs. It is never sent to a model. The
+  (`checkedBusinessKey`, for a store of your own), before anything runs; a thread id at
+  `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
+  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
+  the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
+  database, and an NFD or zero-width tenant id would be a second tenant of one customer. A lone
+  surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
   name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
   it is part of the keys that go out.
 - **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:

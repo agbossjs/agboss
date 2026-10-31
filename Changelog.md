@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the acceptance of #538 (#552)
+
+- **Changed**: a tenant id is a key's text — refused at `app.execute`, `app.resume` and `app.cancel`
+  when it breaks a rule of #538 (`dto.invalid`, `tenantId` and the rule named, never the id). A
+  tenant id with a lone surrogate was stored as U+FFFD, so two tenants shared one thread, lease and
+  business-key row, and its first execution failed with a raw `URIError` after binding the thread.
+  `app.cancel` checks its thread id as `execute` does (`InvalidThreadIdError`, the id in neither the
+  message nor `onExecutionRejected`).
+- **Tests**: ids from the usual sources (UUIDs, ULIDs, Slack ts, e-mail addresses, phone numbers,
+  provider ids, URLs) are keys; the accepted code point next to each refused range; a refused key in
+  no log entry and no observer event; one fast-check seed per property file, logged (`FC_SEED`).
 ## Unreleased — 0.1.1: the fault suite's pods whose clocks disagree (#533)
 
 - **New**: fault scenarios `s13-clock-ahead` and `s13-clock-behind` — a pod whose clock is ten
