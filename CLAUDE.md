@@ -1297,10 +1297,12 @@ name, instance(seam), reset?, close? })`, one function per contract and the chec
   the same cases the in-memory and SQLite stores run — in one call, `storeConformance({ name,
 reset?, stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, rateLimit, … },
 without? })` (#526 AC2: each claimed contract as `<contract> (<name>)` plus `store set (<name>)` —
-  each fencing store's `static backend` declared, one with its lease store's; a set with a lease
+  each fencing store's `static backend` declared, one with the set's lease store's — #542: and the
+  leases its own contract ran on too —; a set with a lease
   store that leaves the fenced-effect, outbound-call or lease-log contract out, unless `without`
   says so, throws `StoreConformanceError` — `[store-conformance.missing-fencing-contract]`,
-  `lease-store-required`, `without-implemented`, `invalid-without`, `empty`), which the core's own
+  `lease-store-required`, `without-implemented`, `invalid-without`, `unknown-store` (#542: a key
+  that names no contract), `empty`), which the core's own
   sets run (`tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts`, their targets in
   `tests/infrastructure/contracts/core-store-sets.ts`, `store-kinds.ts`); broken sets fail it
   (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the

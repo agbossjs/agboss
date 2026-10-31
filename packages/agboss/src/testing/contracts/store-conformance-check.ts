@@ -3,7 +3,8 @@
  * contracts do not hold together — a lease store whose fenced-effect, outbound-call or lease-log
  * store is missing (its lease cases would never run: a double charge or a second owner nobody
  * tests), a fencing store without the lease store it checks, a contract both given and left out,
- * or no store at all. One error lists every problem.
+ * a store under a key that names no contract (#542: it would never be tested), or no store at all.
+ * One error lists every problem.
  */
 
 /** The fencing contracts a set with a lease store may leave out, by its `stores` key. */
@@ -82,6 +83,32 @@ function withoutProblemsOf(set: ClaimedSet): string[] {
   });
 }
 
+/** Every key of `stores`, one per contract with a suite (`ConformanceStores`). */
+const CONTRACTS: readonly string[] = [
+  "checkpointSaver",
+  "childExecutionQueue",
+  "costLedger",
+  "executionHistory",
+  "executionLease",
+  "executionLeaseEvent",
+  "executionRecord",
+  "executionTree",
+  "fencedEffect",
+  "meshRequest",
+  "outboundCall",
+  "pausedExecution",
+  "rateLimit",
+];
+
+/** A key of `stores` that names no contract (#542): its store would never be tested. */
+const unknownOf = (set: ClaimedSet): string[] =>
+  set.claimed
+    .filter((key) => !CONTRACTS.includes(key))
+    .map(
+      (key) =>
+        `[store-conformance.unknown-store] "${set.name}" gives stores.${key}, which names no contract: its store would never be tested — use one of ${CONTRACTS.join(", ")}`,
+    );
+
 /** Throws `StoreConformanceError` for a set whose fencing contracts do not hold together. */
 export function checkStoreSet(set: ClaimedSet): void {
   const problems =
@@ -89,6 +116,6 @@ export function checkStoreSet(set: ClaimedSet): void {
       ? [
           `[store-conformance.empty] "${set.name}" gives no store: list at least one in stores (executionLease, fencedEffect, …)`,
         ]
-      : [...withoutProblemsOf(set), ...missingOf(set)];
+      : [...unknownOf(set), ...withoutProblemsOf(set), ...missingOf(set)];
   if (problems.length > 0) throw new StoreConformanceError(problems);
 }

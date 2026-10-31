@@ -176,9 +176,9 @@ export interface StoreSeam {
 
 // Warnings were encountered during analysis:
 //
-// src/testing/contracts/store-conformance-check.ts:38:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/contracts/store-conformance-check.ts:39:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "problems".
+// src/testing/contracts/store-conformance-check.ts:39:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/contracts/store-conformance-check.ts:41:3 - (ae-undocumented) Missing documentation for "problems".
 // src/testing/contracts/store-conformance.ts:46:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
 // src/testing/contracts/store-conformance.ts:47:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
 // src/testing/contracts/store-conformance.ts:48:3 - (ae-undocumented) Missing documentation for "costLedger".
