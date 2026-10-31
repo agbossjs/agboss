@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what each way a lease ends says (#567)
+
+- `ExecutionFencedError`'s message names a newer take and its holder only when a newer token was
+  seen; a write the core's stores refuse for an expired, released or missing lease (the same token)
+  says the lease is over — it expired, was released, or another instance took it — and that the next
+  take continues. A holder whose lease ran out with no renewal confirmed no longer reads "another
+  instance continues". Fields and codes unchanged. Found in the acceptance of #551.
+
 ## Unreleased — 0.1.1: a fencing contract run alone shows its opt-out (#566)
 
 - A fencing contract run on its own with `acceptWithoutDoubleChargeProtection: true` registers

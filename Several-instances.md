@@ -270,7 +270,8 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   no confirmed renewal — the store unreachable for the whole lease — the holder stops at that
   moment, whether or not another instance took the lease yet: its signal aborts with
   `ExecutionLeaseLostError` (the message says the lease expired before its store confirmed a
-  renewal; the class, `code` and fields are the same), an agent's tool loop starts no further model
+  renewal and that the next take of the lease continues the execution, never that another instance
+  does, #567; the class, `code` and fields are the same), an agent's tool loop starts no further model
   or tool call, a checkpoint write at or past it throws it, and the record stays `running` for
   [recovery](#recovery).
 
