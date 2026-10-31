@@ -126,8 +126,8 @@ async function hungAndCancelled(
   await frozenLedger(1);
   const isCancelled = settledFlag(app.cancel(threadId, { tenantId: "default" }));
   const isReleasing = () => isCancelled() && released.mock.calls.length > 0;
-  for (let turn = 0; turn < 300 && !isReleasing(); turn += 1) await settle();
-  if (!isReleasing()) throw new Error("the cancelled pass never reached its lease's release");
+  // bounded by real time, not by a count of turns: on a cold runner the unwind first loads modules
+  await untilReached(isReleasing, "the cancelled pass never reached its lease's release");
   return { execution };
 }
 
@@ -145,8 +145,7 @@ async function givenUpAt(
 ): Promise<void> {
   const isDone = settledFlag(execution);
   await advancedTo(clock, deadline);
-  for (let turn = 0; turn < 300 && !isDone(); turn += 1) await settle();
-  if (!isDone()) throw new Error("the execution never settled at its attempt's deadline");
+  await untilReached(isDone, "the execution never settled at its attempt's deadline");
 }
 
 /** Moves `clock` to `at`, exactly. */
