@@ -15,13 +15,48 @@ import type { ContractCaseBody, ContractInstances } from "./seam.js";
 /** Why a fencing case of an opted-out store is skipped. */
 export const OPTED_OUT_REASON = "store opted out of the lease check: no double-charge protection";
 
-/** How a fencing contract's cases find the store under test, and whether its opt-out is accepted. */
-export interface FencingGate<TStore> {
-  /** The store whose `leaseCheck` decides: the fenced-effect or the outbound-call store. */
-  readonly storeOf: (stores: TStore) => object;
+/** Whether a fencing suite accepts an opt-out, and whether it shows it itself. */
+export interface OptOut {
   /** The call said `acceptWithoutDoubleChargeProtection: true`. */
   readonly isAccepted: boolean;
+  /**
+   * The suite registers `OPT_OUT_SHOWN_CASE` (#543 acceptance): a contract run alone does; under
+   * `storeConformance` the set's suite shows it (`gives NO double-charge protection for …`).
+   */
+  readonly isShown: boolean;
 }
+
+/** How a fencing contract's cases find the store under test, and whether its opt-out is accepted. */
+export interface FencingGate<TStore> extends OptOut {
+  /** The store whose `leaseCheck` decides: the fenced-effect or the outbound-call store. */
+  readonly storeOf: (stores: TStore) => object;
+}
+
+/** The opt-out of a call's options: shown by the suite itself when `isShownHere` and accepted. */
+export const optOutOf = (options: FencingContractOptions, isShownHere: boolean): OptOut => {
+  const isAccepted = options.acceptWithoutDoubleChargeProtection === true;
+  return { isAccepted, isShown: isShownHere && isAccepted };
+};
+
+/**
+ * The case a fencing contract run alone with the flag adds (#543 acceptance): it passes for an
+ * opted-out store — so a report that hides skipped cases still says what was not proven — and fails
+ * for a store that does not opt out (the flag is then not needed: drop it).
+ */
+export const OPT_OUT_SHOWN_CASE =
+  "gives NO double-charge protection: its store opted out of the lease check (acceptWithoutDoubleChargeProtection)";
+
+/** The body of `OPT_OUT_SHOWN_CASE`: the store under test must declare the opt-out. */
+export const shownOptOutBody =
+  <TStore>(gate: FencingGate<TStore>): ContractCaseBody<TStore> =>
+  (instances: ContractInstances<TStore>): Promise<void> => {
+    const store = gate.storeOf(instances.first);
+    if (!isOptedOutStore(store))
+      throw new StoreConformanceError([
+        `[store-conformance.opt-out-not-declared] acceptWithoutDoubleChargeProtection is set, but ${(store.constructor as { readonly name: string }).name} does not declare LeaseCheck.WithoutDoubleChargeProtection: its fencing cases ran — drop the flag`,
+      ]);
+    return Promise.resolve();
+  };
 
 /** Options of a fencing contract suite (#543). */
 export interface FencingContractOptions {

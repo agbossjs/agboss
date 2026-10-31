@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { gatedBody, type FencingGate } from "./fencing-gate.js";
+import {
+  gatedBody,
+  OPT_OUT_SHOWN_CASE,
+  shownOptOutBody,
+  type FencingGate,
+} from "./fencing-gate.js";
 import {
   withTarget,
   type ContractCaseBody,
@@ -64,7 +69,7 @@ const registerCases = <TStore>(
 
 /**
  * Registers the suite `<contract> (<target name>)`: every group's cases, then the ping case; the
- * fencing cases behind `gate` when the contract has one (#543).
+ * fencing cases behind `gate` when the contract has one (#543), and its opt-out shown when it says.
  */
 export function registerContract<TStore>(
   contract: string,
@@ -81,6 +86,7 @@ export function registerContract<TStore>(
           registerCases(target, group, gate);
         });
     }
+    if (gate?.isShown === true) it(OPT_OUT_SHOWN_CASE, withTarget(target, shownOptOutBody(gate)));
     it(
       PING_CASE,
       withTarget(target, async ({ first, second }) => {

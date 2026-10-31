@@ -18,10 +18,11 @@ import { executionLeaseContract } from "./execution-lease.contract.js";
 import { executionRecordContract } from "./execution-record.contract.js";
 import { executionTreeContract } from "./execution-tree.contract.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
-import { fencedEffectContract } from "./fenced-effect.contract.js";
+import { registerFencedEffectContract } from "./fenced-effect.contract.js";
+import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
-import { outboundCallContract } from "./outbound-call.contract.js";
+import { registerOutboundCallContract } from "./outbound-call.contract.js";
 import { pausedExecutionContract } from "./paused-execution.contract.js";
 import { rateLimitContract } from "./rate-limit.contract.js";
 import type { ContractTarget, StoreSeam } from "./seam.js";
@@ -132,13 +133,14 @@ export function storeConformance<TTransaction>(
   each(set, stores.executionLeaseEvent, executionLeaseEventContract);
   each(set, stores.executionRecord, executionRecordContract);
   each(set, stores.executionTree, executionTreeContract);
-  const fencing = { acceptWithoutDoubleChargeProtection: set.acceptWithoutDoubleChargeProtection };
+  // the set's own suite shows an opt-out (#543): its contracts do not show it again
+  const fencing = optOutOf(set, false);
   const fencedEffect = each(set, stores.fencedEffect, (target) => {
-    fencedEffectContract(target, fencing);
+    registerFencedEffectContract(target, fencing);
   });
   each(set, stores.meshRequest, meshRequestContract);
   const outboundCall = each(set, stores.outboundCall, (target) => {
-    outboundCallContract(target, fencing);
+    registerOutboundCallContract(target, fencing);
   });
   each(set, stores.pausedExecution, pausedExecutionContract);
   each(set, stores.rateLimit, rateLimitContract);
