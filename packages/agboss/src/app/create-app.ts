@@ -1,4 +1,4 @@
-import { randomIdGenerator } from "../infrastructure/clock.js";
+import { unkeptExecutionIds } from "../infrastructure/execution-ids.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
@@ -158,8 +158,9 @@ export async function buildApp(
         return { ...valid, contexts: values, isNew };
       });
       const { tenantId } = checked.contexts.tenant;
-      // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
-      const runId = (deps.idGenerator ?? randomIdGenerator).newExecutionId();
+      // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and
+      // its result — kept before anything of it is written, never another tree's (#591)
+      const runId = await (deps.executionIds ?? unkeptExecutionIds).newExecutionId(tenantId);
       const { contexts: values } = checked;
       // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
       // before anything is written: no thread, no record, no checkpoint

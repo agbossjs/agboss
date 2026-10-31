@@ -1,7 +1,7 @@
 import { InjectionToken } from "../components/injection.js";
 import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
 import type { StoredKeyFacts } from "./fenced-effect-key.js";
-import type { ExecutionLease } from "./execution-lease.repository.js";
+import type { ExecutionIdentity, ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
@@ -19,6 +19,8 @@ import type { OutboundCallRecord } from "./outbound-call.repository.js";
 export class InMemoryDatabase {
   /** The latest lease of each tree, by `tenantId` + `rootExecutionId` (released ones kept: the epoch). */
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
+  /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
+  readonly executionIds = new Map<string, ExecutionIdentity>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */

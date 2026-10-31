@@ -198,3 +198,27 @@ export class InvalidMintedIdError extends AGBossError {
     this.rule = rule;
   }
 }
+
+/**
+ * An execution id the application's `IdGenerator` minted that an earlier execution already has
+ * (#591) — a root, a child or a recursion level, of any tenant, running, finished, failed or
+ * cancelled: the new execution would share that tree's lease, fencing token, lease log and step
+ * keys, so a fenced effect or an outbound call would replay the other tree's result. Refused before
+ * anything of it is written or run. Names the generator's class, never the id.
+ */
+export class DuplicateExecutionIdError extends AGBossError {
+  /** `run.duplicate-execution-id`. */
+  static override readonly code: string = "run.duplicate-execution-id";
+  /** `DuplicateExecutionIdError`. */
+  override name = "DuplicateExecutionIdError";
+  /** The generator's class name. */
+  readonly generator: string;
+
+  constructor(generator: string) {
+    super(
+      `${generator}.newExecutionId() minted an execution id another execution already has — an IdGenerator never repeats an id over the life of the application's stores`,
+      { details: { generator, method: "newExecutionId" } },
+    );
+    this.generator = generator;
+  }
+}

@@ -22,7 +22,8 @@ import type { AssembledCompactions } from "../compaction/assembly.js";
 import type { Class } from "../components/injection.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import type { Clock, IdGenerator } from "../infrastructure/clock.js";
+import type { Clock } from "../infrastructure/clock.js";
+import type { ExecutionIds } from "../infrastructure/execution-ids.js";
 import type { StepSlots } from "../app/step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
@@ -87,10 +88,11 @@ export interface GraphDeps<TName extends string> {
    */
   readonly clock?: Clock | undefined;
   /**
-   * The application's id generator (#313): every execution id it mints — roots, children, recursion
-   * levels; default random.
+   * The application's execution ids (#313, #591): every execution id it mints — roots, children,
+   * recursion levels — from its `IdGenerator`, kept in its lease store before use; default random,
+   * kept nowhere (a workflow run on its own).
    */
-  readonly idGenerator?: IdGenerator | undefined;
+  readonly executionIds?: ExecutionIds | undefined;
   /**
    * The application instance's step slots (#332, `@Application({ maxConcurrentSteps })`): one for
    * every workflow of the instance; absent = no cap.

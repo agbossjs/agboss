@@ -107,7 +107,11 @@ export const systemClock: Clock = new SystemClock();
  * that `extends IdGenerator`; created before the stores that inject it (`deps: [IdGenerator]`), so it
  * may not depend on the contexts. `testWith` runs on `SequentialIdGenerator` (`@agboss/core/testing`:
  * `thread-1`, `execution-1`, …) unless the application lists its own. Never a `pauseId`: that is an
- * answer credential, a random 128-bit token outside it.
+ * answer credential, a random 128-bit token outside it. An id is never repeated over the life of
+ * the application's stores (#591): every execution id minted is kept by the lease store before use
+ * (`saveExecutionIdIfAbsent`) and one any execution had — of any tenant, running or over — fails
+ * the new execution with `DuplicateExecutionIdError` before it is written; a minted thread id the
+ * tenant already has is minted again (#550).
  */
 export abstract class IdGenerator {
   /** The id of a new thread. */

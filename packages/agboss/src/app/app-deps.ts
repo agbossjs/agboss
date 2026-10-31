@@ -261,7 +261,7 @@ export async function createWorkflowDeps(
     clock,
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
-    ...treeDepsOf(parts.infrastructure.idGenerator, parts),
+    ...treeDepsOf(parts.infrastructure, parts),
     ...historyKeeperOf(parts, { clock, contexts, pii, answers: terns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };

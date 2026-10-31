@@ -6,6 +6,7 @@ import { StoreClock } from "../clock.js";
 import {
   ExecutionLeaseRepository,
   takenOverFromOf,
+  type ExecutionIdentity,
   type ExecutionLease,
 } from "../execution-lease.repository.js";
 import {
@@ -13,6 +14,7 @@ import {
   type ExecutionLeaseEventRecord,
 } from "../execution-lease-event.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { ensureExecutionIdsSchema, savedExecutionId } from "./sqlite-execution-ids.js";
 
 /** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
 export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
@@ -66,7 +68,7 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  * `renew`, `release`, `yield` and `reclaim` (#516: `yielded`, the next epoch) are one statement each,
  * matching the holder and the epoch — `renew`, `yield` and `reclaim` a lease still live too
  * (`expires_at > now`, #534); `finish` (#520) is a release no `acquire` passes (`released =
- * 3`). Times are the host's — the application's clock, read through `StoreClock` (#533: a test's
+ * 3`); `saveExecutionIdIfAbsent` (#591) one insert into `execution_ids`. Times are the host's — the application's clock, read through `StoreClock` (#533: a test's
  * clock in tests) — in milliseconds; every take and renewal answers the time left. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
@@ -82,10 +84,15 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     super();
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
     connection.addColumn(...YIELDED_COLUMN);
+    ensureExecutionIdsSchema(connection);
   }
 
   ping(): Promise<void> {
     return this.connection.ping();
+  }
+
+  saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+    return Promise.resolve(savedExecutionId(this.connection, identity));
   }
 
   acquire(

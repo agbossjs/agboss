@@ -1,6 +1,7 @@
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import {
   ExecutionLeaseRepository,
+  type ExecutionIdentity,
   type ExecutionLease,
 } from "../infrastructure/execution-lease.repository.js";
 import { Clock } from "../infrastructure/clock.js";
@@ -86,6 +87,11 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
   async ping(): Promise<void> {
     await this.gate.passed();
     return this.repository.ping();
+  }
+
+  async saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+    await this.gate.passed();
+    return this.repository.saveExecutionIdIfAbsent(identity);
   }
 
   async acquire(
