@@ -10,6 +10,7 @@ import { PlacePurchaseTool } from "../../../../src/approvals/tools/place-purchas
 import { OffsiteBookingWorkflowFinish } from "../../../../src/approvals/workflows/offsite-booking/offsite-booking.workflow-finish.js";
 import { OffsiteBookingWorkflowStart } from "../../../../src/approvals/workflows/offsite-booking/offsite-booking.workflow-start.js";
 import { FlowPatternsApplication } from "../../../../src/flow-patterns.application.js";
+import { instancesFilePerTest } from "../../../environments/support/instances-file.js";
 
 /** Two approvals at once (#267, #346 AC2): two buyers side by side, each purchase a pause. */
 
@@ -110,6 +111,7 @@ describe("two purchases wait for the thread's owner at once", () => {
 });
 
 /** Two instances on one SQLite file (#265): the pause is found and resumed by the other one. */
+instancesFilePerTest();
 const twoInstances = testWith(FlowPatternsApplication, { instances: 2, env: "instances" });
 
 twoInstances(
@@ -140,5 +142,8 @@ twoInstances(
     expect(finished).toFinishWith(OffsiteBookingWorkflowFinish, {
       summary: "venue Lakeside Lodge: booked; flights TLV → LIS: booked",
     });
+    // the file is this test's own (#550): a test's ids start again at thread-1 / execution-1, so
+    // a file another test wrote would hold other trees under the same ids
+    expect([paused.threadId, paused.executionId]).toEqual(["thread-1", "execution-1"]);
   },
 );

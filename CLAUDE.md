@@ -218,7 +218,7 @@ resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2a
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
-instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file);
+instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file per test — `tests/environments/support/instances-file.ts`, #550);
 every unit runner runs on the patterns' components in the test that mirrors each
 (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
