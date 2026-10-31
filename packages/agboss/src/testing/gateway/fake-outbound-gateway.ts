@@ -1,4 +1,3 @@
-import { AGBossError } from "../../core/errors.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import { hours, seconds, type Milliseconds } from "../../units/index.js";
 
@@ -90,9 +89,14 @@ export enum FakeGatewayErrorKind {
   NoLookup = "no-lookup",
 }
 
-/** The fake gateway refused or lost a call; `kind` says why. */
-export class FakeGatewayError extends AGBossError {
-  static override readonly code: string = "test.fake-gateway";
+/**
+ * The fake gateway refused or lost a call; `kind` says why. The other system's own error, never a
+ * framework one (`agboss/testing` exports no `AGBossError` to throw by name): a plain `Error` with
+ * its own `code`, as a provider SDK's.
+ */
+export class FakeGatewayError extends Error {
+  static readonly code: string = "fake-gateway";
+  readonly code: string = FakeGatewayError.code;
   override name = "FakeGatewayError";
 
   constructor(

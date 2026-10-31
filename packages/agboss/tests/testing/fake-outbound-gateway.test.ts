@@ -65,7 +65,7 @@ describe("#508: the capabilities, on", () => {
 
     await expect(gateway.charge({ ...charge, amount: 200 })).rejects.toMatchObject({
       kind: FakeGatewayErrorKind.Conflict,
-      code: "test.fake-gateway",
+      code: "fake-gateway",
     });
     expect(gateway.payments).toHaveLength(1);
   });
