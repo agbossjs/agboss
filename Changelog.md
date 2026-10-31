@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an explorer search stops with its case and fails with what it explored (#590)
+
+- Fixed: an interleavings search that outran its case's timeout went on in the background, since
+  vitest does not cancel a timed-out case. It kept resetting the store under the cases after it. On
+  PostgreSQL that looked like an epoch granted twice, finished work taken and `deadlock detected`
+  in every later case. A search now takes its case's signal and `interleavings.timeLimit` (default
+  8 min). Stopped, it fails with the schedules and states it explored and how many it left, never
+  a pass; done, it logs its counts. Your-own-store.
 ## Unreleased — 0.1.1: an announced child failure stays the child's end (#596)
 
 - A `ParentInstance` child's failure is claimed in the tree's store before it is announced

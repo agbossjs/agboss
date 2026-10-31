@@ -466,6 +466,13 @@ for any store, a networked one included, with no free race.
   starts from `reset()`, so a networked store pays one reset and one connection per instance for
   each schedule. The core runs 10 steps in memory and 5 on SQLite. `interleavings: false` leaves
   the explorer out, which is never right for a store that claims payment-grade fencing.
+- **The time limit** (#590): each search case stops at `interleavings.timeLimit` (default 8 min;
+  its case's timeout is 2 min more) or when its case is aborted, and then **fails** — "stopped
+  after N schedules, M states because it reached its time limit; K left unexplored". It never
+  passes on a part of its schedules, and it stops resetting the store, so a slow search cannot
+  corrupt the cases after it. A finished search logs its counts (`[interleavings] … 666 schedules,
+  211 states`). On PostgreSQL, depth 5 explores the lease world in about 400 s: raise `timeLimit`
+  or lower `depth` to fit CI.
 - The core proves it bites (`tests/testing/contracts/explorer-bites.test.ts`). Each naive store
   fails with the invariant it breaks: leases on the caller's clock, a lease live through its expiry
   instant, a renewal whatever the time or from the old end, a `finish` that only releases, a
