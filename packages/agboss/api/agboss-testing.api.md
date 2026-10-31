@@ -161,6 +161,18 @@ export const childMatchers: {
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
 
 // @public
+export class ClockSkew {
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    static ahead(by: Milliseconds): ClockSkew;
+    andDrift(rate: number): ClockSkew;
+    static behind(by: Milliseconds): ClockSkew;
+    readonly drift: number;
+    static drift(rate: number): ClockSkew;
+    static readonly none: ClockSkew;
+    readonly offset: number;
+}
+
+// @public
 export interface CompactionRequest {
     // (undocumented)
     readonly input: string;
@@ -286,7 +298,6 @@ export interface FakeGatewayCapabilities {
     readonly conflictOnMismatch: boolean;
     readonly firstResponseOnRepeat: boolean;
     readonly idempotencyKeys: boolean;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly keyRetention: Milliseconds;
     readonly lookupByKey: boolean;
 }
@@ -749,6 +760,16 @@ export interface SignedMeshEnvelopeOptions {
 }
 
 // @public
+export class SkewedClock extends Clock {
+    constructor(base: Clock, skew: ClockSkew);
+    // (undocumented)
+    monotonicNow(): number;
+    // (undocumented)
+    now(): Date;
+    sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+}
+
+// @public
 export class StaleCassetteError extends TestFailure {
     constructor(file: string, component: string, changes: readonly CassetteChange[]);
     // (undocumented)
@@ -941,6 +962,7 @@ export function testWith<TApplication extends Class>(application: ApplicationCla
 // @public
 export interface TestWithOptions extends EnvironmentSelection {
     readonly allowNetwork?: readonly string[];
+    readonly clockSkews?: readonly ClockSkew[];
     readonly concurrency?: TestConcurrency;
     readonly instances?: number;
     readonly overrides?: readonly Override[];
@@ -1212,6 +1234,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
+// src/testing/clock-skew.ts:68:3 - (ae-undocumented) Missing documentation for "now".
+// src/testing/clock-skew.ts:73:12 - (ae-undocumented) Missing documentation for "monotonicNow".
 // src/testing/compensation-matchers.ts:28:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/concurrency/test-concurrency.ts:26:3 - (ae-undocumented) Missing documentation for "node".
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".

@@ -14,31 +14,55 @@ export const EXECUTION_LEASE: Milliseconds = seconds(30);
 export const RENEW_EVERY: Milliseconds = seconds(10);
 
 /**
- * How long the holder may trust its lease (#335 S1): until `confirmedUntil`, the `Clock` read
- * before the last acquire or renewal its store confirmed plus the lease's length — also while the
- * holder yields the lease waiting for remote children (#516: the yielded lease is renewed on).
+ * What the holder takes off the time its store says a lease has left (#533): the drift of its
+ * monotonic clock and of the store's over one lease — the bound ρ_holder + ρ_store ≤ 1 s / 30 s.
+ */
+export const LEASE_SAFETY_MARGIN: Milliseconds = seconds(1);
+
+/** Until when (monotonic ms) a lease answered `remaining` for a request sent at `sentAt` is trusted. */
+export const trustedUntil = (
+  sentAt: number,
+  remaining: Milliseconds,
+  margin: Milliseconds = LEASE_SAFETY_MARGIN,
+): number => sentAt + remaining - margin;
+
+/**
+ * How long the holder may trust its lease (#335 S1, #533): until `sentAt + remaining −
+ * LEASE_SAFETY_MARGIN` of the last acquire or renewal its store confirmed — `sentAt` the holder's
+ * monotonic time when it sent that request, `remaining` the store's answer — so neither an offset nor
+ * a step of its wall clock moves the fence; also while the holder yields the lease waiting for remote
+ * children (#516: the yielded lease is renewed on). `confirmedUntil` is that deadline on the wall
+ * clock, for reading only.
  */
 export class LeaseFence {
-  #confirmedUntil: number;
+  /** The deadline on the holder's monotonic clock. */
+  #until: number;
 
   constructor(
     private readonly clock: Clock,
-    askedAt: number,
+    { sentAt, remaining }: { readonly sentAt: number; readonly remaining: Milliseconds },
     private readonly lost: AbortController,
     private readonly rootExecutionId: string,
+    /** What it takes off each answer: `LEASE_SAFETY_MARGIN` (a test proves it bites with less). */
+    private readonly margin: Milliseconds = LEASE_SAFETY_MARGIN,
   ) {
-    this.#confirmedUntil = askedAt + EXECUTION_LEASE;
+    this.#until = trustedUntil(sentAt, remaining, margin);
   }
 
-  /** The time (ms) up to which the lease is valid here. */
+  /** The time (wall-clock ms) up to which the lease is valid here: the monotonic deadline, projected. */
   get confirmedUntil(): number {
-    return this.#confirmedUntil;
+    return this.clock.now().getTime() + this.left;
   }
 
-  /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), asked at `askedAt`. */
-  reacquired(askedAt: number): void {
+  /** How long (ms) the lease is still valid here, on the monotonic clock; ≤ 0 once it ran out. */
+  get left(): number {
+    return this.#until - this.clock.monotonicNow();
+  }
+
+  /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), sent at `sentAt`. */
+  reacquired(sentAt: number, remaining: Milliseconds): void {
     this.lost.signal.throwIfAborted();
-    this.#confirmedUntil = askedAt + EXECUTION_LEASE;
+    this.#until = trustedUntil(sentAt, remaining, this.margin);
   }
 
   /**
@@ -55,20 +79,24 @@ export class LeaseFence {
     if (!this.lost.signal.aborted) this.lost.abort(leaseExpiredError(this.rootExecutionId));
   }
 
+  /** Expires the lease once it ran out here (#533: on the monotonic clock); throws once lost. */
+  check(): void {
+    this.lost.signal.throwIfAborted();
+    if (this.left <= 0) this.expire();
+    this.lost.signal.throwIfAborted();
+  }
+
   /**
-   * A renewal asked at `renewedAt` answered: `true` moves the fence on, `false` (taken) aborts,
-   * `undefined` (the store did not answer) aborts only once the lease ran out here — before that
-   * the caller's write goes on. Throws the holder's `ExecutionLeaseLostError` once aborted.
+   * A renewal sent at `sentAt` answered: a `remaining` time moves the fence on (never back), `false`
+   * (over) aborts, `undefined` (the store did not answer) aborts only once the lease ran out here —
+   * before that the caller's write goes on. Throws the holder's `ExecutionLeaseLostError` once aborted.
    */
-  settle(renewedAt: number, isRenewed: boolean | undefined): void {
+  settle(sentAt: number, renewed: Milliseconds | false | undefined): void {
     this.lost.signal.throwIfAborted();
-    if (isRenewed === true) {
-      this.#confirmedUntil = Math.max(this.#confirmedUntil, renewedAt + EXECUTION_LEASE);
-      return;
-    }
-    if (isRenewed === false) this.lose();
-    if (this.clock.now().getTime() >= this.#confirmedUntil) this.expire();
-    this.lost.signal.throwIfAborted();
+    if (renewed === false) this.lose();
+    if (renewed !== undefined)
+      this.#until = Math.max(this.#until, trustedUntil(sentAt, renewed, this.margin));
+    this.check();
   }
 }
 
@@ -102,7 +130,7 @@ export async function expireInBackground(
   fence: LeaseFence,
 ): Promise<void> {
   for (;;) {
-    const left = fence.confirmedUntil - clock.now().getTime();
+    const { left } = fence;
     if (left <= 0) {
       fence.expire();
       return;
@@ -113,12 +141,19 @@ export async function expireInBackground(
   }
 }
 
-/** A renewal of `held` in the store, asked now: `isRenewed` `undefined` when the store did not answer. */
+/**
+ * A renewal of `held` in the store, sent now (`sentAt`, the monotonic clock, #533): `renewed` the
+ * time the store says the lease has left, `false` when it is over, `undefined` when the store did not
+ * answer.
+ */
 export async function renewalOf(
   { clock, repository }: { readonly clock: Clock; readonly repository: ExecutionLeaseRepository },
   held: ExecutionLease,
-): Promise<{ readonly renewedAt: number; readonly isRenewed: boolean | undefined }> {
-  const renewedAt = clock.now().getTime();
-  const isRenewed = await repository.renew(held, EXECUTION_LEASE).catch((): undefined => undefined);
-  return { renewedAt, isRenewed };
+): Promise<{ readonly sentAt: number; readonly renewed: Milliseconds | false | undefined }> {
+  const sentAt = clock.monotonicNow();
+  const renewed = await repository.renew(held, EXECUTION_LEASE).then(
+    (remaining) => remaining ?? false,
+    (): undefined => undefined,
+  );
+  return { sentAt, renewed };
 }

@@ -52,8 +52,8 @@ export const inMemoryStores = (): ConformanceStores<InMemoryFencedEffectTransact
     ({ database }) => new InMemoryExecutionHistoryRepository(database),
   ),
   executionLease: inMemoryTarget(
-    ({ clock, application, database }) =>
-      new InMemoryExecutionLeaseRepository(clock, application, database),
+    ({ storeClock, application, database }) =>
+      new InMemoryExecutionLeaseRepository(storeClock, application, database),
   ),
   executionLeaseEvent: inMemoryTarget(
     ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
@@ -90,8 +90,8 @@ export const sqliteStores = (): ConformanceStores<DatabaseSync> => ({
     ({ connection }) => new SqliteExecutionHistoryRepository(connection()),
   ),
   executionLease: sqliteTarget(
-    ({ clock, application, connection }) =>
-      new SqliteExecutionLeaseRepository(connection(), clock, application),
+    ({ storeClock, application, connection }) =>
+      new SqliteExecutionLeaseRepository(connection(), storeClock, application),
   ),
   executionLeaseEvent: sqliteTarget(
     ({ connection }) => new SqliteExecutionLeaseEventRepository(connection()),

@@ -53,10 +53,10 @@ export const LEASE_YIELD_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposit
       const [holder] = holders;
       const owner = holder?.holderInstanceId === "instance-1" ? first : second;
       const other = owner === first ? second : first;
-      expect(holder && (await owner.renew(holder, LEASE))).toBe(true);
-      expect(holder && (await other.renew({ ...holder, holderInstanceId: "x" }, LEASE))).toBe(
-        false,
-      );
+      expect(holder && (await owner.renew(holder, LEASE))).toBe(LEASE);
+      expect(
+        holder && (await other.renew({ ...holder, holderInstanceId: "x" }, LEASE)),
+      ).toBeUndefined();
     },
   },
   {
@@ -79,8 +79,8 @@ export const LEASE_YIELD_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposit
 
       expect(await first.yield(held)).toBe(false);
       expect(await first.reclaim(held, LEASE)).toBeUndefined();
-      expect(await first.renew(held, LEASE)).toBe(false);
-      expect(reclaimed && (await first.renew(reclaimed, LEASE))).toBe(true);
+      expect(await first.renew(held, LEASE)).toBeUndefined();
+      expect(reclaimed && (await first.renew(reclaimed, LEASE))).toBe(LEASE);
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
     },
   },

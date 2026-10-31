@@ -97,7 +97,10 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.repository.acquire(tenantId, rootExecutionId, lease);
   }
 
-  async renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  async renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     await this.gate.passed();
     return this.repository.renew(executionLease, lease);
   }
@@ -137,6 +140,10 @@ class GatedClock extends Clock {
 
   now(): Date {
     return this.clock.now();
+  }
+
+  override monotonicNow(): number {
+    return this.clock.monotonicNow();
   }
 
   async sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void> {

@@ -54,7 +54,10 @@ function heldRenewals(store: ExecutionLeaseRepository): {
 } {
   const gate = { passed: Promise.resolve(), open: (): void => undefined };
   const held = Object.assign(Object.create(store) as ExecutionLeaseRepository, {
-    renew: async (lease: ExecutionLease, duration: Milliseconds): Promise<boolean> => {
+    renew: async (
+      lease: ExecutionLease,
+      duration: Milliseconds,
+    ): Promise<Milliseconds | undefined> => {
       await gate.passed;
       return store.renew(lease, duration);
     },

@@ -113,7 +113,7 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
     const text = this.storedResultOf(key, result);
     this.results.set(fencedKeyIdentityOf(key), {
       token: key.token,
-      storedAt: this.seam.clock.now().getTime(),
+      storedAt: this.seam.storeClock.now().getTime(),
       result: text,
       ...storedKeyFactsOf(key),
     });
@@ -125,8 +125,8 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
   }
 
   protected check(key: FencedEffectKey): void {
-    checkInMemoryFence(this.seam.database, this.seam.clock, key);
-    raiseInMemoryMark(this.seam.database, this.seam.clock, key);
+    checkInMemoryFence(this.seam.database, this.seam.storeClock, key);
+    raiseInMemoryMark(this.seam.database, this.seam.storeClock, key);
   }
 }
 
@@ -182,7 +182,11 @@ export const brokenEffects =
         seam,
         sharedInMemory(seam, "broken-results", () => new Map()),
       ),
-      leases: new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database),
+      leases: new InMemoryExecutionLeaseRepository(
+        seam.storeClock,
+        seam.application,
+        seam.database,
+      ),
       rows: {
         insert: (transaction, row) => {
           transaction.onCommit(() => committed.push(row));
@@ -196,11 +200,11 @@ export const brokenEffects =
 class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
   constructor(private readonly seam: InstanceSeam) {
     const leases = new InMemoryExecutionLeaseRepository(
-      seam.clock,
+      seam.storeClock,
       seam.application,
       seam.database,
     );
-    super(seam.clock, seam.database, leases);
+    super(seam.storeClock, seam.database, leases);
   }
 
   override async leaseStateOf({ tenantId, leaseExecutionId, token }: OutboundCallLease) {
@@ -209,7 +213,7 @@ class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
     const read = rows.get(key);
     if (read === undefined || read.released || read.lease.leaseEpoch !== token)
       return OutboundCallLeaseState.Ended;
-    if (read.lease.expiresAt > this.seam.clock.now()) return OutboundCallLeaseState.Live;
+    if (read.lease.expiresAt > this.seam.storeClock.now()) return OutboundCallLeaseState.Live;
     await roundTrip();
     const row = rows.get(key);
     if (row !== undefined) rows.set(key, { ...row, released: true, isSuperseded: true });
@@ -219,7 +223,7 @@ class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
 
 export const selectThenCloseCalls: StoreFactory<OutboundCallStores> = (seam) => ({
   calls: new SelectThenCloseCalls(seam),
-  leases: new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database),
+  leases: new InMemoryExecutionLeaseRepository(seam.storeClock, seam.application, seam.database),
 });
 
 /** The #508 fields the row schema before it has no column for. */

@@ -30,6 +30,10 @@ class PausedTimersClock extends Clock {
     return this.time.now();
   }
 
+  override monotonicNow(): number {
+    return this.time.monotonicNow();
+  }
+
   sleep(_delay: Milliseconds, signal?: AbortSignal): Promise<void> {
     return new Promise<void>((resolve) => {
       if (signal?.aborted === true) resolve();

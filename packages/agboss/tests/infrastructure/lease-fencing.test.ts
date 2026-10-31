@@ -79,9 +79,10 @@ describe("#335 AC1 / AC3: a lease store down past the lease stops the holder at 
     const { call: cutOff } = await holding(instance(apps, 0));
 
     levers.storeDown.add("instance-1");
-    await clock.advance(seconds(29));
+    // #533: trusted for the lease less its safety margin, 29 s
+    await clock.advance(seconds(28));
     expect(seen.holds.map((signal) => signal.aborted)).toEqual([false]);
-    await clock.advance(seconds(2));
+    await clock.advance(seconds(3));
     const [recovered] = await ends(1);
 
     await expect(cutOff).rejects.toThrow(ExecutionLeaseLostError);

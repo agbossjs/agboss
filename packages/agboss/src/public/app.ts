@@ -42,7 +42,14 @@ export {
   type HealthyCheckResult,
 } from "../health/health-check.js";
 export type { PausedExecution } from "../app/paused-runs.js";
-export { Clock, IdGenerator, RandomIdGenerator } from "../infrastructure/clock.js";
+export {
+  Clock,
+  DatabaseStoreClock,
+  IdGenerator,
+  RandomIdGenerator,
+  StoreClock,
+  TestStoreClock,
+} from "../infrastructure/clock.js";
 export {
   ConsoleLogger,
   formatLogEntry,
@@ -73,6 +80,7 @@ export type { PendingPause } from "../pause/index.js";
 export {
   ExecutionLeaseRepository,
   LeaseCheck,
+  remainingOf,
   type ExecutionLease,
   type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";

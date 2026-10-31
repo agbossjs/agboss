@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
-import { EXECUTION_LEASE, RENEW_EVERY } from "../../src/app/lease-fence.js";
+import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN, RENEW_EVERY } from "../../src/app/lease-fence.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -42,7 +42,7 @@ class MarginRecordingLeaseRepository extends InMemoryExecutionLeaseRepository {
     );
   }
 
-  override renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+  override renew(lease: ExecutionLease, length: Milliseconds): Promise<Milliseconds | undefined> {
     const stored = this.rows.executionLeases.get(treeKeyOf(lease.tenantId, lease.rootExecutionId));
     if (stored !== undefined)
       this.margins.push(stored.lease.expiresAt.getTime() - this.time.now().getTime());
@@ -92,14 +92,14 @@ describe("#534 AC3: a healthy holder stays far from its lease's boundary", () =>
     await holder.release();
   });
 
-  it("AC3: a holder whose every renewal fails for a whole lease stops at its expiry, not after it", async () => {
+  it("AC3, #533: a holder whose every renewal fails stops at its fence — the lease less its safety margin — before the store's expiry", async () => {
     const { clock, store, leases } = holderOn();
     const holder = await leases.hold(TREE);
 
     store.failing = Number.MAX_SAFE_INTEGER;
-    await clock.advance(seconds(29.999));
+    await clock.advance((EXECUTION_LEASE - LEASE_SAFETY_MARGIN - 1) as Milliseconds);
     const isAbortedBefore = holder.signal.aborted;
-    await clock.advance(seconds(0.001));
+    await clock.advance(1 as Milliseconds);
 
     expect(isAbortedBefore).toBe(false);
     expect(holder.signal.aborted).toBe(true);

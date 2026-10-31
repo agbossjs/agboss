@@ -23,7 +23,7 @@ import {
 } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours, seconds } from "../../src/units/index.js";
+import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
 
 /** One instance's stores over a database of the test. */
 function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock()) {
@@ -57,8 +57,8 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   acquire(): Promise<undefined> {
     return Promise.resolve(undefined);
   }
-  renew(): Promise<boolean> {
-    return Promise.resolve(false);
+  renew(): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
   }
   release(): Promise<void> {
     return Promise.resolve();

@@ -1,8 +1,8 @@
 /**
  * #534 AC3 — a holder stalled like a stop-the-world GC pause, its lease store calls and timers held
- * while its step waits, then let go at the lease's boundary. 1 ms before its expiry it renews and
- * charges once under its own token. At its expiry and after it the lease is over for it too: it
- * hands the tree over (its call rejects with `ExecutionLeaseLostError`), the recovery sweep takes it
+ * while its step waits, then let go at the lease's boundary. 1 ms before its fence (#533: the lease
+ * less its safety margin, 29 s) it renews and charges once under its own token. At its expiry and
+ * after it the lease is over for it too: it hands the tree over (its call rejects with `ExecutionLeaseLostError`), the recovery sweep takes it
  * over from that very holder, and the order is charged exactly once, under the next token — one
  * owner at a time, no work lost, no second charge.
  */
@@ -53,7 +53,7 @@ const HANDED_OVER: readonly (readonly [string, Milliseconds])[] = [
 ];
 
 describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly", () => {
-  test("AC3: stalled until 1 ms before its expiry, the holder renews and charges once, no takeover", async ({
+  test("AC3, #533: stalled until 1 ms before its fence (the lease less its safety margin), the holder renews and charges once, no takeover", async ({
     app,
     clock,
     leases,
@@ -63,7 +63,7 @@ describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly"
     const call = execute(app, ChargeWorkflowStart, { text: "order-7" });
     await frozenRuns(1);
     leases.stall(app);
-    await clock.advance(seconds(29.999));
+    await clock.advance(seconds(28.999));
 
     leases.resume(app);
     await settle();

@@ -33,6 +33,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testFrame } from "../helpers/frame.js";
 import { recordingLog } from "../helpers/log.js";
+import { seconds } from "../../src/units/index.js";
 
 /** A lease of `scopeKey` that keeps every report it is asked to record. */
 function recordingLease(scopeKey: string): { lease: FrameLease; reports: HandOverReport[] } {
@@ -262,6 +263,7 @@ const LEASE: ExecutionLease = {
   holderInstanceId: "instance-1",
   leaseEpoch: 2,
   expiresAt: new Date("2026-01-05T09:00:30.000Z"),
+  remaining: seconds(30),
 };
 
 describe("#501: a held lease's hand-overs", () => {

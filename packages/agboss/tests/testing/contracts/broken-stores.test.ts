@@ -14,18 +14,19 @@ const QUEUE = "queue-claiming-twice.contract-fixture.ts";
 const RECORD = "record-losing-update.contract-fixture.ts";
 const TREE = "tree-keeping-deleted-rows.contract-fixture.ts";
 const WALL_CLOCK = "lease-on-wall-clock.contract-fixture.ts";
+const CALLER_CLOCK = "lease-on-caller-clock.contract-fixture.ts";
 
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK]);
+  run = await runContractFixtures([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]);
 }, 120_000);
 
 describe("#481 AC2: a broken store fails the published suite of its contract", () => {
   it("the run of the broken stores fails", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(
-      new Set([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK]),
+      new Set([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
     );
   });
 
@@ -85,6 +86,25 @@ describe("#481: a store reading Date.now() instead of the seam's clock", () => {
     expect(namesOf(run, WALL_CLOCK, "pass")).toEqual(
       expect.arrayContaining([
         "a released lease is taken at once with leaseEpoch + 1; another tenant's tree is its own",
+        PING_CASE,
+      ]),
+    );
+  });
+});
+
+describe("#533: a store deciding expiry by the caller's clock instead of the store's", () => {
+  it("fails every case of the store's time as the authority, ahead and behind, and only those", () => {
+    const failed = namesOf(run, CALLER_CLOCK, "fail");
+
+    expect(failed).toHaveLength(6);
+    expect(failed.every((name) => name.startsWith("#533: with the other instance's clock"))).toBe(
+      true,
+    );
+    expect(failed.filter((name) => name.includes("ahead"))).toHaveLength(3);
+    expect(failed.filter((name) => name.includes("behind"))).toHaveLength(3);
+    expect(namesOf(run, CALLER_CLOCK, "pass")).toEqual(
+      expect.arrayContaining([
+        "a tree's lease held by one instance is not given to the other",
         PING_CASE,
       ]),
     );

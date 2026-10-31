@@ -11,8 +11,8 @@ storeConformance({
   name: "a lease log of before #508",
   stores: {
     executionLease: inMemoryTarget(
-      ({ clock, application, database }) =>
-        new InMemoryExecutionLeaseRepository(clock, application, database),
+      ({ storeClock, application, database }) =>
+        new InMemoryExecutionLeaseRepository(storeClock, application, database),
     ),
     executionLeaseEvent: inMemoryTarget(({ database }) => new PreSupersedeLeaseLog(database)),
     fencedEffect: inMemoryTarget(inMemoryFencedEffects(false)),

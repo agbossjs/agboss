@@ -17,6 +17,8 @@ import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
+import { SkewedClock, type ClockSkew } from "./clock-skew.js";
+import { TestStoreClock, type Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
@@ -63,6 +65,12 @@ export interface TestWithOptions extends EnvironmentSelection {
    * lease, a pause resumed on the other instance or a rate-limit slot is tested across instances.
    */
   readonly instances?: number;
+  /**
+   * Each instance's clock skew (#533), by instance (`clockSkews[0]` is `apps[0]`'s; a missing one
+   * is `ClockSkew.none`): its wall clock ahead or behind, running fast or slow — while the stores
+   * decide by the test's clock, as by a database's own.
+   */
+  readonly clockSkews?: readonly ClockSkew[];
   /**
    * How parallel branches run (#262 S33): `TestConcurrency.Sequential` (default — one at a time,
    * in listed / item order), `TestConcurrency.Real`, or `TestConcurrency.inOrder([step(A), …])`.
@@ -116,6 +124,8 @@ export class TestEnvironment {
   readonly #options: BuildOptions;
   /** The PII key of its instances when the application sets none (#334). */
   readonly #piiTestKey: string | undefined;
+  /** Each instance's clock skew, by instance (#533). */
+  readonly #skews: readonly ClockSkew[];
   #reused: ReadonlyMap<Class, unknown> = new Map();
   readonly #beforeClose: (() => void)[] = [];
   /** The app being built: instances are built one after the other, the first one's stores kept. */
@@ -137,6 +147,7 @@ export class TestEnvironment {
     }
     this.#servers = mcpServersOf(assembled);
     this.#piiTestKey = testPiiKeyOf(options);
+    this.#skews = options.clockSkews ?? [];
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     this.#options = {
@@ -187,7 +198,9 @@ export class TestEnvironment {
         reused: this.#reused,
         instanceId: `instance-${String(this.#apps.length + 1)}`,
         database: this.database,
-        clock: this.clock,
+        clock: this.#instanceClock(this.#apps.length),
+        // the stores' time is the test's own, unskewed: a database's clock (#533)
+        storeClock: new TestStoreClock(this.clock),
         idGenerator: this.idGenerator,
         quiet: true,
         ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
@@ -201,6 +214,12 @@ export class TestEnvironment {
     });
     this.#building = building.catch(() => undefined);
     return building;
+  }
+
+  /** The clock of the instance built `index`-th: the test's, skewed as `clockSkews` says (#533). */
+  #instanceClock(index: number): Clock {
+    const skew = this.#skews[index];
+    return skew === undefined ? this.clock : new SkewedClock(this.clock, skew);
   }
 
   mockLlm(target: ModelTarget): ModelScript {

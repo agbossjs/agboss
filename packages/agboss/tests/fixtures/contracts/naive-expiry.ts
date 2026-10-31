@@ -38,11 +38,11 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
     super(time, application, rows);
   }
 
-  override renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+  override renew(lease: ExecutionLease, length: Milliseconds): Promise<Milliseconds | undefined> {
     const stored = this.#held(lease);
     if (stored !== undefined)
       this.#write(lease, { ...stored.lease, expiresAt: this.#from(length) });
-    return Promise.resolve(stored !== undefined);
+    return Promise.resolve(stored === undefined ? undefined : length);
   }
 
   override yield(lease: ExecutionLease): Promise<boolean> {
@@ -65,6 +65,7 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
       holderInstanceId,
       leaseEpoch: leaseEpoch + 1,
       expiresAt: this.#from(length),
+      remaining: length,
     };
     this.rows.executionLeases.set(this.#key(lease), { lease: reclaimed, released: false });
     return Promise.resolve(reclaimed);

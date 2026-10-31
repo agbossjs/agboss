@@ -49,7 +49,7 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
       const held = await takenBy(first);
       await first.finish(held);
 
-      expect(await first.renew(held, LEASE)).toBe(false);
+      expect(await first.renew(held, LEASE)).toBeUndefined();
       expect(await first.yield(held)).toBe(false);
       expect(await first.reclaim(held, LEASE)).toBeUndefined();
     },
@@ -90,7 +90,7 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
       const afterRelease = await first.acquire("default", "root-1", LEASE);
 
       expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
-      expect(renewed).toBe(true);
+      expect(renewed).toBe(LEASE);
       expect(afterRelease).toMatchObject({ holderInstanceId: "instance-1", leaseEpoch: 3 });
     },
   },
@@ -136,7 +136,7 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
         expect(after).toBeUndefined();
       } else {
         expect(raced).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
-        expect(renewed).toBe(true);
+        expect(renewed).toBe(LEASE);
         expect(after).toMatchObject({ leaseEpoch: 3 });
       }
     },

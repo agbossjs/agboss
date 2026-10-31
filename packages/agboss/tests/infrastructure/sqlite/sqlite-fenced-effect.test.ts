@@ -116,6 +116,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
         holderInstanceId: "i",
         leaseEpoch: 1,
         expiresAt: new Date(0),
+        remaining: seconds(30),
       }),
     };
 

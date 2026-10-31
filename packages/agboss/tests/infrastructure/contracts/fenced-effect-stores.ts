@@ -43,13 +43,13 @@ export const inMemoryFencedEffects =
   (isAsync: boolean): StoreFactory<FencedEffectStores<InMemoryFencedEffectTransaction>> =>
   (seam: InstanceSeam) => {
     const leases = new InMemoryExecutionLeaseRepository(
-      seam.clock,
+      seam.storeClock,
       seam.application,
       seam.database,
     );
     const settings = new FencedEffectSettings();
     return {
-      effects: new InMemoryFencedEffectRepository(seam.clock, seam.database, settings, leases),
+      effects: new InMemoryFencedEffectRepository(seam.storeClock, seam.database, settings, leases),
       leases,
       rows: inMemoryRowsOf(
         sharedInMemory(seam, "fenced-effect-rows", (): string[] => []),
@@ -66,8 +66,12 @@ export const sqliteFencedEffects: StoreFactory<FencedEffectStores<DatabaseSync>>
   const connection = seam.connection();
   connection.ensureSchema("contract_rows", BUSINESS_ROWS);
   return {
-    effects: new SqliteFencedEffectRepository(connection, seam.clock, new FencedEffectSettings()),
-    leases: new SqliteExecutionLeaseRepository(connection, seam.clock, seam.application),
+    effects: new SqliteFencedEffectRepository(
+      connection,
+      seam.storeClock,
+      new FencedEffectSettings(),
+    ),
+    leases: new SqliteExecutionLeaseRepository(connection, seam.storeClock, seam.application),
     rows: {
       insert: (database, row) => {
         database.prepare("INSERT INTO contract_rows (row) VALUES (?)").run(row);

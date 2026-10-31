@@ -1,7 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
-import { Clock } from "./clock.js";
+import { StoreClock, waitOf } from "./clock.js";
 import {
   IN_MEMORY_DATABASE,
   treeKeyOf,
@@ -28,8 +28,17 @@ export interface ExecutionLease {
    * distributed store counts per key, not by its own revision).
    */
   readonly leaseEpoch: number;
-  /** When the lease ends unless renewed (the framework's clock). */
+  /**
+   * When the lease ends unless renewed, on the store's clock (#533: the database's for a networked
+   * store) — information only: no instance compares it with its own clock.
+   */
   readonly expiresAt: Date;
+  /**
+   * How long the lease stays live after the store's own instant of this take (#533): `expiresAt −
+   * now`, both on the store's clock (`remainingOf`). The holder trusts it for `remaining` minus a
+   * safety margin from the moment it sent the request, on its monotonic clock — never its wall clock.
+   */
+  readonly remaining: Milliseconds;
   /**
    * The holder this `acquire` took the lease over from (#501): set only when the key's last lease
    * had expired without a release — its holder froze, died or was cut off —, never after a release
@@ -60,6 +69,13 @@ export const takenOverFromOf = (
       };
 
 /**
+ * The time a lease ending at `expiresAt` has left at `now` (#533), both on the store's clock: whole
+ * milliseconds rounded down — a store never overstates it — and never below 0.
+ */
+export const remainingOf = (expiresAt: Date, now: Date): Milliseconds =>
+  waitOf(Math.floor(expiresAt.getTime() - now.getTime()));
+
+/**
  * How a fenced-effect or an outbound-call store checks the lease against its write (#526):
  * `static leaseCheck` of the store.
  */
@@ -82,8 +98,9 @@ export enum LeaseCheck {
  * Infrastructure (#265, Q58): one lease per execution tree, keyed by `(tenantId,
  * rootExecutionId)` — atomic and lease-based, so a lease expires by itself when its holder dies.
  * Listed only in `@Application({ providers })`; the built-in default is in memory. Your own
- * `extends ExecutionLeaseRepository`; time values come from the framework's clock, never from the
- * store.
+ * `extends ExecutionLeaseRepository`. The store decides expiry by its own time (#533, `StoreClock`:
+ * a networked store's database clock, inside each statement; in-memory and SQLite the host's) and
+ * answers the time left (`remaining`), never an instant a holder would compare with its own clock.
  */
 export abstract class ExecutionLeaseRepository {
   /**
@@ -113,11 +130,15 @@ export abstract class ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined>;
 
   /**
-   * Extends the lease by `lease` from now; `false` once it is over — expired (`now >= expiresAt`,
-   * #534: the instant of expiry belongs to the next taker, the holder included), taken by another
-   * holder, or released — and the caller must stop moving the tree.
+   * Extends the lease by `lease` from now and answers the time it has left (#533: `remaining`, on
+   * the store's clock — never shorter than before); `undefined` once it is over — expired (`now >=
+   * expiresAt`, #534: the instant of expiry belongs to the next taker, the holder included), taken
+   * by another holder, or released — and the caller must stop moving the tree.
    */
-  abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+  abstract renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined>;
 
   /** Gives the lease up at once (the tree paused, finished or failed); another holder's is kept. */
   abstract release(executionLease: ExecutionLease): Promise<void>;
@@ -173,12 +194,12 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  * yielded lease is its row with `isYielded` (#516): read by nothing but the people looking at it; a
  * finished one (#520) its released row with `isFinished`, never acquired again.
  */
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   static override readonly backend: string | undefined = "in-memory";
 
   constructor(
-    private readonly clock: Clock,
+    private readonly clock: Pick<StoreClock, "now">,
     private readonly applicationContext: ApplicationContext,
     private readonly database: InMemoryDatabase,
   ) {
@@ -204,6 +225,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       holderInstanceId: this.applicationContext.instanceId,
       leaseEpoch: (stored?.lease.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(now.getTime() + lease),
+      remaining: lease,
       // held is false here: a stored lease not released has expired; a superseded one had (#508)
       ...takenOverFromOf(
         stored?.lease,
@@ -214,13 +236,14 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(taken);
   }
 
-  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined> {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.#heldOf(key, executionLease);
-    if (stored === undefined) return Promise.resolve(false);
-    const expiresAt = new Date(this.clock.now().getTime() + lease);
+    if (stored === undefined) return Promise.resolve(undefined);
+    const now = this.clock.now();
+    const expiresAt = new Date(now.getTime() + lease);
     this.database.executionLeases.set(key, { ...stored, lease: { ...stored.lease, expiresAt } });
-    return Promise.resolve(true);
+    return Promise.resolve(remainingOf(expiresAt, now));
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
@@ -264,7 +287,10 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     const { tenantId, rootExecutionId, holderInstanceId } = stored.lease;
     const expiresAt = new Date(this.clock.now().getTime() + lease);
     const leaseEpoch = stored.lease.leaseEpoch + 1;
-    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt };
+    const reclaimed = {
+      ...{ tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt },
+      remaining: lease,
+    };
     this.database.executionLeases.set(key, { lease: reclaimed, released: false });
     return Promise.resolve(reclaimed);
   }

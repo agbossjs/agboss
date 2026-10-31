@@ -84,15 +84,16 @@ export interface ExecutionLeases {
 }
 
 /** What a holder records its takeovers with: the instance's lease log, absent = none. */
-export type LeaseTakeoverLog = Pick<LeaseTaking, "events" | "stopping">;
+export type LeaseTakeoverLog = Pick<LeaseTaking, "events" | "stopping" | "safetyMargin">;
 
 export function executionLeasesOf(
   repository: ExecutionLeaseRepository,
   clock: Clock,
-  { events, stopping }: LeaseTakeoverLog = {},
+  { events, stopping, safetyMargin }: LeaseTakeoverLog = {},
 ): ExecutionLeases {
+  const taking = { repository, clock, events, stopping, safetyMargin };
   const take = (tree: ExecutionTree, why?: LeaseTake): Promise<HeldExecutionLease | undefined> =>
-    takeLease({ repository, clock, events, stopping }, tree, why);
+    takeLease(taking, tree, why);
   return {
     tryHold: take,
     hold: async (tree, signal, why) => {
@@ -120,7 +121,7 @@ async function takeLease(
 ): Promise<HeldExecutionLease | undefined> {
   const { repository, clock, events } = taking;
   if (await isOver(take)) return undefined;
-  const askedAt = clock.now().getTime();
+  const sentAt = clock.monotonicNow();
   const initial = await repository.acquire(tree.tenantId, tree.rootExecutionId, EXECUTION_LEASE);
   if (initial === undefined) return undefined;
   // the work ended while the store was asked (#520): the lease goes back unused, nothing recorded
@@ -129,7 +130,7 @@ async function takeLease(
     leaseReleases.notify(treeKeyOf(tree.tenantId, tree.rootExecutionId));
     return undefined;
   }
-  const held = new HeldLease(taking, tree, initial, { askedAt, take });
+  const held = new HeldLease(taking, tree, initial, { sentAt, take });
   await reportTake(events, initial, take);
   return held;
 }
@@ -207,6 +208,8 @@ export interface LeaseTaking {
   readonly events?: LeaseEventLog | undefined;
   /** Aborted when the instance's stop interrupts what still runs: no release waits past it (#508). */
   readonly stopping?: AbortSignal | undefined;
+  /** What the holder takes off each answer's `remaining` (#533); absent: `LEASE_SAFETY_MARGIN`. */
+  readonly safetyMargin?: Milliseconds | undefined;
 }
 
 /** Whether a take of `lease` is a takeover the lease log records. */

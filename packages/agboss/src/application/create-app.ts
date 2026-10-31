@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { applicationContextOf } from "../flow/context/application-context.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Clock, IdGenerator } from "../infrastructure/clock.js";
+import type { Clock, IdGenerator, StoreClock } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { gatedInfrastructure, type ExecutionLeaseGate } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
@@ -55,6 +55,8 @@ export interface InstanceSeams {
   readonly instanceId?: string;
   readonly database?: InMemoryDatabase;
   readonly clock?: Clock;
+  /** The stores' time (#533, `testWith`: the test's clock, unskewed); absent = the database's. */
+  readonly storeClock?: StoreClock;
   readonly idGenerator?: IdGenerator;
   /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
   readonly quiet?: boolean;
@@ -165,11 +167,11 @@ export async function buildApplication(
   const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
   const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
-  const { database, reused: instances, quiet } = seams;
+  const { database, reused: instances, quiet, storeClock } = seams;
   const shared = applicationContainerOf(
     {
       ...sources,
-      ...{ database, instances, quiet },
+      ...{ database, instances, quiet, storeClock },
       ...{ fencedEffects: assembled.fencedEffects, outboundCalls: assembled.outboundCalls },
     },
     { ...options.container, onCreate },

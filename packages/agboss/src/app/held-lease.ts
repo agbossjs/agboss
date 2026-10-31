@@ -31,9 +31,12 @@ import { leaseReleases } from "./lease-releases.js";
 import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
 import type { Milliseconds } from "../units/index.js";
 
-/** How a held lease began: when it was asked for (the clock's ms) and why it was taken (#501). */
+/**
+ * How a held lease began: when it was asked for (`sentAt`, the clock's monotonic ms, #533) and why
+ * it was taken (#501).
+ */
 export interface HeldLeaseStart {
-  readonly askedAt: number;
+  readonly sentAt: number;
   readonly take?: LeaseTake | undefined;
 }
 
@@ -81,7 +84,7 @@ export class HeldLease implements HeldExecutionLease {
     private readonly taking: LeaseTaking,
     private readonly tree: ExecutionTree,
     initial: ExecutionLease,
-    { askedAt, take }: HeldLeaseStart,
+    { sentAt, take }: HeldLeaseStart,
   ) {
     this.repository = taking.repository;
     this.clock = taking.clock;
@@ -95,7 +98,9 @@ export class HeldLease implements HeldExecutionLease {
     this.signal = this.#lost.signal;
     this.#key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
     this.#current = initial;
-    this.#fence = new LeaseFence(this.clock, askedAt, this.#lost, tree.rootExecutionId);
+    const start = { sentAt, remaining: initial.remaining };
+    const { safetyMargin } = taking;
+    this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId, safetyMargin);
     this.#holder = new FencedHolders(this.scopeKey, (error) => {
       this.fenced(error);
     });
@@ -123,9 +128,7 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   assertHeld(): void {
-    this.#lost.signal.throwIfAborted();
-    if (this.clock.now().getTime() >= this.#fence.confirmedUntil) this.#fence.expire();
-    this.#lost.signal.throwIfAborted();
+    this.#fence.check();
   }
 
   async confirmNow(): Promise<void> {
@@ -133,10 +136,10 @@ export class HeldLease implements HeldExecutionLease {
     const held = this.#current;
     // no step runs while the lease is yielded: a confirmation now is not this holder's
     if (held === undefined || this.#isYieldedNow) this.#fence.lose();
-    const { renewedAt, isRenewed } = await renewalOf(this.taking, held);
+    const { sentAt, renewed } = await renewalOf(this.taking, held);
     // anything but a confirmed renewal is a hand-over: the tree goes on where the lease is held
-    if (isRenewed !== true) this.#fence.lose();
-    this.#fence.settle(renewedAt, true);
+    if (renewed === false || renewed === undefined) this.#fence.lose();
+    this.#fence.settle(sentAt, renewed);
     for (const check of this.#checks) await check();
   }
 
@@ -157,8 +160,8 @@ export class HeldLease implements HeldExecutionLease {
     }
     // released meanwhile: the answer is for a lease this holder gave up
     if (renewal.held !== this.#current) return;
-    this.#fence.settle(renewal.renewedAt, renewal.isRenewed);
-    if (renewal.isRenewed === true) for (const check of this.#checks) await check();
+    this.#fence.settle(renewal.sentAt, renewal.renewed);
+    if (typeof renewal.renewed === "number") for (const check of this.#checks) await check();
   }
 
   enterStep(): Promise<() => void> {
@@ -234,7 +237,7 @@ export class HeldLease implements HeldExecutionLease {
   async #reacquireLease(): Promise<void> {
     const held = this.#current;
     if (held === undefined || !this.#isYieldedNow) return;
-    const at = this.clock.now().getTime();
+    const sentAt = this.clock.monotonicNow();
     const next = await this.#turns.run(async () => {
       const reclaimed = await this.repository.reclaim(held, EXECUTION_LEASE);
       if (reclaimed !== undefined) this.#current = reclaimed;
@@ -244,7 +247,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#isYieldedNow = false;
     this.#reports.held(next);
     this.#holder.hold(next.leaseEpoch);
-    this.#fence.reacquired(at);
+    this.#fence.reacquired(sentAt, next.remaining);
     await reportTake(this.taking.events, next, reacquiredOf(this.#take));
   }
 }

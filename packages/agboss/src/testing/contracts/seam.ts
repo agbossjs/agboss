@@ -3,8 +3,15 @@ import {
   applicationContextOf,
   type ApplicationContext,
 } from "../../flow/context/application-context.js";
-import type { Clock } from "../../infrastructure/clock.js";
+import {
+  DatabaseStoreClock,
+  systemClock,
+  TestStoreClock,
+  type Clock,
+  type StoreClock,
+} from "../../infrastructure/clock.js";
 import { TEST_START, VirtualClock } from "../clock.js";
+import { ClockSkew, SkewedClock } from "../clock-skew.js";
 import { trackedStore } from "./tracked-store.js";
 
 /**
@@ -13,10 +20,20 @@ import { trackedStore } from "./tracked-store.js";
  * case — the suite's clock, an empty backing store, two instances on it, then their close.
  */
 
-/** What one instance's store is built from: the framework's clock and this instance's identity. */
+/** What one instance's store is built from: the clocks and this instance's identity. */
 export interface StoreSeam {
-  /** The suite's clock (a VirtualClock): the store must read time from it, never from the database. */
+  /**
+   * The instance's own clock: the suite's `VirtualClock` — or, in a case of the store's time as the
+   * authority (#533), the real time skewed for this instance, which a store must not decide by.
+   */
   readonly clock: Clock;
+  /**
+   * The time the store decides expiry by (#533): the suite's clock injected (`isDatabaseTime`
+   * false — every store reads it), or in database mode the database's own (`isDatabaseTime` true: a
+   * networked store reads its database's clock in each statement; in-memory and SQLite `now()`, the
+   * host's, shared by both instances).
+   */
+  readonly storeClock: StoreClock;
   /** "instance-1" or "instance-2": the holder of leases, the claimer of queued children. */
   readonly instanceId: string;
   /** The instance's application context (its instanceId, a test environment). */
@@ -55,9 +72,29 @@ export type ContractCaseBody<TStore> = (instances: ContractInstances<TStore>) =>
 const FIRST_INSTANCE = "instance-1";
 const SECOND_INSTANCE = "instance-2";
 
-/** The seam of `instanceId`, on the case's clock. */
-const seamOf = (clock: VirtualClock, instanceId: string): StoreSeam => ({
-  clock,
+/**
+ * How a case runs (#533): on the suite's `VirtualClock`, the stores' time injected (the default), or
+ * on real time with the stores deciding by their database's time and the second instance's own clock
+ * skewed — so a store that reads the caller's clock fails it.
+ */
+export interface DatabaseTime {
+  readonly secondSkew: ClockSkew;
+}
+
+/** The host's real time, the one clock a database-time case's stores share (#533). */
+const DATABASE_TIME: StoreClock = new DatabaseStoreClock(systemClock);
+
+/** The seam of `instanceId`, on the case's clock (or, in database time, on its skewed real clock). */
+const seamOf = (clock: VirtualClock, instanceId: string, time?: DatabaseTime): StoreSeam => ({
+  ...(time === undefined
+    ? { clock, storeClock: new TestStoreClock(clock) }
+    : {
+        clock: new SkewedClock(
+          systemClock,
+          instanceId === FIRST_INSTANCE ? ClockSkew.none : time.secondSkew,
+        ),
+        storeClock: DATABASE_TIME,
+      }),
   instanceId,
   application: applicationContextOf({
     name: "contract-test-application",
@@ -90,9 +127,10 @@ async function buildInstances<TStore>(
   target: ContractTarget<TStore>,
   clock: VirtualClock,
   stores: TStore[],
+  time: DatabaseTime | undefined,
 ): Promise<ContractInstances<TStore>> {
   const built = async (instanceId: string): Promise<TStore> => {
-    const store = await target.instance(seamOf(clock, instanceId));
+    const store = await target.instance(seamOf(clock, instanceId, time));
     stores.push(store);
     // the case's clock waits for its calls: a networked store's round trip is more than one turn (#511)
     return trackedStore(store, clock);
@@ -105,11 +143,13 @@ async function buildInstances<TStore>(
 /**
  * One case's lifecycle: a new `VirtualClock` at `2026-01-05T09:00:00.000Z` → `reset()` → two
  * `instance()` calls → the case → `close()` for each built store. A failing `reset()` fails the
- * case with its error and builds nothing; the case's own error wins over a failing `close()`.
+ * case with its error and builds nothing; the case's own error wins over a failing `close()`. In
+ * `time` (#533) the stores decide by the database's time on real time, the second instance skewed.
  */
 export function withTarget<TStore>(
   target: ContractTarget<TStore>,
   body: ContractCaseBody<TStore>,
+  time?: DatabaseTime,
 ): () => Promise<void> {
   return async () => {
     const clock = new VirtualClock(new Date(TEST_START));
@@ -117,7 +157,7 @@ export function withTarget<TStore>(
     const stores: TStore[] = [];
     let outcome: { readonly error: unknown } | undefined;
     try {
-      await body(await buildInstances(target, clock, stores));
+      await body(await buildInstances(target, clock, stores, time));
     } catch (error) {
       outcome = { error };
     }

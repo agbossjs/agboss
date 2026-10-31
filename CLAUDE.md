@@ -1947,10 +1947,18 @@ export class PlanService {
   mapping LangGraph's interrupt id of every answered pause, takes the decisions resolved meanwhile
   before the tree rests (the drain), and the waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
-  failed record. Fencing is local too (#335): the holder trusts its lease until the `Clock` read
-  before its last confirmed renewal plus `seconds(30)` — a lease store error before then lets a
-  checkpoint write go on, at that moment the execution's `signal` aborts with
-  `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call.
+  failed record. Fencing is local too (#335): the holder trusts its lease until `sentAt + remaining
+  − LEASE_SAFETY_MARGIN` (1 s) of its last confirmed acquire or renewal (#533: `remaining` the time
+  the store says is left — `ExecutionLease.remaining`, `renew`'s answer, `undefined` once over —,
+  `sentAt` the holder's `Clock.monotonicNow()` when it sent the request, never its wall clock; the
+  store decides expiry by its own time, `StoreClock` — a networked store's database clock in each
+  statement, the host's for in-memory and SQLite, the test's clock in `testWith` and the contract
+  suites; the margin covers ρ_holder + ρ_store ≤ 1 s / 30 s) — a lease store error before then lets
+  a checkpoint write go on, at that moment the execution's `signal` aborts with
+  `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call; an
+  outbound call's `send` starts only while it holds (`assertHeld()` right before). Tests skew an
+  instance with `testWith(App, { instances: 2, clockSkews: [ClockSkew.none, ClockSkew.ahead(…)] })`
+  (`ClockSkew`, `SkewedClock`: wall time, monotonic time and sleeps; the stores keep the test's clock).
   While a parent node waits for `AnyInstance` children it yields the lease only when no other step
   of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first)
   — in the store (#516, `yield` / `reclaim`): still its holder's, renewed on, so every instance sees

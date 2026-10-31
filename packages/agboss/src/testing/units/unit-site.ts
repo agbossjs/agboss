@@ -23,7 +23,7 @@ import {
   type TenantFields,
 } from "../../flow/context/context-values.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
-import { Clock } from "../../infrastructure/clock.js";
+import { Clock, StoreClock, TestStoreClock } from "../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import type { ModelGateway } from "../../llm/gateway.js";
 import type { Milliseconds } from "../../units/index.js";
@@ -108,6 +108,8 @@ function unitContainer(
     [JudgeModel, new DependantValue((dependant) => new LiveJudgeModel(dependant))],
     [SpendRecorder, new DependantValue((dependant) => new LiveSpendRecorder(dependant))],
     [Clock, clock],
+    // the runner's stores decide by its clock (#533)
+    [StoreClock, new TestStoreClock(clock)],
   ]);
   return createContainer(
     { modules: [], core, defaults: fencedEffects.defaults },

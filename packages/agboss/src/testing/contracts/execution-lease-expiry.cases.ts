@@ -56,12 +56,12 @@ const HOLDER_OPERATIONS: readonly HolderOperation[] = [
   {
     name: "renew of a held lease",
     isYielded: false,
-    call: (store, held) => store.renew(held, LEASE),
+    call: async (store, held) => (await store.renew(held, LEASE)) !== undefined,
   },
   {
     name: "renew of a yielded lease",
     isYielded: true,
-    call: (store, held) => store.renew(held, LEASE),
+    call: async (store, held) => (await store.renew(held, LEASE)) !== undefined,
   },
   {
     name: "reclaim of a yielded lease",
@@ -112,7 +112,7 @@ const holderAcquiresAgain = (edge: ExpiryEdge): ContractCase<ExecutionLeaseRepos
   run: async ({ clock, first, second }: Instances): Promise<void> => {
     const held = await heldBy(first, false);
     await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
-    expect(await first.renew(held, LEASE)).toBe(false);
+    expect(await first.renew(held, LEASE)).toBeUndefined();
 
     const again = await first.acquire("default", "root-1", LEASE);
 
@@ -121,10 +121,10 @@ const holderAcquiresAgain = (edge: ExpiryEdge): ContractCase<ExecutionLeaseRepos
       leaseEpoch: 2,
       takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
     });
-    expect(await first.renew(held, LEASE)).toBe(false);
+    expect(await first.renew(held, LEASE)).toBeUndefined();
     expect(await first.reclaim(held, LEASE)).toBeUndefined();
     expect(await first.yield(held)).toBe(false);
-    expect(again && (await first.renew(again, LEASE))).toBe(true);
+    expect(again && (await first.renew(again, LEASE))).toBe(LEASE);
     expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
   },
 });
@@ -142,10 +142,10 @@ const takeAndRenewAtExpiry: ContractCase<ExecutionLeaseRepository> = {
     const takenBeforeRenewal = await second.acquire("default", "root-2", LEASE);
     const isRenewedAfterTake = other && (await first.renew(other, LEASE));
 
-    expect(isRenewedBeforeTake).toBe(false);
+    expect(isRenewedBeforeTake).toBeUndefined();
     expect(takenAfterRenewal).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
     expect(takenBeforeRenewal).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
-    expect(isRenewedAfterTake).toBe(false);
+    expect(isRenewedAfterTake).toBeUndefined();
   },
 };
 

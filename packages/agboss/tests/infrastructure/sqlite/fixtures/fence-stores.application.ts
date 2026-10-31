@@ -157,7 +157,10 @@ export class CountedExecutionLeaseRepository extends InMemoryExecutionLeaseRepos
     return super.acquire(tenantId, rootExecutionId, lease);
   }
 
-  override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  override renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     CountedExecutionLeaseRepository.calls += 1;
     return super.renew(executionLease, lease);
   }
