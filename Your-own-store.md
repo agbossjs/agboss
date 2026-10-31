@@ -448,7 +448,12 @@ storeConformance({
 ```
 
 `fencedEffectContract(target, { acceptWithoutDoubleChargeProtection })` and `outboundCallContract`
-take the same option when they are run on their own.
+take the same option when they are run on their own. Run alone with the flag, the suite shows the
+missing protection itself (#566): `gives NO double-charge protection: its store opted out of the
+lease check (acceptWithoutDoubleChargeProtection)` passes for an opted-out store, so a report that
+hides skipped cases still says it, and fails (`[store-conformance.opt-out-not-declared]`) for a store
+that does not opt out. A store opted out through its parent class is opted out too; a subclass
+that restates `LeaseCheck.Atomic` runs every fencing case.
 
 ### Faults: `faultSuite` (#484)
 

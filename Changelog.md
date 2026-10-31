@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a fencing contract run alone shows its opt-out (#566)
+
+- A fencing contract run on its own with `acceptWithoutDoubleChargeProtection: true` registers
+  `gives NO double-charge protection: its store opted out of the lease check
+  (acceptWithoutDoubleChargeProtection)`: passing for an opted-out store, failing
+  `[store-conformance.opt-out-not-declared]` for one that does not opt out. `storeConformance`
+  shows it once, in the set's suite, as before. Found in the acceptance of #543.
+
 ## Unreleased — 0.1.1: keys with look-alike spaces are refused (#547)
 
 - **Changed**: a business key and a thread id are refused when they hold a space other than U+0020
