@@ -135,6 +135,10 @@ export class FaultPod {
 
 // @public
 export interface FaultPodOptions {
+    readonly clockSkew?: {
+        readonly offset?: number;
+        readonly drift?: number;
+    };
     // (undocumented)
     readonly maxConcurrentSteps?: number;
     // (undocumented)
@@ -487,6 +491,10 @@ export interface PodExit {
 
 // @public
 export interface PodLaunch {
+    readonly clockSkew?: {
+        readonly offset?: number;
+        readonly drift?: number;
+    } | undefined;
     readonly databaseUrl: string;
     // (undocumented)
     readonly maxConcurrentSteps?: number | undefined;
@@ -532,13 +540,19 @@ export function runFaultScenario(scenario: FaultScenario, options: FaultScenario
 //
 // @public
 export class ScaledClock extends Clock {
-    constructor(scale: number, origin: number, real?: Clock);
+    constructor(scale: number, origin: number, real?: Clock, skew?: PodClockSkew);
+    // (undocumented)
+    monotonicNow(): number;
     // (undocumented)
     now(): Date;
     // (undocumented)
     readonly origin: number;
     // (undocumented)
     readonly scale: number;
+    // Warning: (ae-forgotten-export) The symbol "PodClockSkew" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly skew: PodClockSkew;
     // (undocumented)
     sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
 }
@@ -627,10 +641,12 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/facts.ts:51:3 - (ae-undocumented) Missing documentation for "payments".
 // src/testing/faults/facts.ts:52:3 - (ae-undocumented) Missing documentation for "events".
 // src/testing/faults/facts.ts:53:3 - (ae-undocumented) Missing documentation for "history".
-// src/testing/faults/fault-clock.ts:29:5 - (ae-undocumented) Missing documentation for "scale".
-// src/testing/faults/fault-clock.ts:30:5 - (ae-undocumented) Missing documentation for "origin".
-// src/testing/faults/fault-clock.ts:36:3 - (ae-undocumented) Missing documentation for "now".
-// src/testing/faults/fault-clock.ts:41:3 - (ae-undocumented) Missing documentation for "sleep".
+// src/testing/faults/fault-clock.ts:48:5 - (ae-undocumented) Missing documentation for "scale".
+// src/testing/faults/fault-clock.ts:49:5 - (ae-undocumented) Missing documentation for "origin".
+// src/testing/faults/fault-clock.ts:51:5 - (ae-undocumented) Missing documentation for "skew".
+// src/testing/faults/fault-clock.ts:58:3 - (ae-undocumented) Missing documentation for "now".
+// src/testing/faults/fault-clock.ts:63:12 - (ae-undocumented) Missing documentation for "monotonicNow".
+// src/testing/faults/fault-clock.ts:67:3 - (ae-undocumented) Missing documentation for "sleep".
 // src/testing/faults/fault-gateway.ts:23:1 - (ae-undocumented) Missing documentation for "FaultGateway".
 // src/testing/faults/fault-gateway.ts:24:3 - (ae-undocumented) Missing documentation for "requests".
 // src/testing/faults/fault-stores.ts:43:3 - (ae-undocumented) Missing documentation for "environment".
@@ -669,19 +685,19 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/pod-protocol.ts:62:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/testing/faults/pod-protocol.ts:63:3 - (ae-undocumented) Missing documentation for "orderId".
 // src/testing/faults/pod-protocol.ts:64:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/faults/pod.ts:29:3 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/pod.ts:34:3 - (ae-undocumented) Missing documentation for "timeScale".
-// src/testing/faults/pod.ts:35:3 - (ae-undocumented) Missing documentation for "timeOrigin".
-// src/testing/faults/pod.ts:36:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
-// src/testing/faults/pod.ts:37:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
-// src/testing/faults/pod.ts:48:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/pod.ts:53:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/faults/pod.ts:54:3 - (ae-undocumented) Missing documentation for "signal".
-// src/testing/faults/pod.ts:75:1 - (ae-undocumented) Missing documentation for "FaultPod".
-// src/testing/faults/pod.ts:76:3 - (ae-undocumented) Missing documentation for "events".
-// src/testing/faults/pod.ts:77:3 - (ae-undocumented) Missing documentation for "exited".
-// src/testing/faults/pod.ts:78:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/faults/pod.ts:84:5 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:34:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:39:3 - (ae-undocumented) Missing documentation for "timeScale".
+// src/testing/faults/pod.ts:40:3 - (ae-undocumented) Missing documentation for "timeOrigin".
+// src/testing/faults/pod.ts:41:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/pod.ts:42:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
+// src/testing/faults/pod.ts:55:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:60:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/pod.ts:61:3 - (ae-undocumented) Missing documentation for "signal".
+// src/testing/faults/pod.ts:82:1 - (ae-undocumented) Missing documentation for "FaultPod".
+// src/testing/faults/pod.ts:83:3 - (ae-undocumented) Missing documentation for "events".
+// src/testing/faults/pod.ts:84:3 - (ae-undocumented) Missing documentation for "exited".
+// src/testing/faults/pod.ts:85:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/faults/pod.ts:91:5 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/scenario.ts:29:3 - (ae-undocumented) Missing documentation for "database".
 // src/testing/faults/scenario.ts:36:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-outage.ts:19:12 - (ae-undocumented) Missing documentation for "name".

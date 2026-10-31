@@ -10,6 +10,7 @@ import { s08Back, s08Cut } from "./s08-database-loss.js";
 import { s09CrashAfterSend, s10OneOrderTwoTrees } from "./s09-s10-gateway.js";
 import { s11InGrace, s11Misconfigured } from "./s11-short-grace.js";
 import { s12RealFailure } from "./s12-real-failure.js";
+import { s13ClockAhead, s13ClockBehind } from "./s13-clock-skew.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const FAULT_SCENARIOS: readonly FaultScenario[] = [
@@ -31,4 +32,6 @@ export const FAULT_SCENARIOS: readonly FaultScenario[] = [
   s11InGrace,
   s11Misconfigured,
   s12RealFailure,
+  s13ClockAhead,
+  s13ClockBehind,
 ];

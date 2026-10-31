@@ -23,6 +23,11 @@ export interface FaultWorldOptions {
 export interface FaultPodOptions {
   readonly shutdownTimeout?: Milliseconds;
   readonly maxConcurrentSteps?: number;
+  /**
+   * The pod's clock off the run's (#533): `offset` ms ahead (negative: behind), running `drift`
+   * faster — its wall time, monotonic time and sleeps; its stores keep the run's time.
+   */
+  readonly clockSkew?: { readonly offset?: number; readonly drift?: number };
 }
 
 /** The host and port of a TCP database's URL; `undefined` for a file. */
