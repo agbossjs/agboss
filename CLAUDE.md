@@ -2115,7 +2115,7 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; 
   is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
   The same key and fingerprint (an HMAC of canonical JSON under a subkey of the application's `pseudonymKey`, `"agboss/fingerprint/v1"` — a labelled SHA-256 without one; `OutboundCalls` takes its request's) →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
-  visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  visit that made it); another fingerprint (any text, `""` too, is one and none is none, #574) → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
   this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
   this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other

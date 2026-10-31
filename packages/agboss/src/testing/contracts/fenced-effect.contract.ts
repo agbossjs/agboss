@@ -3,6 +3,7 @@ import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-ga
 import { businessKeyCases } from "./fenced-effect-business.cases.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { expiryCases } from "./fenced-effect-expiry.cases.js";
+import { fingerprintCases } from "./fenced-effect-fingerprint.cases.js";
 import { keyTextCases } from "./fenced-effect-key-text.cases.js";
 import { housekeepingCases, isolationCases } from "./fenced-effect-isolation.cases.js";
 import { concurrencyCases, rollbackCases } from "./fenced-effect-rollback.cases.js";
@@ -50,6 +51,7 @@ export function registerFencedEffectContract<TTransaction>(
       housekeepingCases<TTransaction>(),
       textCases<TTransaction>(),
       businessKeyCases<TTransaction>(),
+      fingerprintCases<TTransaction>(),
       keyTextCases<TTransaction>(),
       zombieCases<TTransaction>(),
     ],
