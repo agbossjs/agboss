@@ -1,0 +1,746 @@
+{
+  "scenario": "s05b-zombie-reaches-charge-first",
+  "store": "UnfencedSqliteFencedEffectRepository: no fencing check on the business write",
+  "timeScale": 10,
+  "events": [
+    {
+      "id": "a#2",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957578709083"
+    },
+    {
+      "id": "a#2",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957578901041"
+    },
+    {
+      "id": "a#3",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957587371250"
+    },
+    {
+      "id": "a#3",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957588072041"
+    },
+    {
+      "id": "a#4",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957591813291"
+    },
+    {
+      "id": "a#4",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957592000791"
+    },
+    {
+      "id": "a#5",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957592177916"
+    },
+    {
+      "id": "a#5",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957592212833"
+    },
+    {
+      "id": "a#6",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957595503625"
+    },
+    {
+      "id": "a#6",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957595661166"
+    },
+    {
+      "id": "a#7",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957595780000"
+    },
+    {
+      "id": "a#7",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957595849083"
+    },
+    {
+      "id": "a#8",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957599173625"
+    },
+    {
+      "id": "a#8",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957599286916"
+    },
+    {
+      "id": "a#9",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957599376291"
+    },
+    {
+      "id": "a#9",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506957599394958"
+    },
+    {
+      "id": "b#2",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506960583275625"
+    },
+    {
+      "id": "b#2",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": null,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506960583587958"
+    },
+    {
+      "id": "b#4",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963586659458"
+    },
+    {
+      "id": "b#4",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        }
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963587774750"
+    },
+    {
+      "id": "a#10",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "a-16319",
+        "leaseEpoch": 1,
+        "expiresAt": "2026-10-31T11:40:39.970Z",
+        "remaining": 30000,
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963603682125"
+    },
+    {
+      "id": "a#10",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": null,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963603801208"
+    },
+    {
+      "id": "a#11",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "lease": 30000
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963613029375"
+    },
+    {
+      "id": "a#11",
+      "operation": "lease.acquire",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": null,
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963613285541"
+    },
+    {
+      "id": "a#13",
+      "operation": "fencedEffect.write",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "scopeKey": "default:2b916485-0483-4899-810a-257aba4d584f",
+        "tenantId": "default",
+        "leaseExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "token": 1,
+        "idempotencyKey": "2b916485-0483-4899-810a-257aba4d584f:fault-charge-action:1",
+        "name": "charge"
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963613463416"
+    },
+    {
+      "id": "a#13",
+      "operation": "fencedEffect.write",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": {
+        "status": "ran",
+        "token": 2
+      },
+      "process": "a",
+      "instanceId": "a-16319",
+      "at": "2506963614137541"
+    },
+    {
+      "id": "b#6",
+      "operation": "fencedEffect.write",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "scopeKey": "default:2b916485-0483-4899-810a-257aba4d584f",
+        "tenantId": "default",
+        "leaseExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "token": 2,
+        "idempotencyKey": "2b916485-0483-4899-810a-257aba4d584f:fault-charge-action:1",
+        "name": "charge"
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963614691625"
+    },
+    {
+      "id": "b#6",
+      "operation": "fencedEffect.write",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": {
+        "status": "replayed",
+        "token": 2
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963616058625"
+    },
+    {
+      "id": "b#7",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963620955291"
+    },
+    {
+      "id": "b#7",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963621148416"
+    },
+    {
+      "id": "b#8",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963621593750"
+    },
+    {
+      "id": "b#8",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963621620333"
+    },
+    {
+      "id": "b#9",
+      "operation": "outboundCall.findByKey",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "scopeKey": "default:2b916485-0483-4899-810a-257aba4d584f",
+        "tenantId": "default",
+        "leaseExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "token": 2,
+        "idempotencyKey": "2b916485-0483-4899-810a-257aba4d584f:fault-pay-action:1",
+        "name": "pay",
+        "businessKey": "order:o-5b"
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963627400041"
+    },
+    {
+      "id": "b#9",
+      "operation": "outboundCall.findByKey",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": null,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963627686916"
+    },
+    {
+      "id": "b#10",
+      "operation": "outboundCall.saveIfAbsent",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "scopeKey": "default:2b916485-0483-4899-810a-257aba4d584f",
+        "tenantId": "default",
+        "leaseExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "token": 2,
+        "idempotencyKey": "2b916485-0483-4899-810a-257aba4d584f:fault-pay-action:1",
+        "name": "pay",
+        "businessKey": "order:o-5b",
+        "attemptOwner": "a8fca017-33f0-4409-90b2-57d09c7d0755"
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963627988916"
+    },
+    {
+      "id": "b#10",
+      "operation": "outboundCall.saveIfAbsent",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": true,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963628228000"
+    },
+    {
+      "id": "b#11",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963628435875"
+    },
+    {
+      "id": "b#11",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963628632458"
+    },
+    {
+      "id": "b#12",
+      "operation": "outboundCall.markCompleted",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "scopeKey": "default:2b916485-0483-4899-810a-257aba4d584f",
+        "tenantId": "default",
+        "leaseExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "token": 2,
+        "idempotencyKey": "2b916485-0483-4899-810a-257aba4d584f:fault-pay-action:1",
+        "name": "pay",
+        "businessKey": "order:o-5b",
+        "attemptOwner": "a8fca017-33f0-4409-90b2-57d09c7d0755"
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963628951833"
+    },
+    {
+      "id": "b#12",
+      "operation": "outboundCall.markCompleted",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": true,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963629400458"
+    },
+    {
+      "id": "b#13",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963631129125"
+    },
+    {
+      "id": "b#13",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963631238166"
+    },
+    {
+      "id": "b#14",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963631395875"
+    },
+    {
+      "id": "b#14",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963631420250"
+    },
+    {
+      "id": "b#15",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963634596083"
+    },
+    {
+      "id": "b#15",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963634710458"
+    },
+    {
+      "id": "b#16",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        },
+        "lease": 30000
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963634894208"
+    },
+    {
+      "id": "b#16",
+      "operation": "lease.renew",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": 30000,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963634980625"
+    },
+    {
+      "id": "b#18",
+      "operation": "lease.release",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "invoke",
+      "input": {
+        "tenantId": "default",
+        "rootExecutionId": "2b916485-0483-4899-810a-257aba4d584f",
+        "holderInstanceId": "b-16321",
+        "leaseEpoch": 2,
+        "expiresAt": "2026-10-31T11:41:40.050Z",
+        "remaining": 30000,
+        "takenOverFrom": {
+          "holderInstanceId": "a-16319",
+          "leaseEpoch": 1
+        }
+      },
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963641599333"
+    },
+    {
+      "id": "b#18",
+      "operation": "lease.release",
+      "key": "2b916485-0483-4899-810a-257aba4d584f",
+      "phase": "complete",
+      "output": null,
+      "process": "b",
+      "instanceId": "b-16321",
+      "at": "2506963641685625"
+    }
+  ]
+}
