@@ -31,8 +31,7 @@ import {
   fencedEffectsViolations,
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
-import { fencedEffectStoreViolations } from "../infrastructure/in-memory-fenced-effect.repository.js";
-import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+import { FENCING_CONTRACTS, storeBackendViolations } from "./implementations.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -211,9 +210,10 @@ export function applicationRuleViolations(
     ...meshHopsViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
-    ...fencedEffectStoreViolations(options.name, options.providers ?? []),
-    // the outbound-call store (#505) reads the leases of its database the same way
-    ...fencedEffectStoreViolations(options.name, options.providers ?? [], OutboundCallRepository),
+    // one transactional backend (#526): each fencing store with its lease store
+    ...FENCING_CONTRACTS.flatMap((fencing) =>
+      storeBackendViolations(options.name, options.providers ?? [], fencing),
+    ),
     ...meshRuleViolations(
       options.name,
       options.mesh,

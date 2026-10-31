@@ -1,9 +1,10 @@
 /**
- * #500 — the fenced-effect store and the lease store are of one database: a listed store's
- * `static leaseRepository` must be the application's lease store (listed, else the in-memory
- * default), else `[application.fenced-effect-lease-store]` names both classes; a store of a project
- * that declares none is not checked, and an unlisted default beside SQLite leases fails at its first
- * call (`FencedEffectStoreMismatchError`).
+ * #500, #526 — the fenced-effect store and the lease store are on one backend: a listed store's
+ * `static backend` must be the application's lease store's (listed, else the in-memory default),
+ * else `[application.store-backend-mismatch]` names both (every pairing: store-backends.test.ts);
+ * a store of a project that declares none fails `[application.store-backend-undeclared]` (it used
+ * to be skipped, #526); an unlisted default beside SQLite leases fails at its first call
+ * (`FencedEffectStoreMismatchError`).
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -38,10 +39,11 @@ import { ReleaseWorkflow } from "../app/fixtures/fence.workflow.js";
 
 sqliteFilePerTest();
 
-/** A project's own store that names no lease store: not checked at assembly. */
+/** A project's own store that declares no backend (#526: it fails assembly). */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly leaseRepository = undefined;
+  static override readonly backend = undefined;
 }
 
 const assembledWith = (providers: readonly Provider[]) => {
@@ -57,10 +59,10 @@ const assembledWith = (providers: readonly Provider[]) => {
   return applicationOf(StoresApplication);
 };
 
-describe("#500: [application.fenced-effect-lease-store]", () => {
-  it("the SQLite store beside the in-memory leases fails assembly, naming both", async () => {
+describe("#500, #526: the fenced-effect store beside its lease store", () => {
+  it("the SQLite store beside the in-memory leases fails assembly, naming both backends", async () => {
     await expect(assembledWith([SqliteFencedEffectRepository])).rejects.toThrow(
-      "[application.fenced-effect-lease-store] SqliteFencedEffectRepository checks the leases of SqliteExecutionLeaseRepository, but the application's leases are in InMemoryExecutionLeaseRepository",
+      '[application.store-backend-mismatch] SqliteFencedEffectRepository (backend "sqlite") checks its leases in its own transaction, but the application\'s leases are in InMemoryExecutionLeaseRepository (backend "in-memory")',
     );
   });
 
@@ -73,7 +75,7 @@ describe("#500: [application.fenced-effect-lease-store]", () => {
     expect(assembled.providers).toContain(SqliteFencedEffectRepository);
   });
 
-  it("a subclass of the lease store it reads is that store", async () => {
+  it("a subclass of a lease store is on its backend", async () => {
     await expect(
       assembledWith([InMemoryFencedEffectRepository, MortalExecutionLeaseRepository]),
     ).resolves.toBeDefined();
@@ -83,11 +85,11 @@ describe("#500: [application.fenced-effect-lease-store]", () => {
     await expect(
       assembledWith([InMemoryFencedEffectRepository, SqliteExecutionLeaseRepository]),
     ).rejects.toThrow(
-      "InMemoryFencedEffectRepository checks the leases of InMemoryExecutionLeaseRepository, but the application's leases are in SqliteExecutionLeaseRepository",
+      'InMemoryFencedEffectRepository (backend "in-memory") checks its leases in its own transaction, but the application\'s leases are in SqliteExecutionLeaseRepository (backend "sqlite")',
     );
   });
 
-  it("a store that declares no lease store is not checked", async () => {
+  it("regression #526: a store that declares no backend is no longer skipped — it fails assembly", async () => {
     @Application({
       name: "own-store-application",
       version: "1.0.0",
@@ -98,8 +100,10 @@ describe("#500: [application.fenced-effect-lease-store]", () => {
     })
     class OwnStoreApplication {}
 
-    await expect(applicationOf(OwnStoreApplication)).resolves.toBeDefined();
-    expect(FencedEffectRepository.leaseRepository).toBeUndefined();
+    await expect(applicationOf(OwnStoreApplication)).rejects.toThrow(
+      "[application.store-backend-undeclared] OwnFencedEffectRepository declares no backend",
+    );
+    expect(FencedEffectRepository.backend).toBeUndefined();
   });
 });
 

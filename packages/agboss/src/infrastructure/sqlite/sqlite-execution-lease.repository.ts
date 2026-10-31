@@ -36,12 +36,8 @@ const HELD_BY = `tenant_id = ? AND root_execution_id = ? AND holder_instance_id 
   AND released = 0`;
 
 /** The key, holder and epoch of `lease`, in `HELD_BY`'s order. */
-const heldBy = (lease: ExecutionLease): readonly [string, string, string, number] => [
-  lease.tenantId,
-  lease.rootExecutionId,
-  lease.holderInstanceId,
-  lease.leaseEpoch,
-];
+const heldBy = ({ tenantId, rootExecutionId, holderInstanceId, leaseEpoch }: ExecutionLease) =>
+  [tenantId, rootExecutionId, holderInstanceId, leaseEpoch] as const;
 
 const LeaseRow = z.object({
   holder_instance_id: z.string(),
@@ -65,6 +61,8 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
+  static override readonly backend: string | undefined = "sqlite";
+
   constructor(
     private readonly connection: SqliteConnection,
     private readonly clock: Clock,

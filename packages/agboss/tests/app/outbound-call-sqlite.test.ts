@@ -2,7 +2,7 @@
  * #505 on SQLite — `SqliteOutboundCallRepository` on one file shared by two instances: a charge
  * killed before the answer is reconciled by the instance that recovers it, never sent again; the
  * intents and their lease-log rows are on the file. The store is listed with the SQLite leases
- * (`[application.fenced-effect-lease-store]` otherwise); the unlisted in-memory default beside them
+ * (`[application.store-backend-mismatch]` otherwise, #526); the unlisted in-memory default beside them
  * fails at its first call.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -109,10 +109,10 @@ const assembledWith = (providers: readonly Provider[]) => {
   return applicationOf(OutboundStoresApplication);
 };
 
-describe("#505: [application.fenced-effect-lease-store] for the outbound-call store", () => {
+describe("#505, #526: [application.store-backend-mismatch] for the outbound-call store", () => {
   it("the SQLite store beside the in-memory leases fails assembly, naming both", async () => {
     await expect(assembledWith([SqliteOutboundCallRepository])).rejects.toThrow(
-      "[application.fenced-effect-lease-store] SqliteOutboundCallRepository checks the leases of SqliteExecutionLeaseRepository, but the application's leases are in InMemoryExecutionLeaseRepository",
+      '[application.store-backend-mismatch] SqliteOutboundCallRepository (backend "sqlite") checks its leases in its own transaction, but the application\'s leases are in InMemoryExecutionLeaseRepository (backend "in-memory")',
     );
   });
 
@@ -129,7 +129,7 @@ describe("#505: [application.fenced-effect-lease-store] for the outbound-call st
     await expect(
       assembledWith([InMemoryOutboundCallRepository, SqliteExecutionLeaseRepository]),
     ).rejects.toThrow(
-      "InMemoryOutboundCallRepository checks the leases of InMemoryExecutionLeaseRepository, but the application's leases are in SqliteExecutionLeaseRepository",
+      'InMemoryOutboundCallRepository (backend "in-memory") checks its leases in its own transaction, but the application\'s leases are in SqliteExecutionLeaseRepository (backend "sqlite")',
     );
   });
 });

@@ -18,7 +18,7 @@ import {
   type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
-import { businessFactsOf } from "../fenced-effect-key.js";
+import { pendingOutboundCallOf } from "../fenced-effect-key.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import {
   EXECUTION_LEASES_SCHEMA,
@@ -72,6 +72,7 @@ const recordOf = (row: unknown): OutboundCallRecord =>
 @Injectable({ deps: [SqliteConnection, Clock] })
 export class SqliteOutboundCallRepository extends OutboundCallRepository {
   static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
+  static override readonly backend: string | undefined = "sqlite";
 
   constructor(
     private readonly connection: SqliteConnection,
@@ -93,16 +94,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
-      const record: OutboundCallRecord = {
-        ...intent,
-        tenantId: key.tenantId,
-        name: key.name,
-        status: OutboundCallStatus.Pending,
-        token: key.token,
-        leaseExecutionId: key.leaseExecutionId,
-        ...businessFactsOf(key),
-        recordedAt: this.clock.now().toISOString(),
-      };
+      const record = pendingOutboundCallOf(key, intent, this.clock.now());
       const { changes } = this.connection.database
         .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)")
         .run(

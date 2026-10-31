@@ -11,7 +11,12 @@ import { ExecutionHistoryRepository } from "../infrastructure/execution-history.
 import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { implementationsOf, isInMemory } from "./implementations.js";
+import {
+  FENCING_CONTRACTS,
+  implementationsOf,
+  isInMemory,
+  notAtomicStoresOf,
+} from "./implementations.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -70,6 +75,12 @@ const PII_INSTANCE_KEY: AssemblyWarning = {
     "no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey",
 };
 
+/** A listed fencing store that opts out of the atomic lease check (#526): what it gives up. */
+const notAtomic = (store: Class): AssemblyWarning => ({
+  code: "application.lease-check-not-atomic",
+  message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write`,
+});
+
 /** Whether a tenant or an application budget is listed (counted across executions). */
 const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
   budgets.some((budget) => {
@@ -88,7 +99,8 @@ const launchesAnywhere = (workflows: readonly AssembledWorkflow[]): boolean =>
 /**
  * The assembly warnings (#261): tenant or application budgets on an in-memory ledger; possible
  * pauses with in-memory paused executions or checkpoints; children on any instance on an in-memory
- * queue (#333 PR 2); PII tokens on a key of the instance (#120).
+ * queue (#333 PR 2); PII tokens on a key of the instance (#120); a fencing store that opts out of
+ * the atomic lease check (#526).
  */
 export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWarning[] {
   const choices = implementationsOf(sources.providers);
@@ -110,7 +122,10 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
     ],
     [sources.isPiiKeyOfInstance === true, PII_INSTANCE_KEY],
   ];
-  return found.flatMap(([applies, warning]) => (applies ? [warning] : []));
+  return [
+    ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),
+    ...notAtomicStoresOf(sources.providers, FENCING_CONTRACTS).map(notAtomic),
+  ];
 }
 
 /** `[application.in-memory-pauses] in-memory pauses: …` — a warning as `app.warnings` lists it. */

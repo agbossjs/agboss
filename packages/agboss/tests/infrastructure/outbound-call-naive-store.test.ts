@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import { identityOf } from "../../src/infrastructure/fenced-effect-key.js";
+import { fencedKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import {
@@ -71,7 +71,7 @@ const naive =
           const changed = found === undefined ? undefined : change(found);
           if (changed === undefined) return false;
           await roundTrip();
-          rows.set(identityOf(key), { ...changed, token: key.token });
+          rows.set(fencedKeyIdentityOf(key), { ...changed, token: key.token });
           return true;
         });
       }

@@ -1392,7 +1392,8 @@ written before, the stored result comes back (`FencedEffectStatus.Replayed`) and
 else `work` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
 of one instance gets the first's result (`Joined`); a throwing `work` rolls everything back. The
 built-in store is in memory; `SqliteFencedEffectRepository` (listed with
-`SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]`) gives `work` the
+`SqliteExecutionLeaseRepository`: the stores declare one `static backend`, else
+`[application.store-backend-mismatch]`, #526) gives `work` the
 connection's `DatabaseSync` and runs it synchronously — a returned promise rolls back with
 `FencedEffectAsyncWorkError`:
 

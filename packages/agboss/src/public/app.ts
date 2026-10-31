@@ -72,6 +72,7 @@ export type { PauseSite } from "../infrastructure/pause-record.js";
 export type { PendingPause } from "../pause/index.js";
 export {
   ExecutionLeaseRepository,
+  LeaseCheck,
   type ExecutionLease,
   type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";

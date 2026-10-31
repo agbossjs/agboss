@@ -9,7 +9,7 @@ import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
   checkedEffectName,
   replayedFromOf,
-  storedFactsOf,
+  storedKeyFactsOf,
   type StoredKeyFacts,
 } from "../fenced-effect-key.js";
 import {
@@ -87,7 +87,7 @@ function insertRowOf(
       key.token,
       now,
       text,
-      JSON.stringify(storedFactsOf(key)),
+      JSON.stringify(storedKeyFactsOf(key)),
     );
 }
 
@@ -114,6 +114,7 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 @Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
   static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
+  static override readonly backend: string | undefined = "sqlite";
 
   constructor(
     private readonly connection: SqliteConnection,
@@ -162,7 +163,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     const stored = storedRowOf(database, key);
     if (stored !== undefined) {
       const { token, result, facts } = ResultRow.parse(stored);
-      // written by this store from the key's facts
+      // written by this store from the key's facts; checked by replayedFromOf
       const replayedFrom = replayedFromOf(key, JSON.parse(facts) as StoredKeyFacts);
       return {
         status: FencedEffectStatus.Replayed,

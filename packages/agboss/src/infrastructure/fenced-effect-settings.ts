@@ -1,4 +1,5 @@
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
+import { AGBossError } from "../core/errors.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hours, kilobytes, minutes, type Bytes, type Milliseconds } from "../units/index.js";
 
@@ -157,4 +158,34 @@ export function outboundCallsViolations(
       [application],
     ),
   );
+}
+
+/** What a result too large to store knows: the effect, its size and the limit (UTF-8 bytes). */
+export interface FencedEffectResultTooLargeErrorOptions {
+  /** The effect's `name` (`fencedEffectKeyOf(executionContext, name)`). */
+  readonly effect: string;
+  readonly size: number;
+  readonly maxResultSize: number;
+}
+
+/**
+ * A fenced effect's result is larger than `@Application({ fencedEffects: { maxResultSize } })`
+ * (#500, default 64 KB): its transaction is rolled back — the business rows too — and the step
+ * fails with it. Store a reference (an id, a receipt number), not the document.
+ */
+export class FencedEffectResultTooLargeError extends AGBossError {
+  static override readonly code: string = "fenced-effect.result-too-large";
+  override name = "FencedEffectResultTooLargeError";
+  readonly effect: string;
+  readonly size: number;
+  readonly maxResultSize: number;
+
+  constructor(options: FencedEffectResultTooLargeErrorOptions) {
+    super(
+      `the result of fenced effect "${options.effect}" is ${String(options.size)} bytes, above its maxResultSize of ${String(options.maxResultSize)} bytes: nothing was written — store a reference to it, or raise @Application({ fencedEffects: { maxResultSize } })`,
+    );
+    this.effect = options.effect;
+    this.size = options.size;
+    this.maxResultSize = options.maxResultSize;
+  }
 }

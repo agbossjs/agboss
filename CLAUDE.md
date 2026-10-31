@@ -1971,9 +1971,13 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   Several-instances.
 - **The fenced effect (#500):** `FencedEffectRepository<TTransaction>` (infrastructure, the
   built-in `InMemoryFencedEffectRepository`; `SqliteFencedEffectRepository` listed with
-  `SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]` — a store declares
-  the lease store it reads, `static leaseRepository`; the unlisted default beside SQLite leases fails
-  its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
+  `SqliteExecutionLeaseRepository` — #526: a listed fenced-effect or outbound-call store and the
+  application's lease store declare one `static backend` (`"in-memory"`, `"sqlite"`, `"postgres"`,
+  `"<kind>:<database>"`), else `[application.store-backend-mismatch]` / `[application.store-backend-undeclared]`;
+  the explicit opt-out `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` is not checked and
+  warns `[application.lease-check-not-atomic]`; rate limits, the queue and the lease log are on any
+  backend; `static leaseRepository` names the lease store a unit runner holds its lease in; the
+  unlisted default beside SQLite leases fails its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
   `saveResultIfAbsent(fencedEffectKeyOf(executionContext, name), work)` → `FencedEffectOutcome {
 status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one transaction — the
   key's lease (not its epoch, released, expired → `ExecutionFencedError`, a hand-over), the scope's
@@ -1986,12 +1990,17 @@ status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one tra
   `FencedEffectAsyncWorkError`, rolled back). Results and marks are removed by the recovery sweep
   after `fencedEffects.retention` (default `hours(24)`, above the lease: `[application.fenced-effects-invalid]`).
   Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
-  store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own.
+  store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
+  its key's rules are exported (#526 AC5): `checkedEffectName`, `replayedFromOf` (a row's `null`s
+  taken, a stored step checked), `storedKeyFactsOf`, `fencedKeyIdentityOf`, `pendingOutboundCallOf`.
+  A store's connection (`SqliteConnection`, `PostgresConnection`) need not be listed (#526 AC8): the
+  workflow graph check takes an unlisted class under an infrastructure implementation as its own
+  registration, as the container creates it.
 - **Calls that leave the system (#505):** `OutboundCalls` (a core service, `deps: [ExecutionContext,
 OutboundCalls]`) — `send(fencedEffectKeyOf(executionContext, name), { target, operation, request,
 send, reconcile })` records an intent before the call and settles it after, over the infrastructure
   contract `OutboundCallRepository` (`InMemoryOutboundCallRepository`; `SqliteOutboundCallRepository`
-  listed with `SqliteExecutionLeaseRepository`, else `[application.fenced-effect-lease-store]`; every
+  listed with `SqliteExecutionLeaseRepository`, else `[application.store-backend-mismatch]`; every
   read and write of an intent fenced like a fenced effect — a zombie can neither record nor send):
   none → recorded `Pending`, `fence.confirmNow()`, `send(call)` with `call.idempotencyKey` (the step's
   key and the name) → `Completed` (`Sent`); `Completed` → its stored result (`Replayed`); `Pending` →

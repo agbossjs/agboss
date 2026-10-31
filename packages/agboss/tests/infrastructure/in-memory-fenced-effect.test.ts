@@ -14,12 +14,12 @@ import {
   InMemoryExecutionLeaseRepository,
 } from "../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
-import {
-  FencedEffectStatus,
-  FencedEffectStoreMismatchError,
-} from "../../src/infrastructure/fenced-effect.repository.js";
+import { FencedEffectStatus } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
-import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import {
+  FencedEffectStoreMismatchError,
+  InMemoryFencedEffectRepository,
+} from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, seconds } from "../../src/units/index.js";

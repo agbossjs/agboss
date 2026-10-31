@@ -95,15 +95,17 @@ export {
 } from "./app/outbound-calls.js";
 export {
   FencedEffectResultTooLargeError,
-  FencedEffectStoreMismatchError,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
   type FencedEffectResultTooLargeErrorOptions,
-  type FencedEffectStoreMismatchErrorOptions,
   type IdempotencyKeyConflictErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./infrastructure/fenced-effect.repository.js";
+export {
+  FencedEffectStoreMismatchError,
+  type FencedEffectStoreMismatchErrorOptions,
+} from "./infrastructure/in-memory-fenced-effect.repository.js";
 export {
   ExecutionFencedError,
   ExecutionLeaseLostError,
