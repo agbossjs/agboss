@@ -18,7 +18,7 @@ import {
   InMemoryExecutionLeaseEventRepository,
   type ExecutionLeaseEventRecord,
 } from "../../../src/infrastructure/execution-lease-event.repository.js";
-import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { hours, type Milliseconds } from "../../../src/units/index.js";
 import {
   TEST_BUDGETS,

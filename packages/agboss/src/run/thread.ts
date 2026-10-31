@@ -21,8 +21,11 @@ const MAX_THREAD_ID_LENGTH = 200;
 /** A control character (U+0000–U+001F, U+007F): never in a thread id. */
 const isControl = (code: number): boolean => code < 0x20 || code === 0x7f;
 
-/** A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters. */
-function isThreadId(threadId: string): boolean {
+/**
+ * A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters — the rule of
+ * a business key too (#508).
+ */
+export function isThreadId(threadId: string): boolean {
   if (threadId.length === 0 || threadId.length > MAX_THREAD_ID_LENGTH) return false;
   for (let index = 0; index < threadId.length; index += 1) {
     if (isControl(threadId.charCodeAt(index))) return false;

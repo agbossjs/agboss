@@ -21,6 +21,7 @@ export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.j
 export {
   replyWith,
   callTool,
+  callTools,
   routeTo,
   decideWith,
   failWith,
@@ -51,6 +52,7 @@ export type {
   ScriptedAnswer,
   ScriptedTurn,
   ToolCallTurn,
+  ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
 export type { ChatLine, ModelRequest, ModelScript, WhenScript } from "./script-book.js";

@@ -1,4 +1,5 @@
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
+import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { stopOf, type InstanceParts } from "./graceful-stop.js";
 import type { BuiltApplication } from "./create-app.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
@@ -80,11 +81,15 @@ const instanceReadsOf = ({
   checkReadiness: () => health.checkReadiness(),
   leaseEventsOf: ({ tenantId, rootExecutionId }) =>
     leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
-  outboundCallsOf: ({ tenantId, rootExecutionId }) =>
-    // stored masked by the calling workflow's policies (#505): shown as stored
-    outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId),
-  pendingOutboundCalls: ({ tenantId }) =>
-    outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending),
+  outboundCallsOf: async ({ tenantId, rootExecutionId }) =>
+    // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
+    (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
+      shownCallOf,
+    ),
+  pendingOutboundCalls: async ({ tenantId }) =>
+    (await outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending)).map(
+      shownCallOf,
+    ),
 });
 
 export function composeApp(

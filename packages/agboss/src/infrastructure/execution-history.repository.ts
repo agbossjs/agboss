@@ -5,7 +5,7 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
 /**

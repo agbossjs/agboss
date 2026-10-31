@@ -62,6 +62,21 @@ function toolCallReply(
   });
 }
 
+/** One move with several tool calls (#508): each its own id, in the order scripted. */
+function toolCallsReply(site: ReplySite, turn: TurnOf<"tool-calls">): AIMessage {
+  for (const call of turn.calls) site.script.toolCalls.push(call.tool);
+  return new AIMessage({
+    content: "",
+    usage_metadata: usageOf(tokensFor(0, site.settings)),
+    response_metadata: costMetadataOf(0, site.settings),
+    tool_calls: turn.calls.map((call) => ({
+      id: site.book.nextToolCallId(),
+      name: call.tool,
+      args: { ...call.args },
+    })),
+  });
+}
+
 /** A scripted text answer, with its cost (and a cut-off answer's finish reason). */
 function textReply(turn: TurnOf<"reply">, settings: ResolvedModelSettings): AIMessage {
   const cost = turn.details.cost ?? 0;
@@ -162,22 +177,37 @@ function launchReply(site: ReplySite, turn: TurnOf<"route">): AIMessage {
   return toolCallReply(site, tool.function.name, args, turn.details.cost);
 }
 
+/** A turn that calls the agent's tools. */
+type ToolTurn = TurnOf<"tool-call" | "invalid-tool-call" | "truncated-tool-call" | "tool-calls">;
+
+const TOOL_TURNS: ReadonlySet<string> = new Set([
+  "tool-call",
+  "invalid-tool-call",
+  "truncated-tool-call",
+  "tool-calls",
+]);
+
+const isToolTurn = (turn: ScriptedCall["turn"]): turn is ToolTurn => TOOL_TURNS.has(turn.kind);
+
+/** A turn that calls the agent's tools: one call, an invalid or a truncated one, or several. */
+function toolTurnReply(site: ReplySite, turn: ToolTurn): AIMessage {
+  if (turn.kind === "tool-calls") return toolCallsReply(site, turn);
+  site.script.toolCalls.push(turn.tool);
+  return turn.kind === "truncated-tool-call"
+    ? truncatedReply(site, turn)
+    : toolCallReply(site, turn.tool, turn.args);
+}
+
 /** One scripted call's turn as the model's reply. */
 export function replyOf(site: ReplySite, call: ScriptedCall): AIMessage {
   const { turn } = call;
+  if (isToolTurn(turn)) return toolTurnReply(site, turn);
   switch (turn.kind) {
     case "reply":
       return textReply(turn, site.settings);
     case "answer":
     case "invalid-answer":
       return answerReply(site, turn);
-    case "tool-call":
-    case "invalid-tool-call":
-      site.script.toolCalls.push(turn.tool);
-      return toolCallReply(site, turn.tool, turn.args);
-    case "truncated-tool-call":
-      site.script.toolCalls.push(turn.tool);
-      return truncatedReply(site, turn);
     case "failure":
       throw new ModelCallFailedError(turn.failure, site.script.label);
     case "decide":

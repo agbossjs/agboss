@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
@@ -6,15 +7,23 @@ import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-even
 import type { FencedEffectKey } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
-  stateOf,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
+import {
+  callKeyOf,
+  checkedCall,
+  keyedByRequest,
+  replayedFromOf,
+  stateOf,
+} from "./outbound-call-business.js";
 import {
   callOf,
   lookupOf,
   maskedFailureOf,
+  notStoredOf,
   outcomeOf,
   storedJson,
+  storedResultOf,
   told,
   type CallRun,
   type OutboundCallParts,
@@ -24,11 +33,14 @@ import {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
-  OutboundCallUnreconciledError,
+  OutboundCallResultNotStoredError,
   OutboundCallVerdict,
   type OutboundCallOptions,
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
+
+import { fencedEnd, leaseSuperseded, superseded, unreconciledOf } from "./outbound-call-endings.js";
+import { joinedOrMade, owning } from "./outbound-call-join.js";
 
 export type { OutboundCallParts } from "./outbound-call-parts.js";
 
@@ -50,17 +62,18 @@ const MAX_READS = 3;
 const inFlight = <TRequest, TResult>(run: CallRun<TRequest, TResult>): OutboundCallInFlightError =>
   new OutboundCallInFlightError({ ...run.options, name: run.key.name });
 
-/** What a call of this instance is known by while it is made: its key's row. */
-const liveKeyOf = (key: FencedEffectKey): string =>
-  [key.tenantId, key.scopeKey, key.idempotencyKey, key.name].join("\u0000");
-
-/** Sends attempt `attempt`: the lease renewed first, the answer stored fenced; an error recorded. */
+/**
+ * Sends attempt `attempt` of `owner`: the lease renewed first, nothing sent once the step aborted;
+ * the answer stored fenced, only while `owner` still owns the attempt; an error recorded so too.
+ */
 async function sendNow<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
+  owner: string,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { repository } = run.parts;
   await run.frame.execution.lease?.confirmNow();
+  run.frame.execution.signal.throwIfAborted();
   const call = callOf(run, attempt);
   let answer: TResult;
   try {
@@ -68,13 +81,21 @@ async function sendNow<TRequest, TResult>(
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
     if (!call.signal.aborted) {
-      await repository.markFailed(run.key, await maskedFailureOf(run, error));
-      told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
+      run.answer.isAnswered = true;
+      const failure = await maskedFailureOf(run, error);
+      const isFailed = () => repository.markFailed(run.key, owner, failure);
+      if (!(await fencedEnd(run, attempt, isFailed))) await superseded(run, attempt);
+      else told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
     }
     throw error;
   }
-  // stored masked; the step gets the answer as it is
-  await repository.markCompleted(run.key, await storedJson(run, OutboundCallPart.Result, answer));
+  // stored masked (or a marker: the call happened); the step gets the answer as it is
+  const stored = await storedResultOf(run, answer);
+  const isCompleted = () => repository.markCompleted(run.key, owner, stored);
+  if (!(await fencedEnd(run, attempt, isCompleted))) {
+    await superseded(run, attempt);
+    return outcomeOf(run, OutboundCallOutcomeStatus.Superseded, answer, attempt);
+  }
   told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Sent, answer, attempt);
 }
@@ -89,10 +110,13 @@ async function movedAndSent<TRequest, TResult>(
   isNotSent: boolean,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const claim = { attempt: found.attempt + 1, attemptOwner: randomUUID() };
-  const { attempt } = claim;
-  if (!(await run.parts.repository.markPending(run.key, stateOf(found), claim))) return undefined;
-  if (isNotSent) told(run, OutboundCallEventOutcome.NotSent, [OutboundCallStatus.Pending, attempt]);
-  return sendNow(run, attempt);
+  const { attempt, attemptOwner } = claim;
+  return owning(run, attemptOwner, async () => {
+    if (!(await run.parts.repository.markPending(run.key, stateOf(found), claim))) return undefined;
+    if (isNotSent)
+      told(run, OutboundCallEventOutcome.NotSent, [OutboundCallStatus.Pending, attempt]);
+    return sendNow(run, attempt, attemptOwner);
+  });
 }
 
 /** The pending intent `found`, reconciled: completed, sent again, or the step fails. */
@@ -100,25 +124,22 @@ async function reconciled<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
-  const unreconciled = (reason: string, cause?: unknown): OutboundCallUnreconciledError => {
-    told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
-    return new OutboundCallUnreconciledError(
-      { ...run.options, name: run.key.name, idempotencyKey: run.idempotencyKey, reason },
-      cause,
-    );
-  };
+  const unreconciled = (reason: string, cause?: unknown) =>
+    unreconciledOf(run, found, reason, cause);
   let verdict: unknown;
   try {
     verdict = await run.options.reconcile(lookupOf(run, found.request, found.attempt));
   } catch (error) {
-    throw unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
+    throw await unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
   }
   if (!(verdict instanceof OutboundCallReconciliation))
-    throw unreconciled("reconcile gave no OutboundCallReconciliation verdict");
+    throw await unreconciled("reconcile gave no OutboundCallReconciliation verdict");
   if (verdict.verdict === OutboundCallVerdict.NotSent) return movedAndSent(run, found, true);
-  if (verdict.verdict === OutboundCallVerdict.Unknown) throw unreconciled(verdict.reason);
-  const stored = await storedJson(run, OutboundCallPart.Result, verdict.result);
-  await run.parts.repository.markCompleted(run.key, stored);
+  if (verdict.verdict === OutboundCallVerdict.Unknown) throw await unreconciled(verdict.reason);
+  const stored = await storedResultOf(run, verdict.result);
+  // settled for its owner, which is gone; one that moved it on meanwhile wins: read again
+  if (!(await run.parts.repository.markCompleted(run.key, found.attemptOwner, stored)))
+    return undefined;
   told(run, OutboundCallEventOutcome.Reconciled, [OutboundCallStatus.Completed, found.attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Reconciled, verdict.result, found.attempt);
 }
@@ -129,21 +150,24 @@ async function recordedAndSent<TRequest, TResult>(
   request: string,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { frame, key, options } = run;
-  const isSaved = await run.parts.repository.saveIfAbsent(key, {
-    rootExecutionId: rootFactsOf(frame.execution).executionId,
-    executionId: frame.execution.executionId,
-    workflow: frame.execution.workflow.name,
-    target: options.target,
-    operation: options.operation,
-    idempotencyKey: run.idempotencyKey,
-    request,
-    attempt: 1,
-    attemptOwner: randomUUID(),
-    step: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
+  const owner = randomUUID();
+  return owning(run, owner, async () => {
+    const isSaved = await run.parts.repository.saveIfAbsent(key, {
+      rootExecutionId: rootFactsOf(frame.execution).executionId,
+      executionId: frame.execution.executionId,
+      workflow: frame.execution.workflow.name,
+      target: options.target,
+      operation: options.operation,
+      idempotencyKey: run.idempotencyKey,
+      request,
+      attempt: 1,
+      attemptOwner: owner,
+      step: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
+    });
+    if (!isSaved) throw inFlight(run); // another call recorded the same key at the same moment
+    told(run, OutboundCallEventOutcome.Recorded, [OutboundCallStatus.Pending, 1]);
+    return sendNow(run, 1, owner);
   });
-  if (!isSaved) throw inFlight(run); // another call recorded the same key at the same moment
-  told(run, OutboundCallEventOutcome.Recorded, [OutboundCallStatus.Pending, 1]);
-  return sendNow(run, 1);
 }
 
 /**
@@ -158,15 +182,32 @@ async function settled<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
-  if (found.status === OutboundCallStatus.Completed) {
-    // a replay gives the result as it was stored: masked by the PII policies
-    const stored: unknown = JSON.parse(found.result ?? "null");
-    told(run, OutboundCallEventOutcome.Replayed, [OutboundCallStatus.Completed, found.attempt]);
-    return outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
-  }
+  if ((await checkedCall(run, found)) === OutboundCallLeaseState.Superseded)
+    leaseSuperseded(run, found);
+  if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
   if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
   if (read > 1) throw inFlight(run);
   return reconciled(run, found);
+}
+
+/**
+ * A completed intent's stored result — masked by the PII policies — and who made it (#508); one
+ * whose result was not stored is `OutboundCallResultNotStoredError`, nothing sent again.
+ */
+function replayed<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  found: OutboundCallRecord,
+): OutboundCallOutcome<TResult> {
+  const stored: unknown = JSON.parse(found.result ?? "null");
+  // answered, its result not stored (#508): no result to give, never the marker as one
+  const notStored = notStoredOf(stored);
+  if (notStored !== undefined)
+    throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
+  const replayedFrom = replayedFromOf(run.key, found);
+  const moved = [OutboundCallStatus.Completed, found.attempt] as const;
+  told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });
+  const outcome = outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
+  return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
 }
 
 /** The reads of one call: until one settles it, at most `MAX_READS`, then in flight. */
@@ -181,29 +222,13 @@ async function sendOnce<TRequest, TResult>(
   throw inFlight(run);
 }
 
-/** The outcome of the same call this instance is making now: shared, or its error. */
-async function joinedTo<TRequest, TResult>(
-  run: CallRun<TRequest, TResult>,
-  joined: Promise<OutboundCallOutcome<unknown>>,
-): Promise<OutboundCallOutcome<TResult>> {
-  const { signal } = run.frame.execution;
-  signal.throwIfAborted();
-  const aborted = new Promise<never>((_, reject) => {
-    signal.addEventListener("abort", () => {
-      reject(signal.reason as Error);
-    });
-  });
-  const first = await Promise.race([joined, aborted]);
-  told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
-  return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
-}
-
 /** `OutboundCalls.send`: the protocol, in the step's frame. */
 export async function sendOutboundCall<TRequest, TResult>(
   parts: OutboundCallParts,
-  key: FencedEffectKey,
+  stepKey: FencedEffectKey,
   options: OutboundCallOptions<TRequest, TResult>,
 ): Promise<OutboundCallOutcome<TResult>> {
+  const key = keyedByRequest(stepKey, options.request);
   const frame = currentFrame();
   if (frame === undefined)
     throw ExecutionContextUnavailableError.outside({ consumer: "OutboundCalls", field: "send" });
@@ -212,25 +237,10 @@ export async function sendOutboundCall<TRequest, TResult>(
     key,
     options,
     frame,
-    idempotencyKey: `${key.idempotencyKey}:${key.name}`,
+    idempotencyKey: callKeyOf(key),
+    answer: { isAnswered: false },
   };
   // masked for the store, within the limit, before anything is read, recorded or sent
   const request = await storedJson(run, OutboundCallPart.Request, options.request);
-  const live = liveKeyOf(key);
-  const joined = parts.live.get(live);
-  if (joined !== undefined) return joinedTo(run, joined);
-  const outcome = sendOnce(run, request);
-  parts.live.set(live, outcome);
-  // a step aborted (a lost lease, a cancel, its timeout) owns its call no more: never joined again
-  const { signal } = frame.execution;
-  const leave = (): void => {
-    if (parts.live.get(live) === outcome) parts.live.delete(live);
-  };
-  signal.addEventListener("abort", leave, { once: true });
-  try {
-    return await outcome;
-  } finally {
-    signal.removeEventListener("abort", leave);
-    leave();
-  }
+  return joinedOrMade(run, () => sendOnce(run, request));
 }

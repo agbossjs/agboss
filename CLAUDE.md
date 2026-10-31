@@ -1995,7 +1995,7 @@ send, reconcile })` records an intent before the call and settles it after, over
   pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Every attempt
   has an owner (`attemptOwner`, a random id per claim); a new attempt is a compare-and-set on status,
   attempt and owner (`markPending(key, expected, claim)`, `OutboundCallState`, `OutboundCallClaim`):
-  the loser sends nothing and reads again — the winner's result replayed, its pending attempt
+  the loser sends nothing and reads again; `markCompleted` / `markFailed` end an attempt only for its owner (a compare-and-set), the owner live from before its intent is recorded, nothing sent once the step aborted — the winner's result replayed, its pending attempt
   `OutboundCallInFlightError` (`outbound-call.in-flight`), at most three reads; the same call this
   instance is making meanwhile is joined (`Joined`), never reconciled or resent. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
@@ -2009,6 +2009,45 @@ send, reconcile })` records an intent before the call and settles it after, over
   `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
   `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
+- **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
+fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 1–200 characters,
+  no control characters, else `InvalidBusinessKeyError`, `fenced-effect.invalid-business-key`) —
+  one row per tenant, name and business key, whatever step, execution or thread makes it; fencing
+  is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
+  The same key and fingerprint (an HMAC of canonical JSON under a subkey of the application's `pseudonymKey`, `"agboss/fingerprint/v1"` — a labelled SHA-256 without one; `OutboundCalls` takes its request's) →
+  `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
+  visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
+  this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
+  this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other
+  system's own error, whatever was thrown, else makes its own call), or, under a business key, under
+  a lease still live on another instance (`OutboundCallRepository.leaseStateOf(lease)` →
+  `OutboundCallLeaseState.Live`; `Ended` once released or its token moved on; an expired one is
+  closed by the check itself in one atomic step, `Superseded` — released at the token it was held
+  at — marked as closed by a check, so the next take is a takeover from that holder and token —, so
+  its holder can neither renew, yield, reclaim nor write under it again; a late renewal and the check never both win —,
+  the close an `OutboundCall` row `LeaseSuperseded` with `supersededLease` and a warning
+  `outbound-call.lease-superseded`; a holder releases its lease only once its attempts settled and
+  never yields it under one, both bounded by `@Application({ outboundCalls: { attemptTimeout } })`
+  (default `minutes(2)`, from the attempt's start) and its instance's stop: past it, it stops
+  renewing without releasing, so the call is in flight for `attemptTimeout` plus up to the lease's
+  30 s; a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1)) → `OutboundCallInFlightError`; once its owner is gone, the next
+  caller reconciles it, by the compare-and-set. An answer that comes after its lease was handed over is fenced, not stored,
+  and logged (`outbound-call.answered-after-hand-over`). An attempt answered after a newer one took
+  the intent over is `Superseded` (both reached the other system; an error `outbound-call.superseded`
+  on the instance's log, the newer attempt named — "unknown" when the intent cannot be read). An
+  answered call ends `Completed` even when its result cannot be stored (a marker in its place, a
+  warning `outbound-call.result-not-stored`, never `Failed`, which would resend); a replay of it is
+  `OutboundCallResultNotStoredError` (`outbound-call.result-not-stored`, a `StepFailedError`,
+  nothing sent). A fingerprint is kept in the store's row only — no read, record, export or event
+  shows it; rotating `pseudonymKey` changes every fingerprint, so an intent recorded before is a
+  conflict for the same request after. Effect names are 1–100 of `[A-Za-z0-9._-]`
+  (`InvalidFencedEffectNameError`, checked again at every store method for a key built by hand); the key sent with the call is `<tenant>:<businessKey>:<name>`,
+  each part `encodeURIComponent`-encoded; operator reads, kept records and errors name a business
+  key by its handle only (`business-key:<handle>:<name>`), and so does `OutboundCallOutcome.idempotencyKey`. SQLite: `fenced_effect_business_results` and the
+  `outbound_calls` partial unique index on `(tenant_id, name, business_key)`. flow-patterns' credit
+  desk charges under `credit:<applicationId>`. Tests: `callTools(callTool(A, …), callTool(B, …))` —
+  one move calling several tools at once (each its own task under `TestConcurrency.Real`).
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose

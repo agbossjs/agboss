@@ -1,5 +1,5 @@
 import { Injectable } from "../components/decorators.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
 /**

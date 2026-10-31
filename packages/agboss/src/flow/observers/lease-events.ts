@@ -1,7 +1,9 @@
+import type { FencedEffectOrigin } from "../../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type {
   FencedEffectEventOutcome,
   OutboundCallEventOutcome,
+  OutboundCallSupersededLease,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -90,6 +92,8 @@ export interface FencedEffectEvent extends NodeEvent {
   readonly outcome: FencedEffectEventOutcome;
   /** The token the stored result was first written under, when there is a result. */
   readonly writtenToken?: number;
+  /** A business key's replay of what another step or execution wrote (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
   /** The newer token the store saw, when it refused the call. */
   readonly observedToken?: number;
   /** The instance that made the call. */
@@ -124,6 +128,18 @@ export interface OutboundCallEvent extends NodeEvent {
   readonly token: number;
   /** The instance that made the call. */
   readonly holderInstanceId: string;
+  /** A business key's replay of a call another step or execution made (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
+  /**
+   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * both reached the other system.
+   */
+  readonly supersededBy?: number;
+  /**
+   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * this intent's attempt pending under it — the token it was held at, never one nobody held.
+   */
+  readonly supersededLease?: OutboundCallSupersededLease;
 }
 
 /**

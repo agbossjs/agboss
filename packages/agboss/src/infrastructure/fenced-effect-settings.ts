@@ -1,6 +1,6 @@
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { hours, kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
+import { hours, kilobytes, minutes, type Bytes, type Milliseconds } from "../units/index.js";
 
 /** `@Application({ fencedEffects })` (#500): the largest result and how long rows are kept. */
 export interface FencedEffectsOptions {
@@ -83,7 +83,21 @@ export interface OutboundCallsOptions {
    * week), then removed by the recovery sweep on the `Clock`; a `Pending` one is never removed.
    */
   readonly retention?: Milliseconds;
+  /**
+   * The bound of an attempt in flight, from the moment it started (default `minutes(2)`; #508):
+   * until then its holder releases its lease only once the attempt settled, and yields it under none.
+   * Past it — or the instance's stop, or a lost lease — the holder stops renewing without releasing:
+   * the lease expires within its 30 s, so another instance sees the call in flight for
+   * `attemptTimeout` plus up to the lease's TTL, then closes the lease and reconciles; a hung attempt
+   * no longer holds a yield back either (a reclaim moves its token on). **A send still hung past this
+   * bound can coincide with a reconcile and a resend; the provider must deduplicate on
+   * `call.idempotencyKey` (G1).** Its late answer is fenced, never stored.
+   */
+  readonly attemptTimeout?: Milliseconds;
 }
+
+/** The default bound of a holder's wait for an attempt in flight: 2 minutes. */
+export const DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT: Milliseconds = minutes(2);
 
 /** The default largest request or result of an outbound call: 64 KB. */
 export const DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE: Bytes = kilobytes(64);
@@ -100,6 +114,8 @@ export class OutboundCallSettings {
   readonly maxPayloadSize: Bytes;
   /** How long ended intents are kept. */
   readonly retention: Milliseconds;
+  /** The bound of an attempt in flight, from its start: its lease's wait, and its hold on yields. */
+  readonly attemptTimeout: Milliseconds;
   /**
    * Whether a request is stored only masked (set by the assembly): the application or one of its
    * workflows lists PII policies, so a step with no mask refuses its call rather than store it raw.
@@ -109,21 +125,32 @@ export class OutboundCallSettings {
   constructor(options: OutboundCallsOptions = {}, requiresMask = false) {
     this.maxPayloadSize = options.maxPayloadSize ?? DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE;
     this.retention = options.retention ?? DEFAULT_OUTBOUND_CALL_RETENTION;
+    this.attemptTimeout = options.attemptTimeout ?? DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT;
     this.requiresMask = requiresMask;
     Object.freeze(this);
   }
 }
 
 /**
- * `@Application({ outboundCalls })` (#505): a positive `maxPayloadSize`, and a `retention` above
- * the lease (30 s) — an intent must outlive the holder that may still complete it.
+ * `@Application({ outboundCalls })` (#505): a positive `maxPayloadSize`, a `retention` above the
+ * lease (30 s) — an intent must outlive the holder that may still complete it — and a positive
+ * `attemptTimeout` (#508).
  */
 export function outboundCallsViolations(
   application: string,
   options: OutboundCallsOptions | undefined,
 ): RuleViolation[] {
-  const { maxPayloadSize, retention } = options ?? {};
-  return sizeAndRetentionProblems(["maxPayloadSize", maxPayloadSize], retention).map((problem) =>
+  const { maxPayloadSize, retention, attemptTimeout } = options ?? {};
+  const isTimeoutValid =
+    attemptTimeout === undefined || (Number.isFinite(attemptTimeout) && attemptTimeout > 0);
+  const timeout = isTimeoutValid
+    ? []
+    : [`attemptTimeout is ${String(attemptTimeout)} ms, not a positive duration`];
+  const problems = [
+    ...sizeAndRetentionProblems(["maxPayloadSize", maxPayloadSize], retention),
+    ...timeout,
+  ];
+  return problems.map((problem) =>
     violation(
       "application.outbound-calls-invalid",
       `its outboundCalls.${problem} — @Application({ outboundCalls: { maxPayloadSize: kilobytes(64), retention: hours(168) } })`,

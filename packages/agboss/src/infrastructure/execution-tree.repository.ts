@@ -1,7 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
 /** A value kept under a key of an execution tree: plain JSON, so any store can keep it. */

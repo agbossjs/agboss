@@ -4,7 +4,7 @@ import {
   type ExecutionHistoryRecord,
 } from "../../../src/infrastructure/execution-history.repository.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { hours } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {

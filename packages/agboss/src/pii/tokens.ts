@@ -29,12 +29,16 @@ export function normalisedValue(label: string, value: string): string {
   return text.replace(/\s+/g, " ");
 }
 
+/** The HMAC-SHA256 of `text` under `key`, in hex: what a token, and a business key's handle, is made of. */
+export const keyedDigestOf = (key: string, text: string): string =>
+  createHmac("sha256", key).update(text).digest("hex");
+
 /**
  * The token of a value: the shortest prefix (6 hex digits and up) that does not stand for another
  * value in `known` — one token per value within an execution.
  */
 export function tokenOf(label: string, value: string, key: string, known: PiiTokenMap): string {
-  const digest = createHmac("sha256", key).update(normalisedValue(label, value)).digest("hex");
+  const digest = keyedDigestOf(key, normalisedValue(label, value));
   for (let length = SHORT; length < digest.length; length += 2) {
     const token = `<${label}:${digest.slice(0, length)}>`;
     const taken = known[token];

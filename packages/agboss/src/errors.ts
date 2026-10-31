@@ -86,6 +86,7 @@ export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fence
 export {
   OutboundCallInFlightError,
   OutboundCallPayloadTooLargeError,
+  OutboundCallResultNotStoredError,
   OutboundCallUnmaskedError,
   OutboundCallUnreconciledError,
   type OutboundCallInFlightErrorOptions,
@@ -95,8 +96,13 @@ export {
 export {
   FencedEffectResultTooLargeError,
   FencedEffectStoreMismatchError,
+  IdempotencyKeyConflictError,
+  InvalidBusinessKeyError,
+  InvalidFencedEffectNameError,
   type FencedEffectResultTooLargeErrorOptions,
   type FencedEffectStoreMismatchErrorOptions,
+  type IdempotencyKeyConflictErrorOptions,
+  type InvalidBusinessKeyErrorOptions,
 } from "./infrastructure/fenced-effect.repository.js";
 export {
   ExecutionFencedError,

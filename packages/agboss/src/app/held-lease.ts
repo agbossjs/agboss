@@ -19,6 +19,7 @@ import {
   EXECUTION_LEASE,
   expireInBackground,
   LeaseFence,
+  renewalOf,
   renewInBackground,
 } from "./lease-fence.js";
 import {
@@ -27,7 +28,8 @@ import {
   type ExecutionFencedError,
 } from "./lease-lost.js";
 import { leaseReleases } from "./lease-releases.js";
-import { LeaseTurns, LeaseYields } from "./lease-yields.js";
+import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
+import type { Milliseconds } from "../units/index.js";
 
 /** How a held lease began: when it was asked for (the clock's ms) and why it was taken (#501). */
 export interface HeldLeaseStart {
@@ -69,6 +71,8 @@ export class HeldLease implements HeldExecutionLease {
   readonly #take: LeaseTake | undefined;
   /** The hand-overs being recorded (#501): the lease is released only after them. */
   readonly #reports = new LeaseEventReports();
+  /** The outbound calls' attempts in flight under it (#508): released only once they settled. */
+  readonly #attempts: LeaseAttempts;
 
   private readonly repository: ExecutionLeaseRepository;
   private readonly clock: Clock;
@@ -81,6 +85,7 @@ export class HeldLease implements HeldExecutionLease {
   ) {
     this.repository = taking.repository;
     this.clock = taking.clock;
+    this.#attempts = new LeaseAttempts(this.clock);
     this.#take = take;
     this.#reports.held(initial);
     this.rootExecutionId = tree.rootExecutionId;
@@ -128,7 +133,7 @@ export class HeldLease implements HeldExecutionLease {
     const held = this.#current;
     // no step runs while the lease is yielded: a confirmation now is not this holder's
     if (held === undefined || this.#isYieldedNow) this.#fence.lose();
-    const { renewedAt, isRenewed } = await this.#renewed(held);
+    const { renewedAt, isRenewed } = await renewalOf(this.taking, held);
     // anything but a confirmed renewal is a hand-over: the tree goes on where the lease is held
     if (isRenewed !== true) this.#fence.lose();
     this.#fence.settle(renewedAt, true);
@@ -144,7 +149,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#lost.signal.throwIfAborted();
     const renewal = await this.#turns.run(async () => {
       const held = this.#current;
-      return held === undefined ? undefined : { held, ...(await this.#renewed(held)) };
+      return held === undefined ? undefined : { held, ...(await renewalOf(this.taking, held)) };
     });
     if (renewal === undefined) {
       for (const check of this.#checks) await check();
@@ -178,24 +183,32 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   recordFencedEffect(report: FencedEffectReport): void {
-    this.#reports.stepCall(this.taking.events, (recording, log, holder) =>
-      recording.recordFencedEffect(log, report, holder),
-    );
+    this.#stepCall((record, log, holder) => record.recordFencedEffect(log, report, holder));
   }
 
   recordOutboundCall(report: OutboundCallReport): void {
-    this.#reports.stepCall(this.taking.events, (recording, log, holder) =>
-      recording.recordOutboundCall(log, report, holder),
-    );
+    this.#stepCall((record, log, holder) => record.recordOutboundCall(log, report, holder));
+  }
+
+  /** A step's call under the lease, written to the lease log in the lease's order. */
+  #stepCall(write: Parameters<LeaseEventReports["stepCall"]>[1]): void {
+    this.#reports.stepCall(this.taking.events, write);
+  }
+
+  keepWhile(attempt: Promise<unknown>, maxWait: Milliseconds): void {
+    this.#attempts.keep(attempt, maxWait, () => this.#yields.enterStep());
   }
 
   async release(): Promise<void> {
+    // its attempts in flight first, renewed on meanwhile, within their bounds (#508)
+    const isSettled = await this.#attempts.settled(this.#lost.signal, this.taking.stopping);
     await this.#reports.settled();
     if (this.#stopped.signal.aborted) return;
     this.#stopped.abort();
     this.#holder.forget();
     this.#isYieldedNow = false;
-    if (!this.#lost.signal.aborted && this.#current !== undefined) {
+    // an attempt still in flight: renewals stop, nothing released — the lease expires (#508)
+    if (isSettled && !this.#lost.signal.aborted && this.#current !== undefined) {
       const held = this.#current;
       this.#current = undefined;
       await this.repository.release(held);
@@ -233,14 +246,5 @@ export class HeldLease implements HeldExecutionLease {
     this.#holder.hold(next.leaseEpoch);
     this.#fence.reacquired(at);
     await reportTake(this.taking.events, next, reacquiredOf(this.#take));
-  }
-
-  /** A renewal in the store, asked now: `undefined` when the store did not answer. */
-  async #renewed(held: ExecutionLease) {
-    const renewedAt = this.clock.now().getTime();
-    const isRenewed = await this.repository
-      .renew(held, EXECUTION_LEASE)
-      .catch((): undefined => undefined);
-    return { renewedAt, isRenewed };
   }
 }

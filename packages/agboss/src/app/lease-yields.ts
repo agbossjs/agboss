@@ -1,3 +1,5 @@
+import type { Clock } from "../infrastructure/clock.js";
+import type { Milliseconds } from "../units/index.js";
 /**
  * When a held lease is yielded (#333 PR 4, #471): while every caller of the tree waits for remote
  * children (`yieldWhile`) and no step of the tree runs — a sibling branch's step keeps the lease, and
@@ -63,5 +65,72 @@ export class LeaseTurns {
     const turn = this.#turns.then(work);
     this.#turns = turn.catch((): undefined => undefined);
     return turn;
+  }
+}
+
+/**
+ * The outbound calls' attempts in flight under a lease (#508): its holder releases it only once
+ * they settled — renewed on meanwhile — so no other instance takes a pending intent for gone while
+ * its owner still sends. The wait is bounded: by each attempt's `attemptTimeout`, by the instance's
+ * stop and by a lost lease; past a bound the holder stops renewing without releasing, and the lease
+ * expires — only a takeover then lets another instance reconcile.
+ */
+export class LeaseAttempts {
+  /** Each attempt kept, settled either way, with the `Clock` time its wait ends. */
+  readonly #attempts = new Map<Promise<void>, number>();
+
+  constructor(private readonly clock: Clock) {}
+
+  /**
+   * Keeps `attempt` for at most `maxWait` from now, entered as a step while it runs (`enterStep`) —
+   * up to the same bound: a lease is never yielded under an attempt in flight within its
+   * `attemptTimeout`, as under a running step; past it, a hung attempt holds no yield back.
+   */
+  keep(
+    attempt: Promise<unknown>,
+    maxWait: Milliseconds,
+    enterStep: () => Promise<() => void>,
+  ): void {
+    const settled = attempt.then(
+      () => undefined,
+      () => undefined,
+    );
+    // a step for the lease's yields until it settled or its bound passed (then a reclaim may move
+    // its token on: what it answers late is fenced, and other executions reconcile its intent)
+    const bounded = new AbortController();
+    void settled.then(() => {
+      bounded.abort();
+    });
+    const held = Promise.race([settled, this.clock.sleep(maxWait, bounded.signal)]);
+    void enterStep().then(
+      (leave) => held.then(leave),
+      () => undefined,
+    );
+    this.#attempts.set(settled, this.clock.now().getTime() + maxWait);
+    void settled.then(() => {
+      this.#attempts.delete(settled);
+    });
+  }
+
+  /** Whether every attempt kept settled before a bound — `lost`, `stopping`, the timeouts — ended the wait. */
+  async settled(lost: AbortSignal, stopping?: AbortSignal): Promise<boolean> {
+    if (this.#attempts.size === 0) return true;
+    const done = new AbortController();
+    const ended = AbortSignal.any([
+      lost,
+      done.signal,
+      ...(stopping === undefined ? [] : [stopping]),
+    ]);
+    const until = Math.max(...this.#attempts.values()) - this.clock.now().getTime();
+    try {
+      await Promise.race([
+        Promise.all([...this.#attempts.keys()]),
+        this.clock.sleep(Math.max(0, until) as Milliseconds, ended),
+      ]);
+    } finally {
+      // no listener or timer outlives the wait
+      done.abort();
+    }
+    return this.#attempts.size === 0;
   }
 }

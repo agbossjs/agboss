@@ -14,6 +14,16 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Business idempotency keys** (#508) — `fencedEffectKeyOf(executionContext, name, { businessKey,
+fingerprint? })`: one fenced effect or outbound call per tenant, name and business key, whatever
+  step, execution or thread makes it; another fingerprint is `IdempotencyKeyConflictError`; a
+  business key shows only by its keyed handle. A pending call under a business key is in flight
+  while the lease that wrote it is live (`OutboundCallRepository.leaseStateOf`, an expired lease
+  closed by the check in one atomic step); a holder waits for its attempts within
+  `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
+  start) — a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). `OutboundCallResultNotStoredError`, `Superseded` outcomes and the
+  `outbound-call.*` log codes; no read shows a fingerprint.
+
 - **Handover telemetry: the lease log** (#501) — a takeover of a tree's lease is told and kept:
   `onExecutionLeaseTakeover` (`ExecutionLeaseTakeoverEvent`: the new holder and token, the expired
   holder when the store names it — `ExecutionLease.takenOverFrom`, optional for an external store —,

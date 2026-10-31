@@ -8,7 +8,7 @@ import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
 import type { ProviderModule } from "./container/registrations.js";
-import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
+import { INFRASTRUCTURE_TOKENS } from "../infrastructure/in-memory-database.js";
 import type { Mcp } from "./assemble-tools.js";
 import { checkGraph } from "./container/graph-check.js";
 import type { Token } from "./injection.js";

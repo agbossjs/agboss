@@ -1,3 +1,6 @@
+import { InjectionToken } from "../components/injection.js";
+import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
+import type { StoredKeyFacts } from "./fenced-effect-key.js";
 import type { ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
@@ -49,7 +52,7 @@ export interface FencedEffectMarkRow {
 }
 
 /** A stored fenced-effect result: its JSON, the token it was written under, when. */
-export interface FencedEffectResultRow {
+export interface FencedEffectResultRow extends StoredKeyFacts {
   readonly scopeKey: string;
   readonly token: number;
   readonly storedAt: number;
@@ -68,6 +71,11 @@ export interface ExecutionLeaseRow {
   readonly released: boolean;
   /** Yielded by its holder while it waits for children on any instance (#516); still its own. */
   readonly isYielded?: boolean;
+  /**
+   * Released by an outbound call's check, expired at its epoch (#508), not by its holder: the next
+   * take is a takeover from that holder and epoch (`takenOverFrom`), as of an expired lease.
+   */
+  readonly isSuperseded?: boolean;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */
@@ -86,3 +94,24 @@ export interface ThreadOfTenant {
 
 export const threadMapKeyOf = ({ tenantId, threadId }: ThreadOfTenant): string =>
   JSON.stringify([tenantId, threadId]);
+
+/**
+ * What the built-in infrastructure defaults read from their application instance besides the
+ * public `Clock`, `IdGenerator` and `ApplicationContext` (internal, never exported): the memory the
+ * in-memory defaults keep their rows in. The app registers it in its container; tests give one
+ * database shared by the instances of a test (`testWith(App, { instances: 2 })`).
+ */
+
+/** Where the in-memory defaults keep their rows: one per instance, one per test in tests. */
+export const IN_MEMORY_DATABASE = new InjectionToken<InMemoryDatabase>("IN_MEMORY_DATABASE");
+
+/**
+ * All of them, as the core values every container of an application has — with the application's
+ * `FencedEffectSettings` (#500) and `OutboundCallSettings` (#505), public tokens a store of a
+ * project injects.
+ */
+export const INFRASTRUCTURE_TOKENS = [
+  IN_MEMORY_DATABASE,
+  FencedEffectSettings,
+  OutboundCallSettings,
+];

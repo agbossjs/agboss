@@ -1,4 +1,5 @@
 import { registerContract } from "./define.js";
+import { businessKeyCases } from "./fenced-effect-business.cases.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { housekeepingCases, isolationCases } from "./fenced-effect-isolation.cases.js";
 import { concurrencyCases, rollbackCases } from "./fenced-effect-rollback.cases.js";
@@ -29,6 +30,7 @@ export function fencedEffectContract<TTransaction>(
       isolationCases<TTransaction>(),
       housekeepingCases<TTransaction>(),
       textCases<TTransaction>(),
+      businessKeyCases<TTransaction>(),
     ],
     (stores) => stores.effects.ping(),
   );

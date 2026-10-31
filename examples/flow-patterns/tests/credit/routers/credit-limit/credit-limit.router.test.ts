@@ -13,7 +13,10 @@ import { CreditLimitRouter } from "../../../../src/credit/routers/credit-limit/c
 describe("testRouter: a code router decides at no cost", () => {
   const runRouter = testRouter(CreditLimitRouter);
   const order = (total: number) => ({
-    order: { producer: OrderIntakeAgent, value: { customerId: "c-1", total } },
+    order: {
+      producer: OrderIntakeAgent,
+      value: { applicationId: "app-1", customerId: "c-1", total },
+    },
   });
 
   it("over the limit → approval, under it → the charge", async () => {

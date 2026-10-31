@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
+import type { Milliseconds } from "../../units/index.js";
 import { idempotencyKeyOf } from "./idempotency.js";
 import type { StepDescriptor, WorkflowDescriptor } from "./execution-context.js";
 import type { ContextFields } from "./context-values.js";
@@ -60,6 +61,16 @@ export interface ExecutionFacts {
    * request is stored (#505); `undefined` where the frame has no workflow (a unit runner).
    */
   readonly observability?: ObservabilityMask | undefined;
+  /**
+   * The key a business key's handle is made with (#508): the execution's PII key — its own (#334),
+   * else the application's. None where no key is available: an error then shows no handle.
+   */
+  readonly correlationKey?: string | undefined;
+  /**
+   * The application's `pseudonymKey` (#508): what a business key's fingerprint is keyed by — the
+   * same on every instance. None without one.
+   */
+  readonly fingerprintKey?: string | undefined;
 }
 
 /**
@@ -91,6 +102,11 @@ export interface FrameLease {
   recordFencedEffect?(report: FencedEffectReport): void;
   /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
   recordOutboundCall?(report: OutboundCallReport): void;
+  /**
+   * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
+   * keeps it open — renewed on — so no other instance takes its pending intent for gone.
+   */
+  keepWhile?(attempt: Promise<unknown>, maxWait: Milliseconds): void;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

@@ -32,7 +32,7 @@ const movedOnce: OutboundCallCase = {
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
 
     const isMoved = await first.calls.markPending(key, FAILED, nextOf("owner-2"));
     const isMovedAgain = await first.calls.markPending(key, FAILED, nextOf("owner-3"));
@@ -58,7 +58,7 @@ const staleReadRefused = ([what, expected]: (typeof STALE_READS)[number]): Outbo
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
 
     const isMoved = await first.calls.markPending(key, expected, nextOf("owner-2"));
 
@@ -86,7 +86,7 @@ const racedOnce: OutboundCallCase = {
   run: async ({ first, second }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
 
     const moves = await Promise.all([
       first.calls.markPending(key, FAILED, nextOf("owner-a")),
@@ -115,8 +115,36 @@ const newerHolderMoves: OutboundCallCase = {
   },
 };
 
+const staleAttemptRefused: OutboundCallCase = {
+  name: "markCompleted / markFailed of an attempt a newer one took over: false, the newer attempt's state kept",
+  run: async ({ first }) => {
+    const key = keyOf(await leaseOf(first));
+    await recorded(first, key);
+    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markPending(key, FAILED, nextOf("owner-2"));
+
+    const isCompleted = await first.calls.markCompleted(key, "owner-1", '"stale"');
+    const isFailed = await first.calls.markFailed(key, "owner-1", FAILURE);
+
+    expect([isCompleted, isFailed]).toEqual([false, false]);
+    expect(await first.calls.findByKey(key)).toMatchObject({
+      status: OutboundCallStatus.Pending,
+      attempt: 2,
+      attemptOwner: "owner-2",
+    });
+    expect(await first.calls.markCompleted(key, "owner-2", '"fresh"')).toBe(true);
+  },
+};
+
 /** The new-attempt cases. */
 export const outboundAttemptCases = (): ContractGroup<OutboundCallStores> => ({
   title: "new attempts",
-  cases: [movedOnce, ...STALE_READS.map(staleReadRefused), noIntent, racedOnce, newerHolderMoves],
+  cases: [
+    movedOnce,
+    ...STALE_READS.map(staleReadRefused),
+    noIntent,
+    racedOnce,
+    newerHolderMoves,
+    staleAttemptRefused,
+  ],
 });

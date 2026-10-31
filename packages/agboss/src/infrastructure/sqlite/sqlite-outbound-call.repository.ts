@@ -1,19 +1,24 @@
 import { z } from "zod";
+import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
 import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
+  endedOf,
   isInState,
   OutboundCallRepository,
   OutboundCallStatus,
+  type OutboundCallLease,
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallRecord,
   type OutboundCallClaim,
+  type OutboundCallEnding,
   type OutboundCallState,
   withoutEnd,
 } from "../outbound-call.repository.js";
+import { businessFactsOf } from "../fenced-effect-key.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import {
   EXECUTION_LEASES_SCHEMA,
@@ -39,7 +44,18 @@ CREATE INDEX IF NOT EXISTS outbound_calls_by_status ON outbound_calls (tenant_id
 
 const RecordRow = z.object({ record: z.string() });
 
-const BY_KEY = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
+const BY_STEP = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
+const BY_BUSINESS_KEY = "tenant_id = ? AND name = ? AND business_key = ?";
+
+/** Where `key`'s row is (#508): by its step, or by its tenant, name and business key. */
+const whereOf = (key: FencedEffectKey): readonly [string, readonly string[]] =>
+  key.businessKey === undefined
+    ? [BY_STEP, [key.scopeKey, key.idempotencyKey, key.name]]
+    : [BY_BUSINESS_KEY, [key.tenantId, key.name, key.businessKey]];
+
+/** The row as its writer read it: its status, attempt and attempt owner (#508). */
+const AS_READ =
+  "status = ? AND json_extract(record, '$.attempt') = ? AND json_extract(record, '$.attemptOwner') = ?";
 
 /** A row's record, as the store wrote it. */
 const recordOf = (row: unknown): OutboundCallRecord =>
@@ -83,10 +99,12 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         name: key.name,
         status: OutboundCallStatus.Pending,
         token: key.token,
+        leaseExecutionId: key.leaseExecutionId,
+        ...businessFactsOf(key),
         recordedAt: this.clock.now().toISOString(),
       };
       const { changes } = this.connection.database
-        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL)")
+        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)")
         .run(
           key.scopeKey,
           key.idempotencyKey,
@@ -95,6 +113,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
           intent.rootExecutionId,
           record.status,
           JSON.stringify(record),
+          key.businessKey ?? null,
         );
       return Number(changes) === 1;
     });
@@ -105,30 +124,25 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    return this.#fenced(key, () => {
-      const found = this.#found(key);
-      if (found === undefined || !isInState(found, expected)) return false;
-      this.#write(key, { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim });
-      return true;
-    });
+    return this.#update(key, (found) =>
+      isInState(found, expected)
+        ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
+        : undefined,
+    );
   }
 
-  markCompleted(key: FencedEffectKey, result: string): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Completed,
-      result,
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
   }
 
-  markFailed(key: FencedEffectKey, failure: OutboundCallFailure): Promise<void> {
-    return this.#update(key, (found) => ({
-      ...withoutEnd(found),
-      status: OutboundCallStatus.Failed,
-      failure: { ...failure },
-      endedAt: this.clock.now().toISOString(),
-    }));
+  markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
+    return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
+  }
+
+  /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
+  #ended(key: FencedEffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+    const endedAt = this.clock.now().toISOString();
+    return this.#update(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
 
   findAllByTenantIdAndRootExecutionId(
@@ -155,6 +169,11 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(rows.map(recordOf));
   }
 
+  async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
+    const { sqliteLeaseStateOf } = await import("../live-lease.js");
+    return sqliteLeaseStateOf(this.connection.database, lease, this.clock.now());
+  }
+
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM outbound_calls WHERE ended_at IS NOT NULL AND ended_at < ?")
@@ -164,36 +183,46 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   #found(key: FencedEffectKey): OutboundCallRecord | undefined {
     const row = this.connection.database
-      .prepare(`SELECT record FROM outbound_calls WHERE ${BY_KEY}`)
-      .get(key.scopeKey, key.idempotencyKey, key.name);
+      .prepare(`SELECT record FROM outbound_calls WHERE ${whereOf(key)[0]}`)
+      .get(...whereOf(key)[1]);
     return row === undefined ? undefined : recordOf(row);
   }
 
   /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
   #update(
     key: FencedEffectKey,
-    change: (found: OutboundCallRecord) => OutboundCallRecord,
-  ): Promise<void> {
+    change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
+  ): Promise<boolean> {
     return this.#fenced(key, () => {
       const found = this.#found(key);
-      if (found !== undefined) this.#write(key, change(found));
+      const changed = found === undefined ? undefined : change(found);
+      return found !== undefined && changed !== undefined && this.#written(key, changed, found);
     });
   }
 
-  /** Writes `change` as the key's intent, under the key's token (inside a fenced transaction). */
-  #write(key: FencedEffectKey, change: OutboundCallRecord): void {
-    const record = { ...change, token: key.token };
+  /**
+   * Writes `change` as the key's intent, under the key's token (inside a fenced transaction) — only
+   * while the row is still `from` (its status, attempt and attempt owner repeated in the `WHERE`):
+   * exactly one row changed, or nothing. The reference for a port to a store with row locks.
+   */
+  #written(key: FencedEffectKey, change: OutboundCallRecord, from: OutboundCallRecord): boolean {
+    const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
     const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
-    this.connection.database
-      .prepare(`UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${BY_KEY}`)
+    const [where, values] = whereOf(key);
+    const { changes } = this.connection.database
+      .prepare(
+        `UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,
+      )
       .run(
         record.status,
         endedAt,
         JSON.stringify(record),
-        key.scopeKey,
-        key.idempotencyKey,
-        key.name,
+        ...values,
+        from.status,
+        from.attempt,
+        from.attemptOwner,
       );
+    return Number(changes) === 1;
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

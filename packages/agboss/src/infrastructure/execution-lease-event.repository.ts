@@ -1,6 +1,7 @@
 import { Injectable } from "../components/decorators.js";
-import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
+import type { FencedEffectOrigin } from "./fenced-effect.repository.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 
 /**
@@ -42,8 +43,28 @@ export enum OutboundCallEventOutcome {
   Unknown = "unknown",
   /** The other system answered with an error: the intent is failed. */
   Failed = "failed",
+  /**
+   * Answered after a newer attempt took the intent over (#508): two attempts reached the other
+   * system — its answer not stored, an error in the log.
+   */
+  Superseded = "superseded",
   /** The same call was being made by this instance: its outcome shared, nothing sent again. */
   Joined = "joined",
+  /**
+   * Found pending under another execution's lease that had expired (#508): that lease closed now
+   * (`supersededLease`), so its holder writes nothing under it again — the call is reconciled here.
+   */
+  LeaseSuperseded = "lease-superseded",
+}
+
+/** The state of the lease that wrote a pending intent, as `leaseStateOf` finds it (#508). */
+export enum OutboundCallLeaseState {
+  /** Held at the token, not expired: its attempt is in flight. */
+  Live = "live",
+  /** Released, or its token moved on: the attempt's owner is gone. */
+  Ended = "ended",
+  /** Expired at the token, closed by the check now: the owner is gone, and fenced from here on. */
+  Superseded = "superseded",
 }
 
 /** How one call of a fenced effect (#500) went, as the lease log keeps it. */
@@ -155,6 +176,8 @@ export interface FencedEffectRecord extends ExecutionLeaseEventBase {
   readonly step: LeaseEventStep;
   /** The token the stored result was first written under (a replay on a newer lease: the older). */
   readonly writtenToken?: number;
+  /** A business key's replay of what another step or execution wrote (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
   /** The newer token the store saw, when it refused the call. */
   readonly observedToken?: number;
 }
@@ -174,6 +197,25 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   readonly attempt: number;
   readonly outcome: OutboundCallEventOutcome;
   readonly step: LeaseEventStep;
+  /** A business key's replay of a call another step or execution made (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
+  /**
+   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * both reached the other system.
+   */
+  readonly supersededBy?: number;
+  /**
+   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * this intent's attempt pending under it — the token it was held at, never one nobody held.
+   */
+  readonly supersededLease?: OutboundCallSupersededLease;
+}
+
+/** A lease an outbound call closed (#508): its tree, its execution and the token it was held at. */
+export interface OutboundCallSupersededLease {
+  readonly rootExecutionId: string;
+  readonly leaseExecutionId: string;
+  readonly token: number;
 }
 
 /** One row of the lease log. */

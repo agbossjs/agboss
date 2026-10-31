@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
-import { IN_MEMORY_DATABASE } from "../../src/infrastructure/instance-tokens.js";
+import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import {
   ActionFailedError,
   Clock,

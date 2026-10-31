@@ -3,9 +3,9 @@ import { scopeKeyOf } from "../app/lease-lost.js";
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
-import { AGBossError } from "../core/errors.js";
 import type { Class } from "../components/injection.js";
-import type { ExecutionContext } from "../flow/context/execution-context.js";
+import { FencedEffectResultTooLargeError, identityOf } from "./fenced-effect-key.js";
+import { isThreadId } from "../run/thread.js";
 import type { FencedEffectSettings } from "./fenced-effect-settings.js";
 
 /**
@@ -47,6 +47,33 @@ export interface FencedEffectKey {
   readonly idempotencyKey: string;
   /** Which effect of the step: `"charge"`, `"notify-ledger"` — several in one step are apart. */
   readonly name: string;
+  /**
+   * A business identity (#508, `"order:42"`): the effect is then one per tenant, name and business
+   * key — deduplicated across tool calls, visits, executions and threads — instead of one per step.
+   * Fencing is the caller's lease as always. Validated by `fencedEffectKeyOf` (1–200 characters,
+   * no control characters).
+   */
+  readonly businessKey?: string;
+  /**
+   * What the effect does, as a hash (SHA-256 of canonical JSON): another one under the same
+   * business key is `IdempotencyKeyConflictError`, never a replay.
+   */
+  readonly fingerprint?: string;
+  /** The step that made the key: what a replay from another step or execution names. */
+  readonly origin?: FencedEffectOrigin;
+  /**
+   * The business key's handle (#508): 12 hex characters of its HMAC-SHA256 under the execution's PII
+   * key — what an error shows instead of the key, to match it with the caller's own log. None where
+   * no key is available (a key made by hand, outside an execution): an error then shows none.
+   */
+  readonly businessKeyHash?: string;
+}
+
+/** A step, as a replay from another one names it (#508). */
+export interface FencedEffectOrigin {
+  readonly executionId: string;
+  readonly nodeId: string;
+  readonly visitNumber: number;
 }
 
 /** How a call got its result. */
@@ -65,6 +92,8 @@ export interface FencedEffectOutcome<TResult> {
   readonly result: TResult;
   /** The token the result was first written under (a replay on a newer lease: the older one). */
   readonly token: number;
+  /** A business key's replay of what another step or execution wrote (#508): that step. */
+  readonly replayedFrom?: FencedEffectOrigin;
 }
 
 /** The protected write: business rows in `transaction`, then its result (plain JSON). */
@@ -85,14 +114,21 @@ function keyProblemOf(key: FencedEffectKey): string | undefined {
     return `its token ${String(key.token)} is not a lease epoch (a whole number from 1)`;
   if (key.name.length === 0 || key.idempotencyKey.length === 0)
     return "its name and idempotencyKey must not be empty";
+  if (key.businessKey !== undefined && !isThreadId(key.businessKey))
+    return "its businessKey is not 1 to 200 characters without control characters";
   return undefined;
 }
 
 /** The calls in flight of each store instance, by their full key: the in-process join. */
 const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unknown>>>>();
 
+/**
+ * The calls one leader is joined by: the same scope, identity and token — and the same fingerprint
+ * (#508), so a call with other parameters under a business key never gets another call's result: it
+ * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`).
+ */
 const joinKeyOf = (key: FencedEffectKey): string =>
-  [key.scopeKey, key.idempotencyKey, key.name, String(key.token)].join("\u0000");
+  [key.scopeKey, identityOf(key), String(key.token), key.fingerprint ?? ""].join("\u0000");
 
 /**
  * Infrastructure (#500): one protected write per key, inside the store's own transaction — the
@@ -218,7 +254,11 @@ function observedCall<TResult>(
   };
   return call.then(
     (outcome) => {
-      report(LOGGED_OUTCOME[outcome.status], { writtenToken: outcome.token });
+      const { replayedFrom } = outcome;
+      report(LOGGED_OUTCOME[outcome.status], {
+        writtenToken: outcome.token,
+        ...(replayedFrom === undefined ? {} : { replayedFrom }),
+      });
       return outcome;
     },
     (error: unknown) => {
@@ -237,83 +277,16 @@ const joinedOutcome = (outcome: FencedEffectOutcome<unknown>): FencedEffectOutco
   token: outcome.token,
 });
 
-/**
- * The key of the current step's effect `name` (#500): the lease the step runs under
- * (`executionContext.fence`) and its idempotency key (`executionContext.step`) — the same when the
- * step runs again after a crash, a newer token once another instance took the lease over. Where no
- * lease is held (a reply interpreter, `maxSpend()`, a yielded lease, an ancestor's context) it
- * throws `ExecutionContextUnavailableError`, as `fence` does.
- */
-export function fencedEffectKeyOf(
-  executionContext: ExecutionContext,
-  name: string,
-): FencedEffectKey {
-  const { fence, step } = executionContext;
-  return Object.freeze({
-    scopeKey: fence.scopeKey,
-    tenantId: fence.tenantId,
-    leaseExecutionId: fence.leaseExecutionId,
-    token: fence.token,
-    idempotencyKey: step.idempotencyKey,
-    name,
-  });
-}
-
-/** What a result too large to store knows: the effect, its size and the limit (UTF-8 bytes). */
-export interface FencedEffectResultTooLargeErrorOptions {
-  /** The effect's `name` (`fencedEffectKeyOf(executionContext, name)`). */
-  readonly effect: string;
-  readonly size: number;
-  readonly maxResultSize: number;
-}
-
-/**
- * A fenced effect's result is larger than `@Application({ fencedEffects: { maxResultSize } })`
- * (#500, default 64 KB): its transaction is rolled back — the business rows too — and the step
- * fails with it. Store a reference (an id, a receipt number), not the document.
- */
-export class FencedEffectResultTooLargeError extends AGBossError {
-  static override readonly code: string = "fenced-effect.result-too-large";
-  override name = "FencedEffectResultTooLargeError";
-  readonly effect: string;
-  readonly size: number;
-  readonly maxResultSize: number;
-
-  constructor(options: FencedEffectResultTooLargeErrorOptions) {
-    super(
-      `the result of fenced effect "${options.effect}" is ${String(options.size)} bytes, above its maxResultSize of ${String(options.maxResultSize)} bytes: nothing was written — store a reference to it, or raise @Application({ fencedEffects: { maxResultSize } })`,
-    );
-    this.effect = options.effect;
-    this.size = options.size;
-    this.maxResultSize = options.maxResultSize;
-  }
-}
-
-/** Which stores do not match: the fenced-effect store and the lease store the application uses. */
-export interface FencedEffectStoreMismatchErrorOptions {
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-  /** The lease store the fenced-effect store reads its leases from. */
-  readonly expectedLeaseRepository: string;
-}
-
-/**
- * The fenced-effect store reads the leases of another store than the application's (#500): the
- * built-in in-memory one used beside a listed `SqliteExecutionLeaseRepository`, say. It would
- * refuse every write, so the first call fails with this instead — list the fenced-effect store of
- * the lease store's database (`SqliteFencedEffectRepository` beside `SqliteExecutionLeaseRepository`).
- */
-export class FencedEffectStoreMismatchError extends AGBossError {
-  static override readonly code: string = "fenced-effect.store-mismatch";
-  override name = "FencedEffectStoreMismatchError";
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-
-  constructor(options: FencedEffectStoreMismatchErrorOptions) {
-    super(
-      `${options.fencedEffectRepository} checks the leases of ${options.expectedLeaseRepository}, but the application's leases are in ${options.leaseRepository}: list the fenced-effect store of that lease store's database in @Application({ providers })`,
-    );
-    this.fencedEffectRepository = options.fencedEffectRepository;
-    this.leaseRepository = options.leaseRepository;
-  }
-}
+export {
+  fencedEffectKeyOf,
+  FencedEffectResultTooLargeError,
+  FencedEffectStoreMismatchError,
+  IdempotencyKeyConflictError,
+  InvalidBusinessKeyError,
+  InvalidFencedEffectNameError,
+  type FencedEffectKeyOptions,
+  type FencedEffectResultTooLargeErrorOptions,
+  type FencedEffectStoreMismatchErrorOptions,
+  type IdempotencyKeyConflictErrorOptions,
+  type InvalidBusinessKeyErrorOptions,
+} from "./fenced-effect-key.js";

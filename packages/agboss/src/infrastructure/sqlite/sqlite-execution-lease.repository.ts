@@ -23,6 +23,13 @@ export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lea
 /** The column of a yielded lease (#516), added to a file an older version wrote. */
 const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT 0"] as const;
 
+/**
+ * `released`: 0 held (or expired), 1 released by its holder, 2 closed as expired by an outbound
+ * call's check (#508, `SUPERSEDED`) — not held either way, but a take of a superseded one is a
+ * takeover from its holder.
+ */
+const RELEASED = 1;
+
 /** The holder's own lease, as `renew`, `yield` and `reclaim` match it. */
 const HELD_BY = `tenant_id = ? AND root_execution_id = ? AND holder_instance_id = ? AND lease_epoch = ?
   AND released = 0`;
@@ -89,7 +96,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
           stored === undefined
             ? undefined
             : { holderInstanceId: stored.holder_instance_id, leaseEpoch: stored.lease_epoch },
-          stored?.released === 0,
+          // not released by its holder: expired (0), or closed as expired by a call's check (2, #508)
+          stored !== undefined && stored.released !== RELEASED,
         ),
       };
       database

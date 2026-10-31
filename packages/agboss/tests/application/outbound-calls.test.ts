@@ -17,7 +17,14 @@ import {
   type OutboundCallsOptions,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
-import { hours, kilobytes, minutes, seconds, type Bytes } from "../../src/units/index.js";
+import {
+  hours,
+  kilobytes,
+  minutes,
+  seconds,
+  type Bytes,
+  type Milliseconds,
+} from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -60,7 +67,23 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
     expect(assembled.outboundCalls).toMatchObject({
       maxPayloadSize: 65_536,
       retention: hours(168),
+      attemptTimeout: minutes(2),
     });
+  });
+
+  it.each([0, -1, Number.NaN])(
+    "#508 re-review HIGH1: an attemptTimeout of %s ms fails assembly",
+    async (timeout) => {
+      await expect(assembledWith({ attemptTimeout: timeout as Milliseconds })).rejects.toThrow(
+        `[application.outbound-calls-invalid] its outboundCalls.attemptTimeout is ${String(timeout)} ms, not a positive duration`,
+      );
+    },
+  );
+
+  it("#508 re-review HIGH1: takes the attemptTimeout it sets", async () => {
+    const assembled = await assembledWith({ attemptTimeout: seconds(45) });
+
+    expect(assembled.outboundCalls.attemptTimeout).toBe(seconds(45));
   });
 
   it.each([0, -1])("a maxPayloadSize of %s bytes fails assembly", async (size) => {
@@ -113,14 +136,22 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
   });
 
   small(
-    "a result above maxPayloadSize: the call was answered, its intent stays pending",
+    "#508: a result above maxPayloadSize: the call happened — Completed with a marker in place of the result, the step gets the answer, never sent again",
     async ({ app }) => {
       gateway.padding = 2000;
 
-      const call = execute(app, ChargeWorkflowStart, { text: "order-1" });
+      const result = await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
-      await expect(call).rejects.toMatchObject({ cause: { part: "result", call: "charge" } });
-      expect(await app.pendingOutboundCalls({ tenantId: "default" })).toHaveLength(1);
+      expect(result.output).toMatchObject({ chargeId: expect.stringContaining("ch-order-1-1") });
+      expect(await app.pendingOutboundCalls({ tenantId: "default" })).toEqual([]);
+      const [call] = await app.outboundCallsOf({
+        tenantId: "default",
+        rootExecutionId: result.executionId,
+      });
+      expect(call).toMatchObject({
+        status: OutboundCallStatus.Completed,
+        result: JSON.stringify({ "agboss:result-not-stored": "outbound-call.payload-too-large" }),
+      });
       expect(gateway.calls).toHaveLength(1);
     },
   );

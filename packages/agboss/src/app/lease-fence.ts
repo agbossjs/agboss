@@ -1,4 +1,8 @@
 import type { Clock } from "../infrastructure/clock.js";
+import type {
+  ExecutionLease,
+  ExecutionLeaseRepository,
+} from "../infrastructure/execution-lease.repository.js";
 import { waitOf } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { ExecutionLeaseLostError, leaseExpiredError } from "./lease-lost.js";
@@ -107,4 +111,14 @@ export async function expireInBackground(
     await clock.sleep(sleepFor, working);
     if (working.aborted) return;
   }
+}
+
+/** A renewal of `held` in the store, asked now: `isRenewed` `undefined` when the store did not answer. */
+export async function renewalOf(
+  { clock, repository }: { readonly clock: Clock; readonly repository: ExecutionLeaseRepository },
+  held: ExecutionLease,
+): Promise<{ readonly renewedAt: number; readonly isRenewed: boolean | undefined }> {
+  const renewedAt = clock.now().getTime();
+  const isRenewed = await repository.renew(held, EXECUTION_LEASE).catch((): undefined => undefined);
+  return { renewedAt, isRenewed };
 }

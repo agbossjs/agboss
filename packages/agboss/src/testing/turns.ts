@@ -71,6 +71,15 @@ export interface ToolCallTurn {
 }
 
 /**
+ * One move that calls several of the agent's tools at once (#508), each run as its own task:
+ * `callTools(callTool(ChargeTool, { … }), callTool(ChargeTool, { … }))`.
+ */
+export interface ToolCallsTurn {
+  readonly kind: "tool-calls";
+  readonly calls: readonly ToolCallTurn[];
+}
+
+/**
  * A call of one of the agent's tools with arguments its input check refuses (#395 PR 3):
  * `callToolWithInvalidArguments(LookupOrderTool, { orderId: 7 })`.
  */
@@ -143,6 +152,7 @@ export type ScriptedTurn =
   | ReplyTurn
   | AnswerTurn
   | ToolCallTurn
+  | ToolCallsTurn
   | InvalidToolCallTurn
   | TruncatedToolCallTurn
   | InvalidAnswerTurn

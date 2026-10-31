@@ -5,6 +5,28 @@ import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+import { Clock, SystemClock } from "../infrastructure/clock.js";
+import { frameworkLogOf, Logger, SilentLogger } from "../infrastructure/logger.js";
+import type { LiveCall } from "./outbound-call-parts.js";
+import type {
+  OutboundCallInFlightErrorOptions,
+  OutboundCallOptions,
+  OutboundCallOutcome,
+  OutboundCallPayloadTooLargeErrorOptions,
+  OutboundCallUnknownOptions,
+  OutboundCallUnreconciledErrorOptions,
+} from "./outbound-call-types.js";
+
+export type {
+  OutboundCall,
+  OutboundCallInFlightErrorOptions,
+  OutboundCallLookup,
+  OutboundCallOptions,
+  OutboundCallOutcome,
+  OutboundCallPayloadTooLargeErrorOptions,
+  OutboundCallUnknownOptions,
+  OutboundCallUnreconciledErrorOptions,
+} from "./outbound-call-types.js";
 
 /**
  * `OutboundCalls` (#505): a call that leaves the system, sent through the protocol — the intent
@@ -12,59 +34,6 @@ import { OutboundCallRepository } from "../infrastructure/outbound-call.reposito
  * pending reconciled with the other system, never sent again blindly. The protocol itself loads
  * on the first call (`outbound-call-protocol.ts`). Wiki → Several-instances.
  */
-
-/** What `send` and `reconcile` get: the call as it goes out. */
-export interface OutboundCall<TRequest> {
-  /** Send it with the call — the same on every attempt, every replay and every holder. */
-  readonly idempotencyKey: string;
-  /** The request as given (never the masked text the store keeps). */
-  readonly request: TRequest;
-  /** This attempt, from 1: 2 after `notSent()` or a failed answer. */
-  readonly attempt: number;
-  readonly target: string;
-  readonly operation: string;
-  /** The step's signal (`executionContext.signal`): pass it to the client. */
-  readonly signal: AbortSignal;
-}
-
-/**
- * What `reconcile` gets (#505): the call's key and the request as it was stored — masked by the
- * PII policies, so look the call up in the other system by `idempotencyKey`, which is not personal
- * data; the real request is the step's own input, when it needs it.
- */
-export interface OutboundCallLookup {
-  /** The key the call went with: what the other system finds it by. */
-  readonly idempotencyKey: string;
-  /** The request's JSON as stored: masked by the application's and the workflow's PII policies. */
-  readonly storedRequest: string;
-  /** The attempt left pending, from 1. */
-  readonly attempt: number;
-  readonly target: string;
-  readonly operation: string;
-  /** The step's signal (`executionContext.signal`): pass it to the client. */
-  readonly signal: AbortSignal;
-}
-
-/** How a call that leaves the system is made: what, where, and the two hooks. */
-export interface OutboundCallOptions<TRequest, TResult> {
-  /** What the call goes to, for operators: `"payments"`. */
-  readonly target: string;
-  /** What it does there: `"charge"`. */
-  readonly operation: string;
-  /** Plain JSON: `send` gets it as it is; it is stored masked by the PII policies. */
-  readonly request: TRequest & JsonResult<TRequest>;
-  /** Sends the call (with `call.idempotencyKey`); its answer is the result, plain JSON. */
-  readonly send: (
-    call: OutboundCall<TRequest>,
-  ) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
-  /**
-   * Asked only for an intent left pending — the process died, or lost its lease, before the
-   * answer: what happened, from the other system, looked up by `lookup.idempotencyKey`.
-   */
-  readonly reconcile: (
-    lookup: OutboundCallLookup,
-  ) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
-}
 
 /** How a call got its result. */
 export enum OutboundCallOutcomeStatus {
@@ -82,14 +51,11 @@ export enum OutboundCallOutcomeStatus {
    * shared — nothing sent again.
    */
   Joined = "joined",
-}
-
-/** What `send` gives: how, the result, the attempt it came from and the key it went with. */
-export interface OutboundCallOutcome<TResult> {
-  readonly status: OutboundCallOutcomeStatus;
-  readonly result: TResult;
-  readonly attempt: number;
-  readonly idempotencyKey: string;
+  /**
+   * Sent and answered, but a newer attempt took the intent over meanwhile (#508): both reached the
+   * other system, this answer is not stored and the log names both attempts. Check the other system.
+   */
+  Superseded = "superseded",
 }
 
 /** What `reconcile` found. */
@@ -100,11 +66,6 @@ export enum OutboundCallVerdict {
   NotSent = "not-sent",
   /** The other system cannot say: the step fails, the intent stays pending. */
   Unknown = "unknown",
-}
-
-/** Why the other system cannot say what happened. */
-export interface OutboundCallUnknownOptions {
-  readonly reason: string;
 }
 
 /**
@@ -153,14 +114,19 @@ export class OutboundCallReconciliation<TResult> {
  * The application's calls that leave the system (#505): a core service a component injects
  * (`deps: [ExecutionContext, OutboundCalls]`), over the listed `OutboundCallRepository`.
  */
-@Injectable({ deps: [OutboundCallRepository, OutboundCallSettings] })
+@Injectable({ deps: [OutboundCallRepository, OutboundCallSettings, Logger, Clock] })
 export class OutboundCalls {
   /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
-  readonly #live = new Map<string, Promise<OutboundCallOutcome<unknown>>>();
+  readonly #live = new Map<string, LiveCall>();
+  /** The attempt owners it is sending under now. */
+  readonly #owners = new Set<string>();
 
   constructor(
     private readonly repository: OutboundCallRepository,
     private readonly settings: OutboundCallSettings,
+    // the instance's log (#508), names and ids only; built by hand (a test), it logs nothing
+    private readonly logger: Logger = new SilentLogger(),
+    private readonly clock: Clock = new SystemClock(),
   ) {}
 
   /**
@@ -174,18 +140,17 @@ export class OutboundCalls {
     options: OutboundCallOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
     const { sendOutboundCall } = await import("./outbound-call-protocol.js");
-    const parts = { repository: this.repository, settings: this.settings, live: this.#live };
+    const { repository, settings } = this;
+    const live = this.#live;
+    const parts = {
+      repository,
+      settings,
+      live,
+      owners: this.#owners,
+      log: frameworkLogOf(this.logger, this.clock),
+    };
     return sendOutboundCall(parts, key, options);
   }
-}
-
-/** What the store keeps an unreconciled call by, for its error. */
-export interface OutboundCallUnreconciledErrorOptions {
-  readonly name: string;
-  readonly target: string;
-  readonly operation: string;
-  readonly idempotencyKey: string;
-  readonly reason: string;
 }
 
 /**
@@ -223,14 +188,6 @@ export class OutboundCallUnreconciledError extends StepFailedError {
 export enum OutboundCallPart {
   Request = "request",
   Result = "result",
-}
-
-/** What a payload too large to store knows: the call, its part, its size and the limit (bytes). */
-export interface OutboundCallPayloadTooLargeErrorOptions {
-  readonly call: string;
-  readonly part: OutboundCallPart;
-  readonly size: number;
-  readonly maxPayloadSize: number;
 }
 
 /**
@@ -278,18 +235,12 @@ export class OutboundCallUnmaskedError extends AGBossError {
 /** What is stored of a failure's text where no mask can be applied (#505): never the text. */
 export const REDACTED = "[redacted]";
 
-/** What an in-flight call knows: the call, never its request. */
-export interface OutboundCallInFlightErrorOptions {
-  readonly name: string;
-  readonly target: string;
-  readonly operation: string;
-}
-
 /**
- * Another call holds the key's intent and has not ended (#505): the same key sent again while a
- * call of this instance still sends it, recorded at the same moment, or moved to a new attempt
- * first. Nothing was sent — two callers never race on one payment. A `StepFailedError`:
- * `.onError(…)` or a retry policy decides; the next attempt finds what that call left.
+ * Another call holds the key's intent and has not ended (#505, #508): recorded by another instance
+ * at the same moment, moved to a new attempt first, or — under a business key — pending under a
+ * lease another instance holds. Nothing was sent: two callers never race on one payment. A
+ * `StepFailedError`: `.onError(…)` or a retry policy decides; the next attempt finds what that call
+ * left.
  */
 export class OutboundCallInFlightError extends StepFailedError {
   static override readonly code: string = "outbound-call.in-flight";
@@ -310,5 +261,35 @@ export class OutboundCallInFlightError extends StepFailedError {
     this.call = name;
     this.target = target;
     this.operation = operation;
+  }
+}
+
+/**
+ * A completed call whose result could not be stored (#508: above `maxPayloadSize`, refused by the
+ * mask) was found again: the call happened — its intent is `Completed`, nothing is sent again — but
+ * there is no result to replay. A `StepFailedError`: `.onError(…)` decides; the other system has
+ * the result (`reason`: the code of what kept it from being stored).
+ */
+export class OutboundCallResultNotStoredError extends StepFailedError {
+  static override readonly code: string = "outbound-call.result-not-stored";
+  override name = "OutboundCallResultNotStoredError";
+  readonly call: string;
+  readonly target: string;
+  readonly operation: string;
+  readonly reason: string;
+
+  constructor(options: OutboundCallInFlightErrorOptions, reason: string) {
+    const { name, target, operation } = options;
+    super(
+      `outbound call "${name}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
+      [],
+      undefined,
+      stepCoordinatesOf(name, ComponentKind.Action),
+      { call: name, target, operation, reason },
+    );
+    this.call = name;
+    this.target = target;
+    this.operation = operation;
+    this.reason = reason;
   }
 }
