@@ -48,8 +48,8 @@ export {
   IdGenerator,
   RandomIdGenerator,
   StoreClock,
+  type ExecutionIds,
 } from "../infrastructure/clock.js";
-export type { ExecutionIds } from "../infrastructure/execution-ids.js";
 export {
   ConsoleLogger,
   formatLogEntry,

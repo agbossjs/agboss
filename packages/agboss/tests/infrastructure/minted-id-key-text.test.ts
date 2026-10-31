@@ -135,7 +135,8 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
       const { cost_ledger_max_spend: keptBefore, execution_ids: idsBefore, ...restBefore } = before;
       expect(rest).toEqual(restBefore);
       expect([keptBefore, kept]).toEqual([0, 3]);
-      expect([idsBefore, ids]).toEqual([0, 1]);
+      // the table of ids is made with the first one kept
+      expect([idsBefore ?? 0, ids]).toEqual([0, 1]);
       const done = await execute(app, OrderWorkflowStart, { text: "b" });
       expect(done.threadId).toMatch(/^thread-\d+$/);
     },

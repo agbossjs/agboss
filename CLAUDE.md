@@ -1384,7 +1384,7 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8. An id is
   never repeated over the life of the application's stores (#591): every execution id minted is kept
   by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
-  by the id alone, across tenants; `infrastructure/execution-ids.ts`), and one any execution had —
+  by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`), and one any execution had —
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
   (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
   launch failed before it starts; a resume or a recovery is not a create. Never a `pauseId`

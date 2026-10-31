@@ -6,7 +6,7 @@ import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { inStepEntry } from "./step-entries.js";
 import { assertAnnouncing, eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { unkeptExecutionIds } from "../../infrastructure/execution-ids.js";
+import { unkeptExecutionIds } from "../../infrastructure/clock.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
 import { NodeKind } from "../ast.js";

@@ -5786,7 +5786,6 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     release(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
     renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
-    // (undocumented)
     saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
     // (undocumented)
     yield(executionLease: ExecutionLease): Promise<boolean>;
@@ -7480,9 +7479,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/tool-calls.ts:86:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts:91:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/deps.ts:34:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:35:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:74:3 - (ae-undocumented) Missing documentation for "observer".
+// src/graph/deps.ts:33:3 - (ae-undocumented) Missing documentation for "config".
+// src/graph/deps.ts:34:3 - (ae-undocumented) Missing documentation for "registry".
+// src/graph/deps.ts:73:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
@@ -7533,8 +7532,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/clock.ts:84:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/infrastructure/clock.ts:90:3 - (ae-undocumented) Missing documentation for "now".
+// src/infrastructure/clock.ts:90:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/infrastructure/clock.ts:96:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
@@ -7693,9 +7692,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:77:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:90:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:94:3 - (ae-undocumented) Missing documentation for "saveExecutionIdIfAbsent".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:76:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:98:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:144:3 - (ae-undocumented) Missing documentation for "renew".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:152:3 - (ae-undocumented) Missing documentation for "release".

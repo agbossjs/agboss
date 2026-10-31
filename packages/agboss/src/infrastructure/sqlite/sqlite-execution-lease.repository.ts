@@ -14,7 +14,6 @@ import {
   type ExecutionLeaseEventRecord,
 } from "../execution-lease-event.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { ensureExecutionIdsSchema, savedExecutionId } from "./sqlite-execution-ids.js";
 
 /** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
 export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
@@ -84,15 +83,16 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     super();
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
     connection.addColumn(...YIELDED_COLUMN);
-    ensureExecutionIdsSchema(connection);
   }
 
   ping(): Promise<void> {
     return this.connection.ping();
   }
 
-  saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
-    return Promise.resolve(savedExecutionId(this.connection, identity));
+  /** Loaded on first use (#591): the root import stays as it was. */
+  async saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+    const { savedExecutionId } = await import("./sqlite-execution-ids.js");
+    return savedExecutionId(this.connection, identity);
   }
 
   acquire(

@@ -102,7 +102,7 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   any execution ever had; never removed. The lease contract checks it (`an execution's identity`:
   once, across tenants, a race of eight claims on two instances with one winner, exact comparison,
   kept after the lease is released or finished). The SQLite store's `execution_ids` table is filled
-  from `execution_leases` when a file of an older version is opened. **Migration:** a lease store of
+  from `execution_leases` on a file of an older version, with its first new id. **Migration:** a lease store of
   your own implements the method on its lease backend (agbossjs/postgres: migration `0018`).
 
 - **An opted-out store is never conformant for fencing** (#543) — `storeConformance` (and

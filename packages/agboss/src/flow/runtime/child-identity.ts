@@ -2,7 +2,7 @@ import type { ObservabilityMask } from "../../pii/observability-mask.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { extractRunContext, runIdOf, type RunContext } from "../../core/run-context.js";
-import type { ExecutionIds } from "../../infrastructure/execution-ids.js";
+import type { ExecutionIds } from "../../infrastructure/clock.js";
 import { rootFactsOf, type Frame } from "../context/frame.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 import { childThreadIn, childThreadOf, markerConfigOf, saveChildMarker } from "./child-thread.js";
