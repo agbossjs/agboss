@@ -160,4 +160,12 @@ describe("#543 acceptance: a reporter that hides skipped cases", () => {
     expect(printed).not.toContain("races across leases");
     expect(printed).not.toContain(OPTED_OUT_REASON);
   }, 120_000);
+
+  it("#566 AC2: a fencing contract run alone with the flag still prints its opt-out, and none of its skipped cases", async () => {
+    const printed = await printedWithSkipsHidden(ALONE);
+
+    expect(printed).toContain(OPT_OUT_SHOWN_CASE);
+    expect(printed).not.toContain(OPTED_OUT_REASON);
+    expect(printed).not.toMatch(/races across leases|stale|expired lease/u);
+  }, 120_000);
 });
