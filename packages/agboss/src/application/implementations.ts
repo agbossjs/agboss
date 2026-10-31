@@ -152,7 +152,8 @@ const storeOn = (
   backend: string,
   known: Readonly<Record<string, string>>,
 ): string => {
-  const core = known[backend];
+  // #554: the table's own keys only — a backend named "constructor" is no core store
+  const core = Object.hasOwn(known, backend) ? known[backend] : undefined;
   return `${what} declaring backend "${backend}"${core === undefined ? "" : ` (${core})`}`;
 };
 
