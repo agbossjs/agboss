@@ -70,6 +70,31 @@ export type { CallAssertion, CallMatchers } from "./vitest-types.js";
 export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
 export { VirtualClock, type ClockDuration, type VirtualClockOptions } from "./clock.js";
+// what a payment gateway must support (#508): a fake one, and the checklist a team runs on its own
+export {
+  FakeGatewayError,
+  FakeGatewayErrorKind,
+  FakeGatewayFault,
+  FakeOutboundGateway,
+  FULL_GATEWAY_CAPABILITIES,
+  type FakeGatewayCapabilities,
+  type FakeGatewayCharge,
+  type FakeGatewayFaultOptions,
+  type FakeGatewayPayment,
+  type FakeGatewayReceipt,
+  type FakeOutboundGatewayOptions,
+} from "./gateway/fake-outbound-gateway.js";
+export {
+  GatewayCheckStatus,
+  GatewayRequirement,
+  outboundGatewayChecklist,
+  type GatewayChecklistClock,
+  type GatewayChecklistReport,
+  type GatewayCheckResult,
+  type GatewayProbeCharge,
+  type GatewayProbeReceipt,
+  type OutboundGatewayChecklistOptions,
+} from "./gateway/outbound-gateway-checklist.js";
 export type { TestLeases } from "./leases.js";
 export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";
