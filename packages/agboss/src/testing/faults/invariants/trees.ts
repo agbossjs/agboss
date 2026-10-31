@@ -13,7 +13,9 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
 
 /**
  * Children once, no undo on a hand-over, every tree ended (#484 invariants 2, 4, 5):
- * - every order of a batch is one child of it, finished; no child's queue row completed twice;
+ * - every order of a batch is one child of it, finished; no child's queue row completed twice; each
+ *   finished child's end heard exactly once by the pods' observers (#562: by the worker whose
+ *   completion of its row won, never by a parent that reads it after a takeover);
  * - an order that finished undid nothing — no undo ran for it, its record lists none; one declined
  *   for real undid its reservation once;
  * - every order started has an execution that ended as it must — finished at the order's finish,
@@ -29,6 +31,24 @@ const byOrder = (
     orders.set(execution.orderId, [...(orders.get(execution.orderId) ?? []), execution]);
   return orders;
 };
+
+/** The observers' word (#562): each finished child of a batch heard ending exactly once. */
+function endsViolations(run: FaultRun): FaultViolation[] {
+  const ends = new Map<string, number>();
+  for (const event of run.events.filter((each) => each.type === "end")) {
+    const id = String(event.executionId);
+    ends.set(id, (ends.get(id) ?? 0) + 1);
+  }
+  return batchesOf(run)
+    .flatMap((batch) => batch.children)
+    .filter((child) => child.status === ChildExecutionStatus.Finished)
+    .flatMap((child) => {
+      const count = ends.get(child.executionId) ?? 0;
+      if (count === 1) return [];
+      const text = `child ${child.executionId} was heard ending ${String(count)} times, not once`;
+      return [violation(FaultInvariant.ChildrenOnce, text)];
+    });
+}
 
 /** Every batch's children: each order once, finished; each completed in the queue once. */
 function childrenViolations(run: FaultRun): FaultViolation[] {
@@ -55,11 +75,11 @@ function childrenViolations(run: FaultRun): FaultViolation[] {
       );
     return issues;
   });
-  // the queue's own word, not an observer's: a child's row is completed once (#541's sibling, #484:
-  // a parent recovered after a takeover hears its child's end again)
+  // the queue's word: a child's row is completed once (#541's sibling, #484)
   const twice = [...childCompletionsOf(run.history)].filter(([, count]) => count > 1);
   return [
     ...found,
+    ...endsViolations(run),
     ...twice.map(([id, count]) =>
       violation(
         FaultInvariant.ChildrenOnce,

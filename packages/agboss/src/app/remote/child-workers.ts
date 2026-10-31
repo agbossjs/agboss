@@ -13,6 +13,7 @@ import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signa
 import type { StepCapacity } from "../step-slots.js";
 import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
+import { announcePass } from "./child-end-event.js";
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
@@ -173,12 +174,15 @@ class Workers implements ChildWorkers {
     const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
     const watching = watchRunningChild(this.parts, row, stop);
     let isFinished = false;
+    let announce = (): Promise<void> => Promise.resolve();
     try {
-      const end = await runQueuedChild(this.parts, row, lease, signal);
-      if (end === undefined) return;
+      const pass = await runQueuedChild(this.parts, row, lease, signal);
+      if (pass === undefined) return;
+      const { end } = pass;
       const done = await queue.completeByTenantIdAndExecutionId(tenantId, executionId, end);
       // answered or failed: its lease is finished, no stale worker takes it again (#520)
       isFinished = end.status !== ExecutionRecordStatus.Paused;
+      announce = () => announcePass(queue, pass, done);
       if (!done && !stop.signal.aborted) {
         const text = `child execution ${executionId} ended, but its tree no longer waits for it`;
         log.warn("child-queue.not-completed", text, { executionId, tenantId });
@@ -188,6 +192,8 @@ class Workers implements ChildWorkers {
       await watching;
       await lease.release({ isFinished });
     }
+    // announced by the completion that won, never by its parent (#562) — once its lease is over
+    await announce();
   }
 
   #canReclaim(key: string): boolean {

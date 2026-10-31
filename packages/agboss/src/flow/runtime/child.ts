@@ -4,7 +4,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { inStepEntry } from "./step-entries.js";
-import { eventOf, failedChild, type ChildParent } from "./child-failure.js";
+import { assertAnnouncing, eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { randomIdGenerator } from "../../infrastructure/clock.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
@@ -111,19 +111,25 @@ async function runChild(
   ended: EndedChild,
   run: ChildRun,
 ): Promise<{ readonly state: ExecutionStateType; readonly usage: readonly UsageRecord[] }> {
-  if (run.interrupted !== undefined)
-    return failedChild(parent, ended, { error: run.interrupted, last: undefined }, run.config);
+  if (run.interrupted !== undefined) {
+    const interrupted = { error: run.interrupted, last: undefined, announces: true };
+    return failedChild(parent, ended, interrupted, run.config);
+  }
   const end =
     run.remote === undefined
       ? await childEndOf(child, run)
       : await remoteChildEndOf(child.graph, run.config, run.remote);
+  const { announces } = end;
   if (end.failed)
-    return failedChild(parent, ended, { error: end.error, last: end.state }, run.config);
+    return failedChild(parent, ended, { error: end.error, last: end.state, announces }, run.config);
   const last = end.state;
   if (last === undefined) throw new TypeError(`${ended.workflow.name} ended without a state`);
   const usage = ownUsageOf(last, ended.identity);
   const record = childRecordOf(ended, last, { status: ChildExecutionStatus.Finished, usage });
   parent.frame.services.recordChild?.(record);
+  // announced once, by the pass that ran it to its finish while it holds the tree (#562)
+  if (!announces) return { state: last, usage };
+  assertAnnouncing(parent.frame);
   const event = {
     ...eventOf(parent.frame, ended),
     finish: recordOfNode(ended.records, last.finish),
