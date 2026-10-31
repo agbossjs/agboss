@@ -2077,7 +2077,7 @@ send, reconcile })` records an intent before the call and settles it after, over
 - **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
 fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; a key's text,
   #538 — 1–200 characters, no C0 / C1 control (`Cc`), no format character (`Cf`: zero-width, bidi
-  controls, U+FEFF, …), no lone surrogate, in NFC, never normalized silently: `keyTextRuleOf(text)`
+  controls, U+FEFF, …), no lone surrogate, no space but U+0020 and that one single and inside (#547: `Zs`, U+2028, U+2029 refused, `space-separator`; none at an edge, never two in a row, `spacing`), in NFC, never normalized silently: `keyTextRuleOf(text)`
   → `KeyTextRule`, the same for thread ids; else `InvalidBusinessKeyError`,
   `fenced-effect.invalid-business-key`, its `rule` named, never the key — checked by
   `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, `checkedBusinessKey` for a

@@ -3,13 +3,14 @@ import { KeyTextRule } from "../../core/errors.js";
 /**
  * Business keys for the key-text cases (#538) of the fenced-effect and outbound-call contracts: keys
  * of many scripts and planes that must come back unchanged and never meet another key's row, and a
- * key breaking each rule, which every store method refuses before any statement.
+ * key breaking each rule (#547: a space but U+0020, a space at an edge or doubled), which every
+ * store method refuses before any statement.
  */
 
 /** Accepted keys — none the NFC, case or width form of another — each its own row. */
 export const ROUND_TRIP_KEYS: readonly string[] = [
   "order:42",
-  "order:42 ",
+  "order 42",
   "Order:42",
   "order:４２",
   "注文:四十二",
@@ -33,6 +34,10 @@ export const REFUSED_BUSINESS_KEYS: readonly (readonly [KeyTextRule, string])[] 
   [KeyTextRule.ControlCharacter, `order:${String.fromCodePoint(0x85)}42`],
   [KeyTextRule.FormatCharacter, `order:${String.fromCodePoint(0x200b)}42`],
   [KeyTextRule.LoneSurrogate, "order:\uD83E"],
+  [KeyTextRule.SpaceSeparator, `order:${String.fromCodePoint(0xa0)}42`],
+  [KeyTextRule.SpaceSeparator, `order:${String.fromCodePoint(0x2028)}42`],
+  [KeyTextRule.Spacing, "order:42 "],
+  [KeyTextRule.Spacing, "order  42"],
   [KeyTextRule.NotNfc, "café"],
 ];
 

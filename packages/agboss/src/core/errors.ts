@@ -70,6 +70,17 @@ export enum KeyTextRule {
    */
   LoneSurrogate = "lone-surrogate",
   /**
+   * No space but U+0020 (#547): no other Unicode space separator (`Zs`: U+00A0, U+2000–U+200A,
+   * U+202F, U+205F, U+3000, …), no line or paragraph separator (U+2028, U+2029) — "order 42" with a
+   * no-break space looks like the one with a space.
+   */
+  SpaceSeparator = "space-separator",
+  /**
+   * U+0020 only single and inside (#547): none at the start or the end, never two in a row —
+   * upstream systems differ in whether they trim and collapse spaces.
+   */
+  Spacing = "spacing",
+  /**
    * In Unicode normalization form C: "é" as U+00E9, never as "e" + U+0301. Refused, never normalized
    * silently — a key changed on its way in would no longer replay the effect stored under it.
    */
@@ -84,6 +95,10 @@ export const KEY_TEXT_RULE_TEXT: Readonly<Record<KeyTextRule, string>> = {
   [KeyTextRule.FormatCharacter]:
     "it contains a format character (Unicode Cf: zero-width space or joiner, a bidi control, U+FEFF, a soft hyphen, …)",
   [KeyTextRule.LoneSurrogate]: "it contains a lone surrogate (half of a UTF-16 pair, no character)",
+  [KeyTextRule.SpaceSeparator]:
+    "it contains a space other than U+0020 (Unicode Zs: a no-break, thin or ideographic space, …) or a line or paragraph separator (U+2028, U+2029)",
+  [KeyTextRule.Spacing]:
+    "it starts or ends with a space (U+0020), or has two in a row: a key's spaces are single and inside",
   [KeyTextRule.NotNfc]:
     'it is not in Unicode normalization form C (NFC): normalize it with text.normalize("NFC") where it is made',
 };
@@ -91,13 +106,19 @@ export const KEY_TEXT_RULE_TEXT: Readonly<Record<KeyTextRule, string>> = {
 const CONTROL = /\p{Cc}/u;
 const FORMAT = /\p{Cf}/u;
 const LONE_SURROGATE = /\p{Cs}/u;
+/** Every space separator but U+0020, and the line and paragraph separators (#547). */
+const OTHER_SPACE = /(?! )[\p{Zs}\p{Zl}\p{Zp}]/u;
+/** A space at an edge, or two in a row. */
+const BAD_SPACING = /^ | $| {2}/u;
 
-/** The first rule of a key's text (#538) that `text` breaks; `undefined` when it is a key. */
+/** The first rule of a key's text (#538, #547) that `text` breaks; `undefined` when it is a key. */
 export function keyTextRuleOf(text: string): KeyTextRule | undefined {
   if (text.length === 0 || text.length > MAX_KEY_LENGTH) return KeyTextRule.Length;
   if (LONE_SURROGATE.test(text)) return KeyTextRule.LoneSurrogate;
   if (CONTROL.test(text)) return KeyTextRule.ControlCharacter;
   if (FORMAT.test(text)) return KeyTextRule.FormatCharacter;
+  if (OTHER_SPACE.test(text)) return KeyTextRule.SpaceSeparator;
+  if (BAD_SPACING.test(text)) return KeyTextRule.Spacing;
   if (text.normalize("NFC") !== text) return KeyTextRule.NotNfc;
   return undefined;
 }
