@@ -88,8 +88,10 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
 - **The opt-out** is `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection`, and its name
   says what it gives up: the lease is read outside the write's transaction, so a holder whose lease
   was just taken over can still write. Such a store is not checked. Every start warns
-  `[application.lease-check-not-atomic]`, which is an error under `agboss check --strict`. Use it
-  only for a store whose writes are idempotent at the other end anyway.
+  `[application.lease-check-not-atomic]`, which is an error under `agboss check --strict`. Such a
+  store is **not conformant for fencing**: it gives no double-charge protection and must never back
+  payments. `storeConformance` proves only what it does not give up
+  ([An opted-out store and `storeConformance`](#an-opted-out-store-and-storeconformance-543)).
 - **Not bound:** rate limits, the child queue and the lease log. The planned Redis store keeps
   **coordination** stores: leases, rate limits, the queue. An application on Redis leases can then
   list a fenced-effect or outbound-call store only on Redis too (or one that opts out). One on
@@ -406,6 +408,48 @@ storeConformance({
   stores of no backend or another.
 - One function per contract (`fencedEffectContract`, …) is still there for a store run on its own.
 
+### An opted-out store and `storeConformance` (#543)
+
+A fencing store that declares `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` says it
+reads the lease outside its write's transaction. That is the author's statement, and no case result
+overrides it: such a store passes **no** fencing case, even when it would pass them all.
+
+- **The opt-out is stated twice.** Without `acceptWithoutDoubleChargeProtection: true` in the call,
+  every fencing case of that store fails with `StoreConformanceError`
+  (`[store-conformance.opted-out-store] <Store> declares LeaseCheck.WithoutDoubleChargeProtection …`),
+  and so does its `store set (<name>)` case.
+- **With the flag, the fencing cases are skipped**, each with the note "store opted out of the lease
+  check: no double-charge protection". The fencing cases are those only an atomic lease check
+  passes: a stale, released or expired lease refused, the zombie's write racing the new holder's,
+  and the outbound-call lease races. The set's suite shows `gives NO double-charge protection for
+  fenced effects` (or `… for outbound calls`) as a passing case, so every report carries it.
+- **Every other case still runs** and must pass, and it can fail. Writes and replays, texts,
+  business keys, rollback, and one write per key under concurrency are not waived by the opt-out.
+  A check-then-write store that is honest about its lease still fails the races of two instances on
+  one key.
+- **The flag with no opted-out store fails** the case `accepts an opt-out only where a store declares
+  one`, so a sound set's report never reads as opted out.
+
+<!-- snippet-context
+import type { ExecutionLeaseEventRepository, ExecutionLeaseRepository } from "@agboss/core";
+import { storeConformance, type FencedEffectStores, type OutboundCallStores } from "@agboss/core/testing/contracts";
+declare const redisLeases: () => ExecutionLeaseRepository;
+declare const redisEffects: () => FencedEffectStores<unknown>;
+declare const redisCalls: () => OutboundCallStores;
+declare const redisLog: () => ExecutionLeaseEventRepository;
+-->
+
+```ts
+storeConformance({
+  name: "Redis effects",
+  acceptWithoutDoubleChargeProtection: true, // its fencing cases skipped: never back payments with it
+  stores: { executionLease: redisLeases, fencedEffect: redisEffects, outboundCall: redisCalls, executionLeaseEvent: redisLog },
+});
+```
+
+`fencedEffectContract(target, { acceptWithoutDoubleChargeProtection })` and `outboundCallContract`
+take the same option when they are run on their own.
+
 ### Faults: `faultSuite` (#484)
 
 The contract suites prove the atomic steps on a healthy database, in one process. `faultSuite`
@@ -529,5 +573,8 @@ held operation. You write no seam of your own to force an order across processes
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.
+      A store that opts out of the lease check passes only with
+      `acceptWithoutDoubleChargeProtection: true`, its fencing cases skipped: it is not conformant
+      for fencing and backs no payment (#543).
 - [ ] `faultSuite` passes on the set, against a real database, in CI.
 - [ ] The README lists the stores together, links this page, and says which backend they declare.

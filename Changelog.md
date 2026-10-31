@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an opted-out store and storeConformance (#543)
+
+- **Breaking for stores outside the core**: a fencing store that declares
+  `LeaseCheck.WithoutDoubleChargeProtection` fails every fencing case of `storeConformance` and its
+  `store set` case (`[store-conformance.opted-out-store]`) unless the call says
+  `acceptWithoutDoubleChargeProtection: true`. With the flag those cases are skipped with "store
+  opted out of the lease check: no double-charge protection", and the set shows `gives NO
+  double-charge protection for …`. Every other case still runs. Before, an atomic store with the
+  flag on passed every case, and an honest one could pass none.
+- The start's `[application.lease-check-not-atomic]` links
+  [Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543).
+- **Migration:** add `acceptWithoutDoubleChargeProtection: true` to the `storeConformance` call of a
+  set with an opted-out store.
+
 ## Unreleased — 0.1.1: the acceptance of #539 (#554)
 
 - **Fixed**: the hint of `[application.store-backend-mismatch]` named a JavaScript function as the

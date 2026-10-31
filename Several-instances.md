@@ -488,7 +488,8 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   stores, fail `[di.ambiguous-implementation]` at assembly (#539). The explicit opt-out
   `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` names what it gives up — the lease
   is read outside the write's transaction, so a holder whose lease was taken over can still write —
-  and is not checked; the start warns `[application.lease-check-not-atomic]` (an error under
+  and is not checked; it passes no fencing case of `storeConformance` and must never back payments
+  ([Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543), #543); the start warns `[application.lease-check-not-atomic]` (an error under
   `agboss check --strict`). Rate limits, the child queue and the [lease log](#the-lease-log-501) are
   on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
   effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
