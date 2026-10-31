@@ -41,7 +41,20 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
   `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
 
+### Security
+
+- **No CI install takes a release nobody reviewed** (#523): every workflow installs from its
+  lockfile (`npm ci`); an install that must resolve ranges — `npm run check:packed`'s probe project
+  — takes no release younger than three days (`npm install --before`, `AGBOSS_NPM_BEFORE` for the
+  maintainer at release time); an `npx` only at an exact version. `npm run check:installs` (in
+  `make check`) enforces it; the same in agbossjs/postgres and agbossjs/agboss-examples.
+  `RELEASE_CHECKLIST.md` → Dependency installs states the policy.
+
 ### Fixed
+
+- **No test asserts real elapsed time against a fixed number** (#523, after #509): the model
+  call and Jev timeout tests run on a `VirtualClock`; `npm run check:real-time` (in `make check`)
+  fails on a new real-time threshold.
 
 - **A parent waiting for `AnyInstance` children is no longer taken over by another instance**
   (#516) — while it waited, the parent released its lease and only its own process knew the tree

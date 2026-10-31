@@ -2244,7 +2244,10 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 ### Quality gates
 
 `make check` = `npm run check`: the root allowlist (`.root-allowlist`), the suppression budget
-(`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
+(`.suppressions.json`), the install policy (`npm run check:installs`, #523: a workflow installs with
+`npm ci`, an `npx` is pinned to an exact version, a script resolves ranges only with `--before` —
+`RELEASE_CHECKLIST.md` → Dependency installs), no real-time threshold in a test (`npm run
+check:real-time`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
 `agboss check --strict` on flow-patterns' two applications (warnings are errors, `--federation`

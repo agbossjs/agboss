@@ -4,7 +4,18 @@ import { ModelFailure, OpenRouterModelProvider, RetryPolicy } from "../../src/mo
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { milliseconds } from "../models/time.js";
+import { VirtualClock } from "../../src/testing/clock.js";
 import { minutes } from "../../src/units/index.js";
+
+/** Whether a promise has settled yet, without letting its rejection go unhandled. */
+const settledFlag = (promise: Promise<unknown>): { readonly isSettled: () => boolean } => {
+  let isSettled = false;
+  const settle = (): void => {
+    isSettled = true;
+  };
+  promise.then(settle, settle);
+  return { isSettled: () => isSettled };
+};
 
 /** A fetch that never answers until its signal aborts. */
 const neverAnswers: typeof fetch = (_url, init) =>
@@ -15,20 +26,20 @@ const neverAnswers: typeof fetch = (_url, init) =>
   });
 
 describe("model calls: the provider's timeout and retries (#95, now on the provider #151)", () => {
-  it("AC1: a request that gets no replyWith fails within the provider's timeout instead of hanging", async () => {
+  it("AC1: a request that gets no replyWith fails at the provider's timeout on its clock instead of hanging", async () => {
+    const clock = new VirtualClock();
     const send = resilientFetch(
-      {
-        provider: "p",
-
-        timeout: milliseconds(50),
-        retryPolicy: RetryPolicy.none(),
-      },
+      { provider: "p", timeout: milliseconds(50), retryPolicy: RetryPolicy.none(), clock },
       neverAnswers,
     );
-    const started = Date.now();
 
-    await expect(send("http://p.test/chat/completions")).rejects.toThrow();
-    expect(Date.now() - started).toBeLessThan(2000);
+    const sent = send("http://p.test/chat/completions");
+    const outcome = settledFlag(sent);
+    await clock.advance(milliseconds(49));
+    expect(outcome.isSettled()).toBe(false);
+    await clock.advance(milliseconds(1));
+
+    await expect(sent).rejects.toThrow(/timeout/iu);
   });
 
   it("AC2: a request that timed out is retried by the policy before giving up", async () => {
@@ -67,17 +78,21 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
 });
 
 describe("Jev calls: the standard fetch abort signal (#95)", () => {
-  it("AC4: a decision that gets no replyWith fails in time (the router then falls back as for any failure)", async () => {
+  it("AC4: a decision that gets no replyWith fails at its timeout on the clock (the router then falls back as for any failure)", async () => {
+    const clock = new VirtualClock();
     const jev = createJevClient(
       { apiKey: "k", baseUrl: "https://example.test/api/v1" },
       neverAnswers,
       milliseconds(50),
+      clock,
     );
-    const started = Date.now();
 
-    await expect(
-      jev({ model: "typesafe/jev", input: "x", options: [] } as never),
-    ).rejects.toThrow();
-    expect(Date.now() - started).toBeLessThan(2000);
+    const decided = jev({ model: "typesafe/jev", input: "x", options: [] } as never);
+    const outcome = settledFlag(decided);
+    await clock.advance(milliseconds(49));
+    expect(outcome.isSettled()).toBe(false);
+    await clock.advance(milliseconds(1));
+
+    await expect(decided).rejects.toThrow(/timeout/iu);
   });
 });
