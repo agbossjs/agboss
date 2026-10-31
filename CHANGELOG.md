@@ -14,6 +14,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Mutation testing of the fencing modules** (#533) — Stryker on the leases, the holder's fence,
+  the held lease, the fenced effect, the outbound call's protocol and store, and the store's clock,
+  in a CI job of its own: every mutant is killed by a test or justified at the code; the job fails
+  below 100 %.
+
 - **The interleaving explorer** (#533) — `storeConformance` now runs `interleavings (<name>)` on a
   set's fencing stores: a deterministic scheduler of simulated instances that take, renew, yield,
   reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
