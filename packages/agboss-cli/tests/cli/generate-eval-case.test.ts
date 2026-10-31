@@ -80,6 +80,21 @@ describe("#396 PR 8: agboss generate eval-case --from-execution", () => {
     expect(suite?.content).toContain('name: "refund-order-7"');
   });
 
+  it("#580: a --tenant that is no key's text is refused, exit 2, naming the rule and never the id", async () => {
+    const tenant = "acme\u200B";
+    const call = await agboss(
+      [...GENERATE, "x", "--from-execution", "e1", "--tenant", tenant, "--json"],
+      ROOT,
+      ENV,
+    );
+
+    expect(call.code).toBe(2);
+    const { error } = envelope(call) as { error: { code: string; message: string } };
+    expect(error).toMatchObject({ code: "usage.option-value" });
+    expect(error.message).toContain("format-character");
+    expect(`${call.stdout}${call.stderr}`).not.toContain(tenant);
+  });
+
   it("an id two tenants kept needs --tenant; an unknown one, an unkept application, a taken name fail", async () => {
     const ambiguous = await agboss(
       [...GENERATE, "x", "--from-execution", "e1", "--json"],
