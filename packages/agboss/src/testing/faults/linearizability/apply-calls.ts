@@ -9,6 +9,7 @@ import {
   type ReadCall,
 } from "../../contracts/models/call-model.js";
 import { effectWritten, treeOf, type FencingState } from "../../contracts/models/lease-model.js";
+import { stableJson } from "../../../terns/versions.js";
 import { StoreHoldPoint } from "../store-points.js";
 import { UNKNOWN, type CheckedOperation } from "./operations.js";
 
@@ -19,7 +20,7 @@ import { UNKNOWN, type CheckedOperation } from "./operations.js";
 
 /** Whether `output` is `answer`, an unknown output being any. */
 export const isSame = (output: unknown, answer: unknown): boolean =>
-  output === UNKNOWN || JSON.stringify(output) === JSON.stringify(answer);
+  output === UNKNOWN || stableJson(output) === stableJson(answer);
 
 /** The fenced key the history kept, as the call model reads it. */
 export function callKeyOf(input: Readonly<Record<string, unknown>>): CallKeyFacts {
