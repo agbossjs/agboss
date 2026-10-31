@@ -79,3 +79,18 @@ export function checkedOperationsOf(
       };
     });
 }
+
+/** A text field of a recorded input; `""` when it is not one. */
+export const textOf = (input: Readonly<Record<string, unknown>>, name: string): string => {
+  const value = input[name];
+  return typeof value === "string" ? value : "";
+};
+
+/** A number field of a recorded input; `undefined` when it is not one. */
+export const numberOf = (
+  input: Readonly<Record<string, unknown>>,
+  name: string,
+): number | undefined => {
+  const value = input[name];
+  return typeof value === "number" ? value : undefined;
+};

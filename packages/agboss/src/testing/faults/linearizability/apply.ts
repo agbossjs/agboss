@@ -11,7 +11,7 @@ import {
   type ModelStep,
 } from "../../contracts/models/lease-model.js";
 import { StoreHoldPoint } from "../store-points.js";
-import { UNKNOWN, type CheckedOperation } from "./operations.js";
+import { numberOf, textOf, UNKNOWN, type CheckedOperation } from "./operations.js";
 import { callApplied, callKeyOf, isSame } from "./apply-calls.js";
 
 /**
@@ -109,7 +109,15 @@ const LEASE_STEPS: Readonly<
 };
 
 function leaseApplied(state: FencingState, operation: CheckedOperation, now: number): Applied {
-  const held = operation.input as unknown as HeldFacts;
+  const { input } = operation;
+  const length = numberOf(input, "lease");
+  const held: HeldFacts = {
+    tenantId: textOf(input, "tenantId"),
+    rootExecutionId: textOf(input, "rootExecutionId"),
+    holderInstanceId: textOf(input, "holderInstanceId"),
+    leaseEpoch: numberOf(input, "leaseEpoch") ?? 0,
+    ...(length === undefined ? {} : { lease: length }),
+  };
   const step = LEASE_STEPS[operation.kind];
   if (step === undefined) {
     const isFinish = operation.kind === StoreHoldPoint.LeaseFinish;

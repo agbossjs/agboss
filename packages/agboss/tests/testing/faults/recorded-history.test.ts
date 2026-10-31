@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { linearizabilityOf } from "../../../src/testing/faults/linearizability/check.js";
 import {
   OperationHistory,
+  OperationPhase,
   type OperationEvent,
 } from "../../../src/testing/faults/operation-history.js";
 import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";

@@ -50,7 +50,11 @@ const anyLivePod = (world: FaultWorld): FaultPod | undefined =>
  * The scenario run and its facts checked: the invariants first — also when the scenario stopped
  * early, on what a live pod reads then —, then the scenario's own expectations.
  */
-async function checkedRun(scenario: FaultScenario, world: FaultWorld): Promise<FaultRun> {
+async function checkedRun(
+  scenario: FaultScenario,
+  world: FaultWorld,
+  timeScale: number,
+): Promise<FaultRun> {
   let reader: FaultPod | undefined;
   let stopped: Error | undefined;
   try {
@@ -60,7 +64,8 @@ async function checkedRun(scenario: FaultScenario, world: FaultWorld): Promise<F
     reader = anyLivePod(world);
   }
   if (reader === undefined) throw stopped ?? new Error(`${scenario.id} gave no pod to read with`);
-  const run = await world.run(reader);
+  // the history read on the store's own time (#533): the linearizability checker maps it so
+  const run = { ...(await world.run(reader)), timeScale };
   const violations = faultViolationsOf(run);
   const notes = [...world.expectations, ...(stopped === undefined ? [] : [String(stopped)])];
   if (violations.length > 0) throw new FaultInvariantError(scenario.id, violations, notes);
@@ -96,10 +101,9 @@ export async function runFaultScenario(
     stores: options.stores,
     database: options.database,
     timeScale: options.timeScale ?? 1,
-    ...(options.storeTimeScale === undefined ? {} : { storeTimeScale: options.storeTimeScale }),
   });
   try {
-    return await checkedRun(scenario, world);
+    return await checkedRun(scenario, world, options.storeTimeScale ?? options.timeScale ?? 1);
   } catch (error) {
     dumped(scenario, world);
     throw error;

@@ -25,6 +25,14 @@ import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";
  */
 
 let at = 0n;
+/**
+ * The violations of every invariant but `linearizable` (#533): these histories are written by hand
+ * for the other invariants and leave out what the sequential model reads (a take's tenant and
+ * length); the checker has its own cases (linearizability.test.ts, recorded-history.test.ts).
+ */
+const violationsOf = (run: FaultRun) =>
+  faultViolationsOf(run).filter((found) => found.invariant !== FaultInvariant.Linearizable);
+
 /** One store operation of the history, its invoke and complete one after the other. */
 function operation(
   history: OperationHistory,
@@ -95,6 +103,8 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
     process: "a",
     operation: StoreHoldPoint.LeaseAcquire,
     key: "root-1",
+    // what the sequential model reads of a take (#533): the healthy run is linearizable too
+    input: { tenantId: "default", rootExecutionId: "root-1", lease: 30_000 },
     output: lease("a", 1),
   });
   operation(history, {
@@ -132,12 +142,12 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
 }
 
 const invariantsOf = (run: FaultRun): readonly FaultInvariant[] => [
-  ...new Set(faultViolationsOf(run).map((found) => found.invariant)),
+  ...new Set(violationsOf(run).map((found) => found.invariant)),
 ];
 
 describe("#484 AC1: the invariant checker fails on a broken run", () => {
   it("a healthy run breaks nothing", () => {
-    expect(faultViolationsOf(healthy().run)).toEqual([]);
+    expect(violationsOf(healthy().run)).toEqual([]);
     expect(() => {
       assertFaultInvariants("healthy", healthy().run);
     }).not.toThrow();
@@ -175,7 +185,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       input: key(3, "root-2"),
       output: true,
     });
-    const messages = faultViolationsOf(run).map((found) => found.message);
+    const messages = violationsOf(run).map((found) => found.message);
     expect(messages).toEqual([
       expect.stringContaining("granted after a higher one"),
       expect.stringContaining("was accepted from c, but b held that epoch"),
@@ -218,7 +228,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       key: "root-1",
       output: null,
     });
-    expect(faultViolationsOf(run).map((found) => found.message)).toEqual([
+    expect(violationsOf(run).map((found) => found.message)).toEqual([
       expect.stringContaining("a stale write"),
     ]);
   });
@@ -270,7 +280,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       },
     ];
     expect(
-      faultViolationsOf({ ...run, trees, businessRows: ["charge:root-1", "charge:root-1"] }).map(
+      violationsOf({ ...run, trees, businessRows: ["charge:root-1", "charge:root-1"] }).map(
         (found) => found.invariant,
       ),
     ).toEqual([FaultInvariant.EffectsOnce, FaultInvariant.EffectsOnce]);
@@ -289,7 +299,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     const requests = [...run.requests, { pod: "b", idempotencyKey: "other", orderId: "o-1" }];
     const payments = [...run.payments, { paymentId: "pay-2", idempotencyKey: "other" }];
     expect(
-      faultViolationsOf({ ...run, trees, requests, payments }).map((found) => found.message),
+      violationsOf({ ...run, trees, requests, payments }).map((found) => found.message),
     ).toEqual([
       expect.stringContaining("under 2 idempotency keys"),
       expect.stringContaining("2 times (from a, b)"),
@@ -383,7 +393,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     });
     // c-1 heard ending on two pods (a recovered parent hearing it again, #562); c-2 is cancelled
     const ended = (pod: string): PodEventFact => ({ type: "end", pod, executionId: "c-1" });
-    const found = faultViolationsOf({
+    const found = violationsOf({
       ...run,
       records: [...run.records, batch],
       events: [...run.events, ended("a"), ended("b")],

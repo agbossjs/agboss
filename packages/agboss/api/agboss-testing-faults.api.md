@@ -324,7 +324,6 @@ export interface FaultWorldOptions {
     readonly database: FaultDatabase;
     // (undocumented)
     readonly stores: string;
-    readonly storeTimeScale?: number;
     // (undocumented)
     readonly timeScale: number;
 }
@@ -774,8 +773,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/world-options.ts:17:3 - (ae-undocumented) Missing documentation for "stores".
 // src/testing/faults/world-options.ts:18:3 - (ae-undocumented) Missing documentation for "database".
 // src/testing/faults/world-options.ts:19:3 - (ae-undocumented) Missing documentation for "timeScale".
-// src/testing/faults/world-options.ts:26:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
-// src/testing/faults/world-options.ts:27:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
+// src/testing/faults/world-options.ts:24:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/world-options.ts:25:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
 // src/testing/faults/world.ts:35:3 - (ae-undocumented) Missing documentation for "history".
 // src/testing/faults/world.ts:36:3 - (ae-undocumented) Missing documentation for "gateway".
 // src/testing/faults/world.ts:37:3 - (ae-undocumented) Missing documentation for "events".

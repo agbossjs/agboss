@@ -9,9 +9,9 @@ import {
   type ReadCall,
 } from "../../contracts/models/call-model.js";
 import { effectWritten, treeOf, type FencingState } from "../../contracts/models/lease-model.js";
-import { stableJson } from "../../../terns/versions.js";
+import { stableJson } from "../../../terns/index.js";
 import { StoreHoldPoint } from "../store-points.js";
-import { UNKNOWN, type CheckedOperation } from "./operations.js";
+import { numberOf, textOf, UNKNOWN, type CheckedOperation } from "./operations.js";
 
 /**
  * The fenced operations of a recorded history on the sequential model (#533 item 5): the fenced
@@ -24,7 +24,16 @@ export const isSame = (output: unknown, answer: unknown): boolean =>
 
 /** The fenced key the history kept, as the call model reads it. */
 export function callKeyOf(input: Readonly<Record<string, unknown>>): CallKeyFacts {
-  const key = input as unknown as FencedEffectKey;
+  const businessKey = input.businessKey;
+  const key: FencedEffectKey = {
+    scopeKey: textOf(input, "scopeKey"),
+    tenantId: textOf(input, "tenantId"),
+    leaseExecutionId: textOf(input, "leaseExecutionId"),
+    token: numberOf(input, "token") ?? 0,
+    idempotencyKey: textOf(input, "idempotencyKey"),
+    name: textOf(input, "name"),
+    ...(typeof businessKey === "string" ? { businessKey } : {}),
+  };
   return {
     tree: treeOf(key.tenantId, key.leaseExecutionId),
     token: key.token,
