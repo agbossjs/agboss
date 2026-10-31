@@ -4,7 +4,7 @@ import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
 import type { OutboundCallIntent, OutboundCallRecord } from "./outbound-call-record.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
-import { isThreadId } from "../run/thread.js";
+import { KEY_TEXT_RULE_TEXT, keyTextRuleOf, type KeyTextRule } from "../core/errors.js";
 import { stableJson, versionOf } from "../terns/index.js";
 import type {
   FencedEffectKey,
@@ -21,7 +21,10 @@ import type {
 
 /** A business identity for a key (#508). */
 export interface FencedEffectKeyOptions<TFingerprint = unknown> {
-  /** `"order:42"`: 1–200 characters, no control characters. Never sent to a model. */
+  /**
+   * `"order:42"`: a key's text (#538, `KeyTextRule`) — 1–200 characters, no control or format
+   * character, no lone surrogate, in NFC. Never sent to a model.
+   */
   readonly businessKey: string;
   /**
    * What the effect does (plain JSON, hashed with SHA-256 over canonical JSON): another value
@@ -55,6 +58,25 @@ export function fingerprintOf(value: unknown): string {
  */
 export function checkedEffectName(name: string): void {
   if (!isEffectName(name)) throw new InvalidFencedEffectNameError(name.length);
+}
+
+/**
+ * Checks a key's business key (#538): a key's text (`keyTextRuleOf`), else
+ * `InvalidBusinessKeyError` naming the rule, never the key — by `fencedEffectKeyOf`,
+ * `OutboundCalls.send` and again at every store's entry, for a key built by hand (exported for
+ * stores outside the core: before any statement, beside `checkedEffectName`).
+ */
+export function checkedBusinessKey(key: Pick<FencedEffectKey, "name" | "businessKey">): void {
+  const invalid = businessKeyErrorOf(key);
+  if (invalid !== undefined) throw invalid;
+}
+
+/** The `InvalidBusinessKeyError` of `key`'s business key (#538), `undefined` when it has a valid one or none. */
+export function businessKeyErrorOf(
+  key: Pick<FencedEffectKey, "name" | "businessKey">,
+): InvalidBusinessKeyError | undefined {
+  const rule = key.businessKey === undefined ? undefined : keyTextRuleOf(key.businessKey);
+  return rule === undefined ? undefined : new InvalidBusinessKeyError({ name: key.name, rule });
 }
 
 /** Whether `name` is an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, a letter or digit first. */
@@ -91,11 +113,7 @@ export function fencedEffectKeyOf<TFingerprint>(
     origin: Object.freeze(origin),
   };
   if (options === undefined) return Object.freeze(key);
-  if (!isThreadId(options.businessKey))
-    throw new InvalidBusinessKeyError({
-      name,
-      problem: "1 to 200 characters, no control characters",
-    });
+  checkedBusinessKey({ name, businessKey: options.businessKey });
   const fingerprint =
     options.fingerprint === undefined ? {} : { fingerprint: fingerprintOf(options.fingerprint) };
   const businessKeyHash = businessKeyHashOf(options.businessKey);
@@ -121,24 +139,29 @@ export class InvalidFencedEffectNameError extends AGBossError {
   }
 }
 
-/** What an invalid business key knows: the effect, and why — never the key itself. */
+/** What an invalid business key knows: the effect, and the rule it breaks — never the key itself. */
 export interface InvalidBusinessKeyErrorOptions {
   readonly name: string;
-  readonly problem: string;
+  readonly rule: KeyTextRule;
 }
 
 /**
- * A business key that is not one (#508): empty, longer than 200 characters, or with a control
- * character — the rule of thread ids. Nothing ran; the key is not named (it may carry an id).
+ * A business key that is not one (#508, #538): it breaks a rule of a key's text (`rule`) — the
+ * rule of thread ids. Nothing ran; the message names the rule, never the key (it may carry an id).
  */
 export class InvalidBusinessKeyError extends AGBossError {
   static override readonly code: string = "fenced-effect.invalid-business-key";
   override name = "InvalidBusinessKeyError";
   readonly effect: string;
+  readonly rule: KeyTextRule;
 
   constructor(options: InvalidBusinessKeyErrorOptions) {
-    super(`the business key of "${options.name}" is not one: ${options.problem}`);
+    super(
+      `the business key of "${options.name}" is not one (${options.rule}): ${KEY_TEXT_RULE_TEXT[options.rule]}`,
+      { details: { effect: options.name, rule: options.rule } },
+    );
     this.effect = options.name;
+    this.rule = options.rule;
   }
 }
 

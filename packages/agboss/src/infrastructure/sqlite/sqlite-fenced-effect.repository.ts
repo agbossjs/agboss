@@ -7,6 +7,7 @@ import type { Class } from "../../components/injection.js";
 import { Clock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
+  checkedBusinessKey,
   checkedEffectName,
   replayedFromOf,
   storedKeyFactsOf,
@@ -195,6 +196,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
  */
 export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {
   checkedEffectName(key.name);
+  checkedBusinessKey(key);
   const { scopeKey, token } = key;
   const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;

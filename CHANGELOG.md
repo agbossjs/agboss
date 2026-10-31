@@ -117,6 +117,19 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
   `InvalidThreadIdError`): SQLite and PostgreSQL keep text as UTF-8, where two such keys were one
   row, and an outbound call's key threw `URIError`.
+- **Look-alike keys are refused, never charged twice** (#538) — a business key and a thread id
+  are refused when they hold a C1 control (U+0080–U+009F, beside C0 and DEL), a format character
+  (Unicode `Cf`: zero-width space and joiners — so emoji joined by U+200D too —, bidi controls,
+  U+FEFF, the soft hyphen, tag characters) or are not NFC ("e" + U+0301; refused, never normalized
+  silently, which would no longer replay a key stored before). `InvalidBusinessKeyError` and
+  `InvalidThreadIdError` name the rule (`rule: KeyTextRule`, `keyTextRuleOf(text)` from the root),
+  never the key; an invalid thread id is no longer echoed in `onExecutionRejected`. Checked by
+  `fencedEffectKeyOf`, `OutboundCalls.send` and at every store's entry for a key built by hand
+  (`checkedBusinessKey`, exported for a store of your own); new contract cases: keys of many scripts
+  round-trip byte for byte and are each their own row, and a key built by hand breaking a rule is
+  refused by every method. **Migration:** normalize a key where it is made (`text.normalize("NFC")`)
+  and strip invisible characters from imported identifiers; `InvalidBusinessKeyErrorOptions` takes
+  `rule` instead of `problem`.
 - **`check:installs` and `check:real-time`** (#531) miss no common form: `npm install-test`, a line
   continued with `\`, every `--package=`, `["i", …]` and `"npm install …"` in scripts; a duration
   through a second variable, a limit named by a constant.

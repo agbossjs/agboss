@@ -5,6 +5,7 @@ import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
+import { InvalidThreadIdError } from "../run/thread.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -113,9 +114,13 @@ const safeMessageOf = (error: unknown): string => {
   return asError(error).message;
 };
 
-/** The `onExecutionRejected` event of a refused request: no execution id, no input values. */
+/**
+ * The `onExecutionRejected` event of a refused request: no execution id, no input values — and no
+ * thread id that is not one (#538: an id refused for its text is never echoed, the rule names it).
+ */
 function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionRejectedEvent {
-  const { operation, threadId } = request;
+  const { operation } = request;
+  const threadId = error instanceof InvalidThreadIdError ? undefined : request.threadId;
   return {
     operation,
     ...(threadId === undefined ? {} : { threadId }),

@@ -143,11 +143,10 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     const run = execute(app, Ask, { text: "hello" }, { threadId: "bad\nid" });
 
     await expect(run).rejects.toBeInstanceOf(InvalidThreadIdError);
-    expectRejected({
-      operation: ExecutionOperation.Execute,
-      threadId: "bad\nid",
-      code: "run.invalid-thread-id",
-    });
+    // #538: an id refused for its text is never echoed: the event names the rule, not the id
+    expectRejected({ operation: ExecutionOperation.Execute, code: "run.invalid-thread-id" }, [
+      "bad",
+    ]);
     expect(workflowEvents()).toEqual([]);
   });
 

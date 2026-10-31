@@ -51,8 +51,8 @@ export interface ExecutionOptions extends CallOptions {
    * The thread, in the execution's tenant (its key: tenant + thread): one it has is continued; an
    * id it does not have yet is created as the caller's own new thread (#262 Q4) — an idempotent id
    * the caller picked; the same id in another tenant is another thread. Created only once the
-   * budgets pass: a refused execution creates nothing. 1–200 characters, no control characters,
-   * else `InvalidThreadIdError`. Omitted → a new thread with an id of its own.
+   * budgets pass: a refused execution creates nothing. A key's text (#538, `KeyTextRule`: 1–200
+   * characters, no control or format character, no lone surrogate, NFC), else `InvalidThreadIdError`. Omitted → a new thread with an id of its own.
    */
   readonly threadId?: string | undefined;
   /**

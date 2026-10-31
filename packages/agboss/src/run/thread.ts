@@ -1,4 +1,9 @@
-import { AGBossError } from "../core/errors.js";
+import {
+  AGBossError,
+  KEY_TEXT_RULE_TEXT,
+  keyTextRuleOf,
+  type KeyTextRule,
+} from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Tern, TernRecords, TernStore } from "../terns/index.js";
 import { isTurn, toTurns } from "./turns.js";
@@ -15,28 +20,12 @@ import { summaryTextsOf } from "../compaction/stored-summaries.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AgentExecutionDeps } from "./types.js";
 
-/** At most this long: a thread id is a key, not data. */
-const MAX_THREAD_ID_LENGTH = 200;
-
-/** A control character (U+0000–U+001F, U+007F): never in a thread id. */
-const isControl = (code: number): boolean => code < 0x20 || code === 0x7f;
-
 /**
- * Half of a surrogate pair standing alone: no character. SQLite and PostgreSQL keep text as UTF-8,
- * where it becomes U+FFFD — two ids would be one row — and `encodeURIComponent` throws on it.
- */
-const LONE_SURROGATE = /\p{Cs}/u;
-
-/**
- * A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters and no lone
- * surrogate — the rule of a business key too (#508).
+ * A thread id a caller may pick (#262 Q4): a key's text (#538, `keyTextRuleOf`) — the rule of a
+ * business key too (#508).
  */
 export function isThreadId(threadId: string): boolean {
-  if (threadId.length === 0 || threadId.length > MAX_THREAD_ID_LENGTH) return false;
-  for (let index = 0; index < threadId.length; index += 1) {
-    if (isControl(threadId.charCodeAt(index))) return false;
-  }
-  return !LONE_SURROGATE.test(threadId);
+  return keyTextRuleOf(threadId) === undefined;
 }
 
 export class UnknownThreadError extends AGBossError {
@@ -50,10 +39,19 @@ export class ThreadOwnerError extends AGBossError {
   override name = "ThreadOwnerError";
 }
 
-/** A thread id a caller picked that cannot be one: empty, over 200 characters, a control character. */
+/**
+ * A thread id a caller picked that cannot be one (#538): the rule of a key's text it breaks
+ * (`rule`), named in the message — never the id.
+ */
 export class InvalidThreadIdError extends AGBossError {
   static override readonly code: string = "run.invalid-thread-id";
   override name = "InvalidThreadIdError";
+  readonly rule: KeyTextRule;
+
+  constructor(rule: KeyTextRule) {
+    super(`Not a thread id (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`, { details: { rule } });
+    this.rule = rule;
+  }
 }
 
 const notTheOwner = (threadId: string): ThreadOwnerError =>
@@ -101,10 +99,8 @@ export async function isNewThread(
   bundle: string,
   access: ThreadAccess,
 ): Promise<boolean> {
-  if (!isThreadId(access.threadId)) {
-    const why = `1 to ${String(MAX_THREAD_ID_LENGTH)} characters, no control characters`;
-    throw new InvalidThreadIdError(`Not a thread id: ${why}`);
-  }
+  const rule = keyTextRuleOf(access.threadId);
+  if (rule !== undefined) throw new InvalidThreadIdError(rule);
   const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) return true;
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);

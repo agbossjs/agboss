@@ -16,6 +16,7 @@ import {
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
 import {
+  checkedBusinessKey,
   checkedEffectName,
   fencedKeyIdentityOf,
   replayedFromOf,
@@ -155,6 +156,7 @@ export function checkInMemoryFence(
   key: FencedEffectKey,
 ): void {
   checkedEffectName(key.name);
+  checkedBusinessKey(key);
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))
