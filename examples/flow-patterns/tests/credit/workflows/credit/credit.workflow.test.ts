@@ -37,6 +37,7 @@ import { CreditWorkflowFinish } from "../../../../src/credit/workflows/credit/cr
 import { NoOrderWorkflowFinish } from "../../../../src/credit/workflows/credit/no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "../../../../src/credit/workflows/credit/order-held.workflow-finish.js";
 import { CreditWorkflowStart } from "../../../../src/credit/workflows/credit/credit.workflow-start.js";
+import { instancesFilePerTest } from "../../../instances-file.js";
 
 /** A code router (`route(input)`, no model) inside a model router's route. */
 
@@ -231,6 +232,7 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
  * written — another instance on the same file recovers the execution and runs the step again under
  * the next lease token; its fenced effect replays the first receipt, so there is one charge.
  */
+instancesFilePerTest();
 const instances = testWith(FlowPatternsApplication, {
   instances: 2,
   env: "instances",
