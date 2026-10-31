@@ -192,7 +192,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `KeyTextRule.Spacing`, `spacing`: `" order-1"`, `"order-1 "` and `"order  1"` were keys of their
   own beside `"order-1"` and `"order 1"`. The same entry points and messages as #538, the key never
   named. **Migration:** trim keys and thread ids, collapse runs of spaces and replace other spaces
-  by U+0020 where they are made.
+  by U+0020 where they are made. A text that breaks several rules is named by the first in
+  `KeyTextRule`'s order (`length`, `lone-surrogate`, `control-character`, `format-character`,
+  `space-separator`, `spacing`, `not-nfc`), wherever each breach stands — the enum is declared in that
+  order now (#547 acceptance).
 - **A tenant id is a key's text too** (#552) — the rules of #538 hold a tenant id at
   `app.execute` (`tenant: { tenantId }`), `app.resume` and `app.cancel` (`dto.invalid`, the field
   and the rule named, never the id): a tenant id with a lone surrogate was written to SQLite and
