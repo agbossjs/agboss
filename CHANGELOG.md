@@ -162,6 +162,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A minted thread id is always a new thread** (#550, found by #533) — a store's `createThread`
+  without a `threadId` handed out an id the tenant already had when its `IdGenerator` repeated one
+  (two tests on one database both minting from `thread-1`): another workflow's thread, so the pass
+  failed with `UnknownThreadError`, or another owner's thread of the same workflow, whose history the
+  new execution joined. The core's stores mint the next id instead.
+
 - **A tree whose undo a takeover finished keeps its undo actions** (#541, found by #484) — its kept
   record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
   it lists every undo action that ran, as its `onExecutionError` does.
