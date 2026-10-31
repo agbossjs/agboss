@@ -2080,10 +2080,15 @@ send, reconcile })` records an intent before the call and settles it after, over
 - **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
 fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; a key's text,
   #538 — 1–200 characters, no C0 / C1 control (`Cc`), no format character (`Cf`: zero-width, bidi
-  controls, U+FEFF, …), no lone surrogate, no space but U+0020 and that one single and inside (#547: `Zs`, U+2028, U+2029 refused, `space-separator`; none at an edge, never two in a row, `spacing`), in NFC, never normalized silently: `keyTextRuleOf(text)`
+  controls, U+FEFF, …), no lone surrogate, no space but U+0020 and that one single and inside (#547: `Zs`, U+2028, U+2029 refused, `space-separator`; none at an edge, never two in a row, `spacing`), no code point that renders as nothing (#556:
+  `Default_Ignorable_Code_Point` — the combining grapheme joiner, Hangul fillers, every variation
+  selector, the emoji ones too, so `order:❤\uFE0F` is refused —, `ignorable`), no private use or noncharacter
+  (`private-or-noncharacter`), no code point unassigned in the runtime's Unicode (`unassigned`), no
+  U+2800 braille blank (`blank`), in NFC, never normalized silently: `keyTextRuleOf(text)`
   → `KeyTextRule`, the same for thread ids (a text breaking several named by the first in `KeyTextRule`'s
   order — `length`, `lone-surrogate`, `control-character`, `format-character`, `space-separator`,
-  `spacing`, `not-nfc` —, wherever each breach stands); else `InvalidBusinessKeyError`,
+  `spacing`, `ignorable`, `private-or-noncharacter`, `unassigned`, `blank`, `not-nfc` —, wherever each
+  breach stands); else `InvalidBusinessKeyError`,
   `fenced-effect.invalid-business-key`, its `rule` named, never the key — checked by
   `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, `checkedBusinessKey` for a
   store of your own) —
