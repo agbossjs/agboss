@@ -6,12 +6,12 @@ import {
 import {
   DatabaseStoreClock,
   systemClock,
-  TestStoreClock,
   type Clock,
   type StoreClock,
 } from "../../infrastructure/clock.js";
 import { TEST_START, VirtualClock } from "../clock.js";
 import { ClockSkew, SkewedClock } from "../clock-skew.js";
+import { TestStoreClock } from "../store-clock.js";
 import { trackedStore } from "./tracked-store.js";
 
 /**

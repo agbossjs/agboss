@@ -89,11 +89,14 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `ExecutionLeaseRepository.renew` answers it (`Promise<Milliseconds | undefined>`, `undefined` once
   the lease is over) instead of `true` / `false`, and `acquire` and `reclaim` return it on the lease.
   The holder trusts its lease until `sentAt + remaining − LEASE_SAFETY_MARGIN` (1 s), `sentAt` its
-  monotonic time when it sent the request (`Clock.monotonicNow()`, new: `performance.now()` on the
-  system clock), so an offset or a step of its wall clock never moves its fence; the margin covers
+  time when it sent the request, counted on its monotonic clock (`Clock.monotonicNow()`, new:
+  `performance.now()` unless a clock overrides it) and on its wall clock, the earlier ending it — an
+  offset moves neither, a step back is bounded by the monotonic count, a step forward or a host
+  suspend by the wall count; a `remaining` that is not a finite number ≥ 0 is 0 (the holder fails
+  closed), one above the lease asked for is that lease; the margin covers
   the drift of the holder's and the store's clocks over one lease, ≤ 1 s / 30 s together. The
   framework's renewal now reaches the store with 19 s of trust left (9 s after a failed one), and an
-  outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new) is the time a
+  outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new; `TestStoreClock` in `@agboss/core/testing`) is the time a
   store decides by: a networked store's database time in production, the host's clock for in-memory
   and SQLite — and in `testWith` and the contract suites the test's clock, unskewed, injected through
   the seam (`StoreSeam.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,

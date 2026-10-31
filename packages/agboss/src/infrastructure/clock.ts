@@ -21,12 +21,13 @@ export abstract class Clock {
 
   /**
    * Milliseconds on a clock that never jumps (#533), from an arbitrary origin — only the difference
-   * of two readings means anything: the elapsed time a lease's holder fences itself with, never its
-   * wall clock, so an offset or a step of the wall clock does not move its fence. The default reads
-   * `now()`; a clock of your own that can be set back overrides it.
+   * of two readings means anything: the elapsed time a lease's holder fences itself with, so an
+   * offset or a step of its wall clock does not move its fence. The default is the process's
+   * monotonic clock (`performance.now()`), whatever `now()` says; a clock whose time is not real
+   * time (a test's virtual clock) overrides it with its own.
    */
   monotonicNow(): number {
-    return this.now().getTime();
+    return performance.now();
   }
 }
 
@@ -39,11 +40,6 @@ export abstract class Clock {
 export class SystemClock extends Clock {
   now(): Date {
     return new Date();
-  }
-
-  /** The process's monotonic clock (`performance.now()`): steps of the wall clock never move it. */
-  override monotonicNow(): number {
-    return performance.now();
   }
 
   sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void> {
@@ -84,19 +80,6 @@ export abstract class StoreClock {
 /** The store clock of an application instance: the database's time, the host's clock for a store on it. */
 export class DatabaseStoreClock extends StoreClock {
   readonly isDatabaseTime: boolean = true;
-
-  constructor(private readonly clock: Pick<Clock, "now">) {
-    super();
-  }
-
-  now(): Date {
-    return this.clock.now();
-  }
-}
-
-/** A test's store clock (#533): every store, networked or not, decides by the test's clock. */
-export class TestStoreClock extends StoreClock {
-  readonly isDatabaseTime: boolean = false;
 
   constructor(private readonly clock: Pick<Clock, "now">) {
     super();

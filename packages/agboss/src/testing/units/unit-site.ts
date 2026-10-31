@@ -23,7 +23,8 @@ import {
   type TenantFields,
 } from "../../flow/context/context-values.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
-import { Clock, StoreClock, TestStoreClock } from "../../infrastructure/clock.js";
+import { Clock, StoreClock } from "../../infrastructure/clock.js";
+import { TestStoreClock } from "../store-clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import type { ModelGateway } from "../../llm/gateway.js";
 import type { Milliseconds } from "../../units/index.js";

@@ -16,10 +16,11 @@ import { describe, expect, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
+import type { Clock } from "../../src/infrastructure/clock.js";
 import { ClockSkew } from "../../src/testing/clock-skew.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
-import { runSkew, StoreTime } from "./fixtures/lease-skew.js";
+import { HostClock, runSkew, StoreTime } from "./fixtures/lease-skew.js";
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ storeClock, application, database }) =>
@@ -110,5 +111,73 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     });
 
     expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
+  });
+
+  it("the holder's host suspended for two leases (its monotonic clock stopped, the store's time on): its wall count ends its fence — one live holder", async () => {
+    const host = {
+      clock: (base: Clock) => new HostClock(base),
+      event: (clock: HostClock) => {
+        clock.suspend(by(2));
+      },
+    };
+    const run = await runSkew(target, {
+      holder: ClockSkew.none,
+      taker: ClockSkew.none,
+      time: StoreTime.Store,
+      host,
+    });
+
+    expect(run.violations).toEqual([]);
+  });
+
+  it("bites: a fence on the monotonic count alone (the wall clock stopped with it) outlives the lease through the suspend", async () => {
+    const host = {
+      clock: (base: Clock) => new HostClock(base, true),
+      event: (clock: HostClock) => {
+        clock.suspend(by(2));
+      },
+    };
+    const run = await runSkew(target, {
+      holder: ClockSkew.none,
+      taker: ClockSkew.none,
+      time: StoreTime.Store,
+      host,
+    });
+
+    expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
+  });
+
+  it.each([
+    ["back", 0 - by(2)],
+    ["forward", by(2)],
+  ])(
+    "the holder's wall clock stepped %s by two leases mid-lease: one live holder, the take on time",
+    async (_, step) => {
+      const host = {
+        clock: (base: Clock) => new HostClock(base),
+        event: (clock: HostClock) => {
+          clock.stepWall(step);
+        },
+      };
+      const run = await runSkew(target, {
+        holder: ClockSkew.none,
+        taker: ClockSkew.none,
+        time: StoreTime.Store,
+        host,
+      });
+
+      expect(run.violations).toEqual([]);
+    },
+  );
+
+  it("each answer of the holder's store 5 s on its way back: the fence counts from the request, one live holder", async () => {
+    const run = await runSkew(target, {
+      holder: ClockSkew.drift(-0.01),
+      taker: ClockSkew.none,
+      time: StoreTime.Store,
+      answerDelay: seconds(5),
+    });
+
+    expect(run.violations).toEqual([]);
   });
 });

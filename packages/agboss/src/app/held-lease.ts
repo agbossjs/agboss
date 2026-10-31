@@ -21,6 +21,7 @@ import {
   LeaseFence,
   renewalOf,
   renewInBackground,
+  sentAtOf,
 } from "./lease-fence.js";
 import {
   leaseTakenWhileYieldedError,
@@ -32,11 +33,11 @@ import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
- * How a held lease began: when it was asked for (`sentAt`, the clock's monotonic ms, #533) and why
+ * How a held lease began: when it was asked for (`sentAt`, on both of the clock's counts, #533) and why
  * it was taken (#501).
  */
 export interface HeldLeaseStart {
-  readonly sentAt: number;
+  readonly sentAt: ReturnType<typeof sentAtOf>;
   readonly take?: LeaseTake | undefined;
 }
 
@@ -98,9 +99,8 @@ export class HeldLease implements HeldExecutionLease {
     this.signal = this.#lost.signal;
     this.#key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
     this.#current = initial;
-    const start = { sentAt, remaining: initial.remaining };
-    const { safetyMargin } = taking;
-    this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId, safetyMargin);
+    const start = { sentAt, remaining: initial.remaining, margin: taking.safetyMargin };
+    this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId);
     this.#holder = new FencedHolders(this.scopeKey, (error) => {
       this.fenced(error);
     });
@@ -237,7 +237,7 @@ export class HeldLease implements HeldExecutionLease {
   async #reacquireLease(): Promise<void> {
     const held = this.#current;
     if (held === undefined || !this.#isYieldedNow) return;
-    const sentAt = this.clock.monotonicNow();
+    const sentAt = sentAtOf(this.clock);
     const next = await this.#turns.run(async () => {
       const reclaimed = await this.repository.reclaim(held, EXECUTION_LEASE);
       if (reclaimed !== undefined) this.#current = reclaimed;

@@ -48,7 +48,6 @@ export {
   IdGenerator,
   RandomIdGenerator,
   StoreClock,
-  TestStoreClock,
 } from "../infrastructure/clock.js";
 export {
   ConsoleLogger,

@@ -18,7 +18,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { FrameLease } from "../flow/context/frame.js";
 import { HeldLease } from "./held-lease.js";
-import { EXECUTION_LEASE } from "./lease-fence.js";
+import { EXECUTION_LEASE, sentAtOf } from "./lease-fence.js";
 import { leaseReleases } from "./lease-releases.js";
 
 /** The lease events a held lease records (#501), in `lease-yields.ts` beside its other parts. */
@@ -121,7 +121,7 @@ async function takeLease(
 ): Promise<HeldExecutionLease | undefined> {
   const { repository, clock, events } = taking;
   if (await isOver(take)) return undefined;
-  const sentAt = clock.monotonicNow();
+  const sentAt = sentAtOf(clock);
   const initial = await repository.acquire(tree.tenantId, tree.rootExecutionId, EXECUTION_LEASE);
   if (initial === undefined) return undefined;
   // the work ended while the store was asked (#520): the lease goes back unused, nothing recorded

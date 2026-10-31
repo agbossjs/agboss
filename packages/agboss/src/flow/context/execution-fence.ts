@@ -26,11 +26,16 @@ export interface ExecutionFence {
    * sequence — it rises with every take (a recovery, a resume, the re-acquire after remote children).
    */
   readonly token: number;
-  /** The `Clock` time up to which the store confirmed the lease (#335). */
+  /**
+   * Until when the holder trusts its lease (#335, #533): the time its store said is left, less a
+   * 1 s margin, counted from when it sent the request on its monotonic and its wall clock (the
+   * earlier ends it) — shown here on the wall clock, for reading.
+   */
   readonly confirmedUntil: Date;
   /**
-   * Synchronous, no I/O: the lease lost, or `clock.now() >= confirmedUntil` → expires the lease
-   * here first (its signal aborts), then throws `ExecutionLeaseLostError`.
+   * Synchronous, no I/O: the lease lost, or its trust ran out (`confirmedUntil`, counted on the
+   * holder's monotonic and wall clocks) → expires the lease here first (its signal aborts), then
+   * throws `ExecutionLeaseLostError`.
    */
   assertHeld(): void;
   /**

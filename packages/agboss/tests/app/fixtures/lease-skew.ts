@@ -10,7 +10,8 @@ import { executionLeasesOf, type HeldExecutionLease } from "../../../src/app/exe
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../../src/app/lease-fence.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { TestStoreClock, type Clock } from "../../../src/infrastructure/clock.js";
+import { Clock } from "../../../src/infrastructure/clock.js";
+import { TestStoreClock } from "../../../src/testing/store-clock.js";
 import type {
   ExecutionLease,
   ExecutionLeaseRepository,
@@ -28,12 +29,67 @@ export enum StoreTime {
   Caller = "the caller's clock",
 }
 
+/**
+ * The holder's host, where things happen to its clocks once its store stops answering it: a suspend
+ * (its monotonic clock stops for `by` while the store's time runs on — and, `isWallFrozen`, its wall
+ * clock too, as a monotonic-only fence would see it), or a step of its wall clock.
+ */
+export class HostClock extends Clock {
+  #wallStep = 0;
+  #frozen = { from: Infinity, until: Infinity };
+
+  constructor(
+    private readonly base: Clock,
+    private readonly isWallFrozen = false,
+  ) {
+    super();
+  }
+
+  /** The time lost to the suspend so far, by the base's monotonic `at`. */
+  #lostAt(at: number): number {
+    return Math.max(0, Math.min(at, this.#frozen.until) - this.#frozen.from);
+  }
+
+  now(): Date {
+    const base = this.base.now().getTime();
+    const lost = this.isWallFrozen ? this.#lostAt(this.base.monotonicNow()) : 0;
+    return new Date(base + this.#wallStep - lost);
+  }
+
+  override monotonicNow(): number {
+    const at = this.base.monotonicNow();
+    return at - this.#lostAt(at);
+  }
+
+  sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void> {
+    return this.base.sleep(delay, signal);
+  }
+
+  /** The host sleeps for `by`, from now. */
+  suspend(by: Milliseconds): void {
+    const from = this.base.monotonicNow();
+    this.#frozen = { from, until: from + by };
+  }
+
+  /** Its wall clock jumps by `by` (negative: back). */
+  stepWall(by: number): void {
+    this.#wallStep += by;
+  }
+}
+
 /** One scenario: each instance's skew, whose clock the store reads, the holder's margin. */
 export interface SkewScenario {
   readonly holder: ClockSkew;
   readonly taker: ClockSkew;
   readonly time: StoreTime;
   readonly margin?: Milliseconds;
+  /** The holder's own host clock instead of a skew, and what happens to it as its store stops. */
+  readonly host?: {
+    readonly clock: (base: Clock) => HostClock;
+    readonly event: (clock: HostClock) => void;
+  };
+  /** How long each answer of the holder's store takes to come back after the store decided. */
+  readonly answerDelay?: Milliseconds;
 }
 
 /** What one run saw: every broken invariant, and when the taker took the lease. */
@@ -65,13 +121,16 @@ const contextOf = (instanceId: string, clock: Clock) =>
 function reachable(
   store: ExecutionLeaseRepository,
   state: { isDown: boolean; renewedAt: number[] },
-  base: Clock,
+  base: VirtualClock,
+  delay: Milliseconds,
 ) {
   return Object.assign(Object.create(store) as ExecutionLeaseRepository, {
     renew: async (lease: ExecutionLease, length: Milliseconds) => {
       if (state.isDown) throw new Error("the lease store does not answer");
       const renewed = await store.renew(lease, length);
       if (renewed !== undefined) state.renewedAt.push(base.now().getTime());
+      // the store decided; its answer is on its way back for `delay`
+      if (delay > 0) await base.sleep(delay);
       return renewed;
     },
   });
@@ -87,17 +146,15 @@ const isLive = (held: HeldExecutionLease): boolean => {
   }
 };
 
-/** Runs `scenario` on `target`'s store; the instances' clocks skewed over one real time. */
-export async function runSkew(
+/** The holder's and the taker's stores and clocks of `scenario`, over the real time `base`. */
+async function instancesOf(
   target: ContractTarget<ExecutionLeaseRepository>,
   scenario: SkewScenario,
-): Promise<SkewRun> {
-  const base = new VirtualClock();
-  const start = base.now().getTime();
-  const at = (): number => base.now().getTime() - start;
+  base: VirtualClock,
+) {
   await target.reset?.();
-  const holderClock = new SkewedClock(base, scenario.holder);
-  const takerClock = new SkewedClock(base, scenario.taker);
+  const host = scenario.host?.clock(base);
+  const holderClock = host ?? new SkewedClock(base, scenario.holder);
   const storeTime = (own: Clock) =>
     new TestStoreClock(scenario.time === StoreTime.Store ? base : own);
   const build = (instanceId: string, clock: Clock) =>
@@ -107,13 +164,28 @@ export async function runSkew(
       instanceId,
       application: contextOf(instanceId, clock),
     });
-  const state = { isDown: false, renewedAt: [at()] };
-  const holderStore = reachable(await build("instance-1", holderClock), state, base);
-  const taker = await build("instance-2", takerClock);
-  const margin = scenario.margin ?? LEASE_SAFETY_MARGIN;
-  const held = await executionLeasesOf(holderStore, holderClock, { safetyMargin: margin }).hold(
-    TREE,
-  );
+  const state = { isDown: false, renewedAt: [base.now().getTime()] };
+  const delay = scenario.answerDelay ?? (0 as Milliseconds);
+  const holderStore = reachable(await build("instance-1", holderClock), state, base, delay);
+  const taker = await build("instance-2", new SkewedClock(base, scenario.taker));
+  const safetyMargin = scenario.margin ?? LEASE_SAFETY_MARGIN;
+  const held = await executionLeasesOf(holderStore, holderClock, { safetyMargin }).hold(TREE);
+  const stall = (): void => {
+    state.isDown = true;
+    if (host !== undefined) scenario.host?.event(host);
+  };
+  return { held, taker, state, stall };
+}
+
+/** Runs `scenario` on `target`'s store; the instances' clocks skewed over one real time. */
+export async function runSkew(
+  target: ContractTarget<ExecutionLeaseRepository>,
+  scenario: SkewScenario,
+): Promise<SkewRun> {
+  const base = new VirtualClock();
+  const start = base.now().getTime();
+  const at = (): number => base.now().getTime() - start;
+  const { held, taker, state, stall } = await instancesOf(target, scenario, base);
   const run = {
     violations: [] as string[],
     sends: [] as number[],
@@ -132,7 +204,7 @@ export async function runSkew(
       run.violations.push(`two live holders at ${String(at() / 1000)} s`);
   };
   for (let time = 0; time < HEALTHY; time += HEALTHY_STEP) await step(HEALTHY_STEP);
-  state.isDown = true;
+  stall();
   for (let time = 0; time < STALLED; time += STALLED_STEP) await step(STALLED_STEP);
   const lastRenewal = Math.max(...state.renewedAt.map((value) => value - start));
   const due = lastRenewal + EXECUTION_LEASE + LEASE_SAFETY_MARGIN;

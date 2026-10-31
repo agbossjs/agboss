@@ -943,6 +943,17 @@ export interface TestStepOptions {
     readonly visitNumber?: number;
 }
 
+// Warning: (ae-forgotten-export) The symbol "StoreClock" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class TestStoreClock extends StoreClock {
+    constructor(clock: Pick<Clock, "now">);
+    // (undocumented)
+    readonly isDatabaseTime: boolean;
+    // (undocumented)
+    now(): Date;
+}
+
 // @public
 export function testTool<TTool extends Class<ToolInstance>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(tool: TTool, options?: UnitOptions<TExecution, TTenant>): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
 
@@ -1152,6 +1163,7 @@ export enum VCRMode {
 export class VirtualClock extends Clock {
     constructor(start?: Date, options?: VirtualClockOptions);
     advance(duration: ClockDuration | Milliseconds): Promise<void>;
+    monotonicNow(): number;
     now(): Date;
     sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
     track<T>(work: Promise<T>): Promise<T>;
@@ -1319,6 +1331,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/store-clock.ts:8:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/testing/store-clock.ts:14:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/test-app.ts:41:3 - (ae-undocumented) Missing documentation for "clock".
 // src/testing/test-app.ts:47:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:48:3 - (ae-undocumented) Missing documentation for "router".
