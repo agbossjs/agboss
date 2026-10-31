@@ -24,7 +24,11 @@ mark still at its own token and writes. Only the lease itself knows that another
   in the same database, must be the key's (its epoch, not released, not expired). A zombie is refused
   even when it reaches the write first. The price: the fenced-effect store and the lease store must be
   of one database — each implementation declares its lease store (`static leaseRepository`), and a
-  listed mismatch fails assembly (`[application.fenced-effect-lease-store]`).
+  listed mismatch fails assembly (`[application.fenced-effect-lease-store]`). **Amended by #526:**
+  the check is by backend — each store declares `static backend`, a listed fenced-effect or
+  outbound-call store and the lease store must declare the same one
+  (`[application.store-backend-mismatch]`, `[application.store-backend-undeclared]`), with an
+  explicit opt-out that names the guarantee lost (`LeaseCheck.WithoutDoubleChargeProtection`).
 - **Then the mark, then the key, then the write**, as #471's reference SQL; a replay advances the
   mark and returns the stored result, the write not run.
 - **A durable singleflight:** concurrent calls on one key of one instance share the first's promise;

@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: one transactional backend, checked at assembly (#526 PR 1)
+
+- **Breaking for stores outside the core — `static backend`**
+  ([Several instances](Several-instances#the-fenced-effect-500)): `ExecutionLeaseRepository`,
+  `FencedEffectRepository` and `OutboundCallRepository` declare the backend their rows live in
+  (`"in-memory"`, `"sqlite"`; `"postgres"`, `"postgres:billing"`). A listed fenced-effect or
+  outbound-call store and the application's lease store must declare the same one:
+  `[application.store-backend-mismatch]` names both classes and backends,
+  `[application.store-backend-undeclared]` a store that declares none — it used to be skipped.
+  `[application.fenced-effect-lease-store]` is gone; `static leaseRepository` only tells unit
+  runners where to hold their lease. Migration: `static override readonly backend = "<backend>"` on
+  your lease, fenced-effect and outbound-call stores.
+- **Added — the opt-out `LeaseCheck.WithoutDoubleChargeProtection`** (`static leaseCheck`): the
+  store reads the lease outside its write's transaction and is not checked; the start warns
+  `[application.lease-check-not-atomic]` (an error under `agboss check --strict`). Rate limits, the
+  child queue and the lease log are on any backend.
+- **Added — the rules of a fenced key on the root entry**: `checkedEffectName`, `replayedFromOf`
+  (`StoredKeyFacts`: a row's `null`s, a stored step checked), `storedKeyFactsOf`,
+  `fencedKeyIdentityOf`, `pendingOutboundCallOf` — a store outside the core keeps no copy.
+- **Fixed — a store's connection need not be listed** (found by agbossjs/postgres#8): with
+  `OutboundCalls`, or a component that injects a store's own class, an unlisted `SqliteConnection` or
+  `PostgresConnection` no longer fails assembly with `"…Connection" is not registered`.
+
 ## Unreleased — 0.1.1: finished work is never taken over (#520)
 
 - **Fixed — a stale instance no longer re-claims the lease of an `AnyInstance` child another

@@ -438,22 +438,36 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
 - **Retention:** results and marks are removed by the recovery sweep once older than
   `fencedEffects.retention` (default `hours(24)`; above the lease's 30 s, else
   `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
-- **One database:** the store reads the leases of its own database, so it is listed with that lease
-  store — each implementation declares it (`static leaseRepository`):
-  `SqliteFencedEffectRepository` beside another lease store fails assembly with
-  `[application.fenced-effect-lease-store]`, naming both. Nothing listed → the in-memory store,
-  which needs the in-memory leases: beside a SQLite lease store it fails at its first call
-  (`FencedEffectStoreMismatchError`), not at assembly — an application that never uses an effect is
-  not refused.
+- **One transactional backend (#526):** the store checks the lease in its own transaction, so it
+  and the application's lease store are on one backend — each declares it, `static backend`
+  (`"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
+  kind). A listed store of another backend than the lease store's fails assembly with
+  `[application.store-backend-mismatch]`, naming both classes and both backends; one that declares
+  none (it or its lease store) fails `[application.store-backend-undeclared]`. The explicit opt-out
+  `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` names what it gives up — the lease
+  is read outside the write's transaction, so a holder whose lease was taken over can still write —
+  and is not checked; the start warns `[application.lease-check-not-atomic]` (an error under
+  `agboss check --strict`). Rate limits, the child queue and the [lease log](#the-lease-log-501) are
+  on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
+  effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
+  leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
+  not at assembly — an application that never uses an effect is not refused. `static
+  leaseRepository` tells a unit runner which lease store to hold its lease in.
+- **The connection is not listed (#526):** a component that injects a store's own class, or
+  `OutboundCalls`, reaches `SqliteConnection` (`PostgresConnection`) through the store — the
+  workflow's graph check takes an unlisted class under an infrastructure implementation as its own
+  registration, as the container creates it, once for the instance.
 - **Typed transaction:** inject the listed store's own class (`deps: [SqliteFencedEffectRepository]`);
   the contract token gives `FencedEffectRepository<unknown>`.
 - **What it does not do:** exactly-once for systems outside that database (HTTP APIs, email,
   webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
   results are not logged; what reaches a record or a trace is the step's output, masked as always.
 
-A store of another database (PostgreSQL, #482) extends the contract, implements `runInTransaction`
-(the four steps), `deleteByStoredAtBefore` and `ping`, reads `FencedEffectSettings` from the
-container, and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
+A store of another database (PostgreSQL, #482) extends the contract, declares its `static backend`,
+implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
+`FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers
+(#526: `checkedEffectName` at its entry, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
+`fencedKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
 ## Calls that leave the system (#505)
@@ -552,9 +566,10 @@ same on every attempt, replay and holder.
 - **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its
   intents in `outbound_calls` of the application's file, every fenced method one `BEGIN IMMEDIATE`
   transaction with the lease check and the scope's mark (the fenced effect's `fenced_effect_marks`:
-  one mark per scope for both). Beside another lease store it fails assembly with
-  `[application.fenced-effect-lease-store]`, as `SqliteFencedEffectRepository` does; the in-memory
-  default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
+  one mark per scope for both). Beside a lease store of another backend it fails assembly with
+  `[application.store-backend-mismatch]`, as `SqliteFencedEffectRepository` does (#526); the
+  in-memory default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
+  `SqliteConnection` need not be listed for it (#526).
 - **Told:** every move of a call is an `OutboundCall` row of the [lease log](#the-lease-log-501) and
   an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
   intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
@@ -565,7 +580,7 @@ attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` �
 on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
 the two listings; `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
 renewal and the check never both win —;
-`deleteByEndedAtBefore`; `ping`; `static leaseRepository`) and proves itself with
+`deleteByEndedAtBefore`; `ping`; `static backend`, `static leaseRepository`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
 
