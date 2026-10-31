@@ -60,6 +60,25 @@ export const takenOverFromOf = (
       };
 
 /**
+ * How a fenced-effect or an outbound-call store checks the lease against its write (#526):
+ * `static leaseCheck` of the store.
+ */
+export enum LeaseCheck {
+  /**
+   * In the write's own transaction, on the lease store's backend (the default): assembly checks the
+   * store and the application's lease store declare one `backend`.
+   */
+  Atomic = "atomic",
+  /**
+   * The explicit opt-out: the lease is read outside the write's transaction, maybe on another
+   * backend — so a holder whose lease was just taken over can still write. **No protection against
+   * a double charge or a second owner's write.** Not checked at assembly; the start warns
+   * `[application.lease-check-not-atomic]` (an error under `agboss check --strict`).
+   */
+  WithoutDoubleChargeProtection = "without-double-charge-protection",
+}
+
+/**
  * Infrastructure (#265, Q58): one lease per execution tree, keyed by `(tenantId,
  * rootExecutionId)` — atomic and lease-based, so a lease expires by itself when its holder dies.
  * Listed only in `@Application({ providers })`; the built-in default is in memory. Your own
@@ -67,6 +86,16 @@ export const takenOverFromOf = (
  * store.
  */
 export abstract class ExecutionLeaseRepository {
+  /**
+   * The backend the store's rows live in (#526): `"<kind>"` or `"<kind>:<database>"` —
+   * `"postgres"`, `"postgres:billing"` for a second database of one kind. Two stores share one
+   * transactional backend exactly when they declare the same text: a listed fenced-effect or
+   * outbound-call store checks the lease in its own transaction, so its `backend` must be its lease
+   * store's (`[application.store-backend-mismatch]`, `[application.store-backend-undeclared]`).
+   * Unset: undeclared.
+   */
+  static readonly backend: string | undefined = undefined;
+
   /**
    * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
    * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
@@ -137,6 +166,8 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  */
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
+  static override readonly backend: string | undefined = "in-memory";
+
   constructor(
     private readonly clock: Clock,
     private readonly applicationContext: ApplicationContext,

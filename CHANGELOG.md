@@ -51,6 +51,31 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
   `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
 
+### Changed — breaking for stores outside the core
+
+- **One transactional backend, checked at assembly** (#526) — `ExecutionLeaseRepository`,
+  `FencedEffectRepository` and `OutboundCallRepository` declare `static backend` (`"in-memory"`,
+  `"sqlite"`; `"postgres"`, `"postgres:billing"` for a store of your own): a listed fenced-effect or
+  outbound-call store and the application's lease store must declare the same one —
+  `[application.store-backend-mismatch]` names both classes and backends, a store that declares none
+  fails `[application.store-backend-undeclared]` (it used to be skipped). The explicit opt-out
+  `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` is not checked and warns
+  `[application.lease-check-not-atomic]` (an error under `agboss check --strict`). Rate limits, the
+  child queue and the lease log may be on any backend. `[application.fenced-effect-lease-store]` is
+  gone; `static leaseRepository` now only tells unit runners where to hold their lease. **Migration:**
+  add `static override readonly backend = "<your backend>"` to your lease, fenced-effect and
+  outbound-call stores.
+- **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
+  `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
+  and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.
+  `FencedEffectStoreMismatchError` and `FencedEffectResultTooLargeError` moved modules (still exported
+  from the root).
+- **A store's connection need not be listed** (#526, found by agbossjs/postgres#8) — with
+  `OutboundCalls`, or a component that injects a store's own class, an unlisted `SqliteConnection` or
+  `PostgresConnection` no longer fails assembly with `"…Connection" is not registered`: the workflow
+  graph check takes an unlisted class under an infrastructure implementation as its own registration,
+  as the container creates it.
+
 ### Security
 
 - **No CI install takes a release nobody reviewed** (#523): every workflow installs from its

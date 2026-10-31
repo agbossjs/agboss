@@ -4,7 +4,9 @@ import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
 import type { Class } from "../components/injection.js";
-import { FencedEffectResultTooLargeError, identityOf } from "./fenced-effect-key.js";
+import { LeaseCheck } from "./execution-lease.repository.js";
+import { fencedKeyIdentityOf } from "./fenced-effect-key.js";
+import { FencedEffectResultTooLargeError } from "./fenced-effect-settings.js";
 import { isThreadId } from "../run/thread.js";
 import type { FencedEffectSettings } from "./fenced-effect-settings.js";
 
@@ -128,7 +130,7 @@ const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unk
  * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`).
  */
 const joinKeyOf = (key: FencedEffectKey): string =>
-  [key.scopeKey, identityOf(key), String(key.token), key.fingerprint ?? ""].join("\u0000");
+  [key.scopeKey, fencedKeyIdentityOf(key), String(key.token), key.fingerprint ?? ""].join("\u0000");
 
 /**
  * Infrastructure (#500): one protected write per key, inside the store's own transaction — the
@@ -141,10 +143,24 @@ const joinKeyOf = (key: FencedEffectKey): string =>
 export abstract class FencedEffectRepository<TTransaction> {
   /**
    * The lease store whose leases the store checks in its transaction — the one of its database
-   * (`SqliteExecutionLeaseRepository` for the SQLite store): listed beside another, the application
-   * fails assembly with `[application.fenced-effect-lease-store]`. Unset: not checked.
+   * (`SqliteExecutionLeaseRepository` for the SQLite store): a unit runner (`testAction`,
+   * `testTool`) holds its lease there. Assembly checks `backend`, not this.
    */
   static readonly leaseRepository: Class | undefined = undefined;
+
+  /**
+   * The backend the store's rows live in (#526, as `ExecutionLeaseRepository.backend`): listed, it
+   * must be the application's lease store's — its write and the lease check are one transaction.
+   * Unset: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
+   * store opts out with `leaseCheck`.
+   */
+  static readonly backend: string | undefined = undefined;
+
+  /**
+   * How the store checks the lease against its write (#526): `LeaseCheck.Atomic` (checked at
+   * assembly), or the opt-out `LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
+   */
+  static readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
 
   constructor(
     /** `@Application({ fencedEffects })`: the largest result, how long rows are kept. */
@@ -279,14 +295,14 @@ const joinedOutcome = (outcome: FencedEffectOutcome<unknown>): FencedEffectOutco
 
 export {
   fencedEffectKeyOf,
-  FencedEffectResultTooLargeError,
-  FencedEffectStoreMismatchError,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
   type FencedEffectKeyOptions,
-  type FencedEffectResultTooLargeErrorOptions,
-  type FencedEffectStoreMismatchErrorOptions,
   type IdempotencyKeyConflictErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-key.js";
+export {
+  FencedEffectResultTooLargeError,
+  type FencedEffectResultTooLargeErrorOptions,
+} from "./fenced-effect-settings.js";

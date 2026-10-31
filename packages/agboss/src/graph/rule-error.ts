@@ -84,7 +84,8 @@ export type RuleCode =
   | "limits.max-mesh-hops-invalid"
   // the fenced effects' settings (#500), and their store beside its lease store
   | "application.fenced-effects-invalid"
-  | "application.fenced-effect-lease-store"
+  | "application.store-backend-mismatch"
+  | "application.store-backend-undeclared"
   | "application.outbound-calls-invalid"
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"

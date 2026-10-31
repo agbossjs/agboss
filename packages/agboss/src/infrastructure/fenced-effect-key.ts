@@ -2,7 +2,8 @@ import { AGBossError } from "../core/errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
-import type { OutboundCallRecord } from "./outbound-call-record.js";
+import type { OutboundCallIntent, OutboundCallRecord } from "./outbound-call-record.js";
+import type { OutboundCallStatus } from "./outbound-call.repository.js";
 import { isThreadId } from "../run/thread.js";
 import { stableJson, versionOf } from "../terns/index.js";
 import type {
@@ -48,6 +49,15 @@ export function fingerprintOf(value: unknown): string {
 }
 
 /**
+ * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `InvalidFencedEffectNameError` —
+ * by `fencedEffectKeyOf` and again at every store's entry, for a key built by hand (exported for
+ * stores outside the core, #526: before any statement, as the core's stores check it).
+ */
+export function checkedEffectName(name: string): void {
+  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
+}
+
+/**
  * The key of the current step's effect `name` (#500): the lease the step runs under
  * (`executionContext.fence`) and its idempotency key (`executionContext.step`) — the same when the
  * step runs again after a crash, a newer token once another instance took the lease over. With
@@ -56,14 +66,6 @@ export function fingerprintOf(value: unknown): string {
  * `maxSpend()`, a yielded lease, an ancestor's context) it throws `ExecutionContextUnavailableError`,
  * as `fence` does.
  */
-/**
- * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `InvalidFencedEffectNameError` —
- * by `fencedEffectKeyOf` and again at every store's entry, for a key built by hand.
- */
-export function checkedEffectName(name: string): void {
-  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
-}
-
 export function fencedEffectKeyOf<TFingerprint>(
   executionContext: ExecutionContext,
   name: string,
@@ -190,21 +192,31 @@ export class IdempotencyKeyConflictError extends AGBossError {
 
 /**
  * Where a key's row is found (#508): by its step — the scope, the step's idempotency key, the
- * name — or, with a business key, by the tenant, the name and the business key.
+ * name — or, with a business key, by the tenant, the name and the business key. One text, the
+ * parts joined by NUL (exported for stores outside the core, #526: a key-value store's row key).
  */
-export const identityOf = (key: FencedEffectKey): string =>
+export const fencedKeyIdentityOf = (key: FencedEffectKey): string =>
   key.businessKey === undefined
     ? [key.scopeKey, key.idempotencyKey, key.name].join("\u0000")
     : ["business", key.tenantId, key.name, key.businessKey].join("\u0000");
 
-/** What a stored row keeps of the key that wrote it (#508). */
+/**
+ * What a stored row keeps of the key that wrote it (#508): its fingerprint and its step. A store
+ * hands back what it read — `null` for a column with nothing in it, the step as parsed JSON:
+ * `replayedFromOf` checks it, a row is never trusted.
+ */
 export interface StoredKeyFacts {
-  readonly fingerprint?: string | undefined;
-  readonly origin?: FencedEffectOrigin | undefined;
+  readonly fingerprint?: string | null | undefined;
+  readonly origin?: unknown;
 }
 
-/** The facts of `key` a row keeps: its fingerprint and its step, when it has them. */
-export const storedFactsOf = (key: FencedEffectKey): StoredKeyFacts => ({
+/**
+ * The facts of `key` a row keeps (#508, exported for stores outside the core, #526): its
+ * fingerprint and its step, when it has them — stored with the row, read back for `replayedFromOf`.
+ */
+export const storedKeyFactsOf = (
+  key: FencedEffectKey,
+): { readonly fingerprint?: string; readonly origin?: FencedEffectOrigin } => ({
   ...(key.fingerprint === undefined ? {} : { fingerprint: key.fingerprint }),
   ...(key.origin === undefined ? {} : { origin: key.origin }),
 });
@@ -214,87 +226,67 @@ const sameOrigin = (left: FencedEffectOrigin, right: FencedEffectOrigin | undefi
   left.nodeId === right.nodeId &&
   left.visitNumber === right.visitNumber;
 
+/** A stored step, checked: `undefined` for none, a `TypeError` for a value that is not one. */
+function storedOriginOf(value: unknown): FencedEffectOrigin | undefined {
+  if (value === undefined || value === null) return undefined;
+  const origin = value as Partial<Record<keyof FencedEffectOrigin, unknown>>;
+  if (
+    typeof origin.executionId === "string" &&
+    typeof origin.nodeId === "string" &&
+    Number.isInteger(origin.visitNumber)
+  )
+    return value as FencedEffectOrigin;
+  throw new TypeError(
+    "a stored fenced-effect row's origin is not a step ({ executionId, nodeId, visitNumber })",
+  );
+}
+
 /**
- * A stored row found for `key` (#508): another fingerprint under its business key is
- * `IdempotencyKeyConflictError`; a row another step or execution wrote is named as `replayedFrom`.
+ * The replay rule of a row found for `key` (#508, exported for stores outside the core, #526):
+ * under a business key, another fingerprint — a `null` and a missing one are the same, none — is
+ * `IdempotencyKeyConflictError` (never a replay, the key not named); a row another step or
+ * execution wrote is named as `replayedFrom`. `undefined` for a step's own key, a row of the key's
+ * own step, or one without its step.
  */
 export function replayedFromOf(
   key: FencedEffectKey,
   stored: StoredKeyFacts,
 ): FencedEffectOrigin | undefined {
   if (key.businessKey === undefined) return undefined;
-  if (stored.fingerprint !== key.fingerprint)
+  if ((stored.fingerprint ?? undefined) !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
-  const { origin } = stored;
+  const origin = storedOriginOf(stored.origin);
   return origin === undefined || sameOrigin(origin, key.origin) ? undefined : origin;
 }
 
-/** What a result too large to store knows: the effect, its size and the limit (UTF-8 bytes). */
-export interface FencedEffectResultTooLargeErrorOptions {
-  /** The effect's `name` (`fencedEffectKeyOf(executionContext, name)`). */
-  readonly effect: string;
-  readonly size: number;
-  readonly maxResultSize: number;
-}
-
-/**
- * A fenced effect's result is larger than `@Application({ fencedEffects: { maxResultSize } })`
- * (#500, default 64 KB): its transaction is rolled back — the business rows too — and the step
- * fails with it. Store a reference (an id, a receipt number), not the document.
- */
-export class FencedEffectResultTooLargeError extends AGBossError {
-  static override readonly code: string = "fenced-effect.result-too-large";
-  override name = "FencedEffectResultTooLargeError";
-  readonly effect: string;
-  readonly size: number;
-  readonly maxResultSize: number;
-
-  constructor(options: FencedEffectResultTooLargeErrorOptions) {
-    super(
-      `the result of fenced effect "${options.effect}" is ${String(options.size)} bytes, above its maxResultSize of ${String(options.maxResultSize)} bytes: nothing was written — store a reference to it, or raise @Application({ fencedEffects: { maxResultSize } })`,
-    );
-    this.effect = options.effect;
-    this.size = options.size;
-    this.maxResultSize = options.maxResultSize;
-  }
-}
-
-/** Which stores do not match: the fenced-effect store and the lease store the application uses. */
-export interface FencedEffectStoreMismatchErrorOptions {
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-  /** The lease store the fenced-effect store reads its leases from. */
-  readonly expectedLeaseRepository: string;
-}
-
-/**
- * The fenced-effect store reads the leases of another store than the application's (#500): the
- * built-in in-memory one used beside a listed `SqliteExecutionLeaseRepository`, say. It would
- * refuse every write, so the first call fails with this instead — list the fenced-effect store of
- * the lease store's database (`SqliteFencedEffectRepository` beside `SqliteExecutionLeaseRepository`).
- */
-export class FencedEffectStoreMismatchError extends AGBossError {
-  static override readonly code: string = "fenced-effect.store-mismatch";
-  override name = "FencedEffectStoreMismatchError";
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-
-  constructor(options: FencedEffectStoreMismatchErrorOptions) {
-    super(
-      `${options.fencedEffectRepository} checks the leases of ${options.expectedLeaseRepository}, but the application's leases are in ${options.leaseRepository}: list the fenced-effect store of that lease store's database in @Application({ providers })`,
-    );
-    this.fencedEffectRepository = options.fencedEffectRepository;
-    this.leaseRepository = options.leaseRepository;
-  }
-}
-
 /** A key's business identity as a record keeps it (#508): none for a step's key. */
-export const businessFactsOf = (
+const businessFactsOf = (
   key: FencedEffectKey,
 ): Pick<OutboundCallRecord, "businessKey" | "fingerprint" | "businessKeyHash"> => ({
   ...(key.businessKey === undefined ? {} : { businessKey: key.businessKey }),
   ...(key.fingerprint === undefined ? {} : { fingerprint: key.fingerprint }),
   ...(key.businessKeyHash === undefined ? {} : { businessKeyHash: key.businessKeyHash }),
+});
+
+/**
+ * The record `saveIfAbsent` keeps for `key`'s intent (#505, exported for stores outside the core,
+ * #526): the intent as given, `Pending` under the key's lease and token, its business identity
+ * (#508) and when it was recorded (`recordedAt`, the framework's clock).
+ */
+export const pendingOutboundCallOf = (
+  key: FencedEffectKey,
+  intent: OutboundCallIntent,
+  recordedAt: Date,
+): OutboundCallRecord => ({
+  ...intent,
+  tenantId: key.tenantId,
+  name: key.name,
+  // the enum's value (a value import would make a cycle with the store module at load)
+  status: "pending" as OutboundCallStatus.Pending,
+  token: key.token,
+  leaseExecutionId: key.leaseExecutionId,
+  ...businessFactsOf(key),
+  recordedAt: recordedAt.toISOString(),
 });
 
 /**

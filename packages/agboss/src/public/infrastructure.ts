@@ -52,6 +52,16 @@ export {
   type JsonPrimitive,
   type JsonResult,
 } from "../infrastructure/fenced-effect.repository.js";
+// the rules of a key a store outside the core keeps with the core's own helpers (#526 AC5): the
+// name rule, the replay and conflict rule, where its row is, the record of an outbound call's intent
+export {
+  checkedEffectName,
+  fencedKeyIdentityOf,
+  pendingOutboundCallOf,
+  replayedFromOf,
+  storedKeyFactsOf,
+  type StoredKeyFacts,
+} from "../infrastructure/fenced-effect-key.js";
 export {
   InMemoryFencedEffectRepository,
   InMemoryFencedEffectTransaction,

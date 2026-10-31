@@ -1,7 +1,7 @@
 import { ExecutionFencedError } from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
-import type { Class, Provider } from "../components/injection.js";
-import { violation, type RuleViolation } from "../graph/rule-error.js";
+import type { Class } from "../components/injection.js";
+import { AGBossError } from "../core/errors.js";
 import { Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
@@ -10,7 +10,6 @@ import {
 import { FencedEffectSettings } from "./fenced-effect-settings.js";
 import {
   FencedEffectRepository,
-  FencedEffectStoreMismatchError,
   FencedEffectStatus,
   type FencedEffectKey,
   type FencedEffectOutcome,
@@ -18,9 +17,9 @@ import {
 } from "./fenced-effect.repository.js";
 import {
   checkedEffectName,
-  identityOf,
+  fencedKeyIdentityOf,
   replayedFromOf,
-  storedFactsOf,
+  storedKeyFactsOf,
 } from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
@@ -56,6 +55,7 @@ export class InMemoryFencedEffectTransaction {
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
   static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
+  static override readonly backend: string | undefined = "in-memory";
 
   constructor(
     private readonly clock: Clock,
@@ -77,7 +77,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
     // a business key is one row for every scope of the tenant: its transactions in turn too (#508)
-    const lock = key.businessKey === undefined ? key.scopeKey : identityOf(key);
+    const lock = key.businessKey === undefined ? key.scopeKey : fencedKeyIdentityOf(key);
     return this.#serialized(lock, () => this.#transaction(key, work));
   }
 
@@ -94,7 +94,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
-    const stored = this.database.fencedEffectResults.get(identityOf(key));
+    const stored = this.database.fencedEffectResults.get(fencedKeyIdentityOf(key));
     if (stored !== undefined) {
       const replayedFrom = replayedFromOf(key, stored);
       raiseInMemoryMark(this.database, this.clock, key);
@@ -117,9 +117,9 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       token: key.token,
       storedAt,
       result: text,
-      ...storedFactsOf(key),
+      ...storedKeyFactsOf(key),
     };
-    this.database.fencedEffectResults.set(identityOf(key), row);
+    this.database.fencedEffectResults.set(fencedKeyIdentityOf(key), row);
     applyWrites(transaction);
     return {
       status: FencedEffectStatus.Ran,
@@ -205,39 +205,31 @@ export function inMemoryLeaseMismatch(
       });
 }
 
-const isClass = (provider: Provider): provider is Class => !("provide" in provider);
-
-/** Whether `cls` is `base` or extends it. */
-const isOrExtends = (cls: Class, base: Class): boolean =>
-  cls === base || Object.prototype.isPrototypeOf.call(base.prototype, cls.prototype);
+/** Which stores do not match: the fenced-effect store and the lease store the application uses. */
+export interface FencedEffectStoreMismatchErrorOptions {
+  readonly fencedEffectRepository: string;
+  readonly leaseRepository: string;
+  /** The lease store the fenced-effect store reads its leases from. */
+  readonly expectedLeaseRepository: string;
+}
 
 /**
- * The fenced-effect store and the lease store are of one database (#500): a listed store reads the
- * leases of the lease store it declares (`static leaseRepository`) in its own transaction, so the
- * application's lease store — listed, else the in-memory default — must be that one (or extend it).
+ * The fenced-effect store reads the leases of another store than the application's (#500): the
+ * built-in in-memory one used beside a listed `SqliteExecutionLeaseRepository`, say. It would
+ * refuse every write, so the first call fails with this instead — list the fenced-effect store of
+ * the lease store's database (`SqliteFencedEffectRepository` beside `SqliteExecutionLeaseRepository`).
  */
-export function fencedEffectStoreViolations(
-  application: string,
-  providers: readonly Provider[],
-  contract: Class = FencedEffectRepository,
-): RuleViolation[] {
-  const classes = providers.filter(isClass);
-  const store = classes.find((cls) => isOrExtends(cls, contract));
-  const expected: unknown = store === undefined ? undefined : Reflect.get(store, "leaseRepository");
-  if (store === undefined || typeof expected !== "function") return [];
-  const leases =
-    classes.find((cls) => isOrExtends(cls, ExecutionLeaseRepository)) ??
-    InMemoryExecutionLeaseRepository;
-  if (
-    leases === expected ||
-    Object.prototype.isPrototypeOf.call(expected.prototype, leases.prototype)
-  )
-    return [];
-  return [
-    violation(
-      "application.fenced-effect-lease-store",
-      `${store.name} checks the leases of ${expected.name}, but the application's leases are in ${leases.name} — list the stores of one database together (SqliteFencedEffectRepository or SqliteOutboundCallRepository with SqliteExecutionLeaseRepository)`,
-      [application],
-    ),
-  ];
+export class FencedEffectStoreMismatchError extends AGBossError {
+  static override readonly code: string = "fenced-effect.store-mismatch";
+  override name = "FencedEffectStoreMismatchError";
+  readonly fencedEffectRepository: string;
+  readonly leaseRepository: string;
+
+  constructor(options: FencedEffectStoreMismatchErrorOptions) {
+    super(
+      `${options.fencedEffectRepository} checks the leases of ${options.expectedLeaseRepository}, but the application's leases are in ${options.leaseRepository}: list the fenced-effect store of that lease store's database in @Application({ providers })`,
+    );
+    this.fencedEffectRepository = options.fencedEffectRepository;
+    this.leaseRepository = options.leaseRepository;
+  }
 }

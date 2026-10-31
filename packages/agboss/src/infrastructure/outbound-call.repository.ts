@@ -5,13 +5,14 @@ import { Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
+  LeaseCheck,
 } from "./execution-lease.repository.js";
 import {
   checkInMemoryFence,
   inMemoryLeaseMismatch,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
-import { businessFactsOf, identityOf } from "./fenced-effect-key.js";
+import { fencedKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
@@ -68,10 +69,24 @@ export type {
  */
 export abstract class OutboundCallRepository {
   /**
-   * The lease store whose leases the store checks — the one of its database: listed beside another,
-   * the application fails assembly with `[application.fenced-effect-lease-store]`. Unset: not checked.
+   * The lease store whose leases the store checks — the one of its database: a unit runner holds
+   * its lease there. Assembly checks `backend`, not this.
    */
   static readonly leaseRepository: Class | undefined = undefined;
+
+  /**
+   * The backend the store's rows live in (#526, as `ExecutionLeaseRepository.backend`): listed, it
+   * must be the application's lease store's — its write and the lease check are one transaction.
+   * Unset: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
+   * store opts out with `leaseCheck`.
+   */
+  static readonly backend: string | undefined = undefined;
+
+  /**
+   * How the store checks the lease against its write (#526): `LeaseCheck.Atomic` (checked at
+   * assembly), or the opt-out `LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
+   */
+  static readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
 
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
@@ -149,6 +164,7 @@ export abstract class OutboundCallRepository {
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
+  static override readonly backend: string | undefined = "in-memory";
 
   constructor(
     private readonly clock: Clock,
@@ -164,22 +180,19 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 
   findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
-      const found = this.database.outboundCalls.get(identityOf(key));
+      const found = this.database.outboundCalls.get(fencedKeyIdentityOf(key));
       return found === undefined ? undefined : structuredClone(found);
     });
   }
 
   saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = identityOf(key);
+      const row = fencedKeyIdentityOf(key);
       if (this.database.outboundCalls.has(row)) return false;
-      this.database.outboundCalls.set(row, {
-        ...structuredClone(intent),
-        ...{ tenantId: key.tenantId, name: key.name, token: key.token },
-        ...{ status: OutboundCallStatus.Pending, leaseExecutionId: key.leaseExecutionId },
-        ...businessFactsOf(key),
-        recordedAt: this.clock.now().toISOString(),
-      });
+      this.database.outboundCalls.set(
+        row,
+        structuredClone(pendingOutboundCallOf(key, intent, this.clock.now())),
+      );
       return true;
     });
   }
@@ -254,7 +267,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = identityOf(key);
+      const row = fencedKeyIdentityOf(key);
       const found = this.database.outboundCalls.get(row);
       const changed = found === undefined ? undefined : change(found);
       if (changed === undefined) return false;
