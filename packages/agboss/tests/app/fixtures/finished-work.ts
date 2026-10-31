@@ -30,9 +30,7 @@ export async function bothReady(apps: readonly TestApp[]): Promise<readonly [Tes
 
 /** The stores the test's instances share (the in-memory queue's own, read as it is). */
 export function databaseOf(app: TestApp): InMemoryDatabase {
-  const { database } = app.resolve(ChildExecutionQueueRepository) as unknown as {
-    readonly database: unknown;
-  };
+  const database: unknown = Reflect.get(app.resolve(ChildExecutionQueueRepository), "database");
   if (!(database instanceof InMemoryDatabase)) throw new Error("the test runs on in-memory stores");
   return database;
 }
