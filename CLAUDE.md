@@ -1333,7 +1333,9 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner`, `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard once, #562),
-  `effects-once`, `no-undo-on-hand-over`, `trees-finish` — from the public API
+  `effects-once`, `no-undo-on-hand-over`, `trees-finish`, `linearizable` (#533: the history
+  against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
+  public API
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
   time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
   operations before or after the store, the way scenarios force orders across processes; broken
