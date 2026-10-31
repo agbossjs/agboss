@@ -1,6 +1,8 @@
 import { ExecutionOperation } from "../core/observability.js";
+import { keyTextRuleOf } from "../core/errors.js";
+import { checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import type { ThreadAccess } from "../run/thread.js";
+import { InvalidThreadIdError, type ThreadAccess } from "../run/thread.js";
 import { remoteCancel, type CancelParts } from "./cancel-requests.js";
 import type { LiveRuns } from "./live-runs.js";
 import { cancelledPaused } from "./cancel-paused.js";
@@ -29,7 +31,13 @@ export async function cancelThread(
   const { live, paused } = parts;
   const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
   const request = { operation: ExecutionOperation.Cancel, ...thread };
-  await parts.admit(request, () => parts.known({ ...thread, ownerId: options.ownerId }));
+  await parts.admit(request, () => {
+    // #552: the tenant id and the thread id are a key's text, as at execute — refused, never echoed
+    checkedTenantId(thread.tenantId);
+    const rule = keyTextRuleOf(threadId);
+    if (rule !== undefined) throw new InvalidThreadIdError(rule);
+    return parts.known({ ...thread, ownerId: options.ownerId });
+  });
   const running = live.abort(thread);
   // a running resume completes its own Tern when the abort stops it
   if (running) {

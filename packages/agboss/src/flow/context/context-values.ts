@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { KEY_TEXT_RULE_TEXT, keyTextRuleOf } from "../../core/errors.js";
 import { DtoError, DtoValidationError, pathOf } from "../../dto/errors.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import { fieldsSchemaOf } from "../../dto/schema.js";
@@ -98,8 +99,33 @@ function checkDecorated(type: Class): void {
   }
 }
 
+/** Why a tenant id is not one (#552): the key-text rule it breaks, never the id. */
+const tenantIdReason = (tenantId: string): string | undefined => {
+  const rule = keyTextRuleOf(tenantId);
+  return rule === undefined
+    ? undefined
+    : `a tenant id is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
+};
+
+/**
+ * Checks a tenant id given outside the tenant's values (#552: `app.resume`'s and `app.cancel`'s
+ * `tenantId`): a key's text, else `DtoValidationError` (`dto.invalid`) naming the rule, never the id.
+ */
+export function checkedTenantId(tenantId: string): void {
+  const reason = tenantIdReason(tenantId);
+  if (reason !== undefined)
+    throw new DtoValidationError(TenantContext.name, [{ path: "tenantId", reason }]);
+}
+
 const TenantBuiltIns = z.object({
-  tenantId: z.string().min(1).optional(),
+  // #552: a tenant id keys threads, leases and business-key rows — the rules of a key's text
+  tenantId: z
+    .string()
+    .superRefine((tenantId, context) => {
+      const reason = tenantIdReason(tenantId);
+      if (reason !== undefined) context.addIssue({ code: "custom", message: reason });
+    })
+    .optional(),
   weight: z.number().int().positive().optional(),
 });
 

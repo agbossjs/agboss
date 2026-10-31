@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { validDecisionOf } from "../channels/decision.js";
+import { checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
   PauseStatus,
@@ -252,6 +253,7 @@ export const resumeOf =
     const requested = { operation: ExecutionOperation.Resume, tenantId };
     const pause = await parts.admit(requested, () => {
       parts.accepting();
+      checkedTenantId(tenantId);
       answerGivenBy(request);
       return pauseOf(parts.pauses, request, tenantId);
     });
