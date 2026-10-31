@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the interleaving explorer (#533 item 1)
+
+- **Added**: `storeConformance` runs `interleavings (<name>)` on a set's fencing stores — a
+  deterministic scheduler of simulated instances (every schedule of two up to a depth, seeded walks
+  of three, the second's clock ± lease/2, ± lease, ± 10 × lease off the store's time), checking one
+  live holder, no write at a stale token, one effect per key, one charge per business key and no
+  takeover of finished work after every step, and printing the minimal schedule of a failure; and
+  every two-outcome race of the contracts forced in both orders (AC7). A new option
+  `storeConformance({ interleavings: { depth, walks, walkDepth, seed } | false })`. Your-own-store →
+  Interleavings.
+
 ## Unreleased — 0.1.1: keys with invisible, private or unassigned characters are refused (#556)
 
 - **Changed**: a business key, a thread id and a tenant id are refused when they hold a code point

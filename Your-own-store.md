@@ -408,6 +408,70 @@ storeConformance({
   stores of no backend or another.
 - One function per contract (`fencedEffectContract`, …) is still there for a store run on its own.
 
+### Interleavings: the explorer (#533)
+
+`storeConformance` also registers `interleavings (<name>)` for a set with a lease store. It is a
+deterministic scheduler over the set's fencing stores. Simulated instances take, renew, yield,
+reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
+move an outbound call through its protocol (read the intent, record it, reconcile, claim the next
+attempt, send, end it). The scheduler picks whose operation runs next and sends it only once the
+store has answered the one before, so the order it chose is the order the store sees. That holds
+for any store, a networked one included, with no free race.
+
+- **The worlds**: every lease operation with `leaseStateOf`; the step's fenced effect; an outbound
+  call handed over on one tree; and an outbound call under one business key from two trees. Each
+  world runs twice:
+  - **every schedule** of two instances, up to `interleavings.depth` steps (default 8; each state
+    explored once, at the fewest steps that reach it);
+  - **seeded walks** of three instances, `interleavings.walks` walks (default 200) of
+    `walkDepth` steps (default 30). The seed is `interleavings.seed`, else `AGBOSS_EXPLORER_SEED`,
+    else 533; it is printed in the case's name, and a failure reproduces from it.
+- **Skewed clocks**: the second instance's own clock is off by ± lease/2, ± lease and ± 10 ×
+  lease (the third's the other way), while the store decides by the run's time
+  (`seam.storeClock`). A store that decides by its caller's clock (`seam.clock`) gives two live
+  holders.
+- **After every step** it checks:
+  - `one-live-holder`: at most one instance trusts the lease at any moment (from when it sent the
+    request, for the `remaining` the store answered), and no epoch is granted twice;
+  - `no-stale-write`: no write, fenced read, renewal, yield or reclaim is accepted at a superseded,
+    released, finished, closed (`Superseded`) or expired token;
+  - `one-effect-per-key`: the step's fenced effect writes one business row, whoever runs it;
+  - `one-send-per-business-key`: the other system is charged once per business key (a send is made
+    only while its sender trusts its lease, and lands only before that trust ends);
+  - `no-takeover-of-finished-work`: no lease of finished work is granted again;
+  - `store-error`: no operation throws anything but the fence's refusal.
+- **A failure prints the minimal schedule**: every step whose removal still breaks the invariant is
+  removed, and each step that is left is printed with what the store answered:
+
+  ```text
+  interleaving explorer (my store, lease world, 2 instances, exhaustive search): [one-live-holder] instance-2 was granted epoch 2 of tree-1 while instance-1 still trusts epoch 1 for 30000 ms: two live holders
+  minimal schedule (2 of the 6 steps found):
+     1. instance-1 acquire tree-1 → epoch 1, 30000 ms left
+     2. instance-2 acquire tree-1 → epoch 2, 30000 ms left, taken over from instance-1 at 1
+  ```
+
+- **Both orders of every two-outcome race** (AC7, from agbossjs/postgres#9): `finish` against
+  another instance's take past the lease, a release against a take, `leaseStateOf` against a take
+  and against a `finish`, a write against its lease's hand-over, two claims of one attempt, an
+  ending against a newer claim, two executions recording one business key, a claim against its
+  hand-over. Each is run first-then-second and second-then-first, and each order must give the
+  outcome the contract gives it.
+- **An opted-out store** (#543): its fenced-effect and outbound-call worlds and races are refused
+  (`[store-conformance.opted-out-store]`) unless the call accepts the opt-out, then skipped with the
+  reason. The lease world runs as for any store.
+- **What it does not reach**: whether one operation is atomic inside the store (a check, a round
+  trip, then a write). It never runs two operations at once. The race cases above, and
+  `faultSuite`, prove atomicity.
+- **The budget**: `storeConformance({ …, interleavings: { depth: 6, walks: 100 } })`. A schedule
+  starts from `reset()`, so a networked store pays one reset and one connection per instance for
+  each schedule. The core runs 10 steps in memory and 6 on SQLite. `interleavings: false` leaves
+  the explorer out, which is never right for a store that claims payment-grade fencing.
+- The core proves it bites (`tests/testing/contracts/explorer-bites.test.ts`). Each naive store
+  fails with the invariant it breaks: leases on the caller's clock, a lease live through its expiry
+  instant, a renewal whatever the time or from the old end, a `finish` that only releases, a
+  `reclaim` that keeps the epoch, calls keyed by the step only, a claim that does not compare,
+  effects that trust the current token, and effects on the caller's clock.
+
 ### An opted-out store and `storeConformance` (#543)
 
 A fencing store that declares `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` says it
@@ -577,6 +641,9 @@ held operation. You write no seam of your own to force an order across processes
       database). The fencing stores declare `static leaseRepository` for unit runners.
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
+- [ ] `storeConformance` passes with every store the set has, the explorer included (#533); the
+      ones it lacks are in `without`.
+
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.
       A store that opts out of the lease check passes only with
       `acceptWithoutDoubleChargeProtection: true`, its fencing cases skipped: it is not conformant
