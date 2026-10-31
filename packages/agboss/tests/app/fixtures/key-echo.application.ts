@@ -56,7 +56,9 @@ export class EchoObserver implements OnExecutionRejected, OnExecutionError, OnAc
   }
 }
 
-type Message = { readonly message: Produced<WorkflowStartTextDto, unknown> };
+interface Message {
+  readonly message: Produced<WorkflowStartTextDto, unknown>;
+}
 
 @Action({
   name: "keyed-effect-action",

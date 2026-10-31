@@ -119,7 +119,9 @@ beforeEach(() => {
 /** Whether `seen` (log entries, events, an error) holds `text`, or its part after `order:`. */
 const leaks = (seen: unknown, text: string): boolean => {
   const serialized = JSON.stringify(seen, (_key, value: unknown) =>
-    value instanceof Error ? { message: value.message, ...value } : value,
+    value instanceof Error
+      ? { message: value.message, ...Object.fromEntries(Object.entries(value)) }
+      : value,
   );
   const tail = text.startsWith("order:") ? text.slice("order:".length) : text;
   return [text, JSON.stringify(text).slice(1, -1), tail]

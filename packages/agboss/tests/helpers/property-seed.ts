@@ -5,10 +5,12 @@ import fc from "fast-check";
  * any run — a failing one above all — replays exactly: `FC_SEED=<n> npx vitest run <file>`.
  */
 export function seededProperties(file: string): number {
-  const given = process.env["FC_SEED"];
+  const given = process.env.FC_SEED;
   const seed =
     given === undefined || given === "" ? Math.floor(Math.random() * 2 ** 31) : Number(given);
   fc.configureGlobal({ seed });
-  console.info(`[fast-check] ${file}: seed ${String(seed)} — FC_SEED=${String(seed)} replays it`);
+  process.stderr.write(
+    `[fast-check] ${file}: seed ${String(seed)} — FC_SEED=${String(seed)} replays it\n`,
+  );
   return seed;
 }
