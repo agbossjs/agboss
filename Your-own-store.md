@@ -464,7 +464,7 @@ for any store, a networked one included, with no free race.
   `faultSuite`, prove atomicity.
 - **The budget**: `storeConformance({ …, interleavings: { depth: 6, walks: 100 } })`. A schedule
   starts from `reset()`, so a networked store pays one reset and one connection per instance for
-  each schedule. The core runs 10 steps in memory and 6 on SQLite. `interleavings: false` leaves
+  each schedule. The core runs 10 steps in memory and 5 on SQLite. `interleavings: false` leaves
   the explorer out, which is never right for a store that claims payment-grade fencing.
 - The core proves it bites (`tests/testing/contracts/explorer-bites.test.ts`). Each naive store
   fails with the invariant it breaks: leases on the caller's clock, a lease live through its expiry
