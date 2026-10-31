@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an id the project's own IdGenerator mints is a key's text (#578)
+
+- **Fixed**: every id the framework mints through the application's `IdGenerator` — a root's, a
+  child's or a recursion level's execution id, a new thread's id (at `execute`, a workflow run on
+  its own, the eval runner) — is checked at the mint by `keyTextRuleOf`. One that breaks a rule, or
+  is no string, is `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`,
+  never the id), before it is used or stored. Before, `x\uD800` and `x\uDFFF` were one tree's lease
+  on SQLite and PostgreSQL. The built-in generators are unaffected. [App → Infrastructure](App#infrastructure).
 ## Unreleased — 0.1.1: the fault suite proves the payment's fence and refuses an opted-out set (#584)
 
 - **Added**: scenario 5c `s05c-zombie-reaches-payment-first`. A pod is frozen at its payment's
