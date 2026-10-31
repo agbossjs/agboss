@@ -126,6 +126,14 @@ export interface FencingContractOptions {
 }
 
 // @public
+export interface InterleavingOptions {
+    readonly depth?: number;
+    readonly seed?: number;
+    readonly walkDepth?: number;
+    readonly walks?: number;
+}
+
+// @public
 export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
 
 // @public
@@ -164,6 +172,7 @@ export class StoreConformanceError extends Error {
 // @public
 export interface StoreConformanceOptions<TTransaction = unknown> {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
+    readonly interleavings?: InterleavingOptions | false;
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
