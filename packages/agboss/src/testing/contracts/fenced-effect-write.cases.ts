@@ -176,6 +176,7 @@ export const writeCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTr
 
 export const refusalCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
   title: "refusals",
+  isFencing: true,
   cases: [
     lowerTokenRefused<TTransaction>(),
     zombieFirstRefused<TTransaction>(),

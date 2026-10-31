@@ -139,6 +139,7 @@ const stateRacingAcquire: OutboundCallCase = {
 /** The races across leases. */
 export const outboundLeaseRaceCases = (): ContractGroup<OutboundCallStores> => ({
   title: "races across leases",
+  isFencing: true,
   cases: [
     crossLeaseRaced("markCompleted"),
     crossLeaseRaced("markPending"),

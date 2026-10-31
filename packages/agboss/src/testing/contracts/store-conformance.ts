@@ -72,6 +72,14 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
    * backend).
    */
   readonly without?: readonly LeftOutContract[];
+  /**
+   * A store of the set opts out of the atomic lease check (`LeaseCheck.WithoutDoubleChargeProtection`,
+   * #543) and the caller says it knows: that store's fencing cases are skipped — never passed —
+   * with "store opted out of the lease check: no double-charge protection", and the set shows
+   * `gives NO double-charge protection for …`. Without it an opted-out store fails them
+   * (`StoreConformanceError`). Such a store must never back payments.
+   */
+  readonly acceptWithoutDoubleChargeProtection?: boolean;
 }
 
 /** The target `storeConformance` hands a contract: the set's name, the store's own reset or the set's. */
@@ -124,10 +132,19 @@ export function storeConformance<TTransaction>(
   each(set, stores.executionLeaseEvent, executionLeaseEventContract);
   each(set, stores.executionRecord, executionRecordContract);
   each(set, stores.executionTree, executionTreeContract);
-  const fencedEffect = each(set, stores.fencedEffect, fencedEffectContract);
+  const fencing = { acceptWithoutDoubleChargeProtection: set.acceptWithoutDoubleChargeProtection };
+  const fencedEffect = each(set, stores.fencedEffect, (target) => {
+    fencedEffectContract(target, fencing);
+  });
   each(set, stores.meshRequest, meshRequestContract);
-  const outboundCall = each(set, stores.outboundCall, outboundCallContract);
+  const outboundCall = each(set, stores.outboundCall, (target) => {
+    outboundCallContract(target, fencing);
+  });
   each(set, stores.pausedExecution, pausedExecutionContract);
   each(set, stores.rateLimit, rateLimitContract);
-  registerStoreSet(set.name, { executionLease, fencedEffect, outboundCall });
+  registerStoreSet(
+    set.name,
+    { executionLease, fencedEffect, outboundCall },
+    { isAccepted: set.acceptWithoutDoubleChargeProtection === true },
+  );
 }

@@ -70,10 +70,10 @@ const PII_INSTANCE_KEY: AssemblyWarning = {
     "no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey",
 };
 
-/** A listed fencing store that opts out of the atomic lease check (#526): what it gives up. */
+/** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */
 const notAtomic = (store: Class): AssemblyWarning => ({
   code: "application.lease-check-not-atomic",
-  message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write`,
+  message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`,
 });
 
 /** Whether a tenant or an application budget is listed (counted across executions). */

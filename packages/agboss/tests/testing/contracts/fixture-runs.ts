@@ -20,6 +20,8 @@ export interface FixtureCase {
   readonly state: "pass" | "fail" | "skip" | "todo" | "run" | "queued" | "only" | undefined;
   /** The messages of its errors. */
   readonly errors: readonly string[];
+  /** Why it was skipped, when a case skipped itself with a note (#543). */
+  readonly note?: string | undefined;
 }
 
 /** What a fixture run reported. */
@@ -40,6 +42,7 @@ function casesOf(task: RunnerTask, file: string, suites: readonly string[]): Fix
       name: task.name,
       state: task.result?.state,
       errors: (task.result?.errors ?? []).map((error) => error.message),
+      note: task.result?.note,
     },
   ];
 }

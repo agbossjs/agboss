@@ -171,13 +171,16 @@ describe("#526 AC1, AC2: the store set's cases", () => {
     expect(errors[2]).toContain("UndeclaredCalls, a fencing store, declares no static backend");
   });
 
-  it("a store that opts out of the atomic lease check: the whole set passes", () => {
-    expect(run.cases.filter((found) => found.file === OPTED_OUT && found.state !== "pass")).toEqual(
+  it("a store that opts out of the atomic lease check, accepted (#543): nothing fails, its line skipped, the opt-out shown", () => {
+    expect(run.cases.filter((found) => found.file === OPTED_OUT && found.state === "fail")).toEqual(
       [],
     );
-    expect(under(OPTED_OUT, "store set (an opted-out outbound-call store)", "pass")).toEqual(
-      STORE_SET_CASES,
-    );
+    expect(under(OPTED_OUT, "store set (an opted-out outbound-call store)", "pass")).toEqual([
+      STORE_SET_CASES[0],
+      STORE_SET_CASES[1],
+      "gives NO double-charge protection for outbound calls",
+      "accepts an opt-out only where a store declares one (acceptWithoutDoubleChargeProtection)",
+    ]);
   });
 
   it("the sets of sound stores pass their store set's cases", () => {

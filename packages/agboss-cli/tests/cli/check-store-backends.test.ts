@@ -24,7 +24,7 @@ const problemsOf = (call: Awaited<ReturnType<typeof agboss>>): readonly Problem[
   (envelope(call).result as { readonly problems: readonly Problem[] }).problems;
 
 const NOT_ATOMIC =
-  "OptedOutEffects declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write";
+  "OptedOutEffects declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)";
 
 describe("#526 M2: agboss check on SqliteFencedEffectRepository without SqliteExecutionLeaseRepository", () => {
   it("one [application.store-backend-mismatch] naming both stores and both backends, exit 3", async () => {

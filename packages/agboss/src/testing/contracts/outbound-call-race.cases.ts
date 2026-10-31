@@ -102,6 +102,7 @@ const endingRaced = (ending: "markCompleted" | "markFailed"): OutboundCallCase =
 
 const writeRacingTakeover: OutboundCallCase = {
   name: "#508: a write racing its lease's release and the next take, round after round: it lands before them, or it is refused",
+  isFencing: true,
   run: async ({ first, second }) => {
     for (let round = 0; round < ROUNDS; round += 1) {
       const executionId = `execution-${String(round)}`;

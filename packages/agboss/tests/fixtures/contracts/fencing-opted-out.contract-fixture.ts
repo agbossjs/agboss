@@ -1,4 +1,5 @@
-// #526 AC1, AC2: storeConformance on a set whose outbound-call store opts out of the atomic lease check.
+// #526 AC1, AC2, #543 AC2: storeConformance on a set whose outbound-call store opts out of the atomic lease
+// check (an atomic store with the flag stuck on), the opt-out accepted.
 import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { storeConformance } from "../../../src/testing/contracts/index.js";
@@ -9,6 +10,7 @@ import { UncheckedCalls } from "./broken-fencing-stores.js";
 
 storeConformance({
   name: "an opted-out outbound-call store",
+  acceptWithoutDoubleChargeProtection: true,
   stores: {
     executionLease: inMemoryTarget(
       ({ storeClock, application, database }) =>

@@ -1,4 +1,5 @@
 import { registerContract } from "./define.js";
+import type { FencingContractOptions } from "./fencing-gate.js";
 import { businessKeyCases } from "./fenced-effect-business.cases.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { expiryCases } from "./fenced-effect-expiry.cases.js";
@@ -19,10 +20,13 @@ export type { FencedEffectBusinessRows, FencedEffectStores } from "./fenced-effe
  * before its key is read, rolled back as a whole; two calls on one key run it once (joined in one
  * instance, serialized across two); the sweep's deletion follows the `Clock`; a key built by hand
  * with an invalid name refused at the entry, and a zombie's write racing the new holder's leaving
- * one business row (#526).
+ * one business row (#526). A store that opts out of the atomic lease check
+ * (`LeaseCheck.WithoutDoubleChargeProtection`) passes none of the fencing cases (#543): they fail
+ * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`.
  */
 export function fencedEffectContract<TTransaction>(
   target: ContractTarget<FencedEffectStores<TTransaction>>,
+  options: FencingContractOptions = {},
 ): void {
   registerContract(
     "fenced effect contract",
@@ -41,5 +45,9 @@ export function fencedEffectContract<TTransaction>(
       zombieCases<TTransaction>(),
     ],
     (stores) => stores.effects.ping(),
+    {
+      storeOf: (stores) => stores.effects,
+      isAccepted: options.acceptWithoutDoubleChargeProtection === true,
+    },
   );
 }

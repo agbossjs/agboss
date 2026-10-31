@@ -70,7 +70,7 @@ async function codesOf(providers: readonly Provider[]): Promise<readonly string[
 const NOT_ATOMIC = "application.lease-check-not-atomic";
 
 const notAtomicText = (store: string): string =>
-  `[${NOT_ATOMIC}] ${store} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write`;
+  `[${NOT_ATOMIC}] ${store} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`;
 
 describe("#526 AC1: a Redis layout — coordination stores on Redis", () => {
   it("leases, rate limits and the queue on Redis, the lease log on SQLite: it assembles", async () => {

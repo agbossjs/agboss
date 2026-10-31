@@ -96,6 +96,7 @@ const replayAt = <TTransaction>(
 /** A fenced write against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
 export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
   title: "the lease's expiry",
+  isFencing: true,
   cases: [
     ...EXPIRY_EDGES.map((edge) => writeAt<TTransaction>(edge)),
     ...EXPIRY_EDGES.map((edge) => replayAt<TTransaction>(edge)),

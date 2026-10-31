@@ -1301,6 +1301,11 @@ without? })` (#526 AC2: each claimed contract as `<contract> (<name>)` plus `sto
   leases its own contract ran on too —; a set with a lease
   store that leaves the fenced-effect, outbound-call or lease-log contract out, unless `without`
   says so, throws `StoreConformanceError` — `[store-conformance.missing-fencing-contract]`,
+  `opted-out-store` (#543: a fencing store that declares `LeaseCheck.WithoutDoubleChargeProtection`
+  fails every fencing case — a stale or expired lease refused, the zombie and lease races — and its
+  `store set` case unless the call says `acceptWithoutDoubleChargeProtection: true`, which skips them
+  with "store opted out of the lease check: no double-charge protection" and adds `gives NO
+  double-charge protection for …`; every other case runs; the flag with no opted-out store fails),
   `lease-store-required`, `without-implemented`, `invalid-without`, `unknown-store` (#542: a key
   that names no contract), `empty`), which the core's own
   sets run (`tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts`, their targets in
