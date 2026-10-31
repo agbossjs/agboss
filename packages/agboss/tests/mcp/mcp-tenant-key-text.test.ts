@@ -109,12 +109,21 @@ describe("#568: a trusted MCP call under a tenant id that is no key's text", () 
 });
 
 describe("#568: the A2A answer's key", () => {
-  const trusted = (tenantId: string): TrustedRequest =>
-    ({
-      tenantId,
-      peer: "orders-application",
-      envelope: { origin: { step: { idempotencyKey: CALL_ID } } },
-    }) as unknown as TrustedRequest;
+  const trusted = (tenantId: string): TrustedRequest => ({
+    tenantId,
+    peer: "orders-application",
+    envelope: {
+      schema: 1,
+      issuer: "orders-application",
+      origin: {
+        rootExecutionId: "root-1",
+        executionId: "root-1",
+        workflow: { name: "orders-workflow", version: "1.0.0" },
+        step: { component: "orders-desk-agent", idempotencyKey: CALL_ID },
+      },
+      callChain: [],
+    },
+  });
 
   it("is none for a tenant id that is no key's text, and the request's own for one that is", () => {
     for (const tenantId of ["t\uD800", "t\uDFFF", "cafe\u0301", "acme​", " acme"])

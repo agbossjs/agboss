@@ -39,7 +39,7 @@ export const isSignedBody = (trusted: TrustedRequest | undefined, text: string):
 /** The dedupe key of a trusted request. */
 export const dedupeKeyOf = (trusted: TrustedRequest | undefined): MeshRequestKey | undefined =>
   // #568: a tenant id that is no key's text keys no answer — UTF-8 stores would merge it with
-  // another tenant's (t\uD800 is t\uFFFD); its execution refuses it as any request's
+  // another tenant's (t\uD800 is t\uFFFD); its execution refuses it, as for every request
   trusted === undefined || keyTextRuleOf(trusted.tenantId) !== undefined
     ? undefined
     : {
