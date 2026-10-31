@@ -6,7 +6,8 @@ import type { ContractTarget } from "../seam.js";
 import { LEASE_RACES, raced, type ForcedRace } from "./races.js";
 import { CALL_RACES, EFFECT_RACES } from "./store-races.js";
 import { ExplorerRun } from "./run.js";
-import { exhaustive, randomWalks, scheduleText, type SearchReport } from "./search.js";
+import { exhaustive, randomWalks } from "./search.js";
+import { budgetOf, expectComplete, InterleavingViolationError, timeoutOf } from "./outcomes.js";
 import { ExplorerWorldKind, type ExplorerStores } from "./types.js";
 import {
   CALL_SKEWS,
@@ -34,6 +35,11 @@ export interface InterleavingOptions {
   readonly walkDepth?: number;
   /** The walks' seed; default `AGBOSS_EXPLORER_SEED` or 533. */
   readonly seed?: number;
+  /**
+   * How long one case may search, in ms of real time (#590); default 8 minutes. A search still
+   * going then stops and fails the case with what it explored and what was left — never a pass.
+   */
+  readonly timeLimit?: number;
 }
 
 /** What `storeConformance` adds: whether the set accepted an opted-out store (#543). */
@@ -117,18 +123,6 @@ const never = (): never => {
   throw new Error("no skew");
 };
 
-/** A schedule that broke an invariant: its message is the printed minimal schedule. */
-export class InterleavingViolationError extends Error {
-  override name = "InterleavingViolationError";
-}
-
-/** Fails with the printed schedule when `report` found a violation. */
-function expectNone(name: string, report: SearchReport): void {
-  if (report.violation !== undefined)
-    throw new InterleavingViolationError(scheduleText(name, report.violation));
-  expect(report.schedules).toBeGreaterThan(0);
-}
-
 const DEFAULT_SEED = 533;
 const TIMEOUT = 600_000;
 
@@ -148,13 +142,14 @@ function registerWorld(name: string, world: WorldCase, options: RegisterOptions)
     `${world.title}: every schedule of 2 instances up to ${String(depth)} steps, the second's clock ${skews.map(skewText).join(", ")}`,
     async (context) => {
       await isGated(world, options, context);
-      for (const skew of skews)
-        expectNone(
-          name,
-          await exhaustive(worldOf(world.kind, 2, skew, world.isBusinessKey), world.target, depth),
-        );
+      const budget = budgetOf(options, context.signal);
+      for (const skew of skews) {
+        const world2 = worldOf(world.kind, 2, skew, world.isBusinessKey);
+        const what = `${world.title}, every schedule, the second's clock ${skewText(skew)}`;
+        expectComplete(name, what, await exhaustive(world2, world.target, depth, budget));
+      }
     },
-    TIMEOUT,
+    timeoutOf(options),
   );
   const walks = options.walks ?? 200;
   const walkDepth = options.walkDepth ?? 30;
@@ -163,16 +158,15 @@ function registerWorld(name: string, world: WorldCase, options: RegisterOptions)
     `${world.title}: ${String(walks)} seeded walks of 3 instances, ${String(walkDepth)} steps each (seed ${String(seed)})`,
     async (context) => {
       await isGated(world, options, context);
+      const budget = budgetOf(options, context.signal);
       for (const [at, skew] of skews.entries()) {
-        const walked = await randomWalks(
-          worldOf(world.kind, 3, skew, world.isBusinessKey),
-          world.target,
-          { runs: walks, depth: walkDepth, seed: seed + at },
-        );
-        expectNone(name, walked);
+        const walk = { runs: walks, depth: walkDepth, seed: seed + at };
+        const world3 = worldOf(world.kind, 3, skew, world.isBusinessKey);
+        const what = `${world.title}, walks of seed ${String(seed + at)}, the second's clock ${skewText(skew)}`;
+        expectComplete(name, what, await randomWalks(world3, world.target, walk, budget));
       }
     },
-    TIMEOUT,
+    timeoutOf(options),
   );
 }
 
