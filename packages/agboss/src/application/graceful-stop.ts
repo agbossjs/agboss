@@ -63,7 +63,7 @@ export interface GracefulStop {
 
 const interruptionOf = (timeout: Milliseconds): ApplicationStoppingError =>
   new ApplicationStoppingError(
-    `the app is stopping and its shutdown timeout (${String(timeout)} ms) is ending: the execution is interrupted — it stays running and another instance continues it`,
+    `the app is stopping and its shutdown timeout (${String(timeout)} ms) is ending: the execution is interrupted — it stays running: the next take of its lease continues it (another instance, or this application once it starts again)`,
   );
 
 /**

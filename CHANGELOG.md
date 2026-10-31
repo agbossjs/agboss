@@ -126,7 +126,10 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   missing lease (`ExecutionFencedError`, the same token seen) says the lease is over, not "another
   instance holds the lease" — only a newer token seen names a newer take and its holder — and a
   holder whose lease ran out here with no renewal confirmed (frozen, or its store not answering)
-  says the next take continues, not "another instance continues". Fields and codes unchanged.
+  says the next take continues, not "another instance continues". Fields and codes unchanged. An
+  execution `app.close()` interrupts at its shutdown timeout (`ApplicationStoppingError`, #582)
+  says it stays running and the next take of its lease continues it — another instance, or this
+  application once it starts again — not "another instance continues it".
 - **The store's time decides a lease's expiry; the holder fences itself on elapsed time** (#533) —
   instances whose wall clocks disagree no longer disagree on when a lease ends.
   `ExecutionLease.remaining` (new, required) is the time the store says the lease has left;
