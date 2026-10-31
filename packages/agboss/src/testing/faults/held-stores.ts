@@ -118,6 +118,18 @@ function originalOf(store: Class, name: string): (...args: unknown[]) => Promise
   return original as (...args: unknown[]) => Promise<unknown>;
 }
 
+/** A listed store class, extended as the concrete class it is (its type may be the abstract contract). */
+const concreteOf = (store: Class): new (...args: unknown[]) => object =>
+  store as Class as new (...args: unknown[]) => object;
+
+/** The subclass, typed as the store it extends (same constructor, same statics). */
+function sameClass<TStore extends Class>(store: TStore, held: Class): TStore {
+  const typed: unknown = held;
+  if (!(typeof typed === "function" && typed.prototype instanceof store))
+    throw new TypeError(`${held.name} does not extend ${store.name}`);
+  return typed as TStore;
+}
+
 /**
  * `store` with the hold points of its contract: a subclass of the same `deps` and `backend`,
  * named `Held<Store>`. A class of no held contract is a `TypeError`.
@@ -129,7 +141,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore {
       `withHoldPoints(${store.name}): not a lease, fenced-effect, outbound-call or child-queue store`,
     );
   // an abstract-typed class is extended as the concrete store it is (a listed provider)
-  const Concrete = store as unknown as new (...args: unknown[]) => object;
+  const Concrete = concreteOf(store);
   const held = class extends Concrete {};
   for (const [name, method] of Object.entries(methods)) {
     const original = originalOf(store, name);
@@ -143,5 +155,5 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore {
   }
   Object.defineProperty(held, "name", { value: `Held${store.name}` });
   Injectable({ deps: depsOf(store) as [] })(held);
-  return held as unknown as TStore;
+  return sameClass(store, held);
 }

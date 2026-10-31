@@ -86,7 +86,7 @@ const orderRecord = (
     children: [],
     compensations: [],
     ...overrides,
-  }) as unknown as ExecutionHistoryRecord;
+  }) as Partial<ExecutionHistoryRecord> as ExecutionHistoryRecord;
 
 /** A healthy run of one order: a takes epoch 1, charges once, pays once. */
 function healthy(): { run: FaultRun; history: OperationHistory } {
@@ -110,13 +110,13 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
       executionId: "root-1",
       name: "charge",
       outcome: FencedEffectEventOutcome.Ran,
-    } as unknown as ExecutionLeaseEventRecord,
+    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord,
     {
       kind: ExecutionLeaseEventKind.OutboundCall,
       executionId: "root-1",
       name: "pay",
       outcome: OutboundCallEventOutcome.Sent,
-    } as unknown as ExecutionLeaseEventRecord,
+    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord,
   ];
   const run: FaultRun = {
     records: [orderRecord("o-1", "root-1")],
@@ -229,7 +229,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       kind: ExecutionLeaseEventKind.Takeover,
       executionId: "root-1",
       token: 2,
-    } as unknown as ExecutionLeaseEventRecord;
+    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
     const trees = [
       { rootExecutionId: "root-1", leaseEvents: [takeover, takeover], outboundCalls: [] },
     ];

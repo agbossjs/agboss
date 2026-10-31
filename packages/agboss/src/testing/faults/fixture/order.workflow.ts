@@ -32,7 +32,11 @@ import { FaultPayAction } from "./pay.action.js";
 const start = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-@WorkflowStart({ name: "fault-order-workflow-start", description: "An order", input: FaultOrderDto })
+@WorkflowStart({
+  name: "fault-order-workflow-start",
+  description: "An order",
+  input: FaultOrderDto,
+})
 export class FaultOrderWorkflowStart {}
 
 @WorkflowFinish({

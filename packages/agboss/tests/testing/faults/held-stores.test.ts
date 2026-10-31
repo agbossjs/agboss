@@ -35,7 +35,8 @@ function heldLeases(database: InMemoryDatabase, instanceId: string): ExecutionLe
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  return new (Held as unknown as new (...args: unknown[]) => ExecutionLeaseRepository)(
+  const Concrete: unknown = Held;
+  return new (Concrete as new (...args: unknown[]) => ExecutionLeaseRepository)(
     clock,
     application,
     database,
