@@ -67,7 +67,8 @@ jobs:
   # (the last run's results cached): every mutant killed or justified where it stands, else red
   mutation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # a cold run (no cached results) takes about 50 min here; an incremental one a few
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
