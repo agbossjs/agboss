@@ -239,7 +239,10 @@ export class FaultWorld {
       requests: this.gateway.requests,
       payments: this.gateway.payments,
       events: this.events,
-      ...{ history: this.history, timeScale: this.options.timeScale },
+      ...{
+        history: this.history,
+        timeScale: this.options.storeTimeScale ?? this.options.timeScale,
+      },
     };
   }
 

@@ -17,6 +17,8 @@ export interface FaultWorldOptions {
   readonly stores: string;
   readonly database: FaultDatabase;
   readonly timeScale: number;
+  /** How fast the store's own clock runs (#533): 1 for a database that decides by its clock; default `timeScale`. */
+  readonly storeTimeScale?: number;
 }
 
 /** What a pod of a scenario is started with. */

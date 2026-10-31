@@ -29,6 +29,12 @@ export interface FaultScenarioOptions {
   readonly database: FaultDatabase;
   /** How much faster than real time every pod's clock runs; default 1 (the real clock). */
   readonly timeScale?: number;
+  /**
+   * How fast the store decides a lease's time runs (#533, the linearizability checker reads the
+   * history by it): 1 for a database that decides by its own clock (`clock_timestamp()`); default
+   * `timeScale`, the pods' — the time an in-memory or SQLite store decides by.
+   */
+  readonly storeTimeScale?: number;
 }
 
 /** A scenario's own expectations that did not hold, or a wait that ran past its deadline. */
@@ -90,6 +96,7 @@ export async function runFaultScenario(
     stores: options.stores,
     database: options.database,
     timeScale: options.timeScale ?? 1,
+    ...(options.storeTimeScale === undefined ? {} : { storeTimeScale: options.storeTimeScale }),
   });
   try {
     return await checkedRun(scenario, world);
