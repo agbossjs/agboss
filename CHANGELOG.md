@@ -184,6 +184,19 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A child's end is heard once** (#562, found by #484) — a parent whose holder froze after its
+  child ended, before its step was checkpointed, announced the child's `onExecutionEnd` (or
+  `onExecutionError`), and the instance that took the tree over read the ended child again and
+  announced it a second time (a third after a second takeover). An end is now announced only by the
+  pass that ended the child, and only while that pass still holds the tree's lease: an
+  `AnyInstance` child's finish by the worker whose completion of its queue row won, a cancelled one
+  whose row went with its tree by the worker that stopped it, a child on its parent's instance by
+  the parent's pass that ran it, a failure by the parent's pass that saw it happen (the undo runs
+  there) — never by a parent that re-enters its step and only reads the end. The honest guarantee
+  is at most once: a holder that freezes or crashes between the child's durable end and the
+  announcement leaves it unannounced (Wiki → Guarantees-across-processes). The fault suite's
+  `children-once` counts the observers' ends again — exactly one per finished child.
+
 - **A minted thread id is always a new thread** (#550, found by #533) — a store's `createThread`
   without a `threadId` handed out an id the tenant already had when its `IdGenerator` repeated one
   (two tests on one database both minting from `thread-1`): another workflow's thread, so the pass

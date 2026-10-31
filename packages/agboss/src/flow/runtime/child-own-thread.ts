@@ -41,8 +41,22 @@ export interface OwnThreadRun {
 
 /** How a child's run on its own thread ended in this step. */
 export type OwnThreadEnd =
-  | { readonly kind: "ended"; readonly state: ExecutionStateType }
-  | { readonly kind: "failed"; readonly error: unknown; readonly last?: ExecutionStateType };
+  | {
+      readonly kind: "ended";
+      readonly state: ExecutionStateType;
+      /** This call streamed the child to its end (#562): else it had ended before, only read. */
+      readonly isOwn: boolean;
+    }
+  | {
+      readonly kind: "failed";
+      readonly error: unknown;
+      readonly last?: ExecutionStateType;
+      /**
+       * The child had failed before this call (#562): an errored task on its thread at entry — an
+       * earlier pass saw that failure; this call ran the step again and only repeats it.
+       */
+      readonly isRepeated: boolean;
+    };
 
 /** A forwarded resume map, read from the marker's answer (the drain wrote it as JSON). */
 export function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
@@ -59,6 +73,8 @@ export function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
 /** The child's last state streamed so far: kept when the child throws, for its record. */
 interface Streamed {
   last?: ExecutionStateType;
+  /** This call streamed the child's graph at least once (#562). */
+  isStreamed?: boolean;
 }
 
 /** Streams the child's graph on its own thread, as a root graph, into `seen`. */
@@ -68,6 +84,7 @@ async function stream(
   input: ExecutionStateUpdate | Command | null,
   seen: Streamed,
 ): Promise<void> {
+  seen.isStreamed = true;
   await asRootRun(async () => {
     const states = await run.graph.stream(input, { ...config, streamMode: "values" });
     for await (const state of states) if (isExecutionState(state)) seen.last = state;
@@ -81,6 +98,12 @@ async function snapshotOf(run: OwnThreadRun, config: RunnableConfig) {
     task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
   );
   return { snapshot, rests: snapshot.next.length > 0, interrupts };
+}
+
+/** Whether a task of the child's thread failed in an earlier pass (its error is in the checkpoint). */
+async function hasFailed(run: OwnThreadRun, config: RunnableConfig): Promise<boolean> {
+  const { snapshot } = await snapshotOf(run, config);
+  return snapshot.tasks.some((task) => task.error !== undefined);
 }
 
 /**
@@ -120,16 +143,20 @@ async function movedOn(
 export async function runOnOwnThread(run: OwnThreadRun): Promise<OwnThreadEnd> {
   const config = rootConfigOf(run.config, run.thread);
   const seen: Streamed = {};
+  let isRepeated = false;
   try {
     if (run.isNew) await stream(run, config, run.initial, seen);
+    else isRepeated = await hasFailed(run, config);
     for (;;) {
       const ended = await movedOn(run, config, seen);
-      if (ended !== undefined) return { kind: "ended", state: ended };
+      if (ended !== undefined)
+        return { kind: "ended", state: ended, isOwn: seen.isStreamed === true };
     }
   } catch (error) {
     // the parent's own interrupt (the marker) rises as it is, never as the child's failure
     if (isGraphInterrupt(error)) throw error;
-    return { kind: "failed", error, ...(seen.last === undefined ? {} : { last: seen.last }) };
+    const last = seen.last === undefined ? {} : { last: seen.last };
+    return { kind: "failed", error, ...last, isRepeated };
   }
 }
 
@@ -149,6 +176,8 @@ export async function childEndOf(
   readonly state?: ExecutionStateType;
   readonly error?: unknown;
   readonly failed: boolean;
+  /** Whether this pass announces the child's end (#562, `assertAnnouncing`, `child-failure.ts`). */
+  readonly announces: boolean;
 }> {
   const { thread, isNew, identity } = run.entered;
   if (thread !== undefined) {
@@ -168,9 +197,10 @@ export async function childEndOf(
       isNew,
       waiting,
     });
-    return end.kind === "ended"
-      ? { state: end.state, failed: false }
-      : { error: end.error, ...(end.last === undefined ? {} : { state: end.last }), failed: true };
+    if (end.kind === "ended") return { state: end.state, failed: false, announces: end.isOwn };
+    // a failure an earlier pass saw is not announced again when the re-run step fails again
+    const last = end.last === undefined ? {} : { state: end.last };
+    return { error: end.error, ...last, failed: true, announces: !end.isRepeated };
   }
   // started before ADR-0022 (S4 D6): its state is the subgraph checkpoint under its task
   let last: ExecutionStateType | undefined;
@@ -178,7 +208,9 @@ export async function childEndOf(
     const states = await child.graph.stream(run.initial, { ...run.config, streamMode: "values" });
     for await (const state of states) if (Array.isArray(state.usage)) last = state;
   } catch (error) {
-    return { error, ...(last === undefined ? {} : { state: last }), failed: true };
+    return { error, ...(last === undefined ? {} : { state: last }), failed: true, announces: true };
   }
-  return last === undefined ? { failed: false } : { state: last, failed: false };
+  return last === undefined
+    ? { failed: false, announces: true }
+    : { state: last, failed: false, announces: true };
 }

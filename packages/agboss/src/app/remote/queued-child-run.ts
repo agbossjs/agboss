@@ -3,7 +3,7 @@ import { isHandedOver } from "../handed-over.js";
 import type { HeldExecutionLease } from "../execution-leases.js";
 import { leasedDeps, leasedGraphDeps } from "../tree-ends.js";
 import { runIdOf, type RunContext } from "../../core/run-context.js";
-import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { totalCost } from "../../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../../flow/runtime/build.js";
 import { asRootRun, isExecutionState } from "../../flow/runtime/child-thread.js";
 import { decodedRun, parentOfRecord } from "../../flow/runtime/remote/remote-child-run.js";
@@ -13,17 +13,15 @@ import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtim
 import type { GraphDeps } from "../../graph/deps.js";
 import type { PiiRuntime } from "../../pii/runtime.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
-import type {
-  ChildExecutionEnd,
-  QueuedChildExecution,
-} from "../../infrastructure/child-execution-queue.repository.js";
+import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
 import { drainRun, outcomeError } from "../../run/execute.js";
-import { pausedLoopsOf, pausedUsageOf } from "../../run/paused.js";
 import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
 import { piiKeysOf, streamConfig } from "../../run/stream-config.js";
-import { openPausesOf } from "../../run/waiting-pauses.js";
 import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
+import { resumedSpendOf } from "./queued-child-spend.js";
+import { cancelledOf, type AnnouncedPass, type ClaimedChild } from "./child-end-event.js";
+import type { ExecutionStateType } from "../../flow/runtime/state.js";
 
 /**
  * One queued child run on the instance that claimed it (#333 PR 2, PR 4): its workflow's graph
@@ -81,31 +79,6 @@ function runContextOf(
   };
 }
 
-/** Spend already in the ledger when a paused child is continued (`pausedLoopsOf` + reply calls). */
-async function resumedSpendOf(
-  graph: ExecutionGraph,
-  rootDeps: AppDeps,
-  row: QueuedChildExecution,
-  thread: string,
-  flowUsage: readonly UsageRecord[],
-  resume: Readonly<Record<string, string>>,
-): Promise<readonly UsageRecord[]> {
-  const pause = rootDeps.pause;
-  if (pause === undefined) return flowUsage;
-  const answering = new Set(Object.values(resume));
-  const tree = { tenantId: row.tenantId, runId: row.rootExecutionId };
-  const isOpen = await openPausesOf(pause.pauses, tree, { answering });
-  const loops = await asRootRun(() => pausedLoopsOf(graph, pause.checkpointer, thread, isOpen));
-  const records = await pause.pauses.findAllByTenantIdAndRootExecutionId(
-    row.tenantId,
-    row.rootExecutionId,
-  );
-  const replies = records
-    .filter((item) => answering.has(item.pauseId))
-    .flatMap((item) => item.answer?.usage ?? []);
-  return [...pausedUsageOf(flowUsage, loops), ...replies];
-}
-
 /** Builds the LangGraph config for the child's own thread. */
 function childStreamConfig(
   childDeps: GraphDeps<string>,
@@ -142,6 +115,17 @@ const interruptIdsOf = (
     task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
   );
 
+/** How a pass left the child: resting at a pause, or ended with its last state. */
+interface StreamedPass {
+  readonly rests: boolean;
+  readonly last?: ExecutionStateType | undefined;
+}
+
+const passOf = (snapshot: Awaited<ReturnType<ExecutionGraph["getState"]>>): StreamedPass => ({
+  rests: snapshot.next.length > 0,
+  last: isExecutionState(snapshot.values) ? snapshot.values : undefined,
+});
+
 /** Streams the child's graph on its own thread; whether it rests at a pause. */
 async function streamed(
   childDeps: GraphDeps<string>,
@@ -149,7 +133,7 @@ async function streamed(
   row: QueuedChildExecution,
   run: RemoteChildRun,
   context: RunContext,
-): Promise<{ readonly rests: boolean }> {
+): Promise<StreamedPass> {
   const { initial, resume } = run;
   const config = childStreamConfig(childDeps, rootDeps, run, context);
   const reading = executionGraphOf(childDeps, {
@@ -168,10 +152,9 @@ async function streamed(
     await asRootRun(async () =>
       drainRun(await graph.stream(initial, config), record, initial.usage),
     );
-    const after = await asRootRun(() => graph.getState(config));
-    return { rests: after.next.length > 0 };
+    return passOf(await asRootRun(() => graph.getState(config)));
   }
-  if (before.next.length === 0) return { rests: false };
+  if (before.next.length === 0) return passOf(before);
   const interrupts = interruptIdsOf(before);
   const isResuming = resume !== undefined && interrupts.some((id) => id in resume);
   if (interrupts.length > 0 && !isResuming) return { rests: true };
@@ -190,8 +173,7 @@ async function streamed(
   const record = recorder(budgets.meter, []);
   const input = isResuming ? new Command({ resume }) : null;
   await asRootRun(async () => drainRun(await graph.stream(input, config), record, spent));
-  const after = await asRootRun(() => graph.getState(config));
-  return { rests: after.next.length > 0 };
+  return passOf(await asRootRun(() => graph.getState(config)));
 }
 
 /** What a claimed child's run needs from its instance. */
@@ -206,7 +188,8 @@ export async function runQueuedChild(
   row: QueuedChildExecution,
   lease: HeldExecutionLease,
   signal: AbortSignal,
-): Promise<ChildExecutionEnd | undefined> {
+): Promise<AnnouncedPass | undefined> {
+  let claimed: ClaimedChild | undefined;
   try {
     const root = parts.registry.rootOf(row.rootWorkflow);
     const rawChildDeps = parts.registry.depsOf(row.workflow);
@@ -217,14 +200,18 @@ export async function runQueuedChild(
     const rootDeps = leasedDeps(root.deps, lease);
     const childDeps = leasedGraphDeps(rawChildDeps, lease);
     const run = await decodedRun(parts.serde, row.run);
+    claimed = { deps: childDeps, row, run };
     // its steps store what they store masked by the child workflow's own policies (#505)
     const site = { signal, lease, pii: rawChildDeps.pii };
     const context = runContextOf(run, row, parts.registry, rootDeps, site);
-    const { rests } = await streamed(childDeps, rootDeps, row, run, context);
-    return { status: rests ? ExecutionRecordStatus.Paused : ExecutionRecordStatus.Answered };
+    const { rests, last } = await streamed(childDeps, rootDeps, row, run, context);
+    if (rests) return { end: { status: ExecutionRecordStatus.Paused } };
+    const finished = last === undefined ? undefined : { ...claimed, last };
+    return { end: { status: ExecutionRecordStatus.Answered }, finished };
   } catch (error) {
     const cause = outcomeError(error, signal);
     if (isHandedOver(cause)) return undefined;
-    return { status: ExecutionRecordStatus.Failed, failure: failureTextOf(cause) };
+    const end = { status: ExecutionRecordStatus.Failed, failure: failureTextOf(cause) } as const;
+    return { end, cancelled: claimed === undefined ? undefined : cancelledOf(claimed, cause) };
   }
 }

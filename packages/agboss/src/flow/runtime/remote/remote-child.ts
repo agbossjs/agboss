@@ -68,6 +68,8 @@ export interface RemoteChildEnd {
   readonly state?: ExecutionStateType;
   readonly error?: unknown;
   readonly failed: boolean;
+  /** Whether this pass announces the end (#562): only a failure it saw happen. */
+  readonly announces: boolean;
 }
 
 const isSettled = (row: QueuedChildExecution): boolean =>
@@ -95,14 +97,23 @@ async function rowOf(site: RemoteChildSite, run: RemoteChildRun): Promise<Queued
   };
 }
 
+/** The child's row, and whether this pass saw it before it settled — it queued it, or found it unsettled (#562). */
+interface SeenRow {
+  readonly row: QueuedChildExecution;
+  readonly isSeen: boolean;
+}
+
 /** The child's row: queued now unless it is there (a re-entry after a pause or a crash). */
-async function queuedRow(site: RemoteChildSite): Promise<QueuedChildExecution | undefined> {
+async function queuedRow(
+  site: RemoteChildSite,
+): Promise<{ readonly row: QueuedChildExecution | undefined; readonly isQueuedHere: boolean }> {
   const { queue } = site.children;
   const found = await queue.findByTenantIdAndExecutionId(site.tenantId, site.executionId);
-  if (found !== undefined) return found;
-  await queue.saveIfAbsent(await rowOf(site, site.run));
+  if (found !== undefined) return { row: found, isQueuedHere: false };
+  const isQueuedHere = await queue.saveIfAbsent(await rowOf(site, site.run));
   remoteChildSignals.queued();
-  return queue.findByTenantIdAndExecutionId(site.tenantId, site.executionId);
+  const row = await queue.findByTenantIdAndExecutionId(site.tenantId, site.executionId);
+  return { row, isQueuedHere };
 }
 
 /** Until the child's row settles; a `Running` row whose worker lost its lease is reclaimed (#333 PR 4). */
@@ -133,11 +144,15 @@ async function endedRow(
 }
 
 /** Queues the child if absent and awaits its pass while yielding the parent's lease (#333 PR 4). */
-async function waitedRow(site: RemoteChildSite): Promise<QueuedChildExecution> {
-  const initial = await queuedRow(site);
-  if (initial !== undefined && isSettled(initial)) return initial;
+async function waitedRow(site: RemoteChildSite, isRequeued: boolean): Promise<SeenRow> {
+  const { row: initial, isQueuedHere } = await queuedRow(site);
+  // settled before this pass looked, by a row it did not queue: an end it only reads (#562)
+  if (initial !== undefined && isSettled(initial))
+    return { row: initial, isSeen: isQueuedHere || isRequeued };
   const wait = (): Promise<QueuedChildExecution> => endedRow(site, initial);
-  return site.children.yieldWhile === undefined ? wait() : site.children.yieldWhile(wait);
+  const yieldWhile = site.children.yieldWhile;
+  const row = await (yieldWhile === undefined ? wait() : yieldWhile(wait));
+  return { row, isSeen: true };
 }
 
 const waitingOf = (site: RemoteChildSite): ChildWaiting => ({
@@ -168,15 +183,18 @@ async function settledRow(
   graph: ExecutionGraph,
   config: RunnableConfig,
   site: RemoteChildSite,
-): Promise<QueuedChildExecution> {
+): Promise<SeenRow> {
+  let isRequeued = false;
   for (;;) {
-    const row = await waitedRow(site);
-    if (row.status !== ExecutionRecordStatus.Paused) return row;
+    const seen = await waitedRow(site, isRequeued);
+    if (seen.row.status !== ExecutionRecordStatus.Paused) return seen;
     const answer: unknown = interrupt(waitingOf(site));
     const resume = resumeMapOf(answer);
     if (await hasOpenInterrupt(graph, config, site.run.thread, resume)) {
-      if (await site.children.queue.saveIfAbsent(await rowOf(site, { ...site.run, resume })))
-        remoteChildSignals.queued();
+      isRequeued = await site.children.queue.saveIfAbsent(
+        await rowOf(site, { ...site.run, resume }),
+      );
+      if (isRequeued) remoteChildSignals.queued();
     }
   }
 }
@@ -211,12 +229,13 @@ export async function remoteChildEndOf(
   config: RunnableConfig,
   site: RemoteChildSite,
 ): Promise<RemoteChildEnd> {
-  const row = await settledRow(graph, config, site);
+  const { row, isSeen } = await settledRow(graph, config, site);
   const last = await lastStateOf(graph, config, site.run.thread);
   const inherited = site.run.initial.child.inheritedUsage;
-  const state = last === undefined ? undefined : recordedElsewhere(last, inherited);
+  const state = last === undefined ? {} : { state: recordedElsewhere(last, inherited) };
+  // its finish is announced by the worker that completed its row, never here (#562)
   if (row.status === ExecutionRecordStatus.Answered)
-    return state === undefined ? { failed: false } : { state, failed: false };
+    return { ...state, failed: false, announces: false };
   const error = remoteFailureOf(row.failure);
-  return state === undefined ? { error, failed: true } : { error, state, failed: true };
+  return { error, ...state, failed: true, announces: isSeen };
 }
