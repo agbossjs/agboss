@@ -26,7 +26,7 @@ import { seconds } from "../../src/units/index.js";
 import { seededProperties } from "../helpers/property-seed.js";
 import { inMemoryFencedEffects } from "../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryTarget } from "../infrastructure/contracts/store-kinds.js";
-import { worldOn } from "./fencing-model.js";
+import { instancesOn } from "./fencing-model.js";
 import { rewritingKeys, stepOnly } from "../fixtures/contracts/naive-guarantees.js";
 
 const seed = seededProperties("business-key.property.test.ts");
@@ -138,10 +138,8 @@ async function outcomesOf(
     if (!isStepOnly) return stores;
     return { ...stores, effects: rewritingKeys(stores.effects, seam.database, stepOnly) };
   });
-  const world = await worldOn(target as never);
-  const [one, two] = world.stores as unknown as ReturnType<
-    ReturnType<typeof inMemoryFencedEffects>
-  >[];
+  const { stores } = await instancesOn(target);
+  const [one, two] = stores;
   if (one === undefined || two === undefined) throw new Error("two instances expected");
   const leases = [
     await one.leases.acquire("default", "tree-1", seconds(3600)),

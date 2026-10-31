@@ -104,11 +104,13 @@ export interface PropertyWorld {
   state: FencingState;
 }
 
-/** A new world on `target`: reset, two instances built on the run's clock. */
-export async function worldOn(target: ContractTarget<OutboundCallStores>): Promise<PropertyWorld> {
+/** Two instances of any store on `target`, reset first, on one new clock. */
+export async function instancesOn<TStore>(
+  target: ContractTarget<TStore>,
+): Promise<{ readonly clock: VirtualClock; readonly stores: readonly TStore[] }> {
   const clock = new VirtualClock(new Date(TEST_START));
   await target.reset?.();
-  const stores: OutboundCallStores[] = [];
+  const stores: TStore[] = [];
   for (const instanceId of ["instance-1", "instance-2"]) {
     const application = applicationContextOf({
       name: "property-application",
@@ -127,6 +129,12 @@ export async function worldOn(target: ContractTarget<OutboundCallStores>): Promi
       }),
     );
   }
+  return { clock, stores };
+}
+
+/** A new world on `target`: reset, two instances built on the run's clock. */
+export async function worldOn(target: ContractTarget<OutboundCallStores>): Promise<PropertyWorld> {
+  const { clock, stores } = await instancesOn(target);
   return { clock, stores, leases: new Map(), state: EMPTY_FENCING_STATE };
 }
 
