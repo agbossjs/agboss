@@ -78,6 +78,9 @@ against the same model.
 - **Time.** The instants are read on the store's time: the machine's monotonic time times
   `storeTimeScale` (default the pods' `timeScale`; 1 for a database that decides by its own clock,
   as PostgreSQL's `clock_timestamp()` does). So an early take of a live lease is no order either.
+- **Order.** An operation that completed before another was invoked took effect first: every pod
+  records on the host's one monotonic clock, so this order is exact. A slack (5 ms × the scale)
+  widens only the instant the store's own clock decides at, never this order.
 - **A failure** names the part, the longest order found and the operations none of which can follow
   it.
 - **`linearizabilityOf(history, { timeScale })`** checks any recorded history.
@@ -85,7 +88,8 @@ against the same model.
   histories (`tests/testing/faults/linearizability.test.ts`: an epoch granted twice, a take of a
   live lease, a renewal or a write after a newer grant, a take of finished work, two won claims). It
   fails on the recorded history of scenario 5b on a store without the fencing check, naming the
-  zombie's write (`tests/testing/faults/recorded-history.test.ts`). Both sabotage runs fail it too.
+  zombie's write (`tests/testing/faults/recorded-history.test.ts`). The three sabotage runs (5b, 5c,
+  6b) fail it too.
 
 ## What the suite proves, scenario by scenario
 
