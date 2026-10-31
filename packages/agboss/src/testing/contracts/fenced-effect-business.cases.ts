@@ -1,14 +1,11 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import { IdempotencyKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
-import {
-  FencedEffectStatus,
-  type FencedEffectKey,
-} from "../../infrastructure/fenced-effect.repository.js";
+import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
+  businessKeyOf,
   keyOf,
   leaseOf,
   rejectionOf,
@@ -24,18 +21,6 @@ import {
  */
 
 type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
-
-/** The key of `lease`'s step under business key `order:42`, with `fingerprint` (`null`: none). */
-const businessKeyOf = (
-  lease: ExecutionLease,
-  fingerprint: string | null = "fingerprint-a",
-  step = `${lease.rootExecutionId}:charge-action:1`,
-): FencedEffectKey => ({
-  ...keyOf(lease, "charge", step),
-  businessKey: "order:42",
-  ...(fingerprint === null ? {} : { fingerprint }),
-  origin: { executionId: lease.rootExecutionId, nodeId: "charge-action", visitNumber: 1 },
-});
 
 const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
   name: "#508: one business key from two executions (two scopes) runs once; the second replays it, naming the first",

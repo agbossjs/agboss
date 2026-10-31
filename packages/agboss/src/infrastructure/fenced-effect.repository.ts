@@ -62,7 +62,9 @@ export interface FencedEffectKey {
   readonly businessKey?: string;
   /**
    * What the effect does, as a hash (SHA-256 of canonical JSON): another one under the same
-   * business key is `IdempotencyKeyConflictError`, never a replay.
+   * business key is `IdempotencyKeyConflictError`, never a replay. Any text is a fingerprint, the
+   * empty one too (#574): `""` and none are two requests — refused against each other, in flight or
+   * stored, so a store keeps `""` as `""`, never as `NULL`.
    */
   readonly fingerprint?: string;
   /** The step that made the key: what a replay from another step or execution names. */
@@ -128,10 +130,11 @@ const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unk
 /**
  * The calls one leader is joined by: the same scope, identity and token — and the same fingerprint
  * (#508), so a call with other parameters under a business key never gets another call's result: it
- * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`).
+ * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`). No fingerprint is
+ * `null` and every text, `""` too, is itself (#574): as `replayedFromOf` tells them apart.
  */
 const joinKeyOf = (key: FencedEffectKey): string =>
-  [key.scopeKey, fencedKeyIdentityOf(key), String(key.token), key.fingerprint ?? ""].join("\u0000");
+  JSON.stringify([key.scopeKey, fencedKeyIdentityOf(key), key.token, key.fingerprint ?? null]);
 
 /**
  * Infrastructure (#500): one protected write per key, inside the store's own transaction — the

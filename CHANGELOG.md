@@ -187,6 +187,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An empty fingerprint is not none** (#574, found by #533's mutation testing) — under a business
+  key, a fenced effect with `fingerprint: ""` in flight on one instance beside one with no
+  fingerprint was joined to it and got its result, though the pair made one after the other was
+  `IdempotencyKeyConflictError`. Any text is a fingerprint, `""` too, and both orders are refused,
+  in flight or stored; `fencedEffectContract` holds every store to keeping `""` as `""`.
 - **The fault suite proves the payment's fence and refuses an opted-out set** (#584, found in the
   acceptance of #484) — no scenario let a zombie reach the outbound-call store after a takeover, so
   a store that recorded a payment's intent under any token passed all twenty; scenario 5c
