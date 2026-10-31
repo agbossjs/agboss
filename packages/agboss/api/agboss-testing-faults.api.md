@@ -644,9 +644,9 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/fault-clock.ts:48:5 - (ae-undocumented) Missing documentation for "scale".
 // src/testing/faults/fault-clock.ts:49:5 - (ae-undocumented) Missing documentation for "origin".
 // src/testing/faults/fault-clock.ts:51:5 - (ae-undocumented) Missing documentation for "skew".
-// src/testing/faults/fault-clock.ts:57:3 - (ae-undocumented) Missing documentation for "now".
-// src/testing/faults/fault-clock.ts:62:12 - (ae-undocumented) Missing documentation for "monotonicNow".
-// src/testing/faults/fault-clock.ts:66:3 - (ae-undocumented) Missing documentation for "sleep".
+// src/testing/faults/fault-clock.ts:58:3 - (ae-undocumented) Missing documentation for "now".
+// src/testing/faults/fault-clock.ts:63:12 - (ae-undocumented) Missing documentation for "monotonicNow".
+// src/testing/faults/fault-clock.ts:67:3 - (ae-undocumented) Missing documentation for "sleep".
 // src/testing/faults/fault-gateway.ts:23:1 - (ae-undocumented) Missing documentation for "FaultGateway".
 // src/testing/faults/fault-gateway.ts:24:3 - (ae-undocumented) Missing documentation for "requests".
 // src/testing/faults/fault-stores.ts:43:3 - (ae-undocumented) Missing documentation for "environment".
