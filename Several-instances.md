@@ -1113,6 +1113,10 @@ timeout, and a rejection or a timeout is that store's `Unhealthy` ([Health check
 
 ### Writing your own store: the published contract suites (#481)
 
+> **[Your own store](Your-own-store)** (#526) is the guide: what each contract must make atomic and
+> why, recipes for SQL, MongoDB, Redis, DynamoDB and Cassandra, and `storeConformance` — one call
+> that runs every contract a store set claims and refuses a set that leaves a fencing contract out.
+
 Stores live outside the core (a PostgreSQL or a Redis one in a repository of its own), so the core
 publishes the suites its own stores run: **`@agboss/core/testing/contracts`**, one function per
 contract — `executionLeaseContract`, `executionRecordContract`, `executionTreeContract`,

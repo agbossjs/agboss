@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: storeConformance and the guide for store authors (#526 PR 2)
+
+- **Added — [Your own store](Your-own-store)**: what each contract must make atomic and why each
+  step prevents a double charge or a second owner; recipes for SQL, MongoDB transactions, Redis Lua
+  (and its durability caveat), DynamoDB conditional writes and Cassandra lightweight transactions
+  (one partition); `storeConformance`; a checklist.
+- **Added — `storeConformance({ name, reset?, stores, without? })`** in
+  `@agboss/core/testing/contracts`: every contract a store set claims, as `<contract> (<name>)`,
+  and `store set (<name>)` — each fencing store's `static backend` declared, one with its lease
+  store's. A set with a lease store that leaves the fenced-effect, outbound-call or lease-log
+  contract out (unless `without` says so) throws `StoreConformanceError`
+  (`[store-conformance.missing-fencing-contract]`, `lease-store-required`, `without-implemented`,
+  `invalid-without`, `empty`). The core's own in-memory and SQLite sets run it.
+- **Breaking for stores outside the core — new contract cases**: the lease event contract's "every
+  row the core writes" (each kind, reason, site, outcome and status, with the #508 fields
+  `supersededLease`, `supersededBy`, `replayedFrom`); the fenced effect contract's "a key built by
+  hand, a zombie" — an invalid name refused with `InvalidFencedEffectNameError` before anything
+  (an empty name too, which was a `TypeError`), and a zombie's write racing the new holder's
+  leaving one business row. A store on the pre-#508 row schema fails the first, a check-then-write
+  store the last.
+
 ## Unreleased — 0.1.1: what the acceptance of 0.1.1 found (#529–#532)
 
 - **Fixed — `circuitBreakerPolicy: null` is a missing policy** (#529): a JS project's `null` assembled,
@@ -17,6 +38,7 @@ Breaking changes and notable additions, newest first. The API reports
   `"npm install …"` string; a duration through a second variable, a limit named by a constant.
 - **Docs — [Payment gateways](Payment-gateways)**: `call.idempotencyKey` has no fixed length; a
   gateway with a shorter limit (Square: 45) gets a digest of it, never a key cut short (#532).
+
 ## Unreleased — 0.1.1: one transactional backend, checked at assembly (#526 PR 1)
 
 - **Breaking for stores outside the core — `static backend`**
