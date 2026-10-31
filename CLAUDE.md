@@ -1897,8 +1897,9 @@ askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn o
   declared → `tenant: { tenantId }` optional (`"default"`), `execution` does not compile. A
   thread's key is `tenantId` + `threadId`: another tenant's thread does not exist for the caller —
   `execute` with an id the tenant does not have yet creates the caller's own thread (#262 Q4: an
-  idempotent id; bound to `ownerId`; only once the budgets pass; 1–200 characters, no control
-  characters, else `InvalidThreadIdError`), `cancel` of it is `UnknownThreadError`; every
+  idempotent id; bound to `ownerId`; only once the budgets pass; a key's text — the business key's
+  rules, #538 —, else `InvalidThreadIdError` naming its `rule`, never the id, and kept out of
+  `onExecutionRejected`), `cancel` of it is `UnknownThreadError`; every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
@@ -2038,8 +2039,13 @@ send, reconcile })` records an intent before the call and settles it after, over
   `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
 - **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
-fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 1–200 characters,
-  no control characters, else `InvalidBusinessKeyError`, `fenced-effect.invalid-business-key`) —
+fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; a key's text,
+  #538 — 1–200 characters, no C0 / C1 control (`Cc`), no format character (`Cf`: zero-width, bidi
+  controls, U+FEFF, …), no lone surrogate, in NFC, never normalized silently: `keyTextRuleOf(text)`
+  → `KeyTextRule`, the same for thread ids; else `InvalidBusinessKeyError`,
+  `fenced-effect.invalid-business-key`, its `rule` named, never the key — checked by
+  `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, `checkedBusinessKey` for a
+  store of your own) —
   one row per tenant, name and business key, whatever step, execution or thread makes it; fencing
   is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
   The same key and fingerprint (an HMAC of canonical JSON under a subkey of the application's `pseudonymKey`, `"agboss/fingerprint/v1"` — a labelled SHA-256 without one; `OutboundCalls` takes its request's) →

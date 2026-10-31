@@ -2,6 +2,7 @@ import { Injectable } from "../components/decorators.js";
 import { AGBossError } from "../core/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
+import { checkedBusinessKey, checkedEffectName } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
@@ -139,6 +140,9 @@ export class OutboundCalls {
     key: FencedEffectKey,
     options: OutboundCallOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
+    // a key built by hand is checked as fencedEffectKeyOf checks it (#508, #538): nothing recorded or sent
+    checkedEffectName(key.name);
+    checkedBusinessKey(key);
     const { sendOutboundCall } = await import("./outbound-call-protocol.js");
     const { repository, settings } = this;
     const live = this.#live;

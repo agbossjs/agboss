@@ -8,6 +8,8 @@
 export {
   AGBossError,
   ExecutionCancelledError,
+  KeyTextRule,
+  keyTextRuleOf,
   type ErrorDetails,
   type AGBossErrorOptions,
 } from "./core/errors.js";
