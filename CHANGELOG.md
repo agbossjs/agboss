@@ -45,6 +45,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   says how fast the store's own clock runs (1 for a database that decides by its clock). The history
   now keeps a lease's length, a claim's expected state and an ending's owner.
 
+- **The guarantees page** (#533) — Wiki → Guarantees: the five guarantees of several instances
+  (one owner per tree, one effect per business key, one send per attempt, no takeover of finished
+  work, compensation only on real failure), the eleven assumptions they rest on with what breaks
+  when one does not hold, every proof with where it bites, and what no checker reaches.
+
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /

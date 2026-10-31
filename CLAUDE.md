@@ -1342,7 +1342,8 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
   operations before or after the store, the way scenarios force orders across processes; broken
   stores fail the scenario they target (`tests/faults/sabotage.test.ts`), and a set whose fenced-effect or outbound-call store declares `LeaseCheck.WithoutDoubleChargeProtection` fails the suite's case `fences atomically …` (`[fault-suite.opted-out-store]`, #584). Wiki →
-  Guarantees-across-processes. On the public surface alone
+  Guarantees-across-processes; every guarantee of several instances with the assumptions it rests
+  on and the checker that proves it: Wiki → Guarantees (#533). On the public surface alone
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
