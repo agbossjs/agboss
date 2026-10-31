@@ -10,7 +10,7 @@ import { planEvalCase, type EvalCasePlan } from "../scaffold/generate-eval-case.
 import { loadCliApplication } from "./cli-application.js";
 import { textOption, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";
-import { CliError, usageError } from "./errors.js";
+import { checkedTenantOption, CliError, usageError } from "./errors.js";
 
 /**
  * `agboss generate eval-case <name> [--suite <name>] --from-execution <executionId> [--tenant <id>]
@@ -92,7 +92,7 @@ async function draftOf(context: CommandContext, name: string): Promise<EvalCaseD
       "usage.missing-option",
       "eval-case needs --from-execution <executionId>",
     );
-  const tenant = textOption(context.values, "tenant");
+  const tenant = checkedTenantOption(COMMAND, textOption(context.values, "tenant"));
   const { application } = await loadCliApplication(context);
   const opened = await openExecutionHistory(application, {
     env: envOption(context),
