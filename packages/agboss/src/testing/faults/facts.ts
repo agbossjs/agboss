@@ -51,4 +51,6 @@ export interface FaultRun extends FaultFacts {
   readonly payments: readonly GatewayPaymentFact[];
   readonly events: readonly PodEventFact[];
   readonly history: OperationHistory;
+  /** How much faster than real time the pods' clocks ran (#533: the checker maps the history's times by it). */
+  readonly timeScale?: number;
 }
