@@ -10,7 +10,7 @@ Breaking changes and notable additions, newest first. The API reports
   outbound-call stores, the clock, the held lease, the fence and the outbound-call protocol. It runs
   their tests, incrementally. The CI job `mutation` fails below 100 %: every mutant is killed by a
   test or ignored where it stands by a `Stryker disable` comment that says why it is equivalent.
-  Now: 800 mutants, 747 killed, 6 timeouts, 47 justified. It found #574.
+  Now: 813 mutants, 760 killed, 6 timeouts, 47 justified. It found #574.
 ## Unreleased — 0.1.1: an id the project's own IdGenerator mints is a key's text (#578)
 
 - **Fixed**: every id the framework mints through the application's `IdGenerator` — a root's, a
