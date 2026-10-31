@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what a runtime upgrade can do to a stored key (#587)
+
+- Docs: the `unassigned` rule never refuses a key it accepted before, and NFC is stable. The other
+  key-text rules read Unicode properties that a later Unicode may change for an assigned character
+  (U+00AD `Pd` → `Cf` in 4.0). So a newer runtime may refuse a stored key: a refusal, never a second
+  charge. Before, the docs said "a key accepted now stays a key on a newer runtime". Found in the
+  acceptance of #556. Several-instances.
 ## Unreleased — 0.1.1: the fault suite proves the payment's fence and refuses an opted-out set (#584)
 
 - **Added**: scenario 5c `s05c-zombie-reaches-payment-first`. A pod is frozen at its payment's
@@ -41,6 +48,7 @@ Breaking changes and notable additions, newest first. The API reports
   ([Guarantees across processes](Guarantees-across-processes#what-a-reader-of-the-records-should-know)).
   The fault suite's `children-once` counts the observers' ends again, exactly one per finished child.
   Found by #484.
+
 
 ## Unreleased — 0.1.1: the interleaving explorer (#533 item 1)
 

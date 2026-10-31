@@ -708,10 +708,15 @@ export class ChargeOrderAction {
   - no private-use character (`Co`) and no noncharacter (U+FDD0–U+FDEF, U+xFFFE and U+xFFFF of every
     plane) (`private-or-noncharacter`): their meaning is no one's but a font's or one system's;
   - no code point unassigned in the runtime's Unicode (`Cn`, `unassigned`): a later Node may give it a
-    decomposition or make it a format character, which would refuse a key stored before. Unassigned
-    code points only ever become assigned, so a key accepted now stays a key on a newer runtime;
-    during a rolling upgrade a key holding a character only the newer runtime assigns is refused by
-    an older instance — a refusal, never a second charge;
+    decomposition or make it a format character, which would refuse a key stored before. A code
+    point never becomes unassigned again, so this rule never refuses a key it once accepted. NFC is
+    stable for assigned characters too (Unicode's normalization stability policy). The other rules
+    read a character's category (`Cc`, `Cf`, `Zs`) and `Default_Ignorable_Code_Point`. Unicode does
+    not promise to keep those for assigned characters, and they have changed: U+00AD went from `Pd`
+    to `Cf` in 4.0, U+200B from `Zs` to `Cf` in 4.0.1, U+180E from `Zs` to `Cf` in 6.3 (#587). So a
+    newer Node may refuse a key an older one accepted, and during a rolling upgrade a key holding a
+    character only the newer runtime assigns is refused by an older instance. Either way it is a
+    refusal, never a second charge;
   - no U+2800 BRAILLE PATTERN BLANK, which renders as a blank but is a symbol (`blank`);
   - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
     key changed on its way in would no longer replay what was stored under it. Normalize where the
