@@ -2415,7 +2415,7 @@ check:real-time`), the generated `.agboss/types.d.ts` of the framework's test fi
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
 `agboss check --strict` on flow-patterns' two applications (warnings are errors, `--federation`
-between them) and its own lint and `agboss check --models` on flow-patterns (`npm run check:models`). Compiled docs (`scripts/check-docs.mjs`) typecheck
+between them) and its own lint and `agboss check --models` on flow-patterns (`npm run check:models`). CI's separate `mutation` job (#533) runs Stryker on the fencing modules (`packages/agboss/stryker.config.mjs`: the leases, the fence, the held lease, the fenced effect, the outbound call's protocol and store, the store's clock) with the tests of `vitest.mutation.config.ts`, incremental from the last run, and fails below 100 % — every mutant killed, or justified where it stands (`// Stryker disable next-line <mutator>: <reason>`); locally `npm run test:mutation -w @agboss/core`. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every

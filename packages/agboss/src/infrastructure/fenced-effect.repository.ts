@@ -236,6 +236,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   protected storedResultOf(key: FencedEffectKey, result: unknown): string {
     const text = JSON.stringify(result);
+    // Stryker disable next-line StringLiteral: `Buffer.byteLength` counts UTF-8 for an empty encoding as for "utf8"
     const size = Buffer.byteLength(text, "utf8");
     if (size > this.settings.maxResultSize)
       throw new FencedEffectResultTooLargeError({
@@ -266,9 +267,11 @@ function observedCall<TResult>(
   call: Promise<FencedEffectOutcome<TResult>>,
 ): Promise<FencedEffectOutcome<TResult>> {
   const lease = frame?.execution.lease;
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: `lease` is undefined without a frame, and a lease without `recordFencedEffect` only wraps the call in a `then` whose report is a no-op
   if (frame === undefined || lease?.recordFencedEffect === undefined) return call;
   const { name, scopeKey, token } = key;
   const report = (outcome: FencedEffectEventOutcome, tokens: object): void => {
+    // Stryker disable next-line OptionalChaining: `recordFencedEffect` is defined here: `observedCall` returned the call as it is otherwise
     lease.recordFencedEffect?.({
       event: nodeEventOf(frame),
       name,

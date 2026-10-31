@@ -56,6 +56,7 @@ export class SystemClock extends Clock {
       };
       const timer = setTimeout(done, delay);
       timer.unref();
+      // Stryker disable next-line ObjectLiteral,BooleanLiteral: an abort event fires once, and `done` removes the listener itself either way
       signal?.addEventListener("abort", done, { once: true });
     });
   }
