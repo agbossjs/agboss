@@ -14,6 +14,18 @@ type Instances = ContractInstances<ExecutionLeaseRepository>;
 /** A tree's lease for 30 s. */
 const LEASE = seconds(30);
 
+/**
+ * Whether `store` renewed `held`: what any shape of answer says (#533 may answer the time left
+ * instead of `true`) — a refusal is `false` or nothing.
+ */
+const isRenewed = async (
+  store: ExecutionLeaseRepository,
+  held: ExecutionLease,
+): Promise<boolean> => {
+  const answer: unknown = await store.renew(held, LEASE);
+  return answer !== false && answer !== undefined;
+};
+
 /** How many times each race runs: a store that lets both win now and then loses one of them. */
 const ROUNDS = 5;
 
@@ -25,7 +37,7 @@ interface RacingCall {
 }
 
 const RACING_CALLS: readonly RacingCall[] = [
-  { name: "a renewal", isYielded: false, call: (store, held) => store.renew(held, LEASE) },
+  { name: "a renewal", isYielded: false, call: isRenewed },
   {
     name: "a reclaim of a yielded lease",
     isYielded: true,
@@ -82,12 +94,12 @@ const renewedFromNow: ContractCase<ExecutionLeaseRepository> = {
     const held = await first.acquire("default", "root-1", LEASE);
     if (held === undefined) throw new Error("the first acquire of a free tree takes it");
     await clock.advance(seconds(29.999));
-    expect(await first.renew(held, LEASE)).toBe(true);
+    expect(await isRenewed(first, held)).toBe(true);
 
     await clock.advance(seconds(29.999));
     const refusedJustBefore = await second.acquire("default", "root-1", LEASE);
     await clock.advance(seconds(0.001));
-    const isRenewedAtSecondExpiry = await first.renew(held, LEASE);
+    const isRenewedAtSecondExpiry = await isRenewed(first, held);
     const taken = await second.acquire("default", "root-1", LEASE);
 
     expect(refusedJustBefore).toBeUndefined();

@@ -73,6 +73,12 @@ const intentWriteAt = (write: IntentWrite, edge: ExpiryEdge): OutboundCallCase =
   };
 };
 
+/** Whether the holder renewed `lease`: `false` or nothing is a refusal, whatever else it answers. */
+const isRenewed = async (stores: OutboundCallStores, lease: ExecutionLease): Promise<boolean> => {
+  const answer: unknown = await stores.leases.renew(lease, LEASE);
+  return answer !== false && answer !== undefined;
+};
+
 /** The state of `stores`' view of `lease`. */
 const stateOf = (stores: OutboundCallStores, lease: ExecutionLease) =>
   stores.calls.leaseStateOf({
@@ -116,13 +122,13 @@ const stateRacingRenewalAt = (edge: ExpiryEdge, isCheckFirst: boolean): Outbound
       const lease = await leaseOf(first, "execution-1", LEASE);
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
 
-      const [state, isRenewed] = isCheckFirst
-        ? await Promise.all([stateOf(second, lease), first.leases.renew(lease, LEASE)])
-        : await Promise.all([first.leases.renew(lease, LEASE), stateOf(second, lease)]).then(
+      const [state, wasRenewed] = isCheckFirst
+        ? await Promise.all([stateOf(second, lease), isRenewed(first, lease)])
+        : await Promise.all([isRenewed(first, lease), stateOf(second, lease)]).then(
             ([renewed, checked]) => [checked, renewed] as const,
           );
 
-      expect(isRenewed).toBe(isLive);
+      expect(wasRenewed).toBe(isLive);
       expect(state).toBe(isLive ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Superseded);
     },
   };
