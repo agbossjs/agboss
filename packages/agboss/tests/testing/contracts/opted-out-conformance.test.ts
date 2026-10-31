@@ -142,6 +142,10 @@ describe("#543 AC2: the opt-out is the author's statement, never overridden", ()
       "AC3: two instances call one key at once: one Ran, one Replayed, the write runs once",
       "#508: two instances racing on one business key from two executions write once",
       "#508 AC3: a concurrent call with another fingerprint under one business key is refused, not joined",
+      // #574: "" and none are two requests: a check-then-write store runs both
+      '#574: on one instance a call with none in flight beside one with fingerprint "" is refused, not joined',
+      '#574: on one instance a call with fingerprint "" in flight beside one with none is refused, not joined',
+      '#574: two instances racing under one business key, one with fingerprint "" and one with none, write once and refuse the other',
     ]);
     // every other case the un-flagged store fails is a fencing case: skipped once it says so
     const fencingFailures = named(unflagged, "fail").filter(
