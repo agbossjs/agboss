@@ -1383,7 +1383,9 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   created before the stores that inject it, so it may not depend on the contexts. Every id it mints
   is a key's text (#578, `keyTextRuleOf`: the framework mints through `CheckedIdGenerator`), else
   `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`, never the id)
-  before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8. An id is
+  before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8;
+  `app.resolve(IdGenerator)` gives that check, `app.resolve(<the listed class>)` the listed instance
+  itself, unchecked (#614) — a component mints through `deps: [IdGenerator]`, never its own class. An id is
   never repeated over the life of the application's stores (#591): every execution id minted is kept
   by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
   by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`), and one any execution had —
