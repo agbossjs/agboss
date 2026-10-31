@@ -3,6 +3,7 @@ import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observa
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
+import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
 import { InvalidThreadIdError } from "../run/thread.js";
@@ -115,6 +116,13 @@ const safeMessageOf = (error: unknown): string => {
 };
 
 /**
+ * The tenant a rejection names (#568): the request's, `"default"` when it named none or one that is
+ * no key's text — an id refused for its text is never echoed, as a thread id is not.
+ */
+const shownTenantIdOf = (tenantId: string | undefined): string =>
+  tenantId === undefined || keyTextRuleOf(tenantId) !== undefined ? DEFAULT_TENANT_ID : tenantId;
+
+/**
  * The `onExecutionRejected` event of a refused request: no execution id, no input values — and no
  * thread id that is not one (#538: an id refused for its text is never echoed, the rule names it).
  */
@@ -124,7 +132,7 @@ function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionReject
   return {
     operation,
     ...(threadId === undefined ? {} : { threadId }),
-    tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
+    tenantId: shownTenantIdOf(request.tenantId),
     code: codeOf(error),
     message: safeMessageOf(error),
   };

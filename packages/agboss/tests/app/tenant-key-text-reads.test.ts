@@ -3,7 +3,8 @@
  * too: `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCalls`. On SQLite (and
  * PostgreSQL) `t\uD800` is stored as `t�`, so a read under a lone surrogate would be another
  * tenant's rows; any other refused text names no tenant that could exist. Each read refuses it with
- * `dto.invalid` naming `tenantId` and the rule, never the id, before the store is asked.
+ * `dto.invalid` naming `tenantId` and the rule, never the id, before the store is asked. And the
+ * rejection event of such an id names the tenant `"default"`, as its documentation says — never the id.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/dto/errors.js";
@@ -17,6 +18,12 @@ import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.work
 import { ChargeWorkflowStart, resetRuns } from "./fixtures/outbound-call.workflow.js";
 import { frozenCharges, gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 import { REFUSED_KEYS } from "./fixtures/key-texts.js";
+import {
+  echoSeen,
+  KeyEchoApplication,
+  KeyedEffectStart,
+  resetEchoSeen,
+} from "./fixtures/key-echo.application.js";
 
 sqliteFilePerTest();
 const sqlite = testWith(SqliteOutboundCallApplication);
@@ -93,4 +100,27 @@ describe("#552 acceptance: a tenant id at the operator's reads", () => {
     await app.ready();
     for (const [read, made] of reads(app, "acme")) expect(await made(), read).toEqual([]);
   });
+});
+
+const echo = testWith(KeyEchoApplication);
+
+describe("#552 acceptance, #568: the rejection event of a tenant id that is no key's text", () => {
+  echo.for(REFUSED_KEYS.filter(([, , text]) => text.length >= 3))(
+    '%s (%s): named "default", as the event\'s documentation says — never the id',
+    async ([, , tenantId], { app }) => {
+      resetEchoSeen();
+      await rejectionOf(() =>
+        execute(app, KeyedEffectStart, { text: "order:1" }, { tenant: { tenantId } }),
+      );
+      await rejectionOf(() =>
+        app.resume({ pauseId: "p-1", decision: { approved: true } }, { tenantId, ownerId: "a" }),
+      );
+      await rejectionOf(() => app.cancel("thread-1", { tenantId }));
+
+      expect(echoSeen.events).toHaveLength(3);
+      for (const event of echoSeen.events)
+        expect(event).toMatchObject({ code: "dto.invalid", tenantId: "default" });
+      expect(JSON.stringify(echoSeen.events)).not.toContain(JSON.stringify(tenantId).slice(1, -1));
+    },
+  );
 });
