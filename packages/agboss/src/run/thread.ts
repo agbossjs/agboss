@@ -22,15 +22,21 @@ const MAX_THREAD_ID_LENGTH = 200;
 const isControl = (code: number): boolean => code < 0x20 || code === 0x7f;
 
 /**
- * A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters — the rule of
- * a business key too (#508).
+ * Half of a surrogate pair standing alone: no character. SQLite and PostgreSQL keep text as UTF-8,
+ * where it becomes U+FFFD — two ids would be one row — and `encodeURIComponent` throws on it.
+ */
+const LONE_SURROGATE = /\p{Cs}/u;
+
+/**
+ * A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters and no lone
+ * surrogate — the rule of a business key too (#508).
  */
 export function isThreadId(threadId: string): boolean {
   if (threadId.length === 0 || threadId.length > MAX_THREAD_ID_LENGTH) return false;
   for (let index = 0; index < threadId.length; index += 1) {
     if (isControl(threadId.charCodeAt(index))) return false;
   }
-  return true;
+  return !LONE_SURROGATE.test(threadId);
 }
 
 export class UnknownThreadError extends AGBossError {

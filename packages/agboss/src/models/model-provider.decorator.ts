@@ -145,14 +145,19 @@ export function modelProviderOf(cls: object): KeptModelProviderOptions {
   return options;
 }
 
+/** The breaker as a JS project or a cast may hand it over: left out, or `null`. */
+interface UncheckedBreaker {
+  readonly circuitBreakerPolicy?: CircuitBreakerPolicy | null;
+}
+
 /**
- * A provider's breaker as the decorator was given it: required by the type, absent only from a JS
- * project or a cast — `[model-provider.circuit-breaker-required]` at assembly (#521).
+ * A provider's breaker as the decorator was given it: required by the type, absent (or `null`) only
+ * from a JS project or a cast — `[model-provider.circuit-breaker-required]` at assembly (#521).
  */
 export const circuitBreakerPolicyOf = (
   options: ModelProviderOptions,
 ): CircuitBreakerPolicy | undefined =>
-  (options as Partial<Pick<ModelProviderOptions, "circuitBreakerPolicy">>).circuitBreakerPolicy;
+  (options as UncheckedBreaker).circuitBreakerPolicy ?? undefined;
 
 /** Whether a class (or a value listed in `providers`) is a `@ModelProvider` class. */
 export const isModelProviderClass = (value: unknown): value is ModelProviderType =>
