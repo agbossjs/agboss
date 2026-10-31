@@ -90,7 +90,8 @@ describe("#262 Q4: a caller's own thread id", () => {
         InvalidThreadIdError,
       );
     }
-    await expect(app.cancel("a\u0000b")).rejects.toBeInstanceOf(UnknownThreadError);
+    // #552: cancel holds its thread id to the same rules — refused for its text, before any lookup
+    await expect(app.cancel("a\u0000b")).rejects.toBeInstanceOf(InvalidThreadIdError);
   });
 
   test("a refused execution creates nothing: no thread before the budget check", async ({

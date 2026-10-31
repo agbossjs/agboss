@@ -28,6 +28,9 @@ import { inMemoryFencedEffects, sqliteFencedEffects } from "./contracts/fenced-e
 import { inMemoryOutboundCalls, sqliteOutboundCalls } from "./contracts/outbound-call-stores.js";
 import { inMemoryTarget, sqliteTarget } from "./contracts/store-kinds.js";
 import { rewritingKeys } from "../fixtures/contracts/naive-guarantees.js";
+import { seededProperties } from "../helpers/property-seed.js";
+
+seededProperties("key-text.property.test.ts");
 
 /** What the rules refuse, to be mixed in: C1, Cf, lone surrogates, a combining mark after a base. */
 const HAZARDS = [

@@ -160,6 +160,13 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
   `InvalidThreadIdError`): SQLite and PostgreSQL keep text as UTF-8, where two such keys were one
   row, and an outbound call's key threw `URIError`.
+- **A tenant id is a key's text too** (#552) — the rules of #538 hold a tenant id at
+  `app.execute` (`tenant: { tenantId }`), `app.resume` and `app.cancel` (`dto.invalid`, the field
+  and the rule named, never the id): a tenant id with a lone surrogate was written to SQLite and
+  PostgreSQL as U+FFFD, so two tenants shared one thread, lease and business-key row, and its first
+  execution failed with a raw `URIError` after binding the thread; an NFD or a zero-width tenant id
+  was a second tenant of one customer. `app.cancel`'s thread id is checked as `execute`'s is
+  (`InvalidThreadIdError`, the id kept out of the message and `onExecutionRejected`).
 - **Look-alike keys are refused, never charged twice** (#538) — a business key and a thread id
   are refused when they hold a C1 control (U+0080–U+009F, beside C0 and DEL), a format character
   (Unicode `Cf`: zero-width space and joiners — so emoji joined by U+200D too —, bidi controls,
