@@ -17,6 +17,7 @@ import type { ChildGraph } from "./child.js";
 import {
   childFailureOf,
   childRecordOf,
+  isRecordedAs,
   ownUsageOf,
   type ChildFailure,
   type EndedChild,
@@ -131,7 +132,11 @@ async function keptForParent(
   raised: unknown,
 ): Promise<void> {
   for (const record of failure.reported) parent.frame.services.reportUsage?.(record);
-  if (raised instanceof CompensationFailedError) await parent.undo.budgets?.record(failure.usage);
+  if (
+    raised instanceof CompensationFailedError ||
+    isRecordedAs(raised, CompensationFailedError.code)
+  )
+    await parent.undo.budgets?.record(failure.usage);
 }
 
 /** A child that threw: undone, its record and spend kept, its error event, its failure as the parent sees it. */

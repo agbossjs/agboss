@@ -1,11 +1,15 @@
+import { durableErrorOf, recordedErrorOf } from "../../../core/error-record.js";
+
 /**
- * A remote child's error across instances (#333 PR 2): the worker keeps its name, `code`, message
- * and cause chain in the queue row; the parent's step gets it back as `RemoteChildFailure`s — the
- * cause of its `ChildExecutionFailedError`, as a local child's error is. The classes are not
- * carried: a side path matching the child's own error class by the cause chain is #333 PR 4.
+ * A remote child's error across instances (#333 PR 2, #598): the worker keeps its durable record —
+ * its class line by code, message and causes (`durableErrorOf`) — in the queue row; the parent's
+ * step gets it back as a `RecordedError`, the cause of its `ChildExecutionFailedError` as a local
+ * child's error is, routed by `.onError` as the original was: a side path on the child's own error
+ * class is taken on every instance. A row written before #598 (names, codes and messages only) is
+ * read back as `RemoteChildFailure`s, which match no project class — on every instance alike.
  */
 
-/** A remote child's error (or one of its causes) on its parent's instance. */
+/** A remote child's error (or one of its causes) of a row written before #598. */
 export class RemoteChildFailure extends Error {
   constructor(
     readonly originalName: string,
@@ -18,30 +22,11 @@ export class RemoteChildFailure extends Error {
   }
 }
 
-/** How deep a cause chain is kept. */
+/** How deep a legacy row's cause chain is read. */
 const MAX_CAUSES = 5;
 
-interface FailureRecord {
-  readonly name: string;
-  readonly message: string;
-  readonly code?: string;
-  readonly cause?: FailureRecord;
-}
-
-function recordOf(error: unknown, depth: number): FailureRecord {
-  if (!(error instanceof Error)) return { name: "Error", message: String(error) };
-  const code: unknown = Reflect.get(error, "code");
-  const cause: unknown = error.cause;
-  return {
-    name: error.name,
-    message: error.message,
-    ...(typeof code === "string" ? { code } : {}),
-    ...(cause === undefined || depth >= MAX_CAUSES ? {} : { cause: recordOf(cause, depth + 1) }),
-  };
-}
-
-/** An error as the queue row's `failure` text. */
-export const failureTextOf = (error: unknown): string => JSON.stringify(recordOf(error, 1));
+/** An error as the queue row's `failure` text: its durable record (#598). */
+export const failureTextOf = (error: unknown): string => JSON.stringify(durableErrorOf(error));
 
 const textField = (value: unknown, key: string): string | undefined => {
   const field: unknown =
@@ -60,6 +45,8 @@ function failureOf(value: unknown, depth: number): RemoteChildFailure {
   );
 }
 
-/** The error a row's `failure` text names. */
-export const remoteFailureOf = (text: string | undefined): RemoteChildFailure =>
-  failureOf(text === undefined ? undefined : JSON.parse(text), 1);
+/** The error a row's `failure` text names: rebuilt from its record, or a legacy row's names. */
+export function remoteFailureOf(text: string | undefined): Error {
+  const value: unknown = text === undefined ? undefined : JSON.parse(text);
+  return recordedErrorOf(value) ?? failureOf(value, 1);
+}
