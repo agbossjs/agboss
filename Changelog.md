@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a lease is over at its expiry, for its holder too (#534)
+
+- **Changed — breaking for stores outside the core**: a lease is live while `expiresAt > now`, and
+  only then, for every instance — its holder included. At `now >= expiresAt` the holder's `renew`
+  and `yield` are `false`, its `reclaim` is `undefined`, `fence.confirmNow()` loses the lease and a
+  fenced write or an outbound call's write at its token is `ExecutionFencedError`, whether another
+  instance took it or not; the holder takes the tree again only by `acquire`, a takeover from
+  itself. The in-memory and SQLite stores used to renew and reclaim an expired lease no one had
+  taken; PostgreSQL refused it but for the exact instant (`>=`). One line now in every check:
+  `acquire`, the renewals, the fence of a write, `leaseStateOf`, the local fence
+  ([Several instances](Several-instances#the-execution-lease)).
+- **New contract cases** at `expiresAt − 1 ms` (kept), exactly at it and `+ 1 ms` (refused) for
+  `renew` of a held and of a yielded lease, `reclaim`, `yield`, the framework's `confirmNow()` and
+  its renewal before a checkpoint write (its timers paused, as in a GC pause), a fenced write, the
+  record of an outbound call's intent and `leaseStateOf`; the holder's way back by `acquire`; a take
+  and a renewal at the instant of expiry never both win. Gone: "a lease renewed exactly at expiry,
+  not taken meanwhile, is kept" and "a yielded lease reclaimed exactly at its expiry, not taken
+  meanwhile, is the holder's again". **Migration:** match `expires_at > now` in `renew`, `yield` and
+  `reclaim` ([Your own store](Your-own-store#recipes-sql)).
+- **Tests**: one `clock.advance` of a whole lease (30 s) or more is a holder frozen past its expiry:
+  its lease is lost even when no one took it, its call rejects with `ExecutionLeaseLostError` and
+  recovery continues the tree. To let time pass for a live holder, advance in steps shorter than
+  the lease (`seconds(10)`).
+
 ## Unreleased — 0.1.1: storeConformance and the guide for store authors (#526 PR 2)
 
 - **Added — [Your own store](Your-own-store)**: what each contract must make atomic and why each

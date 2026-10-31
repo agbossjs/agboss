@@ -32,7 +32,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | Contract | The operation | What must be one atomic step | Without it |
 | --- | --- | --- | --- |
 | `ExecutionLeaseRepository` | `acquire` | read the tree's lease, decide it is free (released, expired, never finished), write the new holder at `leaseEpoch + 1` | two instances both take a free lease: **two owners** move one tree |
-| | `renew`, `release`, `yield`, `reclaim`, `finish` | match the holder **and** the epoch, then write | a zombie renews or releases the new holder's lease: the new owner loses it mid-step |
+| | `renew`, `release`, `yield`, `reclaim`, `finish` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
 | `FencedEffectRepository` | `saveResultIfAbsent` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
 | `OutboundCallRepository` | every fenced method | the same lease and mark check, in the same step as the read or the write of the intent | a zombie records or completes an intent the new holder is about to send: **two sends** |
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
@@ -137,7 +137,19 @@ RETURNING lease_epoch;                                       -- no row: refused
 
 `renew`, `release`, `yield` and `finish` are one `UPDATE … WHERE tenant_id = $1 AND
 root_execution_id = $2 AND holder_instance_id = $3 AND lease_epoch = $4 AND NOT released` each, and
-succeed only when exactly one row changed.
+succeed only when exactly one row changed; `renew`, `yield` and `reclaim` add `AND expires_at > $5`
+(the clock's now).
+
+**The boundary (#534): a lease is live while `expires_at > now`, and only then — for every
+instance, its holder included.** At `now >= expires_at` it is over: `acquire` takes it (`expires_at
+<= now` above), and the holder's `renew` and `yield` are `false`, its `reclaim` `undefined`, its
+`confirmNow()` lost and every fenced write at its token refused, whether another instance took it
+or not. One comparison everywhere — never `>=` in one statement and `>` in another, never holder
+and epoch alone: at the very instant of expiry a takeover and a renewal would both be legal, and a
+renewal that wins after `leaseStateOf` or a fence check gave the lease up keeps two owners. The
+holder takes its tree again only by `acquire`, at the next epoch, a takeover from itself
+(`takenOverFrom` names it). The suites pin it 1 ms before, exactly at and 1 ms after the expiry, for
+each of these operations.
 
 **A fenced effect, one transaction**: the lease row is locked first, so a takeover waits for the
 commit, or the commit sees the takeover.
@@ -371,6 +383,8 @@ storeConformance({
 - [ ] Every time value comes from the framework's `Clock` (a parameter), never the database's.
 - [ ] `acquire` is one atomic step; `renew` / `release` / `yield` / `reclaim` / `finish` match the
       holder and the epoch, and succeed only when one row changed.
+- [ ] A lease is live while `expires_at > now` in every statement, for its holder too (#534):
+      `renew`, `yield`, `reclaim` and every fence check refuse it at its expiry, `acquire` takes it.
 - [ ] A fenced effect's lease check, mark, key, business rows and result are one transaction. The
       work gets that transaction. A throw rolls everything back.
 - [ ] Every outbound-call method is fenced. `markPending` / `markCompleted` / `markFailed` are

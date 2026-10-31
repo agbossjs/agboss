@@ -256,9 +256,9 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   holds no lease;
 - while a parent node waits for children on any instance, **yields** it — in the store, not by a
   release (#516, [below](#a-parent-waiting-for-remote-children-516)): still its own, renewed on;
-- when a renewal answers `false` (the lease expired — the instance was frozen or cut off for longer
-  than 30 seconds — and another instance took it, `leaseEpoch + 1`), stops: its work is aborted
-  through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
+- when a renewal answers `false` (the lease expired — the instance was frozen or cut off for 30
+  seconds or longer —, whether another instance took it, `leaseEpoch + 1`, or not), stops: its work
+  is aborted through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
   That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
   record — the new holder owns the execution and continues it;
 - fences itself locally (#335): it trusts the lease until `confirmedUntil` — the `Clock` read
@@ -271,6 +271,23 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   renewal; the class, `code` and fields are the same), an agent's tool loop starts no further model
   or tool call, a checkpoint write at or past it throws it, and the record stays `running` for
   [recovery](#recovery).
+
+**The lease's boundary (#534).** A lease is live while `expiresAt > now`, and only then — for
+every instance, **its holder included**. At `now >= expiresAt` it is over: another instance's
+`acquire` takes it; the holder's `renew` and `yield` answer `false`, its `reclaim` nothing, its
+`fence.confirmNow()` loses the lease, and every fenced write and outbound-call write at its token is
+refused (`ExecutionFencedError`) — even when no one took it yet. The holder takes the tree again
+only by `acquire`, at a new epoch, recorded as a takeover from itself. Every check of a lease draws
+the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
+fence (`now >= confirmedUntil`) — so no lease is kept by one part of the system and given up by
+another, and at the very instant of expiry only the taker wins. A healthy holder never comes near
+it: it renews every 10 s, a third of the lease, so each renewal reaches the store with 20 s left,
+and one renewal its store does not answer still leaves 10 s. What reaches it is a stop-the-world
+pause (a GC pause, a frozen VM) of 30 s or more: the holder hands the tree over at its next renewal
+or write, and recovery continues it from its last checkpoint — one owner at a time, the effects of
+its steps keyed and fenced, so none is lost and none runs twice. In tests one `clock.advance` of a
+whole lease is such a pause; to let time pass for a live holder, advance in steps shorter than the
+lease.
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
