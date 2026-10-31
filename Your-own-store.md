@@ -565,7 +565,7 @@ held operation. You write no seam of your own to force an order across processes
 - [ ] Every outbound-call method is fenced. `markPending` / `markCompleted` / `markFailed` are
       compare-and-sets. `leaseStateOf` reads and closes in one step.
 - [ ] `checkedEffectName` and `checkedBusinessKey` (#538: a business key's text — no control or
-      format character, no lone surrogate, NFC) run at every fenced method's entry; a business key is
+      format character, no lone surrogate, NFC; #547: no space but U+0020, single and inside) run at every fenced method's entry; a business key is
       stored and compared byte for byte — no case-insensitive collation, no trim, no normalization.
       Keys, replays and records use `fencedKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
 - [ ] The lease, fenced-effect and outbound-call stores declare `static backend` (one text for one

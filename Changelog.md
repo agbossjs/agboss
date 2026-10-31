@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: keys with look-alike spaces are refused (#547)
+
+- **Changed**: a business key and a thread id are refused when they hold a space other than U+0020
+  (`Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F, U+205F, U+3000) or a line or paragraph separator
+  (U+2028, U+2029) — `KeyTextRule.SpaceSeparator` — and when a U+0020 starts or ends them or two
+  come in a row — `KeyTextRule.Spacing`. Checked where #538 checks, the key never named.
+- **Migration:** trim keys and thread ids, collapse runs of spaces and make every space U+0020 where
+  they are made.
+
 ## Unreleased — 0.1.1: an opted-out store and storeConformance (#543)
 
 - **Breaking for stores outside the core**: a fencing store that declares

@@ -695,13 +695,17 @@ export class ChargeOrderAction {
     tag characters (`format-character`);
   - no lone surrogate, half of a UTF-16 pair: SQLite and PostgreSQL would store U+FFFD, two keys in
     one row (`lone-surrogate`);
+  - no space but U+0020, and that one single and inside (#547): no other Unicode space separator
+    (`Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F, U+205F, U+3000) and no line or paragraph
+    separator (U+2028, U+2029) — `space-separator` —, no U+0020 at the start or the end and never
+    two in a row — `spacing` (upstream systems differ in whether they trim and collapse spaces);
   - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
     key changed on its way in would no longer replay what was stored under it. Normalize where the
     key is made (`text.normalize("NFC")`).
 
   Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —
-  stored and compared byte for byte: no case folding, no trimming, no NFKC, so `Order:42`,
-  `order:42 ` and `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
+  stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
+  `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
   a refusal is `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`) or
   `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by

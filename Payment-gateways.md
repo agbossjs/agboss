@@ -48,10 +48,12 @@ Rules that follow:
   share one. A key cut short can make two orders one payment ([#532](https://github.com/agbossjs/agboss/issues/532)).
 - **Make the business key once, in one form.** Two texts that look the same are two keys to
   AGBoss and to the gateway: a key with a zero-width space, a bidi control or "e" + U+0301 would be
-  a second charge of one order. AGBoss refuses them (#538: control and format characters, lone
-  surrogates, non-NFC text — `InvalidBusinessKeyError` naming the rule), so normalize an imported
-  identifier where it enters your system (`text.normalize("NFC")`, invisible characters stripped)
-  and never fold case or width afterwards
+  a second charge of one order, and so would `" order-1"`, `"order-1 "`, `"order  1"` or a
+  no-break space in it. AGBoss refuses them (#538: control and format characters, lone surrogates,
+  non-NFC text; #547: a space other than U+0020 or a line or paragraph separator, and a U+0020 at
+  an edge or doubled — `InvalidBusinessKeyError` naming the rule), so normalize an imported
+  identifier where it enters your system (`text.normalize("NFC")`, invisible characters stripped,
+  spaces trimmed, collapsed and made U+0020) and never fold case or width afterwards
   ([Several instances](Several-instances#business-idempotency-keys-508)).
 - **Look up by key, not by the request.** `reconcile` gets the request as stored, masked by the PII
   policies; `lookup.idempotencyKey` is what the gateway knows the call by.
