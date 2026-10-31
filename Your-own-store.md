@@ -302,8 +302,10 @@ return {'ran'}
 
 One call runs every contract the store set claims, with the same cases the core's own stores run
 (their suites are named `<contract> (<name>)`), and the `store set (<name>)` cases. Those check that
-each fencing store's class declares `static backend`, the same as the lease store it checks (or
-opts out), so the set will assemble beside its own leases.
+each fencing store's class declares `static backend`, the same as the set's lease store
+(`stores.executionLease`) — unless it opts out —, and that the lease store its own contract ran on
+is of that backend too (#542), so the set will assemble beside its own leases and its races were
+proven on them.
 
 <!-- snippet-context
 declare class PoolClient { query(sql: string): Promise<void>; }
@@ -358,6 +360,8 @@ storeConformance({
   - `[store-conformance.lease-store-required]` is a fencing store without its lease store;
   - `[store-conformance.without-implemented]` is a contract both given and left out;
   - `[store-conformance.invalid-without]` is a `without` entry that may not be left out;
+  - `[store-conformance.unknown-store]` is a key of `stores` that names no contract (a typo such as
+    `rateLimits`): its store would never be tested (#542);
   - `[store-conformance.empty]` is a set with no store.
 - **The races the suites run**, each round after round, in both orders:
   - a zombie's write racing its lease's release, the next take and the new holder's write of the

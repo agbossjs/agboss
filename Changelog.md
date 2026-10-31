@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the acceptance of #520 and #526 (#542)
+
+- **Fixed**: `store set (<name>)` compared each fencing store with the lease store of its own
+  contract's target, so a set of in-memory leases and SQLite fenced effects passed every case and
+  then failed assembly (`[application.store-backend-mismatch]`). It now compares each fenced-effect
+  and outbound-call store with the set's `stores.executionLease` (an opted-out store excepted), and
+  the lease store its contract ran on with it too.
+- **New**: `[store-conformance.unknown-store]` — a key of `stores` that names no contract is refused;
+  before, its store was counted as claimed and never tested.
+- **New contract cases** of a finished lease (#520): a finish at an epoch a release, a new take or a
+  reclaim moved on, of another holder's lease or of a key nobody took finishes nothing; a finished
+  key is refused to every instance after any time, and a second finish changes nothing.
+
 ## Unreleased — 0.1.1: look-alike keys are refused (#538)
 
 - **Changed — refused keys**: a business key and a thread id holding a C1 control (U+0080–U+009F),
