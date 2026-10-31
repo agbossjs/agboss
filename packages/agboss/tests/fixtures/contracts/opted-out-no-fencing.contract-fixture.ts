@@ -3,8 +3,10 @@ import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructu
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "the flag with no fencing store",
   acceptWithoutDoubleChargeProtection: true,
   without: ["fencedEffect", "outboundCall"],

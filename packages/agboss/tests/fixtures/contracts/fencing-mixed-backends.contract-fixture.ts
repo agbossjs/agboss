@@ -5,8 +5,10 @@ import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { sqliteFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget, sqliteTarget } from "../../infrastructure/contracts/store-kinds.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "in-memory leases, SQLite fenced effects",
   stores: {
     executionLease: inMemoryTarget(

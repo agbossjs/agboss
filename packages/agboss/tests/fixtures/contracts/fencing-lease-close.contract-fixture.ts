@@ -6,8 +6,10 @@ import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-eff
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { selectThenCloseCalls } from "./broken-fencing-stores.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "check-then-write lease close",
   stores: {
     executionLease: inMemoryTarget(

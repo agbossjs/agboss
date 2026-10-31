@@ -5,8 +5,10 @@ import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { ElsewhereEffects, UndeclaredCalls, UndeclaredLeases } from "./broken-fencing-stores.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "stores of no backend or another",
   stores: {
     executionLease: inMemoryTarget(

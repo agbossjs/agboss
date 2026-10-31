@@ -2,5 +2,10 @@
 // sees it — through storeConformance, the core's in-memory store set under the name "fixture-store".
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryStores } from "../../infrastructure/contracts/core-store-sets.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
-storeConformance({ name: "fixture-store", stores: inMemoryStores() });
+storeConformance({
+  name: "fixture-store",
+  stores: inMemoryStores(),
+  interleavings: FIXTURE_INTERLEAVINGS,
+});
