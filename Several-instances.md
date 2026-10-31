@@ -810,7 +810,8 @@ and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
   child), `Reacquired` (a parent took its lease back after waiting for remote children, at a new
   token, no previous holder). A takeover is a take whose store names an expired holder, and every
   take of the recovery sweep, an undo's takeover, a reclaim and a re-acquire; a lease released at a
-  pause and taken by the resume is none;
+  pause and taken by the resume is none, and so is a take of work already over — a finished child, a
+  root whose record no longer runs ([#520](#finished-work-is-never-taken-over-520));
 - **the head checkpoint** (`checkpointId`) the taking instance continues from, where it reads it.
 
 **A step handed over** is a `HandedOver` row (`StepHandedOverRecord`) and an
@@ -1032,6 +1033,9 @@ export class LeaseTableService {
   nextEpochIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<ExecutionLease | undefined> {
     return Promise.resolve(undefined);
   }
+  markFinishedIfHeld(_executionLease: ExecutionLease): Promise<void> {
+    return Promise.resolve();
+  }
   selectOne(): Promise<void> {
     return Promise.resolve();
   }
@@ -1062,6 +1066,11 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   override release(executionLease: ExecutionLease): Promise<void> {
     return this.leaseTableService.deleteIfHeld(executionLease);
+  }
+
+  // #520: the work under it is over — released for good, no acquire of the key gets it again
+  override finish(executionLease: ExecutionLease): Promise<void> {
+    return this.leaseTableService.markFinishedIfHeld(executionLease);
   }
 
   // #516: the holder waits for remote children — still its lease, refused to every other acquire
@@ -1364,7 +1373,9 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    waiting marker so the pause appears in `result.pending`, and on `app.resume` forwards the child's
    resume map through the queue so any instance continues it (#333 PR 4). On a worker crash or a
    graceful stop past `shutdownTimeout` (S7), the row stays `Running`, and once the child's lease is
-   free a live worker reclaims only that child and continues it from its last checkpoint.
+   free a live worker reclaims only that child and continues it from its last checkpoint. An
+   `Answered` or `Failed` child's lease is **finished**, not released
+   ([below](#finished-work-is-never-taken-over-520)); a `Paused` one's is released, for its resume.
 4. While it runs, the worker looks every 10 s whether the tree still waits for it: a cancel request
    ([Cancelling from any instance](#cancelling-from-any-instance)) or the tree's end — its root's end
    removes its rows (`deleteAllByTenantIdAndRootExecutionId`) — aborts it.
@@ -1377,6 +1388,34 @@ run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxC
 is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
 `:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
 are checked where the child runs, and each superstep's spend reaches the root's counters at once.
+
+### Finished work is never taken over (#520)
+
+An instance that froze (a GC pause, `SIGSTOP`, a stalled network) may wake up holding a decision it
+made before: a worker that read a child's queue row `Running` and asked for its lease, a recovery
+sweep that listed a root still `running`. By then another instance may have finished that work.
+Before #520 the waking instance took the lease that had meanwhile been released — a `RemoteChild`
+or `Recovered` row in the [lease log](#the-lease-log-501) for work that was over — and a child's
+worker even kept that lease, renewed, until its instance stopped. Now:
+
+- **A finished child's lease is never given again.** The worker that ends a child `Answered` or
+  `Failed` gives its lease up with `ExecutionLeaseRepository.finish`, after it completed the queue
+  row: a release for good — every later `acquire` of `(tenantId, childExecutionId)` is refused, by
+  any instance, at any time. The refusal is the lease store's own atomic step, so a worker frozen
+  right at its `acquire` gets nothing however long it slept. A `Paused` child's lease is released
+  as before: `app.resume` runs it again.
+- **A take looks at its work before and after the store.** A worker's claim or reclaim of a child
+  reads the child's queue row — still the claim it took or wants to take over? — and the sweep's
+  takes of a root (to continue it, to end its cancel request or its undo) read the root's record —
+  still `running`? —, once before `acquire` and again once the store gave the lease. Over before →
+  no lease asked for; over after → the lease goes back at once (released, not left to expire). In
+  both cases no `Takeover` row and no `onExecutionLeaseTakeover`. A read that fails counts as not
+  over: the take goes on as before.
+- A worker's claim whose lease was not free puts the child back in the queue only while its row is
+  still that claim — never a child another worker ended or paused, nor one whose tree ended.
+
+A root's lease is released, never finished: `app.resume` of a pause the holder already took waits
+for that lease and then returns the tree's current output.
 
 ## Limits
 

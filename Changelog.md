@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: finished work is never taken over (#520)
+
+- **Fixed — a stale instance no longer re-claims the lease of an `AnyInstance` child another
+  instance finished** ([Several instances](Several-instances#finished-work-is-never-taken-over-520)):
+  a worker frozen while it reclaimed a child took the child's lease once it woke — a `RemoteChild`
+  `Takeover` row for finished work — and kept it, renewed, until its instance stopped. A recovery
+  sweep frozen after it listed a root wrote a `Recovered` (`Cancelled`, `Unwinding`) takeover of a
+  tree that had finished meanwhile. Neither takes a lease nor writes a row now.
+- **Breaking — `ExecutionLeaseRepository.finish(lease)`** (`Promise<void>`) is a new abstract
+  member: a release for good — the work under the lease is over, and no later `acquire` of its key
+  gets a lease, whoever asks and whenever; matched as `release` matches (another holder's lease is
+  kept); a finished lease is renewed, yielded and reclaimed no more. The framework finishes an
+  `AnyInstance` child's lease when the child answered or failed (a paused child's is released).
+  Migration: a store of your own implements it — one atomic step, so an `acquire` racing the finish
+  either took the lease first or is refused for good; `executionLeaseContract`
+  (`@agboss/core/testing/contracts`) has the cases ("a finished lease", "the framework's take of
+  finished work", races included). The in-memory store marks the row finished; SQLite writes
+  `released = 3` (no migration: an existing file keeps working).
+
 ## Unreleased — 0.1.1: what a payment gateway must support (#508)
 
 - **Added — [Payment gateways](Payment-gateways)**: the requirements G1–G6, what holds with and

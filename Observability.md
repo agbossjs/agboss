@@ -289,7 +289,9 @@ holder whose lease expired (`ExecutionLease.takenOverFrom`), `checkpointId` (the
 checkpoint, where the take reads it) and `reason`, a `LeaseTakeoverReason`: `Recovered`, `Resumed`,
 `Cancelled`, `Unwinding`, `RemoteChild` or `Reacquired`. A take is a takeover when the store names
 an expired holder, and at every take of the recovery sweep, an undo's takeover, a remote child's
-reclaim and a re-acquire after a yield; a lease released and taken again is none. The same facts
+reclaim and a re-acquire after a yield; a lease released and taken again is none, and so is a take
+of work already over — a finished child, a root whose record no longer runs
+([#520](Several-instances#finished-work-is-never-taken-over-520)). The same facts
 are a row of the lease log, written first ([Several instances → The lease log](Several-instances#the-lease-log-501));
 an observer that throws is a warning (`observer.failed`) and never reaches the takeover.
 
