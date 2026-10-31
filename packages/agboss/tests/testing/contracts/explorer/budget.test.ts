@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   exhaustive,
   randomWalks,
+  scheduleText,
   stopReasonOf,
 } from "../../../../src/testing/contracts/explorer/search.js";
 import {
@@ -18,14 +19,15 @@ import { callTarget, worldOf } from "../../../../src/testing/contracts/explorer/
 import type { ContractTarget } from "../../../../src/testing/contracts/index.js";
 import { ClockSkew } from "../../../../src/testing/clock-skew.js";
 import { inMemoryOutboundCalls } from "../../../infrastructure/contracts/outbound-call-stores.js";
+import { BROKEN_CALL_TARGETS } from "../../../fixtures/contracts/explorer-broken-stores.js";
 import { inMemoryTarget } from "../../../infrastructure/contracts/store-kinds.js";
 
-/** The in-memory call target, counting the resets it is asked for (one per schedule). */
-function counted(): {
+/** The in-memory call target (or `calls`), counting the resets it is asked for (one per schedule). */
+function counted(calls = inMemoryTarget(inMemoryOutboundCalls)): {
   readonly target: ContractTarget<ExplorerStores>;
   readonly resets: () => number;
 } {
-  const inner = callTarget(inMemoryTarget(inMemoryOutboundCalls));
+  const inner = callTarget(calls);
   let resets = 0;
   return {
     target: {
@@ -94,5 +96,90 @@ describe("#590: a search stops when its case is aborted or out of time, and says
 
     expect(report.stopped?.reason).toBe("it reached its time limit");
     expect(stopReasonOf({})).toBeUndefined();
+  });
+});
+
+/** A store that grants one epoch twice: every search finds it and shrinks the schedule. */
+const reusedEpoch = (): NonNullable<(typeof BROKEN_CALL_TARGETS)[string]> =>
+  BROKEN_CALL_TARGETS["a reclaim that keeps the epoch"] ?? never();
+
+const never = (): never => {
+  throw new Error("no such broken store");
+};
+
+/** `target` aborting `controller` at its `at`-th reset, and counting the resets after the abort. */
+function abortingAt(at: number): {
+  readonly target: ContractTarget<ExplorerStores>;
+  readonly signal: AbortSignal;
+  readonly afterAbort: () => number;
+} {
+  const { target } = counted(reusedEpoch());
+  const controller = new AbortController();
+  let resets = 0;
+  let afterAbort = 0;
+  return {
+    target: {
+      ...target,
+      reset: async () => {
+        resets += 1;
+        if (controller.signal.aborted) afterAbort += 1;
+        await target.reset?.();
+        if (resets === at) controller.abort();
+      },
+    },
+    signal: controller.signal,
+    afterAbort: () => afterAbort,
+  };
+}
+
+const lease3 = worldOf(ExplorerWorldKind.Lease, 3, ClockSkew.none);
+const WALKS = { runs: 20, depth: 20, seed: 533 };
+
+describe("#618: a search aborted while it shrinks the violation it found", () => {
+  it("exhaustive: no reset after the abort — the violation as found, not shrunk, and why", async () => {
+    const whole = counted(reusedEpoch());
+    const done = await exhaustive(world, whole.target, 6);
+    const aborting = abortingAt(whole.resets() - 2);
+
+    const report = await exhaustive(world, aborting.target, 6, { signal: aborting.signal });
+
+    expect(done.violation?.unshrunk).toBeUndefined();
+    expect(aborting.afterAbort()).toBe(0);
+    expect(report.violation?.unshrunk).toBe("its case was aborted (timed out or cancelled)");
+    expect(report.violation?.violation.invariant).toBe(done.violation?.violation.invariant);
+    expect(report.violation?.steps.length).toBe(report.violation?.foundLength);
+  });
+
+  it("walks: no reset after the abort, the walk's violation kept", async () => {
+    const whole = counted(reusedEpoch());
+    await randomWalks(lease3, whole.target, WALKS);
+    const aborting = abortingAt(whole.resets() - 2);
+
+    const report = await randomWalks(lease3, aborting.target, WALKS, { signal: aborting.signal });
+
+    expect(aborting.afterAbort()).toBe(0);
+    expect(report.violation?.unshrunk).toBe("its case was aborted (timed out or cancelled)");
+  });
+
+  it("past its time limit while it shrinks: the violation as found, the reason printed — never a pass", async () => {
+    const whole = counted(reusedEpoch());
+    await exhaustive(world, whole.target, 6);
+    const flipAt = whole.resets() - 2;
+    const watched = counted(reusedEpoch());
+    // the time limit passes inside the shrink: from its reset `flipAt` on, the deadline is behind
+    const budget = {
+      get deadline() {
+        return watched.resets() >= flipAt ? 0 : Number.POSITIVE_INFINITY;
+      },
+    };
+
+    const report = await exhaustive(world, watched.target, 6, budget);
+    const found = report.violation ?? never();
+
+    expect(watched.resets()).toBe(flipAt);
+    expect(found.unshrunk).toBe("it reached its time limit");
+    expect(scheduleText("a reclaim that keeps the epoch", found)).toMatch(
+      /schedule as found \(\d+ steps, not shrunk: it reached its time limit\):\n {3}1\. /u,
+    );
   });
 });
