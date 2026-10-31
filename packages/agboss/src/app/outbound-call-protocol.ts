@@ -241,6 +241,7 @@ export async function sendOutboundCall<TRequest, TResult>(
     options,
     frame,
     idempotencyKey: callKeyOf(key),
+    // Stryker disable next-line ObjectLiteral: `isAnswered` is only read as a truth value, where a missing one is `false`
     answer: { isAnswered: false },
   };
   // masked for the store, within the limit, before anything is read, recorded or sent

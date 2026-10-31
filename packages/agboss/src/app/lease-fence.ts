@@ -44,6 +44,7 @@ export const trustedRemaining = (
   asked: Milliseconds = EXECUTION_LEASE,
 ): Milliseconds =>
   waitOf(
+    // Stryker disable next-line ConditionalExpression: `Number.isFinite` is false for every non-number, so the `typeof` test changes no answer
     typeof remaining === "number" && Number.isFinite(remaining) ? Math.min(remaining, asked) : 0,
   );
 
@@ -113,17 +114,20 @@ export class LeaseFence {
    * or an external system fenced one of its writes (`reason`, #471).
    */
   lose(reason: ExecutionLeaseLostError = new ExecutionLeaseLostError(this.rootExecutionId)): never {
+    // Stryker disable next-line ConditionalExpression: aborting an aborted controller is a no-op that keeps its first reason
     if (!this.lost.signal.aborted) this.lost.abort(reason);
     throw this.lost.signal.reason;
   }
 
   /** Aborts the holder: the lease ran out with no renewal the store confirmed. */
   expire(): void {
+    // Stryker disable next-line ConditionalExpression: aborting an aborted controller is a no-op that keeps its first reason
     if (!this.lost.signal.aborted) this.lost.abort(leaseExpiredError(this.rootExecutionId));
   }
 
   /** Expires the lease once it ran out here (#533: the earlier of its two counts); throws once lost. */
   check(): void {
+    // Stryker disable next-line CallExpression: an aborted fence still throws its reason at the check's last line, as `expire()` keeps the first reason
     this.lost.signal.throwIfAborted();
     if (!(this.left > 0)) this.expire();
     this.lost.signal.throwIfAborted();
