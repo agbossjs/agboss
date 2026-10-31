@@ -1,7 +1,7 @@
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { sharedTernStore } from "../../terns/index.js";
-import { Clock, IdGenerator } from "../clock.js";
+import { Clock, IdGenerator, mintedThreadIdsOf } from "../clock.js";
 import { TernStoreRecordRepository } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -23,7 +23,7 @@ export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
     applicationContext: ApplicationContext,
     idGenerator: IdGenerator,
   ) {
-    super(sharedTernStore(connection.database, () => clock.now(), idGenerator));
+    super(sharedTernStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)));
   }
 
   override ping(): Promise<void> {

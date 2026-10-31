@@ -278,6 +278,13 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   announcement leaves it unannounced (Wiki → Guarantees-across-processes). The fault suite's
   `children-once` counts the observers' ends again — exactly one per finished child.
 
+- **A minted thread id that never finds a free one is a typed error** (#613, found by #550's
+  acceptance) — when the application's `IdGenerator` mints only ids the tenant already has (100
+  tries), `execute` now fails with `DuplicateThreadIdError` (`run.duplicate-thread-id`: `generator`,
+  `tries`, never an id) instead of a plain `Error` with no code, on every record store (PostgreSQL:
+  agbossjs/postgres, the same error). `idGeneratorNameOf(generator)` (root entry) is the class a
+  refusal names — the project's own, not the framework's check — for a store of your own.
+
 - **A repeated execution id no longer joins another tree** (#591, found by #550) — an
   `IdGenerator` that repeats `newExecutionId()` (a sequential one restarted on a kept database, two
   tests on one file) gave a new root, child or recursion level the id of an older execution: one

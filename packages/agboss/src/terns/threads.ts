@@ -5,6 +5,8 @@ import type { TernStore } from "./types.js";
 /** Where new thread ids come from: the application's `IdGenerator` (#313); random by default. */
 export interface ThreadIds {
   newThreadId(): string;
+  /** The error when `tries` minted ids were all the tenant's threads (#613); else a plain one. */
+  exhausted?(tries: number): Error;
 }
 
 /** The current time (the application's clock, given by the caller). */
@@ -22,8 +24,11 @@ function mintedThreadId(threadIds: ThreadIds, insert: (id: string) => boolean): 
     const id = threadIds.newThreadId();
     if (insert(id)) return id;
   }
-  throw new Error(
-    `no new thread id after ${String(MINTED_THREAD_TRIES)} minted ids: every one is a thread the tenant has — the IdGenerator repeats its ids`,
+  throw (
+    threadIds.exhausted?.(MINTED_THREAD_TRIES) ??
+    new Error(
+      `no new thread id after ${String(MINTED_THREAD_TRIES)} minted ids: every one is a thread the tenant has — the IdGenerator repeats its ids`,
+    )
   );
 }
 
@@ -36,27 +41,27 @@ export function threadMethods(
     // a caller's own id (#262 Q4) may be created twice at once: the first one keeps it; a minted
     // one that the tenant has already (#550: ids minted from 1 again on a shared database) is
     // never handed out — the next one is minted
-    createThread: ({ workflow, tenantId, ownerId, threadId }) => {
-      const insert = (id: string): boolean => {
-        const { changes } = db
-          .prepare(
-            `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)
+    // in a promise's executor: a refused mint (#578, #613) rejects, never throws at the call
+    createThread: ({ workflow, tenantId, ownerId, threadId }) =>
+      new Promise<string>((resolve) => {
+        const insert = (id: string): boolean => {
+          const { changes } = db
+            .prepare(
+              `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)
              ON CONFLICT(tenant_id, id) DO NOTHING`,
-          )
-          .run(id, workflow, now().toISOString(), tenantId);
-        return Number(changes) === 1;
-      };
-      const id = threadId ?? mintedThreadId(threadIds, insert);
-      const isCreated = threadId === undefined || insert(id);
-      if (isCreated && ownerId !== undefined) {
-        db.prepare("INSERT INTO thread_owners (tenant_id, thread_id, owner) VALUES (?, ?, ?)").run(
-          tenantId,
-          id,
-          ownerId,
-        );
-      }
-      return Promise.resolve(id);
-    },
+            )
+            .run(id, workflow, now().toISOString(), tenantId);
+          return Number(changes) === 1;
+        };
+        const id = threadId ?? mintedThreadId(threadIds, insert);
+        const isCreated = threadId === undefined || insert(id);
+        if (isCreated && ownerId !== undefined) {
+          db.prepare(
+            "INSERT INTO thread_owners (tenant_id, thread_id, owner) VALUES (?, ?, ?)",
+          ).run(tenantId, id, ownerId);
+        }
+        resolve(id);
+      }),
     threadOwner: (bundle, tenantId, threadId) => {
       const row = db
         .prepare(
