@@ -19,6 +19,9 @@ Breaking changes and notable additions, newest first. The API reports
   come in a row — `KeyTextRule.Spacing`. Checked where #538 checks, the key never named.
 - **Migration:** trim keys and thread ids, collapse runs of spaces and make every space U+0020 where
   they are made.
+- A text that breaks several rules is named by the first in `KeyTextRule`'s order (`length`,
+  `lone-surrogate`, `control-character`, `format-character`, `space-separator`, `spacing`,
+  `not-nfc`), wherever each breach stands; the enum is declared in that order (#547 acceptance).
 
 ## Unreleased — 0.1.1: an opted-out store and storeConformance (#543)
 

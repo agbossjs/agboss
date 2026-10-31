@@ -689,12 +689,12 @@ export class ChargeOrderAction {
   business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
   `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);
+  - no lone surrogate, half of a UTF-16 pair: SQLite and PostgreSQL would store U+FFFD, two keys in
+    one row (`lone-surrogate`);
   - no control character, C0 (U+0000–U+001F), U+007F or C1 (U+0080–U+009F) (`control-character`);
   - no format character, Unicode `Cf` — zero-width space and joiners (so emoji joined by U+200D
     too), bidi controls (U+200E–U+200F, U+202A–U+202E, U+2066–U+2069), U+FEFF, the soft hyphen,
     tag characters (`format-character`);
-  - no lone surrogate, half of a UTF-16 pair: SQLite and PostgreSQL would store U+FFFD, two keys in
-    one row (`lone-surrogate`);
   - no space but U+0020, and that one single and inside (#547): no other Unicode space separator
     (`Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F, U+205F, U+3000) and no line or paragraph
     separator (U+2028, U+2029) — `space-separator` —, no U+0020 at the start or the end and never
@@ -702,6 +702,10 @@ export class ChargeOrderAction {
   - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
     key changed on its way in would no longer replay what was stored under it. Normalize where the
     key is made (`text.normalize("NFC")`).
+
+  A text that breaks several rules is named by the first of them in this list — `KeyTextRule`'s
+  order — wherever in the text each breach stands (#547 acceptance): `"a\tb\uD800"` is
+  `lone-surrogate`, `"\u00A0order\t42"` is `control-character`.
 
   Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —
   stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
