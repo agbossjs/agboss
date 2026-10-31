@@ -121,7 +121,7 @@ describe("#526 AC1: the pairings of both fencing stores at once", () => {
 });
 
 const MISMATCH_EFFECT =
-  '[application.store-backend-mismatch] PostgresEffects (backend "postgres") checks its leases in its own transaction, but the application\'s leases are in RedisLeases (backend "redis"): a lease taken over meanwhile would not stop its write — list the stores of one backend together (SqliteFencedEffectRepository or SqliteOutboundCallRepository with SqliteExecutionLeaseRepository)';
+  '[application.store-backend-mismatch] PostgresEffects (backend "postgres") checks its leases in its own transaction, but the application\'s leases are in RedisLeases (backend "redis"): a lease taken over meanwhile would not stop its write — list it with a lease store declaring backend "postgres", or list a fenced-effect store declaring backend "redis" in its place';
 const UNDECLARED_STORE =
   '[application.store-backend-undeclared] UndeclaredCalls declares no backend: an outbound-call store checks its leases in its own transaction, so it and its lease store declare the database they are in (static backend = "postgres") and assembly checks it is one — or it opts out with static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection, losing that protection';
 const UNDECLARED_LEASES =

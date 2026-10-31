@@ -7,6 +7,8 @@ import {
   InMemoryExecutionLeaseRepository,
   LeaseCheck,
 } from "../infrastructure/execution-lease.repository.js";
+import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
+import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
   InMemoryCheckpointSaver,
@@ -16,8 +18,6 @@ import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repo
 import { InMemoryPausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { InMemoryExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import { InMemoryChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
-import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
-import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 
 /**
  * Which implementation of each infrastructure contract an application runs on, and why (#261):
@@ -84,17 +84,58 @@ export function isInMemory(choices: readonly ImplementationChoice[], contract: C
 }
 
 /**
- * The contracts whose stores check the lease in their own transaction (#526), as a message calls
- * their stores: each listed one must be on the application's lease store's backend.
+ * One transactional backend (#526), checked at assembly from the declarations only: a listed
+ * fenced-effect or outbound-call store checks the lease in its own transaction, so it and the
+ * application's lease store declare one `static backend`; its violations name the classes, the
+ * backends and a fix on the fencing store's own backend (#539); two listed stores of one fencing
+ * contract, or of the lease contract, are named too (#539) — and every violation is reported at once.
  */
-export const FENCING_CONTRACTS: readonly FencingContract[] = [
-  [FencedEffectRepository, "a fenced-effect store"],
-  [OutboundCallRepository, "an outbound-call store"],
+
+/** A fencing contract, what a message calls one of its stores, and its store of each core backend. */
+interface FencingContract {
+  readonly contract: Class;
+  readonly kind: string;
+  /** The core's store of this contract on each built-in backend, by name (none is loaded here). */
+  readonly coreStores: Readonly<Record<string, string>>;
+}
+
+/** The contracts whose stores check the lease in their own transaction (#526). */
+const FENCING_CONTRACTS: readonly FencingContract[] = [
+  {
+    contract: FencedEffectRepository,
+    kind: "a fenced-effect store",
+    coreStores: {
+      "in-memory": "InMemoryFencedEffectRepository",
+      sqlite: "SqliteFencedEffectRepository",
+    },
+  },
+  {
+    contract: OutboundCallRepository,
+    kind: "an outbound-call store",
+    coreStores: {
+      "in-memory": "InMemoryOutboundCallRepository",
+      sqlite: "SqliteOutboundCallRepository",
+    },
+  },
 ];
+
+/** The core's lease store on each built-in backend, by name (#539: the hint of a mismatch). */
+const CORE_LEASE_STORES: Readonly<Record<string, string>> = {
+  "in-memory": "InMemoryExecutionLeaseRepository",
+  sqlite: "SqliteExecutionLeaseRepository",
+};
+
+/** How a class declares the backend it is on. */
+const HOW = 'static backend = "postgres"';
 
 /** Whether `cls` is `base` or extends it. */
 const isOrExtends = (cls: Class, base: Class): boolean =>
   cls === base || Object.prototype.isPrototypeOf.call(base.prototype, cls.prototype);
+
+/** The classes among the listed providers, each once (values bound with `provide(…)` are not stores). */
+const uniqueClasses = (providers: readonly Provider[]): readonly Class[] => [
+  ...new Set(providers.flatMap((provider) => (typeof provider === "function" ? [provider] : []))),
+];
 
 /** The declared backend of a store class (#526): its non-empty `static backend`, else none. */
 export const backendOf = (cls: Class): string | undefined => {
@@ -102,39 +143,44 @@ export const backendOf = (cls: Class): string | undefined => {
   return typeof backend === "string" && backend !== "" ? backend : undefined;
 };
 
-/** A fencing contract and what a message calls one of its stores (`"a fenced-effect store"`). */
-export type FencingContract = readonly [contract: Class, kind: string];
+const isOptedOut = (store: Class): boolean =>
+  Reflect.get(store, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection;
 
-/** The listed store of `contract`, unless it opts out of the atomic lease check (#526). */
-const checkedStoreOf = (classes: readonly Class[], contract: Class): Class | undefined => {
-  const store = classes.find((cls) => isOrExtends(cls, contract));
-  const isOptedOut =
-    store !== undefined &&
-    Reflect.get(store, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection;
-  return isOptedOut ? undefined : store;
+/** `a lease store declaring backend "sqlite" (SqliteExecutionLeaseRepository)`: one to list. */
+const storeOn = (
+  what: string,
+  backend: string,
+  known: Readonly<Record<string, string>>,
+): string => {
+  const core = known[backend];
+  return `${what} declaring backend "${backend}"${core === undefined ? "" : ` (${core})`}`;
 };
 
-/** How a class declares the backend it is on. */
-const HOW = 'static backend = "postgres"';
+/** Two or more listed stores of one contract (#539): the application has to list one. */
+function ambiguityOf(application: string, stores: readonly Class[], what: string): RuleViolation[] {
+  if (stores.length < 2) return [];
+  const names = stores.map((cls) => `${cls.name}${describedBackend(cls)}`).join(", ");
+  return [
+    violation(
+      "di.ambiguous-implementation",
+      `${String(stores.length)} listed classes are ${what}: ${names} — list one`,
+      [application],
+    ),
+  ];
+}
 
-/**
- * One transactional backend (#526): a listed fenced-effect or outbound-call store checks the lease
- * in its own transaction, so it and the application's lease store — listed, else the in-memory
- * default — declare one `backend`. Undeclared on either side, or two backends: a violation naming
- * the classes. A store with `LeaseCheck.WithoutDoubleChargeProtection` is not checked (the start
- * warns); an unlisted default is checked at its first call (`FencedEffectStoreMismatchError`).
- */
-export function storeBackendViolations(
+const describedBackend = (cls: Class): string => {
+  const backend = backendOf(cls);
+  return backend === undefined ? " (no backend)" : ` (backend "${backend}")`;
+};
+
+/** The violations of one fencing store beside the application's lease store. */
+function pairViolations(
   application: string,
-  providers: readonly Provider[],
-  [contract, kind]: FencingContract,
+  store: Class,
+  leases: Class,
+  { kind, coreStores }: FencingContract,
 ): RuleViolation[] {
-  const classes = listedClasses(providers);
-  const store = checkedStoreOf(classes, contract);
-  if (store === undefined) return [];
-  const leases =
-    classes.find((cls) => isOrExtends(cls, ExecutionLeaseRepository)) ??
-    InMemoryExecutionLeaseRepository;
   const [own, theirs] = [backendOf(store), backendOf(leases)];
   const found: RuleViolation[] = [];
   const undeclared = (message: string) =>
@@ -151,20 +197,44 @@ export function storeBackendViolations(
     found.push(
       violation(
         "application.store-backend-mismatch",
-        `${store.name} (backend "${own}") checks its leases in its own transaction, but the application's leases are in ${leases.name} (backend "${theirs}"): a lease taken over meanwhile would not stop its write — list the stores of one backend together (SqliteFencedEffectRepository or SqliteOutboundCallRepository with SqliteExecutionLeaseRepository)`,
+        `${store.name} (backend "${own}") checks its leases in its own transaction, but the application's leases are in ${leases.name} (backend "${theirs}"): a lease taken over meanwhile would not stop its write — list it with ${storeOn("a lease store", own, CORE_LEASE_STORES)}, or list ${storeOn(kind, theirs, coreStores)} in its place`,
         [application],
       ),
     );
   return found;
 }
 
-/** The listed fencing stores that opt out of the atomic lease check (#526): the start warns. */
-export const notAtomicStoresOf = (
+/**
+ * Every violation of one transactional backend (#526, #539) in `providers`: two listed lease
+ * stores, two listed stores of a fencing contract, and each listed fencing store — unless it opts
+ * out with `LeaseCheck.WithoutDoubleChargeProtection` (the start warns) — beside the application's
+ * lease store (listed, else the in-memory default). An unlisted default fencing store is checked at
+ * its first call (`FencedEffectStoreMismatchError`).
+ */
+export function storeBackendViolations(
+  application: string,
   providers: readonly Provider[],
-  contracts: readonly FencingContract[],
-): readonly Class[] =>
-  listedClasses(providers).filter(
+): RuleViolation[] {
+  const classes = uniqueClasses(providers);
+  const leaseStores = classes.filter((cls) => isOrExtends(cls, ExecutionLeaseRepository));
+  const found = ambiguityOf(application, leaseStores, "lease stores (ExecutionLeaseRepository)");
+  // with two lease stores the pairing is unknown: their ambiguity is the one problem to fix first
+  const leases =
+    leaseStores.length > 1 ? undefined : (leaseStores[0] ?? InMemoryExecutionLeaseRepository);
+  for (const fencing of FENCING_CONTRACTS) {
+    const stores = classes.filter((cls) => isOrExtends(cls, fencing.contract));
+    const what = `${fencing.kind.replace(/^an? /u, "")}s (${fencing.contract.name})`;
+    found.push(...ambiguityOf(application, stores, what));
+    if (leases === undefined) continue;
+    for (const store of stores.filter((cls) => !isOptedOut(cls)))
+      found.push(...pairViolations(application, store, leases, fencing));
+  }
+  return found;
+}
+
+/** The listed fencing stores that opt out of the atomic lease check (#526): the start warns. */
+export const notAtomicStoresOf = (providers: readonly Provider[]): readonly Class[] =>
+  uniqueClasses(providers).filter(
     (cls) =>
-      contracts.some(([contract]) => isOrExtends(cls, contract)) &&
-      Reflect.get(cls, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection,
+      FENCING_CONTRACTS.some(({ contract }) => isOrExtends(cls, contract)) && isOptedOut(cls),
   );

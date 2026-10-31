@@ -1989,7 +1989,9 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   built-in `InMemoryFencedEffectRepository`; `SqliteFencedEffectRepository` listed with
   `SqliteExecutionLeaseRepository` — #526: a listed fenced-effect or outbound-call store and the
   application's lease store declare one `static backend` (`"in-memory"`, `"sqlite"`, `"postgres"`,
-  `"<kind>:<database>"`), else `[application.store-backend-mismatch]` / `[application.store-backend-undeclared]`;
+  `"<kind>:<database>"`), else `[application.store-backend-mismatch]` (#539: its hint names a lease store on
+  the fencing store's backend, the core's when it has one) / `[application.store-backend-undeclared]`; two listed
+  stores of one fencing contract, or two lease stores, are `[di.ambiguous-implementation]` at assembly (#539);
   the explicit opt-out `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` is not checked and
   warns `[application.lease-check-not-atomic]`; rate limits, the queue and the lease log are on any
   backend; `static leaseRepository` names the lease store a unit runner holds its lease in; the
