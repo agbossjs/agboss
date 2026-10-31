@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a root execution id and the CLI's --tenant are keys' text too (#580)
+
+- `app.leaseEventsOf` and `app.outboundCallsOf` refuse a `rootExecutionId` that is no key's text
+  (`dto.invalid` naming `rootExecutionId` and the rule, never the id): on SQLite and PostgreSQL
+  `r\uD800` read root `r\uFFFD`'s lease log. `agboss records export --tenant` and `agboss generate
+  eval-case --tenant` refuse a tenant id that is no key's text (exit 2, `usage.option-value`)
+  instead of reading nothing. Ids a project's own `IdGenerator` mints are not checked yet (#578).
 ## Unreleased — 0.1.1: what an execution interrupted by a stop says (#582)
 
 - `ApplicationStoppingError` of an execution `app.close()` interrupts at its shutdown timeout says

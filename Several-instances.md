@@ -738,7 +738,10 @@ export class ChargeOrderAction {
   refuse such a tenant id before the store is asked (on SQLite `t\uD800` would read `t\uFFFD`'s
   pending charges and lease log); a trusted A2A request or MCP call under one is never deduplicated
   (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
-  `"default"`, never the id. A lone
+  `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
+  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s lease log), and
+  `agboss records export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
+  (exit 2, `usage.option-value`, the rule named) instead of reading nothing. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
   name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
   it is part of the keys that go out.
