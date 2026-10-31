@@ -343,7 +343,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
   });
 
-  it("a child lost, a child run twice, a child completed twice in the queue — an observer's second end is not", () => {
+  it("a child lost, a child run twice, a child completed twice in the queue, a child heard ending twice or never (#562)", () => {
     const { run, history } = healthy();
     operation(history, {
       process: "a",
@@ -381,12 +381,12 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
         child("c-2", "o-2", "cancelled"),
       ] as never,
     });
-    // a recovered parent hears its child's end again: the observer's word, not the queue's
-    const twice: PodEventFact = { type: "end", pod: "b", executionId: "root-1" };
+    // c-1 heard ending on two pods (a recovered parent hearing it again, #562); c-2 is cancelled
+    const ended = (pod: string): PodEventFact => ({ type: "end", pod, executionId: "c-1" });
     const found = faultViolationsOf({
       ...run,
       records: [...run.records, batch],
-      events: [...run.events, twice],
+      events: [...run.events, ended("a"), ended("b")],
     });
     expect(
       found
@@ -395,7 +395,37 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ).toEqual([
       expect.stringContaining("has children o-1, o-1, o-2"),
       expect.stringContaining("child c-2 of batch batch-1 is cancelled"),
+      "child c-1 was heard ending 2 times, not once",
+      "child c-1 was heard ending 2 times, not once",
       "child c-1 was completed 2 times in the queue",
+    ]);
+  });
+
+  it("a finished child heard ending once is no violation; one never heard is (#562)", () => {
+    const { run } = healthy();
+    const batch = orderRecord("o-1", "batch-1", {
+      start: { name: "fault-batch-workflow-start" } as never,
+      input: [{ orderId: "o-1" }],
+      finish: { name: "fault-batch-workflow-finish" } as never,
+      children: [
+        {
+          executionId: "c-1",
+          rootExecutionId: "batch-1",
+          input: { orderId: "o-1" },
+          status: "finished",
+          finish: { name: "fault-order-workflow-finish" },
+        },
+      ] as never,
+    });
+    const ended: PodEventFact = { type: "end", pod: "b", executionId: "c-1" };
+    const once = { ...run, records: [...run.records, batch], events: [...run.events, ended] };
+    const childrenOnce = (each: FaultRun): readonly string[] =>
+      faultViolationsOf(each)
+        .filter((found) => found.invariant === FaultInvariant.ChildrenOnce)
+        .map((found) => found.message);
+    expect(childrenOnce(once)).toEqual([]);
+    expect(childrenOnce({ ...once, events: run.events })).toEqual([
+      "child c-1 was heard ending 0 times, not once",
     ]);
   });
 

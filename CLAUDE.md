@@ -1332,7 +1332,8 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner`, `finished-work-untouched`,
-  `children-once`, `effects-once`, `no-undo-on-hand-over`, `trees-finish` — from the public API
+  `children-once` (each queue row completed once, each finished child's end heard once, #562),
+  `effects-once`, `no-undo-on-hand-over`, `trees-finish` — from the public API
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
   time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
   operations before or after the store, the way scenarios force orders across processes; broken
@@ -1500,7 +1501,16 @@ output })` on a successful result, inner first, each output validated against th
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A request refused
+  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A child's end
+  (#562) is announced only by the pass that ended it and only while that pass holds the tree's
+  lease (`assertAnnouncing`, `flow/runtime/child-failure.ts`): an `AnyInstance` child's finish by the worker whose
+  completion of its queue row won (`app/remote/child-end-event.ts`, on that worker's instance), one
+  its worker stopped for its tree's cancel or end, whose row went with the tree, by that worker; a
+  `ParentInstance` child by the parent's pass that ran it to its finish or failure; a remote child's
+  failure by the parent's pass that saw it happen (the undo runs there) — never by a pass that
+  re-enters the step after a takeover and only reads the end (an already finished child, a remote
+  row already settled, a failed step it runs again). So at most once: a holder that freezes or
+  crashes between the child's durable end and the announcement leaves it unannounced. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
   an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no

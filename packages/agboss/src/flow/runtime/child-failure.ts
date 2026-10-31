@@ -21,6 +21,8 @@ import {
   type EndedChild,
 } from "./child-exit.js";
 import type { ExecutionStateType } from "./state.js";
+import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
+import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
 
 /**
  * A child execution that threw, as its parent's step sees it (#263 S25): undone first (#340 Q2,
@@ -28,6 +30,27 @@ import type { ExecutionStateType } from "./state.js";
  * record and spend kept, its error event observed, its failure thrown — `CompensationFailedError`
  * as it is (S5).
  */
+
+/**
+ * Who announces a child's end (#562): the pass that ended it, never one that reads an end that came
+ * before it. An `AnyInstance` child's finish is announced by the worker whose completion of its queue
+ * row won (`app/remote/child-end-event.ts`), never by its parent. A child on its parent's instance is
+ * announced by the parent's pass that ran it to its end — its finish, or a failure of its own — and a
+ * remote child's failure by the parent's pass that waited for it (the undo runs there): a pass that
+ * re-enters the step and finds the child already ended announces nothing. And only while that pass
+ * still holds the tree's lease: a holder whose lease is no longer live — frozen past it, taken over —
+ * stops at the announcement as at any step's write (a hand-over), announcing nothing.
+ */
+export function assertAnnouncing(frame: Frame): void {
+  try {
+    // its own fence (#533, its monotonic clock): no store round trip, no cancel check here
+    frame.execution.lease?.assertHeld();
+  } catch (error) {
+    const handedOver = handedOverOf(error, frame.execution.signal);
+    if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Child, frame);
+    throw error;
+  }
+}
 
 /** The child's events: its own id, its parent and its root. */
 export const eventOf = (frame: Frame, child: EndedChild): ExecutionEvent => ({
@@ -110,7 +133,12 @@ async function keptForParent(
 export async function failedChild(
   parent: ChildParent,
   ended: EndedChild,
-  thrown: { readonly error: unknown; readonly last: ExecutionStateType | undefined },
+  thrown: {
+    readonly error: unknown;
+    readonly last: ExecutionStateType | undefined;
+    /** Whether this pass announces the failure (#562, `assertAnnouncing`, `child-failure.ts`). */
+    readonly announces: boolean;
+  },
   config: RunnableConfig,
 ): Promise<never> {
   const { frame } = parent;
@@ -125,6 +153,8 @@ export async function failedChild(
   frame.services.recordChild?.(childRecordOf(ended, last, { ...failure, error: raised, carried }));
   // what the child masked stays revealable by the parent's side path (#120)
   if (last !== undefined) frame.services.keepPiiTokens?.(last.piiTokens);
+  if (!thrown.announces) throw raised;
+  assertAnnouncing(frame);
   const asError = raised instanceof Error ? raised : new Error(String(error));
   const { compensations } = undone;
   await parent.deps.observer?.onExecutionError({
