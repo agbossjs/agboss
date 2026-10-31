@@ -700,12 +700,26 @@ export class ChargeOrderAction {
     (`Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F, U+205F, U+3000) and no line or paragraph
     separator (U+2028, U+2029) — `space-separator` —, no U+0020 at the start or the end and never
     two in a row — `spacing` (upstream systems differ in whether they trim and collapse spaces);
+  - no code point Unicode says renders as nothing (#556, `Default_Ignorable_Code_Point`, whatever
+    its category) — the combining grapheme joiner U+034F, the Hangul fillers (U+115F, U+1160,
+    U+3164, U+FFA0), the Khmer U+17B4 / U+17B5 and Mongolian free variation selectors, every
+    variation selector — the emoji ones too, so `order:❤️` (U+2764 U+FE0F) is refused, `order:❤` is
+    a key — and the code points the property reserves (`ignorable`);
+  - no private-use character (`Co`) and no noncharacter (U+FDD0–U+FDEF, U+xFFFE and U+xFFFF of every
+    plane) (`private-or-noncharacter`): their meaning is no one's but a font's or one system's;
+  - no code point unassigned in the runtime's Unicode (`Cn`, `unassigned`): a later Node may give it a
+    decomposition or make it a format character, which would refuse a key stored before. Unassigned
+    code points only ever become assigned, so a key accepted now stays a key on a newer runtime;
+    during a rolling upgrade a key holding a character only the newer runtime assigns is refused by
+    an older instance — a refusal, never a second charge;
+  - no U+2800 BRAILLE PATTERN BLANK, which renders as a blank but is a symbol (`blank`);
   - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
     key changed on its way in would no longer replay what was stored under it. Normalize where the
     key is made (`text.normalize("NFC")`).
 
   A text that breaks several rules is named by the first of them in this list — `KeyTextRule`'s
-  order — wherever in the text each breach stands (#547 acceptance): `"a\tb\uD800"` is
+  order — wherever in the text each breach stands (#547 acceptance; #556's rules come after
+  `spacing`, before `not-nfc`): `"a\tb\uD800"` is
   `lone-surrogate`, `"\u00A0order\t42"` is `control-character`.
 
   Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —

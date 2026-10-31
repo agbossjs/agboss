@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: keys with invisible, private or unassigned characters are refused (#556)
+
+- **Changed**: a business key, a thread id and a tenant id are refused when they hold a code point
+  that renders as nothing (`Default_Ignorable_Code_Point`: the combining grapheme joiner, Hangul
+  fillers, every variation selector — U+FE0E / U+FE0F too —, …) — `KeyTextRule.Ignorable` —, a
+  private-use character or a noncharacter — `PrivateOrNoncharacter` —, a code point unassigned in the
+  runtime's Unicode — `Unassigned` — or U+2800 — `Blank`. The same entry points and messages, the key
+  never named; in `KeyTextRule`'s order after `spacing`, before `not-nfc`.
+- **Migration:** drop variation selectors (an emoji without U+FE0F) and these characters where keys,
+  thread ids and tenant ids are made.
+
 ## Unreleased — 0.1.1: what each way a lease ends says (#567)
 
 - `ExecutionFencedError`'s message names a newer take and its holder only when a newer token was

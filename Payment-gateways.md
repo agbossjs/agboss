@@ -51,7 +51,10 @@ Rules that follow:
   a second charge of one order, and so would `" order-1"`, `"order-1 "`, `"order  1"` or a
   no-break space in it. AGBoss refuses them (#538: control and format characters, lone surrogates,
   non-NFC text; #547: a space other than U+0020 or a line or paragraph separator, and a U+0020 at
-  an edge or doubled — `InvalidBusinessKeyError` naming the rule), so normalize an imported
+  an edge or doubled; #556: a character that renders as nothing — a variation selector, so an
+  emoji with U+FE0F too, a Hangul filler, the combining grapheme joiner —, private use, a
+  noncharacter, an unassigned code point, the braille blank U+2800 — `InvalidBusinessKeyError`
+  naming the rule), so normalize an imported
   identifier where it enters your system (`text.normalize("NFC")`, invisible characters stripped,
   spaces trimmed, collapsed and made U+0020) and never fold case or width afterwards
   ([Several instances](Several-instances#business-idempotency-keys-508)).
