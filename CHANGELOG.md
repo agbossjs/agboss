@@ -217,7 +217,8 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   (both `x�` in UTF-8). Every minted id is now checked at the mint (`keyTextRuleOf`): one that
   breaks a rule (or is no string) is `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`,
   `method`, `rule` — never the id), before it is used or stored. The built-in `RandomIdGenerator`
-  and `SequentialIdGenerator` are unaffected.
+  and `SequentialIdGenerator` are unaffected; `app.resolve(IdGenerator)` gives the checked generator
+  (`app.resolve(<its own class>)` the listed one).
 
 - **A minted thread id is always a new thread** (#550, found by #533) — a store's `createThread`
   without a `threadId` handed out an id the tenant already had when its `IdGenerator` repeated one

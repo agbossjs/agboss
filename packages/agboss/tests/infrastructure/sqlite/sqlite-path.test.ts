@@ -22,6 +22,7 @@ import { createApp } from "../../../src/application/create-app.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
+import { CheckedIdGenerator } from "../../../src/infrastructure/clock.js";
 import { INFRASTRUCTURE_DEFAULTS } from "../../../src/infrastructure/contracts.js";
 import { isSqliteImplementation } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -89,7 +90,10 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
     });
 
-    const used = [...INFRASTRUCTURE_DEFAULTS.keys()].map((contract) => app.resolve(contract));
+    // the framework mints through the checked generator over the default (#578)
+    const used = [...INFRASTRUCTURE_DEFAULTS.keys()]
+      .map((contract) => app.resolve(contract))
+      .map((instance) => (instance instanceof CheckedIdGenerator ? instance.minting : instance));
 
     expect(used.map((instance) => (instance as object).constructor)).toEqual([
       ...INFRASTRUCTURE_DEFAULTS.values(),
