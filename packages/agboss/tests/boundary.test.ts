@@ -20,10 +20,12 @@ describe("framework and examples apart (#91)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("AC4: the framework ships no workflow", () => {
+  it("AC4: the framework ships no workflow — but the fault suite's fixture (#484), a test's own", () => {
     const decorated = (file: string): boolean => /^@Workflow\(/m.test(readFileSync(file, "utf8"));
+    // the application every fault pod runs, published with `@agboss/core/testing/faults` only
+    const fixture = join(framework, "testing", "faults", "fixture");
 
-    expect(sources(framework).filter(decorated)).toEqual([]);
+    expect(sources(framework).filter(decorated)).toEqual([join(fixture, "order.workflow.ts")]);
   });
 
   it("#489 AC2: the only in-repo example is flow-patterns (job-scout lives in agbossjs/agboss-examples)", () => {

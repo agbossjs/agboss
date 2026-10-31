@@ -14,6 +14,16 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
+  loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
+  the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
+  SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 18 scenarios
+  that each tree had one owner at a time, every child and every charge happened once, a hand-over
+  undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
+  points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations
+  across processes, and the run's history (`OperationHistory`) keeps every store operation's
+  invoke and complete. The core runs it on SQLite; Wiki → Guarantees-across-processes.
+
 - **Business idempotency keys** (#508) — `fencedEffectKeyOf(executionContext, name, { businessKey,
 fingerprint? })`: one fenced effect or outbound call per tenant, name and business key, whatever
   step, execution or thread makes it; another fingerprint is `IdempotencyKeyConflictError`; a
@@ -111,6 +121,10 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `RELEASE_CHECKLIST.md` → Dependency installs states the policy.
 
 ### Fixed
+
+- **A tree whose undo a takeover finished keeps its undo actions** (#541, found by #484) — its kept
+  record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
+  it lists every undo action that ran, as its `onExecutionError` does.
 
 - **`circuitBreakerPolicy: null`** (#529) is a missing policy: `[model-provider.circuit-breaker-required]`
   at assembly and in `agboss check`, never a `TypeError` in `createApp`.

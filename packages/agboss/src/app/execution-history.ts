@@ -2,7 +2,7 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { buildCostReport } from "../finops/usage.js";
-import { compensationRecordsOf } from "../flow/compensation.js";
+import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
@@ -36,6 +36,11 @@ import { ExecutionStatus } from "./types.js";
 export interface HistoryEnd {
   readonly status: ExecutionHistoryStatus;
   readonly error?: unknown;
+  /**
+   * The undo actions that ran, when they are not all in the checkpoint: a tree whose undo a
+   * takeover finished without a pass (#340 PR 4) — what its `onExecutionError` lists (#484).
+   */
+  readonly compensations?: readonly CompensationRecord[];
 }
 
 /** How a tree whose pass returned stands: finished, or resting paused. */
@@ -154,6 +159,7 @@ function historyRecordOf(
 ): ExecutionHistoryRecord {
   return {
     ...recordPartOf(values),
+    ...(end.compensations === undefined ? {} : { compensations: end.compensations }),
     ...identityOf(deps, keeper, state),
     status: end.status,
     ...timesOf(values, end.status, keeper.clock.now().toISOString()),

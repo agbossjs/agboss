@@ -1307,7 +1307,21 @@ without? })` (#526 AC2: each claimed contract as `<contract> (<name>)` plus `sto
   `tests/infrastructure/contracts/core-store-sets.ts`, `store-kinds.ts`); broken sets fail it
   (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the
   transaction, a read-then-close `leaseStateOf`, a pre-#508 lease log, stores of no backend or
-  another). Wiki → Your-own-store. On the public surface alone
+  another). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
+path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
+  entry of its own, never loaded by the root) runs the fixture application (`src/testing/faults/
+fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
+  gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
+  exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 18 scenarios
+  (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
+  at a time), each checked by `faultViolationsOf` — `one-owner`, `finished-work-untouched`,
+  `children-once`, `effects-once`, `no-undo-on-hand-over`, `trees-finish` — from the public API
+  and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
+  time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
+  operations before or after the store, the way scenarios force orders across processes; broken
+  stores fail the scenario they target (`tests/faults/sabotage.test.ts`). Wiki →
+  Guarantees-across-processes. On the public surface alone
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;

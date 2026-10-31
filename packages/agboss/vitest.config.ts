@@ -1,14 +1,37 @@
 import { defineConfig } from "vitest/config";
 
+/** The fault suite's files (#484): each runs pods, so they run one at a time. */
+const FAULT_FILES = ["tests/faults/**/*.test.ts"];
+const EXCLUDED = ["tests/smoke/**", "node_modules/**", "tests/fixtures/contracts/**"];
+
 export default defineConfig({
   test: {
-    include: ["tests/**/*.test.ts"],
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
     // the contract fixtures run only inside tests/testing/contracts (#481: a nested vitest)
-    exclude: ["tests/smoke/**", "node_modules/**", "tests/fixtures/contracts/**"],
+    exclude: EXCLUDED,
     // the workflow matchers (agboss/testing/setup in a project)
     setupFiles: ["./src/testing/setup.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["tests/**/*.test.ts"],
+          exclude: [...FAULT_FILES, ...EXCLUDED],
+        },
+      },
+      // #484: the fault suite's files spawn real pods — one file at a time, beside the rest
+      {
+        extends: true,
+        test: {
+          name: "faults",
+          include: FAULT_FILES,
+          pool: "forks",
+          poolOptions: { forks: { singleFork: true } },
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
