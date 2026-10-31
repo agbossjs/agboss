@@ -110,7 +110,7 @@ export interface FencedEffectBusinessRows<TTransaction> {
 }
 
 // @public
-export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectStores<TTransaction>>): void;
+export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectStores<TTransaction>>, options?: FencingContractOptions): void;
 
 // @public
 export interface FencedEffectStores<TTransaction> {
@@ -121,13 +121,18 @@ export interface FencedEffectStores<TTransaction> {
 }
 
 // @public
+export interface FencingContractOptions {
+    readonly acceptWithoutDoubleChargeProtection?: boolean;
+}
+
+// @public
 export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
 
 // @public
 export function meshRequestContract(target: ContractTarget<MeshRequestRepository>): void;
 
 // @public
-export function outboundCallContract(target: ContractTarget<OutboundCallStores>): void;
+export function outboundCallContract(target: ContractTarget<OutboundCallStores>, options?: FencingContractOptions): void;
 
 // @public
 export interface OutboundCallStores {
@@ -158,6 +163,7 @@ export class StoreConformanceError extends Error {
 
 // @public
 export interface StoreConformanceOptions<TTransaction = unknown> {
+    readonly acceptWithoutDoubleChargeProtection?: boolean;
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
