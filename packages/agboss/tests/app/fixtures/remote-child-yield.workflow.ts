@@ -109,6 +109,9 @@ export class GatedItemAction {
     await passGate(this.executionContext, name);
     // #520: an item to fail fails its child once past the gate
     if (outcome === "fail") throw new Error(`item ${name} failed`);
+    // #596: a `…-flaky` item fails its first run only, as a dependency that recovers
+    if (name.endsWith("-flaky") && yieldSeen.runs.filter((run) => run.name === name).length === 1)
+      throw new Error(`item ${name} failed once`);
     return { name };
   }
 }

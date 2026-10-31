@@ -12,14 +12,21 @@ import {
   ExecutionLeaseLostError,
   ExecutionRecordStatus,
 } from "../../src/index.js";
-import { testWith, type TestLeases } from "../../src/testing/index.js";
-import type { TestApp } from "../../src/testing/test-app.js";
-import type { VirtualClock } from "../../src/testing/clock.js";
+import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetLogged } from "../helpers/log.js";
 import { until } from "../helpers/until.js";
 import { rejectionOf, settle } from "./fixtures/fence-takeover.js";
+import {
+  frozenAfterChildEnd,
+  gateOf,
+  heard,
+  liveFor,
+  once,
+  readyAll,
+  rootEnded,
+} from "./fixtures/child-end-freeze.js";
 import { childOf, item, statusOf } from "./fixtures/finished-work.js";
 import {
   atChildEnd,
@@ -48,82 +55,6 @@ const PLACEMENTS = [
   { placement: "AnyInstance", start: YieldOneWorkflowStart },
   { placement: "ParentInstance", start: EndOnceLocalWorkflowStart },
 ] as const;
-
-interface Fixtures {
-  readonly clock: VirtualClock;
-  readonly leases: TestLeases;
-}
-
-/** Every instance ready, the last first: `instance-1` is the last of `apps` (names follow starts). */
-async function readyAll(apps: readonly TestApp[]): Promise<ReadonlyMap<string, TestApp>> {
-  const order = [...apps].reverse();
-  for (const app of order) await app.ready();
-  return new Map(order.map((app, index) => [`instance-${String(index + 1)}`, app]));
-}
-
-/** `steps` times 10 s: every live holder renews, a frozen one's lease runs out and is recovered. */
-async function liveFor(clock: VirtualClock, steps: number): Promise<void> {
-  for (let step = 0; step < steps; step += 1) await clock.advance(seconds(10));
-}
-
-/** `act` the first time only. */
-const once = <T>(act: (value: T) => void): ((value: T) => void) => {
-  let isDone = false;
-  return (value) => {
-    if (isDone) return;
-    isDone = true;
-    act(value);
-  };
-};
-
-/** A promise the test opens. */
-function gateOf(): { readonly opened: Promise<void>; readonly open: () => void } {
-  let open = (): void => undefined;
-  const opened = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  return { opened, open };
-}
-
-/** Every child end and failure heard, and every root's. */
-const heard = () => ({
-  childEnds: childrenIn(endOnceSeen.ends),
-  childErrors: childrenIn(endOnceSeen.errors),
-  rootEnds: rootsIn(endOnceSeen.ends),
-  rootErrors: rootsIn(endOnceSeen.errors),
-});
-
-/** The root's end or failure, wherever it was heard. */
-const rootEnded = (): boolean =>
-  rootsIn(endOnceSeen.ends).length + rootsIn(endOnceSeen.errors).length > 0;
-
-/**
- * The parent runs on `a`; its child passes the gate and ends; at the child's first announcement `a`
- * freezes (its lease store and timers) before its step is checkpointed; another instance takes the
- * tree over and ends it; then `a` thaws. What `a`'s call ended with.
- */
-async function frozenAfterChildEnd(
-  a: TestApp,
-  { clock, leases }: Fixtures,
-  call: Promise<unknown>,
-): Promise<unknown> {
-  await until(() => yieldSeen.runs.length === 1, "the child at its gate");
-  endOnceSeen.onChildEnd = once(() => {
-    leases.stall(a);
-  });
-  openGate();
-  await until(
-    () => heard().childEnds.length + heard().childErrors.length > 0,
-    "the child's end heard",
-  );
-  await liveFor(clock, 7);
-  await until(rootEnded, "the tree ended where it was taken over");
-  // the old holder thaws after the new holder finished
-  leases.resume(a);
-  const error = await rejectionOf(call);
-  await settle();
-  return error;
-}
 
 beforeEach(() => {
   resetYield();
@@ -272,12 +203,14 @@ describe("#562: a cancel the worker finds first", () => {
 
 describe("#562: the window between a child's durable end and its announcement (at most once)", () => {
   const WINDOWS = [
-    { at: ChildEndPoint.Finish, outcome: "ok", heardOf: () => heard().childEnds },
-    { at: ChildEndPoint.Error, outcome: "fail", heardOf: () => heard().childErrors },
+    // a finish the new holder only reads: not heard
+    { at: ChildEndPoint.Finish, outcome: "ok", heardOf: () => heard().childEnds, expected: 0 },
+    // #596: a failure nobody claimed yet — the new holder runs the step again, sees it, claims it
+    { at: ChildEndPoint.Error, outcome: "fail", heardOf: () => heard().childErrors, expected: 1 },
   ] as const;
-  for (const { at, outcome, heardOf } of WINDOWS) {
+  for (const { at, outcome, heardOf, expected } of WINDOWS) {
     testWindow(
-      `the parent's holder freezes right after its child's ${at} became durable, before announcing it: the new holder only reads it, the thawed one stops at the announcement — not heard`,
+      `the parent's holder freezes right after its child's ${at} became durable, before announcing it: the thawed one stops at the announcement — heard ${String(expected)} times, never by it`,
       async ({ apps, clock, leases }) => {
         const [a] = apps;
         if (a === undefined) throw new Error("two instances");
@@ -305,7 +238,8 @@ describe("#562: the window between a child's durable end and its announcement (a
         await settle();
 
         expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-        expect(heardOf()).toEqual([]);
+        expect(heardOf()).toHaveLength(expected);
+        expect(heardOf().filter((each) => each.instanceId === "instance-2")).toEqual([]);
         expect(heard().rootEnds.length + heard().rootErrors.length).toBe(1);
       },
     );

@@ -269,7 +269,8 @@ function storedOriginOf(value: unknown): FencedEffectOrigin | undefined {
 
 /**
  * The replay rule of a row found for `key` (#508, exported for stores outside the core, #526):
- * under a business key, another fingerprint — a `null` and a missing one are the same, none — is
+ * under a business key, another fingerprint — a `null` and a missing one are the same, none; `""`
+ * is a fingerprint, not none (#574) — is
  * `IdempotencyKeyConflictError` (never a replay, the key not named); a row another step or
  * execution wrote is named as `replayedFrom`. `undefined` for a step's own key, a row of the key's
  * own step, or one without its step.

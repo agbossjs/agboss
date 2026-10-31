@@ -24,8 +24,12 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   `leaseStateOf`, a write against its hand-over, each compare-and-set of an intent). After each step
   it checks one live holder, no write at a superseded, closed or expired token, one effect per key,
   one charge per business key and no takeover of finished work; a failure prints the minimal
-  schedule. Its budget is `storeConformance({ interleavings: { depth, walks, walkDepth, seed } })`
-  (`AGBOSS_EXPLORER_SEED`), `false` to leave it out. Wiki → Your-own-store.
+  schedule. Its budget is
+  `storeConformance({ interleavings: { depth, walks, walkDepth, seed, timeLimit } })`
+  (`AGBOSS_EXPLORER_SEED`), `false` to leave it out. A search that runs out of `timeLimit` (default
+  8 min) or is aborted with its case stops and fails with what it explored — schedules, states and
+  how many it left — never a pass, and never goes on resetting the store under later cases (#590).
+  Wiki → Your-own-store.
 
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
@@ -187,6 +191,33 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A root's end is heard once** (#597, found in the acceptance of #562) — a root's holder that
+  froze right after its tree's end became durable (its finish checkpoint, its failed step's error),
+  whose tree another instance recovered and announced, announced the end again when it thawed, and
+  its `app.execute` resolved with the output (or rejected with the tree's own error) as if it still
+  held the tree. The end is now announced only while the pass holds the lease: the thawed holder
+  stops at its own fence, rejects with `ExecutionLeaseLostError` and announces nothing.
+- **An announced child failure stays the child's end** (#596, found in the acceptance of #562) — a
+  `ParentInstance` child whose failure its parent's holder announced, the holder then frozen before
+  its step was checkpointed, was run again by the instance that took the tree over: a step that
+  now succeeded made the child heard failing and finishing and the root end instead of failing,
+  and a child with an undo was heard failing twice. A child's failure is now claimed in the tree's
+  store before it is announced (`@agboss/child-failure:<childExecutionId>`): one pass announces it,
+  and a re-entry that finds the claim repeats it without running the step. A repeated failure keeps
+  the error's name and message, not its class (as #340's unwinding mark): a side path on
+  `ChildExecutionFailedError` / `StepFailedError` takes it again, one on the child's own error class
+  by the cause chain does not.
+- **Who calls is a key's text** (#589, found in the acceptance of #568) — an `ownerId` with a lone
+  surrogate (`bob\uD800`, from `JSON.parse` of a token's `sub`) made `app.execute` on SQLite or
+  PostgreSQL create a thread stored as `bob\uFFFD`'s, then refuse its own caller; the `bob\uFFFD`
+  owner had the thread. `ownerId` at `execute`, `resume` and `cancel`, and a `Channel` pause's
+  `answeredBy`, are now held to the key-text rules before anything is read or written:
+  `dto.invalid` naming the field and the rule, never the id.
+- **An empty fingerprint is not none** (#574, found by #533's mutation testing) — under a business
+  key, a fenced effect with `fingerprint: ""` in flight on one instance beside one with no
+  fingerprint was joined to it and got its result, though the pair made one after the other was
+  `IdempotencyKeyConflictError`. Any text is a fingerprint, `""` too, and both orders are refused,
+  in flight or stored; `fencedEffectContract` holds every store to keeping `""` as `""`.
 - **The fault suite proves the payment's fence and refuses an opted-out set** (#584, found in the
   acceptance of #484) — no scenario let a zombie reach the outbound-call store after a takeover, so
   a store that recorded a payment's intent under any token passed all twenty; scenario 5c

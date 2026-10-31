@@ -1319,7 +1319,9 @@ double-charge protection for …` — a fencing contract run on its own with the
   `interleavings.depth` (default 8), seeded walks of three, the second's clock ± lease/2, ± lease,
   ± 10 × lease off the store's time, each operation sent once the one before was answered — checking
   one live holder, no write at a stale token, one effect per key, one charge per business key and no
-  takeover of finished work after each step, a failure printing the minimal schedule; and AC7's
+  takeover of finished work after each step, a failure printing the minimal schedule, a search out
+  of `interleavings.timeLimit` (default 8 min) or aborted with its case failing with the counts it
+  explored and left (#590), never a pass; and AC7's
   two-outcome races forced in both orders (broken stores fail it,
   `tests/testing/contracts/explorer-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
 path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
@@ -1504,7 +1506,10 @@ output })` on a successful result, inner first, each output validated against th
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A child's end
+  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`); a root's end only
+  while its pass still holds the tree's lease (#597, `observed-pass.ts`: a holder frozen after the
+  end became durable, whose tree another instance recovered and ended, stops at its own fence —
+  `ExecutionLeaseLostError`, no announcement — at most once, as a child's). A child's end
   (#562) is announced only by the pass that ended it and only while that pass holds the tree's
   lease (`assertAnnouncing`, `flow/runtime/child-failure.ts`): an `AnyInstance` child's finish by the worker whose
   completion of its queue row won (`app/remote/child-end-event.ts`, on that worker's instance), one
@@ -1512,8 +1517,13 @@ output })` on a successful result, inner first, each output validated against th
   `ParentInstance` child by the parent's pass that ran it to its finish or failure; a remote child's
   failure by the parent's pass that saw it happen (the undo runs there) — never by a pass that
   re-enters the step after a takeover and only reads the end (an already finished child, a remote
-  row already settled, a failed step it runs again). So at most once: a holder that freezes or
-  crashes between the child's durable end and the announcement leaves it unannounced. A request refused
+  row already settled). A failure is claimed first in the tree's store (#596,
+  `@agboss/child-failure:<childExecutionId>`, `saveIfAbsentInTree`, the fence checked again after it):
+  of every pass that sees it — the first, one that finished its interrupted undo, a re-entry that ran
+  the step again — the winner announces it, and a re-entry that finds the claim repeats the failure
+  (by name and message, as #340's unwinding mark does) without running the step, so an announced
+  failure never turns into a finish. So at most once: a holder that freezes or crashes between the
+  child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
   an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
@@ -1949,7 +1959,8 @@ askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn o
   `leaseEventsOf`, `outboundCallsOf`, `pendingOutboundCalls`, whose tree reads check `rootExecutionId` (#580)
   so too; `agboss records export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
   trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
-  `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8); every
+  `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
+  who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `answeredBy`); every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
@@ -2118,7 +2129,7 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; 
   is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
   The same key and fingerprint (an HMAC of canonical JSON under a subkey of the application's `pseudonymKey`, `"agboss/fingerprint/v1"` — a labelled SHA-256 without one; `OutboundCalls` takes its request's) →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
-  visit that made it); another fingerprint → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  visit that made it); another fingerprint (any text, `""` too, is one and none is none, #574) → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
   this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
   this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other

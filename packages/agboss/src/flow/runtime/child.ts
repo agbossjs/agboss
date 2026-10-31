@@ -21,7 +21,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { WorkflowIdentity } from "./step-frame.js";
 import type { ExecutionGraph } from "./build.js";
 import { refuseBeyondMaxDepth } from "./recursion-launch.js";
-import { interruptedUndoOf } from "./child-reentry.js";
+import { reentryOf } from "./child-reentry.js";
 import { childEndOf } from "./child-own-thread.js";
 import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
 import { remoteSiteOf } from "./remote/remote-child-site.js";
@@ -97,6 +97,7 @@ interface ChildRun {
   readonly config: RunnableConfig;
   /** Its interrupted undo's error (#340 PR 4): it takes no step, its undo is finished. */
   readonly interrupted: unknown;
+  readonly claimed: unknown;
   readonly entered: ChildEntered;
   /** The parent's node of the child: the child's graph is registered on it (Studio). */
   readonly node: string;
@@ -119,9 +120,12 @@ async function runChild(
     run.remote === undefined
       ? await childEndOf(child, run)
       : await remoteChildEndOf(child.graph, run.config, run.remote);
-  const { announces } = end;
-  if (end.failed)
+  if (end.failed) {
+    // #596: with tree keys the claim decides who announces it; without, the pass that saw it first
+    const announces = end.announces || parent.deps.compensation?.trees !== undefined;
     return failedChild(parent, ended, { error: end.error, last: end.state, announces }, run.config);
+  }
+  const { announces } = end;
   const last = end.state;
   if (last === undefined) throw new TypeError(`${ended.workflow.name} ended without a state`);
   const usage = ownUsageOf(last, ended.identity);
@@ -192,7 +196,7 @@ export function childRunner(
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
     const undo = { child, run, checkpointer, budgets: pass.budgets };
-    const interrupted = await interruptedUndoOf(deps, entered, frame.execution.tenant.tenantId);
+    const reentry = await reentryOf(deps, entered, frame.execution.tenant.tenantId);
     const isRecursive = child.isRecursive;
     const remote = remoteSiteOf(node, deps, {
       frame,
@@ -203,7 +207,7 @@ export function childRunner(
       isRecursive,
       checkpointer,
     });
-    const call = { initial, config: childConfig, interrupted, entered, node: node.id, remote };
+    const call = { initial, config: childConfig, ...reentry, entered, node: node.id, remote };
     const done = await inStepEntry(deps.stepEntries, frame, () =>
       runChild(child, { deps, frame, undo }, ended, call),
     );

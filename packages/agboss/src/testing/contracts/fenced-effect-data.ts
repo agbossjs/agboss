@@ -85,6 +85,21 @@ export const keyOf = (
   name,
 });
 
+/**
+ * The key of `lease`'s step under business key `order:42`, with `fingerprint` (`null`: none — the
+ * empty text is a fingerprint, #574).
+ */
+export const businessKeyOf = (
+  lease: ExecutionLease,
+  fingerprint: string | null = "fingerprint-a",
+  step = `${lease.rootExecutionId}:charge-action:1`,
+): FencedEffectKey => ({
+  ...keyOf(lease, "charge", step),
+  businessKey: "order:42",
+  ...(fingerprint === null ? {} : { fingerprint }),
+  origin: { executionId: lease.rootExecutionId, nodeId: "charge-action", visitNumber: 1 },
+});
+
 /** A write that inserts `row` and gives its receipt, counted in `count`. */
 export const writing =
   <TTransaction>(

@@ -30,6 +30,26 @@ export const UNWINDING_KEY = "@agboss/unwinding";
 export const childUnwindingKeyOf = (childExecutionId: string): string =>
   `${UNWINDING_KEY}:${childExecutionId}`;
 
+/**
+ * The key of a child's failure claimed for its announcement (#596): the one pass whose
+ * `saveIfAbsentInTree` wins announces it; the failure is then the child's end — a re-entry repeats
+ * it (`UnwindingMark`'s shape: why, and the error by name and message) and never runs its step again.
+ */
+export const childFailureKeyOf = (childExecutionId: string): string =>
+  `@agboss/child-failure:${childExecutionId}`;
+
+/** Claims the announcement of a child's failure (#596): `true` for the one pass that may announce it. */
+export async function claimChildFailure(
+  trees: ExecutionTreeRepository,
+  tree: ExecutionTree,
+  childExecutionId: string,
+  cause: unknown,
+): Promise<boolean> {
+  const { reason, cause: error } = unwindingMarkOf(cause);
+  const value = { reason, cause: { name: error.name, message: error.message } };
+  return trees.saveIfAbsentInTree(tree, childFailureKeyOf(childExecutionId), value);
+}
+
 /** The key of one undo that succeeded: its automatic undo's own key. */
 export const compensatedKeyOf = (compensatedStepKey: string): string =>
   `@agboss/compensated/${compensationKeyOf(compensatedStepKey)}`;

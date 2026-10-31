@@ -32,5 +32,32 @@ export function observedPass(
     const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
     return maskedRecordOf(result, deps.pii?.observability);
   };
-  return observeLeg(deps.observer, executionEventAt(state, deps), leg, () => undo.compensations);
+  return observeLeg(
+    deps.observer,
+    executionEventAt(state, deps),
+    () => heldAtTheEnd(held, leg),
+    () => undo.compensations,
+  );
+}
+
+/**
+ * The leg's outcome, announced only while this pass still holds the tree (#597): a holder that
+ * froze after the tree's end became durable — its lease taken over, the end announced by the
+ * instance that recovered it — stops at its own fence (`assertHeld`, #533) with
+ * `ExecutionLeaseLostError`, a hand-over: no `onExecutionEnd` / `onExecutionError` from it, its
+ * call rejects. At most once: a holder frozen between this look and its observer call is the window.
+ */
+async function heldAtTheEnd(
+  held: HeldPass,
+  leg: () => Promise<ExecutionOutput>,
+): Promise<ExecutionOutput> {
+  let result: ExecutionOutput;
+  try {
+    result = await leg();
+  } catch (error) {
+    held.lease.assertHeld();
+    throw error;
+  }
+  held.lease.assertHeld();
+  return result;
 }

@@ -687,7 +687,6 @@ export interface CallOptions {
 
 // @public
 export interface CancelOptions {
-    // (undocumented)
     readonly ownerId?: string | undefined;
     // (undocumented)
     readonly tenantId?: string | undefined;
@@ -6778,7 +6777,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 //
 // src/app/app-deps.ts:58:3 - (ae-undocumented) Missing documentation for "evaluation".
 // src/app/app-deps.ts:104:3 - (ae-undocumented) Missing documentation for "container".
-// src/app/create-app.ts:58:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:59:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/lease-lost.ts:96:3 - (ae-undocumented) Missing documentation for "code".
@@ -6845,22 +6844,21 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/resume.ts:55:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:28:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:29:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:99:3 - (ae-undocumented) Missing documentation for "reply".
-// src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "decision".
-// src/app/types.ts:120:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:123:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/app/types.ts:131:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:134:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:139:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:140:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:154:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:163:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:184:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:225:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:226:3 - (ae-undocumented) Missing documentation for "version".
-// src/app/types.ts:298:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:303:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:304:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/types.ts:100:3 - (ae-undocumented) Missing documentation for "reply".
+// src/app/types.ts:109:3 - (ae-undocumented) Missing documentation for "decision".
+// src/app/types.ts:121:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:124:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts:133:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:136:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:141:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:157:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:166:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:187:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:228:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:229:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:301:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:306:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:307:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/application/application.ts:211:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
@@ -7593,11 +7591,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect-settings.ts:180:3 - (ae-undocumented) Missing documentation for "size".
 // src/infrastructure/fenced-effect-settings.ts:181:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:47:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/fenced-effect.repository.ts:80:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/fenced-effect.repository.ts:81:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/fenced-effect.repository.ts:97:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:98:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/fenced-effect.repository.ts:83:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/fenced-effect.repository.ts:84:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/fenced-effect.repository.ts:99:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:100:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "backend".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".
