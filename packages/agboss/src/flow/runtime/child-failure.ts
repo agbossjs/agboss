@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { takeCarriedRecords } from "./carried-records.js";
@@ -23,6 +24,7 @@ import {
 import type { ExecutionStateType } from "./state.js";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { isFailureClaimed } from "./child-reentry.js";
 
 /**
  * A child execution that threw, as its parent's step sees it (#263 S25): undone first (#340 Q2,
@@ -39,7 +41,10 @@ import { HandOverSite } from "../../infrastructure/execution-lease-event.reposit
  * remote child's failure by the parent's pass that waited for it (the undo runs there): a pass that
  * re-enters the step and finds the child already ended announces nothing. And only while that pass
  * still holds the tree's lease: a holder whose lease is no longer live — frozen past it, taken over —
- * stops at the announcement as at any step's write (a hand-over), announcing nothing.
+ * stops at the announcement as at any step's write (a hand-over), announcing nothing. A failure is
+ * also claimed in the tree's store first (#596, `isFailureClaimed`): of every pass that sees it — the
+ * first, one that finished its interrupted undo, a re-entry that ran the step again — the winner of
+ * the claim announces it, and once claimed a re-entry repeats it without running the step.
  */
 export function assertAnnouncing(frame: Frame): void {
   try {
@@ -154,6 +159,11 @@ export async function failedChild(
   // what the child masked stays revealable by the parent's side path (#120)
   if (last !== undefined) frame.services.keepPiiTokens?.(last.piiTokens);
   if (!thrown.announces) throw raised;
+  assertAnnouncing(frame);
+  // #596: one pass of all that saw it wins the claim; its fence checked again after the round trip
+  const { tenantId } = frame.execution.tenant;
+  const cause = failure.thrown instanceof ExecutionCancelledError ? failure.thrown : error;
+  if (!(await isFailureClaimed(parent.deps, ended.identity, tenantId, cause))) throw raised;
   assertAnnouncing(frame);
   const asError = raised instanceof Error ? raised : new Error(String(error));
   const { compensations } = undone;

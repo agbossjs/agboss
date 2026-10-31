@@ -56,15 +56,16 @@ export function resetEndOnce(): void {
   endOnceSeen.onRecovered = undefined;
 }
 
-const CHILD = "yield-check-workflow";
+/** The child workflows: the gated check, and the booking with an undo (#596). */
+const CHILDREN: ReadonlySet<string> = new Set(["yield-check-workflow", "undo-child-workflow"]);
 
-/** The announcements of the child workflow's executions. */
+/** The announcements of the child workflows' executions. */
 export const childrenIn = (seen: readonly Announced[]): readonly Announced[] =>
-  seen.filter((each) => each.workflow === CHILD);
+  seen.filter((each) => CHILDREN.has(each.workflow));
 
 /** The announcements of every other (root) execution. */
 export const rootsIn = (seen: readonly Announced[]): readonly Announced[] =>
-  seen.filter((each) => each.workflow !== CHILD);
+  seen.filter((each) => !CHILDREN.has(each.workflow));
 
 @WorkflowStart({
   name: "end-once-local-workflow-start",
@@ -111,16 +112,12 @@ export class EndOnceLog implements OnExecutionEnd, OnExecutionError, OnExecution
       endOnceSeen.onRecovered?.(this.applicationContext.instanceId);
   }
 
-  #heard(
-    seen: Announced[],
-    event: ExecutionEndEvent | ExecutionErrorEvent,
-    error?: string,
-  ): void {
+  #heard(seen: Announced[], event: ExecutionEndEvent | ExecutionErrorEvent, error?: string): void {
     const { instanceId } = this.applicationContext;
     const { executionId } = event;
     const failed = error === undefined ? {} : { error };
     seen.push({ workflow: event.workflow.name, executionId, instanceId, ...failed });
-    if (event.workflow.name === CHILD) endOnceSeen.onChildEnd?.(instanceId);
+    if (CHILDREN.has(event.workflow.name)) endOnceSeen.onChildEnd?.(instanceId);
   }
 }
 

@@ -187,6 +187,16 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An announced child failure stays the child's end** (#596, found in the acceptance of #562) — a
+  `ParentInstance` child whose failure its parent's holder announced, the holder then frozen before
+  its step was checkpointed, was run again by the instance that took the tree over: a step that
+  now succeeded made the child heard failing and finishing and the root end instead of failing,
+  and a child with an undo was heard failing twice. A child's failure is now claimed in the tree's
+  store before it is announced (`@agboss/child-failure:<childExecutionId>`): one pass announces it,
+  and a re-entry that finds the claim repeats it without running the step. A repeated failure keeps
+  the error's name and message, not its class (as #340's unwinding mark): a side path on
+  `ChildExecutionFailedError` / `StepFailedError` takes it again, one on the child's own error class
+  by the cause chain does not.
 - **Who calls is a key's text** (#589, found in the acceptance of #568) — an `ownerId` with a lone
   surrogate (`bob\uD800`, from `JSON.parse` of a token's `sub`) made `app.execute` on SQLite or
   PostgreSQL create a thread stored as `bob\uFFFD`'s, then refuse its own caller; the `bob\uFFFD`
