@@ -22,6 +22,7 @@ import {
   UndoLocalWorkflowStart,
 } from "./fixtures/child-failure-once.workflow.js";
 import { resetUndo, undoSeen, UndoOneWorkflowStart } from "./fixtures/finished-undo.workflow.js";
+import { RootUndoWorkflowStart } from "./fixtures/join-undo.workflow.js";
 import {
   atDurable,
   DurablePoint,
@@ -51,7 +52,8 @@ type Start =
   | typeof YieldOneWorkflowStart
   | typeof UndoLocalWorkflowStart
   | typeof UndoOneWorkflowStart
-  | typeof SidePathLocalWorkflowStart;
+  | typeof SidePathLocalWorkflowStart
+  | typeof RootUndoWorkflowStart;
 
 /** One window: where the holder freezes, the tree, and what it must end as. */
 interface Window {
@@ -191,6 +193,38 @@ const CHILD_ENDS: readonly Window[] = [
   },
 ];
 
+/**
+ * #605: an undo is never run by a holder that lost the tree. Frozen right before its child's failed
+ * step's error is written, thawed after the takeover, the old holder's step went on to undo the
+ * child a second time (the root's and a join's: `undo-fence.test.ts`).
+ */
+const UNDOS: readonly Window[] = [
+  {
+    at: DurablePoint.ChildErrorBefore,
+    root: "ParentInstance with an undo (#605)",
+    start: UndoLocalWorkflowStart,
+    input: item("gate", "fail"),
+    finish: undefined,
+    child: "error",
+  },
+  {
+    at: DurablePoint.ChildErrorBefore,
+    root: "ParentInstance with an undo, first run only (#605)",
+    start: UndoLocalWorkflowStart,
+    input: item("gate-flaky"),
+    finish: "undo-local-workflow-finish",
+    child: "end",
+  },
+  {
+    at: DurablePoint.RootErrorBefore,
+    root: "a root's own undo (#605)",
+    start: RootUndoWorkflowStart,
+    input: item("gate", "fail"),
+    finish: undefined,
+    child: "either",
+  },
+];
+
 /** Advances live time in steps of 10 s until `done`, at most `steps` times. */
 async function liveUntil(clock: VirtualClock, done: () => boolean, steps: number): Promise<void> {
   for (let step = 0; step < steps && !done(); step += 1) await clock.advance(seconds(10));
@@ -199,7 +233,7 @@ async function liveUntil(clock: VirtualClock, done: () => boolean, steps: number
 const rootEnded = (): boolean => heard().rootEnds.length + heard().rootErrors.length > 0;
 
 describe("#596/#597 acceptance: the holder freezes around a write that makes an end durable", () => {
-  for (const window of [...ROOT_ENDS, ...CHILD_ENDS])
+  for (const window of [...ROOT_ENDS, ...CHILD_ENDS, ...UNDOS])
     for (const thaws of [
       "right after the takeover",
       "after the new holder ended the tree",
@@ -256,5 +290,7 @@ describe("#596/#597 acceptance: the holder freezes around a write that makes an 
         // no-undo-on-hand-over: an undo runs once, never again by a holder that lost the tree
         expect(undoSeen.booked.length).toBeLessThanOrEqual(1);
         expect(undoSeen.cancelled.length).toBeLessThanOrEqual(1);
+        // a tree that finished keeps what it booked: no holder undoes it, a lost one neither (#605)
+        if (window.child === "end") expect(undoSeen.cancelled).toEqual([]);
       });
 });

@@ -220,6 +220,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An undo runs only while its holder holds the tree** (#605, found in the acceptance of #596 /
+  #597) — a holder frozen right before its failed step's error reached the checkpointer, whose tree
+  another instance took over and undid, ran the undo a second time when it thawed (a child's, or a
+  root's own): its expiry timer had not fired yet, and nothing checked the lease before the undo
+  action. Each undo action now runs only after the holder's own fence (`assertHeld`, #533): a holder
+  past its lease hands over at the undo (`HandOverSite.Compensation`) and undoes nothing.
 - **Wiki → Guarantees says what each proof bounds** (#625, found in the acceptance of #533) — a
   stepped database clock can make two instances trust one lease (A3); the explorer covers P2 for the
   step's key only, up to its depth and over its listed races; on PostgreSQL it explores the SQL on
