@@ -117,6 +117,12 @@ export function checkedTenantId(tenantId: string): void {
     throw new DtoValidationError(TenantContext.name, [{ path: "tenantId", reason }]);
 }
 
+/** `read`, once `tenantId` is checked as a key's text (#568: the operator's reads by tenant). */
+export async function tenantRead<T>(tenantId: string, read: () => Promise<T>): Promise<T> {
+  checkedTenantId(tenantId);
+  return read();
+}
+
 const TenantBuiltIns = z.object({
   // #552: a tenant id keys threads, leases and business-key rows — the rules of a key's text
   tenantId: z
