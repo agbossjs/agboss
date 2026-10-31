@@ -45,6 +45,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   says how fast the store's own clock runs (1 for a database that decides by its clock). The history
   now keeps a lease's length, a claim's expected state and an ending's owner.
 
+- **The guarantees page** (#533) — Wiki → Guarantees: the five guarantees of several instances
+  (one owner per tree, one effect per business key, one send per attempt, no takeover of finished
+  work, compensation only on real failure), the eleven assumptions they rest on with what breaks
+  when one does not hold, every proof with where it bites, and what no checker reaches.
+
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
@@ -215,6 +220,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A side path on a child's own error class is taken on every holder** (#598, found while fixing
+  #596) — a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,
+  #340) or an instance (an `AnyInstance` child's queue row) came back with its name and message
+  only, so `.onError(PaymentDeclinedError, …)` matched on the instance that saw the failure and not
+  on the one that took the tree over — a remote child's never. The failure's record (its class line
+  by code, message and causes) is now kept there and rebuilt as a failure `.onError` routes as the
+  original; a mark or a row written before this release routes as before, the same on every
+  instance. A remote child's exhausted budget or failed undo now passes its parent's boundary as it
+  is, as a local child's does.
 - **A root's end is heard once** (#597, found in the acceptance of #562) — a root's holder that
   froze right after its tree's end became durable (its finish checkpoint, its failed step's error),
   whose tree another instance recovered and announced, announced the end again when it thawed, and

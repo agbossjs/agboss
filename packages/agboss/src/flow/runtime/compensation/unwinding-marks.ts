@@ -1,4 +1,11 @@
 import { AGBossError, ExecutionCancelledError } from "../../../core/errors.js";
+import {
+  durableRecordOf,
+  errorRecordFromDurable,
+  errorRecordOf,
+  RecordedError,
+  type ErrorRecord,
+} from "../../../core/error-record.js";
 import type {
   ExecutionTree,
   ExecutionTreeRepository,
@@ -45,8 +52,7 @@ export async function claimChildFailure(
   childExecutionId: string,
   cause: unknown,
 ): Promise<boolean> {
-  const { reason, cause: error } = unwindingMarkOf(cause);
-  const value = { reason, cause: { name: error.name, message: error.message } };
+  const value = markValueOf(unwindingMarkOf(cause));
   return trees.saveIfAbsentInTree(tree, childFailureKeyOf(childExecutionId), value);
 }
 
@@ -64,6 +70,11 @@ export interface UnwindingCause {
 export interface UnwindingMark {
   readonly reason: CompensationReason;
   readonly cause: UnwindingCause;
+  /**
+   * The error's record (#598): its class line by code and its causes, so another instance routes
+   * the failure it rebuilds as the original was routed. None in a mark written before #598.
+   */
+  readonly error?: ErrorRecord;
 }
 
 /** Where one unwind keeps its marks: the tree's store (none: no marks are kept), and its own key. */
@@ -83,16 +94,20 @@ export const reasonOfCause = (cause: unknown): CompensationReason =>
 /** The mark of an undo of an execution that ends with `cause`. */
 export function unwindingMarkOf(cause: unknown): UnwindingMark {
   const error = cause instanceof Error ? cause : new Error(String(cause));
-  return { reason: reasonOfCause(cause), cause: { name: error.name, message: error.message } };
+  const cut = { name: error.name, message: error.message };
+  return { reason: reasonOfCause(cause), cause: cut, error: errorRecordOf(cause) };
 }
+
+/** A mark as the tree's store keeps it. */
+const markValueOf = (mark: UnwindingMark): ExecutionTreeValue => ({
+  reason: mark.reason,
+  cause: { name: mark.cause.name, message: mark.cause.message },
+  ...(mark.error === undefined ? {} : { error: durableRecordOf(mark.error) }),
+});
 
 /** Records the undo under way (a mark already there is kept: the first reason wins). */
 export async function markUnwinding(marks: UnwindMarks, mark: UnwindingMark): Promise<void> {
-  const value = {
-    reason: mark.reason,
-    cause: { name: mark.cause.name, message: mark.cause.message },
-  };
-  await marks.trees?.saveIfAbsentInTree(marks.tree, marks.key, value);
+  await marks.trees?.saveIfAbsentInTree(marks.tree, marks.key, markValueOf(mark));
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -107,7 +122,12 @@ function markOf(value: ExecutionTreeValue | undefined): UnwindingMark | undefine
   if (!isRecord(value) || !isRecord(value.cause) || !isReason(value.reason)) return undefined;
   const { name, message } = value.cause;
   if (typeof name !== "string" || typeof message !== "string") return undefined;
-  return { reason: value.reason, cause: { name, message } };
+  const error = errorRecordFromDurable(value.error);
+  return {
+    reason: value.reason,
+    cause: { name, message },
+    ...(error === undefined ? {} : { error }),
+  };
 }
 
 /** The undo under way under `key` of the tree; `undefined` when there is none. */
@@ -129,12 +149,17 @@ export async function isUnwinding(
 
 /**
  * The error the execution ends with, rebuilt from its mark by another instance: a cancel is an
- * `ExecutionCancelledError`, a failure an `AGBossError` with the original's message.
+ * `ExecutionCancelledError`; a failure a `RecordedError` of its record (#598), which `.onError`
+ * routes as the original — the same side path on every holder; a mark written before #598 (no
+ * record) an `AGBossError` with the original's message, on every instance alike.
  */
-export const causeOfMark = (mark: UnwindingMark): AGBossError =>
-  mark.reason === CompensationReason.ExecutionCancelled
-    ? new ExecutionCancelledError(mark.cause.message)
-    : new AGBossError(mark.cause.message);
+export function causeOfMark(mark: UnwindingMark): Error {
+  if (mark.reason === CompensationReason.ExecutionCancelled)
+    return new ExecutionCancelledError(mark.cause.message);
+  return mark.error === undefined
+    ? new AGBossError(mark.cause.message)
+    : new RecordedError(mark.error);
+}
 
 /** Marks an undo that succeeded as done; a failed one is not marked (it runs again). */
 export async function markUndone(marks: UnwindMarks, entry: CompensationEntry): Promise<void> {
