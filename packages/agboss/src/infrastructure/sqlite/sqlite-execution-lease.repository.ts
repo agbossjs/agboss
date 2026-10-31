@@ -26,9 +26,10 @@ const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT
 /**
  * `released`: 0 held (or expired), 1 released by its holder, 2 closed as expired by an outbound
  * call's check (#508, `SUPERSEDED`) — not held either way, but a take of a superseded one is a
- * takeover from its holder.
+ * takeover from its holder —, 3 finished by its holder (#520, `FINISHED`): never acquired again.
  */
 const RELEASED = 1;
+const FINISHED = 3;
 
 /** The holder's own lease, as `renew`, `yield` and `reclaim` match it. */
 const HELD_BY = `tenant_id = ? AND root_execution_id = ? AND holder_instance_id = ? AND lease_epoch = ?
@@ -49,12 +50,17 @@ const LeaseRow = z.object({
   released: z.number(),
 });
 
+/** Whether `acquire` refuses a stored lease: still held, or finished (#520). */
+const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: number): boolean =>
+  released === FINISHED || (released === 0 && expires_at > now);
+
 /**
  * `ExecutionLeaseRepository` on the application's SQLite file (#265, S32): one row per tree with
  * its latest lease (a released one kept for its epoch). `acquire` reads and writes in one
  * `BEGIN IMMEDIATE` transaction, so of two instances on one file exactly one takes a free lease;
  * `renew`, `release`, `yield` and `reclaim` (#516: `yielded`, the next epoch) are one statement each,
- * matching the holder and the epoch. Times are the framework clock's milliseconds. Listed in
+ * matching the holder and the epoch; `finish` (#520) is a release no `acquire` passes (`released =
+ * 3`). Times are the framework clock's milliseconds. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
@@ -85,7 +91,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         .prepare("SELECT * FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?")
         .get(tenantId, rootExecutionId);
       const stored = row === undefined ? undefined : LeaseRow.parse(row);
-      if (stored?.released === 0 && stored.expires_at > now) return undefined;
+      if (stored !== undefined && isRefused(stored, now)) return undefined;
       const next: ExecutionLease = {
         tenantId,
         rootExecutionId,
@@ -127,12 +133,22 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
+    return this.#released(executionLease, RELEASED);
+  }
+
+  finish(executionLease: ExecutionLease): Promise<void> {
+    return this.#released(executionLease, FINISHED);
+  }
+
+  /** The holder's own lease released as `released` (a finished one stays finished, #520). */
+  #released(executionLease: ExecutionLease, released: number): Promise<void> {
     this.connection.database
       .prepare(
-        `UPDATE execution_leases SET released = 1 WHERE tenant_id = ? AND root_execution_id = ?
-         AND holder_instance_id = ? AND lease_epoch = ?`,
+        `UPDATE execution_leases SET released = CASE released WHEN 3 THEN 3 ELSE ? END,
+         yielded = 0 WHERE tenant_id = ? AND root_execution_id = ? AND holder_instance_id = ?
+         AND lease_epoch = ?`,
       )
-      .run(...heldBy(executionLease));
+      .run(released, ...heldBy(executionLease));
     return Promise.resolve();
   }
 

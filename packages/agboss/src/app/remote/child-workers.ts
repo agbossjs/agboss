@@ -11,17 +11,8 @@ import type { FrameworkLog } from "../../infrastructure/logger.js";
 import { SWEEP_EVERY } from "../../infrastructure/recovery.js";
 import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signals.js";
 import type { StepCapacity } from "../step-slots.js";
-import { isSameRunningClaim, watchRunningChild } from "./child-registry.js";
+import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
-import { LeaseTakeoverReason } from "../../infrastructure/execution-lease-event.repository.js";
-import type { LeaseTake } from "../execution-leases.js";
-
-/** The take of a remote child's own lease (#501): a reclaim takes over a child a worker was running. */
-const childTakeOf = (row: QueuedChildExecution, isReclaim: boolean): LeaseTake => ({
-  reason: LeaseTakeoverReason.RemoteChild,
-  isTakeover: isReclaim,
-  rootExecutionId: row.rootExecutionId,
-});
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
@@ -148,17 +139,31 @@ class Workers implements ChildWorkers {
     this.#preHeld.delete(key);
     try {
       const tree = { tenantId, rootExecutionId: executionId };
-      lease ??= await this.parts.leases.tryHold(tree, childTakeOf(row, false));
+      lease ??= await this.parts.leases.tryHold(tree, childTakeOf(this.parts.queue, row, false));
     } finally {
       stopClaiming();
     }
     if (lease === undefined) {
-      await this.parts.queue.saveIfAbsent({ ...row, status: ExecutionRecordStatus.Queued });
-      remoteChildSignals.queued(this.#onQueued);
+      await this.#requeueIfStillClaimed(row);
       return false;
     }
     await this.#executeClaimed(row, lease);
     return true;
+  }
+
+  /**
+   * Puts a claim whose lease was not free back in the queue — only while the row is still this
+   * claim (#520): a child another worker ended, paused or claimed meanwhile, or one whose tree ended,
+   * stays as it is. A read that fails puts it back (the queue refuses anything but this claim).
+   */
+  async #requeueIfStillClaimed(row: QueuedChildExecution): Promise<void> {
+    const { queue } = this.parts;
+    const current = await queue
+      .findByTenantIdAndExecutionId(row.tenantId, row.executionId)
+      .catch(() => row);
+    if (!isSameRunningClaim(current, row)) return;
+    await queue.saveIfAbsent({ ...row, status: ExecutionRecordStatus.Queued });
+    remoteChildSignals.queued(this.#onQueued);
   }
 
   async #executeClaimed(row: QueuedChildExecution, lease: HeldExecutionLease): Promise<void> {
@@ -167,10 +172,13 @@ class Workers implements ChildWorkers {
     const stop = new AbortController();
     const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
     const watching = watchRunningChild(this.parts, row, stop);
+    let isFinished = false;
     try {
       const end = await runQueuedChild(this.parts, row, lease, signal);
       if (end === undefined) return;
       const done = await queue.completeByTenantIdAndExecutionId(tenantId, executionId, end);
+      // answered or failed: its lease is finished, no stale worker takes it again (#520)
+      isFinished = end.status !== ExecutionRecordStatus.Paused;
       if (!done && !stop.signal.aborted) {
         const text = `child execution ${executionId} ended, but its tree no longer waits for it`;
         log.warn("child-queue.not-completed", text, { executionId, tenantId });
@@ -178,7 +186,7 @@ class Workers implements ChildWorkers {
     } finally {
       stop.abort();
       await watching;
-      await lease.release();
+      await lease.release({ isFinished });
     }
   }
 
@@ -200,14 +208,16 @@ class Workers implements ChildWorkers {
         .catch(() => undefined);
       if (!isSameRunningClaim(current, row)) return;
       const tree = { tenantId, rootExecutionId: executionId };
-      const lease = await this.parts.leases.tryHold(tree, childTakeOf(current, true));
+      const take = childTakeOf(this.parts.queue, current, true);
+      const lease = await this.parts.leases.tryHold(tree, take);
       if (lease === undefined) return;
       const queuedAt = this.parts.clock.now();
-      await this.parts.queue.saveIfAbsent({
-        ...current,
-        status: ExecutionRecordStatus.Queued,
-        queuedAt,
-      });
+      const requeued = { ...current, status: ExecutionRecordStatus.Queued, queuedAt };
+      // the claim moved on since the take (#520): the lease goes back, never held unused
+      if (!(await this.parts.queue.saveIfAbsent(requeued))) {
+        await lease.release();
+        return;
+      }
       this.#preHeld.set(key, lease);
       await this.#look();
     } finally {

@@ -1,6 +1,6 @@
 import { ResumeReason } from "../core/observability.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
-import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
+import { recordEndedOf, recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
 import type {
   AnsweredPass,
   PlannedPass,
@@ -106,7 +106,10 @@ class TreeMover implements TreeMoves {
     const { runId, threadId, tenantId, startedVersion } = interrupted;
     const state = { runId, threadId, tenantId, startedVersion };
     const { Recovered } = LeaseTakeoverReason;
-    const take = rootTakeOf(this.parts.deps.pause, state.runId, Recovered, true);
+    const take = {
+      ...rootTakeOf(this.parts.deps.pause, state.runId, Recovered, true),
+      isOver: recordEndedOf(this.parts.deps.terns, interrupted.ternId),
+    };
     const lease = await this.parts.leases.tryHold(treeOf(state), take);
     if (lease === undefined) return undefined;
     if ((await this.endedAtTake(state, lease)) !== undefined) return undefined;

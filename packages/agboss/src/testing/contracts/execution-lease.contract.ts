@@ -2,6 +2,8 @@ import { expect } from "vitest";
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
+import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
 import { LEASE_YIELD_CASES } from "./execution-lease-yield.cases.js";
 import type { ContractTarget } from "./seam.js";
@@ -113,7 +115,8 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
  * rootExecutionId)` — not given to another instance while valid, taken with `leaseEpoch + 1` after
  * it expired or was released, the old holder's `renew` then `false` — a take after expiry names the
  * expired holder (`takenOverFrom`, #501), one after a release none —; a yielded lease (#516) still
- * its holder's, renewed and refused to others until it expires, taken back with `reclaim`; and the
+ * its holder's, renewed and refused to others until it expires, taken back with `reclaim`; a finished
+ * lease (#520) never taken again, so no stale instance takes over finished work; and the
  * framework's holder over it — it aborts its work when the lease is lost, renews while alive (also
  * while it waits for remote children), and a release wakes the waiting instance.
  */
@@ -124,7 +127,9 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
     [
       { cases: LEASE_CASES },
       { title: "a yielded lease", cases: LEASE_YIELD_CASES },
+      { title: "a finished lease", cases: LEASE_FINISH_CASES },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
+      { title: "the framework's take of finished work", cases: LEASE_FINISH_HOLDER_CASES },
     ],
     pingOf,
   );

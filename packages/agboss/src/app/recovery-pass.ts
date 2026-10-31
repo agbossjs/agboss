@@ -1,3 +1,4 @@
+import type { TernStore } from "../terns/index.js";
 import type { PausedExecution } from "./paused-runs.js";
 import { continueAgent, type InterruptedRun } from "../run/continue-agent.js";
 import { resumeAgent } from "../run/resume-agent.js";
@@ -23,8 +24,7 @@ export async function recoveryPassOf(
   call: TreeCall,
 ): Promise<RecoveryPass | undefined> {
   const { deps, paused } = parts;
-  const [record] = await deps.terns.byIds([interrupted.ternId]);
-  if (record?.status !== "running") return undefined;
+  if (await recordEndedOf(deps.terns, interrupted.ternId)()) return undefined;
   const stored = await paused.find(interrupted);
   const resume = await treeResumeNow(deps, interrupted);
   if (resume !== undefined && stored?.run.runId === interrupted.runId) {
@@ -34,6 +34,14 @@ export async function recoveryPassOf(
     pass: (moving, signal) => continueAgent(interrupted, moving, runOptionsOf(call, signal)),
   };
 }
+
+/**
+ * Whether a root's record no longer runs (#520): its tree ended between the sweep's listing and a
+ * take of its lease — `LeaseTake.isOver` of the sweep's takes.
+ */
+export const recordEndedOf =
+  (terns: Pick<TernStore, "byIds">, ternId: string) => async (): Promise<boolean> =>
+    (await terns.byIds([ternId]))[0]?.status !== "running";
 
 /** The pass that continues a paused tree with the answers of its pauses. */
 export const resumePassOf =

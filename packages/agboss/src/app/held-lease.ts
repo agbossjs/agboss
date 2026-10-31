@@ -199,7 +199,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#attempts.keep(attempt, maxWait, () => this.#yields.enterStep());
   }
 
-  async release(): Promise<void> {
+  async release({ isFinished = false }: { readonly isFinished?: boolean } = {}): Promise<void> {
     // its attempts in flight first, renewed on meanwhile, within their bounds (#508)
     const isSettled = await this.#attempts.settled(this.#lost.signal, this.taking.stopping);
     await this.#reports.settled();
@@ -211,7 +211,7 @@ export class HeldLease implements HeldExecutionLease {
     if (isSettled && !this.#lost.signal.aborted && this.#current !== undefined) {
       const held = this.#current;
       this.#current = undefined;
-      await this.repository.release(held);
+      await (isFinished ? this.repository.finish(held) : this.repository.release(held));
     }
     leaseReleases.notify(this.#key);
   }

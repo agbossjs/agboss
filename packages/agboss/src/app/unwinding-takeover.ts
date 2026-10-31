@@ -3,7 +3,8 @@ import {
   unwindingOf,
   UNWINDING_KEY,
 } from "../flow/runtime/compensation/unwinding-marks.js";
-import type { CancelParts } from "./cancel-requests.js";
+import type { CancelParts, SweptRoot } from "./cancel-requests.js";
+import { recordEndedOf } from "./recovery-pass.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { treeOf } from "./tree-ends.js";
@@ -53,8 +54,15 @@ export async function endedUnwindingAtTake(
  * Recovery of a root with the mark, on an instance of any config version: ended when its lease is
  * free; `true` either way (its holder, if any, ends it).
  */
-export async function endUnwindingIfFree(parts: CancelParts, state: TreeState): Promise<boolean> {
-  const take = rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Unwinding, true);
+export async function endUnwindingIfFree(
+  parts: CancelParts,
+  state: TreeState & SweptRoot,
+): Promise<boolean> {
+  // a root whose record ended since the sweep's listing is not taken over (#520)
+  const take = {
+    ...rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Unwinding, true),
+    isOver: recordEndedOf(parts.deps.terns, state.ternId),
+  };
   const lease = await parts.leases.tryHold(treeOf(state), take);
   if (lease !== undefined) await endedUnwindingAtTake(parts, state, lease);
   return true;

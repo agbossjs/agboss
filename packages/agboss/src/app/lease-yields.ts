@@ -1,5 +1,9 @@
 import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
+import type { ExecutionLease } from "../infrastructure/execution-lease.repository.js";
+import type { LeaseEventLog } from "./execution-leases.js";
+import type * as LeaseEvents from "./lease-events.js";
+import type { HandOverReport } from "./lease-events.js";
 /**
  * When a held lease is yielded (#333 PR 4, #471): while every caller of the tree waits for remote
  * children (`yieldWhile`) and no step of the tree runs — a sibling branch's step keeps the lease, and
@@ -132,5 +136,54 @@ export class LeaseAttempts {
       done.abort();
     }
     return this.#attempts.size === 0;
+  }
+}
+
+/**
+ * The lease events a held lease records (#501): its hand-overs and its steps' fenced effects, each
+ * written through the instance's lease log in the order recorded — a refused effect before the
+ * hand-over it causes — and the lease released only once they were, so the moving call rejects
+ * after its rows exist.
+ */
+export class LeaseEventReports {
+  #tail: Promise<void> = Promise.resolve();
+  #holder: Pick<ExecutionLease, "holderInstanceId" | "leaseEpoch"> | undefined;
+
+  /** The lease now held: its holder and token name a later hand-over. */
+  held(lease: ExecutionLease): void {
+    this.#holder = lease;
+  }
+
+  handOver(events: LeaseEventLog | undefined, report: HandOverReport, scopeKey: string): void {
+    const holder = this.#holder;
+    if (holder === undefined) return;
+    const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.leaseEpoch };
+    this.#append(events, (recording, log) => recording.recordHandOver(log, report, lease));
+  }
+
+  /**
+   * A call a step under the lease made — a fenced effect's (#501) or one that leaves the system
+   * (#505): `write` records it with the holder's instance, in the lease's order.
+   */
+  stepCall(
+    events: LeaseEventLog | undefined,
+    write: (recording: typeof LeaseEvents, log: LeaseEventLog, holder: string) => Promise<void>,
+  ): void {
+    const holderInstanceId = this.#holder?.holderInstanceId;
+    if (holderInstanceId === undefined) return;
+    this.#append(events, (recording, log) => write(recording, log, holderInstanceId));
+  }
+
+  /** Once every event recorded so far is written (recording never rejects). */
+  settled(): Promise<void> {
+    return this.#tail;
+  }
+
+  #append(
+    events: LeaseEventLog | undefined,
+    write: (recording: typeof LeaseEvents, log: LeaseEventLog) => Promise<void>,
+  ): void {
+    if (events === undefined) return;
+    this.#tail = this.#tail.then(async () => write(await events.recording, events));
   }
 }

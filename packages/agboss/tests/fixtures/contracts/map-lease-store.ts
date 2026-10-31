@@ -19,6 +19,8 @@ export class LeaseTable {
   readonly released = new Set<string>();
   /** The trees whose lease its holder yielded (#516): still its own. */
   readonly yielded = new Set<string>();
+  /** The trees whose lease its holder finished (#520): never taken again. */
+  readonly finished = new Set<string>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -57,7 +59,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined> {
     const key = keyOf(tenantId, rootExecutionId);
     const stored = this.table.rows.get(key);
-    if (this.isValid(stored)) return Promise.resolve(undefined);
+    if (this.isValid(stored) || this.table.finished.has(key)) return Promise.resolve(undefined);
     const taken: ExecutionLease = {
       tenantId,
       rootExecutionId,
@@ -79,8 +81,8 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
-    const key = keyOf(executionLease.tenantId, executionLease.rootExecutionId);
-    if (!isSameLease(this.table.rows.get(key), executionLease)) return Promise.resolve(false);
+    const key = this.#heldKeyOf(executionLease);
+    if (key === undefined) return Promise.resolve(false);
     this.table.rows.set(key, { ...executionLease, expiresAt: new Date(this.now() + lease) });
     return Promise.resolve(true);
   }
@@ -93,6 +95,13 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
       this.table.released.add(key);
     }
     return Promise.resolve();
+  }
+
+  finish(executionLease: ExecutionLease): Promise<void> {
+    const key = keyOf(executionLease.tenantId, executionLease.rootExecutionId);
+    // in one step with the release: an acquire in between would take the finished key
+    if (isSameLease(this.table.rows.get(key), executionLease)) this.table.finished.add(key);
+    return this.release(executionLease);
   }
 
   yield(executionLease: ExecutionLease): Promise<boolean> {

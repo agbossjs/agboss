@@ -73,7 +73,10 @@ export abstract class ExecutionLeaseRepository {
    * timeout of its own.
    */
   abstract ping(): Promise<void>;
-  /** The tree's lease for `lease` from now; `undefined` while another holder's lease is valid. */
+  /**
+   * The tree's lease for `lease` from now; `undefined` while another holder's lease is valid, and
+   * for good once its holder finished it (`finish`, #520).
+   */
   abstract acquire(
     tenantId: string,
     rootExecutionId: string,
@@ -88,6 +91,15 @@ export abstract class ExecutionLeaseRepository {
 
   /** Gives the lease up at once (the tree paused, finished or failed); another holder's is kept. */
   abstract release(executionLease: ExecutionLease): Promise<void>;
+
+  /**
+   * Gives the lease up for good (#520): the work under it is over — an `AnyInstance` child that
+   * answered or failed — so no later `acquire` of its key gets a lease, whoever asks and whenever,
+   * and no takeover of finished work can follow. One atomic step, matched as `release` matches
+   * (another holder's lease is kept, nothing finished); a finished lease is renewed, yielded and
+   * reclaimed no more.
+   */
+  abstract finish(executionLease: ExecutionLease): Promise<void>;
 
   /**
    * Marks the holder's lease yielded (#516): its holder waits for children on any instance and no
@@ -109,6 +121,10 @@ export abstract class ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined>;
 }
 
+/** Whether `acquire` refuses a stored lease: still held, or finished (#520). */
+const isRefused = (stored: ExecutionLeaseRow, now: Date): boolean =>
+  stored.isFinished === true || (!stored.released && stored.lease.expiresAt > now);
+
 /** Whether `stored` is the very lease the caller holds (its holder and epoch). */
 const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
   stored.leaseEpoch === held.leaseEpoch && stored.holderInstanceId === held.holderInstanceId;
@@ -116,7 +132,8 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
 /**
  * The built-in default: leases in this instance's memory — every operation is one synchronous
  * step, so it is atomic. With one instance nothing contends; the instances of one test share it. A
- * yielded lease is its row with `isYielded` (#516): read by nothing but the people looking at it.
+ * yielded lease is its row with `isYielded` (#516): read by nothing but the people looking at it; a
+ * finished one (#520) its released row with `isFinished`, never acquired again.
  */
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
@@ -140,8 +157,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     const key = treeKeyOf(tenantId, rootExecutionId);
     const now = this.clock.now();
     const stored = this.database.executionLeases.get(key);
-    const held = stored !== undefined && !stored.released && stored.lease.expiresAt > now;
-    if (held) return Promise.resolve(undefined);
+    if (stored !== undefined && isRefused(stored, now)) return Promise.resolve(undefined);
     const taken: ExecutionLease = {
       tenantId,
       rootExecutionId,
@@ -170,12 +186,26 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
+    this.#released(executionLease, false);
+    return Promise.resolve();
+  }
+
+  finish(executionLease: ExecutionLease): Promise<void> {
+    this.#released(executionLease, true);
+    return Promise.resolve();
+  }
+
+  /** Releases the caller's own lease — for good when `isFinished` (#520); another's is kept. */
+  #released(executionLease: ExecutionLease, isFinished: boolean): void {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.database.executionLeases.get(key);
-    if (stored !== undefined && isSameLease(stored.lease, executionLease)) {
-      this.database.executionLeases.set(key, { lease: stored.lease, released: true });
-    }
-    return Promise.resolve();
+    if (stored === undefined || !isSameLease(stored.lease, executionLease)) return;
+    const finished = isFinished || stored.isFinished === true;
+    this.database.executionLeases.set(key, {
+      lease: stored.lease,
+      released: true,
+      ...(finished ? { isFinished: true } : {}),
+    });
   }
 
   yield(executionLease: ExecutionLease): Promise<boolean> {

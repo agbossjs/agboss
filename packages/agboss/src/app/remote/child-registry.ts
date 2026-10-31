@@ -12,6 +12,8 @@ import type { Clock } from "../../infrastructure/clock.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
+import { LeaseTakeoverReason } from "../../infrastructure/execution-lease-event.repository.js";
+import type { LeaseTake } from "../execution-leases.js";
 import type { BuiltApp } from "../create-app.js";
 
 const WATCH_EVERY: Milliseconds = seconds(10);
@@ -24,6 +26,26 @@ export const isSameRunningClaim = (
   current?.status === ExecutionRecordStatus.Running &&
   current.claimedAt !== undefined &&
   current.claimedAt.getTime() === row.claimedAt?.getTime();
+
+/**
+ * The take of a remote child's own lease (#501): a reclaim takes over a child a worker was running.
+ * Over (#520) once the queue row is no longer the claim `row` names — ended, paused, claimed again
+ * or removed with its tree: no lease is taken for it, no takeover recorded.
+ */
+export const childTakeOf = (
+  queue: Pick<ChildExecutionQueueRepository, "findByTenantIdAndExecutionId">,
+  row: QueuedChildExecution,
+  isReclaim: boolean,
+): LeaseTake => ({
+  reason: LeaseTakeoverReason.RemoteChild,
+  isTakeover: isReclaim,
+  rootExecutionId: row.rootExecutionId,
+  isOver: async () =>
+    !isSameRunningClaim(
+      await queue.findByTenantIdAndExecutionId(row.tenantId, row.executionId),
+      row,
+    ),
+});
 
 /** Every 10 s while the child runs: its tree cancelled or ended stops it. */
 export async function watchRunningChild(

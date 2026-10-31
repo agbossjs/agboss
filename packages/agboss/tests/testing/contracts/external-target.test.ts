@@ -48,10 +48,10 @@ describe("#481: an async instance and an async reset", () => {
   executionLeaseContract(asyncTarget);
 
   it("each case reset the store once and closed both instances it built", () => {
-    // the lease contract's 22 cases ran above, in order (#501: two of takenOverFrom; #516: ten of
-    // a yielded lease)
-    expect(lifecycle.resets).toBe(22);
-    expect(lifecycle.built).toBe(44);
-    expect(lifecycle.closed.size).toBe(44);
+    // the lease contract's 34 cases ran above, in order (#501: two of takenOverFrom; #516: ten of
+    // a yielded lease; #520: eight of a finished lease, four of the take of finished work)
+    expect(lifecycle.resets).toBe(34);
+    expect(lifecycle.built).toBe(68);
+    expect(lifecycle.closed.size).toBe(68);
   });
 });
