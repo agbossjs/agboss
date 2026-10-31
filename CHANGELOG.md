@@ -187,6 +187,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **Who calls is a key's text** (#589, found in the acceptance of #568) — an `ownerId` with a lone
+  surrogate (`bob\uD800`, from `JSON.parse` of a token's `sub`) made `app.execute` on SQLite or
+  PostgreSQL create a thread stored as `bob\uFFFD`'s, then refuse its own caller; the `bob\uFFFD`
+  owner had the thread. `ownerId` at `execute`, `resume` and `cancel`, and a `Channel` pause's
+  `answeredBy`, are now held to the key-text rules before anything is read or written:
+  `dto.invalid` naming the field and the rule, never the id.
 - **An empty fingerprint is not none** (#574, found by #533's mutation testing) — under a business
   key, a fenced effect with `fingerprint: ""` in flight on one instance beside one with no
   fingerprint was joined to it and got its result, though the pair made one after the other was

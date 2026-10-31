@@ -1946,7 +1946,8 @@ askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn o
   `leaseEventsOf`, `outboundCallsOf`, `pendingOutboundCalls`, whose tree reads check `rootExecutionId` (#580)
   so too; `agboss records export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
   trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
-  `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8); every
+  `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
+  who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `answeredBy`); every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.

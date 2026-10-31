@@ -58,7 +58,8 @@ export interface ExecutionOptions extends CallOptions {
   /**
    * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
    * to it; continuing, resuming or cancelling a thread with another owner (or none for an owned
-   * thread) throws `ThreadOwnerError` before anything runs.
+   * thread) throws `ThreadOwnerError` before anything runs. A key's text (#589: `keyTextRuleOf`),
+   * else `dto.invalid` naming `ownerId` and the rule, never the id.
    */
   readonly ownerId?: string | undefined;
   /**
@@ -118,18 +119,19 @@ export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 /** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
 export interface ThreadOwnerResumeOptions extends CallOptions {
   readonly tenantId?: string | undefined;
-  /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`). */
+  /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
   readonly ownerId?: string | undefined;
   readonly answeredBy?: never;
 }
 
 /**
  * The answer of a `PauseAnswerer.Channel` pause: the channel's side authenticated who answers; the
- * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given.
+ * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given
+ * and is a key's text (#589).
  */
 export interface ChannelResumeOptions extends CallOptions {
   readonly tenantId?: string | undefined;
-  /** Who answered, as the channel's side knows them (`"manager-17"`): non-empty. */
+  /** Who answered, as the channel's side knows them (`"manager-17"`): non-empty, a key's text (#589). */
   readonly answeredBy: string;
   readonly ownerId?: never;
 }
@@ -137,6 +139,7 @@ export interface ChannelResumeOptions extends CallOptions {
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
 export interface CancelOptions {
   readonly tenantId?: string | undefined;
+  /** The caller's owner: a key's text (#589). */
   readonly ownerId?: string | undefined;
 }
 

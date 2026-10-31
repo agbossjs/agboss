@@ -1,6 +1,6 @@
 import { ExecutionOperation } from "../core/observability.js";
 import { keyTextRuleOf } from "../core/errors.js";
-import { checkedTenantId } from "../flow/context/context-values.js";
+import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { InvalidThreadIdError, type ThreadAccess } from "../run/thread.js";
 import { remoteCancel, type CancelParts } from "./cancel-requests.js";
@@ -36,6 +36,7 @@ export async function cancelThread(
     checkedTenantId(thread.tenantId);
     const rule = keyTextRuleOf(threadId);
     if (rule !== undefined) throw new InvalidThreadIdError(rule);
+    checkedCallerId("CancelOptions", "ownerId", options.ownerId); // #589
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
   const running = live.abort(thread);
