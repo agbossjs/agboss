@@ -10,7 +10,7 @@ import { PlacePurchaseTool } from "../../../../src/approvals/tools/place-purchas
 import { OffsiteBookingWorkflowFinish } from "../../../../src/approvals/workflows/offsite-booking/offsite-booking.workflow-finish.js";
 import { OffsiteBookingWorkflowStart } from "../../../../src/approvals/workflows/offsite-booking/offsite-booking.workflow-start.js";
 import { FlowPatternsApplication } from "../../../../src/flow-patterns.application.js";
-import { instancesFilePerTest } from "../../../instances-file.js";
+import { instancesFilePerTest } from "../../../environments/support/instances-file.js";
 
 /** Two approvals at once (#267, #346 AC2): two buyers side by side, each purchase a pause. */
 

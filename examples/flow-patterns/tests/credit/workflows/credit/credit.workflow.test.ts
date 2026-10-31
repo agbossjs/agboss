@@ -37,7 +37,7 @@ import { CreditWorkflowFinish } from "../../../../src/credit/workflows/credit/cr
 import { NoOrderWorkflowFinish } from "../../../../src/credit/workflows/credit/no-order.workflow-finish.js";
 import { OrderHeldWorkflowFinish } from "../../../../src/credit/workflows/credit/order-held.workflow-finish.js";
 import { CreditWorkflowStart } from "../../../../src/credit/workflows/credit/credit.workflow-start.js";
-import { instancesFilePerTest } from "../../../instances-file.js";
+import { instancesFilePerTest } from "../../../environments/support/instances-file.js";
 
 /** A code router (`route(input)`, no model) inside a model router's route. */
 
