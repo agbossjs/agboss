@@ -772,6 +772,11 @@ export class ChargeOrderAction {
   other use of the PII key than its tokens derives a subkey under a label of its own. A key made
   outside an execution has no handle, and the error then shows none. A concurrent
   call of this instance under another fingerprint is refused the same way, never joined.
+- **Any text is a fingerprint, the empty one too** (#574): a key with `fingerprint: ""` and one
+  with none are two requests, refused against each other whether the first is stored or still in
+  flight on this instance. `fencedEffectKeyOf` never makes `""` (none, or 64 hex digits); a key
+  built by hand may. A store of your own keeps `""` as `""` — a column that turns it into `NULL`
+  replays it as none, which `fencedEffectContract`'s case "an empty fingerprint is not none" fails.
 - **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
   now, whatever its key, is **joined** (`Joined`): the joiner shares a success or the other system's
   own error, and on anything else of the first call's — its hand-over, its cancel — makes its own

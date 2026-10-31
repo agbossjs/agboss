@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an empty fingerprint is not none (#574)
+
+- Fixed: under a business key, a fenced effect with `fingerprint: ""` in flight on one instance
+  beside one with no fingerprint was joined to it and got its result (`Joined`); made one after the
+  other the pair was already `IdempotencyKeyConflictError`. Both are now refused, in flight too:
+  any text is a fingerprint, `""` included, and none is none. `fencedEffectContract` (and so
+  `storeConformance`) adds the group "an empty fingerprint is not none": a store must keep `""` as
+  `""`, not as `NULL`. Found by #533's mutation testing. Several-instances.
 ## Unreleased — 0.1.1: what a runtime upgrade can do to a stored key (#587)
 
 - Docs: the `unassigned` rule never refuses a key it accepted before, and NFC is stable. The other
