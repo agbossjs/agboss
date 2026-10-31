@@ -2224,8 +2224,10 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   too), `mcpOf`,
   `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
-  `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
-  one's work before the next, without real waiting — and work registered with `clock.track(promise)`
+  `await clock.advance(seconds(31))` (or `"25h"`), which sets the time first and then wakes every due wait in time order, each
+  one's work before the next, without real waiting — so one advance of a whole lease (30 s) or more is a running
+  execution's holder frozen that long, its lease over (#534, #551; let time pass for a live holder in steps of
+  `seconds(10)`) — and work registered with `clock.track(promise)`
   (a store's round trip, #511) settled first, up to `new VirtualClock(start, { settleTimeout })`
   of real time (default 2 s, then `UnsettledWorkError`, `test.unsettled-work`); deterministic ids — `thread-1`, `thread-2`, …,
   `execution-1`, … in the order made, per test and shared by its instances (`SequentialIdGenerator`,

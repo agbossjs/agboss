@@ -12,6 +12,7 @@ import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import {
+  FromOldEndLeaseRepository,
   holderAndEpochOnly,
   LaggingClock,
   NaiveExpiryLeaseRepository,
@@ -30,6 +31,13 @@ executionLeaseContract({
   name: "leases by holder and epoch only",
 });
 executionLeaseContract({ ...leasesWith(throughExpiry), name: "leases live through expiresAt" });
+executionLeaseContract({
+  ...inMemoryTarget(
+    ({ clock, application, database }) =>
+      new FromOldEndLeaseRepository(clock, application, database),
+  ),
+  name: "leases renewed from their old end",
+});
 
 /** The fencing stores of a test on a clock `lag` behind their lease store's. */
 const effectsLagging = (lag: Milliseconds) =>

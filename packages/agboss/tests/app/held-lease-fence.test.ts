@@ -327,7 +327,7 @@ describe.each(kinds)(
         });
 
         await expect(lease.enterStep()).rejects.toThrow(
-          "expired while it waited for remote children and another instance took it",
+          "expired while it waited for remote children, or another instance took it",
         );
         expect(lease.signal.aborted).toBe(true);
         release();

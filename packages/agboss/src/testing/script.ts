@@ -126,7 +126,9 @@ export const failWith = (failure: ModelFailure): FailureTurn => ({ kind: "failur
 /**
  * The next turn answers only after this long on the test's clock:
  * `thenReturn(waitFor(seconds(31)), replyWith("late"))` — moved by `clock.advance(…)`, so a
- * deadline or a timeout is reached without real waiting.
+ * deadline or a timeout is reached without real waiting. The execution holds its lease meanwhile:
+ * let time pass in steps shorter than the lease (`seconds(10)`) — one advance of 30 s or more is
+ * its holder frozen that long, and its lease is over (#534).
  */
 export const waitFor = (duration: ClockDuration | Milliseconds): WaitTurn => ({
   kind: "wait",

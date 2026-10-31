@@ -137,7 +137,8 @@ export interface FailureTurn {
 /**
  * The call takes this long on the test's clock before the next turn answers it:
  * `thenReturn(waitFor(seconds(31)), replyWith("late"))` — the call waits until `clock.advance`
- * reaches it (or its signal aborts); it is not a call of its own.
+ * reaches it (or its signal aborts); it is not a call of its own. Advance in steps shorter than the
+ * lease: one jump of 30 s or more freezes the holder past its lease's expiry (#534).
  */
 export interface WaitTurn {
   readonly kind: "wait";
