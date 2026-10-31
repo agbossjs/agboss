@@ -3282,7 +3282,9 @@ export enum KeyTextRule {
     FormatCharacter = "format-character",
     Length = "length",
     LoneSurrogate = "lone-surrogate",
-    NotNfc = "not-nfc"
+    NotNfc = "not-nfc",
+    SpaceSeparator = "space-separator",
+    Spacing = "spacing"
 }
 
 // @public

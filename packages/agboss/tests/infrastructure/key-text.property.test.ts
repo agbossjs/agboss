@@ -32,8 +32,19 @@ import { seededProperties } from "../helpers/property-seed.js";
 
 seededProperties("key-text.property.test.ts");
 
-/** What the rules refuse, to be mixed in: C1, Cf, lone surrogates, a combining mark after a base. */
+/**
+ * What the rules refuse, to be mixed in: C1, Cf, lone surrogates, a combining mark after a base, a
+ * space but U+0020 and the line and paragraph separators (#547).
+ */
 const HAZARDS = [
+  "\u00a0",
+  "\u1680",
+  "\u2007",
+  "\u2028",
+  "\u2029",
+  "\u202f",
+  "\u3000",
+  "  ",
   "\u0085",
   "\u009f",
   "\u00ad",
@@ -83,19 +94,23 @@ const lookalikesOf = (key: string): readonly string[] =>
 const distinctKeys = fc.oneof(
   fc.uniqueArray(acceptedKey, { minLength: 1, maxLength: 6 }),
   acceptedKey.map((key) => [...new Set(lookalikesOf(key))]),
-  fc.constant(["order:42", "Order:42", "ORDER:42", "order:42 ", "order:４２", "ｏｒｄｅｒ:42"]),
+  fc.constant(["order:42", "Order:42", "ORDER:42", "order 42", "order:４２", "ｏｒｄｅｒ:42"]),
 );
 
 const STORE_RUNS = { inMemory: 100, sqlite: 40 } as const;
 
 describe("#538 AC2: any text is refused exactly when a rule says so, never echoed", () => {
-  it("a key is what no rule refuses: 1–200 code units, no Cc, no Cf, no Cs, NFC", () => {
+  it("a key is what no rule refuses: 1–200 code units, no Cc, no Cf, no Cs, no space but single inside U+0020s, NFC", () => {
     fc.assert(
       fc.property(anyText, (text) => {
         const isKey =
           text.length >= 1 &&
           text.length <= 200 &&
           !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(text) &&
+          !/\p{Z}/u.test(text.replaceAll(" ", "")) &&
+          !text.startsWith(" ") &&
+          !text.endsWith(" ") &&
+          !text.includes("  ") &&
           text.normalize("NFC") === text;
         expect(keyTextRuleOf(text) === undefined).toBe(isKey);
       }),
@@ -133,6 +148,79 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
         const decomposed = key.normalize("NFD");
         if (decomposed !== key) expect(keyTextRuleOf(decomposed)).toBe(KeyTextRule.NotNfc);
       }),
+      { numRuns: 1000 },
+    );
+  });
+});
+
+/** The spaces a key may never hold (#547): Zs but U+0020, Zl, Zp. */
+const OTHER_SPACES = [
+  "\u00a0",
+  "\u1680",
+  "\u2000",
+  "\u2001",
+  "\u2002",
+  "\u2003",
+  "\u2004",
+  "\u2005",
+  "\u2006",
+  "\u2007",
+  "\u2008",
+  "\u2009",
+  "\u200a",
+  "\u2028",
+  "\u2029",
+  "\u202f",
+  "\u205f",
+  "\u3000",
+];
+
+/** `key` changed only by what #547 refuses: another space put in or swapped for one, or U+0020 at an edge or doubled. */
+const spacedVariant = (key: string) =>
+  fc.oneof(
+    fc
+      .tuple(fc.nat({ max: key.length }), fc.constantFrom(...OTHER_SPACES))
+      .map(([at, space]) => `${key.slice(0, at)}${space}${key.slice(at)}`),
+    fc.constantFrom(` ${key}`, `${key} `, ` ${key} `),
+    fc.constantFrom(...OTHER_SPACES).map((space) => key.replaceAll(" ", space)),
+    fc.constant(key.replaceAll(" ", "  ")),
+  );
+
+describe("#547 AC2: no accepted key differs from another only by a space the rules refuse", () => {
+  it("another space put in or swapped for U+0020, a space at an edge, or a doubled one: refused", () => {
+    fc.assert(
+      fc.property(
+        acceptedKey.chain((key) => fc.tuple(fc.constant(key), spacedVariant(key))),
+        ([key, variant]) => {
+          if (variant === key) return;
+          expect(keyTextRuleOf(variant)).not.toBeUndefined();
+        },
+      ),
+      { numRuns: 2000 },
+    );
+  });
+
+  it("a key of spaces only is refused: one, two, one beside another space", () => {
+    expect(keyTextRuleOf(" ")).toBe(KeyTextRule.Spacing);
+    expect(keyTextRuleOf("  ")).toBe(KeyTextRule.Spacing);
+    expect(keyTextRuleOf("\u00a0")).toBe(KeyTextRule.SpaceSeparator);
+    expect(keyTextRuleOf(" \u3000")).toBe(KeyTextRule.SpaceSeparator);
+  });
+
+  it("an accepted key with an interior space: every look-alike with another space is refused", () => {
+    fc.assert(
+      fc.property(
+        fc.tuple(
+          fc.stringMatching(/^[a-z0-9:]{1,10}$/),
+          fc.stringMatching(/^[a-z0-9:]{1,10}$/),
+          fc.constantFrom(...OTHER_SPACES),
+        ),
+        ([before, after, space]) => {
+          expect(keyTextRuleOf(`${before} ${after}`)).toBeUndefined();
+          expect(keyTextRuleOf(`${before}${space}${after}`)).toBe(KeyTextRule.SpaceSeparator);
+          expect(keyTextRuleOf(`${before}  ${after}`)).toBe(KeyTextRule.Spacing);
+        },
+      ),
       { numRuns: 1000 },
     );
   });
@@ -235,7 +323,6 @@ describe("#538 AC2: the property bites a store that folds a business key", () =>
   it.each([
     ["a case-insensitive collation", (text: string) => text.toLowerCase()],
     ["NFKC", (text: string) => text.normalize("NFKC")],
-    ["a trim", (text: string) => text.trim()],
   ] as const)(
     "%s: two distinct keys meet in one intent — the property fails",
     async (_fold, fold) => {
@@ -257,4 +344,13 @@ describe("#538 AC2: the property bites a store that folds a business key", () =>
       await expect(body()).rejects.toThrow(/Property failed/u);
     },
   );
+
+  it("#547: a trimming store merges no two accepted keys any more — no key has a space at an edge", () => {
+    fc.assert(
+      fc.property(acceptedKey, (key) => {
+        expect(key.trim()).toBe(key);
+      }),
+      { numRuns: 2000 },
+    );
+  });
 });

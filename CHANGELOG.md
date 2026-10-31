@@ -175,6 +175,14 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
   `InvalidThreadIdError`): SQLite and PostgreSQL keep text as UTF-8, where two such keys were one
   row, and an outbound call's key threw `URIError`.
+- **Keys with look-alike spaces are refused** (#547) — a business key and a thread id are refused
+  when they hold a space other than U+0020 (Unicode `Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F,
+  U+205F, U+3000) or a line or paragraph separator (U+2028, U+2029) — `KeyTextRule.SpaceSeparator`,
+  `space-separator` — and when a U+0020 starts or ends them or two come in a row —
+  `KeyTextRule.Spacing`, `spacing`: `" order-1"`, `"order-1 "` and `"order  1"` were keys of their
+  own beside `"order-1"` and `"order 1"`. The same entry points and messages as #538, the key never
+  named. **Migration:** trim keys and thread ids, collapse runs of spaces and replace other spaces
+  by U+0020 where they are made.
 - **A tenant id is a key's text too** (#552) — the rules of #538 hold a tenant id at
   `app.execute` (`tenant: { tenantId }`), `app.resume` and `app.cancel` (`dto.invalid`, the field
   and the rule named, never the id): a tenant id with a lone surrogate was written to SQLite and

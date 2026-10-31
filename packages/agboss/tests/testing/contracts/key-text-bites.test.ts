@@ -29,7 +29,7 @@ const ROUND_TRIP = "#538: business keys of many scripts — CJ";
 const REFUSAL = "#538: a key built by hand whose business";
 
 describe("#538 AC2: a store that folds or cleans a business key fails the key-text cases", () => {
-  it.each(["a case-insensitive collation", "keys folded to NFKC", "keys trimmed"])(
+  it.each(["a case-insensitive collation", "keys folded to NFKC"])(
     "%s: two keys become one row — the round-trip case fails, for effects and calls",
     (fold) => {
       for (const kind of ["effects", "calls"]) {
@@ -37,6 +37,13 @@ describe("#538 AC2: a store that folds or cleans a business key fails the key-te
       }
     },
   );
+
+  it("#547: a store that trims keys merges no accepted key, but takes one with an edge space it must refuse — the refusal case fails", () => {
+    for (const kind of ["effects", "calls"]) {
+      expect(statesOf(`${kind} with keys trimmed`)).toContainEqual([ROUND_TRIP, "pass"]);
+      expect(statesOf(`${kind} with keys trimmed`)).toContainEqual([REFUSAL, "fail"]);
+    }
+  });
 
   it("a store that cleans a key takes one it must refuse — the refusal case fails, for effects and calls", () => {
     const fold = "keys cleaned of controls and format characters, then NFC";

@@ -10,6 +10,12 @@ const at = (codePoint: number): string => `order:${String.fromCodePoint(codePoin
 const hex = (codePoint: number): string =>
   `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
 
+/** Every space but U+0020, and the line and paragraph separators (#547): Zs, Zl, Zp. */
+const SPACES = [
+  0x00a0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,
+  0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000,
+];
+
 /** C0, DEL and C1: their edges and a sample inside. */
 const CONTROLS = [0x00, 0x09, 0x0a, 0x0d, 0x1f, 0x7f, 0x80, 0x85, 0x9f];
 
@@ -34,6 +40,16 @@ export const REFUSED_KEYS: readonly (readonly [string, KeyTextRule, string])[] =
     KeyTextRule.FormatCharacter,
     `order:${["👨", "👩", "👧"].join(String.fromCodePoint(0x200d))}`,
   ],
+  ...SPACES.map((code) => [`space ${hex(code)}`, KeyTextRule.SpaceSeparator, at(code)] as const),
+  ["a leading space", KeyTextRule.Spacing, " order:42"],
+  ["a trailing space", KeyTextRule.Spacing, "order:42 "],
+  ["two spaces in a row", KeyTextRule.Spacing, "order  42"],
+  ["three spaces in a row", KeyTextRule.Spacing, "order   42"],
+  [
+    "a space before a no-break space: the other space named first",
+    KeyTextRule.SpaceSeparator,
+    "order \u00a042",
+  ],
   ["a high surrogate alone (U+D800)", KeyTextRule.LoneSurrogate, "order:\uD800"],
   ["a high surrogate alone (U+DBFF)", KeyTextRule.LoneSurrogate, "order:\uDBFF42"],
   ["a low surrogate alone (U+DC00)", KeyTextRule.LoneSurrogate, "order:\uDC0042"],
@@ -53,9 +69,11 @@ export const ACCEPTED_KEYS: readonly (readonly [string, string])[] = [
   ["200 characters", "k".repeat(200)],
   ["100 emoji (200 code units)", "🧾".repeat(100)],
   ["a space and punctuation", "order 42/%:\"'\\"],
-  ["U+0020 and U+007E, the edges of printable ASCII", " ~"],
-  ["U+00A0 and U+00A1, right after C1", " ¡"],
-  ["U+200A and U+2010, around the zero-width block", " ‐"],
+  ["U+0021 and U+007E, the edges of printable ASCII but the space", "!~"],
+  ["a single space inside", "order 42"],
+  ["single spaces inside, several", "order 42 of 7"],
+  ["U+00A1, right after C1 and the no-break space", "¡"],
+  ["U+2010, right after the spaces and the zero-width block", "‐"],
   ["CJK", "注文:四十二"],
   ["Japanese kana", "ちゅうもん:42"],
   ["Korean, NFC syllables", "주문:42"],
