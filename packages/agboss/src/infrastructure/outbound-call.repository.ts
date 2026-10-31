@@ -134,7 +134,8 @@ export abstract class OutboundCallRepository {
    * past their `attemptTimeout`, and never yields it under one); `Ended` — released, or its token
    * moved on: its owner is gone; `Superseded` — expired at `token`, and closed by this check: released
    * at `token`, so its holder can neither renew it nor write under it again (what it sends late is
-   * fenced) and its tree is taken again as a released lease. A late renewal and this check never
+   * fenced) — marked closed by a check, not by its holder, so the next take of its tree is a takeover
+   * from that holder at that token (`takenOverFrom`). A late renewal and this check never
    * both win: the lease is renewed and `Live`, or `Superseded` and not renewable.
    */
   abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;

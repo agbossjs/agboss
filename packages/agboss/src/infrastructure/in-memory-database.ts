@@ -71,6 +71,11 @@ export interface ExecutionLeaseRow {
   readonly released: boolean;
   /** Yielded by its holder while it waits for children on any instance (#516); still its own. */
   readonly isYielded?: boolean;
+  /**
+   * Released by an outbound call's check, expired at its epoch (#508), not by its holder: the next
+   * take is a takeover from that holder and epoch (`takenOverFrom`), as of an expired lease.
+   */
+  readonly isSuperseded?: boolean;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

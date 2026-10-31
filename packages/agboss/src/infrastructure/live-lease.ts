@@ -7,7 +7,9 @@ import type { OutboundCallLease } from "./outbound-call-record.js";
 /**
  * The state of a lease that wrote a pending outbound call (#508), loaded on the first check — in
  * memory and on SQLite. An expired one is closed by the check itself, in the same atomic step:
- * released at its token, so its holder can neither renew it nor write under it again.
+ * released at its token — marked superseded (in memory `isSuperseded`, on SQLite `released = 2`), so
+ * the next take still names its holder and token (`takenOverFrom`) — and its holder can neither
+ * renew it nor write under it again.
  */
 
 /** A lease row as read here. */
@@ -24,7 +26,7 @@ export function inMemoryLeaseStateOf(
   if (row === undefined || row.released || row.lease.leaseEpoch !== lease.token)
     return OutboundCallLeaseState.Ended;
   if (row.lease.expiresAt > now) return OutboundCallLeaseState.Live;
-  database.executionLeases.set(key, { ...row, released: true });
+  database.executionLeases.set(key, { ...row, released: true, isSuperseded: true });
   return OutboundCallLeaseState.Superseded;
 }
 
@@ -41,7 +43,7 @@ export function sqliteLeaseStateOf(
   const { tenantId, leaseExecutionId, token } = lease;
   const closed = database
     .prepare(
-      "UPDATE execution_leases SET released = 1 WHERE tenant_id = ? AND root_execution_id = ? AND lease_epoch = ? AND released = 0 AND expires_at <= ?",
+      "UPDATE execution_leases SET released = 2 WHERE tenant_id = ? AND root_execution_id = ? AND lease_epoch = ? AND released = 0 AND expires_at <= ?",
     )
     .run(tenantId, leaseExecutionId, token, now.getTime());
   if (closed.changes === 1) return OutboundCallLeaseState.Superseded;

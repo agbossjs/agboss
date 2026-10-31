@@ -148,8 +148,11 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       holderInstanceId: this.applicationContext.instanceId,
       leaseEpoch: (stored?.lease.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(now.getTime() + lease),
-      // held is false here: a stored lease not released has expired
-      ...takenOverFromOf(stored?.lease, stored?.released === false),
+      // held is false here: a stored lease not released has expired; a superseded one had (#508)
+      ...takenOverFromOf(
+        stored?.lease,
+        stored?.released === false || stored?.isSuperseded === true,
+      ),
     };
     this.database.executionLeases.set(key, { lease: taken, released: false });
     return Promise.resolve(taken);

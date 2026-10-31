@@ -2024,7 +2024,8 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`, 
   a lease still live on another instance (`OutboundCallRepository.leaseStateOf(lease)` →
   `OutboundCallLeaseState.Live`; `Ended` once released or its token moved on; an expired one is
   closed by the check itself in one atomic step, `Superseded` — released at the token it was held
-  at, so its holder writes nothing under it again; a late renewal and the check never both win —,
+  at — marked as closed by a check, so the next take is a takeover from that holder and token —, so
+  its holder can neither renew, yield, reclaim nor write under it again; a late renewal and the check never both win —,
   the close an `OutboundCall` row `LeaseSuperseded` with `supersededLease` and a warning
   `outbound-call.lease-superseded`; a holder releases its lease only once its attempts settled and
   never yields it under one, both bounded by `@Application({ outboundCalls: { attemptTimeout } })`

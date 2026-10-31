@@ -18,6 +18,12 @@ import {
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { LeaseGate } from "../../src/testing/leases.js";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
+import {
+  InMemoryOutboundCallRepository,
+  type OutboundCallRepository,
+} from "../../src/infrastructure/outbound-call.repository.js";
+import { SqliteOutboundCallRepository } from "../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
@@ -60,6 +66,45 @@ async function heldOn(
   const lease = await executionLeasesOf(store, gate.clockOf(clock)).hold(TREE);
   return { lease, gate };
 }
+
+/** A lease store with the outbound-call store of its database (#508). */
+interface LeasesAndCalls {
+  readonly leases: ExecutionLeaseRepository;
+  readonly calls: OutboundCallRepository;
+}
+
+const withCalls = storeTargets<LeasesAndCalls>(
+  ({ clock, application, database }) => {
+    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+    return { leases, calls: new InMemoryOutboundCallRepository(clock, database, leases) };
+  },
+  ({ clock, application, connection }) => ({
+    leases: new SqliteExecutionLeaseRepository(connection(), clock, application),
+    calls: new SqliteOutboundCallRepository(connection(), clock),
+  }),
+);
+
+describe.each(withCalls)(
+  "#508: the held lease after an outbound call closed it ($name)",
+  (target) => {
+    it(
+      "confirmNow() at token N after leaseStateOf closed the expired lease: rejects lost and aborts the lease's signal",
+      withTarget(target, async ({ clock, first, second }) => {
+        const { lease } = await heldOn(first.leases, clock);
+        await clock.advance(seconds(31));
+        const { tenantId, rootExecutionId } = TREE;
+        const closed = { tenantId, leaseExecutionId: rootExecutionId, token: lease.token ?? 0 };
+
+        expect(await second.calls.leaseStateOf(closed)).toBe(OutboundCallLeaseState.Superseded);
+        await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+
+        expect(lease.signal.aborted).toBe(true);
+        expect(lease.signal.reason).toBeInstanceOf(ExecutionLeaseLostError);
+        await lease.release();
+      }),
+    );
+  },
+);
 
 describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
   it(

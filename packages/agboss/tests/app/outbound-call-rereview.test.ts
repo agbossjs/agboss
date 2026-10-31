@@ -11,6 +11,8 @@ import { DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT } from "../../src/infrastructure/
 import {
   EmptyEnvironment,
   ExecutionCancelledError,
+  ExecutionLeaseEventKind,
+  LeaseTakeoverReason,
   OutboundCallEventOutcome,
   OutboundCallInFlightError,
   ExecutionHistoryRepository,
@@ -57,6 +59,7 @@ import {
   SendChargeWorkflow,
 } from "./fixtures/business-key.workflow.js";
 import { heard, OutboundCallLog, resetRuns } from "./fixtures/outbound-call.workflow.js";
+import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { Application } from "../../src/application/application.js";
 import {
   exportedRecordLine,
@@ -153,6 +156,7 @@ const advancedTo = async (clock: VirtualClock, at: number): Promise<void> => {
 };
 
 beforeEach(() => {
+  resetRecovery();
   resetRuns();
   resetLedger();
   resetGateway();
@@ -480,4 +484,70 @@ describe("#508 re-review LOW: a joined call", () => {
 
     expect(getEventListeners(signal, "abort")).toHaveLength(before);
   });
+});
+
+describe("#508 final check: a lease closed by an outbound call, end to end", () => {
+  two(
+    "A's charge frozen and its lease stalled; B's call closes A's expired lease and charges; B's sweep takes tree A over at N+1, naming A, and A's tree finishes once — one charge",
+    async ({ apps, clock, leases }) => {
+      const [a, b] = [instance(apps, 0), instance(apps, 1)];
+      await Promise.all([a.ready(), b.ready()]);
+      Object.assign(ledger, { freeze: 1 });
+      const first = execute(a, SendChargeStart, charge, { threadId: "thread-a" });
+      first.catch(() => undefined);
+      await frozenLedger(1);
+      const start = clock.now().getTime();
+      // renewed at 10 s, A's lease runs to 40 s; then stalled: it expires between two sweeps (30, 60)
+      await advancedTo(clock, start + seconds(10));
+      leases.stall(a);
+      // the sweep at 30 s finds it held; none runs again before 60 s
+      await advancedTo(clock, start + seconds(31));
+      await advancedTo(clock, start + seconds(41));
+
+      const byB = await execute(b, SendChargeStart, charge, { threadId: "thread-b" });
+      await advancedTo(clock, start + seconds(61));
+      const endsSeen = await ends(2);
+
+      expect(byB.output).toEqual({ chargeId: "ch-42-1" });
+      expect(gateway.calls).toHaveLength(1);
+      // B's execution, then tree A, recovered: each ends once, with the one charge
+      expect(endsSeen.map((seenEnd) => seenEnd.output)).toEqual([
+        { chargeId: "ch-42-1" },
+        { chargeId: "ch-42-1" },
+      ]);
+      const treeA = { tenantId: "default", rootExecutionId: "execution-1" };
+      const rowsOfA = await b.leaseEventsOf(treeA);
+      expect(rowsOfA).toContainEqual(
+        expect.objectContaining({
+          kind: ExecutionLeaseEventKind.Takeover,
+          token: 2,
+          holderInstanceId: "instance-2",
+          previousHolderInstanceId: "instance-1",
+          previousToken: 1,
+          reason: LeaseTakeoverReason.Recovered,
+        }),
+      );
+      const rowsOfB = await b.leaseEventsOf({
+        tenantId: "default",
+        rootExecutionId: byB.executionId,
+      });
+      expect(rowsOfB).toContainEqual(
+        expect.objectContaining({
+          outcome: OutboundCallEventOutcome.LeaseSuperseded,
+          supersededLease: {
+            rootExecutionId: "execution-1",
+            leaseExecutionId: "execution-1",
+            token: 1,
+          },
+        }),
+      );
+      expect(ledger.outbound).toEqual([
+        OutboundCallOutcomeStatus.Sent,
+        OutboundCallOutcomeStatus.Replayed,
+      ]);
+      leases.resume(a);
+      letLedgerGo();
+      await settle();
+    },
+  );
 });
