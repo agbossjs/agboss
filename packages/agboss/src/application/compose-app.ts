@@ -8,6 +8,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
+import { tenantRead } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { GracefulStop } from "./graceful-stop.js";
@@ -79,16 +80,23 @@ const instanceReadsOf = ({
 }: InstanceSurface): InstanceReads => ({
   checkLiveness: () => health.checkLiveness(),
   checkReadiness: () => health.checkReadiness(),
+  // #568: a tenant id is a key's text here too — on UTF-8 stores t\uD800 would read t\uFFFD's rows
   leaseEventsOf: ({ tenantId, rootExecutionId }) =>
-    leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
-  outboundCallsOf: async ({ tenantId, rootExecutionId }) =>
-    // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
-    (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
-      shownCallOf,
+    tenantRead(tenantId, () =>
+      leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
     ),
-  pendingOutboundCalls: async ({ tenantId }) =>
-    (await outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending)).map(
-      shownCallOf,
+  // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
+  outboundCallsOf: ({ tenantId, rootExecutionId }) =>
+    tenantRead(tenantId, async () =>
+      (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
+        shownCallOf,
+      ),
+    ),
+  pendingOutboundCalls: ({ tenantId }) =>
+    tenantRead(tenantId, async () =>
+      (await outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending)).map(
+        shownCallOf,
+      ),
     ),
 });
 
