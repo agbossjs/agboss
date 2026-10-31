@@ -17,10 +17,15 @@ import { endedOn, expectThat, heldStep, holdStep, startOrder, takenOverBy } from
 /** The platform's grace between SIGTERM and SIGKILL (the pods' clock). */
 export const PLATFORM_GRACE: Milliseconds = seconds(10);
 
+/** The least real time the platform's grace lasts, whatever the pods' time scale. */
+export const MIN_REAL_GRACE: Milliseconds = seconds(5);
+
 /** The platform's stop: SIGTERM, then SIGKILL unless the pod exited within the grace. */
 async function platformStop(world: FaultWorld, pod: FaultPod): Promise<PodExit> {
   pod.term();
-  const grace = waitOf(PLATFORM_GRACE / world.options.timeScale);
+  // the grace on the pods' clock, but never under 5 s of real time: a pod's exit after its
+  // shutdown (its pool ended, its process gone) takes real time a faster clock does not shorten
+  const grace = waitOf(Math.max(PLATFORM_GRACE / world.options.timeScale, MIN_REAL_GRACE));
   const inTime = await Promise.race([pod.exited, systemClock.sleep(grace).then(() => undefined)]);
   return inTime ?? (await pod.kill());
 }
@@ -62,7 +67,7 @@ export const s11Misconfigured: FaultScenario = {
   title:
     "11b: shutdownTimeout above the grace — the platform kills the pod mid-drain, the tree is taken over, the charge once",
   run: async (world) => {
-    const { b, exit } = await stoppedMidStep(world, "o-11b", seconds(60));
+    const { b, exit } = await stoppedMidStep(world, "o-11b", seconds(120));
     expectThat(
       world,
       exit.signal === "SIGKILL",

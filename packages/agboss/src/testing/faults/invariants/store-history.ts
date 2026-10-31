@@ -106,3 +106,14 @@ export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWr
     ];
   });
 }
+
+/** How many times each child's queue row was completed (`childQueue.complete` answered `true`). */
+export function childCompletionsOf(history: OperationHistory): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const { invoke, complete } of completed(history)) {
+    if (invoke.operation !== StoreHoldPoint.ChildComplete || complete.output !== true) continue;
+    const key = invoke.key ?? "";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
