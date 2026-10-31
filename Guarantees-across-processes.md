@@ -162,11 +162,22 @@ The suite proves the framework's side under the faults above. These parts are yo
   A pass that re-enters the parent's step after a takeover finds the end already there and
   announces nothing. A holder whose lease is no longer live (frozen past it, taken over) stops at
   the announcement, as at any write.
+- **A failure, once announced, is the child's end** (#596). Before announcing a child's failure, the
+  pass claims it in the tree's store (`@agboss/child-failure:<childExecutionId>`,
+  `saveIfAbsentInTree`: one caller wins) and checks its fence again after that round trip. Of every
+  pass that sees the failure, only the winner announces it: the first, one that finished an
+  interrupted undo, or a re-entry that ran the failed step again. A re-entry that finds the claim
+  repeats the failure without running the step. A step that would now succeed (a dependency that
+  recovered) never turns an announced failure into a finish, and the root's outcome follows the
+  announced one. The repeated failure carries the error's name and message, not its class, as the
+  undo's mark does: a side path on `ChildExecutionFailedError` or `StepFailedError` takes it again,
+  one on the child's own error class by the cause chain does not.
 - **The window.** A holder that freezes or crashes between the child's durable end and its
   announcement leaves the end unannounced: the new holder only reads it. That window is:
   - for an `AnyInstance` finish, between the worker's completion of the row and its observer call;
-  - for a child on the parent's instance, between the child's last checkpoint (or its failed step's
-    error) and the parent's observer call;
+  - for a child on the parent's instance, between the child's last checkpoint (or the claim of its
+    failure) and the parent's observer call. A failure nobody has claimed yet is no longer in the
+    window (#596): the new holder runs the step again, sees the failure, claims it and announces it;
   - for a remote child's failure, the whole time from the failure until the waiting parent reads it,
     if its holder is lost meanwhile.
 

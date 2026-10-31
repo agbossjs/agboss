@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an announced child failure stays the child's end (#596)
+
+- A `ParentInstance` child's failure is claimed in the tree's store before it is announced
+  (`@agboss/child-failure:<childExecutionId>`). One pass of all that see it announces it, and a
+  re-entry that finds the claim repeats it without running the step. Before, when the holder froze
+  after announcing, the instance that took the tree over ran the failed step again. If the step now
+  succeeded, the child was heard failing and finishing, and the root ended. A child with an undo was
+  heard failing twice. The repeated failure keeps the error's name and message, not its class.
+  Found in the acceptance of #562. Guarantees-across-processes.
 ## Unreleased — 0.1.1: who calls is a key's text (#589)
 
 - `app.execute`, `app.resume` and `app.cancel` refuse an `ownerId`, and `app.resume` a `Channel`
