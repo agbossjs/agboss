@@ -75,6 +75,16 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `PostgresConnection` no longer fails assembly with `"…Connection" is not registered`: the workflow
   graph check takes an unlisted class under an infrastructure implementation as its own registration,
   as the container creates it.
+- **`storeConformance`** (#526) in `@agboss/core/testing/contracts` — one call runs every contract a
+  store set claims (`stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, … }`)
+  and the `store set (<name>)` cases (each fencing store declares its `static backend`, one with its
+  lease store's); a set with a lease store that leaves a fencing contract out throws
+  `StoreConformanceError` unless `without` says it has none. New contract cases, which a store
+  outside the core must pass: every lease-log row kind and #508 field read back as it was, a
+  fenced-effect key built by hand with an invalid name refused (`InvalidFencedEffectNameError`, also
+  for an empty name, which was a `TypeError`), and a zombie's write racing the new holder's leaving
+  one business row. The Wiki's [Your own store](https://github.com/agbossjs/agboss/wiki/Your-own-store)
+  page: what each contract must make atomic, recipes for SQL, MongoDB, Redis, DynamoDB and Cassandra.
 
 ### Security
 

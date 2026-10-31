@@ -14,6 +14,7 @@ import {
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
+import { leaseEventKindCases } from "./execution-lease-event-kinds.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -184,10 +185,16 @@ const LEASE_EVENT_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] 
 /**
  * `ExecutionLeaseEventRepository` (#501): the append-only lease log — a saved row is read back as
  * it was on any instance, a tree's rows oldest first (one moment's in the order saved), scoped by
- * tenant and root; the sweep removes what happened before its cutoff on the `Clock`.
+ * tenant and root; the sweep removes what happened before its cutoff on the `Clock`; every row
+ * kind, reason, site, outcome and optional field the core writes comes back as it was (#526).
  */
 export function executionLeaseEventContract(
   target: ContractTarget<ExecutionLeaseEventRepository>,
 ): void {
-  registerContract("lease event contract", target, [{ cases: LEASE_EVENT_CASES }], pingOf);
+  registerContract(
+    "lease event contract",
+    target,
+    [{ cases: LEASE_EVENT_CASES }, leaseEventKindCases()],
+    pingOf,
+  );
 }

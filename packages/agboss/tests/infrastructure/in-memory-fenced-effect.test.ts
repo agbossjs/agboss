@@ -15,6 +15,7 @@ import {
 } from "../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { FencedEffectStatus } from "../../src/infrastructure/fenced-effect.repository.js";
+import { InvalidFencedEffectNameError } from "../../src/infrastructure/fenced-effect-key.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import {
   FencedEffectStoreMismatchError,
@@ -160,11 +161,23 @@ describe("#500: the in-memory fenced-effect store", () => {
 });
 
 describe("#500: a fenced-effect key made by hand is checked", () => {
+  it("#526 AC7: an empty name is InvalidFencedEffectNameError, as every invalid name, before anything runs", async () => {
+    const { leases, effects } = storesOn();
+    let runs = 0;
+
+    const call = effects.saveResultIfAbsent({ ...keyOf(await held(leases)), name: "" }, () => {
+      runs += 1;
+      return null;
+    });
+
+    await expect(call).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
+    expect(runs).toBe(0);
+  });
+
   for (const [problem, change, message] of [
     ["a scope key of other parts", { scopeKey: "default:execution-2" }, /is not the scope of/],
     ["a token below 1", { token: 0 }, /not a lease epoch/],
     ["a fractional token", { token: 1.5 }, /not a lease epoch/],
-    ["an empty name", { name: "" }, /must not be empty/],
     ["an empty idempotency key", { idempotencyKey: "" }, /must not be empty/],
   ] as const) {
     it(`${problem} is refused before anything runs`, async () => {

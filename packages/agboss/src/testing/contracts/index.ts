@@ -5,6 +5,9 @@
  *
  * `executionLeaseContract({ name: "PostgreSQL", instance: (seam) => new PgLeases(pool, seam.clock, seam.application), reset: truncate })`
  *
+ * `storeConformance({ name, stores: { executionLease, fencedEffect, … } })` (#526) runs every
+ * contract a store set claims in one call and refuses a set that leaves a fencing contract out.
+ *
  * One function per contract; each registers `describe("<contract> contract (<name>)")` with the
  * contract's rules as cases, every case on two instances over one backing store and the suite's
  * `VirtualClock`. Not re-exported by `@agboss/core/testing`: it imports vitest's `describe` / `it`.
@@ -27,3 +30,10 @@ export { meshRequestContract } from "./mesh-request.contract.js";
 export { outboundCallContract, type OutboundCallStores } from "./outbound-call.contract.js";
 export { pausedExecutionContract } from "./paused-execution.contract.js";
 export { rateLimitContract } from "./rate-limit.contract.js";
+export {
+  storeConformance,
+  type ConformanceStore,
+  type ConformanceStores,
+  type StoreConformanceOptions,
+} from "./store-conformance.js";
+export { StoreConformanceError, type LeftOutContract } from "./store-conformance-check.js";

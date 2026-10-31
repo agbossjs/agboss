@@ -1,30 +1,18 @@
 /**
- * #265 AC7 (S32), #481 AC3: `BaseCheckpointSaver` — LangGraph's contract, taken as is: the published
- * checkpoint saver contract (`checkpointSaverContract`), run against the in-memory default
- * (`MemorySaver`, one shared by both instances) and `SqliteCheckpointSaver` (two instances on one
- * file); then the SQLite saver's own checks.
+ * #265 AC7 (S32): `SqliteCheckpointSaver`'s own checks. The published checkpoint saver contract runs
+ * on the core's savers in store-conformance.in-memory.test.ts and store-conformance.sqlite.test.ts
+ * (#526, `storeConformance`).
  */
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
-import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
 import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
-import { checkpointSaverContract } from "../../src/testing/contracts/index.js";
 import { withTarget } from "../../src/testing/contracts/seam.js";
-import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./contracts/store-kinds.js";
+import { sqliteTarget } from "./contracts/store-kinds.js";
 
 const sqlite = sqliteTarget<BaseCheckpointSaver>(
   ({ connection }) => new SqliteCheckpointSaver(connection()),
 );
-
-describe("#481 AC3: the core's checkpoint savers pass the published checkpoint saver contract", () => {
-  checkpointSaverContract(
-    inMemoryTarget((seam) =>
-      sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
-    ),
-  );
-  checkpointSaverContract(sqlite);
-});
 
 const thread = (threadId: string): RunnableConfig => ({
   configurable: { thread_id: threadId, checkpoint_ns: "" },

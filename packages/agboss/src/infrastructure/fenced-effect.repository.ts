@@ -5,7 +5,11 @@ import { nodeEventOf } from "../flow/observers/execution-event.js";
 import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
 import type { Class } from "../components/injection.js";
 import { LeaseCheck } from "./execution-lease.repository.js";
-import { fencedKeyIdentityOf } from "./fenced-effect-key.js";
+import {
+  fencedKeyIdentityOf,
+  InvalidFencedEffectNameError,
+  isEffectName,
+} from "./fenced-effect-key.js";
 import { FencedEffectResultTooLargeError } from "./fenced-effect-settings.js";
 import { isThreadId } from "../run/thread.js";
 import type { FencedEffectSettings } from "./fenced-effect-settings.js";
@@ -114,8 +118,7 @@ function keyProblemOf(key: FencedEffectKey): string | undefined {
     return `its scopeKey ${JSON.stringify(key.scopeKey)} is not the scope of tenant ${key.tenantId} and execution ${key.leaseExecutionId}`;
   if (!Number.isInteger(key.token) || key.token < 1)
     return `its token ${String(key.token)} is not a lease epoch (a whole number from 1)`;
-  if (key.name.length === 0 || key.idempotencyKey.length === 0)
-    return "its name and idempotencyKey must not be empty";
+  if (key.idempotencyKey.length === 0) return "its idempotencyKey must not be empty";
   if (key.businessKey !== undefined && !isThreadId(key.businessKey))
     return "its businessKey is not 1 to 200 characters without control characters";
   return undefined;
@@ -181,6 +184,9 @@ export abstract class FencedEffectRepository<TTransaction> {
     key: FencedEffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
+    // the name first, as every store checks it at its entry (#508, #526 AC7)
+    if (!isEffectName(key.name))
+      return Promise.reject(new InvalidFencedEffectNameError(key.name.length));
     const problem = keyProblemOf(key);
     if (problem !== undefined)
       return Promise.reject(new InvalidFencedEffectKeyError(`not a fenced effect key: ${problem}`));

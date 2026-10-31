@@ -1,13 +1,9 @@
 /**
- * #265 AC2, #481 AC3: `ExecutionTreeRepository` — the published execution tree contract
- * (`executionTreeContract`), run against the in-memory default (two instances over one database)
- * and `SqliteExecutionTreeRepository` (two instances on one file); then the same through an
- * application with two instances (not a store rule: it stays here).
+ * #265 AC2: `ExecutionTreeRepository` through an application with two instances (not a store rule:
+ * it stays here). The published execution tree contract runs on the core's stores through
+ * `storeConformance` (#526, store-conformance.*.test.ts).
  */
 import { beforeEach, describe, expect } from "vitest";
-import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
-import { SqliteExecutionTreeRepository } from "../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
-import { executionTreeContract } from "../../src/testing/contracts/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute, answerOf } from "../helpers/flow.js";
 import {
@@ -21,16 +17,6 @@ import {
   resetLease,
   seen,
 } from "./fixtures/lease.workflow.js";
-import { inMemoryTarget, sqliteTarget } from "./contracts/store-kinds.js";
-
-describe("#481 AC3: the core's tree stores pass the published execution tree contract", () => {
-  executionTreeContract(
-    inMemoryTarget(({ database }) => new InMemoryExecutionTreeRepository(database)),
-  );
-  executionTreeContract(
-    sqliteTarget(({ connection }) => new SqliteExecutionTreeRepository(connection())),
-  );
-});
 
 const test = testWith(LeaseApplication, { instances: 2 });
 

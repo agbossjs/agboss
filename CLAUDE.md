@@ -1294,8 +1294,18 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   own implementation adds it), what `app.checkReadiness()` calls. A store outside the core proves itself with
   the published contract suites (#481, `@agboss/core/testing/contracts`: `executionLeaseContract({
 name, instance(seam), reset?, close? })`, one function per contract and the checkpoint saver),
-  the same cases the in-memory and SQLite stores run (`tests/infrastructure/*.contract.test.ts`,
-  their targets in `tests/infrastructure/contracts/store-kinds.ts`). On the public surface alone
+  the same cases the in-memory and SQLite stores run — in one call, `storeConformance({ name,
+reset?, stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, rateLimit, … },
+without? })` (#526 AC2: each claimed contract as `<contract> (<name>)` plus `store set (<name>)` —
+  each fencing store's `static backend` declared, one with its lease store's; a set with a lease
+  store that leaves the fenced-effect, outbound-call or lease-log contract out, unless `without`
+  says so, throws `StoreConformanceError` — `[store-conformance.missing-fencing-contract]`,
+  `lease-store-required`, `without-implemented`, `invalid-without`, `empty`), which the core's own
+  sets run (`tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts`, their targets in
+  `tests/infrastructure/contracts/core-store-sets.ts`, `store-kinds.ts`); broken sets fail it
+  (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the
+  transaction, a read-then-close `leaseStateOf`, a pre-#508 lease log, stores of no backend or
+  another). Wiki → Your-own-store. On the public surface alone
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
