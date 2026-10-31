@@ -48,6 +48,7 @@ export {
   IdGenerator,
   RandomIdGenerator,
   StoreClock,
+  type ExecutionIds,
 } from "../infrastructure/clock.js";
 export {
   ConsoleLogger,
@@ -80,6 +81,7 @@ export {
   ExecutionLeaseRepository,
   LeaseCheck,
   remainingOf,
+  type ExecutionIdentity,
   type ExecutionLease,
   type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";

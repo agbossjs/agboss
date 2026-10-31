@@ -100,6 +100,16 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Changed — breaking for stores outside the core
 
+- **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
+  new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic
+  insert-if-absent by the id alone (across tenants: a step's idempotency key and the key an
+  outbound call sends with no business key carry no tenant), `true` for a new id, `false` for one
+  any execution ever had; never removed. The lease contract checks it (`an execution's identity`:
+  once, across tenants, a race of eight claims on two instances with one winner, exact comparison,
+  kept after the lease is released or finished). The SQLite store's `execution_ids` table is filled
+  from `execution_leases` on a file of an older version, with its first new id. **Migration:** a lease store of
+  your own implements the method on its lease backend (agbossjs/postgres: migration `0018`).
+
 - **An opted-out store is never conformant for fencing** (#543) — `storeConformance` (and
   `fencedEffectContract` / `outboundCallContract`, `{ acceptWithoutDoubleChargeProtection }`) fails
   every fencing case of a store that declares `LeaseCheck.WithoutDoubleChargeProtection`
@@ -267,6 +277,19 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   is at most once: a holder that freezes or crashes between the child's durable end and the
   announcement leaves it unannounced (Wiki → Guarantees-across-processes). The fault suite's
   `children-once` counts the observers' ends again — exactly one per finished child.
+
+- **A repeated execution id no longer joins another tree** (#591, found by #550) — an
+  `IdGenerator` that repeats `newExecutionId()` (a sequential one restarted on a kept database, two
+  tests on one file) gave a new root, child or recursion level the id of an older execution: one
+  lease and fencing token, one lease log, one step key space — a fenced effect or an outbound call
+  keyed by `<executionId>:<nodeId>:<visit>` replayed the other tree's stored result, and a finished
+  tree's id could never take its lease. Every execution id the framework mints is now kept by the
+  lease store before anything else of the execution is written (before its budgets' amounts, its
+  thread, its lease, a child's marker): an id any execution had — of any tenant, running, paused,
+  finished, failed or cancelled — is `DuplicateExecutionIdError` (`run.duplicate-execution-id`:
+  `generator`, never the id), the root refused and a child's or a level's launch failed before it
+  starts; of two instances minting one id at once, one runs. A resume or a recovery keeps its id and
+  is not a create. A create that fails after its id was kept leaves the id taken, and nothing else.
 
 - **An id the project's own `IdGenerator` mints is a key's text** (#578, found by #568) — the ids
   the framework mints (a root's, a child's or a recursion level's execution id, a new thread's id —

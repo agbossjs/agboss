@@ -1509,6 +1509,14 @@ export class DtoValidationError extends AGBossError {
 }
 
 // @public
+export class DuplicateExecutionIdError extends AGBossError {
+    constructor(generator: string);
+    static readonly code: string;
+    readonly generator: string;
+    name: string;
+}
+
+// @public
 export class EmptyEnvironment {
 }
 
@@ -1879,6 +1887,17 @@ export type ExecutionId = string & {
     readonly __brand: "ExecutionId";
 };
 
+// @public
+export interface ExecutionIdentity {
+    readonly executionId: string;
+    readonly tenantId: string;
+}
+
+// @public
+export interface ExecutionIds {
+    newExecutionId(tenantId: string): Promise<string>;
+}
+
 // Warning: (ae-forgotten-export) The symbol "WorkflowStartEntry" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -1949,6 +1968,7 @@ export abstract class ExecutionLeaseRepository {
     abstract reclaim(executionLease: ExecutionLease, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
+    abstract saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
     abstract yield(executionLease: ExecutionLease): Promise<boolean>;
 }
 
@@ -2541,10 +2561,10 @@ export interface GraphDeps<TName extends string> {
     };
     // Warning: (ae-forgotten-export) The symbol "RuntimeContexts" needs to be exported by the entry point index.d.ts
     readonly contexts?: RuntimeContexts;
+    readonly executionIds?: ExecutionIds | undefined;
     readonly graph: RuntimeGraph;
     // Warning: (ae-forgotten-export) The symbol "GuardrailRuntime" needs to be exported by the entry point index.d.ts
     readonly guardrails?: GuardrailRuntime;
-    readonly idGenerator?: IdGenerator | undefined;
     readonly judges?: ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
@@ -5766,6 +5786,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     release(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
     renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
+    saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
     // (undocumented)
     yield(executionLease: ExecutionLease): Promise<boolean>;
 }
@@ -7511,8 +7532,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/clock.ts:84:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/infrastructure/clock.ts:90:3 - (ae-undocumented) Missing documentation for "now".
+// src/infrastructure/clock.ts:90:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/infrastructure/clock.ts:96:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
@@ -7560,8 +7581,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-lease-event.repository.ts:217:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/infrastructure/execution-lease-event.repository.ts:218:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-lease-event.repository.ts:225:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
-// src/infrastructure/execution-lease.repository.ts:53:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:54:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
+// src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
 // src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -7671,18 +7692,18 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:75:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:91:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:137:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:145:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:149:3 - (ae-undocumented) Missing documentation for "finish".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:164:3 - (ae-undocumented) Missing documentation for "yield".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:171:3 - (ae-undocumented) Missing documentation for "reclaim".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:218:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:222:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:237:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:250:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:76:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:98:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:144:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:152:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:156:3 - (ae-undocumented) Missing documentation for "finish".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:171:3 - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:178:3 - (ae-undocumented) Missing documentation for "reclaim".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:225:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:229:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:244:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:257:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:29:12 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".

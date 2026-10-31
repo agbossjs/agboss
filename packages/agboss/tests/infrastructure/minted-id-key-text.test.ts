@@ -118,7 +118,7 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
   );
 
   sqlite(
-    "newThreadId() → x\\uD800: refused before the thread is created — only the admitted budgets' maxSpend() is kept",
+    "newThreadId() → x\\uD800: refused before the thread is created — only the execution's kept id (#591) and its admitted budgets' maxSpend() are kept",
     async ({ app, mockLlm }) => {
       mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
@@ -129,11 +129,14 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 
       expectRefusedMint(refused, "newThreadId", KeyTextRule.LoneSurrogate, "x\uD800");
       // a thread is minted once the budgets passed (#262 Q4): their maxSpend() is kept, under the
-      // valid execution id — no thread, record, lease, checkpoint or tree of the refused id
-      const { cost_ledger_max_spend: kept, ...rest } = rowsOnFile();
-      const { cost_ledger_max_spend: keptBefore, ...restBefore } = before;
+      // valid execution id, and that id itself (#591: kept first, never handed out again) — no
+      // thread, record, lease, checkpoint or tree of the refused id
+      const { cost_ledger_max_spend: kept, execution_ids: ids, ...rest } = rowsOnFile();
+      const { cost_ledger_max_spend: keptBefore, execution_ids: idsBefore, ...restBefore } = before;
       expect(rest).toEqual(restBefore);
       expect([keptBefore, kept]).toEqual([0, 3]);
+      // the table of ids is made with the first one kept
+      expect([idsBefore ?? 0, ids]).toEqual([0, 1]);
       const done = await execute(app, OrderWorkflowStart, { text: "b" });
       expect(done.threadId).toMatch(/^thread-\d+$/);
     },

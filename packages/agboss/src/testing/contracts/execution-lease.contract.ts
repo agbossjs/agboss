@@ -9,6 +9,7 @@ import { LEASE_EXPIRY_CASES } from "./execution-lease-expiry.cases.js";
 import { LEASE_FINISH_EDGE_CASES } from "./execution-lease-finish-edges.cases.js";
 import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
 import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
+import { LEASE_IDENTITY_CASES } from "./execution-lease-identity.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
 import { LEASE_YIELD_EDGE_CASES } from "./execution-lease-yield-edges.cases.js";
 import { LEASE_YIELD_CASES } from "./execution-lease-yield.cases.js";
@@ -113,7 +114,9 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
  * holder's `confirmNow()` refused, taken or not) — a take after expiry names the
  * expired holder (`takenOverFrom`, #501), one after a release none —; a yielded lease (#516) still
  * its holder's, renewed and refused to others until it expires, taken back with `reclaim`; a finished
- * lease (#520) never taken again, so no stale instance takes over finished work; the store's time
+ * lease (#520) never taken again, so no stale instance takes over finished work; every execution id
+ * kept once (#591, `saveExecutionIdIfAbsent`: by the id alone, one winner of a race, never removed);
+ * the store's time
  * the authority (#533: run on real time with the other instance's clock off by ± lease/2, ± lease,
  * ± 10 × lease, every take and renewal answering the time left, `remaining`); and the
  * framework's holder over it — it aborts its work when the lease is lost, renews while alive (also
@@ -132,6 +135,7 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
       },
       { title: "the store's time is the authority", cases: LEASE_AUTHORITY_CASES },
       { title: "a finished lease", cases: [...LEASE_FINISH_CASES, ...LEASE_FINISH_EDGE_CASES] },
+      { title: "an execution's identity", cases: LEASE_IDENTITY_CASES },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
       { title: "the framework's holder at the lease's expiry", cases: LEASE_CONFIRM_CASES },
       { title: "the framework's take of finished work", cases: LEASE_FINISH_HOLDER_CASES },

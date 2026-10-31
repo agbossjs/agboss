@@ -19,6 +19,8 @@ import type { OutboundCallRecord } from "./outbound-call.repository.js";
 export class InMemoryDatabase {
   /** The latest lease of each tree, by `tenantId` + `rootExecutionId` (released ones kept: the epoch). */
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
+  /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
+  readonly executionIds = new Set<string>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */

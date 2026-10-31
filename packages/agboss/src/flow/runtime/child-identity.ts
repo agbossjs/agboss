@@ -2,7 +2,7 @@ import type { ObservabilityMask } from "../../pii/observability-mask.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { extractRunContext, runIdOf, type RunContext } from "../../core/run-context.js";
-import type { IdGenerator } from "../../infrastructure/clock.js";
+import type { ExecutionIds } from "../../infrastructure/clock.js";
 import { rootFactsOf, type Frame } from "../context/frame.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 import { childThreadIn, childThreadOf, markerConfigOf, saveChildMarker } from "./child-thread.js";
@@ -78,20 +78,24 @@ export interface ChildEntrySpot {
   readonly parent: Frame;
   readonly itemIndex: number | undefined;
   readonly inheritedUsage: number;
-  /** The application's id generator (#313): the child's execution id. */
-  readonly idGenerator: IdGenerator;
+  /** The application's execution ids (#313, #591): the child's, kept before its marker. */
+  readonly executionIds: ExecutionIds;
 }
 
 /**
  * The child's identity: read back from its launching task's marker (or an old child's own state),
- * or made now on its first entry — its own thread with it, its marker kept before it runs.
+ * or made now on its first entry — its id kept (#591), its own thread with it, its marker kept
+ * before it runs.
  */
 export async function childEnteredAt(spot: ChildEntrySpot): Promise<ChildEntered> {
   const stored = await storedChildOf(spot.checkpointer, spot.config);
   if (stored !== undefined) return { ...stored, isNew: false };
   const { execution } = spot.parent;
+  // kept before its marker (#591): a child never takes another execution's id; a crash before
+  // the marker leaves the id kept and unused — the re-entry makes another
+  const executionId = await spot.executionIds.newExecutionId(execution.tenant.tenantId);
   const identity: ChildIdentityRecord = {
-    executionId: spot.idGenerator.newExecutionId(),
+    executionId,
     parentExecutionId: execution.executionId,
     rootExecutionId: rootFactsOf(execution).executionId,
     ...(spot.itemIndex === undefined ? {} : { itemIndex: spot.itemIndex }),

@@ -2,7 +2,8 @@ import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
-import type { Clock, IdGenerator } from "../infrastructure/clock.js";
+import { executionIdsOf, type Clock } from "../infrastructure/clock.js";
+import type { Infrastructure } from "../infrastructure/contracts.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
@@ -109,17 +110,17 @@ export interface TreeParts {
 }
 
 /**
- * What a workflow's deps make its tree with: its ids (#313), its children's deps when given (#263),
+ * What a workflow's deps make its tree with: its ids (#313, kept before use, #591), its children's deps when given (#263),
  * the instance's step slots when the application caps them (#332), its running step bodies (#367).
  */
 export const treeDepsOf = (
-  idGenerator: IdGenerator,
+  { idGenerator, executionLeases }: Pick<Infrastructure, "idGenerator" | "executionLeases">,
   { childDepsOf, stepSlots, stepEntries, compensation, remoteChildren }: TreeParts,
 ): Pick<
   GraphDeps<string>,
-  "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries" | "compensation" | "remoteChildren"
+  "childDepsOf" | "executionIds" | "stepSlots" | "stepEntries" | "compensation" | "remoteChildren"
 > => ({
-  idGenerator,
+  executionIds: executionIdsOf(idGenerator, executionLeases),
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
   ...(stepSlots === undefined ? {} : { stepSlots }),
   ...(stepEntries === undefined ? {} : { stepEntries }),

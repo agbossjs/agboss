@@ -1244,7 +1244,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`, `yield` /
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
-  `finish` — #520: a release for good, the work under it over; no `acquire` of the key gets it again),
+  `finish` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
+  `saveExecutionIdIfAbsent` — #591: every execution id handed out, kept once, never removed),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1382,7 +1383,13 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   created before the stores that inject it, so it may not depend on the contexts. Every id it mints
   is a key's text (#578, `keyTextRuleOf`: the framework mints through `CheckedIdGenerator`), else
   `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`, never the id)
-  before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8. Never a `pauseId`
+  before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8. An id is
+  never repeated over the life of the application's stores (#591): every execution id minted is kept
+  by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
+  by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`), and one any execution had —
+  running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
+  (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
+  launch failed before it starts; a resume or a recovery is not a create. Never a `pauseId`
   (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,

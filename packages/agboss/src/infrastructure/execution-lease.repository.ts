@@ -48,6 +48,19 @@ export interface ExecutionLease {
   readonly takenOverFrom?: PreviousLeaseHolder;
 }
 
+/**
+ * An execution's identity (#591): its id, made once by the application's `IdGenerator`, and the
+ * tenant it was made for. Unique by `executionId` alone, across tenants: the steps' idempotency
+ * keys (`<executionId>:<nodeId>:<visit>`) and the key an outbound call sends with no business key
+ * carry no tenant.
+ */
+export interface ExecutionIdentity {
+  /** The id: a root's, a child's or a recursion level's. */
+  readonly executionId: string;
+  /** The tenant it was made for (kept, never part of the key). */
+  readonly tenantId: string;
+}
+
 /** Who held a lease that expired before another `acquire` took it over (#501). */
 export interface PreviousLeaseHolder {
   readonly holderInstanceId: string;
@@ -119,6 +132,17 @@ export abstract class ExecutionLeaseRepository {
    * timeout of its own.
    */
   abstract ping(): Promise<void>;
+
+  /**
+   * Keeps a new execution's identity (#591) — a root, a child or a recursion level — before
+   * anything else of it is written: `true` when no execution ever had `executionId`, under any
+   * tenant; `false` otherwise, nothing written. One atomic insert-if-absent: of concurrent calls
+   * with one id, on any instances, exactly one gets `true`. Never removed — a finished, failed or
+   * cancelled execution's id is never handed out again — and independent of the leases: `acquire`
+   * of an existing tree (a resume, a recovery) never asks it.
+   */
+  abstract saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
+
   /**
    * The tree's lease for `lease` from now; `undefined` while another holder's lease is valid, and
    * for good once its holder finished it (`finish`, #520).
@@ -192,7 +216,8 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  * The built-in default: leases in this instance's memory — every operation is one synchronous
  * step, so it is atomic. With one instance nothing contends; the instances of one test share it. A
  * yielded lease is its row with `isYielded` (#516): read by nothing but the people looking at it; a
- * finished one (#520) its released row with `isFinished`, never acquired again.
+ * finished one (#520) its released row with `isFinished`, never acquired again. Every execution id
+ * handed out is a row of `executionIds` (#591), kept for the instance's life.
  */
 @Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
@@ -208,6 +233,13 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   ping(): Promise<void> {
     return Promise.resolve();
+  }
+
+  saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+    const { executionIds } = this.database;
+    if (executionIds.has(identity.executionId)) return Promise.resolve(false);
+    executionIds.add(identity.executionId);
+    return Promise.resolve(true);
   }
 
   acquire(

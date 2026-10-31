@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
-import { InvalidMintedIdError, KeyTextRule, keyTextRuleOf } from "../core/errors.js";
+import {
+  DuplicateExecutionIdError,
+  InvalidMintedIdError,
+  KeyTextRule,
+  keyTextRuleOf,
+} from "../core/errors.js";
+import type { ExecutionLeaseRepository } from "./execution-lease.repository.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -107,7 +113,11 @@ export const systemClock: Clock = new SystemClock();
  * that `extends IdGenerator`; created before the stores that inject it (`deps: [IdGenerator]`), so it
  * may not depend on the contexts. `testWith` runs on `SequentialIdGenerator` (`@agboss/core/testing`:
  * `thread-1`, `execution-1`, …) unless the application lists its own. Never a `pauseId`: that is an
- * answer credential, a random 128-bit token outside it.
+ * answer credential, a random 128-bit token outside it. An id is never repeated over the life of
+ * the application's stores (#591): every execution id minted is kept by the lease store before use
+ * (`saveExecutionIdIfAbsent`) and one any execution had — of any tenant, running or over — fails
+ * the new execution with `DuplicateExecutionIdError` before it is written; a minted thread id the
+ * tenant already has is minted again (#550).
  */
 export abstract class IdGenerator {
   /** The id of a new thread. */
@@ -159,6 +169,40 @@ export class CheckedIdGenerator extends IdGenerator {
 
 /** The ids of framework code that runs outside an application (a graph run on its own). */
 export const randomIdGenerator: IdGenerator = new RandomIdGenerator();
+
+/**
+ * How the framework makes a new execution's id (#591) — a root, a child, a recursion level: the
+ * application's `IdGenerator` mints it (checked, #578) and the lease store keeps it
+ * (`saveExecutionIdIfAbsent`) before anything else of the execution is written — its budgets'
+ * amounts, its thread, its lease, its marker, its checkpoint. An id another execution ever had is
+ * `DuplicateExecutionIdError`: two trees never share a lease, a fencing token, a lease log or a step
+ * key, whatever the generator does. A resume and a recovery keep their id and never come here.
+ */
+export interface ExecutionIds {
+  /** A new execution's id for `tenantId`, kept; `DuplicateExecutionIdError` when it was taken. */
+  newExecutionId(tenantId: string): Promise<string>;
+}
+
+/** The class a refusal names: the project's own generator, not the framework's check around it. */
+const generatorNameOf = (idGenerator: IdGenerator): string =>
+  (idGenerator instanceof CheckedIdGenerator ? idGenerator.minting : idGenerator).constructor.name;
+
+/** The ids of an application instance: minted by `idGenerator`, kept in `leases`. */
+export const executionIdsOf = (
+  idGenerator: IdGenerator,
+  leases: Pick<ExecutionLeaseRepository, "saveExecutionIdIfAbsent">,
+): ExecutionIds => ({
+  async newExecutionId(tenantId: string): Promise<string> {
+    const executionId = idGenerator.newExecutionId();
+    if (await leases.saveExecutionIdIfAbsent({ executionId, tenantId })) return executionId;
+    throw new DuplicateExecutionIdError(generatorNameOf(idGenerator));
+  },
+});
+
+/** A graph run with no application (no store to keep ids in): random ids, kept nowhere. */
+export const unkeptExecutionIds: ExecutionIds = {
+  newExecutionId: () => Promise.resolve(randomIdGenerator.newExecutionId()),
+};
 
 /** A timeout on a clock: its signal, and its release once the work it guards has ended. */
 export interface ClockTimeout {

@@ -7,6 +7,7 @@
  */
 export {
   AGBossError,
+  DuplicateExecutionIdError,
   ExecutionCancelledError,
   InvalidMintedIdError,
   KeyTextRule,

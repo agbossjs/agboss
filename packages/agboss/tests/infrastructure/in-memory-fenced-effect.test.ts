@@ -54,6 +54,9 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   ping(): Promise<void> {
     return Promise.resolve();
   }
+  saveExecutionIdIfAbsent(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
   acquire(): Promise<undefined> {
     return Promise.resolve(undefined);
   }

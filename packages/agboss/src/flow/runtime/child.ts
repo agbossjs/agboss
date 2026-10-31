@@ -6,7 +6,7 @@ import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { inStepEntry } from "./step-entries.js";
 import { assertAnnouncing, eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { randomIdGenerator } from "../../infrastructure/clock.js";
+import { unkeptExecutionIds } from "../../infrastructure/clock.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
 import { NodeKind } from "../ast.js";
@@ -178,7 +178,7 @@ export function childRunner(
     const start = child.deps.graph.nodes.get(entry.start.name);
     if (start === undefined) throw new TypeError(`${node.id}: no start ${entry.start.name}`);
     const input = validStartInput(start, entry.input);
-    const idGenerator = deps.idGenerator ?? randomIdGenerator;
+    const executionIds = deps.executionIds ?? unkeptExecutionIds;
     const itemIndex = frame.step.itemIndex;
     const inheritedUsage = state.usage.length;
     const entered = await childEnteredAt({
@@ -187,7 +187,7 @@ export function childRunner(
       parent: frame,
       itemIndex,
       inheritedUsage,
-      idGenerator,
+      executionIds,
     });
     const run = childRunOf(config, frame, entered.identity, input, child.deps.pii?.observability);
     const ended = endedChildOf(child, frame, entered, entry.start.name, input);

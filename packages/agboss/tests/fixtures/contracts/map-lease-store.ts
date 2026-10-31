@@ -8,6 +8,7 @@ import {
   ExecutionLeaseRepository,
   type ApplicationContext,
   type Clock,
+  type ExecutionIdentity,
   type ExecutionLease,
 } from "../../../src/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
@@ -21,6 +22,8 @@ export class LeaseTable {
   readonly yielded = new Set<string>();
   /** The trees whose lease its holder finished (#520): never taken again. */
   readonly finished = new Set<string>();
+  /** Every execution id handed out (#591), by the id alone. */
+  readonly executionIds = new Set<string>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -40,6 +43,17 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   ping(): Promise<void> {
     return Promise.resolve();
+  }
+
+  /** The backing store's ids (#591): what a broken subclass reads and writes in steps. */
+  protected get executionIds(): Set<string> {
+    return this.table.executionIds;
+  }
+
+  saveExecutionIdIfAbsent({ executionId }: ExecutionIdentity): Promise<boolean> {
+    if (this.executionIds.has(executionId)) return Promise.resolve(false);
+    this.executionIds.add(executionId);
+    return Promise.resolve(true);
   }
 
   /** The time, in milliseconds: the store's clock (#533: `seam.storeClock`). */
