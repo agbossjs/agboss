@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a child's end is heard once (#562)
+
+- A child's `onExecutionEnd` / `onExecutionError` is announced only by the pass that ended it, and
+  only while that pass holds the tree's lease. An `AnyInstance` child's finish now comes from the
+  worker whose completion of its queue row won, **on that worker's instance** (before: on its
+  parent's); a cancelled one whose row went with its tree, from the worker that stopped it (before:
+  never). A parent that re-enters its step after a takeover only reads the end: before, the
+  recovered parent heard it again (twice, three times after two takeovers).
+- **The guarantee is at most once**: a holder lost between the child's durable end and the
+  announcement leaves it unannounced
+  ([Guarantees across processes](Guarantees-across-processes#what-a-reader-of-the-records-should-know)).
+  The fault suite's `children-once` counts the observers' ends again, exactly one per finished child.
+  Found by #484.
 ## Unreleased — 0.1.1: the interleaving explorer (#533 item 1)
 
 - **Added**: `storeConformance` runs `interleavings (<name>)` on a set's fencing stores — a

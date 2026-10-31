@@ -53,7 +53,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 | --- | --- |
 | `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N. **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
-| `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once). |
+| `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard once by the pods' observers (#562). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
 | `no-undo-on-hand-over` | A hand-over undoes nothing. A real failure undoes once. |
 | `trees-finish` | Every order finished (a declined one failed), and every batch finished, within the scenario's bound. |
@@ -131,10 +131,29 @@ The suite proves the framework's side under the faults above. These parts are yo
 - An observer hears a tree's end (`onExecutionEnd`) **before** its kept record is saved. A reader
   that acts on the event and then reads the history may find the record not yet saved. The suite
   waits for the history store's `save` before it reads.
-- An `AnyInstance` child's `onExecutionEnd` may be heard on the instance of its parent, not on the
-  instance that ran it. After a takeover of the parent's tree it can be heard **twice**: from the
-  recovered parent and from the old one (#562). The child still ran once. An observer that counts
-  ends must key them by `executionId`.
+- A child's end is heard **at most once** (#562). It is announced only by the pass that ended the
+  child, and only while that pass still holds the tree's lease:
+  - an `AnyInstance` child's `onExecutionEnd` by the worker whose completion of the child's queue
+    row won, on **that worker's instance**, not on its parent's;
+  - an `AnyInstance` child the worker stopped because its tree was cancelled or ended, whose row went
+    with the tree, by that worker (`onExecutionError`, `ExecutionCancelledError`);
+  - a child on its parent's instance by the parent's pass that ran it to its finish or its failure;
+  - a remote child's failure by the parent's pass that saw it happen; the child's undo runs there.
+
+  A pass that re-enters the parent's step after a takeover finds the end already there and
+  announces nothing. A holder whose lease is no longer live (frozen past it, taken over) stops at
+  the announcement, as at any write.
+- **The window.** A holder that freezes or crashes between the child's durable end and its
+  announcement leaves the end unannounced: the new holder only reads it. That window is:
+  - for an `AnyInstance` finish, between the worker's completion of the row and its observer call;
+  - for a child on the parent's instance, between the child's last checkpoint (or its failed step's
+    error) and the parent's observer call;
+  - for a remote child's failure, the whole time from the failure until the waiting parent reads it,
+    if its holder is lost meanwhile.
+
+  The tree's own end is still heard: the root's `onExecutionEnd` or `onExecutionError` comes from
+  the holder that ends the tree. An observer that must not miss a child's end reads the tree's
+  record (`result.children`, `ExecutionHistoryRecord`) at the root's end.
 
 ## For a store author
 
