@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what an execution interrupted by a stop says (#582)
+
+- `ApplicationStoppingError` of an execution `app.close()` interrupts at its shutdown timeout says
+  it stays running and the next take of its lease continues it — another instance, or this
+  application once it starts again —, no longer "another instance continues it": on a lone instance
+  there is none (#567's rule). Class, code and behaviour unchanged. Found in the acceptance of #567.
+
 ## Unreleased — 0.1.1: a child's end is heard once (#562)
 
 - A child's `onExecutionEnd` / `onExecutionError` is announced only by the pass that ended it, and
@@ -16,6 +23,7 @@ Breaking changes and notable additions, newest first. The API reports
   ([Guarantees across processes](Guarantees-across-processes#what-a-reader-of-the-records-should-know)).
   The fault suite's `children-once` counts the observers' ends again, exactly one per finished child.
   Found by #484.
+
 ## Unreleased — 0.1.1: the interleaving explorer (#533 item 1)
 
 - **Added**: `storeConformance` runs `interleavings (<name>)` on a set's fencing stores — a
