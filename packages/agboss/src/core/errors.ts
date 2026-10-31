@@ -181,8 +181,11 @@ export function keyTextRuleOf(text: string): KeyTextRule | undefined {
 export class InvalidMintedIdError extends AGBossError {
   static override readonly code: string = "run.invalid-minted-id";
   override name = "InvalidMintedIdError";
+  /** The generator's class name. */
   readonly generator: string;
+  /** The method that minted the id. */
   readonly method: "newThreadId" | "newExecutionId";
+  /** The first rule the id breaks. */
   readonly rule: KeyTextRule;
 
   constructor(generator: string, method: "newThreadId" | "newExecutionId", rule: KeyTextRule) {

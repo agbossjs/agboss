@@ -3088,13 +3088,10 @@ export class InvalidMintedIdError extends AGBossError {
     constructor(generator: string, method: "newThreadId" | "newExecutionId", rule: KeyTextRule);
     // (undocumented)
     static readonly code: string;
-    // (undocumented)
     readonly generator: string;
-    // (undocumented)
     readonly method: "newThreadId" | "newExecutionId";
     // (undocumented)
     name: string;
-    // (undocumented)
     readonly rule: KeyTextRule;
 }
 
@@ -6985,11 +6982,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:45:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:178:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:179:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:180:3 - (ae-undocumented) Missing documentation for "generator".
-// src/core/errors.ts:181:3 - (ae-undocumented) Missing documentation for "method".
-// src/core/errors.ts:182:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:182:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:183:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
