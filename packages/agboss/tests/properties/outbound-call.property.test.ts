@@ -19,7 +19,7 @@ import type { ContractTarget, OutboundCallStores } from "../../src/testing/contr
 const seed = seededProperties("outbound-call.property.test.ts");
 
 /** The property: every sequence's answers are the model's. */
-export const matchesTheModel = (target: ContractTarget<OutboundCallStores>) =>
+const matchesTheModel = (target: ContractTarget<OutboundCallStores>) =>
   fc.asyncProperty(
     fc.array(commandArbitrary, { minLength: 1, maxLength: 30 }),
     async (commands) => {

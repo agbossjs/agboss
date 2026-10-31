@@ -62,7 +62,7 @@ function shuffled(value: unknown, order: number): unknown {
 
 describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
   it("a fingerprint does not depend on the order of an object's keys", () => {
-    expect(() =>
+    expect(() => {
       fc.assert(
         fc.property(
           fc.jsonValue(),
@@ -70,12 +70,12 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
           (value, order) => fingerprintOf(shuffled(value, order)) === fingerprintOf(value),
         ),
         { numRuns: 500 },
-      ),
-    ).not.toThrow();
+      );
+    }).not.toThrow();
   });
 
   it("two requests whose canonical JSON differs never share a fingerprint", () => {
-    expect(() =>
+    expect(() => {
       fc.assert(
         fc.property(
           fc.jsonValue(),
@@ -84,13 +84,13 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
             stableJson(one) === stableJson(other) || fingerprintOf(one) !== fingerprintOf(other),
         ),
         { numRuns: 500 },
-      ),
-    ).not.toThrow();
+      );
+    }).not.toThrow();
   });
 
   it("a key's identity and the key sent with its call are one-to-one with the tenant, business key and name", () => {
     const triple = fc.tuple(keyText, keyText, name);
-    expect(() =>
+    expect(() => {
       fc.assert(
         fc.property(triple, triple, ([t1, b1, n1], [t2, b2, n2]) => {
           const isSame = t1 === t2 && b1 === b2 && n1 === n2;
@@ -101,8 +101,8 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
           );
         }),
         { numRuns: 1000 },
-      ),
-    ).not.toThrow();
+      );
+    }).not.toThrow();
   });
 });
 
@@ -165,9 +165,9 @@ async function outcomesOf(
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },
     };
     expected.push(expectedOf(call, first));
-    const write = () =>
+    const write = (): Promise<unknown> =>
       stores.effects.saveResultIfAbsent(key, (transaction) => {
-        stores.rows.insert(transaction, `${tree}:${call.request}`);
+        void stores.rows.insert(transaction, `${tree}:${call.request}`);
         return { request: call.request };
       });
     const settled = await Promise.allSettled(call.isDoubled ? [write(), write()] : [write()]);

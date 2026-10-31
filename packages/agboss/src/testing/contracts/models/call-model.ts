@@ -80,8 +80,7 @@ export function callClaimed(
   if (passed === undefined) return { state, answer: "fenced" };
   const call = passed.calls[key.identity];
   const isAsRead =
-    call !== undefined &&
-    call.status === expected.status &&
+    call?.status === expected.status &&
     call.attempt === expected.attempt &&
     call.attemptOwner === expected.attemptOwner;
   if (!isAsRead) return { state: passed, answer: false };
