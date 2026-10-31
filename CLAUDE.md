@@ -1327,7 +1327,7 @@ path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/test
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 20 scenarios (#533: `s13-clock-ahead`
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 21 scenarios (#584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #533: `s13-clock-ahead`
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
@@ -1336,7 +1336,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
   time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
   operations before or after the store, the way scenarios force orders across processes; broken
-  stores fail the scenario they target (`tests/faults/sabotage.test.ts`). Wiki →
+  stores fail the scenario they target (`tests/faults/sabotage.test.ts`), and a set whose fenced-effect or outbound-call store declares `LeaseCheck.WithoutDoubleChargeProtection` fails the suite's case `fences atomically …` (`[fault-suite.opted-out-store]`, #584). Wiki →
   Guarantees-across-processes. On the public surface alone
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions

@@ -184,6 +184,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **The fault suite proves the payment's fence and refuses an opted-out set** (#584, found in the
+  acceptance of #484) — no scenario let a zombie reach the outbound-call store after a takeover, so
+  a store that recorded a payment's intent under any token passed all twenty; scenario 5c
+  (`s05c-zombie-reaches-payment-first`) freezes a pod at its payment's intent while another takes
+  the tree over and pays, and its stale write must be refused. And a set whose fenced-effect or
+  outbound-call store declares `LeaseCheck.WithoutDoubleChargeProtection` passed the suite with no
+  word of it: `faultSuite` now registers `fences atomically: no store declares
+LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store]`
+  (`FaultSuiteOptedOutError`, naming the stores).
 - **A minted thread id is always a new thread** (#550, found by #533) — a store's `createThread`
   without a `threadId` handed out an id the tenant already had when its `IdGenerator` repeated one
   (two tests on one database both minting from `thread-1`): another workflow's thread, so the pass

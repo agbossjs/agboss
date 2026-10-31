@@ -1,6 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   Clock,
+  LeaseCheck,
+  SqliteOutboundCallRepository,
+  StoreClock,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
@@ -10,6 +13,7 @@ import {
   type FencedEffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
+  type OutboundCallIntent,
 } from "../../src/index.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 
@@ -22,6 +26,9 @@ import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-set
  *   write passes the lease check and the scope's mark as if it held the lease.
  * - `ReleasingSqliteExecutionLeaseRepository`: a `finish` that is a plain `release` (#520) — a
  *   finished child's lease is free for the next `acquire`.
+ * - `UnfencedSqliteOutboundCallRepository` (#584): no fencing check on the payment's intent — its
+ *   writes go in at the lease's current epoch, so a zombie records a payment as if it held the lease.
+ * - `OptedOutSqliteFencedEffectRepository` (#584): declares `LeaseCheck.WithoutDoubleChargeProtection`.
  */
 
 /** The lease's current epoch in the file. */
@@ -58,4 +65,25 @@ export class ReleasingSqliteExecutionLeaseRepository extends SqliteExecutionLeas
   override finish(executionLease: ExecutionLease): Promise<void> {
     return this.release(executionLease);
   }
+}
+
+@Injectable({ deps: [SqliteConnection, StoreClock] })
+export class UnfencedSqliteOutboundCallRepository extends SqliteOutboundCallRepository {
+  constructor(
+    private readonly sqliteConnection: SqliteConnection,
+    clock: StoreClock,
+  ) {
+    super(sqliteConnection, clock);
+  }
+
+  override saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
+    const token = currentEpochOf(this.sqliteConnection.database, key);
+    return super.saveIfAbsent({ ...key, token }, intent);
+  }
+}
+
+/** #584: a fenced-effect store that declares the opt-out — atomic underneath, honest in its claim. */
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+export class OptedOutSqliteFencedEffectRepository extends SqliteFencedEffectRepository {
+  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
 }
