@@ -61,11 +61,32 @@ describe("#543 AC1: an opted-out store without acceptWithoutDoubleChargeProtecti
       (found) =>
         found.file === REFUSED &&
         !found.suites[0]?.startsWith("outbound call contract") &&
-        !found.suites[0]?.startsWith("store set"),
+        !found.suites[0]?.startsWith("store set") &&
+        !found.suites[0]?.startsWith("interleavings"),
     );
 
     expect(named(outbound, "pass").length).toBeGreaterThan(20);
     expect(others.filter((found) => found.state !== "pass")).toEqual([]);
+  });
+
+  it("#533: the interleaving explorer refuses it too — its outbound-call worlds and races fail, the lease world runs", () => {
+    const explored = run.cases.filter(
+      (found) => found.file === REFUSED && found.suites[0]?.startsWith("interleavings") === true,
+    );
+    const failed = explored.filter((found) => found.state === "fail");
+
+    expect(failed.length).toBeGreaterThan(0);
+    expect(
+      failed.every((found) =>
+        found.errors.join("").includes("[store-conformance.opted-out-store]"),
+      ),
+    ).toBe(true);
+    expect(failed.some((found) => found.name.startsWith("every lease operation"))).toBe(false);
+    expect(
+      explored
+        .filter((found) => found.name.startsWith("every lease operation"))
+        .every((found) => found.state === "pass"),
+    ).toBe(true);
   });
 });
 
