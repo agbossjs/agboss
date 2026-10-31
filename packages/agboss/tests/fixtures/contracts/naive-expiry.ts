@@ -132,16 +132,21 @@ export class FromOldEndLeaseRepository extends InMemoryExecutionLeaseRepository 
     super(time, application, rows);
   }
 
-  override async renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+  override async renew(
+    lease: ExecutionLease,
+    length: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
     const end = this.rows.executionLeases.get(key)?.lease.expiresAt.getTime();
-    if (!(await super.renew(lease, length)) || end === undefined) return false;
+    const renewed = await super.renew(lease, length);
+    if (renewed === undefined || end === undefined) return undefined;
     const stored = this.rows.executionLeases.get(key);
-    if (stored !== undefined && this.time.now().getTime() < end)
-      this.rows.executionLeases.set(key, {
-        ...stored,
-        lease: { ...stored.lease, expiresAt: new Date(end + length) },
-      });
-    return true;
+    if (stored === undefined || this.time.now().getTime() >= end) return renewed;
+    this.rows.executionLeases.set(key, {
+      ...stored,
+      lease: { ...stored.lease, expiresAt: new Date(end + length) },
+    });
+    // it answers the lease asked for (#533): what a store renewing from now would answer
+    return renewed;
   }
 }
