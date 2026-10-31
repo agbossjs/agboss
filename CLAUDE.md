@@ -611,7 +611,9 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   not released: still its own there and renewed, so no other instance's sweep takes it over, #516);
   an instance with a free step slot (#332) claims it at once in-process, else at its sweep
   (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
-  `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row;
+  `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row —
+  answered or failed, it finishes the lease (#520: `finish`, never taken again, so a stale instance
+  that resumes takes no lease of finished work; a paused one releases it);
   a crash or a graceful stop past `shutdownTimeout` (S7) leaves the row `Running` so a live worker
   reclaims only that child once its lease is free and continues it from its last checkpoint;
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
@@ -1240,7 +1242,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   application — `CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`, `yield` /
-  `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires),
+  `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
+  `finish` — #520: a release for good, the work under it over; no `acquire` of the key gets it again),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1941,7 +1944,10 @@ export class PlanService {
   A take of an expired lease names its holder (`ExecutionLease.takenOverFrom`, #501, optional for an
   external store); a takeover — that, or any take of the recovery sweep, an undo's takeover, a remote
   child's reclaim or a re-acquire after a yield (`LeaseTakeoverReason`) — is a `Takeover` row of the
-  lease log and an `onExecutionLeaseTakeover`; a lease released and taken again is none.
+  lease log and an `onExecutionLeaseTakeover`; a lease released and taken again is none. A take of
+  work already over is none either (#520, `LeaseTake.isOver`): a remote child's claim whose queue row
+  is no longer that claim, a sweep's take of a root whose record no longer runs — looked at before
+  the store is asked and again once it gave the lease, which then goes back at once.
   Wiki → Several-instances.
 - **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
   under — the root's for a root, its `ParentInstance` children and `ThisWorkflow` levels, an

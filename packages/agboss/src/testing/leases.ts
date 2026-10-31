@@ -107,6 +107,11 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.repository.release(executionLease);
   }
 
+  async finish(executionLease: ExecutionLease): Promise<void> {
+    await this.gate.passed();
+    return this.repository.finish(executionLease);
+  }
+
   async yield(executionLease: ExecutionLease): Promise<boolean> {
     await this.gate.passed();
     return this.repository.yield(executionLease);

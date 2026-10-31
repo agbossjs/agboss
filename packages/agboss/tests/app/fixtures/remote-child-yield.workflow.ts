@@ -35,7 +35,8 @@ import {
  * #516 — a parent waiting for its `ChildPlacement.AnyInstance` children while another instance's
  * recovery sweep looks for `running` roots. A child's gated step holds every item named `gate…`
  * until the test opens the gate; a review child asks for a confirmation of every item named
- * `ask…` through a channel that records the pause's id. What ran where, and every execution's
+ * `ask…` through a channel that records the pause's id; an item whose `outcome` is `fail` fails its
+ * child once past the gate (#520). What ran where, and every execution's
  * start and end, are kept for the test.
  */
 
@@ -104,8 +105,10 @@ export class GatedItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+    const { name, outcome } = input.item.value;
     await passGate(this.executionContext, name);
+    // #520: an item to fail fails its child once past the gate
+    if (outcome === "fail") throw new Error(`item ${name} failed`);
     return { name };
   }
 }

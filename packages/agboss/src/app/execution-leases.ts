@@ -1,6 +1,5 @@
 import { scopeKeyOf } from "./lease-lost.js";
 import type * as LeaseEvents from "./lease-events.js";
-import type { HandOverReport } from "./lease-events.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
@@ -21,6 +20,9 @@ import type { FrameLease } from "../flow/context/frame.js";
 import { HeldLease } from "./held-lease.js";
 import { EXECUTION_LEASE } from "./lease-fence.js";
 import { leaseReleases } from "./lease-releases.js";
+
+/** The lease events a held lease records (#501), in `lease-yields.ts` beside its other parts. */
+export { LeaseEventReports } from "./lease-yields.js";
 
 /**
  * Who moves an execution tree (#265, Q58): `app.execute` / `app.resume` hold the tree's lease
@@ -60,8 +62,11 @@ export interface HeldExecutionLease extends FrameLease {
    * (#516): every instance sees the tree held, the renewals go on, a dead holder's lease expires.
    */
   yieldWhile<T>(wait: () => Promise<T>): Promise<T>;
-  /** Stops renewing and gives the lease up (nothing to give when it was lost). */
-  release(): Promise<void>;
+  /**
+   * Stops renewing and gives the lease up (nothing to give when it was lost) — for good with
+   * `isFinished` (#520: `ExecutionLeaseRepository.finish`, the work under it is over).
+   */
+  release(options?: { readonly isFinished?: boolean }): Promise<void>;
 }
 
 /** What the holder does after a confirmed renewal of its lease (#360). */
@@ -114,13 +119,24 @@ async function takeLease(
   take: LeaseTake | undefined,
 ): Promise<HeldExecutionLease | undefined> {
   const { repository, clock, events } = taking;
+  if (await isOver(take)) return undefined;
   const askedAt = clock.now().getTime();
   const initial = await repository.acquire(tree.tenantId, tree.rootExecutionId, EXECUTION_LEASE);
   if (initial === undefined) return undefined;
+  // the work ended while the store was asked (#520): the lease goes back unused, nothing recorded
+  if (await isOver(take)) {
+    await repository.release(initial).catch((): undefined => undefined);
+    leaseReleases.notify(treeKeyOf(tree.tenantId, tree.rootExecutionId));
+    return undefined;
+  }
   const held = new HeldLease(taking, tree, initial, { askedAt, take });
   await reportTake(events, initial, take);
   return held;
 }
+
+/** Whether the work `take` would move is already over (#520); a read that fails is not. */
+const isOver = async (take: LeaseTake | undefined): Promise<boolean> =>
+  (await take?.isOver?.().catch((): boolean => false)) === true;
 
 /**
  * Which takes of a tree's lease are takeovers, and their record in the lease log (#501); the
@@ -175,6 +191,13 @@ export interface LeaseTake {
   readonly rootExecutionId?: string;
   /** The tree's head checkpoint, read only when the take is reported. */
   readonly checkpointIdOf?: () => Promise<string | undefined>;
+  /**
+   * Whether the work the lease would move is already over (#520) — a child's queue row no longer
+   * the claim taken over, a root's record no longer running: asked before the store and again once
+   * it gave the lease. Over → no lease asked for, or the one given released at once, and no
+   * takeover recorded. A read that fails counts as not over.
+   */
+  readonly isOver?: () => Promise<boolean>;
 }
 
 /** What takes a tree's lease: the store, the clock and the instance's lease log. */
@@ -263,52 +286,3 @@ export const rootTakeOf = (
             ?.checkpoint.id,
       }),
 });
-
-/**
- * The lease events a held lease records (#501): its hand-overs and its steps' fenced effects, each
- * written through the instance's lease log in the order recorded — a refused effect before the
- * hand-over it causes — and the lease released only once they were, so the moving call rejects
- * after its rows exist.
- */
-export class LeaseEventReports {
-  #tail: Promise<void> = Promise.resolve();
-  #holder: Pick<ExecutionLease, "holderInstanceId" | "leaseEpoch"> | undefined;
-
-  /** The lease now held: its holder and token name a later hand-over. */
-  held(lease: ExecutionLease): void {
-    this.#holder = lease;
-  }
-
-  handOver(events: LeaseEventLog | undefined, report: HandOverReport, scopeKey: string): void {
-    const holder = this.#holder;
-    if (holder === undefined) return;
-    const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.leaseEpoch };
-    this.#append(events, (recording, log) => recording.recordHandOver(log, report, lease));
-  }
-
-  /**
-   * A call a step under the lease made — a fenced effect's (#501) or one that leaves the system
-   * (#505): `write` records it with the holder's instance, in the lease's order.
-   */
-  stepCall(
-    events: LeaseEventLog | undefined,
-    write: (recording: typeof LeaseEvents, log: LeaseEventLog, holder: string) => Promise<void>,
-  ): void {
-    const holderInstanceId = this.#holder?.holderInstanceId;
-    if (holderInstanceId === undefined) return;
-    this.#append(events, (recording, log) => write(recording, log, holderInstanceId));
-  }
-
-  /** Once every event recorded so far is written (recording never rejects). */
-  settled(): Promise<void> {
-    return this.#tail;
-  }
-
-  #append(
-    events: LeaseEventLog | undefined,
-    write: (recording: typeof LeaseEvents, log: LeaseEventLog) => Promise<void>,
-  ): void {
-    if (events === undefined) return;
-    this.#tail = this.#tail.then(async () => write(await events.recording, events));
-  }
-}

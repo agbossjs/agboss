@@ -11,6 +11,7 @@ import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
+import { recordEndedOf } from "./recovery-pass.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
@@ -111,6 +112,11 @@ export async function endIfCancelledAtRest(
   throw await endCancelled(parts, state, lease);
 }
 
+/** A root the recovery sweep found `running`: its record (#520: ended → no takeover). */
+export interface SweptRoot {
+  readonly ternId: string;
+}
+
 /**
  * Ends a tree as cancelled once its lease is held here (waiting for a holder that rests it): its
  * final error, or `undefined` when its lease was not free.
@@ -118,11 +124,16 @@ export async function endIfCancelledAtRest(
 async function endHeld(
   parts: CancelParts,
   state: TreeState,
-  isWaiting: boolean,
+  sweep?: SweptRoot,
 ): Promise<Error | undefined> {
   const tree = treeOf(state);
-  // the sweep's take (not waiting) is a takeover of a root another pass was moving (#501)
-  const take = rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Cancelled, !isWaiting);
+  const isWaiting = sweep === undefined;
+  // the sweep's take (not waiting) is a takeover of a root another pass was moving (#501), none
+  // once its record ended (#520)
+  const take = {
+    ...rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Cancelled, !isWaiting),
+    ...(sweep === undefined ? {} : { isOver: recordEndedOf(parts.deps.terns, sweep.ternId) }),
+  };
   const lease = isWaiting
     ? await parts.leases.hold(tree, undefined, take)
     : await parts.leases.tryHold(tree, take);
@@ -138,9 +149,12 @@ async function endHeld(
  * Recovery of a root with a cancel request (S1 3: on an instance of any config version): it is
  * ended as cancelled when its lease is free; `true` when it had a request (a holder ends it).
  */
-export async function endIfCancelled(parts: CancelParts, state: TreeState): Promise<boolean> {
+export async function endIfCancelled(
+  parts: CancelParts,
+  state: TreeState & SweptRoot,
+): Promise<boolean> {
   if (!(await isCancelRequested(parts.trees, treeOf(state)))) return false;
-  await endHeld(parts, state, false);
+  await endHeld(parts, state, state);
   return true;
 }
 
@@ -161,7 +175,7 @@ async function settled(parts: CancelParts, record: Tern): Promise<boolean> {
   const state = stateOf(parts.deps, record, record.runId);
   if (record.status === "running") return true;
   if (record.status === "paused") {
-    const ended = await endHeld(parts, state, true);
+    const ended = await endHeld(parts, state);
     if (ended instanceof CompensationFailedError) throw ended;
     return ended !== undefined;
   }

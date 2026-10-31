@@ -62,6 +62,9 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   release(): Promise<void> {
     return Promise.resolve();
   }
+  finish(): Promise<void> {
+    return Promise.resolve();
+  }
   yield(): Promise<boolean> {
     return Promise.resolve(false);
   }
