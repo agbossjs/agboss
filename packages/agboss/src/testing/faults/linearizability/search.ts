@@ -7,12 +7,13 @@ import { UNKNOWN, type CheckedOperation } from "./operations.js";
  * touch no common object are checked apart (a lease's tree, its scope, a call's identity); within
  * one part, the next operation taken is one invoked before every operation still to take completed
  * (the exact real-time order of the machine's clock), at an instant within its span widened by the
- * slack and not before the last one taken — the earliest such instant, or
- * the latest when the earliest gives another answer than the store's (a lease is live, then not:
- * one of the two gives each answer the store could have; a lease's spans are milliseconds, its
- * length 30 s, so the instant chosen moves no later expiry across another operation).
- * An operation whose answer nobody saw may also never have taken effect. A state already reached
- * with the same operations taken and the same last instant is not searched again.
+ * slack and not before the last one taken — never after its own end (#617): an operation that
+ * completed took effect by then. The instants tried, earliest first, are where the model's answers
+ * can change: the span's start, just before and at each lease expiry of the state inside the span,
+ * and its end. An operation whose answer nobody saw may never have taken effect, or may have at
+ * any instant after its invoke (its span has no end: a store can apply a request whose caller is
+ * gone). A state already reached with the same operations taken and the same last instant is not
+ * searched again.
  */
 
 /** A part of a history that is not linearizable: its operations, and how far a linearization got. */
@@ -92,18 +93,37 @@ class PartSearch {
     const operation = this.operations[index] ?? never();
     const taken = at.taken.map((done, other) => done || other === index);
     if (operation.output === UNKNOWN && this.search({ ...at, taken })) return true;
-    const from = Math.max(operation.from, at.last);
-    const to = Number.isFinite(operation.to) ? Math.max(from, operation.to) : from;
-    // the earliest instant first; the latest only when the earliest gives another answer than the store's
-    const early = applied(at.state, operation, from);
-    if (early !== undefined)
-      return this.search({ taken, state: early, last: from, order: [...at.order, operation] });
-    const late = from === to ? undefined : applied(at.state, operation, to);
-    return (
-      late !== undefined &&
-      this.search({ taken, state: late, last: to, order: [...at.order, operation] })
-    );
+    return instantsOf(at.state, operation, at.last).some((instant) => {
+      const state = applied(at.state, operation, instant);
+      const order = [...at.order, operation];
+      return state !== undefined && this.search({ taken, state, last: instant, order });
+    });
   }
+}
+
+/** Just before an instant: the last moment a lease expiring then is still live. */
+const JUST_BEFORE = 0.001;
+
+/**
+ * The instants `operation` may take effect at after `last`, earliest first (#617): its span's start,
+ * just before and at each lease expiry of `state` inside the span, and its end — none when the span
+ * ended before `last`.
+ */
+function instantsOf(
+  state: FencingState,
+  operation: CheckedOperation,
+  last: number,
+): readonly number[] {
+  const from = Math.max(operation.from, last);
+  const to = operation.output === UNKNOWN ? Number.POSITIVE_INFINITY : operation.to;
+  if (from > to) return [];
+  const expiries = Object.values(state.leases).flatMap(({ expiresAt }) => [
+    expiresAt - JUST_BEFORE,
+    expiresAt,
+  ]);
+  const inside = expiries.filter((instant) => instant > from && instant <= to);
+  const ends = Number.isFinite(to) && to > from ? [to] : [];
+  return [...new Set([from, ...inside, ...ends])].sort((left, right) => left - right);
 }
 
 const never = (): never => {
