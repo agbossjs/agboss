@@ -43,12 +43,12 @@ const zombieWriteOf = (events: readonly OperationEvent[]): string | undefined =>
   return events.find(
     (event) =>
       event.operation === StoreHoldPoint.FencedEffectWrite &&
-      event.phase === "complete" &&
+      event.phase === OperationPhase.Complete &&
       (event.output as { status?: string } | undefined)?.status === "ran" &&
       events.some(
         (invoke) =>
           invoke.id === event.id &&
-          invoke.phase === "invoke" &&
+          invoke.phase === OperationPhase.Invoke &&
           (invoke.input as { token: number }).token < highest,
       ),
   )?.id;
