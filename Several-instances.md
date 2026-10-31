@@ -746,7 +746,12 @@ export class ChargeOrderAction {
   `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
   (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s lease log), and
   `agboss records export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
-  (exit 2, `usage.option-value`, the rule named) instead of reading nothing. A lone
+  (exit 2, `usage.option-value`, the rule named) instead of reading nothing. Who calls is held to
+  the same rules (#589): `ownerId` at `app.execute`, `app.resume` and `app.cancel`, and a `Channel`
+  pause's `answeredBy` (recorded on the pause and in the records, read by the agent), refused
+  before anything is read or written with `dto.invalid` naming the field and the rule, never the id;
+  a value that is not a text is `length`. Before, on SQLite and PostgreSQL an execute under
+  `bob\uD800` created a thread stored as `bob\uFFFD`'s and then refused its own caller. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
   name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
   it is part of the keys that go out.

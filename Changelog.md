@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: who calls is a key's text (#589)
+
+- `app.execute`, `app.resume` and `app.cancel` refuse an `ownerId`, and `app.resume` a `Channel`
+  pause's `answeredBy`, that is no key's text (`dto.invalid` naming the field and the rule, never
+  the id; a value that is not a text: `length`), before anything is read or written. On SQLite and
+  PostgreSQL an execute under `bob\uD800` created a thread owned by `bob\uFFFD` and was refused
+  itself; the `bob\uFFFD` owner then had the thread. A blank `answeredBy` is still
+  `PauseAnswererError`. Found in the acceptance of #568. Several-instances.
 ## Unreleased — 0.1.1: an empty fingerprint is not none (#574)
 
 - Fixed: under a business key, a fenced effect with `fingerprint: ""` in flight on one instance
