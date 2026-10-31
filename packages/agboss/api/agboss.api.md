@@ -7579,11 +7579,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect-settings.ts:180:3 - (ae-undocumented) Missing documentation for "size".
 // src/infrastructure/fenced-effect-settings.ts:181:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:47:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/fenced-effect.repository.ts:80:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/fenced-effect.repository.ts:81:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/fenced-effect.repository.ts:97:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:98:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/fenced-effect.repository.ts:83:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/fenced-effect.repository.ts:84:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/fenced-effect.repository.ts:99:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:100:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "backend".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".
