@@ -40,6 +40,12 @@ Rules that follow:
   reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). The hung
   send's own answer, when it comes, is fenced and logged (`outbound-call.answered-after-hand-over`),
   never stored ([Several instances](Several-instances#business-idempotency-keys-508)).
+- **Fit the key to the gateway, never by cutting it.** `call.idempotencyKey` has no fixed length:
+  the step's key and the call's name (about 60 characters with a UUID execution id), or the tenant,
+  the URI-encoded business key and the name (up to hundreds). A gateway with a shorter limit —
+  Square takes 45 characters — gets a fixed-length digest of it from your adapter, such as its
+  SHA-256 in base64url (43 characters): the same call always sends the same key and two calls never
+  share one. A key cut short can make two orders one payment ([#532](https://github.com/agbossjs/agboss/issues/532)).
 - **Look up by key, not by the request.** `reconcile` gets the request as stored, masked by the PII
   policies; `lookup.idempotencyKey` is what the gateway knows the call by.
 - **Keep keys longer than your longest recovery.** A paused execution answered tomorrow replays

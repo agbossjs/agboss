@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what the acceptance of 0.1.1 found (#529–#532)
+
+- **Fixed — `circuitBreakerPolicy: null` is a missing policy** (#529): a JS project's `null` assembled,
+  then `createApp` and `agboss check` threw a `TypeError`; it is now
+  `[model-provider.circuit-breaker-required]`, as a policy left out is (#521).
+- **Fixed — a lone surrogate is no business key or thread id** (#530): half of a surrogate pair
+  passed the thread-id rule; SQLite and PostgreSQL keep text as UTF-8, where two such keys become one
+  row, and the outbound call's key threw `URIError`. It is `InvalidBusinessKeyError` /
+  `InvalidThreadIdError` now.
+- **Fixed — `check:installs` and `check:real-time` miss no common form** (#531): `npm install-test`, a
+  command continued with `\`, every `--package=` of an `npx`, npm spawned with `["i", …]` or a whole
+  `"npm install …"` string; a duration through a second variable, a limit named by a constant.
+- **Docs — [Payment gateways](Payment-gateways)**: `call.idempotencyKey` has no fixed length; a
+  gateway with a shorter limit (Square: 45) gets a digest of it, never a key cut short (#532).
 ## Unreleased — 0.1.1: one transactional backend, checked at assembly (#526 PR 1)
 
 - **Breaking for stores outside the core — `static backend`**
