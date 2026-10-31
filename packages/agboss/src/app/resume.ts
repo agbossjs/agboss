@@ -1,7 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { validDecisionOf } from "../channels/decision.js";
-import { checkedTenantId } from "../flow/context/context-values.js";
+import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
   PauseStatus,
@@ -242,6 +242,18 @@ export interface ResumeParts extends AnswerParts {
 }
 
 /**
+ * Who answers is a key's text (#589), before the pause is looked up: the owner the thread was
+ * created with, or a `Channel` answerer recorded on the pause, in the records and read by a model.
+ * A missing or blank `answeredBy` is left to the role's own check (`PauseAnswererError`).
+ */
+function checkedAnswerer(call: ResumeOptions): void {
+  checkedCallerId("ResumeOptions", "ownerId", call.ownerId);
+  const { answeredBy } = call;
+  if (typeof answeredBy !== "string" || answeredBy.trim() !== "")
+    checkedCallerId("ResumeOptions", "answeredBy", answeredBy);
+}
+
+/**
  * `app.resume` in two phases (Q58): the answer recorded on its pause (`Pending → Resolved`, atomic,
  * a refusal observed — naming the thread once the pause is known), then the tree moved under its
  * lease, as the thread's owner (`executionContext.ownerId`).
@@ -254,6 +266,7 @@ export const resumeOf =
     const pause = await parts.admit(requested, () => {
       parts.accepting();
       checkedTenantId(tenantId);
+      checkedAnswerer(call);
       answerGivenBy(request);
       return pauseOf(parts.pauses, request, tenantId);
     });

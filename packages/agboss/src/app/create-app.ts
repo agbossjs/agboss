@@ -39,6 +39,7 @@ import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
+import { checkedCallerId } from "../flow/context/context-values.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -144,6 +145,8 @@ export async function buildApp(
       };
       const checked = await admit(requested, async () => {
         accepting();
+        // #589: the owner is stored with the thread — a key's text, before anything is read
+        checkedCallerId("ExecutionOptions", "ownerId", call.ownerId);
         const valid = checkedStart(start, input, bundle.graph);
         // the contexts' values, checked before the first step and frozen (#261); the call chain
         // a mesh transport admitted, kept with them (#398)
