@@ -14,22 +14,27 @@ export const UNKNOWN = Symbol("unknown");
 
 /** One operation, ready for the model. */
 export interface CheckedOperation {
+  /** The history's id of the operation. */
   readonly id: string;
+  /** Which store operation it is. */
   readonly kind: StoreHoldPoint;
   /** The application instance that made it: a lease's holder. */
   readonly holder: string;
+  /** What it asked. */
   readonly input: Readonly<Record<string, unknown>>;
   /** What the store answered (`"fenced"` for the fence's refusal), or `UNKNOWN`. */
   readonly output: unknown;
   /**
-   * Its span on the machine's time, as store ms: invoked, completed (`+∞` when it never did). The
-   * real-time order: one completed before another was invoked took effect first. Every pod reads
-   * one clock (the host's monotonic), so this order is exact.
+   * When it was invoked, on the machine's time as store ms. The real-time order: one completed
+   * before another was invoked took effect first — every pod reads the host's one monotonic clock,
+   * so this order is exact.
    */
   readonly invokedAt: number;
+  /** When it completed, the same way; `+∞` when it never did. */
   readonly completedAt: number;
-  /** The span widened by the slack: the store's own instant it took effect at is within. */
+  /** The earliest store instant it may have taken effect at: `invokedAt` less the slack. */
   readonly from: number;
+  /** The latest: `completedAt` plus the slack. */
   readonly to: number;
 }
 

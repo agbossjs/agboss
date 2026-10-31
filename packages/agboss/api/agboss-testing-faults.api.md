@@ -11,16 +11,14 @@ export function assertFaultInvariants(scenario: string, run: FaultRun): void;
 
 // @public
 export interface CheckedOperation {
+    readonly completedAt: number;
     readonly from: number;
     readonly holder: string;
-    // (undocumented)
     readonly id: string;
-    // (undocumented)
     readonly input: Readonly<Record<string, unknown>>;
-    // (undocumented)
+    readonly invokedAt: number;
     readonly kind: StoreHoldPoint;
     readonly output: unknown;
-    // (undocumented)
     readonly to: number;
 }
 
@@ -718,11 +716,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/invariants/violations.ts:30:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/invariants/violations.ts:33:5 - (ae-undocumented) Missing documentation for "scenario".
 // src/testing/faults/invariants/violations.ts:34:5 - (ae-undocumented) Missing documentation for "violations".
-// src/testing/faults/linearizability/operations.ts:17:3 - (ae-undocumented) Missing documentation for "id".
-// src/testing/faults/linearizability/operations.ts:18:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/faults/linearizability/operations.ts:21:3 - (ae-undocumented) Missing documentation for "input".
-// src/testing/faults/linearizability/operations.ts:26:3 - (ae-undocumented) Missing documentation for "to".
-// src/testing/faults/linearizability/search.ts:19:3 - (ae-undocumented) Missing documentation for "operations".
+// src/testing/faults/linearizability/search.ts:20:3 - (ae-undocumented) Missing documentation for "operations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".
