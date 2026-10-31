@@ -1,3 +1,4 @@
+import { keyTextRuleOf } from "../core/errors.js";
 import type { MeshRequestKey } from "../infrastructure/mesh-request.repository.js";
 import type { InboundMesh } from "../mesh/inbound-mesh.js";
 import type { MeshEnvelope } from "../mesh/mesh-envelope.js";
@@ -37,7 +38,9 @@ export const isSignedBody = (trusted: TrustedRequest | undefined, text: string):
 
 /** The dedupe key of a trusted request. */
 export const dedupeKeyOf = (trusted: TrustedRequest | undefined): MeshRequestKey | undefined =>
-  trusted === undefined
+  // #568: a tenant id that is no key's text keys no answer — UTF-8 stores would merge it with
+  // another tenant's (t\uD800 is t\uFFFD); its execution refuses it as any request's
+  trusted === undefined || keyTextRuleOf(trusted.tenantId) !== undefined
     ? undefined
     : {
         tenantId: trusted.tenantId,

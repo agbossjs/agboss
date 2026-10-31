@@ -208,6 +208,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   execution failed with a raw `URIError` after binding the thread; an NFD or a zero-width tenant id
   was a second tenant of one customer. `app.cancel`'s thread id is checked as `execute`'s is
   (`InvalidThreadIdError`, the id kept out of the message and `onExecutionRejected`).
+  So are the operator's reads (#568): `app.leaseEventsOf`, `app.outboundCallsOf` and
+  `app.pendingOutboundCalls` refuse such a tenant id (`dto.invalid`) before the store is asked — on
+  SQLite `t\uD800` read `t\uFFFD`'s pending charges and lease log —, and a trusted A2A request or MCP
+  call under one is never deduplicated (its refusal was kept as the answer, under the merged key).
 - **Look-alike keys are refused, never charged twice** (#538) — a business key and a thread id
   are refused when they hold a C1 control (U+0080–U+009F, beside C0 and DEL), a format character
   (Unicode `Cf`: zero-width space and joiners — so emoji joined by U+200D too —, bidi controls,

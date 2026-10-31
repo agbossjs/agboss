@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { App } from "../app/types.js";
+import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
   MeshRequestRepository,
@@ -33,14 +34,14 @@ const inProgress = (): CallToolResult => {
   return { ...errorResult(error), _meta: { [MESH_ERROR_META_KEY]: { code, error } } };
 };
 
-const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined =>
-  call.peer === undefined || call.callId === undefined
-    ? undefined
-    : {
-        tenantId: call.tenantId ?? DEFAULT_TENANT_ID,
-        peer: call.peer,
-        idempotencyKey: call.callId,
-      };
+const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
+  const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
+  // #568: a tenant id that is no key's text keys no result (UTF-8 stores merge t\uD800 with
+  // t\uFFFD); the call runs and its execution refuses it
+  if (call.peer === undefined || call.callId === undefined || keyTextRuleOf(tenantId) !== undefined)
+    return undefined;
+  return { tenantId, peer: call.peer, idempotencyKey: call.callId };
+};
 
 /** Runs `run` once per trusted call key: a repeat answered from the store. */
 export async function dedupedMcpCall(

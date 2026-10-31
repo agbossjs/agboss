@@ -1925,8 +1925,9 @@ askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn o
   idempotent id; bound to `ownerId`; only once the budgets pass; a key's text — the business key's
   rules, #538 —, else `InvalidThreadIdError` naming its `rule`, never the id, and kept out of
   `onExecutionRejected`; `cancel`'s thread id the same, #552), `cancel` of it is `UnknownThreadError`;
-  a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel`, else `dto.invalid` naming
-  `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8); every
+  a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel` — #568: and at
+  `leaseEventsOf`, `outboundCallsOf`, `pendingOutboundCalls`; a trusted A2A / MCP request under another is
+  never deduplicated —, else `dto.invalid` naming `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8); every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
