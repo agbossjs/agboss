@@ -38,3 +38,4 @@ export {
 } from "./store-conformance.js";
 export { StoreConformanceError, type LeftOutContract } from "./store-conformance-check.js";
 export type { FencingContractOptions } from "./fencing-gate.js";
+export type { InterleavingOptions } from "./explorer/register.js";

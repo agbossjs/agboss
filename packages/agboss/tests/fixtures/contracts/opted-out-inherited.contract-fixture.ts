@@ -4,8 +4,10 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { InheritedOptOutCalls } from "./opted-out-subclass-stores.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "an opt-out inherited, not accepted",
 
   without: ["fencedEffect"],

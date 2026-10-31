@@ -7,8 +7,10 @@ import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-c
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { brokenEffects, UncheckedCalls } from "./broken-fencing-stores.js";
 import { OptedOutCheckThenWriteEffects } from "./opted-out-stores.js";
+import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
 storeConformance({
+  interleavings: FIXTURE_INTERLEAVINGS,
   name: "an honest check-then-write store",
   acceptWithoutDoubleChargeProtection: true,
   stores: {

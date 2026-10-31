@@ -8,5 +8,10 @@ import { storeConformance } from "../../src/testing/contracts/index.js";
 import { sqliteStores } from "./contracts/core-store-sets.js";
 
 describe("#526 AC2: the core's SQLite stores pass storeConformance", () => {
-  storeConformance({ name: "SQLite", stores: sqliteStores() });
+  // #533: a schedule on SQLite opens a file and two connections, so the explorer looks 5 steps deep
+  storeConformance({
+    name: "SQLite",
+    stores: sqliteStores(),
+    interleavings: { depth: 5, walks: 50 },
+  });
 });

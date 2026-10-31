@@ -137,6 +137,8 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       new Set([
         ...Object.values(SUITES).map((title) => `${title} (fixture-store)`),
         "store set (fixture-store)",
+        // #533: the interleaving explorer's cases, over the set's fencing stores
+        "interleavings (fixture-store)",
       ]),
     );
     expect(run.cases.filter((found) => found.state !== "pass")).toEqual([]);

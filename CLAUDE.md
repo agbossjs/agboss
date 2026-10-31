@@ -1314,7 +1314,14 @@ double-charge protection for …` — a fencing contract run on its own with the
   `tests/infrastructure/contracts/core-store-sets.ts`, `store-kinds.ts`); broken sets fail it
   (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the
   transaction, a read-then-close `leaseStateOf`, a pre-#508 lease log, stores of no backend or
-  another). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
+  another); and `interleavings (<name>)` (#533, `src/testing/contracts/explorer/`): a deterministic
+  scheduler of simulated instances over the set's fencing stores — every schedule of two up to
+  `interleavings.depth` (default 8), seeded walks of three, the second's clock ± lease/2, ± lease,
+  ± 10 × lease off the store's time, each operation sent once the one before was answered — checking
+  one live holder, no write at a stale token, one effect per key, one charge per business key and no
+  takeover of finished work after each step, a failure printing the minimal schedule; and AC7's
+  two-outcome races forced in both orders (broken stores fail it,
+  `tests/testing/contracts/explorer-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
 path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
   entry of its own, never loaded by the root) runs the fixture application (`src/testing/faults/
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's

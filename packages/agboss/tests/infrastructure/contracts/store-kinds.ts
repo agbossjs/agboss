@@ -93,13 +93,23 @@ export function inMemoryTarget<TStore>(make: StoreFactory<TStore>): ContractTarg
 /** SQLite: a temporary file per test, one connection per instance (closed after the test). */
 export function sqliteTarget<TStore>(make: StoreFactory<TStore>): ContractTarget<TStore> {
   let path = ":memory:";
+  let current: SqliteConnection[] = [];
   return {
     name: "SQLite",
+    // #533: the explorer resets once per schedule — the last schedule's connections and file go
     reset: () => {
+      for (const connection of current) {
+        connection.onDestroy();
+        opened.splice(opened.indexOf(connection), 1);
+      }
+      current = [];
+      const folder = folders.pop();
+      if (folder !== undefined) rmSync(folder, { recursive: true, force: true });
       path = temporarySqlitePath();
     },
     instance: (seam) => {
       const connection = connectionTo(path);
+      current.push(connection);
       return make({ ...seam, database: new InMemoryDatabase(), connection: () => connection });
     },
   };

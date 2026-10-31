@@ -126,6 +126,14 @@ export interface FencingContractOptions {
 }
 
 // @public
+export interface InterleavingOptions {
+    readonly depth?: number;
+    readonly seed?: number;
+    readonly walkDepth?: number;
+    readonly walks?: number;
+}
+
+// @public
 export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
 
 // @public
@@ -164,6 +172,7 @@ export class StoreConformanceError extends Error {
 // @public
 export interface StoreConformanceOptions<TTransaction = unknown> {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
+    readonly interleavings?: InterleavingOptions | false;
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
@@ -187,20 +196,20 @@ export interface StoreSeam {
 // src/testing/contracts/store-conformance-check.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:41:3 - (ae-undocumented) Missing documentation for "problems".
-// src/testing/contracts/store-conformance.ts:47:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
-// src/testing/contracts/store-conformance.ts:48:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
-// src/testing/contracts/store-conformance.ts:49:3 - (ae-undocumented) Missing documentation for "costLedger".
-// src/testing/contracts/store-conformance.ts:50:3 - (ae-undocumented) Missing documentation for "executionHistory".
-// src/testing/contracts/store-conformance.ts:51:3 - (ae-undocumented) Missing documentation for "executionLease".
-// src/testing/contracts/store-conformance.ts:52:3 - (ae-undocumented) Missing documentation for "executionLeaseEvent".
-// src/testing/contracts/store-conformance.ts:53:3 - (ae-undocumented) Missing documentation for "executionRecord".
-// src/testing/contracts/store-conformance.ts:54:3 - (ae-undocumented) Missing documentation for "executionTree".
-// src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "fencedEffect".
-// src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "meshRequest".
-// src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "outboundCall".
-// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "pausedExecution".
-// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "rateLimit".
-// src/testing/contracts/store-conformance.ts:68:3 - (ae-undocumented) Missing documentation for "stores".
+// src/testing/contracts/store-conformance.ts:48:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
+// src/testing/contracts/store-conformance.ts:49:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
+// src/testing/contracts/store-conformance.ts:50:3 - (ae-undocumented) Missing documentation for "costLedger".
+// src/testing/contracts/store-conformance.ts:51:3 - (ae-undocumented) Missing documentation for "executionHistory".
+// src/testing/contracts/store-conformance.ts:52:3 - (ae-undocumented) Missing documentation for "executionLease".
+// src/testing/contracts/store-conformance.ts:53:3 - (ae-undocumented) Missing documentation for "executionLeaseEvent".
+// src/testing/contracts/store-conformance.ts:54:3 - (ae-undocumented) Missing documentation for "executionRecord".
+// src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "executionTree".
+// src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "fencedEffect".
+// src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "meshRequest".
+// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "outboundCall".
+// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "pausedExecution".
+// src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "rateLimit".
+// src/testing/contracts/store-conformance.ts:69:3 - (ae-undocumented) Missing documentation for "stores".
 
 // (No @packageDocumentation comment for this package)
 
