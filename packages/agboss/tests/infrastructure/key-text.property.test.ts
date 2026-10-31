@@ -107,7 +107,7 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
           text.length >= 1 &&
           text.length <= 200 &&
           !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(text) &&
-          [...text].every((character) => character === " " || !/\p{Z}/u.test(character)) &&
+          !/\p{Z}/u.test(text.replaceAll(" ", "")) &&
           !text.startsWith(" ") &&
           !text.endsWith(" ") &&
           !text.includes("  ") &&
