@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the fault suite's pods whose clocks disagree (#533)
+
+- **New**: fault scenarios `s13-clock-ahead` and `s13-clock-behind` — a pod whose clock is ten
+  leases ahead never takes a live pod's lease; one ten leases behind takes a frozen pod's tree over
+  on time ([Guarantees across processes](Guarantees-across-processes)). `world.pod(name, {
+  clockSkew: { offset, drift } })` skews a pod's wall time, monotonic time and sleeps; its stores
+  keep the run's time, as a database's. A pod's clock scales its monotonic time with the run.
+
 ## Unreleased — 0.1.1: the store's time decides a lease's expiry (#533)
 
 - **Breaking for stores outside the core**: `ExecutionLease.remaining` (required) — the time the

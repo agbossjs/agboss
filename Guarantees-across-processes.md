@@ -84,6 +84,8 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 11 | A 10 s grace (Cloud Run) with `shutdownTimeout` below it | The pod hands over and exits in time; another finishes the tree | `s11-short-grace` (`s11-short-grace.test.ts`) |
 | 11b | `shutdownTimeout` above the grace: the platform kills the pod mid-drain | Taken over once the lease expired; one charge | `s11b-shutdown-timeout-above-grace` |
 | 12 | A real failure (the card declined), the pod killed mid-undo | The next pod finishes the undo (`Unwinding`): the reservation is released once, and the kept record lists it (#541) | `s12-real-failure-undone-once` (`s12-real-failure.test.ts`) |
+| 13 | A pod whose clock is ten leases ahead of the others (#533) | It never takes the lease a live pod holds and renews; that pod finishes its own tree, one charge — the stores decide expiry by the database's time | `s13-clock-ahead` (`s13-clock-skew.test.ts`) |
+| 13 | A pod whose clock is ten leases behind, the holder frozen (#533) | It takes the tree over on time, from the holder's last checkpoint | `s13-clock-behind` (`s13-clock-skew.test.ts`) |
 
 **The scenarios bite.** A broken store must fail the scenario that targets it. These permanent
 negative tests prove it (`tests/faults/sabotage.test.ts`):
