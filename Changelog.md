@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the acceptance of #539 (#554)
+
+- **Fixed**: the hint of `[application.store-backend-mismatch]` named a JavaScript function as the
+  core store to list for a backend called like an object's own member (`"constructor"`,
+  `"toString"`); such a backend is now a name with no core store, as `"postgres:billing"` is.
+- **Tests**: a core kind on another database (`"sqlite:reports"`) is offered no core store either
+  way; three stores of one contract, a subclass listed with its parent and two opted-out stores are
+  each one `[di.ambiguous-implementation]` naming every one; `agboss check` prints the hint and the
+  ambiguity with the mismatch in one run (#539 M1, M2).
+
 ## Unreleased — 0.1.1: the acceptance of #538 (#552)
 
 - **Changed**: a tenant id is a key's text — refused at `app.execute`, `app.resume` and `app.cancel`
