@@ -155,6 +155,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
   it lists every undo action that ran, as its `onExecutionError` does.
 
+- **The store-backend hint names no function** (#554) — a backend named like an object's own
+  member (`"constructor"`, `"toString"`) made the hint of `[application.store-backend-mismatch]` print
+  `(function Object() { [native code] })` as the core store to list; it is now a name with no core
+  store, like `"postgres:billing"`.
 - **`circuitBreakerPolicy: null`** (#529) is a missing policy: `[model-provider.circuit-breaker-required]`
   at assembly and in `agboss check`, never a `TypeError` in `createApp`.
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
