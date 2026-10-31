@@ -227,7 +227,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   SQLite `t\uD800` read `t\uFFFD`'s pending charges and lease log —, and a trusted A2A request or MCP
   call under one is never deduplicated (its refusal was kept as the answer, under the merged key);
   its `onExecutionRejected` names the tenant `"default"`, as the event's documentation says, never
-  the refused id.
+  the refused id. A tree's reads check its root execution id the same way (`dto.invalid` naming
+  `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss records export
+--tenant` and `agboss generate eval-case --tenant` refuse a tenant id that is no key's text (exit 2,
+  `usage.option-value`, the rule named, never the id) instead of reading nothing.
 - **Look-alike keys are refused, never charged twice** (#538) — a business key and a thread id
   are refused when they hold a C1 control (U+0080–U+009F, beside C0 and DEL), a format character
   (Unicode `Cf`: zero-width space and joiners — so emoji joined by U+200D too —, bidi controls,

@@ -141,6 +141,29 @@ describe("#401 PR 1: agboss records export", () => {
     expect(envelope(badDate)).toMatchObject({ error: { code: "usage.option-value" } });
   });
 
+  it.for([
+    ["a zero-width space", "acme\u200B", "format-character"],
+    ["decomposed text", "Cafe\u0301", "not-nfc"],
+    ["an edge space", " acme", "spacing"],
+    ["a no-break space", "ac\u00A0me", "space-separator"],
+  ] as const)(
+    "#568: --tenant with %s is refused, exit 2, naming the rule and never the id",
+    async ([, tenant, rule]) => {
+      const call = await agboss(
+        [...EXPORT, "--tenant", tenant, "--out", "x.jsonl", "--json"],
+        CWD,
+        ENV,
+      );
+
+      expect(call.code).toBe(2);
+      const { error } = envelope(call) as { error: { code: string; message: string } };
+      expect(error.code).toBe("usage.option-value");
+      expect(error.message).toContain(rule);
+      expect(error.message).not.toContain(tenant);
+      expect(`${call.stdout}${call.stderr}`).not.toContain(tenant);
+    },
+  );
+
   it("an application that keeps no records: records.not-kept, exit 3", async () => {
     const call = await agboss(
       [

@@ -3,6 +3,7 @@ import {
   EnvironmentError,
   EvalCaseInvalidError,
   GraphRuleError,
+  keyTextRuleOf,
   WorkflowLoadError,
 } from "@agboss/core";
 import { ConfigurationError } from "@agboss/core/models";
@@ -41,6 +42,23 @@ export class CliError extends Error {
 /** Unknown flag, missing value or required option: names it and points to the command's help. */
 export const usageError = (command: string, code: string, message: string): CliError =>
   new CliError("usage", code, `${message} — see agboss help ${command}`);
+
+/**
+ * A `--tenant <id>` as given, once it is a key's text (#568, the rules of #552): else a usage error
+ * naming the rule, never the id — a tenant id no tenant can have would read nothing, silently.
+ */
+export function checkedTenantOption(
+  command: string,
+  tenant: string | undefined,
+): string | undefined {
+  const rule = tenant === undefined ? undefined : keyTextRuleOf(tenant);
+  if (rule === undefined) return tenant;
+  throw usageError(
+    command,
+    "usage.option-value",
+    `option --tenant needs a tenant id, and a tenant id is a key's text: this one breaks ${rule}`,
+  );
+}
 
 /** Errors of an invalid project: the application, its workflows or their parts, fixed by editing the project. */
 const PROJECT_ERRORS: readonly (readonly [new (...args: never[]) => Error, string])[] = [

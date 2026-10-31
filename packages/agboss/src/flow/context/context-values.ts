@@ -123,6 +123,27 @@ export async function tenantRead<T>(tenantId: string, read: () => Promise<T>): P
   return read();
 }
 
+/** The query of a tree's reads (`app.leaseEventsOf`, `app.outboundCallsOf`): its error's DTO. */
+const TREE_QUERY = "LeaseEventsQuery";
+
+/**
+ * `read`, once a tree's ids are checked as keys' text (#568): its tenant id, then its root
+ * execution id — on a UTF-8 store `x\uD800` reads root `x\uFFFD`'s rows. `dto.invalid` naming the
+ * field and the rule, never the id.
+ */
+export async function treeRead<T>(
+  tree: { readonly tenantId: string; readonly rootExecutionId: string },
+  read: () => Promise<T>,
+): Promise<T> {
+  checkedTenantId(tree.tenantId);
+  const rule = keyTextRuleOf(tree.rootExecutionId);
+  if (rule !== undefined) {
+    const reason = `an execution id is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
+    throw new DtoValidationError(TREE_QUERY, [{ path: "rootExecutionId", reason }]);
+  }
+  return read();
+}
+
 const TenantBuiltIns = z.object({
   // #552: a tenant id keys threads, leases and business-key rows — the rules of a key's text
   tenantId: z

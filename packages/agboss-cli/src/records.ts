@@ -16,7 +16,7 @@ import {
   type CommandHandler,
 } from "./cli/context.js";
 import { envOption } from "./cli/environment.js";
-import { CliError, usageError } from "./cli/errors.js";
+import { checkedTenantOption, CliError, usageError } from "./cli/errors.js";
 
 /**
  * `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>]
@@ -48,7 +48,7 @@ function dateOption(context: CommandContext, name: string, fallback: Date): Date
 
 /** Whose records: `--tenant <id>`, or `--all-tenants` — exactly one. */
 function tenantOf(context: CommandContext): string | undefined {
-  const tenant = textOption(context.values, "tenant");
+  const tenant = checkedTenantOption(COMMAND, textOption(context.values, "tenant"));
   const isAll = flagOption(context.values, "all-tenants");
   if ((tenant === undefined) === isAll) return tenant;
   throw usageError(
