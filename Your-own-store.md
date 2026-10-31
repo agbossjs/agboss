@@ -75,9 +75,16 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
 - **Assembly** compares each listed fenced-effect or outbound-call store with the application's
   lease store (the listed one, else the in-memory default):
   - two backends fail with `[application.store-backend-mismatch]`, naming both classes and both
-    backends;
+    backends, and what to list instead: a lease store on the fencing store's backend (the core's,
+    `SqliteExecutionLeaseRepository` for `"sqlite"`, else "a lease store declaring backend
+    `"postgres:billing"`"), or a fencing store on the leases' backend (#539);
   - a store that declares none (the fencing store or its lease store) fails with
-    `[application.store-backend-undeclared]`.
+    `[application.store-backend-undeclared]`;
+  - two listed stores of one fencing contract, or two lease stores, fail with
+    `[di.ambiguous-implementation]`, naming both with their backends — at assembly, not at the
+    first call (#539).
+
+  Every violation of the layout is reported at once.
 - **The opt-out** is `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection`, and its name
   says what it gives up: the lease is read outside the write's transaction, so a holder whose lease
   was just taken over can still write. Such a store is not checked. Every start warns

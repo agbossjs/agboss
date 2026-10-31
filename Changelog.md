@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the store-backend errors say what to fix (#539)
+
+- **Changed**: the hint of `[application.store-backend-mismatch]` names a lease store on the fencing
+  store's own backend — the core's (`InMemoryExecutionLeaseRepository`,
+  `SqliteExecutionLeaseRepository`) when it has one, else "a lease store declaring backend …" —
+  and a fencing store on the leases' backend; it no longer suggests the SQLite stores for every
+  backend.
+- **New at assembly**: two listed stores of one fencing contract (fenced effects, outbound calls),
+  or two lease stores, are `[di.ambiguous-implementation]`, naming both with their backends; before,
+  only the first was checked and the second failed at its first use.
+
 ## Unreleased — 0.1.1: the acceptance of #520 and #526 (#542)
 
 - **Fixed**: `store set (<name>)` compared each fencing store with the lease store of its own

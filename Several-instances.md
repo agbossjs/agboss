@@ -459,8 +459,10 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   and the application's lease store are on one backend — each declares it, `static backend`
   (`"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
   kind). A listed store of another backend than the lease store's fails assembly with
-  `[application.store-backend-mismatch]`, naming both classes and both backends; one that declares
-  none (it or its lease store) fails `[application.store-backend-undeclared]`. The explicit opt-out
+  `[application.store-backend-mismatch]`, naming both classes and both backends and a lease store on
+  its backend to list instead (#539); one that declares none (it or its lease store) fails
+  `[application.store-backend-undeclared]`; two listed stores of one fencing contract, or two lease
+  stores, fail `[di.ambiguous-implementation]` at assembly (#539). The explicit opt-out
   `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` names what it gives up — the lease
   is read outside the write's transaction, so a holder whose lease was taken over can still write —
   and is not checked; the start warns `[application.lease-check-not-atomic]` (an error under
