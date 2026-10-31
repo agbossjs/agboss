@@ -238,7 +238,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
     const { executionIds } = this.database;
     if (executionIds.has(identity.executionId)) return Promise.resolve(false);
-    executionIds.set(identity.executionId, { ...identity });
+    executionIds.add(identity.executionId);
     return Promise.resolve(true);
   }
 
