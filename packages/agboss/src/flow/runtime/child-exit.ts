@@ -2,7 +2,7 @@ import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
-import { errorRecordOf } from "../../core/error-record.js";
+import { errorRecordOf, RecordedError } from "../../core/error-record.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { BudgetExceededError, LimitExceededError } from "../../graph/limits.js";
@@ -117,6 +117,13 @@ function withSpend(error: LimitExceededError, spent: readonly UsageRecord[]): Li
   return error;
 }
 
+/**
+ * Whether `error` is a failure of `code`'s class rebuilt from its record (#598): it passes the
+ * child's boundary as the original did — a budget's or a failed undo's, never wrapped.
+ */
+export const isRecordedAs = (error: unknown, code: string): error is RecordedError =>
+  error instanceof RecordedError && error.record.lineage.includes(code);
+
 /** What a child that threw `error` gives its parent; a pause or a hand-over rises as it is. */
 export function childFailureOf(
   error: unknown,
@@ -144,8 +151,10 @@ export function childFailureOf(
       usage,
       reported: [],
     };
+  if (isRecordedAs(error, BudgetExceededError.code))
+    return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: usage };
   // a failed automatic undo passes the boundary as it is: no side path takes it (#340 S5)
-  if (error instanceof CompensationFailedError)
+  if (error instanceof CompensationFailedError || isRecordedAs(error, CompensationFailedError.code))
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: [] };
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
   const thrown = new ChildExecutionFailedError(identity, error, usage);

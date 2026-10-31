@@ -1,3 +1,4 @@
+import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { describe, expect, it } from "vitest";
 import { AGBossError, ExecutionCancelledError } from "../../../src/core/errors.js";
 import {
@@ -88,14 +89,16 @@ describe("@agboss/unwinding", () => {
 
     const mark = await unwindingOf(marks.trees, tree, UNWINDING_KEY);
 
-    expect(mark).toEqual({
+    expect(mark).toMatchObject({
       reason: CompensationReason.ExecutionCancelled,
       cause: { name: "ExecutionCancelledError", message: "cancelled here" },
+      // #598: and its record, its class line by code
+      error: { name: "ExecutionCancelledError", lineage: ["execution.cancelled", "agboss"] },
     });
     expect(mark && causeOfMark(mark)).toBeInstanceOf(ExecutionCancelledError);
   });
 
-  it("a failure is rebuilt as an AGBossError with its message; a thrown value as a plain one", async () => {
+  it("#598: a failure is rebuilt from its record; a thrown value as a plain Error, never a framework error", async () => {
     const marks = marksOf();
     await markUnwinding(marks, unwindingMarkOf("a string thrown"));
 
@@ -103,8 +106,9 @@ describe("@agboss/unwinding", () => {
     const error = mark && causeOfMark(mark);
 
     expect(mark?.reason).toBe(CompensationReason.ExecutionFailed);
-    expect(error).toBeInstanceOf(AGBossError);
-    expect(error).not.toBeInstanceOf(ExecutionCancelledError);
+    expect(error).toBeInstanceOf(RecordedError);
+    expect(error).not.toBeInstanceOf(AGBossError);
+    expect(error && errorRecordOf(error).lineage).toEqual(["Error"]);
     expect(error?.message).toBe("a string thrown");
   });
 

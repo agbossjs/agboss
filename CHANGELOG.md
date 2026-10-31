@@ -210,6 +210,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A side path on a child's own error class is taken on every holder** (#598, found while fixing
+  #596) — a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,
+  #340) or an instance (an `AnyInstance` child's queue row) came back with its name and message
+  only, so `.onError(PaymentDeclinedError, …)` matched on the instance that saw the failure and not
+  on the one that took the tree over — a remote child's never. The failure's record (its class line
+  by code, message and causes) is now kept there and rebuilt as a failure `.onError` routes as the
+  original; a mark or a row written before this release routes as before, the same on every
+  instance. A remote child's exhausted budget or failed undo now passes its parent's boundary as it
+  is, as a local child's does.
 - **A root's end is heard once** (#597, found in the acceptance of #562) — a root's holder that
   froze right after its tree's end became durable (its finish checkpoint, its failed step's error),
   whose tree another instance recovered and announced, announced the end again when it thawed, and

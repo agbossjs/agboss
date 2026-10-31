@@ -620,8 +620,9 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   checked where it runs, and each superstep's spend is written to the root's counters at once
   (`isRecordedElsewhere`, #333 PR 3). A remote child that pauses completes its pass at `Paused` and
   interrupts the parent's node with `{ waitingForChild: { …, remote: true } }`, forwarding the
-  child's resume map through the queue on `app.resume` (#333 PR 4); its failure's cause chain is
-  kept as names, codes and messages (`RemoteChildFailure`). Its own `executionId`
+  child's resume map through the queue on `app.resume` (#333 PR 4); its failure is kept as its
+  durable record and rebuilt as a `RecordedError` that `.onError` routes as the original (#598:
+  a side path on the child's own error class is taken on every instance). Its own `executionId`
   (kept in its marker — a pause, a restart or a crash continues it with the same id, no second
   `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
@@ -1524,7 +1525,7 @@ output })` on a successful result, inner first, each output validated against th
   `@agboss/child-failure:<childExecutionId>`, `saveIfAbsentInTree`, the fence checked again after it):
   of every pass that sees it — the first, one that finished its interrupted undo, a re-entry that ran
   the step again — the winner announces it, and a re-entry that finds the claim repeats the failure
-  (by name and message, as #340's unwinding mark does) without running the step, so an announced
+  (by its durable record, #598, as #340's unwinding mark does) without running the step, so an announced
   failure never turns into a finish. So at most once: a holder that freezes or crashes between the
   child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
@@ -2290,7 +2291,16 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
-  side path.
+  side path — by the class's code line (its `static code`, else its class name — give a routed class a
+  `static code`: a name may change with a bundler), so a failure that crosses a takeover or an instance routes the same
+  way on every holder (#598): a child's claimed failure (#596), an undo's mark (#340) and a remote
+  child's queue row keep the error's durable record (`errorRecordOf` without `details`: name, code,
+  class line, message, causes, at most `MAX_ERROR_CAUSES` = 32 deep, a looping chain cut at its
+  first repeat — the same cut wherever a record is made) and rebuild it as a `RecordedError`
+  (internal: its `errorRecordOf` is that record, `instanceof` the project's class does not hold; a
+  budget's or a failed undo's still passes a child's boundary as it is); a mark or a row written
+  before #598 has no record and routes on every instance as an `AGBossError` with the message (a
+  mark) or a `RemoteChildFailure` (a row) — never the child's own class.
 
 ### Testing
 
