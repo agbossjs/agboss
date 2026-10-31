@@ -29,29 +29,32 @@ import { storesApplication } from "./fixtures/store-backends.fixture.js";
 /** Every member a plain object has without owning it. */
 const MEMBER_NAMES = Object.getOwnPropertyNames(Object.prototype);
 
-const named = (base: Class, backend: string, deps: readonly unknown[]): Class => {
-  const store = class extends (base as unknown as new (...args: never[]) => object) {
-    static readonly backend: string | undefined = backend;
-  };
-  Object.defineProperty(store, "name", { value: `${base.name}On_${backend}` });
-  return Injectable({ deps } as never)(store as never);
-};
+/** A fenced-effect store declaring `backend`. */
+function effectsOn(backend: string): Class {
+  @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+  class MemberEffects extends InMemoryFencedEffectRepository {
+    static override readonly backend: string | undefined = backend;
+  }
+  return MemberEffects;
+}
 
-const effectsOn = (backend: string): Class =>
-  named(InMemoryFencedEffectRepository, backend, [
-    Clock,
-    IN_MEMORY_DATABASE,
-    FencedEffectSettings,
-    ExecutionLeaseRepository,
-  ]);
-const callsOn = (backend: string): Class =>
-  named(InMemoryOutboundCallRepository, backend, [
-    StoreClock,
-    IN_MEMORY_DATABASE,
-    ExecutionLeaseRepository,
-  ]);
-const leasesOn = (backend: string): Class =>
-  named(InMemoryExecutionLeaseRepository, backend, [Clock, ApplicationContext, IN_MEMORY_DATABASE]);
+/** An outbound-call store declaring `backend`. */
+function callsOn(backend: string): Class {
+  @Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+  class MemberCalls extends InMemoryOutboundCallRepository {
+    static override readonly backend: string | undefined = backend;
+  }
+  return MemberCalls;
+}
+
+/** A lease store declaring `backend`. */
+function leasesOn(backend: string): Class {
+  @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+  class MemberLeases extends InMemoryExecutionLeaseRepository {
+    static override readonly backend: string | undefined = backend;
+  }
+  return MemberLeases;
+}
 
 /** The mismatch messages of assembling `providers`. */
 async function mismatchesOf(providers: readonly Provider[]): Promise<readonly string[]> {
