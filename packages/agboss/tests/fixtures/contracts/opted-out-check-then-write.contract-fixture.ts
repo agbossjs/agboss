@@ -13,8 +13,8 @@ storeConformance({
   acceptWithoutDoubleChargeProtection: true,
   stores: {
     executionLease: inMemoryTarget(
-      ({ clock, application, database }) =>
-        new InMemoryExecutionLeaseRepository(clock, application, database),
+      ({ storeClock, application, database }) =>
+        new InMemoryExecutionLeaseRepository(storeClock, application, database),
     ),
     executionLeaseEvent: inMemoryTarget(
       ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
@@ -22,11 +22,11 @@ storeConformance({
     fencedEffect: inMemoryTarget(brokenEffects(OptedOutCheckThenWriteEffects)),
     outboundCall: inMemoryTarget((seam) => {
       const leases = new InMemoryExecutionLeaseRepository(
-        seam.clock,
+        seam.storeClock,
         seam.application,
         seam.database,
       );
-      return { calls: new UncheckedCalls(seam.clock, seam.database, leases), leases };
+      return { calls: new UncheckedCalls(seam.storeClock, seam.database, leases), leases };
     }),
   },
 });

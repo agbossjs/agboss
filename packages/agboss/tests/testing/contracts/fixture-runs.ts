@@ -31,6 +31,12 @@ export interface FixtureRun {
   readonly isFailed: boolean;
 }
 
+/** The note a case skipped itself with (`context.skip(note)`), which the result carries untyped. */
+const noteOf = (task: RunnerTask): string | undefined => {
+  const note: unknown = task.result === undefined ? undefined : Reflect.get(task.result, "note");
+  return typeof note === "string" ? note : undefined;
+};
+
 function casesOf(task: RunnerTask, file: string, suites: readonly string[]): FixtureCase[] {
   if (task.type === "suite") {
     return task.tasks.flatMap((child) => casesOf(child, file, [...suites, task.name]));
@@ -42,7 +48,7 @@ function casesOf(task: RunnerTask, file: string, suites: readonly string[]): Fix
       name: task.name,
       state: task.result?.state,
       errors: (task.result?.errors ?? []).map((error) => error.message),
-      note: task.result?.note,
+      note: noteOf(task),
     },
   ];
 }
