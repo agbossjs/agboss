@@ -5,6 +5,7 @@ import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";
 import { keyOf, leaseOf, rejectionOf } from "./fenced-effect-data.js";
+import { OUTBOUND_EXPIRY_WRITE_CASES } from "./outbound-call-expiry-writes.cases.js";
 import { intentOf, type OutboundCallCase, type OutboundCallStores } from "./outbound-call-data.js";
 
 /** The state of `stores`' lease of `execution-1` at `token`. */
@@ -63,5 +64,9 @@ const stateAtEdge = (edge: ExpiryEdge): OutboundCallCase => {
 /** The outbound-call store against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
 export const outboundExpiryCases = (): ContractGroup<OutboundCallStores> => ({
   title: "the lease's expiry",
-  cases: [...EXPIRY_EDGES.map(recordAt), ...EXPIRY_EDGES.map(stateAtEdge)],
+  cases: [
+    ...EXPIRY_EDGES.map(recordAt),
+    ...EXPIRY_EDGES.map(stateAtEdge),
+    ...OUTBOUND_EXPIRY_WRITE_CASES,
+  ],
 });

@@ -55,8 +55,49 @@ const writeAt = <TTransaction>(
   };
 };
 
+/** When the first write of the replay cases runs: 2 ms before the lease's expiry. */
+const FIRST_WRITE_AT = seconds(29.998);
+
+/**
+ * A key written 2 ms before the expiry, asked again by the same holder at `edge`: 1 ms before the
+ * expiry it is `Replayed` (the stored result, `work` not run); at the expiry and after it the lease
+ * is over (#534) and the fence is checked before the key is read — refused, never replayed to a
+ * holder that no longer holds the lease.
+ */
+const replayAt = <TTransaction>(
+  edge: ExpiryEdge,
+): ContractCase<FencedEffectStores<TTransaction>> => {
+  const isReplayed = edge === ExpiryEdge.Before;
+  return {
+    name: `#534: a written key asked again by its holder ${edge} is ${isReplayed ? "Replayed" : "refused before the key is read: no replay past the lease"}`,
+    run: async ({ clock, first }) => {
+      const count: WriteCount = { runs: 0 };
+      const lease = await leaseOf(first, "execution-1", seconds(30));
+      await clock.advance(FIRST_WRITE_AT);
+      await first.effects.saveResultIfAbsent(keyOf(lease), writing(first.rows, "r1", count));
+      await clock.advance(seconds((EXPIRY_EDGE_OFFSET[edge] - FIRST_WRITE_AT) / 1000));
+
+      const again = first.effects.saveResultIfAbsent(
+        keyOf(lease),
+        writing(first.rows, "r2", count),
+      );
+
+      if (isReplayed)
+        expect(await again).toMatchObject({
+          status: FencedEffectStatus.Replayed,
+          result: { receipt: "r1" },
+        });
+      else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionFencedError);
+      expect(count.runs).toBe(1);
+    },
+  };
+};
+
 /** A fenced write against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
 export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
   title: "the lease's expiry",
-  cases: EXPIRY_EDGES.map((edge) => writeAt<TTransaction>(edge)),
+  cases: [
+    ...EXPIRY_EDGES.map((edge) => writeAt<TTransaction>(edge)),
+    ...EXPIRY_EDGES.map((edge) => replayAt<TTransaction>(edge)),
+  ],
 });

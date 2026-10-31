@@ -28,12 +28,12 @@ const statesOf = (cases: readonly FixtureCase[]) =>
 
 /** Each naive target, its contract's count of #534 cases per edge, and whether it lets +1 ms live. */
 const TARGETS = [
-  ["leases by holder and epoch only", 6, true],
-  ["leases live through expiresAt", 6, false],
-  ["effects fenced by holder and epoch only", 1, true],
-  ["effects fenced through expiresAt", 1, false],
-  ["calls fenced by holder and epoch only", 2, true],
-  ["calls fenced through expiresAt", 2, false],
+  ["leases by holder and epoch only", 8, true],
+  ["leases live through expiresAt", 8, false],
+  ["effects fenced by holder and epoch only", 2, true],
+  ["effects fenced through expiresAt", 2, false],
+  ["calls fenced by holder and epoch only", 9, true],
+  ["calls fenced through expiresAt", 9, false],
 ] as const;
 
 describe("#534 AC1: the boundary cases fail on a store that lets the lease live on for its holder", () => {
@@ -64,4 +64,27 @@ describe("#534 AC1: the boundary cases fail on a store that lets the lease live 
       expect(statesOf(before)).toEqual(before.map((found) => [found.name, "pass"]));
     },
   );
+});
+
+describe("#534 acceptance: a renewal's new end counts from the renewal", () => {
+  const RENEWED_FROM_NOW = "#534: a renewal 29.999 s into the lease moves its end";
+  const caseOf = (target: string) =>
+    run.cases.find(
+      (found) =>
+        found.suites[0]?.endsWith(`(${target})`) === true &&
+        found.name.startsWith(RENEWED_FROM_NOW),
+    );
+
+  it("fails on a store that extends the lease from its old end, which passes every edge case", () => {
+    const edges = run.cases.filter(
+      (found) =>
+        found.suites[0]?.endsWith("(leases renewed from their old end)") === true &&
+        found.name.startsWith("#534:") &&
+        !found.name.startsWith(RENEWED_FROM_NOW),
+    );
+
+    expect(caseOf("leases renewed from their old end")?.state).toBe("fail");
+    expect(edges.length).toBeGreaterThan(0);
+    expect(edges.filter((found) => found.state !== "pass")).toEqual([]);
+  });
 });

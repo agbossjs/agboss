@@ -80,6 +80,9 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   in `renew`, `yield` and `reclaim`. In tests, one `clock.advance` of a whole lease (30 s) or more is
   a holder frozen past its expiry, so its lease is lost even when no one took it: to let time pass
   for a live holder, advance in steps shorter than the lease (`seconds(10)`).
+  `ExecutionLeaseLostError`'s message no longer says another instance took the lease (#551): since
+  #534 a renewal or a reclaim at the expiry is refused whether or not one did, so it says the lease
+  is over — expired, or taken — and that the next take continues the execution.
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
   `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
   and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.

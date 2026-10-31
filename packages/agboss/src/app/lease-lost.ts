@@ -17,7 +17,7 @@ export class ExecutionLeaseLostError extends AGBossError {
 
   constructor(rootExecutionId: string) {
     super(
-      `the lease of execution ${rootExecutionId} expired and another instance took it: it continues the execution`,
+      `the lease of execution ${rootExecutionId} is over — it expired, or another instance took it: this instance stops, the next take of the lease continues the execution`,
     );
     this.rootExecutionId = rootExecutionId;
   }
@@ -34,13 +34,13 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
 }
 
 /**
- * The lease was taken over while its holder had yielded it waiting for remote children (#516): the
- * holder was frozen or cut off longer than the lease, so another instance took the expired lease
- * and continues the tree — only the message differs, as for `leaseExpiredError`.
+ * The lease was over when its holder reclaimed it after waiting for remote children (#516): the
+ * holder was frozen or cut off longer than the lease — at its expiry the lease is over for its holder
+ * too, taken by another instance or not (#534) — only the message differs, as for `leaseExpiredError`.
  */
 export function leaseTakenWhileYieldedError(rootExecutionId: string): ExecutionLeaseLostError {
   const error = new ExecutionLeaseLostError(rootExecutionId);
-  error.message = `the lease of execution ${rootExecutionId} expired while it waited for remote children and another instance took it: it continues the execution`;
+  error.message = `the lease of execution ${rootExecutionId} is over — it expired while it waited for remote children, or another instance took it: this instance stops, the next take of the lease continues the execution`;
   return error;
 }
 

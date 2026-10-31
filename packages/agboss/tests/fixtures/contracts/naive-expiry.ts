@@ -117,3 +117,30 @@ export class LaggingClock extends Clock {
     return this.time.sleep(delay, signal);
   }
 }
+
+/**
+ * An in-memory lease store whose `renew` extends the lease from its old end instead of from now —
+ * a renewal 1 ms short of the end gives the holder a lease and 1 ms past the boundary.
+ */
+export class FromOldEndLeaseRepository extends InMemoryExecutionLeaseRepository {
+  constructor(
+    private readonly time: Clock,
+    application: ApplicationContext,
+    private readonly rows: InMemoryDatabase,
+  ) {
+    super(time, application, rows);
+  }
+
+  override async renew(lease: ExecutionLease, length: Milliseconds): Promise<boolean> {
+    const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
+    const end = this.rows.executionLeases.get(key)?.lease.expiresAt.getTime();
+    if (!(await super.renew(lease, length)) || end === undefined) return false;
+    const stored = this.rows.executionLeases.get(key);
+    if (stored !== undefined && this.time.now().getTime() < end)
+      this.rows.executionLeases.set(key, {
+        ...stored,
+        lease: { ...stored.lease, expiresAt: new Date(end + length) },
+      });
+    return true;
+  }
+}
