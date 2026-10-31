@@ -671,8 +671,10 @@ export class ChargeOrderAction {
   step (`Superseded`: released at the token it was held at), so its holder can neither renew it nor
   write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
   caller's lease log, `LeaseSuperseded` with `supersededLease` (the tree, the execution, the token),
-  and a warning `outbound-call.lease-superseded`. The tree itself is taken again as a released lease
-  — the next token, no takeover from a token nobody held. An answer that comes back after that is
+  and a warning `outbound-call.lease-superseded`. The tree itself is then taken over as after any
+  expiry — the next token, a `Takeover` row naming the holder and the token it held (the lease row
+  is marked closed by a check, not by its holder: renewals, yields, reclaims and writes at that
+  token all refused). An answer that comes back after that is
   fenced, not stored, and logged as an error, `outbound-call.answered-after-hand-over`. **A send
   still hung past this bound can coincide with a reconcile and a resend; the provider must
   deduplicate on `call.idempotencyKey` (G1).** A tree that never yields keeps its lease — and the

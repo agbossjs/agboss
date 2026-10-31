@@ -22,7 +22,8 @@ Breaking changes and notable additions, newest first. The API reports
   token it was held at — so a late renewal and the check never both win (`outboundCallContract`'s
   races across leases). The close is an `OutboundCall` row `LeaseSuperseded` (**added**
   `OutboundCallEventOutcome.LeaseSuperseded`, `supersededLease`, `OutboundCallSupersededLease`) and a
-  warning `outbound-call.lease-superseded`; the next take is the very next token. A holder releases
+  warning `outbound-call.lease-superseded`; the row marked closed by a check, not by its holder, so the next take is the very next token and
+  a takeover from that holder and token (`takenOverFrom`, a `Takeover` row of the tree's lease log). A holder releases
   its lease only once its attempts settled and never yields it under one, both bounded by
   `@Application({ outboundCalls: { attemptTimeout } })` (**added**, default `minutes(2)`, from the
   attempt's start; `[application.outbound-calls-invalid]`) and its instance's stop — the call is in
