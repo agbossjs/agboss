@@ -542,10 +542,11 @@ export const anyInstancePaths = [
   crash or a graceful stop past `shutdownTimeout` (S7), the queue row stays `Running`; once the
   child's lease in `ExecutionLeaseRepository` is free, another instance reclaims only that child and
   continues it from its last checkpoint without re-running finished siblings.
-- **Its failure** reaches the parent as `ChildExecutionFailedError`, its cause chain kept as the
-  names, codes and messages of the child's errors (`RemoteChildFailure`): a side path on
-  `ChildExecutionFailedError` (or `StepFailedError`, …) takes it; matching the child's own error
-  class through the cause is not possible yet.
+- **Its failure** reaches the parent as `ChildExecutionFailedError`, its cause the child's error
+  rebuilt from its durable record (#598: class line by code, message and causes, kept in the queue
+  row): a side path on `ChildExecutionFailedError`, `StepFailedError` or the child's own error
+  class through the cause takes it, as for a child on the parent's instance, on every instance. A
+  row written before 0.1.1 (names, codes and messages only) matches no project class.
 - **A cancel or the tree's end** stops a child running on another instance at its next look (every
   10 s); the tree's queue rows are removed when its root ends.
 - **Tree-wide limits hold where it runs (#333 PR 3)**: its depth (`maxDepth`), the root's budgets

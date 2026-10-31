@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: every holder takes the same side path (#598)
+
+- **Fixed**: a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,
+  #340) or an instance (an `AnyInstance` child's queue row) kept its name and message only, so a
+  parent's `.onError(PaymentDeclinedError, …)` on the child's own class through the cause was taken
+  on the instance that saw the failure and not on the one that took the tree over, and for a remote
+  child never. The failure's record (its class line by code, message and causes, no `details`) is
+  now kept there and rebuilt as an error `.onError` routes as the original. A mark or a row written
+  before has no record and routes as before, the same on every instance.
+- **Changed**: a remote child's exhausted budget or failed undo passes its parent's boundary as it
+  is (as a local child's), no longer wrapped in `ChildExecutionFailedError`.
+  [Guarantees across processes](Guarantees-across-processes) · [ADR-0028](ADR-0028-Failures-cross-instances-as-their-records).
+
 ## Unreleased — 0.1.1: the guarantees, their assumptions and their proofs on one page (#533 item 6)
 
 - Docs: a new page, [Guarantees](Guarantees). It covers the five guarantees of several instances

@@ -199,9 +199,19 @@ The suite proves the framework's side under the faults above. These parts are yo
   interrupted undo, or a re-entry that ran the failed step again. A re-entry that finds the claim
   repeats the failure without running the step. A step that would now succeed (a dependency that
   recovered) never turns an announced failure into a finish, and the root's outcome follows the
-  announced one. The repeated failure carries the error's name and message, not its class, as the
-  undo's mark does: a side path on `ChildExecutionFailedError` or `StepFailedError` takes it again,
-  one on the child's own error class by the cause chain does not.
+  announced one. The repeated failure carries the error's durable record, as the undo's mark does.
+- **Every holder takes the same side path** (#598). `.onError` matches a failure by its class's
+  code line: the `static code` of the class and of each class above it, else the class name. A
+  failure that crosses a takeover or an instance keeps that line with its message and causes (its
+  record, `errorRecordOf` without `details`): a child's claimed failure, an undo's mark and an
+  `AnyInstance` child's queue row. The instance that rebuilds it routes it as the instance that saw
+  it did: a side path on `ChildExecutionFailedError`, on `StepFailedError` or on the child's own
+  `PaymentDeclinedError` through the cause, whichever holder runs the parent. The rebuilt error is
+  not an `instanceof` the project's class, so route on the class, never test it in a step. A cause
+  chain is cut at 32 causes and at its first repeat, the same way wherever its record is made. A
+  mark or a row written before 0.1.1 has no record: on every instance it is an error with the
+  message only, which no project class matches. Give a class a side path routes a `static code`:
+  a class name can change with a bundler, and two builds would then route apart.
 - **The window.** A holder that freezes or crashes between the child's durable end and its
   announcement leaves the end unannounced: the new holder only reads it. That window is:
   - for an `AnyInstance` finish, between the worker's completion of the row and its observer call;

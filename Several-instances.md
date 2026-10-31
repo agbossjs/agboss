@@ -1055,7 +1055,9 @@ An execution that ends without a finish undoes its open undoable actions before 
 
 - before a root's undo starts, the holder writes the reserved tree key `@agboss/unwinding`
   (`{ reason, cause }` — why the tree ends: `CompensationReason.ExecutionFailed` or
-  `ExecutionCancelled`, and the error's name and message; the first one written is kept), and after
+  `ExecutionCancelled`, the error's name and message, and its durable record — #598: its class line
+  by code and its causes, so the instance that finishes the undo routes the failure as the first
+  one; the first one written is kept), and after
   each undo action that succeeds `@agboss/compensated/<compensationKey>` (the automatic undo's own
   key, `<step key>:compensation`); a child's own undo writes `@agboss/unwinding:<childExecutionId>`;
 - the root's record stays `running` until the undo ended — only then is it failed with its final
