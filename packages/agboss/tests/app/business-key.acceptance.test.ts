@@ -1,9 +1,10 @@
 /**
  * #508 acceptance corner cases of business keys: the 200-character boundary of `order:<id>`, keys
- * that differ only by case or Unicode form, a key with a lone surrogate (no string a store or the
+ * that differ only by case (two orders) or by Unicode form (#538: the NFD one refused), a key with a lone surrogate (no string a store or the
  * provider's idempotency key can hold), and a key that only looks like another.
  */
 import { beforeEach, describe, expect } from "vitest";
+import { KeyTextRule } from "../../src/errors.js";
 import { InvalidBusinessKeyError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -43,15 +44,26 @@ describe("#508 acceptance: the business key's boundaries", () => {
     expect(ledger.charges).toHaveLength(1);
   });
 
-  test("keys that differ only by case, or by Unicode form, are two orders: two charges", async ({
-    app,
-  }) => {
+  test("keys that differ only by case are two orders: two charges", async ({ app }) => {
     await execute(app, ChargeOrderStart, { orderId: "ab", amountUsd: 10 });
     await execute(app, ChargeOrderStart, { orderId: "AB", amountUsd: 10 });
-    await execute(app, ChargeOrderStart, { orderId: "café", amountUsd: 10 });
-    await execute(app, ChargeOrderStart, { orderId: "café", amountUsd: 10 });
 
-    expect(ledger.charges).toHaveLength(4);
+    expect(ledger.charges).toHaveLength(2);
+  });
+
+  test("#538: a key in NFD is refused, never a second charge of the NFC one: one order, one charge", async ({
+    app,
+  }) => {
+    await execute(app, ChargeOrderStart, { orderId: "caf\u00e9", amountUsd: 10 });
+    const decomposed = await execute(app, ChargeOrderStart, {
+      orderId: "cafe\u0301",
+      amountUsd: 10,
+    }).catch((error: unknown) => error);
+
+    await expect(Promise.reject(decomposed as Error)).rejects.toFailWith(InvalidBusinessKeyError, {
+      rule: KeyTextRule.NotNfc,
+    });
+    expect(ledger.charges).toHaveLength(1);
   });
 
   test("a key with an emoji and non-Latin text is one order across two executions", async ({
