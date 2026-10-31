@@ -304,8 +304,10 @@ counts as elapsed time. The time its branches wait in the tree's queue (#264
 provider's rate limit (#266) is not excluded. A `QuorumNotReachedError` past the moved deadline says so: `the deadline passed
 (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`. The time in the queue
 is kept by the process that runs the launch only: after a resume or a crash the next pass starts it
-again from 0, so an already-passed ticket deadline cancels the unfinished branches at once. Tests move it with the `VirtualClock`
-(`await clock.advance(seconds(31))`, [Testing → The clock](Testing#the-clock)).
+again from 0, so an already-passed ticket deadline cancels the unfinished branches at once. Tests move it with the `VirtualClock`, in
+steps shorter than the lease while the launch runs (three `await clock.advance(seconds(10))`, then
+`seconds(1)`: one jump of 30 s or more freezes the holder past its lease, [Testing → The
+clock](Testing#the-clock)).
 
 ### Pause, resume, recovery
 

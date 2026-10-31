@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the acceptance of #534 (#551)
+
+- **Changed**: `ExecutionLeaseLostError`'s message no longer says another instance took the lease.
+  Since #534 a renewal or a reclaim at the expiry is refused whether or not one did, so a lone
+  holder past its expiry heard of an instance that did not exist; it now says the lease is over —
+  it expired, or another instance took it — and that the next take of the lease continues the
+  execution. The remote-children reclaim's message likewise.
+- **Docs**: one `clock.advance` of a whole lease or more over a running execution is its holder
+  frozen past the lease ([Testing → The clock](Testing#the-clock)); the examples that taught one
+  `advance(seconds(31))` over a live holder (`waitFor`, a quorum's deadline) advance in steps.
+- **New contract cases** of the lease's boundary: a renewal or a reclaim racing another instance's
+  take 1 ms before, exactly at and 1 ms after the expiry (exactly one wins); a renewal's new end
+  counted from the renewal, not from the old end; a written key asked again at the expiry is
+  refused, never replayed; `findByKey`, `markCompleted`, `markFailed` and `markPending` of an intent
+  at each edge; `leaseStateOf` of a yielded lease, and racing the holder's renewal.
+
 ## Unreleased — 0.1.1: the store-backend errors say what to fix (#539)
 
 - **Changed**: the hint of `[application.store-backend-mismatch]` names a lease store on the fencing

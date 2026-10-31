@@ -399,9 +399,9 @@ If the holder **dies** while it waits, its renewals stop and the lease expires 3
 sweep takes it over (`takenOverFrom` names the dead holder), re-enters the parent's node, finds
 its children's queue rows and waits for them — they go on where they run, each once — and the
 tree ends once. A holder that only froze (a GC pause, `SIGSTOP`) and wakes after that finds the
-lease taken: its `reclaim` fails and its call rejects with `ExecutionLeaseLostError` ("expired
-while it waited for remote children and another instance took it") — a hand-over, as for any
-lost lease.
+lease over — taken, or only expired (#534): its `reclaim` fails and its call rejects with
+`ExecutionLeaseLostError` ("is over — it expired while it waited for remote children, or another
+instance took it", #551) — a hand-over, as for any lost lease.
 
 Before #516 the yield was a release plus a mark in the holder's process memory, so only that
 process knew the tree was live: another instance's sweep with a free step slot took the waiting

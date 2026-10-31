@@ -365,7 +365,8 @@ replaces it. The answers arrive in the order the branches complete: one at a tim
 the order a test gives with `TestConcurrency.inOrder([step(A), step(B)])`
 ([Parallel branches](#parallel-branches--testconcurrency)) — or, for one late answer past a
 deadline, an agent with a tool that waits on the application's clock and the `clock` fixture moved
-(`await clock.advance(seconds(31))`). Assert on `result.launches[0]`:
+in steps shorter than the lease (three `await clock.advance(seconds(10))`, then `seconds(1)`:
+[The clock](#the-clock)). Assert on `result.launches[0]`:
 `isQuorumReached`, `group`, and each branch's `status`, `verdict`, `acceptedSequence`, `rejectedBy`.
 
 ### Reply interpreters
@@ -793,8 +794,13 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
 - It starts at `2026-01-05T09:00:00.000Z` (so days and ids are reproducible) and moves only by
   `await clock.advance(…)`: the work already started first reaches its next wait, then the time
   jumps and every wait that is due wakes in time order (two due at one moment: in the order they
-  began), each one's work running before the next wakes. A jump longer than a lease is a holder
-  frozen for that long.
+  began), each one's work running before the next wakes. A jump of a whole lease (30 s) or longer
+  is a running execution's holder frozen for that long: its renewal wakes past the lease's expiry
+  and is refused, so its call rejects with `ExecutionLeaseLostError` (#534, #551). To let time pass
+  for a live holder — a model call scripted with `waitFor(seconds(31))`, a tool's 30 s timeout, a
+  quorum's deadline, a `Retry-After` — advance in steps shorter than the lease
+  (`for (let step = 0; step < 3; step += 1) await clock.advance(seconds(10))`, then the rest); a
+  frozen holder in a test is that one long jump, or `leases.stall(app)`.
 - **Work with real I/O (#511)**: one turn of the event loop is enough for in-memory work, not for a
   database round trip. `clock.track(promise)` registers work `advance` waits for — before the jump
   and after each wait it wakes — and returns the promise as it is (a rejection reaches its caller,
