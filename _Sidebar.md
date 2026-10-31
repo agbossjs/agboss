@@ -17,6 +17,7 @@
 - [App — @Application and createApp](App)
 - [Several instances](Several-instances)
 - [Your own store](Your-own-store)
+- [Guarantees](Guarantees)
 - [Guarantees across processes](Guarantees-across-processes)
 - [Payment gateways](Payment-gateways)
 - [Execution history](Execution-history)

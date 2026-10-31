@@ -3,7 +3,8 @@
 An application may run as several instances (processes, machines) over shared stores: any instance
 continues an execution another one paused, and two instances never move one execution tree at the
 same time. This page says what is shared, how a tree is moved by one instance at a time (its
-**lease**), and how to test it (#265).
+**lease**), and how to test it (#265). What exactly is guaranteed, under which assumptions, and what
+proves it: [Guarantees](Guarantees).
 
 ## What is shared — the stores to replace
 

@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the guarantees, their assumptions and their proofs on one page (#533 item 6)
+
+- Docs: a new page, [Guarantees](Guarantees). It covers the five guarantees of several instances
+  (one owner per tree, one effect per business key, one send per attempt, no takeover of finished
+  work, compensation only on real failure) and the eleven assumptions they rest on: store
+  conformance, one transactional backend, a slewed database clock, the drift bound, no pause that
+  stops both of the holder's clocks, `attemptTimeout`, the provider's G1–G6, a shared
+  `pseudonymKey`, writes inside a step's frame, rate limits that are not money, and business rows in
+  the store's database. Each assumption says what breaks when it does not hold. The page also lists
+  each proof with what it checks and where it bites, and what no checker reaches.
 ## Unreleased — 0.1.1: mutation testing of the fencing modules (#533 item 3)
 
 - **Added** (contributors): `npm run test:mutation -w @agboss/core` runs Stryker on the modules that

@@ -4,7 +4,8 @@ The lease, fencing, recovery and the graceful stop are tested in one process and
 ([Several instances](Several-instances)). This page is about what holds when **real processes** on one
 database are stopped, killed, frozen or cut off. The fault suite (#484) proves it, and the same
 suite runs on any store set ([Your own store](Your-own-store#faults-faultsuite-484)): the core runs
-it on SQLite (several processes on one file), agbossjs/postgres on PostgreSQL.
+it on SQLite (several processes on one file), agbossjs/postgres on PostgreSQL. Every guarantee, the
+assumptions it rests on and the checker that proves it are on [Guarantees](Guarantees).
 
 ## What the suite does
 
