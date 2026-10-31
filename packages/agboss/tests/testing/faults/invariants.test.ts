@@ -343,8 +343,27 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
   });
 
-  it("a child lost, a child run twice, an execution ended twice", () => {
-    const { run } = healthy();
+  it("a child lost, a child run twice, a child completed twice in the queue — an observer's second end is not", () => {
+    const { run, history } = healthy();
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.ChildComplete,
+      key: "c-1",
+      output: true,
+    });
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.ChildComplete,
+      key: "c-1",
+      output: true,
+    });
+    // refused: its row was no longer this instance's claim
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.ChildComplete,
+      key: "c-2",
+      output: false,
+    });
     const child = (executionId: string, orderId: string, status = "finished") => ({
       executionId,
       rootExecutionId: "batch-1",
@@ -362,6 +381,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
         child("c-2", "o-2", "cancelled"),
       ] as never,
     });
+    // a recovered parent hears its child's end again: the observer's word, not the queue's
     const twice: PodEventFact = { type: "end", pod: "b", executionId: "root-1" };
     const found = faultViolationsOf({
       ...run,
@@ -375,7 +395,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ).toEqual([
       expect.stringContaining("has children o-1, o-1, o-2"),
       expect.stringContaining("child c-2 of batch batch-1 is cancelled"),
-      "execution root-1 ended twice",
+      "child c-1 was completed 2 times in the queue",
     ]);
   });
 

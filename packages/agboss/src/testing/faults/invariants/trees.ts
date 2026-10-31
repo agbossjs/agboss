@@ -1,6 +1,7 @@
 import { ChildExecutionStatus } from "../../../flow/runtime/child-records.js";
 import { ExecutionHistoryStatus } from "../../../infrastructure/execution-history.repository.js";
 import type { FaultRun } from "../facts.js";
+import { childCompletionsOf } from "./store-history.js";
 import {
   BATCH_FINISH,
   batchesOf,
@@ -12,7 +13,7 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
 
 /**
  * Children once, no undo on a hand-over, every tree ended (#484 invariants 2, 4, 5):
- * - every order of a batch is one child of it, finished; no execution ended twice;
+ * - every order of a batch is one child of it, finished; no child's queue row completed twice;
  * - an order that finished undid nothing — no undo ran for it, its record lists none; one declined
  *   for real undid its reservation once;
  * - every order started has an execution that ended as it must — finished at the order's finish,
@@ -29,7 +30,7 @@ const byOrder = (
   return orders;
 };
 
-/** Every batch's children: each order once, finished; no execution ended twice. */
+/** Every batch's children: each order once, finished; each completed in the queue once. */
 function childrenViolations(run: FaultRun): FaultViolation[] {
   const found = batchesOf(run).flatMap((batch) => {
     const ids = batch.children.map((child) => child.executionId);
@@ -54,13 +55,17 @@ function childrenViolations(run: FaultRun): FaultViolation[] {
       );
     return issues;
   });
-  const ends = run.events
-    .filter((event) => event.type === "end")
-    .map((event) => String(event.executionId));
-  const twice = [...new Set(ends.filter((id, at) => ends.indexOf(id) !== at))];
+  // the queue's own word, not an observer's: a child's row is completed once (#541's sibling, #484:
+  // a parent recovered after a takeover hears its child's end again)
+  const twice = [...childCompletionsOf(run.history)].filter(([, count]) => count > 1);
   return [
     ...found,
-    ...twice.map((id) => violation(FaultInvariant.ChildrenOnce, `execution ${id} ended twice`)),
+    ...twice.map(([id, count]) =>
+      violation(
+        FaultInvariant.ChildrenOnce,
+        `child ${id} was completed ${String(count)} times in the queue`,
+      ),
+    ),
   ];
 }
 
