@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: look-alike keys are refused (#538)
+
+- **Changed — refused keys**: a business key and a thread id holding a C1 control (U+0080–U+009F),
+  a format character (Unicode `Cf`: zero-width space and joiners, so emoji joined by U+200D too,
+  bidi controls, U+FEFF, the soft hyphen, tags) or not in NFC are refused, never normalized
+  silently — beside the empty or too long text, C0 controls and lone surrogates refused before.
+  `InvalidBusinessKeyError` and `InvalidThreadIdError` carry `rule` (`KeyTextRule`,
+  `keyTextRuleOf(text)` from the root) and name it, never the key; an invalid thread id is no
+  longer echoed in `onExecutionRejected`. `InvalidBusinessKeyErrorOptions` takes `rule` instead of
+  `problem`. **Migration:** normalize keys where they are made (`text.normalize("NFC")`).
+- **Breaking for stores outside the core — new contract cases**: keys of many scripts come back
+  byte for byte and are each their own row (fenced effects, outbound calls); a key built by hand
+  breaking a rule is `InvalidBusinessKeyError` at every method — call `checkedBusinessKey(key)`
+  beside `checkedEffectName(key.name)` at each method's entry.
+
 ## Unreleased — 0.1.1: a lease is over at its expiry, for its holder too (#534)
 
 - **Changed — breaking for stores outside the core**: a lease is live while `expiresAt > now`, and

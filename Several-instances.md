@@ -659,9 +659,28 @@ export class ChargeOrderAction {
 - **One row per tenant, name and business key**, whatever step, execution or thread writes it.
   Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
   refused before any lookup — even where the business key already has a result.
-- **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`, 1–200
-  characters, no control characters — else `InvalidBusinessKeyError`
-  (`fenced-effect.invalid-business-key`), before anything runs. It is never sent to a model. The
+- **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`. A
+  business key — and a thread id — is a **key's text** (#538, `KeyTextRule`), because two texts
+  that look the same must never be two keys, and so two charges:
+  - 1–200 UTF-16 code units (`length`);
+  - no control character, C0 (U+0000–U+001F), U+007F or C1 (U+0080–U+009F) (`control-character`);
+  - no format character, Unicode `Cf` — zero-width space and joiners (so emoji joined by U+200D
+    too), bidi controls (U+200E–U+200F, U+202A–U+202E, U+2066–U+2069), U+FEFF, the soft hyphen,
+    tag characters (`format-character`);
+  - no lone surrogate, half of a UTF-16 pair: SQLite and PostgreSQL would store U+FFFD, two keys in
+    one row (`lone-surrogate`);
+  - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
+    key changed on its way in would no longer replay what was stored under it. Normalize where the
+    key is made (`text.normalize("NFC")`).
+
+  Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —
+  stored and compared byte for byte: no case folding, no trimming, no NFKC, so `Order:42`,
+  `order:42 ` and `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
+  a refusal is `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`) or
+  `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
+  never the key, which is not echoed in `onExecutionRejected` either. Checked by
+  `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
+  (`checkedBusinessKey`, for a store of your own), before anything runs. It is never sent to a model. The
   name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
   it is part of the keys that go out.
 - **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:

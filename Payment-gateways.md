@@ -46,6 +46,13 @@ Rules that follow:
   Square takes 45 characters — gets a fixed-length digest of it from your adapter, such as its
   SHA-256 in base64url (43 characters): the same call always sends the same key and two calls never
   share one. A key cut short can make two orders one payment ([#532](https://github.com/agbossjs/agboss/issues/532)).
+- **Make the business key once, in one form.** Two texts that look the same are two keys to
+  AGBoss and to the gateway: a key with a zero-width space, a bidi control or "e" + U+0301 would be
+  a second charge of one order. AGBoss refuses them (#538: control and format characters, lone
+  surrogates, non-NFC text — `InvalidBusinessKeyError` naming the rule), so normalize an imported
+  identifier where it enters your system (`text.normalize("NFC")`, invisible characters stripped)
+  and never fold case or width afterwards
+  ([Several instances](Several-instances#business-idempotency-keys-508)).
 - **Look up by key, not by the request.** `reconcile` gets the request as stored, masked by the PII
   policies; `lookup.idempotencyKey` is what the gateway knows the call by.
 - **Keep keys longer than your longest recovery.** A paused execution answered tomorrow replays

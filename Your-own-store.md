@@ -109,6 +109,7 @@ one (#526 AC5). Don't copy them:
 | Helper | Use |
 | --- | --- |
 | `checkedEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
+| `checkedBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
 | `fencedKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
 | `storedKeyFactsOf(key)` | what the row keeps of the key: its fingerprint and its step |
 | `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyKeyConflictError` (never a replay); a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
@@ -389,8 +390,10 @@ storeConformance({
       work gets that transaction. A throw rolls everything back.
 - [ ] Every outbound-call method is fenced. `markPending` / `markCompleted` / `markFailed` are
       compare-and-sets. `leaseStateOf` reads and closes in one step.
-- [ ] `checkedEffectName` runs at every fenced method's entry. Keys, replays and records use
-      `fencedKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
+- [ ] `checkedEffectName` and `checkedBusinessKey` (#538: a business key's text — no control or
+      format character, no lone surrogate, NFC) run at every fenced method's entry; a business key is
+      stored and compared byte for byte — no case-insensitive collation, no trim, no normalization.
+      Keys, replays and records use `fencedKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
 - [ ] The lease, fenced-effect and outbound-call stores declare `static backend` (one text for one
       database). The fencing stores declare `static leaseRepository` for unit runners.
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
