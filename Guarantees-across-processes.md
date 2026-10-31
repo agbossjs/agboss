@@ -164,6 +164,13 @@ The suite proves the framework's side under the faults above. These parts are yo
   a **hand-over**: the next holder continues the tree from its last checkpoint, and nothing is
   undone (scenarios 1–11). An undo runs only on a real failure: an uncaught error, a cancel, a failed
   join (scenario 12). Model "the payment failed" as a failure, never as a crash.
+- **An undo runs only while its holder holds the tree** (#605). Each undo action runs after the
+  holder's own fence (`assertHeld`, local, on its monotonic clock), as an outbound call's `send`
+  does. A holder that froze while its step failed, whose tree another instance took over and undid,
+  undoes nothing when it thaws, even before its expiry timer fires: it hands over at the undo
+  (`HandOverSite.Compensation`). What is left is the same window as `send`: a holder frozen between
+  that look and the undo's own write. An undo whose external system checks
+  `executionContext.fence` closes it; the undo's key is `<step key>:compensation`.
 - **The platform's grace period.** Set `shutdownTimeout` below it (Cloud Run: 10 s; Kubernetes:
   `terminationGracePeriodSeconds`). Then a stopping pod hands its steps over in time (scenario 11).
   Above it, nothing is lost, but the tree waits for its lease to expire before it moves again
