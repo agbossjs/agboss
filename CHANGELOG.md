@@ -108,7 +108,12 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   for a live holder, advance in steps shorter than the lease (`seconds(10)`).
   `ExecutionLeaseLostError`'s message no longer says another instance took the lease (#551): since
   #534 a renewal or a reclaim at the expiry is refused whether or not one did, so it says the lease
-  is over — expired, or taken — and that the next take continues the execution.
+  is over — expired, or taken — and that the next take continues the execution. Nor do the other
+  ways a lease ends (#567): a fenced write the core's stores refuse for an expired, released or
+  missing lease (`ExecutionFencedError`, the same token seen) says the lease is over, not "another
+  instance holds the lease" — only a newer token seen names a newer take and its holder — and a
+  holder whose lease ran out here with no renewal confirmed (frozen, or its store not answering)
+  says the next take continues, not "another instance continues". Fields and codes unchanged.
 - **The store's time decides a lease's expiry; the holder fences itself on elapsed time** (#533) —
   instances whose wall clocks disagree no longer disagree on when a lease ends.
   `ExecutionLease.remaining` (new, required) is the time the store says the lease has left;
