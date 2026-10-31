@@ -8,7 +8,7 @@ agbossjs/redis are next. It covers:
 - what each contract must do in **one atomic step**;
 - why that step is what stands between a crash and a **double charge** or a **second owner**;
 - how to get that step on SQL and on databases without SQL transactions;
-- how to prove it with `storeConformance` (#526).
+- how to prove it with `storeConformance` (#526), and under real faults with `faultSuite` (#484).
 
 ## The two promises
 
@@ -385,10 +385,103 @@ storeConformance({
 
 ### Faults: `faultSuite` (#484)
 
-> Coming with #484. The contract suites prove the atomic steps on a healthy database. `faultSuite`
-> will run a store set under faults: a connection dropped mid-transaction, a commit whose answer is
-> lost, a slow lock, a failover. It will check that no fault turns into a second owner or a second
-> charge. This section will show how to run it beside `storeConformance`.
+The contract suites prove the atomic steps on a healthy database, in one process. `faultSuite`
+runs the store set under faults, in real processes: several `node` pods on one database, killed
+(`SIGKILL`), stopped (`SIGTERM`), frozen (`SIGSTOP` / `SIGCONT`) and cut off their database (a TCP
+proxy per pod). After each of its scenarios it checks that no fault turned into a second owner, a
+second charge, a lost or doubled child, an undo on a hand-over or a tree that never ended.
+[Guarantees across processes](Guarantees-across-processes) lists the scenarios and what each proves.
+
+**1. The store set's module.** Every pod imports it. It exports `faultStores`:
+- the store classes, as `@Application({ providers })` lists them;
+- the environment they read: the pod's database is the process variable `AGBOSS_FAULT_DATABASE_URL`;
+- how the fixture's charge writes its business row in your fenced effect's transaction, and reads
+  the committed rows back.
+
+Import the types only (`import type`). A pod runs outside vitest.
+
+<!-- snippet-context
+import type { App } from "@agboss/core";
+declare class PoolClient { query(sql: string, values?: unknown[]): Promise<unknown>; }
+declare class PgConnection { readonly pool: { query(sql: string): Promise<{ rows: { row: string }[] }> }; }
+declare class PgLeases {}
+declare class PgLeaseLog {}
+declare class PgFencedEffects {}
+declare class PgCalls {}
+declare class PgRecords {}
+declare class PgTrees {}
+declare class PgHistory {}
+declare class PgChildQueue {}
+declare class PgPauses {}
+declare class PgCheckpoints {}
+declare class PgFaultEnvironment { postgresUrl: unknown }
+declare function secret(name: string): unknown;
+declare function resolveConnection(app: App): PgConnection;
+-->
+
+```ts
+// tests/faults/postgres.fault-stores.ts — imported by every pod
+import type { FaultStores } from "@agboss/core/testing/faults";
+
+export const faultStores: FaultStores<PoolClient> = {
+  providers: [PgLeases, PgLeaseLog, PgFencedEffects, PgCalls, PgRecords, PgTrees, PgHistory, PgChildQueue, PgPauses, PgCheckpoints],
+  environment: {
+    contract: PgFaultEnvironment,
+    values: { postgresUrl: secret("AGBOSS_FAULT_DATABASE_URL") },
+  },
+  businessRows: {
+    insert: async (client, row) => {
+      await client.query("INSERT INTO fault_business_rows (row) VALUES ($1)", [row]);
+    },
+    committed: async (app) =>
+      (await resolveConnection(app).pool.query("SELECT row FROM fault_business_rows")).rows.map(
+        (found) => found.row,
+      ),
+  },
+};
+```
+
+Every store must be on the shared database. An in-memory default is not shared between processes,
+so list each of: the lease, lease-log, fenced-effect, outbound-call, record, tree, history,
+child-queue and paused stores, and the checkpoint saver.
+
+**2. The suite**, in a vitest file of the store's own repository:
+
+<!-- snippet-context
+declare const url: string;
+declare function freshSchema(): Promise<void>;
+-->
+
+```ts
+// tests/faults/postgres.faults.test.ts
+import { faultSuite } from "@agboss/core/testing/faults";
+
+faultSuite({
+  name: "PostgreSQL",
+  stores: new URL("./postgres.fault-stores.ts", import.meta.url).pathname,
+  database: { url, reset: () => freshSchema() }, // an empty database (and business table) per scenario
+});
+```
+
+- **`reset`** runs before each scenario. It gives an empty database, and the business table the
+  set's `insert` writes.
+- **The database proxy.** A `url` with a host and a port (`postgres://…:5432/…`) is reached through
+  a proxy per pod, so a scenario can stall or drop one pod's connections. A file's path (SQLite)
+  gets a store outage of the same two kinds, inside the pod.
+- **`timeScale`** (default 1, the real clock) runs every pod's clock that much faster, from one
+  origin, so a lease of 30 s lasts 30 s / `timeScale`. The core runs SQLite at 10. A real database
+  should also run at 1 at least nightly: its round trips are real time.
+- **`scenarios`** selects scenarios by id. One test file per scenario makes a flake easy to
+  probe (`node scripts/flaky-probe.mjs <file> 20`).
+- The scenarios run one after another. Each starts at most three pods and kills every pod it
+  started at its end. With `AGBOSS_FAULT_DUMP_DIR` set, a failed scenario writes its pods' events,
+  the store history and the pods' output there (CI's artifact).
+
+**3. Hold points in your own process tests.** `withHoldPoints(Store)` is your store with the
+store hold points (`StoreHoldPoint`) and the history. List it in place of the store. Then, in that
+process, `processHoldPoints.arm({ point: StoreHoldPoint.LeaseAcquire, key })` holds the next
+`acquire` of `key` before your store is asked, until `release(holdId)`. `onHeld` announces each
+held operation. You write no seam of your own to force an order across processes.
 
 ## Checklist
 
@@ -410,4 +503,5 @@ storeConformance({
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.
+- [ ] `faultSuite` passes on the set, against a real database, in CI.
 - [ ] The README lists the stores together, links this page, and says which backend they declare.

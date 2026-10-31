@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the fault suite (#484)
+
+- **Added — `@agboss/core/testing/faults`**: `faultSuite({ name, stores, database, timeScale?,
+  scenarios? })`. Its 18 scenarios run the fixture application in real `node` processes on one
+  database: SIGTERM, SIGKILL, SIGSTOP / SIGCONT, and the database stalled or dropped by a TCP proxy
+  per pod. Each scenario checks six invariants (`one-owner`, `finished-work-untouched`,
+  `children-once`, `effects-once`, `no-undo-on-hand-over`, `trees-finish`) through the public API
+  and the history of every store operation. The core runs it on SQLite; agbossjs/postgres on
+  PostgreSQL. Broken stores fail the scenario that targets them.
+- **Added — store hold points for any store**: `withHoldPoints(Store)`, `StoreHoldPoint`,
+  `HoldPoints` / `processHoldPoints`, and the history `OperationHistory` (each operation's invoke and
+  complete, on the machine's monotonic clock: what #533's checkers read).
+- **Added — [Guarantees across processes](Guarantees-across-processes)**: what the suite proves,
+  scenario by scenario, and what is left to the application and the other systems.
+- **Fixed — the kept record of an undo a takeover finished** (#541): it listed no undo action; it
+  lists every one that ran, as `onExecutionError` does.
 ## Unreleased — 0.1.1: the acceptance of #534 (#551)
 
 - **Changed**: `ExecutionLeaseLostError`'s message no longer says another instance took the lease.

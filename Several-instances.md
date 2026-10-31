@@ -1262,6 +1262,10 @@ export class PostgresConnection {
 
 ## Testing several instances
 
+> **Real processes.** What holds when real pods on one database are stopped, killed, frozen or cut off
+> — one owner per tree, every child and charge once, no undo on a hand-over — is proven by the
+> fault suite (#484): [Guarantees across processes](Guarantees-across-processes).
+
 `testWith(App, { instances: 2 })` runs two application instances in one test — `apps[0]` (= `app`)
 and `apps[1]`, each with its own container and instance id — over one set of stores and one clock
 (`clock`, shared). With the in-memory defaults the instances share their rows, so the framework's
