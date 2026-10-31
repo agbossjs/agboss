@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a repeated execution id never joins another tree (#591)
+
+- **Fixed**: an `IdGenerator` that repeats `newExecutionId()` gave a new root, child or recursion
+  level an older execution's lease, fencing token, lease log and step keys, so a fenced effect or an
+  outbound call replayed the other tree's result. Every minted execution id is now kept by the lease
+  store before anything of its execution is written; an id any execution had is
+  `DuplicateExecutionIdError` (`run.duplicate-execution-id`, never the id). [App → Infrastructure](App#infrastructure).
+- **Breaking for stores outside the core**: `ExecutionLeaseRepository.saveExecutionIdIfAbsent({
+  executionId, tenantId })` — an atomic insert-if-absent by the id alone, never removed, checked by
+  the lease contract's `an execution's identity` cases. SQLite: `execution_ids`, filled from
+  `execution_leases` on a file of an older version; agbossjs/postgres: migration `0018`.
+  [Your own store](Your-own-store#what-must-be-atomic-per-contract).
+
 ## Unreleased — 0.1.1: every holder takes the same side path (#598)
 
 - **Fixed**: a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,

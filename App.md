@@ -156,6 +156,18 @@ fails the execution with `InvalidMintedIdError` (`run.invalid-minted-id`; `gener
 thread id is minted once the budgets passed, so their `maxSpend()` is kept as for any admitted
 execution; a child's refused id fails its launch before the child starts.
 
+An id is never handed out twice (#591), whatever the generator does: every execution id it mints —
+a root's, a child's, a recursion level's — is kept by the lease store before anything else of the
+execution is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`: one insert-if-absent by
+the id alone, across tenants, never removed). An id any execution had — running, paused, finished,
+failed or cancelled, of any tenant — fails the new one with `DuplicateExecutionIdError`
+(`run.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or
+its lease, a child or a level before it starts. Without it, a sequential generator restarted on a
+kept database gave a new tree an old tree's lease, fencing token, lease log and step keys
+(`<executionId>:<nodeId>:<visit>`), and a fenced effect or an outbound call replayed the other tree's
+result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
+not a create; a create that fails after its id was kept leaves the id taken and nothing else.
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { IdGenerator, Injectable } from "@agboss/core";

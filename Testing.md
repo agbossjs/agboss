@@ -863,7 +863,9 @@ Every thread id and execution id the framework mints comes from the application'
 `thread-2`, … for new threads and `execution-1`, `execution-2`, … for executions — a root before its
 children, in the order they are made — counted from 1 in every test and shared by its instances
 (`instances: 2`, `recoverApp()`), so a test names them. A caller's own `threadId` is used as given.
-An application that lists an `IdGenerator` keeps it in its tests too. A `pauseId` never comes from
+An application that lists an `IdGenerator` keeps it in its tests too. The ids start again in every
+test, so two tests on one kept database (a SQLite file shared by tests) mint `execution-1` twice:
+the second is `DuplicateExecutionIdError` (#591) — give each test a store of its own. A `pauseId` never comes from
 it: it stays a random 128-bit token (32 hex characters) — read it from `result.pending`.
 
 <!-- snippet-context

@@ -1168,6 +1168,9 @@ export class LeaseTableService {
   markFinishedIfHeld(_executionLease: ExecutionLease): Promise<void> {
     return Promise.resolve();
   }
+  insertIdIfAbsent(_identity: ExecutionIdentity): Promise<boolean> {
+    return Promise.resolve(true);
+  }
   selectOne(): Promise<void> {
     return Promise.resolve();
   }
@@ -1175,7 +1178,12 @@ export class LeaseTableService {
 -->
 
 ```ts
-import { ExecutionLeaseRepository, Injectable, type ExecutionLease } from "@agboss/core";
+import {
+  ExecutionLeaseRepository,
+  Injectable,
+  type ExecutionIdentity,
+  type ExecutionLease,
+} from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 
 @Injectable({ deps: [LeaseTableService] })
@@ -1202,6 +1210,11 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   override release(executionLease: ExecutionLease): Promise<void> {
     return this.leaseTableService.deleteIfHeld(executionLease);
+  }
+
+  // #591: every execution id handed out, once, by the id alone — false for one any execution had
+  override saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+    return this.leaseTableService.insertIdIfAbsent(identity);
   }
 
   // #520: the work under it is over — released for good, no acquire of the key gets it again
