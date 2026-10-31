@@ -70,7 +70,11 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   (`[store-conformance.opted-out-store]`) unless the call says
   `acceptWithoutDoubleChargeProtection: true`; then those cases are skipped — never passed — with
   "store opted out of the lease check: no double-charge protection", every other case runs, and the
-  set shows `gives NO double-charge protection for fenced effects | outbound calls`. Before, an
+  set shows `gives NO double-charge protection for fenced effects | outbound calls`; a fencing
+  contract run on its own with the flag shows `gives NO double-charge protection: its store opted
+out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite — passing for an
+  opted-out store, failing (`[store-conformance.opt-out-not-declared]`) for one that does not opt
+  out —, so a report that hides skipped cases still says it (#543 acceptance). Before, an
   atomic store with the flag on passed every case and an honest one could pass none. The start's
   `[application.lease-check-not-atomic]` links Wiki → Your-own-store. **Migration:** a set with an
   opted-out store adds `acceptWithoutDoubleChargeProtection: true`.

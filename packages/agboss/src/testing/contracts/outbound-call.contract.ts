@@ -1,5 +1,5 @@
 import { registerContract } from "./define.js";
-import type { FencingContractOptions } from "./fencing-gate.js";
+import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-gate.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
 import { outboundExpiryCases } from "./outbound-call-expiry.cases.js";
 import { outboundKeyTextCases } from "./outbound-call-key-text.cases.js";
@@ -23,11 +23,20 @@ export type { OutboundCallStores } from "./outbound-call-data.js";
  * tree and by status in the order recorded; removed by the retention cutoff on the `Clock` once
  * ended, never while pending; under a business key (#508) one intent per tenant, name and key. A
  * store that opts out of the atomic lease check passes none of the fencing cases (#543): they fail
- * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`.
+ * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`,
+ * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
  */
 export function outboundCallContract(
   target: ContractTarget<OutboundCallStores>,
   options: FencingContractOptions = {},
+): void {
+  registerOutboundCallContract(target, optOutOf(options, true));
+}
+
+/** The outbound-call suite, its opt-out shown by it or (`storeConformance`) by the set's suite. */
+export function registerOutboundCallContract(
+  target: ContractTarget<OutboundCallStores>,
+  optOut: OptOut,
 ): void {
   registerContract(
     "outbound call contract",
@@ -45,9 +54,6 @@ export function outboundCallContract(
       outboundExpiryCases(),
     ],
     (stores) => stores.calls.ping(),
-    {
-      storeOf: (stores) => stores.calls,
-      isAccepted: options.acceptWithoutDoubleChargeProtection === true,
-    },
+    { storeOf: (stores) => stores.calls, ...optOut },
   );
 }

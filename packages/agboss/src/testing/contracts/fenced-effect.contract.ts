@@ -1,5 +1,5 @@
 import { registerContract } from "./define.js";
-import type { FencingContractOptions } from "./fencing-gate.js";
+import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-gate.js";
 import { businessKeyCases } from "./fenced-effect-business.cases.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { expiryCases } from "./fenced-effect-expiry.cases.js";
@@ -22,11 +22,20 @@ export type { FencedEffectBusinessRows, FencedEffectStores } from "./fenced-effe
  * with an invalid name refused at the entry, and a zombie's write racing the new holder's leaving
  * one business row (#526). A store that opts out of the atomic lease check
  * (`LeaseCheck.WithoutDoubleChargeProtection`) passes none of the fencing cases (#543): they fail
- * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`.
+ * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`,
+ * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
  */
 export function fencedEffectContract<TTransaction>(
   target: ContractTarget<FencedEffectStores<TTransaction>>,
   options: FencingContractOptions = {},
+): void {
+  registerFencedEffectContract(target, optOutOf(options, true));
+}
+
+/** The fenced-effect suite, its opt-out shown by it or (`storeConformance`) by the set's suite. */
+export function registerFencedEffectContract<TTransaction>(
+  target: ContractTarget<FencedEffectStores<TTransaction>>,
+  optOut: OptOut,
 ): void {
   registerContract(
     "fenced effect contract",
@@ -45,9 +54,6 @@ export function fencedEffectContract<TTransaction>(
       zombieCases<TTransaction>(),
     ],
     (stores) => stores.effects.ping(),
-    {
-      storeOf: (stores) => stores.effects,
-      isAccepted: options.acceptWithoutDoubleChargeProtection === true,
-    },
+    { storeOf: (stores) => stores.effects, ...optOut },
   );
 }
