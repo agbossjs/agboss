@@ -32,6 +32,8 @@ export interface ChildWaiting {
 /** A child's run on its own thread: its graph, its first state, its config, whether it is new. */
 export interface OwnThreadRun {
   readonly graph: ExecutionGraph;
+  /** The failure an earlier pass claimed (#596): repeated at once while the child has not ended. */
+  readonly claimed?: unknown;
   readonly thread: string;
   readonly initial: ExecutionStateUpdate;
   readonly config: RunnableConfig;
@@ -100,10 +102,16 @@ async function snapshotOf(run: OwnThreadRun, config: RunnableConfig) {
   return { snapshot, rests: snapshot.next.length > 0, interrupts };
 }
 
-/** Whether a task of the child's thread failed in an earlier pass (its error is in the checkpoint). */
-async function hasFailed(run: OwnThreadRun, config: RunnableConfig): Promise<boolean> {
-  const { snapshot } = await snapshotOf(run, config);
-  return snapshot.tasks.some((task) => task.error !== undefined);
+/**
+ * A re-entered child as an earlier pass left it: whether a task failed (its error in the
+ * checkpoint), and whether it still rests — not ended, so a claimed failure (#596) is its end.
+ */
+async function reenteredOf(
+  run: OwnThreadRun,
+  config: RunnableConfig,
+): Promise<{ readonly hasFailed: boolean; readonly rests: boolean }> {
+  const { snapshot, rests } = await snapshotOf(run, config);
+  return { hasFailed: snapshot.tasks.some((task) => task.error !== undefined), rests };
 }
 
 /**
@@ -146,7 +154,13 @@ export async function runOnOwnThread(run: OwnThreadRun): Promise<OwnThreadEnd> {
   let isRepeated = false;
   try {
     if (run.isNew) await stream(run, config, run.initial, seen);
-    else isRepeated = await hasFailed(run, config);
+    else {
+      const reentered = await reenteredOf(run, config);
+      isRepeated = reentered.hasFailed;
+      // a finish on its thread is its end; else a claimed failure is (#596), its step not run again
+      if (run.claimed !== undefined && reentered.rests)
+        return { kind: "failed", error: run.claimed, isRepeated: true };
+    }
     for (;;) {
       const ended = await movedOn(run, config, seen);
       if (ended !== undefined)
@@ -163,6 +177,8 @@ export async function runOnOwnThread(run: OwnThreadRun): Promise<OwnThreadEnd> {
 /** What a child's end needs of its entry: its first state, its config, its identity and node. */
 export interface ChildEndRun {
   readonly initial: ExecutionStateUpdate;
+  /** The failure an earlier pass claimed (#596). */
+  readonly claimed?: unknown;
   readonly config: RunnableConfig;
   readonly entered: ChildEntered;
   readonly node: string;
@@ -196,6 +212,7 @@ export async function childEndOf(
       config: run.config,
       isNew,
       waiting,
+      claimed: run.claimed,
     });
     if (end.kind === "ended") return { state: end.state, failed: false, announces: end.isOwn };
     // a failure an earlier pass saw is not announced again when the re-run step fails again

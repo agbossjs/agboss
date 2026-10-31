@@ -1509,8 +1509,13 @@ output })` on a successful result, inner first, each output validated against th
   `ParentInstance` child by the parent's pass that ran it to its finish or failure; a remote child's
   failure by the parent's pass that saw it happen (the undo runs there) — never by a pass that
   re-enters the step after a takeover and only reads the end (an already finished child, a remote
-  row already settled, a failed step it runs again). So at most once: a holder that freezes or
-  crashes between the child's durable end and the announcement leaves it unannounced. A request refused
+  row already settled). A failure is claimed first in the tree's store (#596,
+  `@agboss/child-failure:<childExecutionId>`, `saveIfAbsentInTree`, the fence checked again after it):
+  of every pass that sees it — the first, one that finished its interrupted undo, a re-entry that ran
+  the step again — the winner announces it, and a re-entry that finds the claim repeats the failure
+  (by name and message, as #340's unwinding mark does) without running the step, so an announced
+  failure never turns into a finish. So at most once: a holder that freezes or crashes between the
+  child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
   an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
