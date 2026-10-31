@@ -97,7 +97,7 @@ const isOrExtends = (cls: Class, base: Class): boolean =>
   cls === base || Object.prototype.isPrototypeOf.call(base.prototype, cls.prototype);
 
 /** The declared backend of a store class (#526): its non-empty `static backend`, else none. */
-const backendOf = (cls: Class): string | undefined => {
+export const backendOf = (cls: Class): string | undefined => {
   const backend: unknown = Reflect.get(cls, "backend");
   return typeof backend === "string" && backend !== "" ? backend : undefined;
 };

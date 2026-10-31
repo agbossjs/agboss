@@ -54,8 +54,11 @@ export function fingerprintOf(value: unknown): string {
  * stores outside the core, #526: before any statement, as the core's stores check it).
  */
 export function checkedEffectName(name: string): void {
-  if (!EFFECT_NAME.test(name)) throw new InvalidFencedEffectNameError(name.length);
+  if (!isEffectName(name)) throw new InvalidFencedEffectNameError(name.length);
 }
+
+/** Whether `name` is an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, a letter or digit first. */
+export const isEffectName = (name: string): boolean => EFFECT_NAME.test(name);
 
 /**
  * The key of the current step's effect `name` (#500): the lease the step runs under

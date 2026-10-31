@@ -18,7 +18,8 @@ function trackedObject<TStore extends object>(store: TStore, clock: VirtualClock
   return new Proxy(store, {
     get(target, property) {
       const value: unknown = Reflect.get(target, property, target);
-      if (typeof value !== "function") return value;
+      // the class itself, with its statics (`backend`, #526): never a call to track
+      if (typeof value !== "function" || property === "constructor") return value;
       return (...args: unknown[]): unknown => {
         const result: unknown = Reflect.apply(value, target, args);
         return isThenable(result) ? clock.track(Promise.resolve(result)) : result;

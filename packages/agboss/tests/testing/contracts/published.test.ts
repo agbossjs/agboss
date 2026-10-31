@@ -1,5 +1,5 @@
 /**
- * #481 AC1: the contract suites are published — `@agboss/core/testing/contracts`, an entry of its
+ * #481 AC1, #526 AC2: the contract suites are published — `@agboss/core/testing/contracts`, an entry of its
  * own with its API report, not loaded by `@agboss/core/testing` — and each function registers the
  * contract's cases under the target's name, as many as the core ran before they were published.
  */
@@ -78,13 +78,23 @@ describe("#481 AC1: the published entry", () => {
       types: "./dist/testing/contracts/index.d.ts",
       import: "./dist/testing/contracts/index.js",
     });
-    for (const name of [...Object.keys(SUITES), "ContractTarget", "StoreSeam"]) {
+    for (const name of [
+      ...Object.keys(SUITES),
+      "ContractTarget",
+      "StoreSeam",
+      "storeConformance",
+      "StoreConformanceOptions",
+      "ConformanceStores",
+      "StoreConformanceError",
+    ]) {
       expect(report).toContain(name);
     }
   });
 
-  it("exports one function per contract, and nothing else at run time", () => {
-    expect(Object.keys(contracts).sort()).toEqual(Object.keys(SUITES).sort());
+  it("exports one function per contract, storeConformance and its error (#526), nothing else at run time", () => {
+    expect(Object.keys(contracts).sort()).toEqual(
+      [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"].sort(),
+    );
     for (const register of Object.values(contracts)) expect(register).toBeTypeOf("function");
   });
 
@@ -102,7 +112,7 @@ describe("#481 AC1: the published entry", () => {
     const root = await import("../../../src/index.js");
     const testing = await import("../../../src/testing/index.js");
 
-    for (const name of Object.keys(SUITES)) {
+    for (const name of [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"]) {
       expect(name in root).toBe(false);
       expect(name in testing).toBe(false);
     }
@@ -119,12 +129,15 @@ beforeAll(async () => {
 const casesUnder = (suite: string) => run.cases.filter((found) => found.suites[0] === suite);
 
 describe("#481 AC1: each contract registers its cases under the target's name", () => {
-  it("each function registers its suite as `<contract> (<target name>)`, every case passing", () => {
+  it("storeConformance registers each suite as `<contract> (<target name>)` and the store set's, every case passing", () => {
     const suites = new Set(run.cases.map((found) => found.suites[0]));
 
     expect(run.isFailed).toBe(false);
     expect(suites).toEqual(
-      new Set(Object.values(SUITES).map((title) => `${title} (fixture-store)`)),
+      new Set([
+        ...Object.values(SUITES).map((title) => `${title} (fixture-store)`),
+        "store set (fixture-store)",
+      ]),
     );
     expect(run.cases.filter((found) => found.state !== "pass")).toEqual([]);
   });
