@@ -30,6 +30,10 @@ const KEY_TEXT_PRECEDENCE: readonly KeyTextRule[] = [
   KeyTextRule.FormatCharacter,
   KeyTextRule.SpaceSeparator,
   KeyTextRule.Spacing,
+  KeyTextRule.Ignorable,
+  KeyTextRule.PrivateOrNoncharacter,
+  KeyTextRule.Unassigned,
+  KeyTextRule.Blank,
   KeyTextRule.NotNfc,
 ];
 
@@ -40,6 +44,10 @@ const BREACHES: readonly (readonly [KeyTextRule, string])[] = [
   [KeyTextRule.FormatCharacter, "\u200B"],
   [KeyTextRule.SpaceSeparator, "\u00A0"],
   [KeyTextRule.Spacing, "  "],
+  [KeyTextRule.Ignorable, "\u034F"],
+  [KeyTextRule.PrivateOrNoncharacter, "\uE000"],
+  [KeyTextRule.Unassigned, "\u0378"],
+  [KeyTextRule.Blank, "\u2800"],
   [KeyTextRule.NotNfc, "e\u0301"],
 ];
 
@@ -104,6 +112,23 @@ const BREAKS: Readonly<Record<KeyTextRule, (text: string) => boolean>> = {
     ),
   [KeyTextRule.Spacing]: (text) =>
     text.startsWith(" ") || text.endsWith(" ") || text.includes("  "),
+  // #556, by the properties' own names, code point by code point
+  [KeyTextRule.Ignorable]: (text) =>
+    codePointsOf(text).some((code) =>
+      /\p{Default_Ignorable_Code_Point}/u.test(String.fromCodePoint(code)),
+    ),
+  [KeyTextRule.PrivateOrNoncharacter]: (text) =>
+    codePointsOf(text).some(
+      (code) =>
+        (code >= 0xfdd0 && code <= 0xfdef) ||
+        (code & 0xfffe) === 0xfffe ||
+        /\p{General_Category=Private_Use}/u.test(String.fromCodePoint(code)),
+    ),
+  [KeyTextRule.Unassigned]: (text) =>
+    codePointsOf(text).some((code) =>
+      /\p{General_Category=Unassigned}/u.test(String.fromCodePoint(code)),
+    ),
+  [KeyTextRule.Blank]: (text) => text.includes("\u2800"),
   [KeyTextRule.NotNfc]: (text) => !hasLoneSurrogate(text) && text.normalize("NFC") !== text,
 };
 
@@ -118,11 +143,11 @@ describe("#547 acceptance: the rule named is the precedence's first one the text
     fc.assert(
       fc.property(
         fc.subarray([...BREACHES], { minLength: 1 }),
-        fc.array(FILLER, { minLength: 7, maxLength: 7 }),
+        fc.array(FILLER, { minLength: 11, maxLength: 11 }),
         fc.boolean(),
         (set, fillers, isLong) => {
           const body = set.map(([, breach], at) => `${fillers[at] ?? ""}${breach}`).join("");
-          const text = `a${body}${fillers[6] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
+          const text = `a${body}${fillers[10] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
           const expected = KEY_TEXT_PRECEDENCE.find((rule) => BREAKS[rule](text));
           expect(keyTextRuleOf(text)).toBe(expected);
         },
@@ -158,24 +183,29 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
     (error: unknown) => error,
   );
 
-describe("#547 acceptance: every entry point names the same rule for a text breaking several", () => {
-  desk.for(SETS)("%s → %s", async ([, expected, text], { app }) => {
-    const businessKey = await rejectionOf(
-      testAction(PrecedenceChargeAction)({ message: { value: { text } } }),
-    );
-    const executed = await rejectionOf(execute(app, ChatStart, { text: "hi" }, { threadId: text }));
-    const cancelled = await rejectionOf(app.cancel(text));
-    const tenant = await rejectionOf(
-      execute(app, ChatStart, { text: "hi" }, { tenant: { tenantId: text } }),
-    );
+describe("#547 acceptance: every entry point names the same rule for a text breaking two", () => {
+  desk.for(SETS.filter(([label]) => label.split(" > ").length === 2))(
+    "%s → %s",
+    async ([, expected, text], { app }) => {
+      const businessKey = await rejectionOf(
+        testAction(PrecedenceChargeAction)({ message: { value: { text } } }),
+      );
+      const executed = await rejectionOf(
+        execute(app, ChatStart, { text: "hi" }, { threadId: text }),
+      );
+      const cancelled = await rejectionOf(app.cancel(text));
+      const tenant = await rejectionOf(
+        execute(app, ChatStart, { text: "hi" }, { tenant: { tenantId: text } }),
+      );
 
-    expect(businessKey).toBeInstanceOf(InvalidBusinessKeyError);
-    expect(businessKey).toMatchObject({ rule: expected });
-    for (const thread of [executed, cancelled]) {
-      expect(thread).toBeInstanceOf(InvalidThreadIdError);
-      expect(thread).toMatchObject({ rule: expected });
-    }
-    expect(tenant).toBeInstanceOf(DtoValidationError);
-    expect((tenant as Error).message).toContain(`(${expected})`);
-  });
+      expect(businessKey).toBeInstanceOf(InvalidBusinessKeyError);
+      expect(businessKey).toMatchObject({ rule: expected });
+      for (const thread of [executed, cancelled]) {
+        expect(thread).toBeInstanceOf(InvalidThreadIdError);
+        expect(thread).toMatchObject({ rule: expected });
+      }
+      expect(tenant).toBeInstanceOf(DtoValidationError);
+      expect((tenant as Error).message).toContain(`(${expected})`);
+    },
+  );
 });

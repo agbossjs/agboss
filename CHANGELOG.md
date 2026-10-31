@@ -201,6 +201,20 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `KeyTextRule`'s order (`length`, `lone-surrogate`, `control-character`, `format-character`,
   `space-separator`, `spacing`, `not-nfc`), wherever each breach stands — the enum is declared in that
   order now (#547 acceptance).
+- **Keys with invisible, private or unassigned characters are refused** (#556) — a business key, a
+  thread id and a tenant id are refused when they hold a code point Unicode says renders as nothing
+  (`Default_Ignorable_Code_Point`, whatever its category: the combining grapheme joiner U+034F, the
+  Hangul fillers U+115F / U+1160 / U+3164 / U+FFA0, every variation selector — U+FE0E / U+FE0F too,
+  so `"order:❤\uFE0F"` is refused —, the Mongolian free variation selectors and the property's reserved
+  code points) — `KeyTextRule.Ignorable`, `ignorable` —; a private-use character or a noncharacter
+  (U+FDD0–U+FDEF, U+xFFFE / U+xFFFF) — `private-or-noncharacter` —; a code point unassigned in the
+  runtime's Unicode (`Cn`) — `unassigned`: a later Node may assign it a decomposition or make it a
+  format character, refusing a key stored before; unassigned code points only become assigned, so a
+  key accepted now stays one — and U+2800 BRAILLE PATTERN BLANK — `blank`. The same entry points and
+  messages, the key never named; in `KeyTextRule`'s order, after `spacing` and before `not-nfc`. During
+  a rolling upgrade a key holding a character only the newer runtime's Unicode assigns is refused by
+  an older instance — closed, nothing charged. **Migration:** drop variation selectors (an emoji
+  without U+FE0F) and these characters where keys, thread ids and tenant ids are made.
 - **A tenant id is a key's text too** (#552) — the rules of #538 hold a tenant id at
   `app.execute` (`tenant: { tenantId }`), `app.resume` and `app.cancel` (`dto.invalid`, the field
   and the rule named, never the id): a tenant id with a lone surrogate was written to SQLite and

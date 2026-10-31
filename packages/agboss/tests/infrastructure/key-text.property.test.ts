@@ -34,7 +34,8 @@ seededProperties("key-text.property.test.ts");
 
 /**
  * What the rules refuse, to be mixed in: C1, Cf, lone surrogates, a combining mark after a base, a
- * space but U+0020 and the line and paragraph separators (#547).
+ * space but U+0020 and the line and paragraph separators (#547), and what #556 refuses: characters
+ * that render as nothing, private use, noncharacters, unassigned code points, the braille blank.
  */
 const HAZARDS = [
   "\u00a0",
@@ -58,6 +59,18 @@ const HAZARDS = [
   "\udfff",
   "e\u0301",
   "\u212b",
+  // #556
+  "\u034f",
+  "\ufe0f",
+  "\u3164",
+  "\u115f",
+  "\u{e0100}",
+  "\u2800",
+  "\ufdd0",
+  "\uffff",
+  "\ue000",
+  "\u{10fffd}",
+  "\u0378",
 ];
 
 /** A text with one hazard somewhere in it. */
@@ -100,7 +113,7 @@ const distinctKeys = fc.oneof(
 const STORE_RUNS = { inMemory: 100, sqlite: 40 } as const;
 
 describe("#538 AC2: any text is refused exactly when a rule says so, never echoed", () => {
-  it("a key is what no rule refuses: 1–200 code units, no Cc, no Cf, no Cs, no space but single inside U+0020s, NFC", () => {
+  it("a key is what no rule refuses: 1–200 code units, no Cc, no Cf, no Cs, no space but single inside U+0020s, no default-ignorable, private-use, unassigned or braille-blank code point, NFC", () => {
     fc.assert(
       fc.property(anyText, (text) => {
         const isKey =
@@ -108,6 +121,9 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
           text.length <= 200 &&
           !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(text) &&
           !/\p{Z}/u.test(text.replaceAll(" ", "")) &&
+          // #556: nothing that renders as nothing, no private use, no unassigned code point
+          // (noncharacters among them), no braille blank
+          !/[\p{Default_Ignorable_Code_Point}\p{Co}\p{Cn}\u2800]/u.test(text) &&
           !text.startsWith(" ") &&
           !text.endsWith(" ") &&
           !text.includes("  ") &&

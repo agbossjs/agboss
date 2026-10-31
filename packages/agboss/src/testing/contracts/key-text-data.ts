@@ -3,7 +3,9 @@ import { KeyTextRule } from "../../core/errors.js";
 /**
  * Business keys for the key-text cases (#538) of the fenced-effect and outbound-call contracts: keys
  * of many scripts and planes that must come back unchanged and never meet another key's row, and a
- * key breaking each rule (#547: a space but U+0020, a space at an edge or doubled), which every
+ * key breaking each rule (#547: a space but U+0020, a space at an edge or doubled; #556: a character
+ * that renders as nothing, a private-use one or a noncharacter, an unassigned one, the braille
+ * blank), which every
  * store method refuses before any statement.
  */
 
@@ -18,7 +20,7 @@ export const ROUND_TRIP_KEYS: readonly string[] = [
   "הזמנה:42",
   "طلب:42",
   "order:🧾42",
-  "order:❤️",
+  "order:\u2764",
   "order:🇮🇱",
   "order:\u{20000}",
   "café",

@@ -3278,13 +3278,17 @@ export interface JudgeVerdictRecord {
 
 // @public
 export enum KeyTextRule {
+    Blank = "blank",
     ControlCharacter = "control-character",
     FormatCharacter = "format-character",
+    Ignorable = "ignorable",
     Length = "length",
     LoneSurrogate = "lone-surrogate",
     NotNfc = "not-nfc",
+    PrivateOrNoncharacter = "private-or-noncharacter",
     SpaceSeparator = "space-separator",
-    Spacing = "spacing"
+    Spacing = "spacing",
+    Unassigned = "unassigned"
 }
 
 // @public
