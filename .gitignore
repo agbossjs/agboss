@@ -17,3 +17,7 @@ packages/*/dist
 packages/*/.scaffold-tmp
 examples/.scaffold-tmp-*
 *.tgz
+
+# #533: Stryker mutation runs (reports/ — the incremental file is CI-cached, never committed)
+packages/agboss/reports/
+packages/agboss/.stryker-tmp/

@@ -159,6 +159,7 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "smoke": "vitest run --config vitest.smoke.config.ts",
+    "test:mutation": "stryker run",
     "schema": "tsx src/config/write-profile-schema.ts"
   },
   "dependencies": {
@@ -197,6 +198,8 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/server-filesystem": "^2026.8.31",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "dotenv": "^18.0.3",
     "fast-check": "^3.23.2",
     "typescript": "^5.9.3"
