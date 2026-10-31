@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a root's end is heard once (#597)
+
+- A root's `onExecutionEnd` / `onExecutionError` is announced only while its pass holds the tree's
+  lease. Before, a holder that froze right after its tree's end became durable announced the end
+  again when it thawed, though the instance that recovered the tree had announced it. Its
+  `app.execute` resolved with the output. It now rejects with `ExecutionLeaseLostError`. Found in
+  the acceptance of #562. Guarantees-across-processes.
 ## Unreleased — 0.1.1: an explorer search stops with its case and fails with what it explored (#590)
 
 - Fixed: an interleavings search that outran its case's timeout went on in the background, since

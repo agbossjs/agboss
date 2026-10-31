@@ -182,7 +182,12 @@ The suite proves the framework's side under the faults above. These parts are yo
     if its holder is lost meanwhile.
 
   The tree's own end is still heard: the root's `onExecutionEnd` or `onExecutionError` comes from
-  the holder that ends the tree. An observer that must not miss a child's end reads the tree's
+  the holder that ends the tree. It is heard **at most once** too (#597): announced only while that
+  pass still holds the tree's lease. A holder that froze right after the tree's end became durable
+  (its finish checkpoint, its failed step's error) finds its lease taken over when it thaws, stops
+  at its own fence (`ExecutionLeaseLostError`, its call rejects) and announces nothing; the instance
+  that recovered the tree announced it. The window is a holder frozen between that look and its
+  observer call. An observer that must not miss a child's end reads the tree's
   record (`result.children`, `ExecutionHistoryRecord`) at the root's end.
 
 ## For a store author
