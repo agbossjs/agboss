@@ -37,10 +37,10 @@ const KEY_TEXT_PRECEDENCE: readonly KeyTextRule[] = [
 const BREACHES: readonly (readonly [KeyTextRule, string])[] = [
   [KeyTextRule.LoneSurrogate, "\uD800"],
   [KeyTextRule.ControlCharacter, "\t"],
-  [KeyTextRule.FormatCharacter, "​"],
-  [KeyTextRule.SpaceSeparator, " "],
+  [KeyTextRule.FormatCharacter, "\u200B"],
+  [KeyTextRule.SpaceSeparator, "\u00A0"],
   [KeyTextRule.Spacing, "  "],
-  [KeyTextRule.NotNfc, "é"],
+  [KeyTextRule.NotNfc, "e\u0301"],
 ];
 
 const rank = (rule: KeyTextRule): number => KEY_TEXT_PRECEDENCE.indexOf(rule);
