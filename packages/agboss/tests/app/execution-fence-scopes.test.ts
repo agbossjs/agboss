@@ -129,7 +129,7 @@ describe("#471: scopeKey", () => {
     });
     expect(error.message).toMatch(/token 1 was refused: the external system saw token 3/);
     expect(new ExecutionFencedError({ scopeKey: "a:b", token: 2 }).message).toMatch(
-      /saw a newer one/,
+      /named no newer token — the lease is over/,
     );
   });
 });

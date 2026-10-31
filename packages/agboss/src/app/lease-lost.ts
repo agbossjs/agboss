@@ -29,7 +29,8 @@ export class ExecutionLeaseLostError extends AGBossError {
  */
 export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostError {
   const error = new ExecutionLeaseLostError(rootExecutionId);
-  error.message = `the lease of execution ${rootExecutionId} expired before its store confirmed a renewal: this instance stops, another instance continues the execution`;
+  // #567: nothing says another instance exists — the next take may be this instance's own sweep
+  error.message = `the lease of execution ${rootExecutionId} expired before its store confirmed a renewal — the holder was frozen, or its store did not answer, for longer than the lease: this instance stops, the next take of the lease continues the execution`;
   return error;
 }
 
@@ -84,7 +85,9 @@ class InvalidScopeKeyError extends TypeError {
 
 /**
  * An external system refused a write of this execution (#471): it saw a newer token of the lease's
- * scope (`observedToken > token`), so another instance holds the lease now. A hand-over, like the
+ * scope (`observedToken > token`, a newer take holds the lease), or — a store of the core's — the
+ * lease is over at the write's token (expired, released, never taken; #567: its message says only
+ * that). A hand-over, like the
  * lease lost it extends: no `.onError`, no compensation, no failed record — the moving call rejects
  * with it, and the tree goes on where the lease is held. `fence.fenced(observedToken)` builds it for
  * the current step; a repository that has only what it wrote builds it from the scope key.
@@ -111,10 +114,21 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
     this.leaseExecutionId = scope.leaseExecutionId;
     this.token = options.token;
     this.observedToken = options.observedToken;
-    const observed =
-      options.observedToken === undefined
-        ? "a newer one"
-        : `token ${String(options.observedToken)}`;
-    this.message = `a write of lease scope ${options.scopeKey} with token ${String(options.token)} was refused: the external system saw ${observed}, another instance holds the lease and continues the execution`;
+    this.message = `a write of lease scope ${options.scopeKey} with token ${String(options.token)} was refused: ${fencedReasonOf(options)}`;
   }
+}
+
+/**
+ * Why a write was fenced, as far as the refusal knows (#567): a newer token seen is a newer take of
+ * the lease; the same token or none seen is only a lease that is over — expired, released, or taken
+ * by a take the refusing system did not see yet. Never a claim that another instance holds it.
+ */
+function fencedReasonOf({ token, observedToken }: ExecutionFencedErrorOptions): string {
+  if (observedToken !== undefined && observedToken > token)
+    return `the external system saw token ${String(observedToken)} — a newer take of the lease: this instance stops, the holder of token ${String(observedToken)} continues the execution`;
+  const seen =
+    observedToken === undefined
+      ? "the external system named no newer token"
+      : `the external system saw token ${String(observedToken)}, no newer take`;
+  return `${seen} — the lease is over: it expired, was released, or another instance took it; this instance stops, the next take of the lease continues the execution`;
 }
