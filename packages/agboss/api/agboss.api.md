@@ -3084,6 +3084,21 @@ export class InvalidFencedEffectNameError extends AGBossError {
 }
 
 // @public
+export class InvalidMintedIdError extends AGBossError {
+    constructor(generator: string, method: "newThreadId" | "newExecutionId", rule: KeyTextRule);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly generator: string;
+    // (undocumented)
+    readonly method: "newThreadId" | "newExecutionId";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly rule: KeyTextRule;
+}
+
+// @public
 export class InvalidThreadIdError extends AGBossError {
     constructor(rule: KeyTextRule);
     // (undocumented)
@@ -6970,6 +6985,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:45:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:178:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:179:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:180:3 - (ae-undocumented) Missing documentation for "generator".
+// src/core/errors.ts:181:3 - (ae-undocumented) Missing documentation for "method".
+// src/core/errors.ts:182:3 - (ae-undocumented) Missing documentation for "rule".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
@@ -7499,8 +7519,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/clock.ts:82:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/infrastructure/clock.ts:88:3 - (ae-undocumented) Missing documentation for "now".
+// src/infrastructure/clock.ts:83:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/infrastructure/clock.ts:89:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
