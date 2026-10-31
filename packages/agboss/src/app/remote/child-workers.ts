@@ -174,6 +174,7 @@ class Workers implements ChildWorkers {
     const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
     const watching = watchRunningChild(this.parts, row, stop);
     let isFinished = false;
+    let announce = (): Promise<void> => Promise.resolve();
     try {
       const pass = await runQueuedChild(this.parts, row, lease, signal);
       if (pass === undefined) return;
@@ -181,8 +182,7 @@ class Workers implements ChildWorkers {
       const done = await queue.completeByTenantIdAndExecutionId(tenantId, executionId, end);
       // answered or failed: its lease is finished, no stale worker takes it again (#520)
       isFinished = end.status !== ExecutionRecordStatus.Paused;
-      // its finish is announced by the completion that won, here — never by its parent (#562)
-      await announcePass(queue, pass, done);
+      announce = () => announcePass(queue, pass, done);
       if (!done && !stop.signal.aborted) {
         const text = `child execution ${executionId} ended, but its tree no longer waits for it`;
         log.warn("child-queue.not-completed", text, { executionId, tenantId });
@@ -192,6 +192,8 @@ class Workers implements ChildWorkers {
       await watching;
       await lease.release({ isFinished });
     }
+    // announced by the completion that won, never by its parent (#562) — once its lease is over
+    await announce();
   }
 
   #canReclaim(key: string): boolean {
