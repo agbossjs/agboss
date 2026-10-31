@@ -1,6 +1,6 @@
 import { EmptyEnvironment } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { seconds } from "../../../../src/units/index.js";
+import { hours, seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import {
   MortalExecutionLeaseRepository,
@@ -25,3 +25,17 @@ import { UnwindLog, UnwindParentWorkflow, UnwindWorkflow } from "./unwind.workfl
   compensationTimeout: seconds(60),
 })
 export class UnwindRecoveryApplication {}
+
+/** The same application keeping its executions' history (#484: the undo a takeover finished is in it). */
+@Application({
+  name: "kept-unwind-recovery-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [UnwindWorkflow, UnwindParentWorkflow],
+  observers: [UnwindLog],
+  providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
+  budgets: TEST_BUDGETS,
+  compensationTimeout: seconds(60),
+  executionRecordRetention: hours(24),
+})
+export class KeptUnwindRecoveryApplication {}
