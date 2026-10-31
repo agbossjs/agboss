@@ -4,6 +4,7 @@ import {
   type OutboundCall,
   type OutboundCallLookup,
 } from "../../../src/index.js";
+import { untilReached } from "../../helpers/reached.js";
 
 /**
  * #505 — a payment provider outside the system, shared by a test's instances (one process): it
@@ -80,9 +81,10 @@ export function letChargesGo(): void {
 
 /** Until `count` charges are frozen. */
 export async function frozenCharges(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && gateway.gates.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (gateway.gates.frozen.length < count) throw new Error(`${String(count)} charges never froze`);
+  await untilReached(
+    () => gateway.gates.frozen.length >= count,
+    `${String(count)} charges never froze`,
+  );
 }
 
 /** Frozen when the lever says so, until let go — or until the call's signal aborts (a timeout). */

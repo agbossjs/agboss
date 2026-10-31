@@ -46,6 +46,7 @@ import {
 } from "./fixtures/business-key.workflow.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import { frozenCharges, gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
+import { untilReached } from "../helpers/reached.js";
 
 const test = testWith(BusinessKeyApplication);
 const two = testWith(BusinessKeyApplication, { instances: 2 });
@@ -54,9 +55,7 @@ const charge = { orderId: "42", amountUsd: 10 };
 
 /** Until `count` outbound charges of the business-key fixture are frozen. */
 async function frozenLedger(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && ledger.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (ledger.frozen.length < count) throw new Error(`${String(count)} charges never froze`);
+  await untilReached(() => ledger.frozen.length >= count, `${String(count)} charges never froze`);
 }
 
 beforeEach(() => {

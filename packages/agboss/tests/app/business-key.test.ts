@@ -46,6 +46,7 @@ import {
   SendChargeTool,
 } from "./fixtures/business-key.workflow.js";
 import { gateway, LookupMode, resetGateway } from "./fixtures/payment-gateway.js";
+import { untilReached } from "../helpers/reached.js";
 
 const test = testWith(BusinessKeyApplication);
 const real = testWith(BusinessKeyApplication, { concurrency: TestConcurrency.Real });
@@ -71,9 +72,7 @@ function chainTextOf(error: unknown): string {
 
 /** Until `count` outbound charges are frozen before they are sent. */
 async function frozenCharges(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && ledger.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (ledger.frozen.length < count) throw new Error(`${String(count)} charges never froze`);
+  await untilReached(() => ledger.frozen.length >= count, `${String(count)} charges never froze`);
 }
 
 describe("#508 AC1: the model calls the charge tool twice", () => {

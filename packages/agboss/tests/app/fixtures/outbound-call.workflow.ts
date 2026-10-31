@@ -26,6 +26,7 @@ import { hours } from "../../../src/units/index.js";
 import { start, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
+import { untilReached } from "../../helpers/reached.js";
 
 /**
  * #505 — an order charged through `OutboundCalls`: the action has no table or retry logic of its
@@ -70,9 +71,7 @@ export function letRunsGo(): void {
 
 /** Until `count` runs are frozen before their call. */
 export async function frozenRuns(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && runs.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (runs.frozen.length < count) throw new Error(`${String(count)} runs never froze`);
+  await untilReached(() => runs.frozen.length >= count, `${String(count)} runs never froze`);
 }
 
 /** Waits until let go when the lever says so. */

@@ -65,6 +65,7 @@ import {
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
+import { untilReached } from "../helpers/reached.js";
 
 const overrides = [override(Logger, RecordingLogger)];
 const test = testWith(BusinessKeyApplication, { overrides });
@@ -73,9 +74,7 @@ const charge = { orderId: "42", amountUsd: 10 };
 
 /** Until `count` outbound charges of the business-key fixture are frozen. */
 async function frozenLedger(count: number): Promise<void> {
-  for (let tick = 0; tick < 2000 && ledger.frozen.length < count; tick += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-  if (ledger.frozen.length < count) throw new Error(`${String(count)} charges never froze`);
+  await untilReached(() => ledger.frozen.length >= count, `${String(count)} charges never froze`);
 }
 
 /** A charge that never returns, whatever its step's signal says. */
