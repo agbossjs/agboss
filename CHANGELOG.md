@@ -17,7 +17,8 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
   loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
-  SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 18 scenarios
+  SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 20 scenarios (#533:
+  two of a pod whose clock is ten leases ahead or behind, `world.pod(name, { clockSkew })`)
   that each tree had one owner at a time, every child and every charge happened once, a hand-over
   undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
   points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations

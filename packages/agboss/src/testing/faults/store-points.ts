@@ -54,6 +54,8 @@ export const leaseFacts = (lease: unknown): unknown => {
     holderInstanceId,
     leaseEpoch,
     expiresAt: expiresAt.toISOString(),
+    // the time the store said is left (#533)
+    remaining: (lease as ExecutionLease).remaining,
     ...(takenOverFrom === undefined ? {} : { takenOverFrom }),
   };
 };

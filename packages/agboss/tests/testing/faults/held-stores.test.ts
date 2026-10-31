@@ -126,14 +126,14 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
     const lease = await taking;
     expect(lease).toBeDefined();
     if (lease === undefined) return;
-    expect(await leases.renew(lease, seconds(30))).toBe(true);
+    expect(await leases.renew(lease, seconds(30))).toBe(seconds(30));
     await leases.finish(lease);
     expect(
       history.operations
         .slice(-2)
         .map(({ invoke, complete }) => [invoke.operation, complete?.output]),
     ).toEqual([
-      ["lease.renew", true],
+      ["lease.renew", seconds(30)],
       ["lease.finish", null],
     ]);
   });
@@ -154,6 +154,7 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
       holderInstanceId: "instance-1",
       leaseEpoch: 1,
       expiresAt: new Date(0),
+      remaining: seconds(30),
     };
     vi.spyOn(InMemoryExecutionLeaseRepository.prototype, "release").mockRejectedValueOnce(
       new RangeError("the disk is full"),

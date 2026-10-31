@@ -4,7 +4,12 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { systemClock } from "../../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
-import { TIME_ORIGIN_VARIABLE, TIME_SCALE_VARIABLE } from "./fault-clock.js";
+import {
+  TIME_ORIGIN_VARIABLE,
+  CLOCK_OFFSET_VARIABLE,
+  CLOCK_DRIFT_VARIABLE,
+  TIME_SCALE_VARIABLE,
+} from "./fault-clock.js";
 import type { OperationEvent } from "./operation-history.js";
 import {
   POD_VARIABLES,
@@ -35,6 +40,8 @@ export interface PodLaunch {
   readonly timeOrigin: number;
   readonly shutdownTimeout?: Milliseconds | undefined;
   readonly maxConcurrentSteps?: number | undefined;
+  /** The pod's clock skew (#533). */
+  readonly clockSkew?: { readonly offset?: number; readonly drift?: number } | undefined;
   /** Each store operation the pod reports (the run's history). */
   readonly onOperation: (event: OperationEvent) => void;
   /** Each event the pod sends (its replies too). */
@@ -220,6 +227,8 @@ const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
   [POD_VARIABLES.maxConcurrentSteps]: launch.maxConcurrentSteps?.toString() ?? "",
   [TIME_SCALE_VARIABLE]: String(launch.timeScale),
   [TIME_ORIGIN_VARIABLE]: String(launch.timeOrigin),
+  [CLOCK_OFFSET_VARIABLE]: String(launch.clockSkew?.offset ?? 0),
+  [CLOCK_DRIFT_VARIABLE]: String(launch.clockSkew?.drift ?? 0),
 });
 
 /** Starts a pod and waits until it is ready. */

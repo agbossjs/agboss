@@ -78,6 +78,7 @@ export class FaultWorld {
       timeOrigin: this.timeOrigin,
       shutdownTimeout: options.shutdownTimeout,
       maxConcurrentSteps: options.maxConcurrentSteps,
+      clockSkew: options.clockSkew,
       onOperation: (event) => {
         this.history.record(event);
         this.#notify();
