@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the store's time decides a lease's expiry (#533)
+
+- **Breaking for stores outside the core**: `ExecutionLease.remaining` (required) — the time the
+  store says the lease has left after its own instant of the take; `ExecutionLeaseRepository.renew`
+  returns it (`Promise<Milliseconds | undefined>`, `undefined` once the lease is over) instead of a
+  boolean; `acquire` and `reclaim` return it on the lease. A networked store decides expiry by its
+  database's time inside each statement (PostgreSQL `clock_timestamp()`), unless a test injects its
+  clock (`StoreClock.isDatabaseTime` false). **Migration:** return `remaining`
+  (`remainingOf(expiresAt, now)`, both on the store's clock), take `StoreClock` in `deps`, build the
+  contract target from `seam.storeClock` ([Your own store](Your-own-store#recipes-sql)).
+- **Changed**: the holder fences itself on elapsed time — `sentAt + remaining − 1 s`
+  (`LEASE_SAFETY_MARGIN`) from when it sent the request, counted on its `Clock.monotonicNow()` (new)
+  and on its wall clock, the earlier ending it —, so an offset never moves its fence and a step or a
+  suspend only ends it sooner; a holder trusts a fresh lease for 29 s, not 30 s, and a `remaining`
+  that is not a finite number ≥ 0 not at all. An outbound call's `send` starts only while the
+  holder's fence holds.
+- **New**: `StoreClock` / `DatabaseStoreClock` (root), `TestStoreClock` (`@agboss/core/testing`);
+  `testWith(App, { clockSkews })` with `ClockSkew` and `SkewedClock` (`@agboss/core/testing`); contract cases of the store's time as
+  the authority, on real time, with the other instance's clock off by ± lease/2, ± lease and
+  ± 10 × lease ([Several instances](Several-instances#the-execution-lease)).
+
+
 ## Unreleased — 0.1.1: the fault suite (#484)
 
 - **Added — `@agboss/core/testing/faults`**: `faultSuite({ name, stores, database, timeScale?,

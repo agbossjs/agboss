@@ -124,9 +124,31 @@ one (#526 AC5). Don't copy them:
 
 ## Recipes: SQL
 
-Every time value is a **parameter from the framework's `Clock`**, never `now()` of the database:
-the suites move time with a `VirtualClock`, and a store on the database's time fails their
-time-based cases.
+**The store's time decides a lease's expiry (#533)** — never the calling instance's clock, which
+may run ahead or behind the others. Inject `StoreClock` (`@Injectable({ deps: [PostgresConnection,
+StoreClock, ApplicationContext] })`): in production (`storeClock.isDatabaseTime`) every statement that
+takes, renews, yields, reclaims, fences or closes a lease reads the database's own time once,
+inside that statement — PostgreSQL `clock_timestamp()` in a CTE, MongoDB `$$NOW`, Redis `TIME` in
+the script; with a test's clock injected (`isDatabaseTime` false, `testWith` and the contract
+suites' virtual-time cases) the statement takes `storeClock.now()` as a parameter instead, so the
+suites can move time. Every take and renewal answers the time left, `remaining = expires_at − now`
+of that one statement (`remainingOf(expiresAt, now)`, whole ms, rounded down) — `renew` returns it,
+`undefined` once the lease is over; `acquire` and `reclaim` return it on the lease. The holder
+trusts its lease for `remaining − 1 s` from the moment it **sent** the request, on its monotonic
+clock, so neither the database's clock nor its own wall clock is ever compared with another's. A
+renewal never shortens a live lease. Build the contract target from `seam.storeClock`: the
+suites' "store's time is the authority" cases run on real time with the other instance's own clock
+(`seam.clock`) off by ± lease/2, ± lease and ± 10 × lease, and a store that reads it fails them.
+
+```sql
+-- $now: clock_timestamp() in production, the test's clock (a parameter) when one is injected
+WITH t AS (SELECT clock_timestamp() AS now)
+UPDATE agboss_execution_leases SET expires_at = t.now + make_interval(secs => $5 / 1000.0)
+  FROM t
+  WHERE tenant_id = $1 AND root_execution_id = $2 AND holder_instance_id = $3 AND lease_epoch = $4
+    AND NOT released AND expires_at > t.now
+  RETURNING floor(extract(epoch FROM expires_at - t.now) * 1000) AS remaining;  -- no row: over
+```
 
 **A lease, taken in one statement**: the conflict decides, so two instances can't both win.
 
@@ -139,14 +161,14 @@ ON CONFLICT (tenant_id, root_execution_id) DO UPDATE SET
   lease_epoch = l.lease_epoch + 1,
   expires_at = EXCLUDED.expires_at,
   released = false
-WHERE NOT l.finished AND (l.released OR l.expires_at <= $5)   -- $5: the clock's now
+WHERE NOT l.finished AND (l.released OR l.expires_at <= $5)   -- $5: the store's now (#533)
 RETURNING lease_epoch;                                       -- no row: refused
 ```
 
 `renew`, `release`, `yield` and `finish` are one `UPDATE … WHERE tenant_id = $1 AND
 root_execution_id = $2 AND holder_instance_id = $3 AND lease_epoch = $4 AND NOT released` each, and
 succeed only when exactly one row changed; `renew`, `yield` and `reclaim` add `AND expires_at > $5`
-(the clock's now).
+(the store's now, read in that statement, #533).
 
 **The boundary (#534): a lease is live while `expires_at > now`, and only then — for every
 instance, its holder included.** At `now >= expires_at` it is over: `acquire` takes it (`expires_at
@@ -323,15 +345,16 @@ import {
   RateLimitRepository,
   type ApplicationContext,
   type Clock,
+  type StoreClock,
 } from "@agboss/core";
 import type { FencedEffectStores } from "@agboss/core/testing/contracts";
 declare class Pool { query(sql: string): Promise<void>; }
 declare const pool: Pool;
-declare const PgLeases: new (pool: Pool, clock: Clock, application: ApplicationContext) => ExecutionLeaseRepository;
+declare const PgLeases: new (pool: Pool, clock: StoreClock, application: ApplicationContext) => ExecutionLeaseRepository;
 declare const PgLeaseLog: new (pool: Pool) => ExecutionLeaseEventRepository;
-declare const PgCalls: new (pool: Pool, clock: Clock) => OutboundCallRepository;
+declare const PgCalls: new (pool: Pool, clock: StoreClock) => OutboundCallRepository;
 declare const PgRateLimits: new (pool: Pool, clock: Clock, application: ApplicationContext) => RateLimitRepository;
-declare function pgFencedEffects(pool: Pool, clock: Clock, application: ApplicationContext): FencedEffectStores<PoolClient>;
+declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectStores<PoolClient>;
 -->
 
 ```ts
@@ -342,12 +365,12 @@ storeConformance({
   name: "PostgreSQL",
   reset: () => pool.query("TRUNCATE agboss_execution_leases, agboss_fenced_effect_results"),
   stores: {
-    executionLease: (seam) => new PgLeases(pool, seam.clock, seam.application),
+    executionLease: (seam) => new PgLeases(pool, seam.storeClock, seam.application),
     executionLeaseEvent: () => new PgLeaseLog(pool),
-    fencedEffect: (seam) => pgFencedEffects(pool, seam.clock, seam.application),
+    fencedEffect: (seam) => pgFencedEffects(pool, seam.storeClock, seam.application),
     outboundCall: (seam) => ({
-      calls: new PgCalls(pool, seam.clock),
-      leases: new PgLeases(pool, seam.clock, seam.application),
+      calls: new PgCalls(pool, seam.storeClock),
+      leases: new PgLeases(pool, seam.storeClock, seam.application),
     }),
     rateLimit: (seam) => new PgRateLimits(pool, seam.clock, seam.application),
   },
@@ -485,7 +508,10 @@ held operation. You write no seam of your own to force an order across processes
 
 ## Checklist
 
-- [ ] Every time value comes from the framework's `Clock` (a parameter), never the database's.
+- [ ] A lease's expiry is decided by the store's time (#533): the database's, read inside each
+      statement, unless `StoreClock.isDatabaseTime` is false (a test's clock, a parameter) — never
+      the caller's `Clock`. `acquire`, `renew` and `reclaim` answer `remaining`; the target is built
+      from `seam.storeClock`.
 - [ ] `acquire` is one atomic step; `renew` / `release` / `yield` / `reclaim` / `finish` match the
       holder and the epoch, and succeed only when one row changed.
 - [ ] A lease is live while `expires_at > now` in every statement, for its holder too (#534):

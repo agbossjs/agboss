@@ -261,9 +261,11 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   is aborted through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
   That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
   record — the new holder owns the execution and continues it;
-- fences itself locally (#335): it trusts the lease until `confirmedUntil` — the `Clock` read
-  before its last acquire or renewal the store confirmed, plus 30 seconds (the store counts from a
-  later moment, so its lease never ends earlier). A lease store that errors **before** then is
+- fences itself locally (#335, #533): it trusts the lease until `sentAt + remaining − 1 s` of its
+  last acquire or renewal the store confirmed — `remaining` the time the store said is left,
+  `sentAt` the holder's monotonic time when it sent that request (the store counts from a later
+  moment, so its lease never ends earlier). `confirmedUntil` is that deadline shown on the wall
+  clock. A lease store that errors **before** then is
   tried again at the next renewal, and a checkpoint write goes on. When `confirmedUntil` comes with
   no confirmed renewal — the store unreachable for the whole lease — the holder stops at that
   moment, whether or not another instance took the lease yet: its signal aborts with
@@ -281,13 +283,34 @@ only by `acquire`, at a new epoch, recorded as a takeover from itself. Every che
 the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
 fence (`now >= confirmedUntil`) — so no lease is kept by one part of the system and given up by
 another, and at the very instant of expiry only the taker wins. A healthy holder never comes near
-it: it renews every 10 s, a third of the lease, so each renewal reaches the store with 20 s left,
-and one renewal its store does not answer still leaves 10 s. What reaches it is a stop-the-world
+it: it renews every 10 s, a third of the lease, so each renewal reaches the store with 20 s left (19 s
+of its own trust, #533), and one renewal its store does not answer still leaves 10 s. What reaches it is a stop-the-world
 pause (a GC pause, a frozen VM) of 30 s or more: the holder hands the tree over at its next renewal
 or write, and recovery continues it from its last checkpoint — one owner at a time, the effects of
 its steps keyed and fenced, so none is lost and none runs twice. In tests one `clock.advance` of a
 whole lease is such a pause; to let time pass for a live holder, advance in steps shorter than the
 lease.
+
+**Whose clock (#533).** Instances' wall clocks disagree — one runs seconds ahead, another a
+little slow. None of them decides when a lease ends: **the store does, by its own time** — a
+networked store (PostgreSQL) reads its database's clock inside each statement that takes, renews,
+fences or closes a lease, so every instance agrees on the instant of expiry; in-memory and SQLite,
+on one host, read its clock. The store answers how long the lease has left (`remaining`), and the
+holder counts that down from the moment it sent the request, minus a safety margin of 1 s, on its
+**monotonic** clock and on its own wall clock at once, the earlier ending it — never comparing its
+wall clock with anyone's: an offset moves neither count, a step of its wall clock back is bounded by
+the monotonic count, a step forward or a suspend of its host (which stops the monotonic clock) by the
+wall count. A `remaining` that is not a finite number ≥ 0 counts as 0: the holder fails closed. An instance whose clock is
+ahead by half a lease, a lease or ten leases can therefore not take a lease its holder still
+trusts, and one behind takes an expired lease on time. What is left is drift — how much faster or
+slower the holder's and the database's clocks run over one 30 s lease, together; the margin covers
+up to 1 s of it (3.3 %; a healthy quartz clock drifts 0.005 %). Assumed: the database's clock is
+slewed, never stepped (a step forward ends every lease early by its size), and a pause that stops
+both of the holder's clocks while the database's runs on is outside the bound. Tests skew an instance with `testWith(App, { instances: 2,
+clockSkews: [ClockSkew.none, ClockSkew.ahead(seconds(300))] })`: its wall time, monotonic time and
+sleeps run off the test's clock, while the stores keep the test's own (`lease-skew.test.ts`,
+`lease-skew-charge.test.ts` prove one live holder, no send after the holder's fence and one charge
+for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
@@ -1064,9 +1087,10 @@ before #334 has no key: its execution goes on with the key of the instance that 
 ## Your own implementation
 
 A project's implementation `extends` the contract and is listed in `@Application({ providers })`
-(`<Qualifier><Contract>`, e.g. `RedisExecutionLeaseRepository`). Its operations are atomic, and every
-time value comes from the framework (`lease` is a duration, `expiresAt` a `Date`; the current time
-from the application's `Clock`, `deps: [Clock]`), never from the store's own clock:
+(`<Qualifier><Contract>`, e.g. `RedisExecutionLeaseRepository`). Its operations are atomic, and it
+decides expiry by the store's time (#533: `deps: [StoreClock]` — the database's own clock in each
+statement, or the test's when one is injected), never by the calling instance's `Clock`; `lease` is
+a duration, and every take and renewal answers the time left (`remaining`):
 
 <!-- snippet-context
 @Injectable()
@@ -1074,8 +1098,8 @@ export class LeaseTableService {
   insertIfFree(_tenantId: string, _rootExecutionId: string, _lease: number): Promise<ExecutionLease | undefined> {
     return Promise.resolve(undefined);
   }
-  extendIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<boolean> {
-    return Promise.resolve(false);
+  extendIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
   }
   deleteIfHeld(_executionLease: ExecutionLease): Promise<void> {
     return Promise.resolve();
@@ -1113,7 +1137,11 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.leaseTableService.insertIfFree(tenantId, rootExecutionId, lease);
   }
 
-  override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+  // #533: the time the lease has left, on the store's clock; undefined once it is over
+  override renew(
+    executionLease: ExecutionLease,
+    lease: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
     return this.leaseTableService.extendIfHeld(executionLease, lease);
   }
 
@@ -1173,19 +1201,22 @@ A **`ContractTarget<TStore>`** says how to build the store under test:
 | `reset?()` | before each case: an empty backing store (truncate, a new schema, a new file); a failing reset fails the case with its error |
 | `close?(store)` | after each case, per built store: close connections |
 
-The **`StoreSeam`** it builds from is the suite's: `clock` (one `VirtualClock` per case at
-`2026-01-05T09:00:00.000Z`, shared by both instances, moved only by the case — a store that reads the
-database's or the machine's time fails the time-based cases), `instanceId` (`instance-1`,
+The **`StoreSeam`** it builds from is the suite's: `storeClock` (#533: the time the store decides
+by — in most cases the suite's `VirtualClock` injected, one per case at `2026-01-05T09:00:00.000Z`,
+shared by both instances, moved only by the case, `isDatabaseTime` false; in the cases of the
+store's time as the authority the database's own, on real time, `isDatabaseTime` true), `clock`
+(the instance's own clock: the same `VirtualClock`, or in those cases the real time skewed for the
+second instance — a store that decides by it fails them), `instanceId` (`instance-1`,
 `instance-2`: the holder of leases, the claimer of queued children) and `application` (the instance's
 `ApplicationContext`). A case that needs one instance uses the first.
 
 <!-- snippet-context
-import { ExecutionLeaseRepository, type ApplicationContext, type Clock } from "@agboss/core";
+import { ExecutionLeaseRepository, type ApplicationContext, type StoreClock } from "@agboss/core";
 declare class Pool { query(sql: string): Promise<void>; end(): Promise<void>; }
 declare const pool: Pool;
 declare const PostgresExecutionLeaseRepository: new (
   pool: Pool,
-  clock: Clock,
+  clock: StoreClock,
   applicationContext: ApplicationContext,
 ) => ExecutionLeaseRepository;
 -->
@@ -1196,7 +1227,7 @@ import { executionLeaseContract } from "@agboss/core/testing/contracts";
 
 executionLeaseContract({
   name: "PostgreSQL",
-  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.clock, seam.application),
+  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.storeClock, seam.application),
   reset: () => pool.query("TRUNCATE execution_leases"),
 });
 ```
