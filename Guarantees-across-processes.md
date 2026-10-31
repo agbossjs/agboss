@@ -34,7 +34,9 @@ it on SQLite (several processes on one file), agbossjs/postgres on PostgreSQL.
   Every wait is bounded and fails with what it waited for and what came instead.
 - **Time.** The pods run on the application's `Clock`, with the lease the core uses (30 s). The
   core's own run scales every pod's clock ten times, from one shared origin, so the pods agree on
-  every expiry. agbossjs/postgres runs on the real clock.
+  every expiry. agbossjs/postgres runs on the real clock on pushes to `main` and nightly, and five
+  times faster on pull requests (since #533 the database's clock decides when a lease expires, so
+  the wait for an expiry is real time there anyway).
 
 ## The invariants
 
@@ -74,6 +76,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 4 | A lease expires while its pod lives: its renewals stall at the store | Past its last confirmed renewal the pod stops the step without charging (`LeaseLost`); another pod takes the lease over; the stalled renewals are refused | `s04-lease-expires` (`s04-lease-expiry.test.ts`) |
 | 5 | `SIGSTOP` at the charge's write, `SIGCONT` after the new holder charged | The zombie's write is refused by the store (`ExecutionFencedError`); it hands over; nothing is undone | `s05-zombie-write-refused` (`s05-zombie.test.ts`) |
 | 5b | The same, the zombie's write reaching the store **before** the new holder's | Refused by the store's lease check; the new holder charges once | `s05b-zombie-reaches-charge-first` |
+| 5c | The same at the payment: the zombie frozen at its intent (`outboundCall.saveIfAbsent`), reaching the outbound-call store before the new holder's (#584) | Refused by the outbound-call store's lease check: a zombie records no payment; one payment | `s05c-zombie-reaches-payment-first` |
 | 6 | Scale-down (`SIGTERM`) while three children run on three pods | The stopped pod's child is reclaimed from its checkpoint by a live pod: no child lost, none run twice | `s06-scale-down-children` (`s06-children.test.ts`) |
 | 6b | A pod frozen at its ask for another pod's child's lease, thawed after that child finished | The store refuses the finished child's lease in `acquire` itself; no takeover is written (#520 AC1) | `s06b-finished-child-not-taken` |
 | 7 | A new pod joins while the busy pod's child waits in the queue | It claims and runs the waiting child; each child runs once | `s07-new-pod-claims-pending` (`s07-new-pod.test.ts`) |
@@ -94,6 +97,21 @@ negative tests prove it (`tests/faults/sabotage.test.ts`):
   the new epoch was granted.
 - A lease store whose **`finish` is a plain `release`**: it fails 6b on `finished-work-untouched`,
   because the frozen pod was granted the finished child's lease.
+- An outbound-call store with **no fencing check on the payment's intent** (#584): it fails 5c on
+  `one-owner`, because the zombie's intent was accepted after the new epoch was granted.
+
+**A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
+no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or
+outbound-call store declares the opt-out fails it with `[fault-suite.opted-out-store]`, naming the
+stores. Its scenarios may well pass, since none of their races hits the gap, but such a set
+protects no payment ([Your own store](Your-own-store)).
+
+**What the suite leaves to `storeConformance`.** The scenarios look for a second owner, a second
+charge, a lost or doubled child, an undo on a hand-over and a tree that never ends. A store that
+breaks a rule without causing any of these passes them. Example: a fence or a `renew` that ignores
+the lease's expiry while nobody has taken the lease yet. The holder's own fencing stops it first,
+and no other owner exists at that moment. The boundary cases of `storeConformance` (#534) catch
+such a store, so run both.
 
 ## What is left to the application and to downstream systems
 
@@ -123,8 +141,9 @@ The suite proves the framework's side under the faults above. These parts are yo
 - **The store's atomic steps.** The suite runs your store under faults. The atomic steps themselves
   are proven by `storeConformance` ([Your own store](Your-own-store)), and the fencing stores must
   share one transactional backend.
-- **Clocks.** The pods of a run share one clock. Pods with skewed clocks and the bound such skew
-  needs are #533's.
+- **Clocks.** The pods of a run share one origin. Scenario 13 skews one pod's clock ten leases
+  either way (#533). The stores decide expiry by the database's time, so the holder's fencing needs
+  its clock to *run* at the right rate, not to be set right (Several instances → the lease).
 
 ### What a reader of the records should know
 

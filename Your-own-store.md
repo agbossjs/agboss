@@ -641,12 +641,11 @@ held operation. You write no seam of your own to force an order across processes
       database). The fencing stores declare `static leaseRepository` for unit runners.
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
-- [ ] `storeConformance` passes with every store the set has, the explorer included (#533); the
-      ones it lacks are in `without`.
-
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.
       A store that opts out of the lease check passes only with
       `acceptWithoutDoubleChargeProtection: true`, its fencing cases skipped: it is not conformant
       for fencing and backs no payment (#543).
-- [ ] `faultSuite` passes on the set, against a real database, in CI.
+- [ ] `storeConformance` passes with every store the set has, the explorer included (#533).
+- [ ] `faultSuite` passes on the set, against a real database, in CI. An opted-out set fails its
+      `fences atomically …` case (#584).
 - [ ] The README lists the stores together, links this page, and says which backend they declare.

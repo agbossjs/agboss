@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the fault suite proves the payment's fence and refuses an opted-out set (#584)
+
+- **Added**: scenario 5c `s05c-zombie-reaches-payment-first`. A pod is frozen at its payment's
+  intent while another takes the tree over; its stale write must be refused. Before, no scenario
+  let a zombie reach the outbound-call store, and a store that recorded an intent under any token
+  passed all twenty scenarios.
+- **Added**: `faultSuite`'s case `fences atomically: no store declares
+  LeaseCheck.WithoutDoubleChargeProtection` fails a set whose fenced-effect or outbound-call store
+  opts out: `[fault-suite.opted-out-store]`, `FaultSuiteOptedOutError` naming the stores. Found in
+  the acceptance of #484. Guarantees-across-processes.
 ## Unreleased — 0.1.1: a root execution id and the CLI's --tenant are keys' text too (#580)
 
 - `app.leaseEventsOf` and `app.outboundCallsOf` refuse a `rootExecutionId` that is no key's text
@@ -16,6 +26,7 @@ Breaking changes and notable additions, newest first. The API reports
   it stays running and the next take of its lease continues it — another instance, or this
   application once it starts again —, no longer "another instance continues it": on a lone instance
   there is none (#567's rule). Class, code and behaviour unchanged. Found in the acceptance of #567.
+
 
 ## Unreleased — 0.1.1: a child's end is heard once (#562)
 
