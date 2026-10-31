@@ -4,6 +4,7 @@ import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { LEASE_CONFIRM_CASES } from "./execution-lease-confirm.cases.js";
 import { LEASE_EXPIRY_CASES } from "./execution-lease-expiry.cases.js";
+import { LEASE_FINISH_EDGE_CASES } from "./execution-lease-finish-edges.cases.js";
 import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
 import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
@@ -121,7 +122,7 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
       { cases: LEASE_CASES },
       { title: "a yielded lease", cases: [...LEASE_YIELD_CASES, ...LEASE_YIELD_EDGE_CASES] },
       { title: "the lease's expiry, for its holder too", cases: LEASE_EXPIRY_CASES },
-      { title: "a finished lease", cases: LEASE_FINISH_CASES },
+      { title: "a finished lease", cases: [...LEASE_FINISH_CASES, ...LEASE_FINISH_EDGE_CASES] },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
       { title: "the framework's holder at the lease's expiry", cases: LEASE_CONFIRM_CASES },
       { title: "the framework's take of finished work", cases: LEASE_FINISH_HOLDER_CASES },
