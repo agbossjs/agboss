@@ -10,6 +10,13 @@ Breaking changes and notable additions, newest first. The API reports
   says the lease is over — it expired, was released, or another instance took it — and that the next
   take continues. A holder whose lease ran out with no renewal confirmed no longer reads "another
   instance continues". Fields and codes unchanged. Found in the acceptance of #551.
+## Unreleased — 0.1.1: a tenant id at the operator's reads and the mesh's dedupe (#568)
+
+- `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCalls` refuse a tenant id that
+  is no key's text (`dto.invalid` naming `tenantId` and the rule, never the id): on SQLite and
+  PostgreSQL `t\uD800` read tenant `t\uFFFD`'s pending charges and lease log. A trusted A2A request
+  or MCP call under such a tenant id is never deduplicated, and its `onExecutionRejected` names the
+  tenant `"default"`, as the event's documentation says. Found in the acceptance of #552.
 
 ## Unreleased — 0.1.1: a fencing contract run alone shows its opt-out (#566)
 

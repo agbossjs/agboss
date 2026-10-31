@@ -719,7 +719,12 @@ export class ChargeOrderAction {
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
   (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
   the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
-  database, and an NFD or zero-width tenant id would be a second tenant of one customer. A lone
+  database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
+  operator's reads (#568): `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCalls`
+  refuse such a tenant id before the store is asked (on SQLite `t\uD800` would read `t\uFFFD`'s
+  pending charges and lease log); a trusted A2A request or MCP call under one is never deduplicated
+  (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
+  `"default"`, never the id. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
   name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
   it is part of the keys that go out.
