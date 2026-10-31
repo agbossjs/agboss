@@ -5,8 +5,9 @@ import { UNKNOWN, type CheckedOperation } from "./operations.js";
 /**
  * The search of a linearization (#533 item 5, Wing & Gong with Porcupine's memo): operations that
  * touch no common object are checked apart (a lease's tree, its scope, a call's identity); within
- * one part, the next operation taken is one invoked before every operation still to take completed,
- * at an instant within its span and not before the last one taken — the earliest such instant, or
+ * one part, the next operation taken is one invoked before every operation still to take completed
+ * (the exact real-time order of the machine's clock), at an instant within its span widened by the
+ * slack and not before the last one taken — the earliest such instant, or
  * the latest when the earliest gives another answer than the store's (a lease is live, then not:
  * one of the two gives each answer the store could have; a lease's spans are milliseconds, its
  * length 30 s, so the instant chosen moves no later expiry across another operation).
@@ -73,10 +74,12 @@ class PartSearch {
     this.#seen.add(memo);
     if (at.order.length > this.longest.length) this.longest = at.order;
     const deadline = Math.min(
-      ...open.filter((operation) => operation.output !== UNKNOWN).map((operation) => operation.to),
+      ...open
+        .filter((operation) => operation.output !== UNKNOWN)
+        .map((operation) => operation.completedAt),
     );
     const next = this.operations.flatMap((operation, index) =>
-      !at.taken[index] && operation.from <= deadline ? [index] : [],
+      !at.taken[index] && operation.invokedAt <= deadline ? [index] : [],
     );
     for (const index of next) if (this.#tried(at, index)) return true;
     if (at.order.length >= this.longest.length)
@@ -110,7 +113,9 @@ const never = (): never => {
 /** The parts of `operations` that are not linearizable on the sequential model. */
 export function notLinearizable(operations: readonly CheckedOperation[]): NotLinearizable[] {
   return partsOf(operations).flatMap((part) => {
-    const search = new PartSearch([...part].sort((left, right) => left.from - right.from));
+    const search = new PartSearch(
+      [...part].sort((left, right) => left.invokedAt - right.invokedAt),
+    );
     const start: SearchState = {
       taken: part.map(() => false),
       state: EMPTY_FENCING_STATE,

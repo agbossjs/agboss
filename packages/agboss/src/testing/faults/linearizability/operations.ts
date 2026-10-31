@@ -21,7 +21,14 @@ export interface CheckedOperation {
   readonly input: Readonly<Record<string, unknown>>;
   /** What the store answered (`"fenced"` for the fence's refusal), or `UNKNOWN`. */
   readonly output: unknown;
-  /** Its span on the store's time, in ms: it took effect at one instant within. */
+  /**
+   * Its span on the machine's time, as store ms: invoked, completed (`+∞` when it never did). The
+   * real-time order: one completed before another was invoked took effect first. Every pod reads
+   * one clock (the host's monotonic), so this order is exact.
+   */
+  readonly invokedAt: number;
+  readonly completedAt: number;
+  /** The span widened by the slack: the store's own instant it took effect at is within. */
   readonly from: number;
   readonly to: number;
 }
@@ -67,15 +74,19 @@ export function checkedOperationsOf(
     .filter((operation) => MODELLED.has(operation.invoke.operation))
     .map((operation) => {
       const { invoke, complete } = operation;
+      const invokedAt = storeMsOf(invoke.at, scale);
+      const completedAt =
+        complete === undefined ? Number.POSITIVE_INFINITY : storeMsOf(complete.at, scale);
       return {
         id: invoke.id,
         kind: invoke.operation,
         holder: invoke.instanceId,
         input: (invoke.input ?? {}) as Readonly<Record<string, unknown>>,
         output: outputOf(operation),
-        from: storeMsOf(invoke.at, scale) - slack,
-        to:
-          complete === undefined ? Number.POSITIVE_INFINITY : storeMsOf(complete.at, scale) + slack,
+        invokedAt,
+        completedAt,
+        from: invokedAt - slack,
+        to: completedAt + slack,
       };
     });
 }

@@ -154,6 +154,18 @@ describe("#533 item 5: the linearizability checker", () => {
     expect(failures(history)).toHaveLength(1);
   });
 
+  it("bites: a take invoked right after a finish completed — the slack widens instants, never the order", () => {
+    // fault scenario 6b on a finish that is a release: the release inside the finish's span, the
+    // other's take invoked 1 ms after the finish answered, well within the 50 ms slack
+    const history = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 5)
+      .op(StoreHoldPoint.LeaseFinish, "a", lease("a", 1), null, 100, 103)
+      .op(StoreHoldPoint.LeaseRelease, "a", lease("a", 1), null, 101, 102)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 104, 108);
+
+    expect(linearizabilityOf(history.history, { slack: 50 })).toHaveLength(1);
+  });
+
   it("bites: two claims of the next attempt from one read, both won", () => {
     const call = (claimer: string) => ({
       ...key(1),
