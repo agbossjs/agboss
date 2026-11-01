@@ -1,4 +1,6 @@
 import { AGBossError } from "../core/errors.js";
+import { definedOf } from "../infrastructure/clock.js";
+import type { ExecutionLease } from "../infrastructure/execution-lease.repository.js";
 
 /**
  * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the holder
@@ -132,3 +134,23 @@ function fencedReasonOf({ token, observedToken }: ExecutionFencedErrorOptions): 
       : `the external system saw token ${String(observedToken)}, no newer take`;
   return `${seen} — the lease is over: it expired, was released, or another instance took it; this instance stops, the next take of the lease continues the execution`;
 }
+
+/**
+ * A `HeldLease`'s current lease where an invariant of the holder says it is defined (#619): read
+ * with `definedOf`, not an `if` whose other side never runs — which a mutation test meets as an
+ * equivalent mutant.
+ */
+
+/** At a release that got past its `#stopped` check: only such a release clears it. */
+export const heldAtRelease = (current: ExecutionLease | undefined): ExecutionLease =>
+  definedOf(
+    current,
+    "a held lease is cleared only by a release past its #stopped check, which a second release never gets past",
+  );
+
+/** When the yields' callback runs: it returns once `#stopped` aborts, before a release clears it. */
+export const heldWhileYieldsRun = (current: ExecutionLease | undefined): ExecutionLease =>
+  definedOf(
+    current,
+    "the yields' callback returns once #stopped aborts, which a release does before it clears the lease",
+  );

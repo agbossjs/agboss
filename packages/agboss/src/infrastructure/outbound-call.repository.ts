@@ -181,8 +181,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
       const found = this.database.outboundCalls.get(fencedKeyIdentityOf(key));
-      // Stryker disable next-line ConditionalExpression: `structuredClone(undefined)` is undefined
-      return found === undefined ? undefined : structuredClone(found);
+      // a copy of the row, or undefined: `structuredClone(undefined)` is undefined
+      return structuredClone(found);
     });
   }
 
@@ -248,8 +248,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
     const before = cutoff.getTime();
     for (const [row, found] of this.database.outboundCalls)
-      // Stryker disable next-line ConditionalExpression: `Date.parse(undefined)` is NaN, and `NaN < before` is false
-      if (found.endedAt !== undefined && Date.parse(found.endedAt) < before)
+      // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
+      if (new Date(found.endedAt ?? Number.NaN).getTime() < before)
         this.database.outboundCalls.delete(row);
     return Promise.resolve();
   }

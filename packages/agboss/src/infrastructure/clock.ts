@@ -255,3 +255,14 @@ export const timeoutError = (): Error =>
  * to a finite number of milliseconds ≥ 0.
  */
 export const waitOf = (amount: number): Milliseconds => Math.max(0, amount) as Milliseconds;
+
+/**
+ * `value`, which an invariant of the caller says is defined there (#619): the check is no branch
+ * of the caller's own, so a mutation test finds no equivalent mutant in it — a `?:` or an `if`
+ * whose other side never runs. Undefined is a bug, never a state to handle: an `Error` naming the
+ * invariant broken, as `unreachable: …` elsewhere.
+ */
+export function definedOf<TValue>(value: TValue | undefined, invariant: string): TValue {
+  if (value === undefined) throw new Error(`unreachable: ${invariant}`);
+  return value;
+}

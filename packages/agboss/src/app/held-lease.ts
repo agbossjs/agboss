@@ -31,6 +31,7 @@ import {
 import { leaseReleases } from "./lease-releases.js";
 import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
 import type { Milliseconds } from "../units/index.js";
+import { heldAtRelease, heldWhileYieldsRun } from "./lease-lost.js";
 
 /**
  * How a held lease began: when it was asked for (`sentAt`, on both of the clock's counts, #533) and why
@@ -67,7 +68,8 @@ export class HeldLease implements HeldExecutionLease {
   /** When the lease is yielded: never under a running step of the tree (#471). */
   readonly #yields = new LeaseYields(async (shouldYield) => {
     if (this.#stopped.signal.aborted || this.#lost.signal.aborted) return;
-    await (shouldYield ? this.#yieldLease() : this.#reacquireLease());
+    const held = heldWhileYieldsRun(this.#current);
+    await (shouldYield ? this.#yieldLease(held) : this.#reacquireLease(held));
   });
   /** Who a fenced write of the current token stops: this holder (#471). */
   readonly #holder: FencedHolders;
@@ -139,16 +141,15 @@ export class HeldLease implements HeldExecutionLease {
     if (held === undefined || this.#isYieldedNow) this.#fence.lose();
     const { sentAt, renewed } = await renewalOf(this.taking, held);
     // anything but a confirmed renewal is a hand-over: the tree goes on where the lease is held
-    // Stryker disable next-line BooleanLiteral,ConditionalExpression: a `false` answer let past this line reaches `settle`, which loses the lease with this same error, and no renewal answers `true`
-    if (renewed === false || renewed === undefined) this.#fence.lose();
+    if (typeof renewed !== "number") this.#fence.lose();
     this.#fence.settle(sentAt, renewed);
     for (const check of this.#checks) await check();
   }
 
   /** An external system fenced a write of this lease's token (#471): the holder stops with it. */
   fenced(error: ExecutionFencedError): void {
-    // Stryker disable next-line ConditionalExpression: aborting an aborted controller is a no-op that keeps its first reason
-    if (!this.#lost.signal.aborted) this.#lost.abort(error);
+    // a no-op once aborted: the first reason stays
+    this.#lost.abort(error);
   }
 
   async renewNow(): Promise<void> {
@@ -214,9 +215,8 @@ export class HeldLease implements HeldExecutionLease {
     this.#holder.forget();
     this.#isYieldedNow = false;
     // an attempt still in flight: renewals stop, nothing released — the lease expires (#508)
-    // Stryker disable next-line ConditionalExpression: `#current` is undefined only once a release went past its `#stopped` check, which a second release never does
-    if (isSettled && !this.#lost.signal.aborted && this.#current !== undefined) {
-      const held = this.#current;
+    if (isSettled && !this.#lost.signal.aborted) {
+      const held = heldAtRelease(this.#current);
       this.#current = undefined;
       await (isFinished ? this.repository.finish(held) : this.repository.release(held));
     }
@@ -228,10 +228,8 @@ export class HeldLease implements HeldExecutionLease {
    * answer leaves it held there, which other instances see the same way; one that says it is no
    * longer this holder's stops the holder.
    */
-  async #yieldLease(): Promise<void> {
-    const held = this.#current;
-    // Stryker disable next-line ConditionalExpression: `held` is never undefined here — the yields' callback returns once `#stopped` aborts, which a release does before it clears `#current`
-    if (held === undefined || this.#isYieldedNow) return;
+  async #yieldLease(held: ExecutionLease): Promise<void> {
+    if (this.#isYieldedNow) return;
     this.#isYieldedNow = true;
     this.#holder.forget();
     const isYielded = await this.repository.yield(held).catch((): boolean => true);
@@ -239,15 +237,13 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   /** Takes the yielded lease back before a step runs (#516): the next token, or the holder stops. */
-  async #reacquireLease(): Promise<void> {
-    const held = this.#current;
-    // Stryker disable next-line ConditionalExpression: `held` is never undefined here — the yields' callback returns once `#stopped` aborts, which a release does before it clears `#current`
-    if (held === undefined || !this.#isYieldedNow) return;
+  async #reacquireLease(held: ExecutionLease): Promise<void> {
+    if (!this.#isYieldedNow) return;
     const sentAt = sentAtOf(this.clock);
     const next = await this.#turns.run(async () => {
       const reclaimed = await this.repository.reclaim(held, EXECUTION_LEASE);
-      // Stryker disable next-line ConditionalExpression: a failed reclaim loses the holder at once, and nothing reads `#current` of a lost holder (each reader checks `#lost` or `#stopped` first)
-      if (reclaimed !== undefined) this.#current = reclaimed;
+      // in the turn, so the next renewal renews the reclaimed lease; a failed one changes nothing
+      this.#current = reclaimed ?? this.#current;
       return reclaimed;
     });
     if (next === undefined) this.#fence.lose(leaseTakenWhileYieldedError(this.leaseExecutionId));
