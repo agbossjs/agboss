@@ -17,6 +17,7 @@ import { workflowDeclarationOf } from "./module.js";
 import type { AssembledCompactions, CompactionOwners } from "../compaction/assembly.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import type { AgentsConfigOf } from "../config/types.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The workflow's policies over its application's (#120): its PII policies and its guardrails —
@@ -142,7 +143,9 @@ const ownersOf = (bundle: WorkflowMeta, owner: CompactionOwner | undefined): Com
 export async function compactionsFor(
   sources: CompactionSources,
 ): Promise<AssembledCompactions & CompactionConfigPart> {
-  const { compactionPartsOf, compactionSettingsOf } = await import("../compaction/assembly.js");
+  const { compactionPartsOf, compactionSettingsOf } = await lazyLoad(
+    import("../compaction/assembly.js"),
+  );
   const { bundle, owner, agents, graph, loader } = sources;
   const compactions = await compactionPartsOf(ownersOf(bundle, owner), agents, graph, loader);
   return { ...compactions, settings: compactionSettingsOf(compactions) };

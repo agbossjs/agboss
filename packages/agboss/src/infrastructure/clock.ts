@@ -251,6 +251,28 @@ export const timeoutError = (): Error =>
   new DOMException("The operation was aborted due to timeout", "TimeoutError");
 
 /**
+ * The core's lazy loads in flight (#646): a module loaded on first use (`await
+ * lazyLoad(import("./x.js"))`, every dynamic import of the core — lint-enforced), a project file
+ * loaded by path. Under vitest a first load goes through vite's module runner, many turns of the
+ * event loop, so a test's `clock.advance` waits for them before it moves the time.
+ */
+const loading = new Set<Promise<void>>();
+
+/** Returns `load` as it is, kept in flight until it settles. */
+export function lazyLoad<T>(load: Promise<T>): Promise<T> {
+  const settled = load.then(
+    () => undefined,
+    () => undefined,
+  );
+  loading.add(settled);
+  void settled.then(() => loading.delete(settled));
+  return load;
+}
+
+/** The lazy loads in flight now, each as a promise that never rejects. */
+export const loadsInFlight = (): readonly Promise<void>[] => [...loading];
+
+/**
  * A computed wait (a retry delay, a `Retry-After`) as a duration: the brand is applied here, once,
  * to a finite number of milliseconds ≥ 0.
  */

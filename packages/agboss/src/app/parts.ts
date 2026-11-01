@@ -32,6 +32,7 @@ import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 import type { Class } from "../components/injection.js";
 import type { AppDeps } from "./app-deps.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -108,7 +109,7 @@ export const pauseFor = (
 function lazyPauseWithdrawals(depsOf: () => AppDeps): PauseWithdrawn {
   let loaded: Promise<PauseWithdrawn> | undefined;
   return async (withdrawn) => {
-    loaded ??= import("./pause-withdrawals.js").then((module) =>
+    loaded ??= lazyLoad(import("./pause-withdrawals.js")).then((module) =>
       module.pauseWithdrawalsFor(depsOf()),
     );
     const tell = await loaded;

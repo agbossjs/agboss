@@ -11,6 +11,7 @@ import {
   type DescribedEnvironment,
   type LoadedEnvironment,
 } from "./resolve.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Where an application's environments are and how one is chosen (#261): `environments/` next to the
@@ -51,7 +52,7 @@ const fileOf = (dir: string, name: string): string | undefined =>
 type EnvironmentModule = Readonly<Record<string, unknown>>;
 
 const importModule = async (file: string): Promise<EnvironmentModule> =>
-  (await import(pathToFileURL(file).href)) as EnvironmentModule;
+  (await lazyLoad(import(pathToFileURL(file).href))) as EnvironmentModule;
 
 /** The environments of a folder (`dev`, `staging`, …): files that export `environment`, sorted. */
 async function availableEnvironments(dir: string): Promise<string[]> {

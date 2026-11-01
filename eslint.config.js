@@ -153,6 +153,21 @@ export default tseslint.config(
     },
   },
   {
+    // #646: every dynamic import of the core is a lazy load the test's clock waits for
+    files: ["packages/agboss/src/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "ImportExpression:not(CallExpression[callee.name='lazyLoad'] > ImportExpression)",
+          message:
+            "load lazily through lazyLoad(import(…)) (infrastructure/clock.ts): a test's clock.advance waits for it (#646)",
+        },
+      ],
+    },
+  },
+  {
     // the model-call seam itself (#135): src/llm and the model providers (#151) create the clients
     files: ["packages/agboss/src/llm/**/*.ts", "packages/agboss/src/models/**/*.ts"],
     rules: {

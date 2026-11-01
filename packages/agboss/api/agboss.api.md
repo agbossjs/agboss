@@ -7266,10 +7266,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/builder-types.ts:255:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:266:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:271:3 - (ae-undocumented) Missing documentation for "chooseOne".
-// src/flow/compensation.ts:86:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/compensation.ts:114:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/flow/compensation.ts:119:3 - (ae-undocumented) Missing documentation for "compensated".
-// src/flow/compensation.ts:128:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/compensation.ts:87:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/compensation.ts:115:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/flow/compensation.ts:120:3 - (ae-undocumented) Missing documentation for "compensated".
+// src/flow/compensation.ts:129:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/context/application-context.ts:13:3 - (ae-undocumented) Missing documentation for "hostname".
 // src/flow/context/application-context.ts:14:3 - (ae-undocumented) Missing documentation for "pid".
 // src/flow/context/application-context.ts:38:3 - (ae-undocumented) Missing documentation for "host".

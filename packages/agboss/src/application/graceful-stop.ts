@@ -8,7 +8,7 @@ import { leasingOf, type Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
-import { waitOf } from "../infrastructure/clock.js";
+import { waitOf, lazyLoad } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
@@ -174,8 +174,8 @@ function childWorkersOf(
   if (!launchesAnywhere(workflows)) return { stop: () => Promise.resolve() };
   const { infrastructure, log } = parts;
   const started = Promise.all([
-    import("../app/remote/child-workers.js"),
-    import("../app/remote/child-registry.js"),
+    lazyLoad(import("../app/remote/child-workers.js")),
+    lazyLoad(import("../app/remote/child-registry.js")),
   ]).then(([workers, registry]) =>
     workers.startChildWorkers({
       queue: infrastructure.childQueue,

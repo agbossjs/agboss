@@ -6,10 +6,11 @@ import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { DEFAULT_MAX_RESULT_SIZE } from "../../tools/index.js";
 import type { Bytes } from "../../units/index.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /** A knowledge base's block within the agent's `maxResultSize` (#336), the marker after a cut. */
 async function boundedBlock(block: string, maxResultSize: Bytes): Promise<string> {
-  const { boundedText } = await import("../agent-loop/tool-result-size.js");
+  const { boundedText } = await lazyLoad(import("../agent-loop/tool-result-size.js"));
   const { kept, marker } = boundedText(block, maxResultSize);
   return `${kept}${marker}`;
 }

@@ -4,6 +4,7 @@ import { ATOMIC_FENCING_CASE, checkAtomicFencing } from "./opt-out-check.js";
 import { killPods } from "./pod.js";
 import { runFaultScenario, type FaultScenario, type FaultScenarioOptions } from "./scenario.js";
 import { FAULT_SCENARIOS } from "./scenarios/index.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * `faultSuite({ name, stores, database })` (#484 AC4): registers the fault scenarios with vitest
@@ -18,7 +19,7 @@ import { FAULT_SCENARIOS } from "./scenarios/index.js";
  * set's module, `withHoldPoints`), where vitest cannot be loaded: there `faultSuite` is the only
  * thing missing.
  */
-const vitest: typeof Vitest | undefined = await import("vitest").catch(() => undefined);
+const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch(() => undefined);
 
 /** A store set under the fault suite. */
 export interface FaultSuiteOptions extends FaultScenarioOptions {

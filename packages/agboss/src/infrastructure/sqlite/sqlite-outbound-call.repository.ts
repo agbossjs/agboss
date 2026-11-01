@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
 import { Injectable } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
-import { StoreClock, type Clock } from "../clock.js";
+import { StoreClock, type Clock, lazyLoad } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
   endedOf,
@@ -162,7 +162,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   }
 
   async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
-    const { sqliteLeaseStateOf } = await import("../live-lease.js");
+    const { sqliteLeaseStateOf } = await lazyLoad(import("../live-lease.js"));
     return sqliteLeaseStateOf(this.connection.database, lease, this.clock.now());
   }
 

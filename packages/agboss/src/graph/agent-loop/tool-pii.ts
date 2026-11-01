@@ -10,6 +10,7 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
 import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/index.js";
 import type { Bytes } from "../../units/index.js";
 import type { BoundedText } from "./tool-result-size.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * PII in the tool task (#120 AC9): the arguments the model gave were revealed when its move was
@@ -74,7 +75,7 @@ export interface ClosedResult {
 
 /** The rendered result within its bound (#336), cut before any masking reads it. */
 async function bounded(text: string, maxResultSize: Bytes): Promise<BoundedText> {
-  const { boundedText } = await import("./tool-result-size.js");
+  const { boundedText } = await lazyLoad(import("./tool-result-size.js"));
   return boundedText(text, maxResultSize);
 }
 

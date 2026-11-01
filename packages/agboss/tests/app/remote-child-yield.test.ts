@@ -195,13 +195,15 @@ describe("#516: a cancel while the parent waits", () => {
   }) => {
     const [a, b] = await bothReady(apps);
     const call = execute(a, YieldOneWorkflowStart, item("gate"), { threadId: "thread-cancel" });
+    // held from the start: the call may reject while advance runs (#646 — advance lets it get there)
+    const failure = call.catch((error: unknown) => error);
     await until(() => yieldSeen.runs.length === 1, "the child at its gate");
 
     const cancelled = await b.cancel("thread-cancel", { tenantId: "default" });
     await clock.advance(seconds(11));
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    expect(await failure).toBeInstanceOf(ExecutionCancelledError);
     openGate();
   });
 });

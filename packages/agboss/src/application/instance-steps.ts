@@ -12,6 +12,7 @@ import type { ChildExecutionQueueRepository } from "../infrastructure/child-exec
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { Milliseconds } from "../units/index.js";
 import type { AssembledApplication } from "./assemble.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * What an application instance shares between its workflows and what its graceful stop does with
@@ -28,7 +29,7 @@ async function stepSlotsOf(
 ): Promise<StepSlots | undefined> {
   const cap = assembled.maxConcurrentSteps;
   if (cap === undefined) return undefined;
-  const { StepSlots: Slots } = await import("../app/step-slots.js");
+  const { StepSlots: Slots } = await lazyLoad(import("../app/step-slots.js"));
   return new Slots(cap, clock);
 }
 

@@ -18,6 +18,7 @@ import { seconds } from "../../units/index.js";
 import type { VirtualClock } from "../clock.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./seam.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /** What each case below gets. */
 type Instances = ContractInstances<ExecutionLeaseRepository>;
@@ -50,7 +51,7 @@ function leaseLogOn(clock: VirtualClock): {
     mask: (event) => Promise.resolve(event),
     log: SILENT,
     clock,
-    recording: import("../../app/lease-events.js"),
+    recording: lazyLoad(import("../../app/lease-events.js")),
   };
   const rows = () =>
     repository.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-1");

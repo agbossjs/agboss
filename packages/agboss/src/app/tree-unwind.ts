@@ -2,6 +2,7 @@ import type { FrameLease } from "../flow/context/frame.js";
 import type { CompensationFailedError, CompensationRecord } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
 import type { TreeState } from "./tree-move-types.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The automatic undo of a tree whose execution ends without a finish (#340 PR 3): loaded only then
@@ -34,7 +35,7 @@ export async function undoneTreeEnd<TError>(
   },
   undo: EndedTreeUndo,
 ): Promise<TError | CompensationFailedError> {
-  const { unwoundTree } = await import("./compensation/root-unwind.js");
+  const { unwoundTree } = await lazyLoad(import("./compensation/root-unwind.js"));
   const call = { cause: failure.error, signal: failure.signal, lease: failure.lease };
   const done = await unwoundTree(deps, state, call);
   undo.compensations = done.compensations;

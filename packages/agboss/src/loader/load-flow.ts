@@ -11,6 +11,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { isThisWorkflow } from "../flow/this-workflow.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Loads the v2 workflows of module files (#272 S2) and the project modules they were loaded from:
@@ -41,7 +42,7 @@ const isApplication = (value: unknown): value is Class =>
   typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
 
 const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknown>>> =>
-  (await import(pathToFileURL(file).href)) as Readonly<Record<string, unknown>>;
+  (await lazyLoad(import(pathToFileURL(file).href))) as Readonly<Record<string, unknown>>;
 
 /** The files the components of the workflows — their child workflows' too (#263) — were declared in. */
 function componentFiles(workflows: readonly Class[]): readonly string[] {

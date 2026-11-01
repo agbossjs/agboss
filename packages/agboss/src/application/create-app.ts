@@ -30,6 +30,7 @@ import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js"
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -141,7 +142,7 @@ async function buildWorkflows(
 const instancePartsOf = async (
   ...args: Parameters<typeof InstanceSteps.instancePartsOf>
 ): Promise<InstanceSteps.SharedInstanceParts> =>
-  (await import("./instance-steps.js")).instancePartsOf(...args);
+  (await lazyLoad(import("./instance-steps.js"))).instancePartsOf(...args);
 
 /** Closes what the workflows already built opened (a later workflow or a start hook failed). */
 async function releaseAll(built: readonly BuiltApp[]): Promise<void> {

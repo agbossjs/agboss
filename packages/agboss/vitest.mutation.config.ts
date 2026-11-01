@@ -12,7 +12,7 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/app/{execution-fence*,fenced-effect*,finished-work-takeover,held-lease*,lease-*,outbound-call*,outbound-calls-read}.test.ts",
-      "tests/infrastructure/{in-memory-fenced-effect*,lease-fencing,lease-supersede,execution-lease-*-bites,store-conformance.in-memory,fenced-key-helpers,outbound-call-naive-store,system-clock,live-lease-sqlite,in-memory-store-edges,fenced-effect-join-fingerprint,minted-id-key-text,repeated-execution-id,execution-ids}.test.ts",
+      "tests/infrastructure/{in-memory-fenced-effect*,lease-fencing,lease-supersede,execution-lease-*-bites,store-conformance.in-memory,fenced-key-helpers,outbound-call-naive-store,system-clock,lazy-loads,live-lease-sqlite,in-memory-store-edges,fenced-effect-join-fingerprint,minted-id-key-text,repeated-execution-id,execution-ids}.test.ts",
       "tests/properties/*.property.test.ts",
       "tests/terns/minted-thread-exhausted.test.ts",
       "tests/core/defined-of.test.ts",
