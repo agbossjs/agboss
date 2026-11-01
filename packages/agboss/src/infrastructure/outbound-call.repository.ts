@@ -184,7 +184,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
    * How it changes an intent (#658), loaded when the store is made, not with the root import (its
    * module budget): long loaded by the first change.
    */
-  readonly #changes = import("./outbound-call-changes.js");
+  readonly #changes = lazyLoad(import("./outbound-call-changes.js"));
 
   /** The store's time as a record keeps it (#658: when a read by key read). */
   #now(): string {
