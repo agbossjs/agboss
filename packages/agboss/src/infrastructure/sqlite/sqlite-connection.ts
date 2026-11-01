@@ -164,3 +164,14 @@ export function isSqliteImplementation(instance: object): boolean {
   }
   return false;
 }
+
+/**
+ * `true` once a statement changed exactly one row (#626): the count of a write whose row its own
+ * transaction read first, so any other count is a bug, never a state to handle — an `Error` naming
+ * what was written, as `definedOf` for a value.
+ */
+export function oneRowChanged(changes: number | bigint, written: string): true {
+  if (Number(changes) !== 1)
+    throw new Error(`unreachable: ${String(changes)} rows changed by a write of ${written}`);
+  return true;
+}

@@ -12,7 +12,7 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/infrastructure/{store-conformance.sqlite,live-lease-sqlite,repeated-execution-id.sqlite,in-memory-fenced-effect-edges,execution-lease-*-bites}.test.ts",
-      "tests/infrastructure/sqlite/{sqlite-fenced-effect,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass}.test.ts",
+      "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass}.test.ts",
       "tests/app/{execution-fence-stores,fenced-effect-sqlite,outbound-call-sqlite,held-lease-fence,held-lease-edges,lease-skew,lease-skew-charge}.test.ts",
     ],
   },
