@@ -112,8 +112,11 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   any execution ever had; never removed. The lease contract checks it (`an execution's identity`:
   once, across tenants, a race of eight claims on two instances with one winner, exact comparison,
   kept after the lease is released or finished). The SQLite store's `execution_ids` table is filled
-  from `execution_leases` on a file of an older version, with its first new id. **Migration:** a lease store of
-  your own implements the method on its lease backend (agbossjs/postgres: migration `0018`).
+  on a file of an older version, with its first new id, from `execution_leases` and (#638) from
+  `outbound_calls` — the executions that made a call, a `ParentInstance` child's too: its step-keyed
+  key reached the other system, which would answer a new execution of that id with the old call's
+  response. **Migration:** a lease store of your own implements the method on its lease backend, its
+  ids of before from its leases and its outbound calls (agbossjs/postgres: migrations `0018`, `0019`).
 
 - **An opted-out store is never conformant for fencing** (#543) — `storeConformance` (and
   `fencedEffectContract` / `outboundCallContract`, `{ acceptWithoutDoubleChargeProtection }`) fails
