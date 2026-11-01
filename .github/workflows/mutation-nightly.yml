@@ -1,0 +1,38 @@
+name: Mutation (nightly, cold)
+
+# #626: every shard of stryker.config.mjs from scratch (`--force`), every night and on
+# demand — the PRs' runs are incremental (ci.yml), and an incremental run trusts the results it
+# cached for code and tests it sees unchanged; this run trusts none.
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [fencing, sqlite-stores, keys-and-calls]
+    env:
+      MUTATION_SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @agboss/core
+      - name: Mutation testing of the shard, cold (break below 100 % killed or justified)
+        run: npm run test:mutation -w @agboss/core -- --force
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ matrix.shard }}
+          path: packages/agboss/reports/mutation/
