@@ -244,6 +244,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A model reply interpreter sees the call it approves, and can say "not understood"** (#648) —
+  its answer tool described `overrideArguments` as any object, and "not understood" was only
+  "call no tool": cheap models read "ok but only up to $500" as a refusal and "🤷" as one too. Now
+  `overrideArguments` is described by the approved tool's input, every field optional — the fields
+  the reply changes, laid over the call's own arguments before validation — and a second tool,
+  `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
+  `@agboss/core/dto`), keeps the pause pending with `UninterpretableReplyError` carrying the
+  reason, as a code interpreter's `ReplyInterpretation.notUnderstood` does. Tests script it as
+  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
 - **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
   first execution of a test file loads the core's lazy modules through vite's module runner, ~300
   turns of the event loop, and an execution of an app not built yet builds it first; `advance`

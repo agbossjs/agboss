@@ -1,4 +1,7 @@
-import type { WorkflowFinishTextDto } from "../dto/standard/framework.js";
+import type {
+  ReplyInterpreterNotUnderstoodDto,
+  WorkflowFinishTextDto,
+} from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
 import type { NodeKind } from "../flow/ast.js";
 import type { HistoryOf, ProducedValue } from "../flow/dto-wrappers.js";
@@ -125,9 +128,11 @@ type RouterTurnFor<TSelf> =
 
 /**
  * A model reply interpreter's turns (#267): an agent's (a chat model's answer) or `decideWith(…)`
- * (a decision model's yes / no, S124 a) — its decorator's model, not its generated types, says which.
+ * (a decision model's yes / no, S124 a) — its decorator's model, not its generated types, says which
+ * —, or `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`: the reply does not answer (#648).
  */
-type ReplyInterpreterTurnFor<TSelf> = AgentTurnFor<TSelf> | DecideTurn;
+type ReplyInterpreterTurnFor<TSelf> =
+  AgentTurnFor<TSelf> | DecideTurn | AnswerTurn<ReplyInterpreterNotUnderstoodDto, false>;
 
 /** The turns `mockLlm(X).thenReturn(…)` accepts for a component. */
 export type TurnFor<TSelf> =
