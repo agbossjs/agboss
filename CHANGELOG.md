@@ -233,6 +233,14 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
+  and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
+  inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
+  trace inside the core named files that did not exist; now it names lines of the installed
+  package. `npm run check:packed` fails when a shipped map names a source the tarball lacks, when
+  the probe project's test run prints the warning, or when a failure inside the core names a frame
+  the package does not have.
+
 - **An undo's fence was checked before its observers, not before the undo action** (#640, found
   in the acceptance of #605): the holder checked its lease, then awaited `onCompensationStart` and
   `onActionStart` — each event masked first, a model call with `detectWithModel`, and observers

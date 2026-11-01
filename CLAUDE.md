@@ -2388,7 +2388,8 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   the user's arrays merged, the rest passed through). Without it `workflowOf(W)` throws
   `TestSetupError` naming the fix when the application's import fails or lists another class named
   `W`; `npm run check:packed` (CI's `packed-project` job) proves both on the packed tarballs in a
-  project of its own. Errors only the real way:
+  project of its own — and that the packages ship the `src/` their source maps name (#645: no
+  "points to missing source files", a stack trace inside the core names lines of the package). Errors only the real way:
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
