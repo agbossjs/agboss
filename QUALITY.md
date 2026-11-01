@@ -193,7 +193,11 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget is exceeded by at most
     the calls in flight when it was exhausted (their cost is known only after them; with
-    `TokenLimit.MODEL_MAX` one call is bounded only by the model). Within one tree (#338) every call
+    `TokenLimit.MODEL_MAX` one call is bounded only by the model), plus (#664) the spend of the
+    steps it never holds back — the undos, automatic or a side path's, and the actions of the side
+    path that took a limit, step by step (no check bounds what they cost) —, plus, across
+    instances, what other trees' steps spend that start before that spend is in the ledger: at the
+    end of the superstep that spent it. Within one tree (#338) every call
     is counted the moment it is made — a live tally of the pass (`BudgetMeter.tally`), the ledger
     still written once per superstep, nothing twice — so a branch of a parallel launch sees its
     siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and

@@ -2310,7 +2310,12 @@ const readiness: HealthReport = await app.checkReadiness();
   money still goes back; the deadline is checked there too) and
   aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
   with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
-  accepted, and a budget is exceeded by at most the calls in flight when it was exhausted. Hitting a limit **fails the
+  accepted, and a budget is exceeded by at most (#664) the calls in flight when it was exhausted, plus
+  the spend of the steps it never holds back — the undos (automatic or a side path's) and the actions
+  of the side path that took a limit, step by step: a paid notice there overruns by what it costs —,
+  plus, across instances, what other trees' steps spend that start before that spend is in the
+  ledger (at the end of the superstep that spent it: a long action that records a large spend and
+  works on keeps other instances' checks passing meanwhile). Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05

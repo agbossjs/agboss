@@ -31,7 +31,10 @@ import { periodStartOf } from "./budget-period.js";
  * execution is rejected) and every model call's cost counted in all of them, the first exhausted
  * stopping the execution with `BudgetExceededError`. Nothing is reserved: parallel executions of one
  * tenant may overrun a little on a race, and a budget may be exceeded by at most the calls in flight
- * when it was exhausted (#338: the pass's live tally aborts them).
+ * when it was exhausted (#338: the pass's live tally aborts them), plus (#664) the spend of the steps
+ * it never holds back (the undos, automatic or a side path's; the actions of the side path that took
+ * a limit, step by step) and, across instances, what other trees' steps spend that start before
+ * that spend is in the ledger — at the end of the superstep that spent it.
  */
 
 /** One budget of an execution as it keeps it: plain data (checkpointed), the amount read at its start. */
