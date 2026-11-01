@@ -11,7 +11,12 @@ import {
 } from "../paused-execution.repository.js";
 import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { PAUSE_ANSWERS_MIGRATION, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
+import {
+  PAUSES_INDEXES,
+  PAUSES_SCHEMA,
+  PAUSES_TABLE,
+  SqlitePauseRows,
+} from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
 const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
@@ -35,6 +40,38 @@ DROP TABLE paused_executions_before_tenants;`;
  */
 const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN status;
 ALTER TABLE paused_executions DROP COLUMN decision;`;
+
+/**
+ * #663: a file whose pauses were unique per step key of a tenant — the table rebuilt unique per
+ * step key of a tree, its rows in their order (`findAllByRoot` reads by `rowid`). Its indexes
+ * follow the renamed table and go with it; they are made again on the new one.
+ */
+const PAUSE_COLUMNS = `tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, answer,
+  resolution, resolved_at`;
+const PAUSES_TREE_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_trees;
+${PAUSES_TABLE}
+INSERT INTO pauses (${PAUSE_COLUMNS}) SELECT ${PAUSE_COLUMNS} FROM pauses_before_trees ORDER BY rowid;
+DROP TABLE pauses_before_trees;
+${PAUSES_INDEXES}`;
+
+/**
+ * The migration of a file written before the pause answer records (#267 S107): the answer column
+ * was named `resolution`; how and when a pause was resolved get columns of their own.
+ */
+const PAUSE_ANSWERS_MIGRATION = `ALTER TABLE pauses RENAME COLUMN resolution TO answer;
+ALTER TABLE pauses ADD COLUMN resolution TEXT;
+ALTER TABLE pauses ADD COLUMN resolved_at TEXT;
+CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
+
+/** Migrates a file's pauses written by an older version (inside a transaction): S107, then #663. */
+function migratePauses(connection: SqliteConnection): void {
+  const columns = connection.columnsOf("pauses");
+  if (columns.length > 0 && !columns.includes("resolved_at"))
+    connection.database.exec(PAUSE_ANSWERS_MIGRATION);
+  // #663: unique per step key of a tenant — a pause of another tree with that step key hits it
+  if (connection.uniqueIndexesOf("pauses").includes("tenant_id,step_key"))
+    connection.database.exec(PAUSES_TREE_MIGRATION);
+}
 
 const PausedRow = z.object({
   run: z.string(),
@@ -105,9 +142,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
       if (columns.length > 0 && !columns.includes("tenant_id"))
         connection.database.exec(TENANT_MIGRATION);
       else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
-      const pauseColumns = connection.columnsOf("pauses");
-      if (pauseColumns.length > 0 && !pauseColumns.includes("resolved_at"))
-        connection.database.exec(PAUSE_ANSWERS_MIGRATION);
+      migratePauses(connection);
     });
     connection.ensureSchema("paused_executions", SCHEMA);
     connection.ensureSchema("pauses", PAUSES_SCHEMA);
@@ -153,7 +188,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
 
   findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
     const found = this.connection.transaction((): PauseRecord => {
-      const stored = this.#pauses.findByStepKey(pause.tenantId, pause.stepKey);
+      const stored = this.#pauses.findByStepKey(pause);
       if (stored !== undefined) return stored;
       this.#pauses.insert(pause);
       return pause;

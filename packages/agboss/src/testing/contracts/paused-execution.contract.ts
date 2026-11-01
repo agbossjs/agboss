@@ -1,5 +1,8 @@
 import { expect } from "vitest";
-import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
+import {
+  PauseStatus,
+  type PausedExecutionRepository,
+} from "../../infrastructure/paused-execution.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
@@ -67,6 +70,29 @@ const STEP_KEY_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
       expect(made).toEqual(pauseOf("pause-a"));
       expect(again.pauseId).toBe("pause-a");
       expect(await second.findByTenantIdAndPauseId("default", "pause-b")).toBeUndefined();
+    },
+  },
+  {
+    name: "#663: the step key of another tree finds none of its pauses — a pending one of its own is made",
+    run: async ({ first, second }) => {
+      await first.findOrCreateByStepKey(pauseOf("pause-a"));
+      await first.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, NINE);
+      const otherTree = { ...pauseOf("pause-b"), rootExecutionId: "run-2" };
+
+      const made = await second.findOrCreateByStepKey(otherTree);
+      const again = await first.findOrCreateByStepKey({ ...otherTree, pauseId: "pause-c" });
+
+      expect(made).toEqual(otherTree);
+      expect(again).toEqual(otherTree);
+      expect((await second.findByTenantIdAndPauseId("default", "pause-a"))?.status).toBe(
+        PauseStatus.Taken,
+      );
+      const ids = async (root: string) =>
+        (await second.findAllByTenantIdAndRootExecutionId("default", root)).map(
+          (pause) => pause.pauseId,
+        );
+      expect(await ids("run-1")).toEqual(["pause-a"]);
+      expect(await ids("run-2")).toEqual(["pause-b"]);
     },
   },
   {
