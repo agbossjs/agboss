@@ -13,7 +13,8 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { EndOnceLocalWorkflow, EndOnceLog } from "./child-end-once.workflow.js";
 import { SidePathLocalWorkflow, UndoLocalWorkflow } from "./child-failure-once.workflow.js";
-import { UndoOneWorkflow } from "./finished-undo.workflow.js";
+import { UndoChildWorkflow, UndoOneWorkflow } from "./finished-undo.workflow.js";
+import { JoinUndoWorkflow, RootUndoWorkflow } from "./join-undo.workflow.js";
 import { YieldOneWorkflow } from "./remote-child-yield.workflow.js";
 
 /**
@@ -38,8 +39,7 @@ const shared = {
   saver: new MemorySaver(),
   savers: 0,
   hook: undefined as
-    | { readonly at: DurablePoint; readonly run: (index: number) => Promise<void> }
-    | undefined,
+    { readonly at: DurablePoint; readonly run: (index: number) => Promise<void> } | undefined,
 };
 
 /** Fresh shared checkpoints, no hook. */
@@ -144,6 +144,10 @@ export class FinishLog implements OnExecutionEnd, OnExecutionLeaseTakeover {
     UndoLocalWorkflow,
     UndoOneWorkflow,
     SidePathLocalWorkflow,
+    // #605: a root's own undo, and a failed join's
+    UndoChildWorkflow,
+    JoinUndoWorkflow,
+    RootUndoWorkflow,
   ],
   observers: [EndOnceLog, FinishLog],
   providers: [RecordingLogger, MatrixCheckpointSaver],
