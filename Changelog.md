@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an answer-only agent answers with one call (#649)
+
+- **Fixed**: an agent whose only tools are its answer tools sends `parallel_tool_calls: false` to
+  OpenAI-compatible servers; several identical answer calls in one move are one answer, different
+  ones are refused with "N different answers in one move" — never one picked. No API change.
+  [Agents](Agents).
+
 ## Unreleased — 0.1.1: the packages ship the sources their maps name (#645)
 
 - **Fixed**: `@agboss/core` and `@agboss/cli` ship `src/` beside `dist/`. Under `agbossTest()` vite

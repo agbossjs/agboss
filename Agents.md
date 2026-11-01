@@ -74,9 +74,18 @@ fails assembly (`[prompt.input-in-instructions]`) — it would change the static
   tools**, one per variant: `answer-<kebab of the DTO class>` (`answer-offer-draft-dto`), whose
   parameters are the DTO's JSON schema; the variant is the tool's name, never guessed by shape. The
   step ends when the model calls exactly one answer tool and no regular tool in that message.
+- **One answer, one call (#649).** An agent whose only tools are its answer tools (and whose output
+  is not a list of variants) sends `parallel_tool_calls: false` to OpenAI-compatible servers: OpenAI's
+  models call tools in parallel by default and would otherwise answer several times in one move. A
+  move that still holds several calls of answer tools is the one answer when they repeat it exactly
+  (the same tool, the same arguments) — no retry spent — and refused when they differ: the framework
+  never picks one of several different answers, and the step's `AgentAnswerInvalidError` names
+  "N different answers in one move". An agent with tools of its own, or a list of variants, is bound
+  as before (parallel calls of its own tools are its loop's to run). A transport provider gets no
+  hint; the same rule for repeats and differences holds.
 - Invalid answers go back to the model and spend a retry: arguments that fail the DTO, plain text
-  instead of an answer tool, two answer tools or an answer tool mixed with regular tools (none of
-  that message's tools runs). After 2 retries the step fails with `AgentAnswerInvalidError`
+  instead of an answer tool, two different answers or an answer tool mixed with regular tools (none
+  of that message's tools runs). After 2 retries the step fails with `AgentAnswerInvalidError`
   (`step.agent.invalid-answer`), which `.onError` can take. A model that cannot call tools fails
   assembly for an agent with `output` (`[model.no-tool-calling]`).
 
