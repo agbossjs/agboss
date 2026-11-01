@@ -30,7 +30,8 @@ async function joinedTo<TRequest, TResult>(
   make: () => Promise<OutboundCallOutcome<TResult>>,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { key } = run;
-  if (key.businessKey !== undefined && joined.fingerprint !== key.fingerprint)
+  // a step's key has no fingerprint, the call it joins neither: only a business key can differ
+  if (joined.fingerprint !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);
@@ -54,7 +55,8 @@ async function sharedOf<TRequest, TResult>(
     stop = () => {
       reject(signal.reason as Error);
     };
-    signal.addEventListener("abort", stop, { once: true });
+    // removed in `finally`, fired or not: no `once` needed
+    signal.addEventListener("abort", stop);
   });
   const shared = joined.outcome.catch((error: unknown) => {
     if (joined.answer.isAnswered) throw error;
@@ -82,7 +84,8 @@ export async function joinedOrMade<TRequest, TResult>(
   const leave = (): void => {
     if (parts.live.get(live) === call) parts.live.delete(live);
   };
-  signal.addEventListener("abort", leave, { once: true });
+  // removed in `finally`, fired or not: no `once` needed
+  signal.addEventListener("abort", leave);
   try {
     return await call.outcome;
   } finally {
