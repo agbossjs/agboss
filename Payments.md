@@ -189,10 +189,11 @@ export class ChargeOrderAction {
 - **A webhook belongs to one tenant.** Verify it with that tenant's secret, key every row it
   touches by that tenant (never a default), and let it update only an existing order of that
   tenant — never create a row, never act on an order or payment the tenant does not own.
-- **The attempt's start, while `reconcile` is not told it** (#658): a row of your own written in
-  a fenced effect's transaction, not the effect's stored result alone — stored results are removed
-  after `fencedEffects.retention` (default `hours(24)`), and an age read from a re-run effect starts
-  at zero. Both checks and this row are in
+- **The key's age comes from AGBoss** (#658): `lookup.attemptStartedAt` and `lookup.keyAge`, on the
+  store's clock, and `keyRetention` refuses a replay past the gateway's retention — no row of your
+  own for the attempt's start (a fenced effect's stored result would be removed after
+  `fencedEffects.retention`, and an age read from a re-run effect would start at zero). Both checks
+  above and the declared retention are in
   [`12-payment-gateways`](https://github.com/agbossjs/agboss-examples/tree/main/12-payment-gateways)
   and [`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments).
 
