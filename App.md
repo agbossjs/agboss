@@ -172,6 +172,12 @@ kept database gave a new tree an old tree's lease, fencing token, lease log and 
 (`<executionId>:<nodeId>:<visit>`), and a fenced effect or an outbound call replayed the other tree's
 result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
 not a create; a create that fails after its id was kept leaves the id taken and nothing else.
+The ids of before an upgrade are kept too (#638): a SQLite file of an older version fills
+`execution_ids` from its leases (roots, `AnyInstance` children) and from its outbound calls — every
+execution that made one, a `ParentInstance` child's too, whose step-keyed key
+(`<executionId>:<nodeId>:<visit>:<name>`) the other system has seen and would answer again with the
+old call's response; agbossjs/postgres does the same in migrations `0018` and `0019`. A
+`ParentInstance` child of before that sent nothing shares no key with another system.
 
 A minted **thread** id the tenant already has is minted again (#550), up to 100 times; a generator
 that never gives a free one fails the execution with `DuplicateThreadIdError`

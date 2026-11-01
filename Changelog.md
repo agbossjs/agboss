@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the ids kept from before include every execution that made an outbound call (#638)
+
+- **Fixed**: on a SQLite file of before #591, `execution_ids` is filled from the outbound calls'
+  executions as well as the leases, so a `ParentInstance` child of before — whose step-keyed call
+  sent a key the gateway keeps — can no longer have its id minted again for a new execution that
+  the gateway would answer with the old payment. agbossjs/postgres: migration `0019`. No API change.
+  [App → Infrastructure](App#infrastructure).
+
 ## Unreleased — 0.1.1: the gate runs the fault suite or fails (#630)
 
 - **Fixed**: one `make check` ran 587 files and not one of `tests/faults/` — vitest 3 skipped the
