@@ -137,7 +137,7 @@ describe("#657: what counts as definite — only a true from isDefiniteFailure",
   const CLASSIFIERS = [
     ["no predicate", undefined],
     ["false", () => false],
-    ["a truthy non-boolean (JavaScript)", () => "yes" as unknown as boolean],
+    ["a truthy non-boolean (JavaScript)", () => JSON.parse('"yes"') as boolean],
     [
       "a predicate that throws",
       () => {
