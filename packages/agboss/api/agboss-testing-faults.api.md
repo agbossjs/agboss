@@ -637,7 +637,8 @@ export enum StoreHoldPoint {
     // (undocumented)
     OutboundMarkPending = "outboundCall.markPending",
     // (undocumented)
-    OutboundSaveIfAbsent = "outboundCall.saveIfAbsent"
+    OutboundSaveIfAbsent = "outboundCall.saveIfAbsent",
+    TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }
 
 // @public
@@ -702,10 +703,10 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/fixture/pod-link.ts:53:3 - (ae-undocumented) Missing documentation for "PayBefore".
 // src/testing/faults/fixture/pod-link.ts:54:3 - (ae-undocumented) Missing documentation for "PayAfter".
 // src/testing/faults/fixture/pod-link.ts:55:3 - (ae-undocumented) Missing documentation for "Release".
-// src/testing/faults/held-stores.ts:38:3 - (ae-undocumented) Missing documentation for "points".
-// src/testing/faults/held-stores.ts:39:3 - (ae-undocumented) Missing documentation for "recorder".
-// src/testing/faults/held-stores.ts:42:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/faults/held-stores.ts:43:3 - (ae-undocumented) Missing documentation for "outage".
+// src/testing/faults/held-stores.ts:40:3 - (ae-undocumented) Missing documentation for "points".
+// src/testing/faults/held-stores.ts:41:3 - (ae-undocumented) Missing documentation for "recorder".
+// src/testing/faults/held-stores.ts:44:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/faults/held-stores.ts:45:3 - (ae-undocumented) Missing documentation for "outage".
 // src/testing/faults/hold-points.ts:12:3 - (ae-undocumented) Missing documentation for "Before".
 // src/testing/faults/hold-points.ts:13:3 - (ae-undocumented) Missing documentation for "After".
 // src/testing/faults/hold-points.ts:34:3 - (ae-undocumented) Missing documentation for "point".

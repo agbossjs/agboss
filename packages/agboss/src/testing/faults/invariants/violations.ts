@@ -11,7 +11,7 @@ export enum FaultInvariant {
   ChildrenOnce = "children-once",
   /** Every charge exactly once: one business row, one `Ran` / `Sent`, one payment per order, the rest replayed, reconciled or refused. */
   EffectsOnce = "effects-once",
-  /** A hand-over undoes nothing: an undo runs only on a real failure. */
+  /** A hand-over undoes nothing: an undo runs only on a real failure — and once, never again once marked done (#607). */
   NoUndoOnHandOver = "no-undo-on-hand-over",
   /** Every tree ended: a finished order paid, a declined one failed, every batch finished. */
   TreesFinish = "trees-finish",
