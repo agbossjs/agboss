@@ -172,13 +172,23 @@ The suite proves the framework's side under the faults above. These parts are yo
   a **hand-over**: the next holder continues the tree from its last checkpoint, and nothing is
   undone (scenarios 1–11). An undo runs only on a real failure: an uncaught error, a cancel, a failed
   join (scenario 12). Model "the payment failed" as a failure, never as a crash.
-- **An undo runs only while its holder holds the tree** (#605). Each undo action runs after the
-  holder's own fence (`assertHeld`, local, on its monotonic clock), as an outbound call's `send`
-  does. A holder that froze while its step failed, whose tree another instance took over and undid,
-  undoes nothing when it thaws, even before its expiry timer fires: it hands over at the undo
-  (`HandOverSite.Compensation`). What is left is the same window as `send`: a holder frozen between
-  that look and the undo's own write. An undo whose external system checks
-  `executionContext.fence` closes it; the undo's key is `<step key>:compensation`.
+- **An undo runs only while its holder holds the tree** (#605, #640). The holder checks its own
+  fence (`assertHeld`, local, on its monotonic clock) twice:
+  - before the undo starts, so a holder already past its lease reports no `onCompensationStart`;
+  - right before the undo action runs, after the undo's `onCompensationStart` and the action's
+    `onActionStart`, with nothing awaited between that check and the action.
+
+  Those observers are awaited one after another, and each event is masked first, which is a model
+  call under a `detectWithModel` policy. So a holder can spend longer than its lease there. A
+  holder whose tree another instance took over and undid undoes nothing when it goes on, even
+  before its expiry timer fires: it hands over at the undo (`HandOverSite.Compensation`).
+
+  What is left is the undo action itself, from its start to its own write. A holder frozen inside
+  it, past its lease, goes on writing. An undo whose external system checks the fence closes that
+  window: a fenced effect, `OutboundCalls`, or a write that checks `executionContext.fence`. The
+  undo's key is `<step key>:compensation`. This is narrower than before #640, when the window also
+  held the awaited observers. It is still not the same as `send`'s: `send` calls the other system
+  right after its check, while an undo action is your code and may await anything before it writes.
 - **An undo marked done never runs again** (#607). Every automatic undo is marked done in the
   tree's store (`@agboss/compensated/<key>`, `saveIfAbsent`) right after it succeeded, before the
   next undo starts and before what it closed is written anywhere else; whoever takes the tree over
