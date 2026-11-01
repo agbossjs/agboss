@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a refund the budget held back still gives the money back (#675)
+
+- **Fixed**: since #656 a main-path refund that is also a booking's undo is held back by the
+  exhausted budget (right), but with its own `.onError(BudgetExceededError, …)` the booking was
+  closed as a failed undo and never refunded. Now the forward visit stays stopped and the booking
+  is undone at once as an undo (`<step key>:compensation`, no budget check, marked done like the
+  automatic undo, so a takeover does not undo it again), before the side path goes on —
+  `Compensated`, or `Failed` only with the undo's own error. No API change.
+  [FinOps → Which steps are held back](FinOps), [Rollback](Rollback).
 ## Unreleased — 0.1.1: an id minted again never takes an old pause's decision (#663)
 
 - **Fixed**: a pause was found by its tenant and step key only (`<executionId>:<node>:<visit>[:<item>]:<callId>`,

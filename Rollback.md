@@ -196,7 +196,11 @@ A record is closed by
   workflow's finish commits the child's own records ([Workflow as a step](Workflow-as-a-step));
 - its **undo action on a side path** — it closes the newest open record of the action it undoes:
   `CompensationReason.SidePath`, `CompensationStatus.Compensated`, or `Failed` (with its error) when
-  the undo's own `.onError` took its failure. That undo keeps its own visit's key.
+  the undo's own `.onError` took its failure. That undo keeps its own visit's key. A visit of it
+  that a limit held back before it ran — the budget exhausted on the main path, [FinOps](FinOps) —
+  did not try the undo: when its `.onError` takes the error, the record is undone at once as an
+  automatic undo is (#675: its own frame, the key `<step key>:compensation`, no budget check, marked
+  done), `SidePath` and `Compensated`, or `Failed` only with the undo's own error.
 
 `result.compensations` (and `result.record.compensations`) list the undo actions that ran, in the
 order they ended — `CompensationRecord { compensated, compensator, reason, status, error?,

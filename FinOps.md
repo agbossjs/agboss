@@ -265,9 +265,12 @@ on its cost, its tenant's and the application's. All violations at once, before 
   that is also some entry's undo, or the undo of an entry opened on the side path itself — is a
   step like any other: held back. Without a side path for the budget's error the execution fails
   and its automatic undo undoes the entry; with one (`.toAction(RefundAction).onError(BudgetExceededError, …)`)
-  the entry it would have closed is listed as a failed undo (`CompensationStatus.Failed`, the
-  budget's error), as for any undo whose own `.onError` took its failure — that side path is the
-  application's reaction.
+  the step stays held back, and the entry it would have closed is undone at once **as an undo**
+  (#675) — the money goes back: the undo action in its own frame and key (`<step key>:compensation`),
+  with no budget check, marked done in the tree's store like the automatic undo (a holder that
+  takes the tree over and runs the visit again finds it undone), then the side path goes on. Its
+  record is `CompensationReason.SidePath`, `Compensated` — `Failed` only with the undo's own error,
+  never because the budget is exhausted.
 
 - **A call that exhausts a budget** runs none of the tools its move asks for: the agent fails with
   `BudgetExceededError`, the call's cost in its spend. An answer it gave is kept — the next step or
