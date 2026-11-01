@@ -14,6 +14,7 @@ import { stepNodeIdOf } from "../step-frame.js";
 import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
+import { currentFrame } from "../../context/frame.js";
 
 /** What an action is: `execute(input)` (`implements ActionHandler<Self>`). */
 interface ActionInstance {
@@ -67,7 +68,9 @@ const failure = (node: string, error: unknown): unknown =>
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;
  * the result is checked against its `output` (`variant(…)` for a `oneOf`); without `output` it gives
- * nothing. What it throws fails the step as `ActionFailedError` (the original as the cause).
+ * nothing. What it throws fails the step as `ActionFailedError` (the original as the cause). It
+ * runs only while its holder holds the tree (#662, as an automatic undo's action, #640): the
+ * holder's own fence is checked right before `execute`, after the awaited `onActionStart`.
  */
 export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   const { declaration } = node;
@@ -81,6 +84,10 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     await reportNodeEvent((base) =>
       deps.observer?.onActionStart({ ...base, name, input: input.fields }),
     );
+    // #662: `onActionStart` is awaited (each event masked first, a model call with
+    // `detectWithModel`): the holder's fence right before the action, nothing awaited in between —
+    // a holder past its lease runs nothing (a hand-over: the new holder runs it)
+    currentFrame()?.execution.lease?.assertHeld();
     const result = await instance.execute(input.fields).catch((error: unknown) => {
       throw failure(node.id, error);
     });

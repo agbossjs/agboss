@@ -745,7 +745,9 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   before the undo action, after its awaited `onCompensationStart` / `onActionStart` — whose events are
   masked first, a model call with `detectWithModel` — with nothing awaited between that check and
   `execute`; a holder past its lease, its tree taken over, undoes nothing: a hand-over; what is left is
-  the undo action's own run up to its write, which only a fenced write closes); an undo that fails → the rest still run, then `CompensationFailedError`
+  the undo action's own run up to its write, which only a fenced write closes; #662: every action's
+  visit — a side path's undo action too, and a forward step — checks the same fence right before its
+  `execute`, after its awaited `onActionStart`: a holder past its lease runs no action, a hand-over); an undo that fails → the rest still run, then `CompensationFailedError`
   (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
   `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
   An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest
