@@ -158,6 +158,23 @@ async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorR
 }
 
 /**
+ * The undo runs only while its holder still holds the tree (#605): its own fence (#533, local, on
+ * its monotonic clock) right before the undo action, as before an outbound call's `send`. A holder
+ * past its lease — frozen, its tree taken over, its expiry timer not fired yet — undoes nothing: a
+ * hand-over at the undo, the new holder's undo the only one.
+ */
+function assertUndoing(site: UndoSite, frame: FrameSpec): void {
+  try {
+    site.execution.lease?.assertHeld();
+  } catch (error) {
+    const handedOver = handedOverOf(error, site.execution.signal);
+    if (handedOver !== undefined)
+      throw recordedHandOver(handedOver, HandOverSite.Compensation, frame);
+    throw error;
+  }
+}
+
+/**
  * Undoes one open entry: its undo action run, its entry closed with the record of it. A lost lease
  * or the app's stop meanwhile is no outcome of the undo: it is thrown as it is (another instance
  * goes on).
@@ -175,6 +192,7 @@ export async function undone(entry: CompensationEntry, site: UndoSite): Promise<
   };
   const startedAt = site.clock.now();
   try {
+    assertUndoing(site, frame);
     const error = await inStepEntry(site.stepEntries, frame, () =>
       runInFrame(frame, () => ranUndo(site, entry)),
     );
