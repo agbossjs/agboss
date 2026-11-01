@@ -45,6 +45,9 @@ export const DROPPED_ANSWER = "the gateway's answer was lost after it charged (5
 export const FAULT_BUSINESS_ROWS: InjectionToken<FaultBusinessRows<unknown>>;
 
 // @public
+export const FAULT_SABOTAGE_SCENARIOS: readonly FaultScenario[];
+
+// @public
 export const FAULT_SCENARIOS: readonly FaultScenario[];
 
 // @public

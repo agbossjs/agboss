@@ -44,6 +44,7 @@ export {
   type FaultScenarioOptions,
 } from "./scenario.js";
 export { FAULT_SCENARIOS } from "./scenarios/index.js";
+export { FAULT_SABOTAGE_SCENARIOS } from "./scenarios/sabotages.js";
 export {
   FaultWorld,
   type FaultDatabase,
