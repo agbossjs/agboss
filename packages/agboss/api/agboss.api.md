@@ -783,16 +783,6 @@ export type ChannelQuestionOf<TRole> = GeneratedEntry<ChannelRoles, TRole> exten
 } ? TAsk : MissingGeneratedTypes;
 
 // @public
-export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
-    // (undocumented)
-    readonly answer: DtoClass;
-    // (undocumented)
-    readonly approves?: never;
-    // (undocumented)
-    readonly ask: DtoClass;
-}
-
-// @public
 export interface ChannelResumeOptions extends CallOptions {
     readonly answeredBy: string;
     // (undocumented)
@@ -814,7 +804,7 @@ export interface ChannelRoleBaseOptions {
 }
 
 // @public
-export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+export type ChannelRoleOptions = ChannelApprovalRoleOptions;
 
 // @public
 export interface ChannelRoles {
@@ -5550,7 +5540,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.outbound-calls-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.outbound-calls-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -6913,31 +6903,28 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-outcome.ts:24:3 - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts:32:14 - (ae-undocumented) Missing documentation for "ChannelOutcome".
 // src/channels/channel-role.decorator.ts:27:3 - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts:38:3 - (ae-undocumented) Missing documentation for "ask".
-// src/channels/channel-role.decorator.ts:39:3 - (ae-undocumented) Missing documentation for "answer".
-// src/channels/channel-role.decorator.ts:44:3 - (ae-undocumented) Missing documentation for "ask".
-// src/channels/channel-role.decorator.ts:45:3 - (ae-undocumented) Missing documentation for "answer".
-// src/channels/channel-role.decorator.ts:46:3 - (ae-undocumented) Missing documentation for "approves".
-// src/channels/channel-role.decorator.ts:70:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:122:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:131:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:132:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:139:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:142:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:143:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:144:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:173:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:174:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "ask".
+// src/channels/channel-role.decorator.ts:42:3 - (ae-undocumented) Missing documentation for "answer".
+// src/channels/channel-role.decorator.ts:77:1 - (ae-undocumented) Missing documentation for "ChannelRole".
+// src/channels/channel-role.decorator.ts:129:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:137:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:138:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:145:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:148:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:149:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:150:3 - (ae-undocumented) Missing documentation for "promptUrls".
 // src/channels/channel-role.decorator.ts:179:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:180:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:188:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:213:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/channels/channel-role.decorator.ts:261:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:262:3 - (ae-undocumented) Missing documentation for "cause".
-// src/channels/channel-role.decorator.ts:271:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:272:12 - (ae-undocumented) Missing documentation for "name".
-// src/channels/channel-role.decorator.ts:284:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:285:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:180:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:185:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:186:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:194:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-role.decorator.ts:267:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:268:3 - (ae-undocumented) Missing documentation for "cause".
+// src/channels/channel-role.decorator.ts:277:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:278:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:290:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:291:12 - (ae-undocumented) Missing documentation for "name".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
@@ -7525,11 +7512,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:190:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:191:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:192:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:203:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:204:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:189:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:190:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:191:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:202:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:203:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".

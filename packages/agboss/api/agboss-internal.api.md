@@ -1260,9 +1260,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts:65:3 - (ae-undocumented) Missing documentation for "executionBudgets".
 // src/describe/application.ts:66:3 - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts:67:3 - (ae-undocumented) Missing documentation for "warnings".
-// src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
-// src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/channels.ts:38:3 - (ae-undocumented) Missing documentation for "isRole".
+// src/describe/channels.ts:43:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/describe/channels.ts:48:3 - (ae-undocumented) Missing documentation for "reason".
 // src/describe/contracts-types.ts:65:3 - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts:66:3 - (ae-undocumented) Missing documentation for "imports".
 // src/describe/contracts-types.ts:67:3 - (ae-undocumented) Missing documentation for "schemas".

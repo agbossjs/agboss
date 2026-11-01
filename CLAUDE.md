@@ -1493,9 +1493,10 @@ output })` on a successful result, inner first, each output validated against th
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
-  `@ChannelRole({ name, description, approves: XDto | ask + answer, answeredBy: PauseAnswerer.… })`
+  `@ChannelRole({ name, description, approves: XDto, answeredBy: PauseAnswerer.… })`
   that `extends ChannelOf<Self>` — `answeredBy` is required, `approves` must be the tool's input
-  (`[channel.wrong-tool]`), one `replyInterpreter` belongs to one role
+  (`[channel.wrong-tool]`; a question role, `ask` / `answer`, does not compile and is
+  `[channel.question-role-unavailable]` when its decorator runs — nothing can ask one, #647, #659), one `replyInterpreter` belongs to one role
   (`[channel.shared-interpreter]`). Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
@@ -1510,8 +1511,7 @@ output })` on a successful result, inner first, each output validated against th
   with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
   `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
-  no `reason` / `overrideArguments` (#267 S124); a question role on a decision model is
-  `[reply-interpreter.decision-model]`; the call checked against the tree's budgets, counted in their
+  no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
   `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
   `interpret(input: InputOf<Self>)` returns `ReplyInterpretation.understood(decision)` or

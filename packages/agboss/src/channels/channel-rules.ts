@@ -31,21 +31,17 @@ export function implementationsOf(role: Class, modules: readonly ProviderModule[
   );
 }
 
-/** A tool approved through a role must take the role's `approves` DTO; a question role approves none. */
+/** A tool approved through a role must take the role's `approves` DTO. */
 function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return uses.flatMap((use) => {
     const found = channelRoleOf(use.channel);
     if (found === undefined) return [];
     const { approves, name } = found.options;
     if (approves === use.toolInput) return [];
-    const why =
-      approves === undefined
-        ? `${name} asks a question (ask / answer), it approves no tool`
-        : `${name} approves ${nameOf(approves)}`;
     return [
       violation(
         "channel.wrong-tool",
-        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names channel ${nameOf(use.channel)}, but ${why} — name a role whose approves is ${nameOf(use.toolInput)}`,
+        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names channel ${nameOf(use.channel)}, but ${name} approves ${nameOf(approves)} — name a role whose approves is ${nameOf(use.toolInput)}`,
         [use.tool, name],
       ),
     ];
