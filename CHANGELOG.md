@@ -233,6 +233,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An action ran without a fence after its `onActionStart`** (#662, found in the acceptance of
+  #640): #640 checks the holder's fence right before an automatic undo's action; an ordinary action
+  visit — the undo action a side path runs (`.onError(DeclinedError, toAction(RefundAction))`) and
+  any forward step — awaited `onActionStart` (masked first, a model call with `detectWithModel`)
+  and then ran with no check. Held there past its lease, its tree taken over and the action run by
+  the new holder, the old holder ran it again: a refund (or a charge) paid twice when its effect is
+  not fenced. Every action now checks its holder's fence right before `execute`, nothing awaited in
+  between; a holder past its lease hands over.
+
 - **The budget's two exemptions failed open** (#656, found by a security review of #634): once any
   limit had been handled, every later action of the execution skipped the budgets — the branches a
   side path launched, what followed their join —, and an action that is some open entry's undo
