@@ -9,8 +9,9 @@ import type { AnalysisContext } from "./context.js";
 /**
  * No model call after a limit (#263, #272): an `.onError` / `.onJoinError` side path that can catch
  * a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`,
- * …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, never paying past
- * the limit; one that reaches an agent, a router or a child workflow →
+ * …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past
+ * the limit (its actions run whatever the budgets, #634: the reaction to the limit; their spend
+ * counts); one that reaches an agent, a router or a child workflow →
  * `[graph.limit-handler-uses-model]`. A child's own limit reaches its parent as
  * `ChildExecutionFailedError` (S25), so a handler of that class may lead to an agent.
  */

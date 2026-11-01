@@ -159,7 +159,7 @@ export interface BranchFrame {
 /** The pass's `exhausted` signal, unless a budget was exhausted before the branch started. */
 function budgetStopOf(deps: VisitDeps): AbortSignal | undefined {
   const { exhausted } = deps.limits.budgets;
-  // exhausted before: its working steps stop at their own check, a side path's actions still run
+  // exhausted before: its steps stop at their own check (#634), a limit's side path's actions run
   return exhausted.aborted ? undefined : exhausted;
 }
 

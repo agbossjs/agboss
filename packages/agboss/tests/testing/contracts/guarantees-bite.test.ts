@@ -66,6 +66,12 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
     );
   });
 
+  it("#634: a read-then-write ledger loses a save in some of several counters", () => {
+    expect(failedOf("a ledger that reads, then writes")).toContain(
+      "concurrent saves of two instances to several counters lose nothing in any of them",
+    );
+  });
+
   it("each naive store keeps the rules it does not break: its ping passes", () => {
     expect(namesOf(run, FIXTURE, "pass").length).toBeGreaterThan(0);
   });

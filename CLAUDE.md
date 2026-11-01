@@ -2273,7 +2273,12 @@ const readiness: HealthReport = await app.checkReadiness();
   start (its `ExecutionContext` readable), and kept for the whole execution; an exhausted budget
   rejects the execution before the first step (`onExecutionRejected`), and every model call's cost is
   counted in all of them the moment it is made (#338: a live tally of the tree's pass, the ledger
-  still written once per superstep) — the first exhausted stops it before the next step or call and
+  still written once per superstep) — the first exhausted stops it before the next step or call (#634:
+  every step that can spend or reach out — an agent, a router, an action, a child workflow, a level of
+  a recursion, a launch's branch, an action of a side path; never a start, a finish, an undo (a side
+  path's undo action of an open entry too), nor an
+  action of the side path that took a limit, `.onError(BudgetExceededError, toAction(…))`, the
+  application's reaction to it — its spend counted; the deadline is checked there too) and
   aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
   with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
   accepted, and a budget is exceeded by at most the calls in flight when it was exhausted. Hitting a limit **fails the
