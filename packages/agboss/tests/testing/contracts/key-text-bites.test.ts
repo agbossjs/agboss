@@ -38,6 +38,15 @@ describe("#538 AC2: a store that folds or cleans a business key fails the key-te
     },
   );
 
+  it("#620: a store comparing keys accent-blind, keeping each as first given, joins an accent-free twin — the round-trip case fails, for effects and calls", () => {
+    for (const kind of ["effects", "calls"]) {
+      expect(statesOf(`${kind} with an accent-insensitive collation`)).toContainEqual([
+        ROUND_TRIP,
+        "fail",
+      ]);
+    }
+  });
+
   it("#547: a store that trims keys merges no accepted key, but takes one with an edge space it must refuse — the refusal case fails", () => {
     for (const kind of ["effects", "calls"]) {
       expect(statesOf(`${kind} with keys trimmed`)).toContainEqual([ROUND_TRIP, "pass"]);
