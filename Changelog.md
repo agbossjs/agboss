@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a Payments section — the gateway contract, every race, ten gateways (#653)
+
+- **Added — [Payments](Payments)**, [Payment scenarios](Payment-scenarios) (PS1–PS23: what goes
+  wrong, what AGBoss does, the guarantee, its assumptions, the boundary) and, on
+  [Payment gateways](Payment-gateways), the capability table of ten gateways read 2026-11-01:
+  supported — Stripe, Checkout.com, PayPal, Adyen (for 7 days), CardCom (charges); not supported —
+  Braintree, Square, Tranzila, Grow, PayPlus, each with the reason. Gateways are named only to
+  identify their public APIs; the notes are independent, not affiliated with or endorsed by any of
+  them ([the notice](Payments#the-notice)). [Guarantees](Guarantees) gains A12, the retention a
+  repeat must come within. No API change. Gaps found: #657, #658.
+
 ## Unreleased — 0.1.1: the ids kept from before include every execution that made an outbound call (#638)
 
 - **Fixed**: on a SQLite file of before #591, `execution_ids` is filled from the outbound calls'

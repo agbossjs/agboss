@@ -4,15 +4,15 @@ What AGBoss promises when several instances move the same execution trees and th
 databases and call other systems — each guarantee, the exact assumptions it rests on, what breaks
 when an assumption does not hold, and the test or checker that proves it (#533). The mechanisms
 are on [Several-instances](Several-instances), the store contracts on
-[Your-own-store](Your-own-store), the provider's side on [Payment-gateways](Payment-gateways), the
-fault scenarios on [Guarantees-across-processes](Guarantees-across-processes).
+[Your-own-store](Your-own-store), the provider's side on [Payment-gateways](Payment-gateways), the payment races on
+[Payment-scenarios](Payment-scenarios), the fault scenarios on [Guarantees-across-processes](Guarantees-across-processes).
 
 ## The guarantees
 
 | # | Guarantee | Said exactly |
 | --- | --- | --- |
 | **P1** | One owner per tree | At any moment at most one instance trusts a tree's lease; every epoch is granted once; no write is accepted under a superseded, released, finished or expired token. |
-| **P2** | One effect per business key | A fenced effect runs its write once per step, or once per tenant, name and business key; a repeat replays the stored result; another fingerprint is `IdempotencyKeyConflictError`. |
+| **P2** | One effect per business key | A fenced effect runs its write once per step, or once per tenant, name and business key; a repeat replays the stored result while it is kept (A12); another fingerprint is `IdempotencyKeyConflictError`. |
 | **P3** | One send per attempt | An outbound call sends an attempt only after it claimed it (a compare-and-set) and only while its lease holds; a pending attempt whose owner lives is never resent; the other system is charged once per business key. |
 | **P4** | No takeover of finished work | Once a lease is finished, no `acquire` of its key gets it again: no instance takes finished work over, and the lease log has no Takeover row for it. |
 | **P5** | Compensation only on real failure, once | An undo runs only when a step really failed or was cancelled — never because its lease was handed over; once it is marked done it never runs again, on any instance (#607); between its effect and its mark it may run again under its own key, so it is exactly once when that effect is fenced. |
@@ -34,6 +34,7 @@ Each guarantee holds while every assumption it lists holds.
 | **A9** | **Writes and sends happen inside a step's frame**, under its lease. | P1–P3 | Frames without a lease (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool) have no fence: what they write or send is unfenced. |
 | **A10** | **Rate-limit and tree slots are not money.** They are counted on the caller's clock. | — | A skewed instance may overshoot a rate limit or a tree's concurrency cap. It never double-charges: P1–P3 do not depend on them. |
 | **A11** | **The other system is the only side effect.** Business rows live in the store's own database, written in the effect's transaction. | P2 | A row written elsewhere (another database, a file) is outside the transaction: it can be written twice or kept after a rollback. |
+| **A12** | **A repeat comes while its row is kept.** A fenced effect's result is kept for `fencedEffects.retention` (default 24 h), an ended outbound call's intent for `outboundCalls.retention` (default 168 h); a pending intent is never removed. | P2, P3 | A repeat under the same key after its row was removed runs its write, or sends, again: a second charge unless the gateway still keeps the key (G3) or the application's own row refuses it ([Payment scenarios](Payment-scenarios#ps17-the-idempotency-key-expires-before-a-retry)). |
 
 ## Holds through
 

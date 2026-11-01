@@ -153,7 +153,8 @@ such a store, so run both.
 
 ## What is left to the application and to downstream systems
 
-The suite proves the framework's side under the faults above. These parts are yours:
+The suite proves the framework's side under the faults above. These parts are yours (for payments,
+scenario by scenario: [Payment scenarios](Payment-scenarios)):
 
 - **The other system's idempotency.** A call through `OutboundCalls` is recorded before it is sent.
   It is never resent while its outcome is unknown: it is reconciled by its key instead (scenarios 9

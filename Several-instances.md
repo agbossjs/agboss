@@ -838,7 +838,8 @@ export class ChargeOrderAction {
   leases at once — no lease lock serializes those, only the row's own compare-and-set. An effect's
   name is checked again at every store method, for a key built by hand.
 - **What a gateway must do as well** — keys, lookups, retention, and the checklist that probes
-  them: [Payment gateways](Payment-gateways).
+  them: [Payment gateways](Payment-gateways); every payment race and what handles it:
+  [Payment scenarios](Payment-scenarios).
 
 ## Recovery
 
