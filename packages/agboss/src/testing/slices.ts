@@ -125,6 +125,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   child: null,
   children: [],
   handledErrors: [],
+  sidePath: null,
   compensations: [],
 });
 

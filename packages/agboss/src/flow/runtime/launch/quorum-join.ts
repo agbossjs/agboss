@@ -10,6 +10,7 @@ import { errorHandlerOf } from "../graph-model.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
 import { handledErrorOf, recordOfNode } from "../workflow-keys.js";
+import { sidePathEntered } from "../limits.js";
 import type { JoinDeps } from "./join-node.js";
 import { hasExpired } from "./deadline.js";
 import { quorumOutcomeOf, quorumRuleOf, type QuorumOutcome } from "./quorum.js";
@@ -152,5 +153,6 @@ export function quorumNotReached(
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;
   const handled = handledErrorOf(site.deps, record, ticket.launcher, handler.to);
-  return { lastError: record, next: handler.to, handledErrors: [handled] };
+  const entered = sidePathEntered(site.state, record, handler.to);
+  return { lastError: record, next: handler.to, handledErrors: [handled], ...entered };
 }

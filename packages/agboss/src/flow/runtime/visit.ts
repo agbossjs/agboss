@@ -2,7 +2,7 @@ import { extractRunContext } from "../../core/run-context.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
-import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
+import { checkVisit, isWorkingNode, sidePathAfter, type ExecutionLimits } from "./limits.js";
 import {
   recordsOf,
   reportingOf,
@@ -135,6 +135,7 @@ function succeeded(
     ...visited(node, isWorkingNode(node)),
     ...write.update,
     next,
+    ...sidePathAfter(state, node, launched === undefined ? next : undefined),
     ...(launched === undefined ? {} : { launch: launched.ticket }),
     ...recordsOf(outcome),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),

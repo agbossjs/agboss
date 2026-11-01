@@ -18,6 +18,7 @@ import type { EndedChildRecord, ChildIdentityRecord, HandledErrorRecord } from "
 import { mergeCompensations, type CompensationEntry } from "../compensation.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
+import type { SidePathRecord } from "./limits.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -129,6 +130,8 @@ export const ExecutionState = Annotation.Root({
   children: Annotation<EndedChildRecord[]>({ reducer: append, default: () => [] }),
   /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
   handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
+  /** The side path the next visit is on (#656): what the budgets' exemptions read; `null` off one. */
+  sidePath: Annotation<SidePathRecord | null>({ reducer: replace, default: () => null }),
   /**
    * The undoable actions that succeeded (#340): one entry per action with `compensateWith` — open
    * with a snapshot of what its undo reads, then committed or closed by its undo (an entry written
