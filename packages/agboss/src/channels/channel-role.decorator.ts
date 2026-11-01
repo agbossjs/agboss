@@ -20,7 +20,7 @@ export enum PauseAnswerer {
   Channel = "channel",
 }
 
-/** What every channel role declares, whichever its form (`approves` or `ask` / `answer`). */
+/** What every channel role declares. */
 export interface ChannelRoleBaseOptions {
   /** Kebab-case, unique in the application (`refund-approval-channel`). */
   readonly name: string;
@@ -31,7 +31,10 @@ export interface ChannelRoleBaseOptions {
   readonly replyInterpreter?: Class;
 }
 
-/** A tool approval: the question is the tool call, its `arguments` typed by `approves`. */
+/**
+ * A tool approval: the question is the tool call, its `arguments` typed by `approves`. A question
+ * role (`ask` / `answer`) cannot be declared (#647): nothing could ask it — #659.
+ */
 export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
   /** The input DTO of the tools the role approves (`[channel.wrong-tool]` for any other tool). */
   readonly approves: DtoClass;
@@ -39,40 +42,44 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
   readonly answer?: never;
 }
 
-/** A workflow question: the project's own question and answer DTOs. */
-export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
-  readonly ask: DtoClass;
-  readonly answer: DtoClass;
-  readonly approves?: never;
-}
-
-/** The two forms of a role, never both. */
-export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+/** A role's options: the approval form, the only one there is (#647). */
+export type ChannelRoleOptions = ChannelApprovalRoleOptions;
 
 const roles = new WeakMap<Class, ChannelRoleOptions>();
 
 const PAUSE_ANSWERERS: ReadonlySet<string> = new Set(Object.values(PauseAnswerer));
 
-/** The form problem of a role's options (both forms, neither, no `answeredBy`); none → `undefined`. */
-function formProblem(options: ChannelRoleOptions): string | undefined {
+/** Why a role's options cannot be declared, with its rule code; none → `undefined`. */
+interface FormProblem {
+  readonly code: "channel.role-form" | "channel.question-role-unavailable";
+  readonly problem: string;
+}
+
+/** The form problem of a role's options (a question role, no `approves`, no `answeredBy`). */
+function formProblem(options: ChannelRoleOptions): FormProblem | undefined {
   // read as an untyped (JS) caller may pass them: the types rule these forms out already
   const fields: Partial<Record<"approves" | "ask" | "answer" | "answeredBy", unknown>> = options;
-  const isApproval = fields.approves !== undefined;
-  const isQuestion = fields.ask !== undefined || fields.answer !== undefined;
-  if (isApproval && isQuestion) return "declares both approves and ask / answer — keep one form";
-  if (!isApproval && (fields.ask === undefined || fields.answer === undefined))
-    return "declares neither approves nor both ask and answer";
-  if (typeof fields.answeredBy !== "string" || !PAUSE_ANSWERERS.has(fields.answeredBy))
-    return "has no answeredBy — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
+  if (fields.ask !== undefined || fields.answer !== undefined) {
+    const problem =
+      "declares ask / answer, a question role — nothing can ask one yet (#659): approve the tool call through a role with approves, its answer's overrideArguments for a changed call";
+    return { code: "channel.question-role-unavailable", problem };
+  }
+  if (fields.approves === undefined)
+    return { code: "channel.role-form", problem: "declares no approves — the tools' input DTO" };
+  if (typeof fields.answeredBy !== "string" || !PAUSE_ANSWERERS.has(fields.answeredBy)) {
+    const problem =
+      "has no answeredBy — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
+    return { code: "channel.role-form", problem };
+  }
   return undefined;
 }
 
 export function ChannelRole(options: ChannelRoleOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
-    const problem = formProblem(options);
-    if (problem !== undefined) {
+    const found = formProblem(options);
+    if (found !== undefined) {
       throw new ComponentError(
-        `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${problem}`,
+        `[${found.code}] @ChannelRole "${options.name}" (${value.name}) ${found.problem}`,
       );
     }
     roles.set(value, options);
@@ -121,9 +128,8 @@ interface ReplyInterpreterBaseOptions {
 export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOptions {
   readonly decidedBy: DecidedBy.Model;
   /**
-   * A chat model (one answer tool), or — for an approval role only — a decision model (one
-   * `Decision.noul("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
-   * a decision model for a question role is `[reply-interpreter.decision-model]`.
+   * A chat model (one answer tool), or a decision model (one `Decision.noul("approved")`: approve /
+   * refuse, no `reason`, no `overrideArguments`, #267 S124 a).
    */
   readonly model: string;
   /** How to read a reply; static — the question and the reply come in the input message. */

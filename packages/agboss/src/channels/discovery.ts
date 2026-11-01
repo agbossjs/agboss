@@ -7,7 +7,6 @@ import type { PromptLoader } from "../components/prompt-render.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { isDecisionModel } from "../models/decision-models.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import {
   channelRoleOf,
@@ -98,9 +97,7 @@ export function rolesOf(uses: readonly ChannelUse[]): readonly FoundChannelRole[
 /**
  * The reply interpreters of a workflow's tree (#267 PR 3): the `replyInterpreter` of every channel
  * role its tools — its children's too — name, checked at assembly (`[name.kind-suffix]`,
- * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]` — a decision model
- * for a question role, whose answer needs more than `approved`,
- * `[reply-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
+ * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
  * interpreter, its instructions loaded.
  */
 
@@ -111,9 +108,9 @@ export interface AssembledReplyInterpreter {
   /** The interpreter class (a code one is created by the container). */
   readonly interpreter: Class;
   readonly name: string;
-  /** What its answer is validated as: `ToolCallApprovalDecisionDto`, or the role's `answer`. */
+  /** What its answer is validated as: `ToolCallApprovalDecisionDto` (approval roles only, #647). */
   readonly answer: DtoClass;
-  /** A model interpreter's model (a chat model, or a decision model for an approval); `undefined` for a code one. */
+  /** A model interpreter's model (a chat model, or a decision model); `undefined` for a code one. */
   readonly model: string | undefined;
   /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
   readonly instructions: string;
@@ -128,9 +125,8 @@ interface InterpretedRole {
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
-/** The answer a role's interpreter gives. */
-const answerOf = (role: FoundChannelRole): DtoClass =>
-  role.options.approves === undefined ? role.options.answer : ToolCallApprovalDecisionDto;
+/** The answer a role's interpreter gives: an approval decision, the one form of a role (#647). */
+const answerOf = (): DtoClass => ToolCallApprovalDecisionDto;
 
 /** The roles of the uses that name an interpreter, each with it (an undecorated one has none). */
 function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRole[] {
@@ -144,11 +140,7 @@ function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRo
 }
 
 /** What is wrong with one interpreter's declaration. */
-function declarationViolations({
-  role,
-  interpreter,
-  declaration,
-}: InterpretedRole): RuleViolation[] {
+function declarationViolations({ interpreter, declaration }: InterpretedRole): RuleViolation[] {
   const { options } = declaration;
   const suffix = kindSuffixProblem(options.name, NameKind.ReplyInterpreter);
   const found =
@@ -159,11 +151,7 @@ function declarationViolations({
     const message = `${nameOf(interpreter)} (${options.name}) is decided by code but has no interpret(input) method — implements ReplyInterpreterHandler<${nameOf(interpreter)}>`;
     return [...found, violation("reply-interpreter.no-interpret-method", message, [options.name])];
   }
-  // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
-  if (!isDecisionModel(options.model) || role.options.approves !== undefined) return found;
-  const answer = nameOf(answerOf(role));
-  const message = `${options.name}: ${options.model} is a decision model — it answers only yes / no (approved), but channel role ${role.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code (DecidedBy.Code)`;
-  return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
+  return found;
 }
 
 /** Every interpreter rule over a workflow's channel uses. */
@@ -192,7 +180,7 @@ export async function replyInterpretersOf(
         channel: role.options.name,
         interpreter,
         name: options.name,
-        answer: answerOf(role),
+        answer: answerOf(),
         model: isCode ? undefined : options.model,
         instructions: isCode ? "" : await loader.load({ label, options, source }),
       };

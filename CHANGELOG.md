@@ -108,6 +108,17 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
   `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
 
+### Changed — breaking
+
+- **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
+  passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
+  no flow step pauses on one. The form is gone from `@ChannelRole`'s types
+  (`ChannelQuestionRoleOptions` removed), its decorator throws
+  `[channel.question-role-unavailable]` for a JS caller, and the docs and skills describe the
+  approval form only; `[reply-interpreter.decision-model]` is gone with it (every role is an
+  approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
+  Workflow questions are #659.
+
 ### Changed — breaking for stores outside the core
 
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a

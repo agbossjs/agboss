@@ -58,16 +58,19 @@ describe("#267 AC6: approves types arguments", () => {
     expectTypeOf<ChannelAsk<NotARole>["value"]>().toEqualTypeOf<MissingGeneratedTypes>();
   });
 
-  it("both forms in one role do not compile", () => {
-    // @ts-expect-error — approves and ask / answer together: two forms, never both
-    ChannelRole({
-      name: "both-channel",
-      description: "Both",
-      approves: RefundCardInputDto,
-      ask: ShortlistDto,
-      answer: OfferDraftDto,
+  it("a question role (ask / answer) does not compile, alone or beside approves (#647)", () => {
+    type RoleOptions = Parameters<typeof ChannelRole>[0];
+    const role = {
+      name: "question-channel",
+      description: "A question",
       answeredBy: PauseAnswerer.Channel,
-    });
+    };
+    const question = { ...role, ask: ShortlistDto, answer: OfferDraftDto };
+    const both = { ...question, approves: RefundCardInputDto };
+
+    expectTypeOf(question).not.toExtend<RoleOptions>();
+    expectTypeOf(both).not.toExtend<RoleOptions>();
+    expectTypeOf({ ...role, approves: RefundCardInputDto }).toExtend<RoleOptions>();
     // @ts-expect-error — answeredBy is required: who may answer is never a default
     ChannelRole({ name: "open-channel", description: "Open", approves: RefundCardInputDto });
     expectTypeOf(ChannelRole).toBeFunction();

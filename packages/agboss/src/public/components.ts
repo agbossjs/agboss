@@ -136,7 +136,6 @@ export {
   PauseAnswerer,
   type ChannelApprovalRoleOptions,
   type ChannelRoleBaseOptions,
-  type ChannelQuestionRoleOptions,
   type ChannelRoleOptions,
 } from "../channels/channel-role.decorator.js";
 export {

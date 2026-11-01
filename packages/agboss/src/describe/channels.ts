@@ -3,7 +3,6 @@ import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
-import type { DtoClass } from "../dto/types.js";
 import {
   channelRoleOf,
   PauseAnswerer,
@@ -56,13 +55,6 @@ const toolLabel = (use: ChannelUse): string => `${use.tool} (${use.workflow})`;
 const inputsLabel = (uses: readonly ChannelUse[]): string =>
   [...new Set(uses.map((use) => dtoLabel(use.toolInput)))].join(" | ");
 
-/** The role's question: its `ask`, or the tool input it approves. */
-const questionOf = (options: ChannelRoleOptions): DtoClass => options.approves ?? options.ask;
-
-/** The role's answer: its `answer`, or the approval decision. */
-const answerOf = (options: ChannelRoleOptions): DtoClass =>
-  options.answer ?? ToolCallApprovalDecisionDto;
-
 function roleChannel(
   role: Class,
   options: ChannelRoleOptions,
@@ -78,8 +70,8 @@ function roleChannel(
     name: options.name,
     className: role.name,
     isRole: true,
-    question: dtoLabel(questionOf(options)),
-    answer: dtoLabel(answerOf(options)),
+    question: dtoLabel(options.approves),
+    answer: dtoLabel(ToolCallApprovalDecisionDto),
     answeredBy: options.answeredBy,
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined

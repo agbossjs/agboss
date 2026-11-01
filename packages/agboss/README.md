@@ -1118,11 +1118,10 @@ they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision
 `@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
 pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
 decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
-`promptUrls` its instructions, the question and the reply in the input message. For an approval role
-(`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
+`promptUrls` its instructions, the question and the reply in the input message. The model may be a
+decision model (Jev, #267 S124): it reads approve / refuse only — one
 `Decision.noul("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
-and no `overrideArguments`; a question role, whose answer needs more than a yes / no, cannot name
-one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
+and no `overrideArguments`. Either model's call goes through the provider
 resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
 and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
 `DecidedBy.Code` — the class's `interpret(input: InputOf<Self>)` (`implements

@@ -62,10 +62,7 @@ function roleTypesOf(use: ChannelUse, names: ImportTable): RoleTypes | undefined
   const { options, role } = found;
   names.ref(role);
   const interpreter = options.replyInterpreter;
-  const types =
-    options.approves !== undefined
-      ? approvalTypes([options.approves], names)
-      : { ask: names.dto(options.ask), answer: names.dto(options.answer) };
+  const types = approvalTypes([options.approves], names);
   return { name: options.name, types, interpreter };
 }
 

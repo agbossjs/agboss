@@ -398,11 +398,11 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | Code / error                              | Cause → fix                                                                                        |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                           |
+| `[channel.question-role-unavailable]`     | a role with `ask` / `answer` — nothing can ask one yet (#659) → `approves` + `overrideArguments`   |
 | `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application       |
 | `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                   |
 | `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                   |
 | `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                    |
-| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model                                   |
 | `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                    |
 | `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones |
 | `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential         |

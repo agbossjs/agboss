@@ -163,7 +163,6 @@ export type RuleCode =
   | "channel.shared-interpreter"
   // reply interpreters (#267 PR 3), reported at each workflow's assembly
   | "reply-interpreter.not-an-interpreter"
-  | "reply-interpreter.decision-model"
   | "reply-interpreter.no-interpret-method"
   | "di.missing-implementation"
   | "di.ambiguous-implementation"
