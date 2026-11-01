@@ -27,6 +27,9 @@ export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"]
   every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
   is inlined anyway, which is why only the published package showed it.)
 - `setupFiles` gains `@agboss/core/testing/setup`, once.
+- Inlined, vite reads the core's source maps: `@agboss/core` and `@agboss/cli` ship their `src/`
+  beside `dist/` (#645), so a test run prints no "Sourcemap … points to missing source files" and a
+  stack trace inside the core names a line of `node_modules/@agboss/core/src/…` you can open.
 - Your own `setupFiles` and `server.deps.inline` are merged, never replaced (`inline: true` is kept as
   it is); every other option passes through, and calling it twice adds nothing twice. The entry
   imports only vitest's types.
@@ -42,7 +45,9 @@ The guard: `npm run check:packed` (CI's `packed-project` job, on every pull requ
 `@agboss/core` and `@agboss/cli`, creates a project outside the workspace with the packed CLI
 (`agboss create`), installs the tarballs (checked: installed, not linked), runs its tests with a
 `workflowOf` test of its own, `agboss describe` and `agboss check` — then the same `workflowOf` test
-under a plain config, which must fail with that `TestSetupError`.
+under a plain config, which must fail with that `TestSetupError`. It also fails (#645) when a shipped
+`dist/**/*.js.map` names a source the tarball lacks, when the test run prints vite's missing-sources
+warning, or when a test failing inside the core names a frame the installed package does not have.
 Its installs are reproducible (#523): the tarballs go in by path, and their dependencies' ranges
 resolve to releases at least three days old (`npm install --before=<now − 3 days>`; the maintainer
 may set `AGBOSS_NPM_BEFORE` to an ISO date at release time, locally) — a release minutes old never

@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the packages ship the sources their maps name (#645)
+
+- **Fixed**: `@agboss/core` and `@agboss/cli` ship `src/` beside `dist/`. Under `agbossTest()` vite
+  reads the core's source maps, and every map named a `src/…ts` the tarball did not have: ~700
+  "Sourcemap … points to missing source files" lines per `npm test` of a new project, and stack
+  traces into files that did not exist. Now no warning, and a trace names a line of the installed
+  package. `npm run check:packed` fails when it comes back. No API change.
+  [Testing](Testing#the-vitest-preset-one-module-graph-497).
+
 ## Unreleased — 0.1.1: a Payments section — the gateway contract, every race, ten gateways (#653)
 
 - **Added — [Payments](Payments)**, [Payment scenarios](Payment-scenarios) (PS1–PS23: what goes
