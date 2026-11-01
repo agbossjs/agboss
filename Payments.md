@@ -162,6 +162,24 @@ export class ChargeOrderAction {
 - **A webhook** starts an execution, and applies the event in a fenced effect keyed by the
   gateway's event id (PS15).
 - **The undo** of a charge is a refund behind an outbound call (PS10, [Rollback](Rollback)).
+- **A lookup's hit is your order's payment only when it says so.** Check every hit `reconcile`
+  takes against the order — its reference (Stripe's `metadata.order_id`, Checkout.com's
+  `reference`, PayPal's `reference_id`), its amount and its currency — never the first hit a search
+  returns; and escape your value in a search query (Stripe: a quote in an order id could add an `OR`
+  clause and name another order's payment). Otherwise one order is reported paid by another's.
+- **A payment id from a caller moves money only when your books say it is the order's.** A refund,
+  capture or void takes the payment id from an operator's form, a customer's request or a webhook:
+  check it against the order (and tenant) in your own records before the call — never on the
+  caller's word, or one order's request refunds another's payment.
+- **A webhook belongs to one tenant.** Verify it with that tenant's secret, key every row it
+  touches by that tenant (never a default), and let it update only an existing order of that
+  tenant — never create a row, never act on an order or payment the tenant does not own.
+- **The attempt's start, while `reconcile` is not told it** (#658): a row of your own written in
+  a fenced effect's transaction, not the effect's stored result alone — stored results are removed
+  after `fencedEffects.retention` (default `hours(24)`), and an age read from a re-run effect starts
+  at zero. Both checks and this row are in
+  [`12-payment-gateways`](https://github.com/agbossjs/agboss-examples/tree/main/12-payment-gateways)
+  and [`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments).
 
 ## How to check your own gateway call
 
@@ -182,6 +200,3 @@ with your gateway's documentation.
 4. **Probe the generic requirements** with `outboundGatewayChecklist`
    ([Payment gateways](Payment-gateways#the-checklist-offline)), offline against
    `FakeOutboundGateway`, or by hand against your gateway's sandbox.
-
-The two example projects land with #654 and #655, after this page; until then the links above
-point to where they will be.

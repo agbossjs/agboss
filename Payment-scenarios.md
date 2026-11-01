@@ -359,7 +359,8 @@ weekend, an operator's retry, a customer paying again the next day.
   - On a gateway whose only lookup is a replay of the key (Adyen; Stripe while its search lags),
     `reconcile` answers `notSent()` safely only inside the key's retention, and it is not told
     when the attempt was sent ([#658](https://github.com/agbossjs/agboss/issues/658)): record that
-    time yourself until then.
+    time yourself until then, in a row of your own (a fenced effect's stored result is removed
+    after `fencedEffects.retention`).
 - **Proof:** none in the core for the gateway's retention; `outboundGatewayChecklist` probes G3.
   Full example: `ps17`.
 
