@@ -30,7 +30,8 @@ async function joinedTo<TRequest, TResult>(
   make: () => Promise<OutboundCallOutcome<TResult>>,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { key } = run;
-  if (key.businessKey !== undefined && joined.fingerprint !== key.fingerprint)
+  // a step's key has no fingerprint, the call it joins neither: only a business key can differ
+  if (joined.fingerprint !== key.fingerprint)
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);

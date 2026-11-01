@@ -7,6 +7,7 @@
     "vitest.smoke.config.ts",
     "vitest.mutation.config.ts",
     "vitest.mutation-sqlite.config.ts",
+    "vitest.mutation-calls.config.ts",
     ".agboss/types.d.ts"
   ]
 }
