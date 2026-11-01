@@ -34,6 +34,9 @@ export const sentAtOf = (clock: Clock): SentAt => ({
   wall: clock.now().getTime(),
 });
 
+/** A finite number: `Number.isFinite` is false for every non-number (#619: no `typeof` test beside it). */
+const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value);
+
 /**
  * The time a store's answer says is left, as the holder trusts it (#533): a finite number of ms ≥ 0,
  * never more than the lease it asked for. Anything else — no `remaining` (a store on the contract
@@ -42,11 +45,7 @@ export const sentAtOf = (clock: Clock): SentAt => ({
 export const trustedRemaining = (
   remaining: unknown,
   asked: Milliseconds = EXECUTION_LEASE,
-): Milliseconds =>
-  waitOf(
-    // Stryker disable next-line ConditionalExpression: `Number.isFinite` is false for every non-number, so the `typeof` test changes no answer
-    typeof remaining === "number" && Number.isFinite(remaining) ? Math.min(remaining, asked) : 0,
-  );
+): Milliseconds => waitOf(isFiniteNumber(remaining) ? Math.min(remaining, asked) : 0);
 
 /** How a fence begins: its first answer, the request's `sentAt`, and the margin (default 1 s). */
 export interface FenceStart {
@@ -114,15 +113,15 @@ export class LeaseFence {
    * or an external system fenced one of its writes (`reason`, #471).
    */
   lose(reason: ExecutionLeaseLostError = new ExecutionLeaseLostError(this.rootExecutionId)): never {
-    // Stryker disable next-line ConditionalExpression: aborting an aborted controller is a no-op that keeps its first reason
-    if (!this.lost.signal.aborted) this.lost.abort(reason);
+    // aborting an aborted controller is a no-op that keeps its first reason (#619: no test of it)
+    this.lost.abort(reason);
     throw this.lost.signal.reason;
   }
 
   /** Aborts the holder: the lease ran out with no renewal the store confirmed. */
   expire(): void {
-    // Stryker disable next-line ConditionalExpression: aborting an aborted controller is a no-op that keeps its first reason
-    if (!this.lost.signal.aborted) this.lost.abort(leaseExpiredError(this.rootExecutionId));
+    // a no-op once aborted: the first reason stays
+    this.lost.abort(leaseExpiredError(this.rootExecutionId));
   }
 
   /** Expires the lease once it ran out here (#533: the earlier of its two counts); throws once lost. */

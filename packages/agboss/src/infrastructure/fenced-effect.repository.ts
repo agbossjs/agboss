@@ -266,13 +266,21 @@ function observedCall<TResult>(
   frame: FrameSpec | undefined,
   call: Promise<FencedEffectOutcome<TResult>>,
 ): Promise<FencedEffectOutcome<TResult>> {
-  const lease = frame?.execution.lease;
-  // Stryker disable next-line ConditionalExpression,LogicalOperator: `lease` is undefined without a frame, and a lease without `recordFencedEffect` only wraps the call in a `then` whose report is a no-op
-  if (frame === undefined || lease?.recordFencedEffect === undefined) return call;
+  return frame === undefined ? call : observedInStep(key, frame, call);
+}
+
+/** `observedCall` in a step's frame: told to its lease, unless that lease does not record. */
+function observedInStep<TResult>(
+  key: FencedEffectKey,
+  frame: FrameSpec,
+  call: Promise<FencedEffectOutcome<TResult>>,
+): Promise<FencedEffectOutcome<TResult>> {
+  const { lease } = frame.execution;
+  if (lease?.recordFencedEffect === undefined) return call;
+  const record = lease.recordFencedEffect.bind(lease);
   const { name, scopeKey, token } = key;
   const report = (outcome: FencedEffectEventOutcome, tokens: object): void => {
-    // Stryker disable next-line OptionalChaining: `recordFencedEffect` is defined here: `observedCall` returned the call as it is otherwise
-    lease.recordFencedEffect?.({
+    record({
       event: nodeEventOf(frame),
       name,
       scopeKey,
