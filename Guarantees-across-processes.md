@@ -118,6 +118,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 11 | A 10 s grace (Cloud Run) with `shutdownTimeout` below it | The pod hands over and exits in time; another finishes the tree | `s11-short-grace` (`s11-short-grace.test.ts`) |
 | 11b | `shutdownTimeout` above the grace: the platform kills the pod mid-drain | Taken over once the lease expired; one charge | `s11b-shutdown-timeout-above-grace` |
 | 12 | A real failure (the card declined), the pod killed mid-undo | The next pod finishes the undo (`Unwinding`): the reservation is released once, and the kept record lists it (#541) | `s12-real-failure-undone-once` (`s12-real-failure.test.ts`) |
+| 12b | A real failure; the pod that undid the reservation frozen (`SIGSTOP`) right after it marked the undo done, before it failed the tree (#607) | The next pod takes the tree over (`Unwinding`), finds the undo marked done and fails the tree without releasing again: released once, by the frozen pod | `s12b-marked-undo-not-again` (`s12-real-failure.test.ts`) |
 | 13 | A pod whose clock is ten leases ahead of the others (#533) | It never takes the lease a live pod holds and renews; that pod finishes its own tree, one charge — the stores decide expiry by the database's time | `s13-clock-ahead` (`s13-clock-skew.test.ts`) |
 | 13 | A pod whose clock is ten leases behind, the holder frozen (#533) | It takes the tree over on time, from the holder's last checkpoint | `s13-clock-behind` (`s13-clock-skew.test.ts`) |
 
@@ -134,6 +135,8 @@ negative tests prove it (`tests/faults/sabotage.test.ts`):
   it fails 5d on `effects-once` and `linearizable`. The zombie's `confirmNow()` right before its
   send passes, so the order reaches the gateway twice (the gateway's own idempotency key makes it
   one payment, but the framework sent twice), and the stale renewal fits no sequential order.
+- A tree store that **forgets every undo's done mark** (`@agboss/compensated/…`, #607): it fails
+  12b on `no-undo-on-hand-over`, because the next pod releases the reservation a second time.
 
 **A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
 no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or
@@ -176,6 +179,22 @@ The suite proves the framework's side under the faults above. These parts are yo
   (`HandOverSite.Compensation`). What is left is the same window as `send`: a holder frozen between
   that look and the undo's own write. An undo whose external system checks
   `executionContext.fence` closes it; the undo's key is `<step key>:compensation`.
+- **An undo marked done never runs again** (#607). Every automatic undo is marked done in the
+  tree's store (`@agboss/compensated/<key>`, `saveIfAbsent`) right after it succeeded, before the
+  next undo starts and before what it closed is written anywhere else; whoever takes the tree over
+  reads the entries through the marks first and skips what is marked. This holds for every path
+  that undoes on its own: a failed join's (its launch run again from the last checkpoint finds the
+  booking undone, and the join's update closes it, so a side path's finish never commits it), a
+  root's (failed, cancelled, out of budget), a child's on either placement, and a recursion level's.
+  What is left is one window: a holder that stops after its undo action and before the mark. The
+  next holder runs the undo action again, **under the same key**. So an undo is at least once, as
+  any step is, and exactly once when its effect is fenced by that key (a fenced effect, or
+  `OutboundCalls`). A refund behind `OutboundCalls` is paid once whatever instance stops where.
+  The core proves every path, frozen at four points (in the undo action before and after its
+  effect, before and once its mark is written), with one and two takeovers and the frozen holder
+  thawed right after the takeover or after the tree ended
+  ([`undo-once.matrix.test.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/tests/app/undo-once.matrix.test.ts));
+  scenario 12b proves it across processes.
 - **The platform's grace period.** Set `shutdownTimeout` below it (Cloud Run: 10 s; Kubernetes:
   `terminationGracePeriodSeconds`). Then a stopping pod hands its steps over in time (scenario 11).
   Above it, nothing is lost, but the tree waits for its lease to expire before it moves again
