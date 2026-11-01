@@ -40,6 +40,7 @@ import { OutboundCallRepository } from "./outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
+import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 
 /**
  * The infrastructure an application consumes (#261, S28; the shared contracts #265): a framework
@@ -164,7 +165,8 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   idGenerator: resolve(IdGenerator) as IdGenerator,
   logger: resolve(Logger) as Logger,
   // each contract resolves to an instance of a class that extends it (registrations by inheritance)
-  checkpointer: resolve(BaseCheckpointSaver) as BaseCheckpointSaver,
+  // its latest checkpoint the one written last, whatever the wall clock did (#682)
+  checkpointer: new OrderedCheckpointSaver(resolve(BaseCheckpointSaver) as BaseCheckpointSaver),
   records: resolve(ExecutionRecordRepository) as ExecutionRecordRepository,
   costLedger: resolve(CostLedgerRepository) as CostLedgerRepository,
   pausedExecutions: resolve(PausedExecutionRepository) as PausedExecutionRepository,
@@ -193,7 +195,9 @@ export const reusableInfrastructure = (
 ): ReadonlyMap<Class, unknown> =>
   new Map(
     REUSED_PARTS.flatMap((part) => {
-      const instance: object = infrastructure[part];
+      // the listed checkpointer itself, under the ordered one the instance reads through (#682)
+      const reused = infrastructure[part];
+      const instance: object = reused instanceof OrderedCheckpointSaver ? reused.saver : reused;
       return isSqliteImplementation(instance) ? [] : [[instance.constructor as Class, instance]];
     }),
   );

@@ -250,8 +250,16 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   newest checkpoints sorted before older ones, the one before its action looked ended, and the
   parent got `undefined` for its result (a `DtoValidationError` at the parent's finish, or a value
   missing on the path). Now a child's end is read at the checkpoint its own run wrote last — a
-  re-entered child and a remote child's parent at its thread's leaf —, on either placement. A
-  continuation from a thread's latest checkpoint after such a step is #682.
+  re-entered child and a remote child's parent at its thread's leaf —, on either placement.
+
+- **A resume after the host's clock stepped back skipped the approved call** (#682) — LangGraph
+  continues a resume, a recovery or a re-entered child from a thread's latest checkpoint, the
+  greatest id. After a backward step it continued from the checkpoint before the step: the agent
+  ran its earlier tool again and the approved charge never ran, though the run finished
+  "Charged.". The application's checkpointer — whatever saver is listed, PostgreSQL's too — now
+  reads the checkpoint written last: a write whose id sorts below its thread's greatest first marks
+  the thread (namespace `agboss-out-of-order`), and a marked thread is read by LangGraph's step.
+  An unmarked thread costs one more look per latest read. No API change.
 
 - **A model reply interpreter sees the call it approves, and can say "not understood"** (#648) —
   its answer tool described `overrideArguments` as any object, and "not understood" was only
