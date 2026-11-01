@@ -37,7 +37,7 @@ import { recordOfNode } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
- * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
+ * A node's visit (#272 → Runtime): limits checked before it runs (`checkVisit`), the node run,
  * its way out chosen — the router's route, the `switch` case of its value's class, its one next step,
  * or the end at a finish — and its value written to the scope on that edge, outdating what it makes
  * stale (#271: one observer event and trace entry per cascade). A failure goes to the
@@ -164,12 +164,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     const parts = { parts: deps.compensation };
     try {
       const slot = { slots: deps.slots, graph: deps.graph, node, state, config, ...frame };
-      // a slot of the tree first (#264), then the limits: the counters as they are when it works
+      // a slot of the tree first (#264), then the limits (#634: every node that can spend)
       const outcome = await inTreeSlot(slot, async () => {
-        if (isWorkingNode(node)) {
-          await checkVisit(state, node, deps.limits, deps.workflow, frame.step.component);
-          ranAsStep = true;
-        }
+        ranAsStep = await checkVisit(state, node, deps.limits, deps.workflow, frame.step.component);
         return runInFrame(frame, () => runner(state, config));
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };

@@ -6,7 +6,7 @@ import { runInFrame } from "../../context/frame.js";
 import { failedVisitOf, visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
 import { compensationsOfBranch } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
-import { checkVisit, isWorkingNode } from "../limits.js";
+import { checkVisit } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { inTreeSlot, startedVersionOf } from "../step-frame.js";
@@ -136,11 +136,9 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { outcome, marked } = await inTreeSlot(
     { ...slot, watch: live.quorum?.queued },
     async () => {
-      if (isWorkingNode(node)) {
-        // the view's spend: the execution's at the launch plus the siblings that ended (#273 S71)
-        await checkVisit(view, node, deps.limits, deps.workflow, frame.step.component);
-        run.ranAsStep = true;
-      }
+      // the view's spend: the execution's at the launch plus the siblings that ended (#273 S71)
+      const { component } = frame.step;
+      run.ranAsStep = await checkVisit(view, node, deps.limits, deps.workflow, component);
       return runInFrame(frame, async () => {
         // a test's completion gate (#262 S33): none in production
         const answered = await gated(gate, () => runner(view, config));

@@ -7,7 +7,7 @@ import type { Milliseconds } from "../units/index.js";
  * trusted mesh caller still waits (its envelope's `deadline.remaining`), the smaller of the two —
  * fixed on the application's `Clock` at the execution's start and kept in its state, so a pause
  * counts as time and a resume after the deadline fails. Checked where the budgets are: before every
- * agent and router step and before every model call.
+ * step that can spend (#634) and before every model call.
  */
 export interface ExecutionDeadline {
   /** When it passes (ISO 8601, the `Clock`). */

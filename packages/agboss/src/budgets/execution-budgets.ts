@@ -143,7 +143,7 @@ interface CounterSnapshot {
 
 /**
  * The budgets of one pass of an execution (its run, a resume, a recovery): their counters read
- * before each working step (`refresh`, so the spend of the tenant's other executions counts),
+ * before each step (`refresh`, so the spend of the tenant's other executions counts),
  * checked before each step and model call (`check`), each call's cost added to every one of them
  * (`record`). A counter's value now = what it held at the last read + what the execution spent
  * since that is not in the ledger yet.

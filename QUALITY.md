@@ -174,9 +174,14 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution
-    (`BudgetExceededError`, an `onExecutionRejected`; no thread, no record, no call — a refused request leaves no trace). Before every working step the
-    counters are read again (the tenant's other executions count) and every budget is checked;
-    before every model call too. The first exhausted **fails the execution** — never a quiet stop,
+    (`BudgetExceededError`, an `onExecutionRejected`; no thread, no record, no call — a refused request leaves no trace). Before every step that can
+    spend or reach out (#634: an agent, a router, an action, a child workflow or a recursion's
+    level, each branch of a launch, a side path's action) the counters are read again (the
+    tenant's other executions count) and every budget is checked; before every model call too.
+    Never before a start or a finish (they spend nothing), an undo — a side path's undo action of
+    an open entry too — (it gives money back) or an
+    action of the side path that took a limit (the application's reaction to it; its spend
+    counts). The first exhausted **fails the execution** — never a quiet stop,
     unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,
     `maxSpend`, `spent` and a sentence (`tenant acme spent $40.05 today; tenant-daily-budget allows
 $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`

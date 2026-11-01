@@ -69,6 +69,21 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     },
   },
   {
+    // #634: every step's budget check reads every counter of the execution — none may lose a save
+    name: "concurrent saves of two instances to several counters lose nothing in any of them",
+    run: async ({ first, second }) => {
+      const execution = { budget: "execution-budget", scope: BudgetScope.Execution, key: "run-1" };
+      const counters = [tenantDay, applicationMonth, { ...execution, period: "" }];
+      await Promise.all(
+        Array.from({ length: 10 }, (_, index) =>
+          (index % 2 === 0 ? first : second).saveAll(counters, [call(0.125), call(0.125)]),
+        ),
+      );
+
+      for (const counter of counters) expect(await second.findSpentByCounter(counter)).toBe(2.5);
+    },
+  },
+  {
     name: "keeps the last maxSpend() of an account: the last known limit",
     run: async ({ first, second }) => {
       const account = { budget: tenantDay.budget, scope: tenantDay.scope, key: tenantDay.key };
