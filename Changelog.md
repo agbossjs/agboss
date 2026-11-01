@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a child's result survives the host's clock stepping back (#661)
+
+- **Fixed**: a child's end was read at its thread's latest checkpoint — the greatest id, LangGraph's
+  UUIDv6 of `Date.now()`. After an NTP step of the wall clock (−50.8 ms on the machine where the flake
+  was seen) the child's newest checkpoints sorted before older ones, the one before its action read as
+  ended, and the parent got `undefined` for the child's result. Now its end is read at the checkpoint
+  its own run wrote last; a re-entered child and a remote child's parent read its thread's leaf (the
+  checkpoint no other names as its parent). On both placements; no API change. A continuation from a
+  thread's latest checkpoint after such a step: #682. [Guarantees](Guarantees) (A13).
 ## Unreleased — 0.1.1: the budget's overrun bound, stated in full (#664)
 
 - **Docs**: a budget is exceeded by at most the calls in flight when it was exhausted, **plus** the
