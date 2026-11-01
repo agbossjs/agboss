@@ -121,6 +121,8 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 12b | A real failure; the pod that undid the reservation frozen (`SIGSTOP`) right after it marked the undo done, before it failed the tree (#607) | The next pod takes the tree over (`Unwinding`), finds the undo marked done and fails the tree without releasing again: released once, by the frozen pod | `s12b-marked-undo-not-again` (`s12-real-failure.test.ts`) |
 | 13 | A pod whose clock is ten leases ahead of the others (#533) | It never takes the lease a live pod holds and renews; that pod finishes its own tree, one charge — the stores decide expiry by the database's time | `s13-clock-ahead` (`s13-clock-skew.test.ts`) |
 | 13 | A pod whose clock is ten leases behind, the holder frozen (#533) | It takes the tree over on time, from the holder's last checkpoint | `s13-clock-behind` (`s13-clock-skew.test.ts`) |
+| 14 | The gateway charges and its answer is lost (a 502, an error of unknown outcome, #657); the pod killed in the failed tree's undo; the gateway forgets the key; the order paid again | The intent stays pending, not `Failed`; the next pod finishes the undo (`Unwinding`), the second tree reconciles the first charge by the order's reference (`Reconciled`): one request, one payment | `s14-ambiguous-answer-reconciled` (`s14-s15-key-expiry.test.ts`) |
+| 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's `reconcile` is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`notSent()`); the framework refuses the resend past `keyRetention` (`OutboundCallUnreconciledError`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
 
 **The scenarios bite.** A broken store must fail the scenario that targets it. These permanent
 negative tests prove it (`tests/faults/sabotage.test.ts`):
@@ -137,6 +139,13 @@ negative tests prove it (`tests/faults/sabotage.test.ts`):
   one payment, but the framework sent twice), and the stale renewal fits no sequential order.
 - A tree store that **forgets every undo's done mark** (`@agboss/compensated/…`, #607): it fails
   12b on `no-undo-on-hand-over`, because the next pod releases the reservation a second time.
+- A payment integration that takes **every gateway error for a definite failure** (as before
+  #657): 14 fails on `effects-once` — the lost answer's intent is `Failed`, the second tree resends
+  it after the gateway forgot the key: two requests, two payments.
+- A replay-only payment that **declares no `keyRetention`** (#658): 15 fails on `effects-once` —
+  the next pod's replay of the expired key is a new charge. Both run on the real store set
+  (`FAULT_SABOTAGE_SCENARIOS`, `@agboss/core/testing/faults`), in the core on SQLite and in
+  agbossjs/postgres on PostgreSQL (`tests/faults/sabotage.test.ts`).
 
 **A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
 no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or
@@ -157,8 +166,9 @@ The suite proves the framework's side under the faults above. These parts are yo
 scenario by scenario: [Payment scenarios](Payment-scenarios)):
 
 - **The other system's idempotency.** A call through `OutboundCalls` is recorded before it is sent.
-  It is never resent while its outcome is unknown: it is reconciled by its key instead (scenarios 9
-  and 10). That needs a gateway that:
+  It is never resent while its outcome is unknown — a crash before the answer, an SDK error that
+  is not a definite failure: it is reconciled instead (scenarios 9, 10 and 14), and a replay past
+  the declared `keyRetention` is never sent (scenario 15). That needs a gateway that:
   - deduplicates on `call.idempotencyKey` (G1);
   - can be asked by that key (G2);
   - keeps the key longer than your longest outage (G3).

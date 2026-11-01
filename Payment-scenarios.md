@@ -49,7 +49,7 @@ The mechanisms, by their short names:
 | [PS14](#ps14-the-database-lost-mid-commit) | The database lost mid-commit | Fenced effect, outbound call | — |
 | [PS15](#ps15-a-webhook-delivered-twice) | A webhook delivered twice | Business key, pause answered once | Application: signature check |
 | [PS16](#ps16-webhooks-out-of-order) | Webhooks out of order | — | Application |
-| [PS17](#ps17-the-idempotency-key-expires-before-a-retry) | The idempotency key expires before a retry | Outbound call, retention | Gateway: G3; application: the order row |
+| [PS17](#ps17-the-idempotency-key-expires-before-a-retry) | The idempotency key expires before a retry | Outbound call: unknown errors reconciled, the key's age and retention | Gateway: G3; application: the classification, `keyRetention`, the order row |
 | [PS18](#ps18-a-partial-capture) | A partial capture | Business key | Gateway: over-capture |
 | [PS19](#ps19-a-refund-retried) | A refund retried | Business key, outbound call | Application: one key for every refund path |
 | [PS20](#ps20-a-void-and-a-capture-race-on-one-authorization) | A void and a capture race | Business key | Gateway: its state machine |
@@ -68,14 +68,23 @@ The gateway charged, but the answer was lost.
   - **The step's signal aborts the wait** (its timeout, a lost lease, a cancel). The intent stays
     pending, and the next attempt calls `reconcile`, which looks the payment up (G2) before
     anything is sent again.
-  - **The SDK throws.** The intent is recorded `Failed`, and the next attempt sends it again under
-    the same `call.idempotencyKey`. The gateway answers with the first payment (G1, G4).
-- **Guarantee:** P3. Assumptions: A6, and A7 (the gateway's G1–G3).
-- **Boundary:** a `Failed` intent is sent again without `reconcile`. So when the SDK's error did
-  not mean "nothing happened" (a 5xx after the gateway processed it, a reset connection, the SDK's
-  own timeout), the resend is safe only while the gateway still keeps the key (G3). Past it, the
-  resend is a second charge. Tracked in [#657](https://github.com/agbossjs/agboss/issues/657) (0.1.1).
-- **Proof:** `s09-crash-after-send`; the outbound-call protocol tests. Full example: `ps1`.
+  - **The SDK throws** (#657). Unless the call's `isDefiniteFailure(error)` returns `true` — the
+    gateway answered that it did not charge (a decline, a validation error) —, the error is of
+    unknown outcome: a 5xx after the gateway charged, a reset connection, the SDK's own timeout.
+    The intent stays pending, exactly as after a crash, and the next attempt calls `reconcile`
+    before anything is sent again. Only a definite failure is recorded `Failed` and sent again
+    under the same `call.idempotencyKey`, with no lookup: it moved no money.
+- **Guarantee:** P3. Assumptions: A6, A7 (the gateway's G1–G3) and A14 (only a definite failure is
+  classified so; the default, anything unclassified, is unknown).
+- **Boundary:** an error the application marks definite while the gateway did charge is resent
+  without a lookup — safe only while the gateway keeps the key. Mark only the errors your gateway
+  documents as "nothing was processed" ([Payment gateways](Payment-gateways#rules-that-follow)).
+- **Proof:** `s14-ambiguous-answer-reconciled` — the gateway charges and its answer is lost (a 502),
+  the pod is killed in the failed tree's undo, the gateway forgets the key, the order is paid
+  again: reconciled, one payment; its sabotage (every error definite, as before #657) pays twice
+  ([`sabotage.test.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/tests/faults/sabotage.test.ts),
+  on SQLite and PostgreSQL); `tests/app/outbound-call-ambiguous.test.ts`; `s09-crash-after-send`.
+  Full example: `ps1`.
 
 ### PS2. A crash after the charge, before the checkpoint
 
@@ -142,8 +151,8 @@ three stub gateways:
 
 | Level | The stub offers | PS1 timeout | PS5 crash before the answer | A late replay |
 | --- | --- | --- | --- | --- |
-| **Full** | keys (G1), lookup (G2), retention (G3), first response (G4), conflict (G5), status (G6) | one charge | one charge (`Reconciled`) | one charge inside G3 |
-| **No lookup** | keys, no lookup | one charge when the SDK threw (G1); `unknown` when the wait was aborted | `unknown`: a person decides, or `notSent()` relying on G1 while the key lives | a new charge after G3 |
+| **Full** | keys (G1), lookup (G2), retention (G3), first response (G4), conflict (G5), status (G6) | one charge (`Reconciled`, the SDK's error or the aborted wait alike, #657) | one charge (`Reconciled`) | one charge: by the lookup, whatever the key's age |
+| **No lookup** | keys, no lookup | one charge: `notSent()` replays the key while it lives, refused after `keyRetention` (#658) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
 | **No keys** | neither | **two charges** | `unknown` only | **two charges** |
 
 - **Wrong:** a gateway without keys turns a timeout's retry into two charges, one without a
@@ -352,22 +361,38 @@ weekend, an operator's retry, a customer paying again the next day.
   - A `Completed` intent replays the stored receipt for `outboundCalls.retention` (default
     `hours(168)`), and nothing reaches the gateway.
   - A `Pending` intent is never removed, and is reconciled by lookup.
-  - A `Failed` intent is sent again under the same key (see PS1).
-- **Guarantee:** P3. Assumptions: A7 (G3) and A12 (retention).
+  - **An error of unknown outcome is never resent blindly** (#657): a 5xx, a reset connection, the
+    SDK's timeout leave the intent `Pending`, so a retry days later — after the gateway forgot the
+    key — asks `reconcile` first (PS1). Only a definite failure (`isDefiniteFailure`) is `Failed`
+    and sent again under the same key, at any age: it moved no money.
+  - **A replay past the key's retention is never sent by itself** (#658): `reconcile` is told when
+    the pending attempt started (`lookup.attemptStartedAt`) and how old the key is
+    (`lookup.keyAge`, from the first attempt), on the store's clock — the database's own on
+    PostgreSQL, the same on every pod and after a takeover. A call that declares the gateway's
+    `keyRetention` (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) sends a
+    `notSent()` again only while `keyAge + attemptTimeout` is below it; past it, or with the age
+    unknown, nothing is sent: `OutboundCallUnreconciledError`, the intent pending for an operator.
+- **Guarantee:** P3. Assumptions: A7 (G3), A12 (retention), A14 (honest classification) and A15
+  (`keyRetention` at most the gateway's documented minimum, declared wherever `notSent()` relies
+  on a replay).
 - **Boundary:**
   - Past both the gateway's retention and AGBoss's, a repeat is a new charge, unless the
     application's order row refuses it: keep a unique "paid" record per order, written in the
     fenced effect's transaction.
-  - Reconcile by the merchant reference, which does not expire, not only by the key.
-  - A `Failed` intent of unknown outcome sent again past G3 is a second charge
-    ([#657](https://github.com/agbossjs/agboss/issues/657)).
-  - On a gateway whose only lookup is a replay of the key (Adyen; Stripe while its search lags),
-    `reconcile` answers `notSent()` safely only inside the key's retention, and it is not told
-    when the attempt was sent ([#658](https://github.com/agbossjs/agboss/issues/658)): record that
-    time yourself until then, in a row of your own (a fenced effect's stored result is removed
-    after `fencedEffects.retention`).
-- **Proof:** none in the core for the gateway's retention; `outboundGatewayChecklist` probes G3.
-  Full example: `ps17`.
+  - Reconcile by the merchant reference, which does not expire, not only by the key. A lookup that
+    proves the payment never arrived may answer `notSent()` at any age; one that only replays the
+    key must declare `keyRetention`. After the refusal, a person decides (the gateway's dashboard,
+    its reports, a webhook stored by your code).
+  - A `keyRetention` longer than the gateway's real one, or none on a replay-only gateway, brings the
+    second charge back (A15).
+- **Proof:** `s15-key-expired-not-resent` — a pod killed with its answer in flight on a gateway with
+  no lookup, the key expired before the takeover: the next pod is told the key's age and sends
+  nothing; its sabotage (no `keyRetention`) pays twice, on SQLite and PostgreSQL;
+  `s14-ambiguous-answer-reconciled` (PS1); `tests/app/outbound-call-key-age.test.ts` (the edge:
+  `keyAge + attemptTimeout` one millisecond below the retention resends, equal refuses; an instance
+  two days ahead reads the same age); the times on every store, `outboundCallContract` → times, and
+  on PostgreSQL's database time, agbossjs/postgres `tests/stores/outbound-call-times.test.ts`.
+  `outboundGatewayChecklist` probes G3. Full example: `ps17`.
 
 ### PS18. A partial capture
 
@@ -441,7 +466,8 @@ The gateway receives a second request with the same key while the first is still
 
 ## Found and fixed before 0.1.1
 
-The 0.1.1 reviews found these races and fixed them before the release (#505, #508, #519). Each
+The 0.1.1 reviews found these races and fixed them before the release (#505, #508, #519, #657,
+#658). Each
 keeps a regression test in the core.
 
 | # | Race | Fixed by |
@@ -456,3 +482,5 @@ keeps a regression test in the core.
 | R22 | A send that never returns holds the lease and the shutdown forever | Bounded by `attemptTimeout` and the stop; then renewals stop and a takeover decides |
 | R23 | A same-holder reclaim bumps the token, so an attempt still sending looks dead | A holder never yields its lease while an attempt under it sends (up to the `attemptTimeout` bound), so no reclaim moves the token under a live send |
 | R24 | A replayed call whose result could not be stored returns a marker as the gateway's result | `OutboundCallResultNotStoredError`, nothing sent, the marker never returned |
+| R25 | An SDK error of unknown outcome (a 5xx after the charge, a reset, a client timeout) recorded `Failed` and resent with the same key: a second charge once the gateway forgot the key (#657) | Only `isDefiniteFailure(error) === true` is `Failed`; anything else stays `Pending` and is reconciled first |
+| R26 | `reconcile` not told how old the key is: on a replay-only gateway a `notSent()` after the key expired is a second charge (#658) | `lookup.attemptStartedAt` / `keyAge` on the store's clock; a `notSent()` past the call's `keyRetention` is refused, nothing sent |

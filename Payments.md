@@ -53,15 +53,17 @@ Read your gateway's documentation and answer in order:
 2. **Can you learn what happened to a request whose answer was lost?** By a lookup on the key, on
    your own reference or on an id you held before money moved; or by replaying the same key inside
    a retention the docs state. No → not supported: after a crash before the answer, nobody can
-   tell whether the customer was charged (PS5). With only the replay, support ends with the
-   retention (PS17). A search index that lags proves nothing while it lags.
+   tell whether the customer was charged (PS5). With only the replay, declare that retention as
+   the call's `keyRetention`: past it, nothing is resent, a person decides (PS17). A search index
+   that lags proves nothing while it lags.
 3. **How long does it keep a key?** Compare it with your longest recovery: the lease (30 s), a
    pause answered days later, an operator's retry. A retry later than that is a new charge
    (PS17).
 4. **Do your stores pass `storeConformance` and `faultSuite`, and share one backend with the lease
    store?** No → P1–P3 do not hold (A1, A2).
-5. **Do you keep A3–A12 of [Guarantees](Guarantees)?** One slewed database clock, a shared
-   `pseudonymKey`, every write inside a step, repeats inside the retention.
+5. **Do you keep A3–A15 of [Guarantees](Guarantees)?** One slewed database clock, a shared
+   `pseudonymKey`, every write inside a step, repeats inside the retention, only definite failures
+   marked definite, the gateway's key retention declared where a replay stands in for a lookup.
 
 If all five hold, every scenario on [Payment scenarios](Payment-scenarios) is either handled by
 AGBoss or named as the gateway's or your application's.
@@ -78,7 +80,9 @@ AGBoss or named as the gateway's or your application's.
     (PS15, PS16);
   - keeping the key's text, the effect's name and the request stable across deploys (PS12);
   - a lasting "paid" record per order beyond every retention window (PS17);
-  - numbering payment attempts after a known decline (PS22).
+  - numbering payment attempts after a known decline (PS22);
+  - marking as definite (`isDefiniteFailure`) only the gateway's errors that moved no money, and
+    declaring the gateway's `keyRetention` where `notSent()` relies on a replay (PS1, PS17).
 
 ## How to wire a gateway
 
@@ -110,6 +114,8 @@ export class PaymentReceiptDto {
 export class PaymentDeclinedError extends Error {
   static readonly code = "payment.declined";
 }
+/** The SDK's error for a request its validation refused: nothing was processed. */
+declare class GatewayValidationError extends Error {}
 -->
 
 ```ts
@@ -135,6 +141,8 @@ export class ChargeOrderAction {
       operation: "charge",
       request: { amountCents, reference: orderId }, // its fingerprint: another amount is a conflict
       send: (call) => gateway.charge(call.request, { idempotencyKey: call.idempotencyKey }),
+      // only an error that proves nothing was charged; a 5xx, a reset, a timeout are reconciled
+      isDefiniteFailure: (error) => error instanceof GatewayValidationError,
       reconcile: async () => {
         // asked only when an earlier attempt's outcome is unknown: look it up, never resend blindly
         const found = await gateway.findByReference(orderId); // a read that does not lag
@@ -154,9 +162,16 @@ export class ChargeOrderAction {
 - **The key that goes out** is `call.idempotencyKey`, the same on every attempt, replay and pod.
   A gateway with a shorter limit gets a fixed-length digest of it from your adapter, never a cut
   ([Payment gateways](Payment-gateways#rules-that-follow)).
+- **An error is "not charged" only when you say so** (#657). `isDefiniteFailure(error)` returning
+  `true` makes the intent `Failed`, sent again under the same key with no lookup; every other error
+  — the default — leaves it pending, so the next attempt calls `reconcile` first, as after a crash.
+  Mark only the gateway's refusals that moved no money
+  ([Payment gateways](Payment-gateways#rules-that-follow)).
 - **`notSent()` only when you know.** A lookup that may lag (a search index) cannot prove a
-  payment does not exist. Answer `unknown`, or `notSent()` only while the gateway still keeps the
-  key, so that the resend replays the first payment (G1, G3; [#658](https://github.com/agbossjs/agboss/issues/658)).
+  payment does not exist. Answer `unknown`, or `notSent()` relying on the gateway replaying the key
+  — and then declare its retention, `keyRetention: hours(24)` (#658): past it, nothing is sent and
+  a person decides. `lookup.keyAge` and `lookup.attemptStartedAt` tell your `reconcile` the same,
+  on the store's clock (G1, G3).
 - **Refunds, captures and voids** are outbound calls of their own, each with its business key
   (`refund:<payment>:<n>`, `capture:<authorization>:<n>`), PS18–PS20.
 - **A webhook** starts an execution, and applies the event in a fenced effect keyed by the
