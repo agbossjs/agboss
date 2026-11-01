@@ -8,7 +8,8 @@ import type { ExplorerAction, ExplorerStores, ExplorerViolation, ExplorerWorld }
  * The scheduler's search (#533 item 1): every schedule up to a depth, each state explored once
  * (exhaustive, for a few instances and steps), or seeded random walks (for more); each schedule
  * replayed from an empty store. A schedule that breaks an invariant is cut down to a minimal one
- * — every step whose removal keeps the violation removed — and printed.
+ * — every step whose removal keeps the violation removed — and printed. A search, a replay and the
+ * cutting down stop with the budget (#590, #618): no store call once its case was aborted.
  */
 
 /** A schedule and what it broke. */
@@ -19,6 +20,8 @@ export interface FoundViolation {
   /** The schedule the search found, before it was cut down. */
   readonly foundLength: number;
   readonly seed?: number;
+  /** Why the schedule was not cut down (#618): its case was aborted or out of time meanwhile. */
+  readonly unshrunk?: string;
 }
 
 /** What a search did. */
@@ -48,16 +51,17 @@ export function stopReasonOf(budget: SearchBudget): string | undefined {
   return undefined;
 }
 
-/** `actions` replayed on a new run: an action no longer enabled is skipped. */
+/** `actions` replayed on a new run: an action no longer enabled is skipped; none once aborted. */
 export async function replayed(
   world: ExplorerWorld,
   target: ContractTarget<ExplorerStores>,
   actions: readonly ExplorerAction[],
+  budget: SearchBudget = {},
 ): Promise<ExplorerRun> {
   const run = await ExplorerRun.open(world, target);
   try {
     for (const action of actions) {
-      if (run.observer.violations.length > 0) break;
+      if (run.observer.violations.length > 0 || budget.signal?.aborted === true) break;
       if (enabledActions(run).some((enabled) => isSameAction(enabled, action)))
         await run.step(action);
     }
@@ -67,39 +71,56 @@ export async function replayed(
   return run;
 }
 
+/** A schedule cut down, or why the cutting stopped (#618): the budget says stop. */
+type Shrunk = { readonly run: ExplorerRun } | { readonly stopped: string };
+
 /** `actions` cut down: each step whose removal still breaks `violation`'s invariant removed. */
 async function shrunk(
-  world: ExplorerWorld,
-  target: ContractTarget<ExplorerStores>,
+  found: { readonly world: ExplorerWorld; readonly target: ContractTarget<ExplorerStores> },
   actions: readonly ExplorerAction[],
   violation: ExplorerViolation,
-): Promise<ExplorerRun> {
+  budget: SearchBudget,
+): Promise<Shrunk> {
+  const { world, target } = found;
   let kept = [...actions];
   for (let at = kept.length - 1; at >= 0; at -= 1) {
+    const stopped = stopReasonOf(budget);
+    if (stopped !== undefined) return { stopped };
     const without = [...kept.slice(0, at), ...kept.slice(at + 1)];
-    const run = await replayed(world, target, without);
-    if (run.observer.violations.some((found) => found.invariant === violation.invariant))
+    const run = await replayed(world, target, without, budget);
+    if (run.observer.violations.some((one) => one.invariant === violation.invariant))
       kept = without;
   }
-  return replayed(world, target, kept);
+  const stopped = stopReasonOf(budget);
+  if (stopped !== undefined) return { stopped };
+  const run = await replayed(world, target, kept, budget);
+  // a deadline lets a replay run whole; an abort cuts it short
+  return budget.signal?.aborted === true ? { stopped: stopReasonOf(budget) ?? "" } : { run };
 }
 
-/** The violation found by `run` (of `actions`), cut down. */
-async function found(
-  world: ExplorerWorld,
-  target: ContractTarget<ExplorerStores>,
-  actions: readonly ExplorerAction[],
-  violation: ExplorerViolation,
-  seed?: number,
-): Promise<FoundViolation> {
-  const minimal = await shrunk(world, target, actions, violation);
-  const first = minimal.observer.violations.find((one) => one.invariant === violation.invariant);
+/** What a search found: the run that broke an invariant, of `actions`. */
+interface Found {
+  readonly world: ExplorerWorld;
+  readonly target: ContractTarget<ExplorerStores>;
+  readonly run: ExplorerRun;
+  readonly actions: readonly ExplorerAction[];
+  readonly violation: ExplorerViolation;
+}
+
+/** The violation `found`, cut down — or as found when the budget stopped the cutting (#618). */
+async function cutDown(found: Found, budget: SearchBudget, seed?: number): Promise<FoundViolation> {
+  const cut = await shrunk(found, found.actions, found.violation, budget);
+  const minimal = "run" in cut ? cut.run : found.run;
+  const first = minimal.observer.violations.find(
+    (one) => one.invariant === found.violation.invariant,
+  );
   return {
-    world,
+    world: found.world,
     steps: minimal.steps,
-    violation: first ?? violation,
-    foundLength: actions.length,
+    violation: first ?? found.violation,
+    foundLength: found.actions.length,
     ...(seed === undefined ? {} : { seed }),
+    ...("stopped" in cut ? { unshrunk: cut.stopped } : {}),
   };
 }
 
@@ -120,15 +141,13 @@ export async function exhaustive(
     const reason = stopReasonOf(budget);
     if (reason !== undefined)
       return { schedules, states: seen.size, stopped: { left: pending.length + 1, reason } };
-    const run = await replayed(world, target, prefix);
+    const run = await replayed(world, target, prefix, budget);
     schedules += 1;
     const violation = run.observer.violations[0];
-    if (violation !== undefined)
-      return {
-        schedules,
-        states: seen.size,
-        violation: await found(world, target, prefix, violation),
-      };
+    if (violation !== undefined) {
+      const cut = await cutDown({ world, target, run, actions: prefix, violation }, budget);
+      return { schedules, states: seen.size, violation: cut };
+    }
     const isNew = !seen.has(run.key);
     seen.add(run.key);
     if (isNew && prefix.length < depth)
@@ -164,6 +183,7 @@ export async function randomWalks(
     const actions: ExplorerAction[] = [];
     try {
       for (let step = 0; step < options.depth && run.observer.violations.length === 0; step += 1) {
+        if (budget.signal?.aborted === true) break;
         const enabled = enabledActions(run);
         const action = enabled[Math.floor(random() * enabled.length)];
         if (action === undefined) break;
@@ -174,12 +194,14 @@ export async function randomWalks(
       await run.close();
     }
     const violation = run.observer.violations[0];
-    if (violation !== undefined)
+    if (violation !== undefined) {
+      const found = { world, target, run, actions, violation };
       return {
         schedules: walk + 1,
         states: 0,
-        violation: await found(world, target, actions, violation, options.seed),
+        violation: await cutDown(found, budget, options.seed),
       };
+    }
   }
   return { schedules: options.runs, states: 0 };
 }
@@ -192,7 +214,9 @@ export function scheduleText(name: string, found: FoundViolation): string {
   const seed = found.seed === undefined ? "exhaustive search" : `seed ${String(found.seed)}`;
   return [
     `interleaving explorer (${name}, ${found.world.kind} world, ${String(found.world.instances)} instances, ${seed}): [${found.violation.invariant}] ${found.violation.message}`,
-    `minimal schedule (${String(found.steps.length)} of the ${String(found.foundLength)} steps found):`,
+    found.unshrunk === undefined
+      ? `minimal schedule (${String(found.steps.length)} of the ${String(found.foundLength)} steps found):`
+      : `schedule as found (${String(found.steps.length)} steps, not shrunk: ${found.unshrunk}):`,
     ...lines,
   ].join("\n");
 }
