@@ -58,8 +58,9 @@ export {
   type PodExit,
   type PodLaunch,
 } from "./pod.js";
-export { FaultGateway } from "./fault-gateway.js";
+export { DROPPED_ANSWER, FaultGateway } from "./fault-gateway.js";
 export {
+  FaultPayment,
   FaultWorkflow,
   type FaultOrder,
   type GatewayCall,
@@ -83,6 +84,7 @@ export {
 export type {
   FaultFacts,
   FaultRun,
+  FaultRunOrder,
   FaultTreeFacts,
   GatewayRequest,
   GatewayPaymentFact,

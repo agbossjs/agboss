@@ -36,6 +36,9 @@ export class DatabaseProxy {
 // @public
 export const defineFaultStores: <TTransaction>(stores: FaultStores<TTransaction>) => FaultStores<TTransaction>;
 
+// @public
+export const DROPPED_ANSWER = "the gateway's answer was lost after it charged (502 Bad Gateway)";
+
 // Warning: (ae-forgotten-export) The symbol "InjectionToken" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -81,6 +84,8 @@ export interface FaultFacts {
 export class FaultGateway {
     answerHeld(orderId: string): Promise<void>;
     call(pod: FaultPod, id: number, call: GatewayCall): Promise<void>;
+    dropAnswer(orderId: string): void;
+    forgetKeys(): void;
     holdAnswer(orderId: string): void;
     get payments(): readonly GatewayPaymentFact[];
     releaseAnswers(): void;
@@ -116,8 +121,18 @@ export class FaultInvariantError extends Error {
 // @public
 export interface FaultOrder {
     readonly decline?: boolean;
+    readonly fails?: boolean;
     // (undocumented)
     readonly orderId: string;
+    readonly payment?: FaultPayment;
+}
+
+// @public
+export enum FaultPayment {
+    EveryErrorDefinite = "every-error-definite",
+    Lookup = "lookup",
+    ReplayOnly = "replay-only",
+    ReplayOnlyUndeclared = "replay-only-undeclared"
 }
 
 // @public (undocumented)
@@ -166,15 +181,22 @@ export interface FaultRun extends FaultFacts {
     readonly events: readonly PodEventFact[];
     // (undocumented)
     readonly history: OperationHistory;
-    readonly orders: readonly {
-        readonly orderId: string;
-        readonly decline: boolean;
-    }[];
+    readonly orders: readonly FaultRunOrder[];
     // (undocumented)
     readonly payments: readonly GatewayPaymentFact[];
     // (undocumented)
     readonly requests: readonly GatewayRequest[];
     readonly timeScale?: number;
+}
+
+// @public
+export interface FaultRunOrder {
+    // (undocumented)
+    readonly decline: boolean;
+    // (undocumented)
+    readonly fails: boolean;
+    // (undocumented)
+    readonly orderId: string;
 }
 
 // @public
@@ -298,10 +320,7 @@ export class FaultWorld {
     // (undocumented)
     readonly options: FaultWorldOptions;
     // (undocumented)
-    readonly orders: {
-        readonly orderId: string;
-        readonly decline: boolean;
-    }[];
+    readonly orders: FaultRunOrder[];
     pod(name: string, options?: FaultPodOptions): Promise<FaultPod>;
     // (undocumented)
     readonly pods: FaultPod[];
@@ -684,18 +703,21 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/facts.ts:34:3 - (ae-undocumented) Missing documentation for "orderId".
 // src/testing/faults/facts.ts:39:3 - (ae-undocumented) Missing documentation for "paymentId".
 // src/testing/faults/facts.ts:40:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/faults/facts.ts:50:3 - (ae-undocumented) Missing documentation for "requests".
-// src/testing/faults/facts.ts:51:3 - (ae-undocumented) Missing documentation for "payments".
-// src/testing/faults/facts.ts:52:3 - (ae-undocumented) Missing documentation for "events".
-// src/testing/faults/facts.ts:53:3 - (ae-undocumented) Missing documentation for "history".
+// src/testing/faults/facts.ts:51:3 - (ae-undocumented) Missing documentation for "orderId".
+// src/testing/faults/facts.ts:52:3 - (ae-undocumented) Missing documentation for "decline".
+// src/testing/faults/facts.ts:53:3 - (ae-undocumented) Missing documentation for "fails".
+// src/testing/faults/facts.ts:60:3 - (ae-undocumented) Missing documentation for "requests".
+// src/testing/faults/facts.ts:61:3 - (ae-undocumented) Missing documentation for "payments".
+// src/testing/faults/facts.ts:62:3 - (ae-undocumented) Missing documentation for "events".
+// src/testing/faults/facts.ts:63:3 - (ae-undocumented) Missing documentation for "history".
 // src/testing/faults/fault-clock.ts:48:5 - (ae-undocumented) Missing documentation for "scale".
 // src/testing/faults/fault-clock.ts:49:5 - (ae-undocumented) Missing documentation for "origin".
 // src/testing/faults/fault-clock.ts:51:5 - (ae-undocumented) Missing documentation for "skew".
 // src/testing/faults/fault-clock.ts:58:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/faults/fault-clock.ts:63:12 - (ae-undocumented) Missing documentation for "monotonicNow".
 // src/testing/faults/fault-clock.ts:67:3 - (ae-undocumented) Missing documentation for "sleep".
-// src/testing/faults/fault-gateway.ts:23:1 - (ae-undocumented) Missing documentation for "FaultGateway".
-// src/testing/faults/fault-gateway.ts:24:3 - (ae-undocumented) Missing documentation for "requests".
+// src/testing/faults/fault-gateway.ts:47:1 - (ae-undocumented) Missing documentation for "FaultGateway".
+// src/testing/faults/fault-gateway.ts:48:3 - (ae-undocumented) Missing documentation for "requests".
 // src/testing/faults/fault-stores.ts:44:3 - (ae-undocumented) Missing documentation for "environment".
 // src/testing/faults/fault-stores.ts:45:3 - (ae-undocumented) Missing documentation for "businessRows".
 // src/testing/faults/fixture/pod-link.ts:49:3 - (ae-undocumented) Missing documentation for "Reserve".
@@ -728,13 +750,13 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/operation-history.ts:55:3 - (ae-undocumented) Missing documentation for "record".
 // src/testing/faults/opt-out-check.ts:17:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/opt-out-check.ts:19:15 - (ae-undocumented) Missing documentation for "stores".
-// src/testing/faults/pod-protocol.ts:22:3 - (ae-undocumented) Missing documentation for "orderId".
-// src/testing/faults/pod-protocol.ts:55:3 - (ae-undocumented) Missing documentation for "type".
-// src/testing/faults/pod-protocol.ts:56:3 - (ae-undocumented) Missing documentation for "__index".
-// src/testing/faults/pod-protocol.ts:61:3 - (ae-undocumented) Missing documentation for "op".
-// src/testing/faults/pod-protocol.ts:62:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/faults/pod-protocol.ts:63:3 - (ae-undocumented) Missing documentation for "orderId".
-// src/testing/faults/pod-protocol.ts:64:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/faults/pod-protocol.ts:39:3 - (ae-undocumented) Missing documentation for "orderId".
+// src/testing/faults/pod-protocol.ts:86:3 - (ae-undocumented) Missing documentation for "type".
+// src/testing/faults/pod-protocol.ts:87:3 - (ae-undocumented) Missing documentation for "__index".
+// src/testing/faults/pod-protocol.ts:92:3 - (ae-undocumented) Missing documentation for "op".
+// src/testing/faults/pod-protocol.ts:93:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/faults/pod-protocol.ts:94:3 - (ae-undocumented) Missing documentation for "orderId".
+// src/testing/faults/pod-protocol.ts:95:3 - (ae-undocumented) Missing documentation for "amount".
 // src/testing/faults/pod.ts:34:3 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/pod.ts:39:3 - (ae-undocumented) Missing documentation for "timeScale".
 // src/testing/faults/pod.ts:40:3 - (ae-undocumented) Missing documentation for "timeOrigin".

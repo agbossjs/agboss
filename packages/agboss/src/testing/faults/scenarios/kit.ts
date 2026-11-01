@@ -2,7 +2,7 @@ import { HoldPhase, type HoldRequest } from "../hold-points.js";
 import type { PodEventFact } from "../facts.js";
 import { stepPointOf, type FaultStepPoint } from "../fixture/pod-link.js";
 import type { FaultPod } from "../pod.js";
-import { FaultWorkflow } from "../pod-protocol.js";
+import { FaultWorkflow, type FaultOrder } from "../pod-protocol.js";
 import type { StoreHoldPoint } from "../store-points.js";
 import type { FaultWorld } from "../world.js";
 
@@ -32,13 +32,13 @@ export async function startOrder(
   world: FaultWorld,
   pod: FaultPod,
   orderId: string,
-  options: { readonly decline?: boolean } = {},
+  options: Omit<FaultOrder, "orderId"> = {},
 ): Promise<StartedOrder> {
   const before = world.events.filter(
     (event) => event.type === "step" && event.orderId === orderId && event.point === "reserve",
   ).length;
   const tag = await world.start(pod, FaultWorkflow.Order, [
-    { orderId, decline: options.decline ?? false },
+    { ...options, orderId, decline: options.decline ?? false },
   ]);
   const step = await world.stepOf(orderId, "reserve", before + 1);
   return { orderId, rootExecutionId: String(step.rootExecutionId), tag };

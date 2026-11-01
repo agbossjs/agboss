@@ -132,7 +132,7 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
     records: [orderRecord("o-1", "root-1")],
     trees: [{ rootExecutionId: "root-1", leaseEvents, outboundCalls: [] }],
     businessRows: ["charge:root-1"],
-    orders: [{ orderId: "o-1", decline: false }],
+    orders: [{ orderId: "o-1", decline: false, fails: false }],
     requests: [{ pod: "a", idempotencyKey: "default:order%3Ao-1:pay", orderId: "o-1" }],
     payments: [{ paymentId: "pay-1", idempotencyKey: "default:order%3Ao-1:pay" }],
     events: [{ type: "end", pod: "a", executionId: "root-1" }],
@@ -323,7 +323,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
     const declined = {
       ...run,
-      orders: [{ orderId: "o-1", decline: true }],
+      orders: [{ orderId: "o-1", decline: true, fails: false }],
       records: [orderRecord("o-1", "root-1", { status: "failed" as never })],
       businessRows: [],
       payments: [],
@@ -341,7 +341,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     });
     const declined = {
       ...run,
-      orders: [{ orderId: "o-1", decline: true }],
+      orders: [{ orderId: "o-1", decline: true, fails: false }],
       records: [orderRecord("o-1", "root-1", { status: "failed" as never })],
       businessRows: [],
       payments: [],
@@ -354,6 +354,44 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     expect(invariantsOf(twice)).toEqual([FaultInvariant.NoUndoOnHandOver]);
     expect(violationsOf(twice).map((found) => found.message)).toEqual([
       "o-1 declined, and its reservation was released 2 times (on a, b)",
+    ]);
+  });
+
+  it("#657: an order whose first tree failed at its payment and undid once, paid by a second: no violation", () => {
+    const { run } = healthy();
+    const failedTree = orderRecord("o-1", "root-0", {
+      status: "failed" as never,
+      compensations: [{}] as never,
+    });
+    const paidAgain = {
+      ...run,
+      records: [failedTree, ...run.records],
+      orders: [
+        { orderId: "o-1", decline: false, fails: true },
+        { orderId: "o-1", decline: false, fails: false },
+      ],
+      events: [...run.events, { type: "released", pod: "b", executionId: "root-0" }],
+    };
+    expect(violationsOf(paidAgain)).toEqual([]);
+    // the tree that paid undid too: a hand-over's undo
+    const undone = {
+      ...paidAgain,
+      events: [...paidAgain.events, { type: "released", pod: "a", executionId: "root-1" }],
+    };
+    expect(invariantsOf(undone)).toEqual([FaultInvariant.NoUndoOnHandOver]);
+    // the failing start never failed: the order must have failed once
+    expect(invariantsOf({ ...run, orders: paidAgain.orders })).toEqual([
+      FaultInvariant.TreesFinish,
+    ]);
+  });
+
+  it("#658: an order that only fails at its payment must fail; finished, it breaks trees-finish", () => {
+    const { run } = healthy();
+    const failing = { ...run, orders: [{ orderId: "o-1", decline: false, fails: true }] };
+    // and its record lists no undo, where a tree that failed lists one
+    expect(violationsOf(failing).map((found) => found.message)).toEqual([
+      expect.stringMatching(/^o-1 never failed/u),
+      "o-1 declined, and its record lists 0 undo actions, not 1",
     ]);
   });
 

@@ -240,6 +240,9 @@ describe("#526 AC5: pendingOutboundCallOf — the record saveIfAbsent keeps", ()
       token: 2,
       leaseExecutionId: "root-1",
       recordedAt: "2026-01-05T09:00:00.000Z",
+      // #658: its first attempt starts when it is recorded
+      attemptStartedAt: "2026-01-05T09:00:00.000Z",
+      firstAttemptStartedAt: "2026-01-05T09:00:00.000Z",
     });
   });
 

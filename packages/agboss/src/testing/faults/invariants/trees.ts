@@ -17,7 +17,7 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
  *   finished child's end heard exactly once by the pods' observers (#562: by the worker whose
  *   completion of its row won, never by a parent that reads it after a takeover);
  * - an order that finished undid nothing — no undo ran for it, its record lists none; one declined
- *   for real undid its reservation once;
+ *   for real, or failed for real at its payment (#657, #658), undid its reservation once;
  * - every order started has an execution that ended as it must — finished at the order's finish,
  *   or failed when it declined — and every batch finished with all its orders.
  */
@@ -116,13 +116,13 @@ function declinedUndoViolations(
 function undoViolations(
   run: FaultRun,
   execution: OrderExecution,
-  isDeclined: boolean,
+  isFailing: boolean,
 ): FaultViolation[] {
   const released = run.events.filter(
     (event) => event.type === "released" && event.executionId === execution.executionId,
   );
   const recorded = execution.record?.compensations.length ?? 0;
-  if (isDeclined) return declinedUndoViolations(execution, released, recorded);
+  if (isFailing) return declinedUndoViolations(execution, released, recorded);
   if (released.length > 0 || recorded > 0)
     return [
       violation(
@@ -133,7 +133,7 @@ function undoViolations(
   return [];
 }
 
-/** How an order's executions must have ended. */
+/** How an order's executions must have ended: one failed, or one finished at the order's finish. */
 function endViolations(
   orderId: string,
   isDeclined: boolean,
@@ -159,8 +159,12 @@ function endViolations(
 /** Every violation of children once, undo only on failure, and trees that end. */
 export function treeViolations(run: FaultRun): FaultViolation[] {
   const executions = byOrder(orderExecutionsOf(run));
-  const declined = new Set(
-    run.orders.filter((order) => order.decline).map((order) => order.orderId),
+  // a start that fails for real (#657, #658: at its payment) beside one that pays: each must end so
+  const failing = new Set(
+    run.orders.filter((order) => order.decline || order.fails).map((order) => order.orderId),
+  );
+  const finishing = new Set(
+    run.orders.filter((order) => !order.decline && !order.fails).map((order) => order.orderId),
   );
   const orders = [...new Set(run.orders.map((order) => order.orderId))];
   const batches = batchesOf(run).filter(
@@ -171,10 +175,15 @@ export function treeViolations(run: FaultRun): FaultViolation[] {
     ...childrenViolations(run),
     ...orders.flatMap((orderId) => {
       const own = executions.get(orderId) ?? [];
-      const isDeclined = declined.has(orderId);
+      const fails = failing.has(orderId);
+      const isFailingOnly = fails && !finishing.has(orderId);
       return [
-        ...endViolations(orderId, isDeclined, own),
-        ...own.flatMap((execution) => undoViolations(run, execution, isDeclined)),
+        ...(fails ? endViolations(orderId, true, own) : []),
+        ...(finishing.has(orderId) ? endViolations(orderId, false, own) : []),
+        // one that only fails: each execution may undo once; else only one that failed may
+        ...own.flatMap((execution) =>
+          undoViolations(run, execution, isFailingOnly || (fails && execution.status === "failed")),
+        ),
       ];
     }),
     ...batches.map((batch) =>

@@ -36,10 +36,13 @@ const SHARDS = {
       "src/infrastructure/fenced-effect.repository.ts",
       "src/infrastructure/in-memory-fenced-effect.repository.ts",
       "src/infrastructure/outbound-call.repository.ts",
+      "src/infrastructure/outbound-call-changes.ts",
       "src/infrastructure/clock.ts",
       "src/app/held-lease.ts",
       "src/app/lease-fence.ts",
       "src/app/outbound-call-protocol.ts",
+      // #657, #658: an error of unknown outcome, the key's age and its retention
+      "src/app/outbound-call-ambiguity.ts",
     ],
   },
   // the SQLite fencing stores (#626): epochs, expiry, finish, yield and reclaim in SQL, the lease

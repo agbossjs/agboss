@@ -38,11 +38,17 @@ import type {
 
 /** Where an intent stands. */
 export enum OutboundCallStatus {
-  /** Recorded, and sent or about to be: what happened is not known here. */
+  /**
+   * Recorded, and sent or about to be — or answered with an error of unknown outcome (#657): what
+   * happened is not known here, and the next call reconciles it.
+   */
   Pending = "pending",
   /** The other system answered: its result is stored. */
   Completed = "completed",
-  /** The other system answered with an error: the next call sends it again, the same key. */
+  /**
+   * The other system definitely did not carry it out (#657: an error `isDefiniteFailure` named):
+   * the next call sends it again, the same key.
+   */
   Failed = "failed",
 }
 
@@ -174,6 +180,11 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     super();
   }
 
+  /** The store's time as a record keeps it (#658: when a read by key read). */
+  #now(): string {
+    return this.clock.now().toISOString();
+  }
+
   ping(): Promise<void> {
     return Promise.resolve();
   }
@@ -181,8 +192,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
       const found = this.database.outboundCalls.get(fencedKeyIdentityOf(key));
-      // a copy of the row, or undefined: `structuredClone(undefined)` is undefined
-      return structuredClone(found);
+      // a copy of the row, read now (#658)
+      return found === undefined ? undefined : { ...structuredClone(found), readAt: this.#now() };
     });
   }
 
@@ -198,16 +209,15 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     });
   }
 
-  markPending(
+  async markPending(
     key: FencedEffectKey,
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    return this.#changed(key, (found) =>
-      isInState(found, expected)
-        ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
-        : undefined,
-    );
+    // the store's changes load on first use (#658: the root import stays within its budget)
+    const { claimedOf } = await import("./outbound-call-changes.js");
+    const startedAt = this.clock.now();
+    return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
   markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
@@ -219,7 +229,12 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
-  #ended(key: FencedEffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+  async #ended(
+    key: FencedEffectKey,
+    attemptOwner: string,
+    ending: OutboundCallEnding,
+  ): Promise<boolean> {
+    const { endedOf } = await import("./outbound-call-changes.js");
     const endedAt = this.clock.now().toISOString();
     return this.#changed(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
@@ -290,29 +305,3 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     });
   }
 }
-
-/** Whether `found` is still as `expected`. */
-export const isInState = (found: OutboundCallRecord, expected: OutboundCallState): boolean =>
-  found.status === expected.status &&
-  found.attempt === expected.attempt &&
-  found.attemptOwner === expected.attemptOwner;
-
-/** A record without its last ending (`result`, `failure`, `endedAt`): sent again, or ending now. */
-export function withoutEnd(found: OutboundCallRecord): OutboundCallRecord {
-  const record = { ...found };
-  delete record.result;
-  delete record.failure;
-  delete record.endedAt;
-  return record;
-}
-
-/** `found` ended as `ending` at `endedAt` — only while it is pending and `attemptOwner` owns it. */
-export const endedOf = (
-  found: OutboundCallRecord,
-  attemptOwner: string,
-  ending: OutboundCallEnding,
-  endedAt: string,
-): OutboundCallRecord | undefined =>
-  found.attemptOwner === attemptOwner && found.status === OutboundCallStatus.Pending
-    ? { ...withoutEnd(found), ...ending, endedAt }
-    : undefined;
