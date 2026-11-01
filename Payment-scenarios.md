@@ -146,6 +146,10 @@ three stub gateways:
 | **No lookup** | keys, no lookup | one charge when the SDK threw (G1); `unknown` when the wait was aborted | `unknown`: a person decides, or `notSent()` relying on G1 while the key lives | a new charge after G3 |
 | **No keys** | neither | **two charges** | `unknown` only | **two charges** |
 
+- **Wrong:** a gateway without keys turns a timeout's retry into two charges, one without a
+  lookup turns a crash before the answer into a guess.
+- **AGBoss:** the same intent, claim and `reconcile` on every level; what it can tell depends on
+  what the gateway offers (the table).
 - **Guarantee:** P3, through A7.
 - **Boundary:** a gateway without keys or without a lookup is **not supported**
   ([Payment gateways](Payment-gateways#the-ten-gateways)).
@@ -333,6 +337,7 @@ success of a new one.
 
 - **Wrong:** each event's payload is applied as it comes: a refunded order ends "paid".
 - **AGBoss:** nothing. AGBoss does not order another system's events.
+- **Guarantee:** none: P1–P5 say nothing about the order of another system's events.
 - **Boundary:** the application. Treat the event as a hint: in the step, read the object's
   current status from the gateway (G6) and move the order's state only forward.
 - **Proof:** none in the core. Full example: `ps16`.
@@ -423,6 +428,8 @@ webhook both report the outcome.
 
 The gateway receives a second request with the same key while the first is still being processed.
 
+- **Wrong:** two senders of one attempt, each sure the other is gone: a gateway that does not
+  hold the second request until the first ends can charge twice.
 - **AGBoss:** sends one attempt per claim (a compare-and-set). Two requests under one key at once
   happen only in A6's window (a send hung past `attemptTimeout` plus the lease) or from another
   system.

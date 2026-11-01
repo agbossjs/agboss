@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: every payment scenario fully labelled, the notice on Example (#686)
+
+- **Docs**: [Payment scenarios](Payment-scenarios) PS6 gains its Wrong and AGBoss, PS16 says it has
+  no guarantee, PS23 gains its Wrong; [Example](Example) links the gateways' notice
+  ([not affiliated](Payments#the-notice)). The READMEs and the agboss skill state the budget's
+  overrun bound as [FinOps](FinOps) does. No behaviour change.
+
 ## Unreleased — 0.1.1: a child's result survives the host's clock stepping back (#661)
 
 - **Fixed**: a child's end was read at its thread's latest checkpoint — the greatest id, LangGraph's
