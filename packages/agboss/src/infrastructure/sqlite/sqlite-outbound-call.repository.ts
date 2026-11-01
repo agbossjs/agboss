@@ -81,6 +81,12 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     connection.ensureSchema("outbound_calls", SCHEMA);
   }
 
+  /**
+   * How it changes an intent (#658), loaded when the store is made, not with the root import (its
+   * module budget): long loaded by the first change.
+   */
+  readonly #changes = import("../outbound-call-changes.js");
+
   /** The store's time as a record keeps it (#658: when a read by key read). */
   #now(): string {
     return this.clock.now().toISOString();
@@ -123,8 +129,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     claim: OutboundCallClaim,
   ): Promise<boolean> {
     // the store's changes load on first use (#658: the root import stays within its budget)
-    const { claimedOf } = await import("../outbound-call-changes.js");
     const startedAt = this.clock.now();
+    const { claimedOf } = await this.#changes;
     return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
@@ -142,8 +148,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     attemptOwner: string,
     ending: OutboundCallEnding,
   ): Promise<boolean> {
-    const { endedOf } = await import("../outbound-call-changes.js");
     const endedAt = this.clock.now().toISOString();
+    const { endedOf } = await this.#changes;
     return this.#update(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
 

@@ -180,6 +180,12 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     super();
   }
 
+  /**
+   * How it changes an intent (#658), loaded when the store is made, not with the root import (its
+   * module budget): long loaded by the first change.
+   */
+  readonly #changes = import("./outbound-call-changes.js");
+
   /** The store's time as a record keeps it (#658: when a read by key read). */
   #now(): string {
     return this.clock.now().toISOString();
@@ -214,8 +220,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    // the store's changes load on first use (#658: the root import stays within its budget)
-    const { claimedOf } = await import("./outbound-call-changes.js");
+    const { claimedOf } = await this.#changes;
     const startedAt = this.clock.now();
     return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
@@ -234,7 +239,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     attemptOwner: string,
     ending: OutboundCallEnding,
   ): Promise<boolean> {
-    const { endedOf } = await import("./outbound-call-changes.js");
+    const { endedOf } = await this.#changes;
     const endedAt = this.clock.now().toISOString();
     return this.#changed(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
