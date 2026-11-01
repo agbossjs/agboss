@@ -65,7 +65,7 @@ what it was:
 | `error?` | the `ErrorRecord` that failed or cancelled it |
 | `leaseEvents?` | its tree's rows of the lease log when it was saved (#501): who took its lease over, which of its steps were handed over ([Several instances → The lease log](Several-instances#the-lease-log-501)); none in a record saved before #501 |
 | `outboundCalls?` | every call its tree made that left the system (#505), in the order recorded — `OutboundCallRecord`, masked when it was written ([Several instances → Calls that leave the system](Several-instances#calls-that-leave-the-system-505)); none in a record saved before #505 |
-| `path`, `scope`, `outdatedValues`, `lastError?`, `spend`, `children`, `pauses`, `compensations`, `toolCalls`, `steps`, `origin?` | its `ExecutionRecord` ([App → The result](App#the-result--executionoutput)): who answered each pause, its tool calls and step records (#395), where a trusted mesh request came from (#398) |
+| `path`, `scope`, `outdatedValues`, `lastError?`, `spend`, `children`, `pauses`, `compensations`, `toolCalls`, `steps`, `origin?` | its `ExecutionRecord` ([App → The result](App#the-result--executionoutput)): who answered each pause, its tool calls and step records (#395), where a trusted mesh request came from (#398); `compensations` lists every undo action of the root that ran — its automatic undo too, whichever instance or pass ran it (its own failing pass, a cancel seen at rest, a takeover mid-undo), as its `onExecutionError` does (#484, #635); a child's own undo is in that child's record |
 
 **Masked like its traces**: every string through the application's and the workflow's PII policies
 (`<email>`, `<email:7f3a91>`), a context field marked `sensitive` hidden — a record never holds what a
