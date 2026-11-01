@@ -3,7 +3,6 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import type { ChatDefaults, ModelSettings, ResolvedModelSettings } from "../config/types.js";
 import type { Class } from "../components/injection.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
-import { answerToolsOf } from "../flow/runtime/answer-tools.js";
 import { runInFrame, type FrameSpec } from "../flow/context/frame.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -20,6 +19,8 @@ import {
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
+import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
+import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
 /**
  * Reading a free-text reply to a pause (#267 PR 3): the pause's role's interpreter gets the pause's
@@ -79,6 +80,9 @@ async function maskedRequestOf(
   return masked;
 }
 
+/** One call per move (#648, #649): an answer or "not understood", never both, never twice. */
+const ONE_CALL: ToolBinding = { parallel_tool_calls: false };
+
 /** The cost caller of a reply interpreter, also its script key in tests. */
 export const replyInterpreterCaller = (name: string): string => `reply-interpreter:${name}`;
 
@@ -93,10 +97,10 @@ export async function readByModel(
   const chat = site.gateway.chatModel({ user, settings: site.settings });
   if (chat.bindTools === undefined)
     throw new TypeError(`${caller}: ${site.settings.model} cannot call tools`);
-  const tools = answerToolsOf(interpreter.answer);
+  const tools = replyToolsOf(interpreter.answer, interpreter.approves);
   const request = await maskedRequestOf(interpreter, input, site.pii);
   const reply = await chat
-    .bindTools(tools.tools.map((tool) => tool.definition))
+    .bindTools([...tools.definitions], ONE_CALL)
     .invoke([...request.messages], { callbacks: [...site.callbacks] });
   const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
   const usage = [...request.usage, recordUsage(caller, site.settings, message)];
@@ -105,11 +109,36 @@ export async function readByModel(
     const reason = `the model gave unknown tokens ${revealed.unknownTokens.join(", ")}`;
     return { kind: "declined", reason, usage };
   }
-  const names = new Set(tools.tools.map((tool) => tool.name));
-  const answer = (revealed.move.tool_calls ?? []).find((call) => names.has(call.name));
+  return readingOf(revealed.move.tool_calls ?? [], tools, input.ask, usage);
+}
+
+/** One tool call of the interpreter's move, as LangChain gives it. */
+interface MoveCall {
+  readonly name: string;
+  readonly args: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * What the model's move says (#648): "not understood" with its reason — the first call that says
+ * so wins, an answer beside it is no answer —, else the answer, its correction on top of the call's
+ * own arguments, else no answer at all.
+ */
+function readingOf(
+  calls: readonly MoveCall[],
+  tools: ReturnType<typeof replyToolsOf>,
+  ask: unknown,
+  usage: readonly UsageRecord[],
+): ModelReading {
+  const notUnderstood = calls.find((call) => call.name === tools.notUnderstood);
+  if (notUnderstood !== undefined) {
+    const { reason } = notUnderstood.args;
+    const why = typeof reason === "string" && reason.trim() !== "" ? reason : "no reason given";
+    return { kind: "declined", reason: `the reply does not answer the question: ${why}`, usage };
+  }
+  const answer = calls.find((call) => call.name === tools.answer);
   return answer === undefined
     ? { kind: "declined", reason: "the model gave no answer", usage }
-    : { kind: "answered", answer: answer.args, usage };
+    : { kind: "answered", answer: withCorrectedCall(answer.args, ask), usage };
 }
 
 /** One reply to read: its pause, the text, and what the caller does around the model call. */

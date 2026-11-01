@@ -325,6 +325,12 @@ export class RagSourceReferenceDto {
 }
 
 // @public
+export class ReplyInterpreterNotUnderstoodDto {
+    // (undocumented)
+    reason: string;
+}
+
+// @public
 export interface RequiredField<T> {
     // (undocumented)
     readonly default?: T;
@@ -479,10 +485,11 @@ export class WorkflowStartTextDto {
 // src/dto/standard/framework.ts:71:3 - (ae-undocumented) Missing documentation for "approved".
 // src/dto/standard/framework.ts:74:3 - (ae-undocumented) Missing documentation for "reason".
 // src/dto/standard/framework.ts:80:3 - (ae-undocumented) Missing documentation for "overrideArguments".
-// src/dto/standard/framework.ts:98:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:104:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:107:3 - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts:110:3 - (ae-undocumented) Missing documentation for "score".
+// src/dto/standard/framework.ts:98:3 - (ae-undocumented) Missing documentation for "reason".
+// src/dto/standard/framework.ts:110:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:116:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:119:3 - (ae-undocumented) Missing documentation for "source".
+// src/dto/standard/framework.ts:122:3 - (ae-undocumented) Missing documentation for "score".
 // src/dto/types.ts:42:3 - (ae-undocumented) Missing documentation for "sensitive".
 // src/dto/types.ts:43:3 - (ae-undocumented) Missing documentation for "example".
 // src/dto/types.ts:48:3 - (ae-undocumented) Missing documentation for "optional".

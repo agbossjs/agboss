@@ -110,6 +110,8 @@ export interface AssembledReplyInterpreter {
   readonly name: string;
   /** What its answer is validated as: `ToolCallApprovalDecisionDto` (approval roles only, #647). */
   readonly answer: DtoClass;
+  /** The input of the tools the role approves: what `overrideArguments` is (#648). */
+  readonly approves: DtoClass;
   /** A model interpreter's model (a chat model, or a decision model); `undefined` for a code one. */
   readonly model: string | undefined;
   /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
@@ -181,6 +183,7 @@ export async function replyInterpretersOf(
         interpreter,
         name: options.name,
         answer: answerOf(),
+        approves: role.options.approves,
         model: isCode ? undefined : options.model,
         instructions: isCode ? "" : await loader.load({ label, options, source }),
       };

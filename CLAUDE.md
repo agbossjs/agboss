@@ -1509,7 +1509,11 @@ output })` on a successful result, inner first, each output validated against th
   thread's owner. **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
   `@ReplyInterpreter` (`-reply-interpreter`, one per role) that reads `app.resume({ pauseId, reply })`
   with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
-  `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`; for an approval
+  `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideArguments`
+  described by the approved tool's input, every field optional: the fields the reply changes, laid
+  over the call's own arguments before validation, #648 — and `answer-reply-interpreter-not-understood-dto`
+  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal), one
+  call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as

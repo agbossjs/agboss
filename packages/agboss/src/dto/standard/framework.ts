@@ -87,6 +87,18 @@ crossFieldRule(ToolCallApprovalDecisionDto, ({ approved, overrideArguments }) =>
 );
 
 /**
+ * What a model reply interpreter answers when a reply does not answer its pause's question (#648):
+ * unclear, off topic, a shrug — never a refusal. The pause stays pending and
+ * `UninterpretableReplyError` carries the `reason`, as a code interpreter's
+ * `ReplyInterpretation.notUnderstood({ reason })` does. Tests script it as
+ * `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
+ */
+export class ReplyInterpreterNotUnderstoodDto {
+  @Text({ prompt: "why the reply does not answer the question" })
+  reason!: string;
+}
+
+/**
  * The input of a tool that takes nothing (`{}`). `extends Object` only because an empty class body is a
  * lint error; the class is as plain as `class NoInputDto {}`.
  */

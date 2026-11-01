@@ -341,6 +341,12 @@ tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat`
 - **`withdraw(withdrawal)`** is called once when a sent pause closes without an answer
   (`PauseResolution.Withdrawn` / `Cancelled`), best-effort: a failure is a `channel.withdraw-failed`
   warning, nothing else.
+- **A model interpreter** (`DecidedBy.Model`, a chat model) gets the role's answer tool, its
+  `overrideArguments` described by the approved tool's input with every field optional — "ok but
+  only up to $500" is `{ approved: true, overrideArguments: { amountUsd: 500 } }`, laid over the
+  call's own arguments — and `answer-reply-interpreter-not-understood-dto` for a reply that does not
+  answer ("🤷"), which is never a refusal (#648). Tests:
+  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
 - **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a role without `replyInterpreter` →
   `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else

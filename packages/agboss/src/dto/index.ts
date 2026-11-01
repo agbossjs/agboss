@@ -40,6 +40,7 @@ export {
   NoInputDto,
   PlainTextDto,
   RagSearchResultDto,
+  ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
   WorkflowFinishTextDto,

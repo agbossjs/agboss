@@ -140,6 +140,7 @@ describe("#267 AC8: a model interpreter's call is traced", () => {
       interpreter: PlainReader,
       name: "wire-reply-interpreter",
       answer: ToolCallApprovalDecisionDto,
+      approves: WireRequestDto,
       model: "test/wire-reader",
       instructions: "Read the reply.",
     };
