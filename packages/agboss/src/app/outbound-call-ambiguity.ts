@@ -94,7 +94,8 @@ export function keyRetentionRefusalOf<TRequest, TResult>(
   const { keyRetention, target } = run.options;
   if (keyRetention === undefined) return undefined;
   const margin = run.parts.settings.attemptTimeout;
-  if (keyAge !== undefined && keyAge + margin < keyRetention) return undefined;
+  // an age not recorded is as old as can be: refused
+  if ((keyAge ?? Number.POSITIVE_INFINITY) + margin < keyRetention) return undefined;
   const kept = `${target} keeps keys for ${String(keyRetention)} ms (keyRetention), and a resend may take ${String(margin)} ms to arrive (attemptTimeout)`;
   const age =
     keyAge === undefined
