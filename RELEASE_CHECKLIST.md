@@ -181,7 +181,7 @@ Execute the eight phases below **in strict chronological order**. Every command 
     npm run check:packed && \
     npm audit --omit=dev -w @agboss/core
   ```
-- **Expected outcome:** `make check` passes (`0` lint/type/test/doc/root-allowlist errors), `npm run check:packed` passes (the packed `@agboss/core` / `@agboss/cli` in a project of their own: `workflowOf`, `testWith`, `agboss describe` / `check`, and the `TestSetupError` without `agbossTest()`, #497) and `npm audit --omit=dev -w @agboss/core` reports `found 0 vulnerabilities`.
+- **Expected outcome:** `make check` passes (`0` lint/type/test/doc/root-allowlist errors), `npm run check:packed` passes (the packed `@agboss/core` / `@agboss/cli` in a project of their own: `workflowOf`, `testWith`, `agboss describe` / `check`, and the `TestSetupError` without `agbossTest()`, #497; every source map's sources shipped, no "points to missing source files", a core stack frame that opens, #645) and `npm audit --omit=dev -w @agboss/core` reports `found 0 vulnerabilities`.
 - **Failure / stop condition:** Stop if `make check`, `npm run check:packed` or `npm audit --omit=dev -w @agboss/core` fails.
 
 ### Step 2.2 — Pack Final Release Tarballs, Assert `sourceCommit`, & Run Full RC Verification Suite (`01`..`07`)

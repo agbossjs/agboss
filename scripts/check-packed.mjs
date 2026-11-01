@@ -15,7 +15,10 @@ import { dirname, join, resolve } from "node:path";
 import { USAGE, UsageError, parseArguments } from "./packed/args.mjs";
 import { installedCoreProblem } from "./packed/installed.mjs";
 import { NpmBeforeError, rangeInstallArguments } from "./packed/npm-before.mjs";
+import { coreFramesOf, missingMapSources, missingSourceWarnings } from "./packed/source-maps.mjs";
 import {
+  CORE_FAILURE_TEST,
+  CORE_FAILURE_TEST_FILE,
   OUTSIDE_GRAPH,
   PLAIN_VITEST_CONFIG,
   PROJECT,
@@ -93,12 +96,46 @@ function install(project, tarballs) {
   run("npm ls @agboss/core", "npm", ["ls", "@agboss/core"], project);
   const problem = installedCoreProblem(project);
   if (problem !== undefined) throw new CheckFailed(problem);
+  for (const name of ["core", "cli"]) {
+    const missing = missingMapSources(join(project, "node_modules", "@agboss", name));
+    if (missing.length > 0)
+      throw new CheckFailed(
+        `@agboss/${name}'s source maps name ${missing.length} sources it does not ship, e.g. ${missing[0]}`,
+      );
+  }
+}
+
+/** #645 AC1: no "points to missing source files" from vite in a test run of the project. */
+function assertNoMissingSources(step, output) {
+  const warnings = missingSourceWarnings(output);
+  if (warnings.length > 0)
+    throw new CheckFailed(`${step}: ${warnings.length} source-map warnings, e.g. ${warnings[0]}`);
+}
+
+/** #645 AC2: a test failing inside the core names files and lines the installed package has. */
+function coreStackTrace(project) {
+  mkdirSync(dirname(join(project, CORE_FAILURE_TEST_FILE)), { recursive: true });
+  writeFileSync(join(project, CORE_FAILURE_TEST_FILE), CORE_FAILURE_TEST);
+  const step = "positive: a failure inside the core names lines of the package";
+  const output = run(step, binOf(project, "vitest"), ["run", CORE_FAILURE_TEST_FILE], project, {
+    expectFailure: true,
+  });
+  rmSync(join(project, CORE_FAILURE_TEST_FILE));
+  assertNoMissingSources(step, output);
+  const frames = coreFramesOf(output, project);
+  const broken = frames.filter((frame) => frame.problem !== undefined);
+  if (frames.length === 0 || broken.length > 0)
+    throw new CheckFailed(
+      `${step}: ${frames.length === 0 ? "no frame inside the core" : `${broken[0].frame}: ${broken[0].problem}`}\n${output}`,
+    );
 }
 
 function positive(project) {
   mkdirSync(dirname(join(project, WORKFLOW_OF_TEST_FILE)), { recursive: true });
   writeFileSync(join(project, WORKFLOW_OF_TEST_FILE), WORKFLOW_OF_TEST);
-  run("positive: npm test (workflowOf, testWith, environments)", "npm", ["test"], project);
+  const step = "positive: npm test (workflowOf, testWith, environments)";
+  assertNoMissingSources(step, run(step, "npm", ["test"], project));
+  coreStackTrace(project);
   run("positive: agboss describe", binOf(project, "agboss"), ["describe"], project);
   run("positive: agboss check", binOf(project, "agboss"), ["check"], project);
 }

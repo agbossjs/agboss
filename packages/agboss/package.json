@@ -146,6 +146,7 @@
   "files": [
     "bin",
     "dist",
+    "src",
     "schema",
     "skills",
     "README.md",

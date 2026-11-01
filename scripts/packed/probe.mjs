@@ -34,3 +34,14 @@ export default defineConfig({
   test: { include: ["tests/**/*.test.ts"], setupFiles: ["@agboss/core/testing/setup"] },
 });
 `;
+
+/** #645 AC2: a test that fails inside the core — its stack trace must name lines of the package. */
+export const CORE_FAILURE_TEST = `import { usd } from "@agboss/core/units";
+import { test } from "vitest";
+
+test("a failure inside the core", () => {
+  usd(-1);
+});
+`;
+
+export const CORE_FAILURE_TEST_FILE = "tests/packed/core-failure.test.ts";

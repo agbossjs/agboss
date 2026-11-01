@@ -43,6 +43,7 @@
   "files": [
     "bin",
     "dist",
+    "src",
     "templates",
     "README.md",
     "LICENSE",
