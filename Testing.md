@@ -823,6 +823,10 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   slot, a timeout). A load that does not settle within 30 s of real time fails `advance` with
   `UnsettledWorkError`. What `advance` cannot see is work that waits on something else than the
   clock — a promise the test itself holds, a stalled store (`leases.stall`): await that yourself.
+  Since `advance` now lets an execution run as far as the clock allows, one it moves to its end may
+  reject while `advance` runs: hold its rejection before advancing
+  (`const failure = run.catch((error: unknown) => error)`, then `expect(await failure)…`), else
+  vitest reports an unhandled rejection.
 - What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
   records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
   the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's timeout, the waits
