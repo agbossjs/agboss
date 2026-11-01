@@ -1,4 +1,5 @@
 import {
+  BudgetExceededError,
   ChildPlacement,
   DecidedBy,
   EmptyEnvironment,
@@ -23,14 +24,15 @@ import {
   LevelItemAction,
   OverspendAction,
   PaidBookingAction,
+  RefundBookingAction,
   SharedCheckpointSaver,
   UndoOnceLog,
 } from "./undo-once.actions.js";
 
 /**
  * #607 — one tree per automatic undo: a failed join's, a root's own (failed, cancelled at its gate,
- * out of budget), a `ParentInstance` child's, an `AnyInstance` child's, and a recursion level's
- * followed by its root's. Each books a paid item and fails after it.
+ * out of budget), a held-back refund's (#675), a `ParentInstance` child's, an `AnyInstance`
+ * child's, and a recursion level's followed by its root's. Each books a paid item and fails after it.
  */
 
 const startOf = (name: string) =>
@@ -207,6 +209,32 @@ export class OnceBudgetRouter {
 })
 export class OnceBudgetWorkflow {}
 
+@startOf("once-held")
+export class OnceHeldWorkflowStart {}
+@finishOf("once-held")
+export class OnceHeldWorkflowFinish {}
+
+/**
+ * #675: booked, a paid call past every budget, then the refund on the main path — held back as a
+ * step, its `.onError` taking the budget's error to a finish: the booking is undone as an undo.
+ */
+@Workflow({
+  name: "once-held-workflow",
+  version: "1.0.0",
+  flow: [
+    start(OnceHeldWorkflowStart)
+      .returns(ItemDto)
+      .toAction(PaidBookingAction)
+      .returns(BookingDto)
+      .toAction(OverspendAction)
+      .returns(ItemResultDto)
+      .toAction(RefundBookingAction)
+      .onError(BudgetExceededError, toFinish(OnceHeldWorkflowFinish))
+      .toFinish(OnceHeldWorkflowFinish),
+  ],
+})
+export class OnceHeldWorkflow {}
+
 @startOf("once-level")
 export class OnceLevelWorkflowStart {}
 @finishOf("once-level")
@@ -247,6 +275,7 @@ export class OnceLevelWorkflow {}
     OnceLocalWorkflow,
     OnceAnyWorkflow,
     OnceBudgetWorkflow,
+    OnceHeldWorkflow,
     OnceLevelWorkflow,
   ],
   observers: [UndoOnceLog],

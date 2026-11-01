@@ -58,6 +58,8 @@ export function nodeDepsOf(
     // the trees' slots of the pass (#264): shared by the graph, its children and its recursion
     slots: run.slots,
     compensation: deps.compensation,
+    container: deps.container,
+    ...(deps.stepEntries === undefined ? {} : { stepEntries: deps.stepEntries }),
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   return { visitDeps, launchDeps };

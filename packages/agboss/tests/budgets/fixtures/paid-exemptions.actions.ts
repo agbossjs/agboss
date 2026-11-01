@@ -2,7 +2,9 @@ import {
   Action,
   Injectable,
   SpendRecorder,
+  type CompensationStartEvent,
   type ExecutionEndEvent,
+  type OnCompensationStart,
   type ExecutionErrorEvent,
   type OnExecutionEnd,
   type OnExecutionError,
@@ -20,11 +22,14 @@ import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-st
 export const exemptions = {
   declines: false,
   ended: [] as string[],
+  /** The key of every undo that started (#675: `<step key>:compensation`). */
+  undone: [] as string[],
 };
 
 export function resetExemptions(): void {
   exemptions.declines = false;
   exemptions.ended.length = 0;
+  exemptions.undone.length = 0;
 }
 
 @Action({
@@ -83,9 +88,13 @@ export class RejectOrderAction {
   }
 }
 
-/** How every root execution ended, on whichever instance ended it. */
+/** How every root execution ended, on whichever instance ended it; every undo that started. */
 @Injectable()
-export class ExemptionsLog implements OnExecutionEnd, OnExecutionError {
+export class ExemptionsLog implements OnExecutionEnd, OnExecutionError, OnCompensationStart {
+  onCompensationStart(event: CompensationStartEvent): void {
+    exemptions.undone.push(event.step.idempotencyKey);
+  }
+
   onExecutionEnd(event: ExecutionEndEvent): void {
     exemptions.ended.push(event.finish.name);
   }

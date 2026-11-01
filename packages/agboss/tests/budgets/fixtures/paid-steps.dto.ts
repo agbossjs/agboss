@@ -29,6 +29,8 @@ export const paidSteps = {
   started: [] as string[],
   charge: 150,
   held: undefined as Promise<void> | undefined,
+  /** Whether the refund fails (#675: an undo that fails of its own). */
+  refundFails: false,
 };
 
 /** Holds `hold-order-action` until the returned function is called. */
@@ -45,4 +47,5 @@ export function resetPaidSteps(): void {
   paidSteps.started.length = 0;
   paidSteps.charge = 150;
   paidSteps.held = undefined;
+  paidSteps.refundFails = false;
 }

@@ -24,6 +24,8 @@ import { plainRecordOf, type ComponentRecord } from "./records.js";
  * the application's reaction to it, which leads only to actions and finishes; what it spends
  * counts). Both only on the side path itself (#656, `SidePathRecord` below): a launch ends it — its branches
  * and what follows its join are held back —, and the same action reached any other way is a step.
+ * Such a step held back while it is some open entry's undo, its `.onError` taking the error, still
+ * gives the money back: the entry is undone as an undo (#675, `compensation/held-undo.ts`).
  */
 
 /**
