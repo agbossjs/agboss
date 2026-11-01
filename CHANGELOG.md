@@ -220,6 +220,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **The key-text cases catch an accent-insensitive collation** (#620, found in the acceptance of
+  #533) — a store whose business-key column compares accent-blind (MySQL's `_ai_ci`, an ICU
+  strength-1 collation, a unique index on `unaccent(key)`) and keeps each key as first given passed
+  every case of `storeConformance`: "Zoë-17" found "Zoe-17"'s intent and replayed its payment. The
+  round-trip keys now hold each one's accent-free twin ("café" and "cafe", "q̇" and "q", "straße"
+  and "strasse"), each its own row.
 - **A side path on a child's own error class is taken on every holder** (#598, found while fixing
   #596) — a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,
   #340) or an instance (an `AnyInstance` child's queue row) came back with its name and message

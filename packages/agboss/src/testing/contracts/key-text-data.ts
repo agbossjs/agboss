@@ -9,7 +9,11 @@ import { KeyTextRule } from "../../core/errors.js";
  * store method refuses before any statement.
  */
 
-/** Accepted keys — none the NFC, case or width form of another — each its own row. */
+/**
+ * Accepted keys — none the NFC, case or width form of another — each its own row; and (#620) keys
+ * an accent-insensitive collation equates ("café" and "cafe", "q̇" and "q", "straße" and
+ * "strasse": MySQL's `_ai_ci`, an ICU strength-1 collation, `unaccent`), each its own row too.
+ */
 export const ROUND_TRIP_KEYS: readonly string[] = [
   "order:42",
   "order 42",
@@ -24,7 +28,11 @@ export const ROUND_TRIP_KEYS: readonly string[] = [
   "order:🇮🇱",
   "order:\u{20000}",
   "café",
+  "cafe",
   "q̇",
+  "q",
+  "order:straße",
+  "order:strasse",
   "%3A:%:'\"\\",
   "k".repeat(200),
   "🧾".repeat(100),
