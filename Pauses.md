@@ -117,7 +117,16 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   the tool's input). Code downstream decides by types, never by the text.
 - **`DecidedBy.Model`** — a chat model answers through one answer tool of the role's answer DTO; its
   static `prompt` / `promptUrls` are its instructions, the question and the reply come in the input
-  message (`### ask` / `### reply`, #270 Q51). **For an approval role the model may be a decision
+  message (`### ask` / `### reply`, #270 Q51). For an approval role (#648) the answer tool describes
+  `overrideArguments` by the approved tool's input, every field optional: the fields the reply
+  changes, laid over the call's own arguments (`ask.arguments`) before validation — "ok but only up
+  to $500" is `{ approved: true, overrideArguments: { amountUsd: 500 } }`. Beside it the model has
+  `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
+  `@agboss/core/dto`) for a reply that does not answer ("🤷", off topic): never a refusal — the pause
+  stays `Pending`, `UninterpretableReplyError.reason` is "the reply does not answer the question:
+  <its reason>", as a code interpreter's `notUnderstood`. One call per move (`parallel_tool_calls:
+  false`); a "not understood" call wins over an answer beside it. Tests:
+  `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For an approval role the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the

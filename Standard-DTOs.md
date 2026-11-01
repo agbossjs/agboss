@@ -41,6 +41,7 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`@agboss/c
 | `WorkflowPauseAnswerDto`   | `replyWith`                                                   | the answer to that question                                       |
 | `ToolCallApprovalAskDto`   | `callId`, `tool`, `arguments` (any JSON object), `summary` | a tool call waiting for approval — one call per pause             |
 | `ToolCallApprovalDecisionDto` | `approved`, `by` (who or what decided), `feedback?`, `overrideArguments?` | the decision on that call — what `app.resume` takes ([Pause seam](Pause-seam)) |
+| `ReplyInterpreterNotUnderstoodDto` | `reason` | what a model reply interpreter answers for a reply that does not answer its pause (#648) — never a refusal ([Pauses](Pauses)) |
 | `NoInputDto`               | —                                                          | the input of a tool that takes nothing (`{}`)                     |
 | `PlainTextDto`             | `text`                                                     | plain text, e.g. a text-only MCP server tool's result             |
 | `RagSearchResultDto`       | `text`, `source`, `score?` (0…1)                           | a piece of text a knowledge base (`@Rag`) found for a query       |

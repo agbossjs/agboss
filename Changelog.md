@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a model reply interpreter sees the call it approves and can say "not understood" (#648)
+
+- **Fixed**: a chat-model `@ReplyInterpreter` of an approval role gets `overrideArguments` described
+  by the approved tool's input (every field optional, laid over the call's own arguments) and an
+  `answer-reply-interpreter-not-understood-dto` tool: "ok but only up to $500" can be the capped
+  approval, "🤷" keeps the pause pending with `UninterpretableReplyError` instead of a refusal.
+  New: `ReplyInterpreterNotUnderstoodDto` (`@agboss/core/dto`). [Pauses](Pauses).
+
 ## Unreleased — 0.1.1: a question role cannot be declared (#647)
 
 - **Breaking**: `@ChannelRole({ ask, answer })` compiled and passed `agboss check`, but nothing could
