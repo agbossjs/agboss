@@ -69,6 +69,8 @@ const key = (token: number) => ({
   name: "charge",
 });
 
+const stateOf = (token: number) => ({ tenantId: "default", leaseExecutionId: "tree-1", token });
+
 const failures = (recorded: Recorded) => linearizabilityOf(recorded.history, { slack: 0 });
 
 describe("#533 item 5: the linearizability checker", () => {
@@ -209,6 +211,52 @@ describe("#533 item 5: the linearizability checker", () => {
 
     expect(failures(landed)).toEqual([]);
     expect(failures(lost)).toEqual([]);
+  });
+
+  it("bites (#617): a take of a live lease inside 10–12 ms is not excused by a renewal in flight past the expiry", () => {
+    // the holder's pod frozen mid-renewal (scenarios 5b, 5c, 13): its renewal spans the expiry, and
+    // no operation takes effect after it completed — b's take lands at 10–12 ms, a's lease live
+    const history = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+      .op(StoreHoldPoint.LeaseRenew, "a", lease("a", 1), null, 2, 40_000)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 10, 12);
+
+    const [part] = failures(history);
+    expect(part?.stuck.map((operation) => operation.id)).toContain("b#3");
+  });
+
+  it("#617: a take stalled across the expiry lands at it — the old holder's lease state in the middle is Ended", () => {
+    const history = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 20_000, 40_000)
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "ended", 31_000, 31_005);
+
+    expect(failures(history)).toEqual([]);
+  });
+
+  it("#617: a take nobody saw answer may land any time after its invoke — after a's expiry, so c's take past b's is epoch 3", () => {
+    // b's pod killed with its take in flight; the store applied it at a's expiry (30 s): b's lease
+    // runs to 60 s, and c's take after that is the third epoch
+    const history = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, undefined, 20_000)
+      .op(StoreHoldPoint.LeaseAcquire, "c", TREE, granted("c", 3), 61_000, 61_001);
+    const tooEarly = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, undefined, 20_000)
+      .op(StoreHoldPoint.LeaseAcquire, "c", TREE, granted("c", 3), 25_000, 25_001);
+
+    expect(failures(history)).toEqual([]);
+    expect(failures(tooEarly)).toHaveLength(1);
+  });
+
+  it("#617: a stale read across two processes — the old token Live after the newer grant completed — fails", () => {
+    const history = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 30_010, 30_011)
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "live", 30_020, 30_021);
+
+    expect(failures(history)).toHaveLength(1);
   });
 
   it("the store's time is the machine's times the scale: 3 s of a 10× run are 30 s of the store's", () => {
