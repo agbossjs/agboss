@@ -55,7 +55,8 @@ async function sharedOf<TRequest, TResult>(
     stop = () => {
       reject(signal.reason as Error);
     };
-    signal.addEventListener("abort", stop, { once: true });
+    // removed in `finally`, fired or not: no `once` needed
+    signal.addEventListener("abort", stop);
   });
   const shared = joined.outcome.catch((error: unknown) => {
     if (joined.answer.isAnswered) throw error;
@@ -83,7 +84,8 @@ export async function joinedOrMade<TRequest, TResult>(
   const leave = (): void => {
     if (parts.live.get(live) === call) parts.live.delete(live);
   };
-  signal.addEventListener("abort", leave, { once: true });
+  // removed in `finally`, fired or not: no `once` needed
+  signal.addEventListener("abort", leave);
   try {
     return await call.outcome;
   } finally {
