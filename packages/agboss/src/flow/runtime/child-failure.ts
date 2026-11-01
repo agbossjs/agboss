@@ -26,6 +26,7 @@ import type { ExecutionStateType } from "./state.js";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
 import { isFailureClaimed } from "./child-reentry.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * A child execution that threw, as its parent's step sees it (#263 S25): undone first (#340 Q2,
@@ -104,7 +105,7 @@ async function undoneChild(
   );
   if (!hasUndoableActions(child.deps.graph))
     return { thrown, compensations: compensationRecordsOf(own) };
-  const { unwoundChild } = await import("./compensation/child-unwind.js");
+  const { unwoundChild } = await lazyLoad(import("./compensation/child-unwind.js"));
   const unwound = await unwoundChild(
     {
       ...{ deps: child.deps, workflow: child.workflow, run: parent.undo.run },

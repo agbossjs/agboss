@@ -4,6 +4,7 @@ import type { RuleViolation } from "../../graph/rule-error.js";
 import { loadFlowProject } from "../../loader/load-flow.js";
 import type { LoadedModule } from "../analyse/rules/context.js";
 import { GENERATED_TYPES_FILE, generateFlowTypes } from "./generate.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * `agboss check`, the end of `agboss generate` and the repo's `check:types` step (#272 S7): load the
@@ -59,8 +60,8 @@ export interface FlowTypesResult {
  * `@agboss/core/dto`): an installed package is not a project module, so it is never in tsx's record.
  */
 const packageModules = async (): Promise<readonly LoadedModule[]> => [
-  { file: "@agboss/core/dto", exports: await import("../../dto/index.js") },
-  { file: "@agboss/core", exports: await import("../../index.js") },
+  { file: "@agboss/core/dto", exports: await lazyLoad(import("../../dto/index.js")) },
+  { file: "@agboss/core", exports: await lazyLoad(import("../../index.js")) },
 ];
 
 /** Loads the modules, generates the types and writes them (unless generation failed). */

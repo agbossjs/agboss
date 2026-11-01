@@ -24,6 +24,7 @@ import {
   registeredIn,
 } from "./provider-chat-of.js";
 import { withFallbacks } from "../models/resolution.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 export { ProviderCapabilityError } from "./provider-chat-of.js";
 
@@ -54,7 +55,7 @@ export async function chatExtensionsFor(
   directory: ModelProviderDirectory,
 ): Promise<ChatExtensions | undefined> {
   const classes = withFallbacks(directory.providers.map((provider) => provider.type));
-  return classes.some(isTransportClass) ? import("./provider-chat.js") : undefined;
+  return classes.some(isTransportClass) ? lazyLoad(import("./provider-chat.js")) : undefined;
 }
 
 /**

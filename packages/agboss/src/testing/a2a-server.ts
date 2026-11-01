@@ -3,6 +3,7 @@ import type { A2AHttpListenerOptions } from "../a2a/a2a-http.js";
 import type { Class } from "../components/injection.js";
 import { blockNetwork } from "./network-guard.js";
 import type { TestApp } from "./test-app.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /** The test's A2A server (`a2aServer(options)`): its base URL — `new A2AClient({ url })`. */
 export interface A2ATestServer {
@@ -51,8 +52,8 @@ function a2aTestServersOf(app: TestApp): A2ATestServers {
   const start: A2AServerFixture = async (options) => {
     await app.ready();
     const [{ createServer }, { a2aHttpListener }] = await Promise.all([
-      import("node:http"),
-      import("../a2a/a2a-http.js"),
+      lazyLoad(import("node:http")),
+      lazyLoad(import("../a2a/a2a-http.js")),
     ]);
     const server = createServer(a2aHttpListener(app, options));
     servers.push(server);

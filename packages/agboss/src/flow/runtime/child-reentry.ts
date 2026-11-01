@@ -1,5 +1,6 @@
 import type { GraphDeps } from "../../graph/deps.js";
 import type { ChildEntered } from "./child-identity.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * A child re-entered while its automatic undo was under way (#340 PR 4, AC4): its instance stopped
@@ -20,8 +21,9 @@ export async function interruptedUndoOf(
   const trees = deps.compensation?.trees;
   if (entered.isNew || trees === undefined) return undefined;
   const { executionId, rootExecutionId } = entered.identity;
-  const { causeOfMark, childUnwindingKeyOf, unwindingOf } =
-    await import("./compensation/unwinding-marks.js");
+  const { causeOfMark, childUnwindingKeyOf, unwindingOf } = await lazyLoad(
+    import("./compensation/unwinding-marks.js"),
+  );
   const tree = { tenantId, rootExecutionId };
   const mark = await unwindingOf(trees, tree, childUnwindingKeyOf(executionId));
   return mark === undefined ? undefined : causeOfMark(mark);
@@ -40,8 +42,9 @@ export async function claimedFailureOf(
   const trees = deps.compensation?.trees;
   if (entered.isNew || trees === undefined) return undefined;
   const { executionId, rootExecutionId } = entered.identity;
-  const { causeOfMark, childFailureKeyOf, unwindingOf } =
-    await import("./compensation/unwinding-marks.js");
+  const { causeOfMark, childFailureKeyOf, unwindingOf } = await lazyLoad(
+    import("./compensation/unwinding-marks.js"),
+  );
   const mark = await unwindingOf(
     trees,
     { tenantId, rootExecutionId },
@@ -63,7 +66,7 @@ export async function isFailureClaimed(
 ): Promise<boolean> {
   const trees = deps.compensation?.trees;
   if (trees === undefined) return true;
-  const { claimChildFailure } = await import("./compensation/unwinding-marks.js");
+  const { claimChildFailure } = await lazyLoad(import("./compensation/unwinding-marks.js"));
   const tree = { tenantId, rootExecutionId: identity.rootExecutionId };
   return claimChildFailure(trees, tree, identity.executionId, cause);
 }

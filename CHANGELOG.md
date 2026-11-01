@@ -233,6 +233,13 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
+  first execution of a test file loads the core's lazy modules through vite's module runner, ~300
+  turns of the event loop, and an execution of an app not built yet builds it first; `advance`
+  waited one turn, so the time jumped before the execution reached its wait (05's step-slots test
+  failed 3/3). Every dynamic import of the core is now `lazyLoad(import(…))` (lint-enforced), and
+  `advance` waits for the loads in flight (30 s of real time at
+  most, then `UnsettledWorkError`) before it moves the time.
 - **An action ran without a fence after its `onActionStart`** (#662, found in the acceptance of
   #640): #640 checks the holder's fence right before an automatic undo's action; an ordinary action
   visit — the undo action a side path runs (`.onError(DeclinedError, toAction(RefundAction))`) and

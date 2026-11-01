@@ -1,4 +1,4 @@
-import { Clock, SystemClock } from "../infrastructure/clock.js";
+import { Clock, loadsInFlight, SystemClock } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { TestSetupError, UnsettledWorkError } from "./errors.js";
 
@@ -37,6 +37,9 @@ const settle = (): Promise<void> =>
 
 /** The real time `advance` waits for tracked work to settle, at most (#511). */
 const SETTLE_TIMEOUT = seconds(2);
+
+/** The real time `advance` waits for the core's lazy loads to settle, at most (#646): a cold vite. */
+const LOAD_TIMEOUT = seconds(30);
 
 /** The real clock the bound on tracked work reads: a test's own time never moves by itself. */
 const REAL_TIME = new SystemClock();
@@ -125,7 +128,8 @@ export class VirtualClock extends Clock {
 
   /**
    * Moves the time forward — `await clock.advance(seconds(31))`, `await app.clock.advance("25h")`:
-   * the work already started first reaches its next wait, then the time jumps and every sleep due
+   * the work already started first reaches its next wait — the core's lazy modules it loads on the
+   * way included (#646: `app.execute(…)` then `advance` at once) —, then the time jumps and every sleep due
    * wakes, in time order, each one's work running before the next — the work `track`ed included,
    * up to `settleTimeout` of real time (#511). A jump longer than a lease is a holder frozen for
    * that long.
@@ -140,17 +144,36 @@ export class VirtualClock extends Clock {
     }
   }
 
-  /** One turn of the event loop, then until no tracked work is in flight (a settled call may start the next). */
+  /**
+   * One turn of the event loop, then until no tracked work and no lazy load of the core is in flight
+   * (a settled call may start the next; #646: an execution just started loads the core's lazy
+   * modules on its way to its first wait).
+   */
   async #settled(): Promise<void> {
     await settle();
-    while (this.#inFlight.size > 0) {
+    while (this.#inFlight.size > 0 || loadsInFlight().length > 0) {
+      await this.#loaded();
       await this.#drained();
       await settle();
     }
   }
 
+  /** The lazy loads in flight now, settled — or `UnsettledWorkError` after `LOAD_TIMEOUT`. */
+  async #loaded(): Promise<void> {
+    const loads = loadsInFlight();
+    if (loads.length === 0) return;
+    const timer = new AbortController();
+    const isLoaded = await Promise.race([
+      Promise.all(loads).then(() => true),
+      REAL_TIME.sleep(LOAD_TIMEOUT, timer.signal).then(() => false),
+    ]);
+    timer.abort();
+    if (!isLoaded) throw new UnsettledWorkError(loadsInFlight().length, LOAD_TIMEOUT, true);
+  }
+
   /** The tracked work in flight now, settled — or `UnsettledWorkError` after `settleTimeout`. */
   async #drained(): Promise<void> {
+    if (this.#inFlight.size === 0) return;
     const timer = new AbortController();
     const inFlight = [...this.#inFlight];
     const isSettled = await Promise.race([

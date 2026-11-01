@@ -2353,7 +2353,10 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   too), `mcpOf`,
   `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
-  `await clock.advance(seconds(31))` (or `"25h"`), which sets the time first and then wakes every due wait in time order, each
+  `await clock.advance(seconds(31))` (or `"25h"`), which first lets the work already started reach its
+  next wait — the core's lazy loads included (#646: every dynamic import of the core is
+  `lazyLoad(import(…))`, lint-enforced, so `app.execute(…)` then
+  `advance` at once is deterministic, no fixture needed) —, sets the time and then wakes every due wait in time order, each
   one's work before the next, without real waiting — so one advance of a whole lease (30 s) or more is a running
   execution's holder frozen that long, its lease over (#534, #551; let time pass for a live holder in steps of
   `seconds(10)`) — and work registered with `clock.track(promise)`

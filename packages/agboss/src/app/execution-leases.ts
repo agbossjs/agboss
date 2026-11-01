@@ -14,7 +14,7 @@ import type {
 } from "../infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
-import type { Clock } from "../infrastructure/clock.js";
+import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { FrameLease } from "../flow/context/frame.js";
 import { HeldLease } from "./held-lease.js";
@@ -176,7 +176,7 @@ export const leaseEventLogOf = (
   mask: (event) => mask.value(event),
   log,
   clock: infrastructure.clock,
-  recording: import("./lease-events.js"),
+  recording: lazyLoad(import("./lease-events.js")),
 });
 
 /**

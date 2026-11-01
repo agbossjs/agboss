@@ -7,6 +7,7 @@ import type { Compacted, CompactionOutcome } from "./compaction.js";
 import type { FinishContext } from "./execute.js";
 import { NO_THREAD_MEMORY, threadMemoryOf, type ThreadMemory } from "./thread.js";
 import type { AgentExecutionDeps } from "./types.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /** What updating memory after a turn did: its spend, already recorded. */
 export interface MemoryAfterTurn extends MemoryUpdate {
@@ -56,7 +57,9 @@ export async function memoryBeforeRun<TName extends string>(
   const compacted =
     plan.compactions.length === 0
       ? NOTHING_COMPACTED
-      : await (await import("./compaction.js")).compactDue(deps, plan, { ...run, tokens: {} });
+      : await (
+          await lazyLoad(import("./compaction.js"))
+        ).compactDue(deps, plan, { ...run, tokens: {} });
   return { ...(await threadMemoryOf(deps, thread)), ...compacted };
 }
 

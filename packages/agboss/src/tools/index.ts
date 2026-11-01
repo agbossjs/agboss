@@ -29,6 +29,7 @@ export {
   type McpServerHandle,
   type McpToolRef,
 } from "./mcp/facade.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Connects the MCP servers a workflow uses (see `./mcp/connect.ts`). The MCP SDK is loaded on the
@@ -37,6 +38,6 @@ export {
 export async function connectMcpServers(
   ...args: Parameters<typeof connectNow>
 ): ReturnType<typeof connectNow> {
-  const { connectMcpServers: connect } = await import("./mcp/connect.js");
+  const { connectMcpServers: connect } = await lazyLoad(import("./mcp/connect.js"));
   return connect(...args);
 }

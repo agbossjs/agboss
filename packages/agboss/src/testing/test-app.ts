@@ -18,6 +18,7 @@ import {
 import { toolNameOf } from "./script.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -87,7 +88,10 @@ function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp {
  * already waiting on the clock.
  */
 async function withProbesLoaded(building: Promise<BuiltApplication>): Promise<BuiltApplication> {
-  const [built] = await Promise.all([building, import("../health/application-health.js")]);
+  const [built] = await Promise.all([
+    building,
+    lazyLoad(import("../health/application-health.js")),
+  ]);
   return built;
 }
 

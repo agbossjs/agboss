@@ -1,6 +1,7 @@
 /** Optional run tracing (Wiki → Tracing). */
 import { langfuseSettings } from "./settings.js";
 import type { ExecutionTracing, TraceMask } from "./types.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 export type { ExecutionTracing, TraceContext, TraceMask } from "./types.js";
 
@@ -13,6 +14,6 @@ export async function tracingOf(
   mask?: TraceMask,
 ): Promise<ExecutionTracing | undefined> {
   if (langfuseSettings(env) === undefined) return undefined;
-  const { langfuseTracing } = await import("./langfuse.js");
+  const { langfuseTracing } = await lazyLoad(import("./langfuse.js"));
   return langfuseTracing(env, mask);
 }

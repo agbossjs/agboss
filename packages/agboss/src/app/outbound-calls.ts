@@ -6,7 +6,7 @@ import { checkedBusinessKey, checkedEffectName } from "../infrastructure/fenced-
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-import { Clock, SystemClock } from "../infrastructure/clock.js";
+import { Clock, SystemClock, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger, SilentLogger } from "../infrastructure/logger.js";
 import type { LiveCall } from "./outbound-call-parts.js";
 import type {
@@ -143,7 +143,7 @@ export class OutboundCalls {
     // a key built by hand is checked as fencedEffectKeyOf checks it (#508, #538): nothing recorded or sent
     checkedEffectName(key.name);
     checkedBusinessKey(key);
-    const { sendOutboundCall } = await import("./outbound-call-protocol.js");
+    const { sendOutboundCall } = await lazyLoad(import("./outbound-call-protocol.js"));
     const { repository, settings } = this;
     const live = this.#live;
     const parts = {

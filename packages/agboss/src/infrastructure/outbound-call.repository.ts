@@ -1,7 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { FencedEffectKey } from "./fenced-effect.repository.js";
 import { Injectable } from "../components/decorators.js";
-import { StoreClock, type Clock } from "./clock.js";
+import { StoreClock, type Clock, lazyLoad } from "./clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
@@ -241,7 +241,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 
   async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
-    const { inMemoryLeaseStateOf } = await import("./live-lease.js");
+    const { inMemoryLeaseStateOf } = await lazyLoad(import("./live-lease.js"));
     return inMemoryLeaseStateOf(this.database, lease, this.clock.now());
   }
 

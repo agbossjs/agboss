@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
-import { StoreClock } from "../clock.js";
+import { StoreClock, lazyLoad } from "../clock.js";
 import {
   ExecutionLeaseRepository,
   takenOverFromOf,
@@ -91,7 +91,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 
   /** Loaded on first use (#591): the root import stays as it was. */
   async saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
-    const { savedExecutionId } = await import("./sqlite-execution-ids.js");
+    const { savedExecutionId } = await lazyLoad(import("./sqlite-execution-ids.js"));
     return savedExecutionId(this.connection, identity);
   }
 

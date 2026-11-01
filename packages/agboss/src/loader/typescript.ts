@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Workflows are TypeScript with decorators: Node's type stripping cannot run them, tsx can
@@ -18,7 +19,7 @@ const isProjectModule = (url: string): boolean =>
 
 export async function registerTypeScript(): Promise<void> {
   if (isRegistered) return;
-  const { register } = await import("tsx/esm/api");
+  const { register } = await lazyLoad(import("tsx/esm/api"));
   register({
     onImport: (url) => {
       if (isProjectModule(url)) imported.add(fileURLToPath(url));

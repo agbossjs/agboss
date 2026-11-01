@@ -6,6 +6,7 @@ import { startsOfApplication } from "../application/application-starts.js";
 import type { Class } from "../components/injection.js";
 import { evalSuiteOf } from "../eval/suite/eval-suite.decorator.js";
 import { registerTypeScript } from "./typescript.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The eval suites of an application (#396 PR 2): every `eval-suites/*.eval-suite.ts` under the
@@ -43,7 +44,9 @@ function suiteFilesIn(dir: string): string[] {
 
 /** The exported suites of one module. */
 async function suitesOf(file: string, starts: ReadonlySet<Class>): Promise<FoundEvalSuite[]> {
-  const module = (await import(pathToFileURL(file).href)) as Readonly<Record<string, unknown>>;
+  const module = (await lazyLoad(import(pathToFileURL(file).href))) as Readonly<
+    Record<string, unknown>
+  >;
   return [...new Set(Object.values(module))].flatMap((value) => {
     if (typeof value !== "function") return [];
     const meta = evalSuiteOf(value as Class);

@@ -10,6 +10,7 @@ import { forgetTree } from "./tree-ends.js";
 import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { undoneTreeEnd, type EndedTreeUndo } from "./tree-unwind.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Ending a tree without a pass, under its lease (#360's cancel request, `app.cancel` of a paused
@@ -73,7 +74,7 @@ export async function endedWithoutPass(
 ): Promise<EndedTree> {
   const { deps, paused } = parts;
   const record = await rootRecordOf(deps, state);
-  const { markTreeUnwinding } = await import("./compensation/root-unwind.js");
+  const { markTreeUnwinding } = await lazyLoad(import("./compensation/root-unwind.js"));
   await markTreeUnwinding(deps, state, end.cause);
   if (record !== undefined) {
     const running = runningOutcome(record.route, record.costUsd);

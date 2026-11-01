@@ -15,6 +15,7 @@ import type { ExecutionStateType } from "./runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { JoinUnwindSite } from "./runtime/compensation/join-unwind.js";
 import type { ComponentRecord, ScopeRecords } from "./runtime/records.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Declared action compensation at run time (#340): what an undo of an `@Action({ compensateWith })`
@@ -209,7 +210,7 @@ export async function compensationsOfVisit(
   site: VisitCompensationSite,
 ): Promise<{ readonly compensations?: CompensationEntry[] }> {
   if (!touchesCompensations(site.node, site.entries)) return {};
-  const { entriesOfVisit } = await import("./runtime/compensation/visit-entries.js");
+  const { entriesOfVisit } = await lazyLoad(import("./runtime/compensation/visit-entries.js"));
   const written = entriesOfVisit(site);
   return written.length === 0 ? {} : { compensations: [...written] };
 }
@@ -267,6 +268,6 @@ export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<F
     );
   });
   if (!isUndoable) return {};
-  const { unwoundJoin } = await import("./runtime/compensation/join-unwind.js");
+  const { unwoundJoin } = await lazyLoad(import("./runtime/compensation/join-unwind.js"));
   return unwoundJoin(site);
 }

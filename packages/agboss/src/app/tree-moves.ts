@@ -23,20 +23,19 @@ import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
-import type * as CancelRequests from "./cancel-requests.js";
-import type * as UnwindingTakeover from "./unwinding-takeover.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
 import type { EndedTreeUndo } from "./tree-unwind.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
-const cancelRequests = (): Promise<typeof CancelRequests> => import("./cancel-requests.js");
+const cancelRequests = () => lazyLoad(import("./cancel-requests.js"));
 
 /** Finishing an undo under way at a lease take (#340 PR 4), loaded only when one is found. */
-const takeover = (): Promise<typeof UnwindingTakeover> => import("./unwinding-takeover.js");
+const takeover = () => lazyLoad(import("./unwinding-takeover.js"));
 
 /**
  * Moving an execution tree under its lease (#265, Q58; the concurrent resumes of #267): one pass

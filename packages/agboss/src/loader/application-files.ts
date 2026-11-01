@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { applicationDeclarationOf } from "../application/application.js";
 import type { Class } from "../components/injection.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The `@Application`s that list the workflow of a `--workflow <path>` file (#261 PR 2): exported by
@@ -33,7 +34,7 @@ const isApplicationWhere = (value: unknown, listing: WorkflowsMatch): value is C
 
 /** The exported applications of a module whose `workflows` pass `listing`. */
 async function applicationsIn(file: string, listing: WorkflowsMatch): Promise<Class[]> {
-  const module = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+  const module = (await lazyLoad(import(pathToFileURL(file).href))) as Record<string, unknown>;
   return Object.values(module).filter((value) => isApplicationWhere(value, listing));
 }
 

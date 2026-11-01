@@ -9,11 +9,10 @@
 import { pathToFileURL } from "node:url";
 import { applicationOf } from "../../application/assemble.js";
 import { buildApplication } from "../../application/create-app.js";
-import { DatabaseStoreClock } from "../../infrastructure/clock.js";
+import { DatabaseStoreClock, lazyLoad, waitOf } from "../../infrastructure/clock.js";
 import { hostClockOfPod } from "./fault-clock.js";
 import { closeOnStopSignals } from "../../application/stop-signals.js";
 import { resolveEnvironment } from "../../environments/resolve.js";
-import { waitOf } from "../../infrastructure/clock.js";
 import { FAULT_STORES_EXPORT, optedOutStoresOf, type FaultStores } from "./fault-stores.js";
 import { faultApplicationOf } from "./fixture/fault.application.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
@@ -25,7 +24,7 @@ import { POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
 /** The store set of the module at `path`. */
 async function storesOf(path: string): Promise<FaultStores> {
   const url = path.startsWith("file:") ? path : pathToFileURL(path).href;
-  const module = (await import(url)) as Readonly<Record<string, unknown>>;
+  const module = (await lazyLoad(import(url))) as Readonly<Record<string, unknown>>;
   const stores = module[FAULT_STORES_EXPORT];
   if (typeof stores !== "object" || stores === null)
     throw new Error(`${path} exports no ${FAULT_STORES_EXPORT} (defineFaultStores({ … }))`);

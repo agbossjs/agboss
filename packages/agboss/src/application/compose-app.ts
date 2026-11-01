@@ -30,6 +30,7 @@ import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import { rememberMeshSettings } from "../mesh/mesh-settings.js";
 import { meshSettingsFor } from "../mesh/mesh-start.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
@@ -161,7 +162,7 @@ export function composeApp(
 function lazyApplicationHealth(sources: HealthSources): ApplicationHealth {
   let loaded: Promise<ApplicationHealth> | undefined;
   const health = (): Promise<ApplicationHealth> =>
-    (loaded ??= import("../health/application-health.js").then((module) =>
+    (loaded ??= lazyLoad(import("../health/application-health.js")).then((module) =>
       module.applicationHealthOf(sources),
     ));
   return {

@@ -1,4 +1,4 @@
-import { unkeptExecutionIds } from "../infrastructure/clock.js";
+import { unkeptExecutionIds, lazyLoad } from "../infrastructure/clock.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
@@ -195,7 +195,7 @@ export async function buildApp(
     },
     // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
     cancel: async (threadId, options = {}) =>
-      (await import("./cancel-thread.js")).cancelThread(cancelParts, threadId, options),
+      (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
     resume: resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf }),
     close: async () => {
       closed = true;

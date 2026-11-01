@@ -19,7 +19,7 @@ import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
-import type { Clock } from "../infrastructure/clock.js";
+import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import {
   logPauseAnswer,
   PauseResolution,
@@ -86,7 +86,7 @@ function reject(path: string, reason: string): never {
 export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
   let loaded: Promise<ReplyAnswering> | undefined;
   return async (...call) => {
-    loaded ??= import("./reply-answer.js").then((module) => module.replyAnsweringFor(deps));
+    loaded ??= lazyLoad(import("./reply-answer.js")).then((found) => found.replyAnsweringFor(deps));
     return (await loaded)(...call);
   };
 }

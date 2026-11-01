@@ -113,11 +113,14 @@ export class UnsettledWorkError extends TestFailure {
   /** How many tracked calls were still in flight. */
   readonly inFlight: number;
 
-  constructor(inFlight: number, settleTimeout: number) {
+  constructor(inFlight: number, settleTimeout: number, isLoad = false) {
     super(
       "test.unsettled-work",
-      `${String(inFlight)} tracked call(s) did not settle within ${String(settleTimeout)} ms of real ` +
-        "time — a store call that never resolves (a lost connection, a missing reply)",
+      isLoad
+        ? `${String(inFlight)} lazy load(s) of the core did not settle within ${String(settleTimeout)} ms ` +
+            "of real time — a module that does not load, or a project file loaded by path that waits on the test's clock"
+        : `${String(inFlight)} tracked call(s) did not settle within ${String(settleTimeout)} ms of real ` +
+            "time — a store call that never resolves (a lost connection, a missing reply)",
     );
     this.inFlight = inFlight;
   }
