@@ -15,6 +15,18 @@ import {
  * 'pending'`, so of two connections exactly one changes it.
  */
 
+/** #663: unique per step key of a tree — a step key names no tree, so another tree's never matches. */
+export const PAUSES_TABLE = `CREATE TABLE IF NOT EXISTS pauses (
+  tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
+  root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
+  pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
+  PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
+
+export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
+CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
+
+export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
+
 /**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
  * and the JSON it keeps, each validated on the way out; a row stored by an earlier version reads

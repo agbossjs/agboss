@@ -29,6 +29,10 @@ const SqliteEnvironment = z.object({
 /** One row of `PRAGMA table_info`: a column's name. */
 const ColumnRow = z.looseObject({ name: z.string() });
 
+/** One row of `PRAGMA index_list` (its name, whether unique) and of `PRAGMA index_info` (a column). */
+const IndexRow = z.looseObject({ name: z.string(), unique: z.number() });
+const IndexColumnRow = z.looseObject({ name: z.string().nullable() });
+
 /** Opens (creating its folder) a database on `path` with the pragmas every SQLite store relies on. */
 export function openSqliteDatabase(path: string, busyTimeout: number = BUSY_TIMEOUT): DatabaseSync {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -117,6 +121,22 @@ export class SqliteConnection implements OnDestroy {
       .prepare(`PRAGMA table_info(${table})`)
       .all()
       .map((row) => ColumnRow.parse(row).name);
+  }
+
+  /** The unique indexes of a table of this file, each as its columns joined by `,` (#663). */
+  uniqueIndexesOf(table: string): readonly string[] {
+    const columnsOf = (index: string): string =>
+      this.#database
+        .prepare(`PRAGMA index_info("${index}")`)
+        .all()
+        .map((row) => IndexColumnRow.parse(row).name)
+        .join(",");
+    return this.#database
+      .prepare(`PRAGMA index_list(${table})`)
+      .all()
+      .map((row) => IndexRow.parse(row))
+      .filter((index) => index.unique === 1)
+      .map((index) => columnsOf(index.name));
   }
 
   /**
