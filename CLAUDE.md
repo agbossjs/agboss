@@ -1323,7 +1323,8 @@ double-charge protection for …` — a fencing contract run on its own with the
   one live holder, no write at a stale token, one effect per key, one charge per business key and no
   takeover of finished work after each step, a failure printing the minimal schedule, a search out
   of `interleavings.timeLimit` (default 8 min) or aborted with its case failing with the counts it
-  explored and left (#590), never a pass; and AC7's
+  explored and left (#590), never a pass — and one stopped while it cuts a violation down fails with
+  the schedule as found, no store call after (#618); and AC7's
   two-outcome races forced in both orders (broken stores fail it,
   `tests/testing/contracts/explorer-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
 path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
