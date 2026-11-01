@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a minted thread id that never finds a free one is a typed error (#613)
+
+- **Fixed**: after 100 minted thread ids the tenant all has, `execute` fails with
+  `DuplicateThreadIdError` (`run.duplicate-thread-id`: `generator`, `tries`, never an id) instead of
+  a plain `Error`, on every record store; `createThread` rejects instead of throwing. New:
+  `idGeneratorNameOf`. [App → Infrastructure](App#infrastructure).
+
 ## Unreleased — 0.1.1: fault scenario 5d, a zombie between its payment's intent and its send (#608)
 
 - **Added**: `s05d-zombie-recorded-not-sent`. The pod is frozen right after the outbound-call store

@@ -173,6 +173,12 @@ kept database gave a new tree an old tree's lease, fencing token, lease log and 
 result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
 not a create; a create that fails after its id was kept leaves the id taken and nothing else.
 
+A minted **thread** id the tenant already has is minted again (#550), up to 100 times; a generator
+that never gives a free one fails the execution with `DuplicateThreadIdError`
+(`run.duplicate-thread-id`; `generator`, `tries`, never an id, #613) before any thread is written.
+`idGeneratorNameOf(generator)` names the project's class (never the framework's check) for a store of
+your own that refuses a minted id the same way.
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { IdGenerator, Injectable } from "@agboss/core";
