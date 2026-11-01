@@ -273,7 +273,7 @@ children
 | Per item | `.onJoinError(E, path)` right after the join — `.onError` there does not compile, nor `.onJoinError` after `.toWorkflow(W)` |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
-| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, never paying past the limit: `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError` / `.onJoinError`, not only a child's |
+| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError` / `.onJoinError`, not only a child's |
 
 ### At run time: whose limit it is (S25)
 

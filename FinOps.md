@@ -20,7 +20,7 @@
   `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })`. The record (`model`: the
   service, `costSource: "tool"`) joins the current tool call's spend (`tool:<name>`) or the step's
   (`action:<name>`, category `tools`), so it counts in every budget of the execution — the next
-  check (before the agent's next model call, or the next agent or router visit) stops it with
+  check (before the agent's next model call, or the next step — an action too, #634) stops it with
   `BudgetExceededError` — and in the run's `spend`. Called outside a step or a
   tool call (a constructor, a timer after the call ended) it throws `SpendOutsideStepError`
   (`[spend.outside-step]`). `ExecutionContext` stays read-only: spend never goes through it.
@@ -238,11 +238,25 @@ on its cost, its tenant's and the application's. All violations at once, before 
 - **During the execution** every model call's (and paid service's) real cost is counted the moment
   it is made — a live tally of the tree's pass on this instance (#338) — and added to all of its
   counters as the execution streams (the ledger is written once per superstep; what it records
-  leaves the tally, so nothing is counted twice). Before every agent and router step the counters are read
-  again — the tenant's other executions count — and every budget is checked; before every model
-  call of an agent's loop too. The first exhausted **stops** the execution with
-  `BudgetExceededError` (into the step's `.onError(BudgetExceededError, …)` if it has one, else the
-  execution fails; the spend so far is in the ledger and the failed record).
+  leaves the tally, so nothing is counted twice). Before every step that can spend or reach out
+  the counters are read again — the tenant's other executions count, on any instance, through the
+  ledger — and every budget (and the execution's deadline) is checked; before every model call of
+  an agent's loop too. The first exhausted **stops** the execution with `BudgetExceededError`
+  before that step runs (into the step's `.onError(BudgetExceededError, …)` if it has one, else the
+  execution fails and its open undos run; the spend so far is in the ledger and the failed record).
+- **Which steps are held back** (#634): every one that can spend or have an effect — an agent, a
+  router (a code one too), an action, a child workflow (`.toWorkflow`, one per item, an
+  `AnyInstance` one), a level of a recursion, each branch of a launch (`.toParallelAgents`,
+  `.toParallelActions`, `.toParallelWorkflows`, a quorum's), the action of a side path an error of
+  the step took. An action that pays past the budget is followed by nothing paid: a chain of paid
+  actions stops at the first one after the budget ran out. Never held back:
+
+  | Step | Why it runs |
+  | --- | --- |
+  | a start, a finish | it spends nothing: an execution whose last action overspends ends at its finish, its spend counted |
+  | an undo (`compensateWith`) | it gives money back: a failure for the budget runs the open undos ([Rollback](Rollback)), with no budget check — and so does the undo action a side path runs to close an open entry (`.onError(DeclinedError, toAction(RefundAction)…)`) |
+  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onJoinError(…)`) | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
+
 - **A call that exhausts a budget** runs none of the tools its move asks for: the agent fails with
   `BudgetExceededError`, the call's cost in its spend. An answer it gave is kept — the next step or
   call stops.
@@ -257,7 +271,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   `.toParallelWorkflows` (the children's model and tool calls) and quorums — into
   `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
   (`[graph.limit-handler-uses-model]`), else the execution fails. A branch that started after the
-  budget was exhausted is not aborted: its working step stops at its own check.
+  budget was exhausted is not aborted: it stops at its own check before it runs — an action's branch
+  too (#634), so a branch listed after the one that spent the last of the budget never runs.
 
 ```ts no-check: a fragment of a flow
 start(ReviewWorkflowStart)
@@ -277,9 +292,13 @@ start(ReviewWorkflowStart)
 
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
   parallel executions of one tenant may overrun it a little (each sees the others' calls once they
-  are recorded — the live tally is one instance's, one tree's), and a budget is exceeded by **at
-  most the calls in flight when it was exhausted** (a cost is known after its call; a call is not
-  pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call bounded only by the model).
+  are recorded — the live tally is one instance's, one tree's; another instance's at its next
+  superstep's write to the ledger), and a budget is exceeded by **at
+  most the calls in flight when it was exhausted** (a step that passed its check before the spend
+  that exhausted it; a step that checks after it never runs — within one tree at once, across
+  instances once that spend is in the ledger). Nothing is reserved because a step's cost is known
+  only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call
+  bounded only by the model; an action's service reports what it charged).
 
 ```text
 BudgetExceededError {
