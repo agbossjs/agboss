@@ -109,8 +109,9 @@ flowchart LR
 1. Inside the agent's loop ([Agents](Agents)) a call whose tool needs approval is **not executed**:
    after the move boundary the loop's `approval` node runs the **pause step** (#267
    S35) in the call's frame. It records the pause by the step's idempotency key
-   (`step.idempotencyKey`, the call's id in it) — `findOrCreateByStepKey`: a new record gets a
-   random 128-bit `pauseId`, `Pending`, not sent.
+   (`step.idempotencyKey`, the call's id in it) in its tree — `findOrCreateByStepKey`, by tenant,
+   `rootExecutionId` and step key (#663: a step key names no tree, so another tree's pause is never
+   found): a new record gets a random 128-bit `pauseId`, `Pending`, not sent.
 2. **Send once**: a record not yet sent asks the channel — `send({ pauseId, value })`, `value` the
    call (`ToolCallApprovalAskDto`, `sensitive` fields masked). `ChannelOutcome.decided(decision)`
    closes the record at once (`Taken`, `PauseResolution.Decided`, kept for the audit trail and its

@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an id minted again never takes an old pause's decision (#663)
+
+- **Fixed**: a pause was found by its tenant and step key only (`<executionId>:<node>:<visit>[:<item>]:<callId>`,
+  no tree), and the ids kept from before #591 missed a `ParentInstance` child that paused but sent
+  nothing — so a repeating `IdGenerator` could mint that child's id again, and the new execution's
+  tool call took the old approval without asking anyone. Now the kept ids are filled from the pauses
+  too (each pause's execution and tree; SQLite when the table is made, agbossjs/postgres migration
+  `0020`), and a pause is found by its tenant, tree (`rootExecutionId`) and step key — the SQLite
+  `pauses` table is rebuilt unique per tree and step key on first open, the PostgreSQL constraint
+  replaced by `0020`. `PausedExecutionRepository.findOrCreateByStepKey` of a store of your own must
+  match the tree too: the paused-execution contract has a case for it. [App](App),
+  [Your own store](Your-own-store).
 ## Unreleased — 0.1.1: a model reply interpreter sees the call it approves and can say "not understood" (#648)
 
 - **Fixed**: a chat-model `@ReplyInterpreter` of an approval role gets `overrideArguments` described

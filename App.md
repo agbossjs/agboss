@@ -127,7 +127,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
 | `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots, who answered each pause (`savePauseAnswer`, #267 S107) | in memory |
 | `CostLedgerRepository`      | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`) | in memory        |
-| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey`, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteResolvedBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
+| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey` — by tenant, tree and step key, #663 —, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteResolvedBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
@@ -176,8 +176,18 @@ The ids of before an upgrade are kept too (#638): a SQLite file of an older vers
 `execution_ids` from its leases (roots, `AnyInstance` children) and from its outbound calls — every
 execution that made one, a `ParentInstance` child's too, whose step-keyed key
 (`<executionId>:<nodeId>:<visit>:<name>`) the other system has seen and would answer again with the
-old call's response; agbossjs/postgres does the same in migrations `0018` and `0019`. A
-`ParentInstance` child of before that sent nothing shares no key with another system.
+old call's response — and (#663) from its pauses, every execution that paused and its tree: a
+pause is found by its step key, so a `ParentInstance` child of before that paused and sent nothing
+would otherwise be minted again and its step would find the old pause's decision; agbossjs/postgres
+does the same in migrations `0018`, `0019` and `0020`. A `ParentInstance` child of before that sent
+nothing and paused nothing shares no key with another system nor with this one's stores.
+A pause is found by its step key **in its tree** (#663: `PausedExecutionRepository.findOrCreateByStepKey`
+matches the tenant, `rootExecutionId` and step key): even an id minted again that the kept ids miss
+never takes another tree's decision — its step asks again with a pause of its own. What is left
+unprotected: a pause store more durable than the lease store (pauses on SQLite or PostgreSQL, leases
+in memory) — the kept ids live only as long as the lease store, so after a restart a repeating
+generator can give a new tree an old root's id, and with it that tree's pauses; list the lease store
+on the same database as the pause store.
 
 A minted **thread** id the tenant already has is minted again (#550), up to 100 times; a generator
 that never gives a free one fails the execution with `DuplicateThreadIdError`
