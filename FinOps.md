@@ -308,12 +308,18 @@ start(ReviewWorkflowStart)
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
   parallel executions of one tenant may overrun it a little (each sees the others' calls once they
   are recorded — the live tally is one instance's, one tree's; another instance's at its next
-  superstep's write to the ledger), and a budget is exceeded by **at
-  most the calls in flight when it was exhausted** (a step that passed its check before the spend
-  that exhausted it; a step that checks after it never runs — within one tree at once, across
-  instances once that spend is in the ledger). Nothing is reserved because a step's cost is known
+  superstep's write to the ledger). A budget is exceeded by at most (#664):
+
+  | What | How much | Why no check bounds it |
+  | --- | --- | --- |
+  | the calls in flight when it was exhausted | what they cost | a step that passed its check before the spend that exhausted it runs to its end; a step that checks after it never runs |
+  | the steps it never holds back (above, "Which steps are held back") | everything they spend | an undo gives money back, automatic or a side path's (a held-back undo's too, #675); the actions of the side path that took a limit are the application's reaction, step by step — `.onError(BudgetExceededError, toAction(NotifyAction).toAction(ArchiveAction)…)` overruns by what `NotifyAction` and `ArchiveAction` cost, however much that is |
+  | across instances, the steps other trees start before that spend is in the ledger | what those steps spend | a tree's spend is in its own pass's live tally at once, but in the ledger only at the end of the superstep that spent it: an action that records a large spend and then works on leaves other instances' trees passing their checks, and starting paid steps, all that time |
+
+  Nothing is reserved because a step's cost is known
   only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call
-  bounded only by the model; an action's service reports what it charged).
+  bounded only by the model; an action's service reports what it charged) — reserving money for
+  parallel executions was rejected (#261, S76 f).
 
 ```text
 BudgetExceededError {

@@ -66,6 +66,12 @@ Each checker is shown to bite: a deliberately broken store, or a broken history,
 
 ## What no checker reaches
 
+- **Budgets are not P1–P5.** A budget stops new paid steps; it does not reserve money, so it is
+  exceeded by the calls in flight when it ran out, by everything the steps it never holds back
+  spend (undos, the limit's own side path) and, across instances, by the steps other trees start
+  before the spend is in the ledger ([FinOps → Nothing is reserved](FinOps)). Like A10's slots, an
+  overrun never double-charges.
+
 - **Atomicity inside one store operation** (a check, a round trip, then a write) is outside the
   explorer: it never runs two operations at once. The contracts' race cases and the fault suite
   cover it.

@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the budget's overrun bound, stated in full (#664)
+
+- **Docs**: a budget is exceeded by at most the calls in flight when it was exhausted, **plus** the
+  spend of the steps it never holds back (undos; the actions of the side path that took a limit)
+  and, across instances, what other trees' steps spend that start before that spend is in the
+  ledger (the end of the superstep that spent it). Before, only the first was stated. No behaviour
+  change. [FinOps](FinOps), [Guarantees](Guarantees).
 ## Unreleased — 0.1.1: a refund the budget held back still gives the money back (#675)
 
 - **Fixed**: since #656 a main-path refund that is also a booking's undo is held back by the
