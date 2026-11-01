@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "@langchain/core/language_models/base";
+import type { BaseChatModelCallOptions } from "@langchain/core/language_models/chat_models";
 import { jsonSchemaOf, validate } from "../../dto/schema.js";
 import { DtoValidationError } from "../../dto/errors.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -138,3 +139,34 @@ function itemsOf(call: AnswerCall): readonly unknown[] {
   if (!Array.isArray(items)) throw new Error(`${call.tool.name}: "items" must be a list`);
   return items;
 }
+
+/** What deciding an agent's tool binding reads of it (#649): its own tools and its answer tools. */
+export interface AnsweringAgent {
+  readonly tools: readonly unknown[];
+  readonly answerTools: AnswerTools;
+}
+
+/** What the agent's tools are bound with (#649): the call options every model call of it carries. */
+export type ToolBinding = Partial<BaseChatModelCallOptions> & {
+  /** OpenAI's field: `false` — at most one tool call in the model's move. */
+  readonly parallel_tool_calls?: boolean;
+};
+
+/**
+ * Whether the agent answers with exactly one call (#649): its only tools are its answer tools and
+ * its output is not a list of variants (which may call several answer tools in one move, S6).
+ */
+export function answersWithOneCall(agent: AnsweringAgent): boolean {
+  const { answerTools } = agent;
+  const severalAllowed = answerTools.isList && answerTools.hasVariants;
+  return agent.tools.length === 0 && answerTools.tools.length > 0 && !severalAllowed;
+}
+
+/**
+ * The binding of an agent's tools (#649). An agent that answers with one call has nothing to call in
+ * parallel: OpenAI-compatible servers get `parallel_tool_calls: false`, so a model cannot answer
+ * three times in one move (OpenAI's models do by default, and every such move is refused). Any other
+ * agent's tools are bound as they are — parallel calls of its own tools are its loop's to run.
+ */
+export const toolBindingOf = (agent: AnsweringAgent): ToolBinding =>
+  answersWithOneCall(agent) ? { parallel_tool_calls: false } : {};

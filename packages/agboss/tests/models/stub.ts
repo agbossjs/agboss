@@ -51,12 +51,14 @@ export const completion = (text = "ok", cost?: number): StubReply => ({
   },
 });
 
-/** A chat completion that calls one tool (an answer tool, S6) with `args`. */
-export const toolCallCompletion = (
-  name: string,
-  args: Readonly<Record<string, unknown>>,
-  cost?: number,
-): StubReply => ({
+/** One tool call of a scripted completion: the tool's name and its arguments. */
+export interface StubToolCall {
+  readonly name: string;
+  readonly args: Readonly<Record<string, unknown>>;
+}
+
+/** A chat completion whose move calls `calls`, in order (#649: several in one move). */
+export const toolCallsCompletion = (calls: readonly StubToolCall[], cost?: number): StubReply => ({
   body: {
     id: "x",
     object: "chat.completion",
@@ -68,13 +70,11 @@ export const toolCallCompletion = (
         message: {
           role: "assistant",
           content: "",
-          tool_calls: [
-            {
-              id: "call-1",
-              type: "function",
-              function: { name, arguments: JSON.stringify(args) },
-            },
-          ],
+          tool_calls: calls.map(({ name, args }, index) => ({
+            id: `call-${String(index + 1)}`,
+            type: "function",
+            function: { name, arguments: JSON.stringify(args) },
+          })),
         },
         finish_reason: "tool_calls",
       },
@@ -87,6 +87,13 @@ export const toolCallCompletion = (
     },
   },
 });
+
+/** A chat completion that calls one tool (an answer tool, S6) with `args`. */
+export const toolCallCompletion = (
+  name: string,
+  args: Readonly<Record<string, unknown>>,
+  cost?: number,
+): StubReply => toolCallsCompletion([{ name, args }], cost);
 
 const urlOf = (input: Parameters<typeof fetch>[0]): string =>
   typeof input === "string" ? input : input instanceof URL ? input.href : input.url;

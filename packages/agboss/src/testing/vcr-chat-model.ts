@@ -1,5 +1,9 @@
 import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
-import { BaseChatModel, type BindToolsInput } from "@langchain/core/language_models/chat_models";
+import {
+  BaseChatModel,
+  type BaseChatModelCallOptions,
+  type BindToolsInput,
+} from "@langchain/core/language_models/chat_models";
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import type { Cassette, StoredReply } from "./vcr-cassette.js";
@@ -50,6 +54,7 @@ export class VcrChatModel extends BaseChatModel {
     private readonly model: string,
     private readonly real: () => BaseChatModel,
     private readonly tools: readonly BindToolsInput[] = [],
+    private readonly binding: Partial<BaseChatModelCallOptions> = {},
   ) {
     super({});
   }
@@ -58,8 +63,12 @@ export class VcrChatModel extends BaseChatModel {
     return "vcr";
   }
 
-  override bindTools(tools: BindToolsInput[]): VcrChatModel {
-    return new VcrChatModel(this.cassette, this.key, this.model, this.real, tools);
+  /** The tools and their binding (#649); the binding reaches the real model, never the request's hash. */
+  override bindTools(
+    tools: BindToolsInput[],
+    binding: Partial<BaseChatModelCallOptions> = {},
+  ): VcrChatModel {
+    return new VcrChatModel(this.cassette, this.key, this.model, this.real, tools, binding);
   }
 
   /** The recorded reply; a text reply streams as one token, as the scripted model's does. */
@@ -86,7 +95,7 @@ export class VcrChatModel extends BaseChatModel {
     const model =
       this.tools.length === 0 || real.bindTools === undefined
         ? real
-        : real.bindTools([...this.tools]);
+        : real.bindTools([...this.tools], this.binding);
     const reply = storedReplyOf(await model.invoke(messages, { signal }));
     this.cassette.record({ kind: "chat", key: this.key, request, reply });
     return reply;

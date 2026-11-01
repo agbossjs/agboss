@@ -129,6 +129,20 @@ describe("AC6: the circuit breaker", () => {
     });
   });
 
+  it("#649: the tools' binding reaches the fallback's request: parallel_tool_calls: false", async () => {
+    const backup = providerStub([completion("from backup")]);
+    const gateway = await openedGateway(backup.fetch);
+    const answerOnly = {
+      type: "function",
+      function: { name: "answer-x-dto", description: "x", parameters: { type: "object" } },
+    } as const;
+
+    const model = gateway.chatModel({ user: AGENT, settings: KIMI });
+    await model.bindTools?.([answerOnly], { parallel_tool_calls: false } as object).invoke("hi");
+
+    expect(backup.requests[0]?.body).toMatchObject({ parallel_tool_calls: false });
+  });
+
   it("AC6: the breaker open while the fallback also fails: the fallback's failure is the call's", async () => {
     const failing = providerStub([{ status: 503 }]);
     const gateway = await openedGateway(failing.fetch);

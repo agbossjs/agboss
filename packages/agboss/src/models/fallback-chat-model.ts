@@ -1,4 +1,8 @@
-import { BaseChatModel, type BindToolsInput } from "@langchain/core/language_models/chat_models";
+import {
+  BaseChatModel,
+  type BaseChatModelCallOptions,
+  type BindToolsInput,
+} from "@langchain/core/language_models/chat_models";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import { ModelCallError, type CircuitBreaker } from "./circuit-breaker.js";
@@ -39,6 +43,7 @@ export class FallbackChatModel extends BaseChatModel {
   constructor(
     private readonly parts: FallbackChatModelParts,
     private readonly tools: readonly BindToolsInput[] = [],
+    private readonly binding: Partial<BaseChatModelCallOptions> = {},
   ) {
     super({});
   }
@@ -47,8 +52,12 @@ export class FallbackChatModel extends BaseChatModel {
     return "agboss-fallback";
   }
 
-  override bindTools(tools: BindToolsInput[]): FallbackChatModel {
-    return new FallbackChatModel(this.parts, tools);
+  /** The tools and their binding (#649: `parallel_tool_calls`), passed on to whichever model answers. */
+  override bindTools(
+    tools: BindToolsInput[],
+    binding: Partial<BaseChatModelCallOptions> = {},
+  ): FallbackChatModel {
+    return new FallbackChatModel(this.parts, tools, binding);
   }
 
   /** One call of a chat model with the bound tools; untraced: this model's run is the call's. */
@@ -57,7 +66,8 @@ export class FallbackChatModel extends BaseChatModel {
     messages: BaseMessage[],
     signal?: AbortSignal,
   ): Promise<BaseMessage> {
-    const bound = this.tools.length === 0 ? model : model.bindTools?.([...this.tools]);
+    const bound =
+      this.tools.length === 0 ? model : model.bindTools?.([...this.tools], this.binding);
     if (bound === undefined)
       throw new ModelProviderError("the fallback's chat model cannot call tools");
     return bound.invoke(messages, { callbacks: [], ...(signal === undefined ? {} : { signal }) });
