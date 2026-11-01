@@ -332,6 +332,31 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     expect(invariantsOf(declined)).toEqual([FaultInvariant.NoUndoOnHandOver]);
   });
 
+  it("#607: a declined order released twice — its undo run again after it was marked done", () => {
+    const { run } = healthy();
+    const releasedOn = (pod: string): PodEventFact => ({
+      type: "released",
+      pod,
+      executionId: "root-1",
+    });
+    const declined = {
+      ...run,
+      orders: [{ orderId: "o-1", decline: true }],
+      records: [orderRecord("o-1", "root-1", { status: "failed" as never })],
+      businessRows: [],
+      payments: [],
+      requests: [],
+    };
+    expect(violationsOf({ ...declined, events: [...run.events, releasedOn("a")] })).toEqual(
+      violationsOf(declined),
+    );
+    const twice = { ...declined, events: [...run.events, releasedOn("a"), releasedOn("b")] };
+    expect(invariantsOf(twice)).toEqual([FaultInvariant.NoUndoOnHandOver]);
+    expect(violationsOf(twice).map((found) => found.message)).toEqual([
+      "o-1 declined, and its reservation was released 2 times (on a, b)",
+    ]);
+  });
+
   it("a tree that never finished: no record, or still running; a batch unfinished", () => {
     const { run } = healthy();
     expect(invariantsOf({ ...run, records: [] })).toContain(FaultInvariant.TreesFinish);

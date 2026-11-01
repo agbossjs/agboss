@@ -752,7 +752,16 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   take first; durable (#340 PR 4): `@agboss/unwinding` before a root's undo and
   `@agboss/compensated/<key>` after each success — the instance that takes the tree over
   (recovery, a resume) finishes the rest without a pass, a re-entered child its own before any
-  step (`@agboss/unwinding:<childExecutionId>`); it awaits the tree's
+  step (`@agboss/unwinding:<childExecutionId>`); a failed join's undo is marked the same way
+  (#607: each success marked before the next undo and before the join's update or error is
+  written, the entries read through the marks first — a holder that runs the launch's superstep
+  again, or undoes the root, skips it, and the join's update closes what an earlier pass undid, so
+  a finish never commits it). So every automatic undo — a join's, a root's (failed, cancelled, out
+  of budget), a child's on either placement, a recursion level's — runs to effect once across
+  takeovers when its effect is fenced by its step key (a fenced effect, `OutboundCalls`): never
+  again once marked done, never by a holder past its lease (#605); a holder that stops between
+  its undo action and the mark leaves it to run again under the same key (at least once, as any
+  step; `tests/app/undo-once.matrix.test.ts`); it awaits the tree's
   running step bodies up to `compensationTimeout` (one returning later is undone at once, in
   process), reads the records from the checkpoint and the instance's registry, writes the undo's
   spend to the ledger at once; `CompensationFailedError` passes a child's boundary as it is — the
@@ -1333,13 +1342,15 @@ path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/test
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 22 scenarios (#584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `confirmNow()` refused; #533: `s13-clock-ahead`
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 23 scenarios (#607:
+  `s12b-marked-undo-not-again`, a pod frozen once its undo is marked done — the next pod ends the
+  tree without undoing again, held at `StoreHoldPoint.TreeSaveIfAbsent`, a tree key by its family; #584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `confirmNow()` refused; #533: `s13-clock-ahead`
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner`, `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard once, #562),
-  `effects-once`, `no-undo-on-hand-over`, `trees-finish`, `linearizable` (#533: the history
+  `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
   public API
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic

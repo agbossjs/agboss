@@ -89,7 +89,30 @@ function childrenViolations(run: FaultRun): FaultViolation[] {
   ];
 }
 
-/** Undo only on a real failure. */
+/** A declined order's undo: released once (#607: never again once marked done), its record listing it. */
+function declinedUndoViolations(
+  execution: OrderExecution,
+  released: readonly FaultRun["events"][number][],
+  recorded: number,
+): FaultViolation[] {
+  if (released.length > 1)
+    return [
+      violation(
+        FaultInvariant.NoUndoOnHandOver,
+        `${execution.orderId} declined, and its reservation was released ${String(released.length)} times (on ${released.map((event) => event.pod).join(", ")})`,
+      ),
+    ];
+  if (execution.record !== undefined && recorded !== 1)
+    return [
+      violation(
+        FaultInvariant.NoUndoOnHandOver,
+        `${execution.orderId} declined, and its record lists ${String(recorded)} undo actions, not 1`,
+      ),
+    ];
+  return [];
+}
+
+/** Undo only on a real failure, and once (#607). */
 function undoViolations(
   run: FaultRun,
   execution: OrderExecution,
@@ -99,18 +122,12 @@ function undoViolations(
     (event) => event.type === "released" && event.executionId === execution.executionId,
   );
   const recorded = execution.record?.compensations.length ?? 0;
-  if (!isDeclined && (released.length > 0 || recorded > 0))
+  if (isDeclined) return declinedUndoViolations(execution, released, recorded);
+  if (released.length > 0 || recorded > 0)
     return [
       violation(
         FaultInvariant.NoUndoOnHandOver,
         `${execution.orderId} (${execution.executionId}) did not fail, yet its reservation was undone (${String(released.length)} undo runs, ${String(recorded)} in its record)`,
-      ),
-    ];
-  if (isDeclined && execution.record !== undefined && recorded !== 1)
-    return [
-      violation(
-        FaultInvariant.NoUndoOnHandOver,
-        `${execution.orderId} declined, and its record lists ${String(recorded)} undo actions, not 1`,
       ),
     ];
   return [];

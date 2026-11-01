@@ -14,6 +14,11 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Fault scenario 12b** (#607) — `s12b-marked-undo-not-again`: a pod frozen right after it marked
+  its undo done, before it failed the tree. The next pod takes the tree over and ends it without
+  undoing again: the reservation is released once. `StoreHoldPoint.TreeSaveIfAbsent` holds a tree
+  key's write by its family; `no-undo-on-hand-over` also fails a declined order released twice. A
+  tree store that forgets the done marks fails 12b.
 - **Fault scenario 5d** (#608, the gap #584 left) — `s05d-zombie-recorded-not-sent`: a pod frozen
   right after recording its payment's intent and before sending it, thawed after another pod took
   the tree over. The new holder reconciles the pending intent and pays once; the zombie is refused
@@ -228,6 +233,14 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A failed join's undo ran again after a takeover** (#607): its undos wrote no done mark, so the
+  instance that recovered the tree — from the checkpoint before the failure became durable — undid
+  the booking a second time, a refund paid twice. Each undo of a failed join is now marked done
+  (`@agboss/compensated/<key>`) before the next one starts and before the join's update or error is
+  written; a recovering instance skips what is marked, and the join's update closes it so a side
+  path's finish never commits it. Every automatic undo — a join's, a root's (failed, cancelled, out
+  of budget), a child's on either placement, a recursion level's — is now proven to run to effect
+  once across one and two takeovers.
 - **The gate can no longer pass without the fault suite** (#630) — one run of `make check` ran 587
   files and not one of `tests/faults/`: vitest 3's forks pool skips a `singleFork` project whole when
   another fork of the pool rejects, and a test that held its fork 60 s with a synchronous child

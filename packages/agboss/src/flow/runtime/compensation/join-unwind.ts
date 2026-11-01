@@ -4,6 +4,7 @@ import type { ExecutionTree } from "../../../infrastructure/execution-tree.repos
 import {
   COMPENSATION_TIMEOUT,
   CompensationFailedError,
+  CompensationEntryStatus,
   CompensationReason,
   type CompensationEntry,
   type FailedJoinUndo,
@@ -15,6 +16,7 @@ import type { ExecutionStateType } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
 import type { UndoSite } from "./undo.js";
 import { unwound, type UnwindSite } from "./unwind.js";
+import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks.js";
 
 /**
  * The automatic undo of a failed join (#340 Q3, `CompensationReason.JoinFailed`): before its
@@ -23,7 +25,11 @@ import { unwound, type UnwindSite } from "./unwind.js";
  * bodies still run (#340 Q-A, up to `compensationTimeout`), so one that returns meanwhile is undone
  * too; the entries are the state's and the instance registry's. An undo that fails does not stop
  * the others; then the execution fails with `CompensationFailedError` (its cause the branch's error),
- * which no side path takes — the undo's spend written to the ledger first (#340 S4).
+ * which no side path takes — the undo's spend written to the ledger first (#340 S4). Durable once
+ * (#607): each undo that succeeded is marked done in the tree's store
+ * (`@agboss/compensated/<compensationKey>`) before the next undo starts and before the join's update
+ * or error is written, and the entries are read through those marks first — so a holder that takes
+ * the tree over and runs the launch's superstep again, or undoes the root, skips what was undone.
  */
 
 /** Where a failed join undoes: its state, config, launch, deps, and the branch's error. */
@@ -59,17 +65,18 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
 }
 
 /** The join's unwind: its launch's entries and branches, never sealed (the execution goes on). */
-function unwindSiteOf(site: JoinUnwindSite): UnwindSite {
+async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
   const undo = undoSiteOf(site);
   const { executionId } = undo.execution;
   const ids = new Set(site.ticket.branches.map((branch) => branch.nodeId));
   const covers = (entry: CompensationEntry): boolean =>
     entry.launchId === site.ticket.launchId && entry.executionId === executionId;
+  const marks: UndoneMarks = { trees: site.deps.compensation?.trees, tree: undo.tree };
   return {
     tree: undo.tree,
     covers,
     runs: (entry) => entry.executionId === executionId && ids.has(entry.nodeId),
-    known: site.state.compensations.filter(covers),
+    known: await withUndoneMarks(marks, site.state.compensations.filter(covers)),
     undoSiteOf: () => undo,
     parts: site.deps.compensation,
     stepEntries: undo.stepEntries,
@@ -77,6 +84,7 @@ function unwindSiteOf(site: JoinUnwindSite): UnwindSite {
     timeout: undo.timeout,
     isSealing: false,
     record: (usage) => site.deps.limits.budgets.record(usage),
+    onUndone: (entry) => markUndone(marks, entry),
   };
 }
 
@@ -85,11 +93,27 @@ function unwindSiteOf(site: JoinUnwindSite): UnwindSite {
  * undo's spend for the join's update, or `CompensationFailedError` when one of them failed.
  */
 export async function unwoundJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
-  const unwind = unwindSiteOf(site);
+  const unwind = await unwindSiteOf(site);
   const { closed, usage, failures } = await unwound(unwind);
   if (failures.length > 0) {
     await unwind.record(usage);
     throw new CompensationFailedError(failures, site.cause);
   }
-  return { compensations: [...closed], usage: [...usage] };
+  return { compensations: [...undoneEarlier(site, unwind), ...closed], usage: [...usage] };
+}
+
+/**
+ * The entries an earlier pass undid (#607), closed by their marks: the state still holds them open
+ * (that pass's update never became durable), so the join's update closes them — a finish never
+ * commits what was undone, and the execution's records list each undo once.
+ */
+function undoneEarlier(site: JoinUnwindSite, unwind: UnwindSite): readonly CompensationEntry[] {
+  const open = new Set(
+    site.state.compensations
+      .filter((entry) => entry.status === CompensationEntryStatus.Open)
+      .map((entry) => entry.key),
+  );
+  return unwind.known.filter(
+    (entry) => entry.status === CompensationEntryStatus.Closed && open.has(entry.key),
+  );
 }

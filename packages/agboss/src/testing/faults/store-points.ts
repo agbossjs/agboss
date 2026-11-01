@@ -30,6 +30,8 @@ export enum StoreHoldPoint {
   ChildComplete = "childQueue.complete",
   /** A root's kept record saved (#401): what the invariants read once its tree ended. */
   HistorySave = "executionHistory.save",
+  /** A key of a tree saved (#607: an undo's done mark, `tree-points.ts`), keyed by its family. */
+  TreeSaveIfAbsent = "executionTree.saveIfAbsent",
 }
 
 /** How one wrapped method is read. */

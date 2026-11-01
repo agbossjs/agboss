@@ -85,6 +85,9 @@ export interface UnwindMarks {
   readonly key: string;
 }
 
+/** Where the undos done are marked: the tree's store (none: no marks are kept) and the tree. */
+export type UndoneMarks = Pick<UnwindMarks, "trees" | "tree">;
+
 /** Why an execution that ended without a finish is undone: cancelled, or failed. */
 export const reasonOfCause = (cause: unknown): CompensationReason =>
   cause instanceof ExecutionCancelledError
@@ -162,7 +165,7 @@ export function causeOfMark(mark: UnwindingMark): Error {
 }
 
 /** Marks an undo that succeeded as done; a failed one is not marked (it runs again). */
-export async function markUndone(marks: UnwindMarks, entry: CompensationEntry): Promise<void> {
+export async function markUndone(marks: UndoneMarks, entry: CompensationEntry): Promise<void> {
   const { undo } = entry;
   const { trees } = marks;
   if (trees === undefined || undo?.status !== CompensationStatus.Compensated) return;
@@ -200,7 +203,7 @@ function recordOf(entry: CompensationEntry, value: unknown): CompensationRecord 
 
 /** The entries with each open one an earlier pass undid marked closed (its record from its mark). */
 export async function withUndoneMarks(
-  marks: UnwindMarks,
+  marks: UndoneMarks,
   entries: readonly CompensationEntry[],
 ): Promise<readonly CompensationEntry[]> {
   const { trees } = marks;

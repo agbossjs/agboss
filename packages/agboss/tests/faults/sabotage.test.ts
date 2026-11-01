@@ -13,7 +13,9 @@
  *   the lease — one owner per tree is broken;
  * - a lease renewal that says yes to a lease that is over (`StaleRenewingSqliteExecutionLeaseRepository`,
  *   #608): scenario 5d's zombie, frozen between its payment's intent and its send, passes its
- *   `confirmNow()` after the new holder paid and sends the payment a second time.
+ *   `confirmNow()` after the new holder paid and sends the payment a second time;
+ * - a tree store that forgets every undo's done mark (`ForgetfulSqliteExecutionTreeRepository`,
+ *   #607): scenario 12b's next pod releases the reservation the frozen one released and marked.
  *
  * #533 item 5: every run's store history also fails the linearizability checker (`linearizable`).
  */
@@ -31,6 +33,7 @@ import {
 } from "../../src/testing/faults/scenarios/s05-zombie.js";
 import { s06FinishedChild } from "../../src/testing/faults/scenarios/s06-children.js";
 import { s05ZombieRecordedNotSent } from "../../src/testing/faults/scenarios/s05d-recorded-not-sent.js";
+import { s12bMarkedUndo } from "../../src/testing/faults/scenarios/s12b-marked-undo.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 
 const unfenced = sqliteFaultTarget(
@@ -41,6 +44,9 @@ const unfencedCalls = sqliteFaultTarget(
 );
 const staleRenewing = sqliteFaultTarget(
   fileURLToPath(new URL("./stale-renewing.fault-stores.ts", import.meta.url)),
+);
+const forgetful = sqliteFaultTarget(
+  fileURLToPath(new URL("./forgetful-marks.fault-stores.ts", import.meta.url)),
 );
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-finish.fault-stores.ts", import.meta.url)),
@@ -97,5 +103,15 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
     );
     // the stale renewal accepted after epoch 2 was granted: no sequential order explains it
     expect(failure.invariants).toContain(FaultInvariant.Linearizable);
+  }, 120_000);
+
+  it("a tree store that forgets an undo's done mark: 12b's next pod releases again — it fails no-undo-on-hand-over", async () => {
+    const failure = await failureOf(s12bMarkedUndo, forgetful);
+    expect(failure.invariants).toContain(FaultInvariant.NoUndoOnHandOver);
+    expect(failure.violations.map((found) => found.message)).toContainEqual(
+      expect.stringMatching(
+        /o-12b declined, and its reservation was released 2 times \(on a, b\)/u,
+      ),
+    );
   }, 120_000);
 });

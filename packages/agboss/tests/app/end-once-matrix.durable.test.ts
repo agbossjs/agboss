@@ -22,7 +22,7 @@ import {
   UndoLocalWorkflowStart,
 } from "./fixtures/child-failure-once.workflow.js";
 import { resetUndo, undoSeen, UndoOneWorkflowStart } from "./fixtures/finished-undo.workflow.js";
-import { RootUndoWorkflowStart } from "./fixtures/join-undo.workflow.js";
+import { JoinUndoWorkflowStart, RootUndoWorkflowStart } from "./fixtures/join-undo.workflow.js";
 import {
   atDurable,
   DurablePoint,
@@ -53,7 +53,8 @@ type Start =
   | typeof UndoLocalWorkflowStart
   | typeof UndoOneWorkflowStart
   | typeof SidePathLocalWorkflowStart
-  | typeof RootUndoWorkflowStart;
+  | typeof RootUndoWorkflowStart
+  | typeof JoinUndoWorkflowStart;
 
 /** One window: where the holder freezes, the tree, and what it must end as. */
 interface Window {
@@ -223,6 +224,16 @@ const UNDOS: readonly Window[] = [
     finish: undefined,
     child: "either",
   },
+  // #607: the join undid the booking, then its holder froze before the failure was durable — the
+  // new holder runs the launch's superstep again and finds the booking's undo marked done
+  ...[DurablePoint.RootErrorBefore, DurablePoint.RootErrorAfter].map((at) => ({
+    at,
+    root: "a failed join's undo (#607)",
+    start: JoinUndoWorkflowStart,
+    input: item("gate", "fail"),
+    finish: undefined,
+    child: "either" as const,
+  })),
 ];
 
 /** Advances live time in steps of 10 s until `done`, at most `steps` times. */
