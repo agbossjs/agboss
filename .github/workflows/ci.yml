@@ -63,12 +63,19 @@ jobs:
   # #497: the packed @agboss/core / @agboss/cli in a project of their own (an external dependency,
   # never the workspace link): `workflowOf`, `testWith`, `agboss describe` / `check` pass there, and
   # without agbossTest() `workflowOf` fails with its TestSetupError. Not in `make check` (~2 min).
-  # #533 item 3: mutation testing of the fencing modules, scoped (stryker.config.mjs) and incremental
-  # (the last run's results cached): every mutant killed or justified where it stands, else red
+  # #533 item 3, #626: mutation testing of the payment-relevant modules, one job per shard of
+  # stryker.config.mjs (MUTATION_SHARD), each incremental (its last run's results cached): every
+  # mutant killed or justified where it stands, else red. mutation-nightly.yml runs every shard cold.
   mutation:
     runs-on: ubuntu-24.04
-    # a cold run (no cached results) takes about 50 min here; an incremental one a few
+    # a cold run of a shard (no cached results) takes up to about 50 min here; an incremental one a few
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [fencing, sqlite-stores]
+    env:
+      MUTATION_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -77,18 +84,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @agboss/core
-      - name: Restore the last mutation run
+      - name: Restore the shard's last mutation run
         uses: actions/cache@v4
         with:
-          path: packages/agboss/reports/stryker-incremental.json
-          key: stryker-${{ github.sha }}
-          restore-keys: stryker-
-      - name: Mutation testing of the fencing modules (break below 100 % killed or justified)
+          path: packages/agboss/reports/stryker-incremental-${{ matrix.shard }}.json
+          key: stryker-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: stryker-${{ matrix.shard }}-
+      - name: Mutation testing of the shard (break below 100 % killed or justified)
         run: npm run test:mutation -w @agboss/core
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report
+          name: mutation-report-${{ matrix.shard }}
           path: packages/agboss/reports/mutation/
 
   packed-project:

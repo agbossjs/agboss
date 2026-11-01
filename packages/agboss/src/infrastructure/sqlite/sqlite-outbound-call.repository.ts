@@ -19,7 +19,7 @@ import {
   withoutEnd,
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
-import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import {
   EXECUTION_LEASES_SCHEMA,
   SqliteExecutionLeaseRepository,
@@ -187,19 +187,22 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   ): Promise<boolean> {
     return this.#fenced(key, () => {
       const found = this.#found(key);
-      const changed = found === undefined ? undefined : change(found);
-      return found !== undefined && changed !== undefined && this.#written(key, changed, found);
+      if (found === undefined) return false;
+      const changed = change(found);
+      return changed !== undefined && this.#written(key, changed, found);
     });
   }
 
   /**
    * Writes `change` as the key's intent, under the key's token (inside a fenced transaction) — only
-   * while the row is still `from` (its status, attempt and attempt owner repeated in the `WHERE`):
-   * exactly one row changed, or nothing. The reference for a port to a store with row locks.
+   * while the row is still `from` (its status, attempt and attempt owner repeated in the `WHERE`).
+   * The reference for a port to a store with row locks: here `from` was read in this same `BEGIN
+   * IMMEDIATE` transaction, so exactly one row changes — any other count is a bug, thrown (#626).
    */
-  #written(key: FencedEffectKey, change: OutboundCallRecord, from: OutboundCallRecord): boolean {
+  #written(key: FencedEffectKey, change: OutboundCallRecord, from: OutboundCallRecord): true {
     const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
-    const endedAt = record.endedAt === undefined ? null : Date.parse(record.endedAt);
+    // a pending intent has no `endedAt`: an invalid date, whose NaN SQLite stores as NULL
+    const endedAt = new Date(record.endedAt ?? Number.NaN).getTime();
     const [where, values] = whereOf(key);
     const { changes } = this.connection.database
       .prepare(
@@ -214,7 +217,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         from.attempt,
         from.attemptOwner,
       );
-    return Number(changes) === 1;
+    return oneRowChanged(changes);
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

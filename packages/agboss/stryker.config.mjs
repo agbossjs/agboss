@@ -1,34 +1,61 @@
+import process from "node:process";
+
 /**
- * Mutation testing of the fencing modules (#533 item 3, AC3): the leases, the holder's fence, the
- * held lease, the fenced effect, the outbound call's protocol and store, and the store's clock.
- * Every mutant is killed by a test or justified in writing where it stands (a `Stryker disable`
- * comment with its reason, naming only mutators whose every mutant on its line is equivalent —
- * #619; an invariant is read with `definedOf`, not an `if` whose other side never runs). The score is gated in CI (`thresholds.break`); the run is incremental
- * (`reports/stryker-incremental.json`, cached by CI) and scoped to these modules and the tests of
- * `vitest.mutation.config.ts`. Locally: `npm run test:mutation` (3 workers at most).
+ * Mutation testing of the payment-relevant modules (#533 item 3, AC3; #626): every mutant is killed
+ * by a test or justified in writing where it stands (a `Stryker disable` comment naming only the
+ * mutators whose every mutant on its line is equivalent, with the reason, #619; an invariant is
+ * read with `definedOf`, not an `if` whose other side never runs). The score is gated
+ * in CI (`thresholds.break`). The modules are split in shards, one CI job each (#626: a cold run of
+ * one set took about 50 min): `MUTATION_SHARD` picks one — its modules, the tests that kill them
+ * and its own incremental file (`reports/stryker-incremental-<shard>.json`, cached by CI per shard).
+ * Locally: `MUTATION_SHARD=<shard> npm run test:mutation` (3 workers at most).
  */
+const SHARDS = {
+  // the leases, the holder's fence, the held lease, the fenced effect, the outbound call's
+  // protocol and in-memory store, and the store's clock (#533)
+  fencing: {
+    configFile: "vitest.mutation.config.ts",
+    mutate: [
+      "src/infrastructure/execution-lease.repository.ts",
+      "src/infrastructure/live-lease.ts",
+      "src/infrastructure/fenced-effect.repository.ts",
+      "src/infrastructure/in-memory-fenced-effect.repository.ts",
+      "src/infrastructure/outbound-call.repository.ts",
+      "src/infrastructure/clock.ts",
+      "src/app/held-lease.ts",
+      "src/app/lease-fence.ts",
+      "src/app/outbound-call-protocol.ts",
+    ],
+  },
+  // the SQLite fencing stores (#626): epochs, expiry, finish, yield and reclaim in SQL, the lease
+  // check in the write's `BEGIN IMMEDIATE`, the scope's mark, the intent's compare-and-set
+  "sqlite-stores": {
+    configFile: "vitest.mutation-sqlite.config.ts",
+    mutate: [
+      "src/infrastructure/sqlite/sqlite-execution-lease.repository.ts",
+      "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
+      "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
+    ],
+  },
+};
+
+const shard = process.env.MUTATION_SHARD ?? "fencing";
+const chosen = SHARDS[shard];
+if (chosen === undefined)
+  throw new Error(`MUTATION_SHARD: "${shard}" is none of ${Object.keys(SHARDS).join(", ")}`);
+
 export default {
   testRunner: "vitest",
-  vitest: { configFile: "vitest.mutation.config.ts" },
+  vitest: { configFile: chosen.configFile },
   plugins: ["@stryker-mutator/vitest-runner"],
-  mutate: [
-    "src/infrastructure/execution-lease.repository.ts",
-    "src/infrastructure/live-lease.ts",
-    "src/infrastructure/fenced-effect.repository.ts",
-    "src/infrastructure/in-memory-fenced-effect.repository.ts",
-    "src/infrastructure/outbound-call.repository.ts",
-    "src/infrastructure/clock.ts",
-    "src/app/held-lease.ts",
-    "src/app/lease-fence.ts",
-    "src/app/outbound-call-protocol.ts",
-  ],
+  mutate: chosen.mutate,
   coverageAnalysis: "perTest",
   concurrency: 3,
   incremental: true,
-  incrementalFile: "reports/stryker-incremental.json",
+  incrementalFile: `reports/stryker-incremental-${shard}.json`,
   reporters: ["clear-text", "progress", "json"],
-  jsonReporter: { fileName: "reports/mutation/mutation.json" },
+  jsonReporter: { fileName: `reports/mutation/${shard}.json` },
   thresholds: { high: 100, low: 95, break: 100 },
   timeoutMS: 20000,
-  tempDirName: ".stryker-tmp",
+  tempDirName: `.stryker-tmp-${shard}`,
 };

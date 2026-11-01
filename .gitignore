@@ -20,4 +20,4 @@ examples/.scaffold-tmp-*
 
 # #533: Stryker mutation runs (reports/ — the incremental file is CI-cached, never committed)
 packages/agboss/reports/
-packages/agboss/.stryker-tmp/
+packages/agboss/.stryker-tmp*/
