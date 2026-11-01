@@ -7,6 +7,7 @@ import { unrecordedSpendOf, type Reported } from "./node-runner.js";
 import type { ExecutionStateUpdate } from "./state.js";
 import { failedVisitOf, failureCarryingStep, type VisitSite } from "./visit-step.js";
 import { handledErrorOf, type ComponentRecords } from "./workflow-keys.js";
+import { sidePathEntered } from "./limits.js";
 
 /** What every visit adds to the execution's counters: the path, its visits and its steps. */
 export function visited(node: RuntimeNode, isStep: boolean): ExecutionStateUpdate {
@@ -40,5 +41,6 @@ export function caught(
     children: [...reported.children],
     piiTokens: reported.piiTokens,
     handledErrors: [handledErrorOf(deps, record, node.id, handler.to)],
+    ...sidePathEntered(visit.state, record, handler.to, node),
   };
 }

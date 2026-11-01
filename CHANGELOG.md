@@ -233,6 +233,16 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **The budget's two exemptions failed open** (#656, found by a security review of #634): once any
+  limit had been handled, every later action of the execution skipped the budgets — the branches a
+  side path launched, what followed their join —, and an action that is some open entry's undo
+  skipped them on any visit, also as a step of the main path. Both are now scoped to the side path
+  itself, a record in the execution's checkpointed state (so a takeover or a resume reads it as the
+  first run did): the side path that took a limit exempts its actions and what they lead to step by
+  step, until a finish or a launch; an undo action is exempt only on a side path, undoing an entry
+  that was open when the side path was entered. Elsewhere the exhausted budget stops it (an undo
+  still runs, as the execution's automatic undo).
+
 - **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
   parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every
   attempt was refused and the step failed. An agent whose only tools are its answer tools (not a

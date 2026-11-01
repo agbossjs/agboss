@@ -142,6 +142,7 @@ const executionStateOf = (): ExecutionStateType => ({
   child: null,
   children: [],
   handledErrors: [],
+  sidePath: null,
   compensations: [],
   branchRecords: [],
   launches: [],

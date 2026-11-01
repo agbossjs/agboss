@@ -2294,9 +2294,11 @@ const readiness: HealthReport = await app.checkReadiness();
   still written once per superstep) — the first exhausted stops it before the next step or call (#634:
   every step that can spend or reach out — an agent, a router, an action, a child workflow, a level of
   a recursion, a launch's branch, an action of a side path; never a start, a finish, an undo (a side
-  path's undo action of an open entry too), nor an
+  path's undo action of an entry open when the side path was entered too), nor an
   action of the side path that took a limit, `.onError(BudgetExceededError, toAction(…))`, the
-  application's reaction to it — its spend counted; the deadline is checked there too) and
+  application's reaction to it, and what it leads to step by step — its spend counted; #656: both
+  only on that side path, which a launch ends, never an action by its name alone; the deadline is
+  checked there too) and
   aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
   with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
   accepted, and a budget is exceeded by at most the calls in flight when it was exhausted. Hitting a limit **fails the

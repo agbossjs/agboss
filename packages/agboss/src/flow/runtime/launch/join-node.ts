@@ -8,6 +8,7 @@ import { writeAndOutdate } from "../outdating.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
 import { handledErrorOf, type ComponentRecords } from "../workflow-keys.js";
+import { sidePathEntered } from "../limits.js";
 import type { VisitDeps } from "../visit.js";
 import { finishedOf, joinValuesOf } from "./join-values.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
@@ -99,14 +100,19 @@ const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
 function failedJoin(
   records: ComponentRecords,
   launch: RuntimeLaunch,
-  failed: { readonly record: BranchOutcomeRecord; readonly node: string },
+  failed: {
+    readonly record: BranchOutcomeRecord;
+    readonly node: string;
+    readonly state: ExecutionStateType;
+  },
   cause: Error,
 ): ExecutionStateUpdate {
   const record = failureRecordOf(failed.record);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler !== undefined) {
     const handled = handledErrorOf(records, record, failed.node, handler.to);
-    return { lastError: record, next: handler.to, handledErrors: [handled] };
+    const entered = sidePathEntered(failed.state, record, handler.to);
+    return { lastError: record, next: handler.to, handledErrors: [handled], ...entered };
   }
   throw cause;
 }
@@ -191,7 +197,10 @@ async function failedJoined(
   const cause = thrown instanceof Error ? thrown : new RecordedBranchError(failureRecordOf(record));
   const undone = await compensationsOfFailedJoin({ ...site, cause });
   try {
-    return { ...undone, ...failedJoin(site.deps, launch, { record, node }, cause) };
+    return {
+      ...undone,
+      ...failedJoin(site.deps, launch, { record, node, state: site.state }, cause),
+    };
   } catch (error) {
     // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
     await site.deps.limits.budgets.record(undone.usage ?? []);
