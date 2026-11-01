@@ -738,8 +738,12 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   (`JoinFailed`, newest first, after awaiting the launch's running branches), each in its own frame
   — key `<step key>:compensation`, `step.compensates`, a clean-up `signal` bounded by
   `@Application({ compensationTimeout })` (default `seconds(15)`) and a lost lease, no slot, no
-  budget check, run only while its holder's own fence holds (#605: `assertHeld()` right before each
-  undo action — a holder past its lease, its tree taken over, undoes nothing: a hand-over); an undo that fails → the rest still run, then `CompensationFailedError`
+  budget check, run only while its holder's own fence holds (#605: `assertHeld()` before the undo
+  starts, so a holder already past its lease reports no `onCompensationStart`, and #640: again right
+  before the undo action, after its awaited `onCompensationStart` / `onActionStart` — whose events are
+  masked first, a model call with `detectWithModel` — with nothing awaited between that check and
+  `execute`; a holder past its lease, its tree taken over, undoes nothing: a hand-over; what is left is
+  the undo action's own run up to its write, which only a fenced write closes); an undo that fails → the rest still run, then `CompensationFailedError`
   (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
   `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
   An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest

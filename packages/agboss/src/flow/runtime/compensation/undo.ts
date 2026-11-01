@@ -128,7 +128,11 @@ function frameOf(site: UndoSite, entry: CompensationEntry, signal: AbortSignal):
 }
 
 /** Runs the undo action and reports it; what it threw, or `undefined` when it returned. */
-async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorRecord | undefined> {
+async function ranUndo(
+  site: UndoSite,
+  entry: CompensationEntry,
+  frame: FrameSpec,
+): Promise<ErrorRecord | undefined> {
   const [type, declaration] = undoActionOf(site, entry);
   const instance: unknown = site.container.get(type);
   if (!isExecutable(instance)) throw new TypeError(`${entry.compensator} has no execute(input)`);
@@ -140,6 +144,9 @@ async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorR
     site.observer?.onCompensationStart({ ...base, compensated, reason }),
   );
   await reportNodeEvent((base) => site.observer?.onActionStart({ ...base, name, input }));
+  // #640: the observers above are awaited (and each event masked first, a model call with
+  // `detectWithModel`): the fence again right before the action, nothing awaited in between
+  assertUndoing(site, frame);
   let error: ErrorRecord | undefined;
   try {
     const update: unknown = await instance.execute(input);
@@ -159,9 +166,12 @@ async function ranUndo(site: UndoSite, entry: CompensationEntry): Promise<ErrorR
 
 /**
  * The undo runs only while its holder still holds the tree (#605): its own fence (#533, local, on
- * its monotonic clock) right before the undo action, as before an outbound call's `send`. A holder
- * past its lease — frozen, its tree taken over, its expiry timer not fired yet — undoes nothing: a
- * hand-over at the undo, the new holder's undo the only one.
+ * its monotonic clock), checked before the undo starts — a holder already past its lease reports no
+ * `onCompensationStart` — and again right before the undo action (#640), after the awaited
+ * observers, with nothing awaited between that check and `execute`, as before an outbound call's
+ * `send`. A holder past its lease — frozen, its tree taken over, its expiry timer not fired yet —
+ * undoes nothing: a hand-over at the undo, the new holder's undo the only one. What is left is the
+ * undo action itself: from its start to its own write, which only a fenced write closes.
  */
 function assertUndoing(site: UndoSite, frame: FrameSpec): void {
   try {
@@ -194,7 +204,7 @@ export async function undone(entry: CompensationEntry, site: UndoSite): Promise<
   try {
     assertUndoing(site, frame);
     const error = await inStepEntry(site.stepEntries, frame, () =>
-      runInFrame(frame, () => ranUndo(site, entry)),
+      runInFrame(frame, () => ranUndo(site, entry, frame)),
     );
     const handedOver = handedOverReason(site.execution.signal);
     if (handedOver !== undefined)

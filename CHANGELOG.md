@@ -233,6 +233,17 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An undo's fence was checked before its observers, not before the undo action** (#640, found
+  in the acceptance of #605): the holder checked its lease, then awaited `onCompensationStart` and
+  `onActionStart` — each event masked first, a model call with `detectWithModel`, and observers
+  awaited one after another — before it ran the undo action. Held there past its lease, its tree
+  taken over and undone by the new holder, it ran the undo a second time: a refund paid twice. The
+  fence is now checked again right before the undo action, nothing awaited in between; the first
+  check stays, so a holder already past its lease reports no `onCompensationStart`. #605's own test
+  did not bite (its old holder was stopped at a checkpoint renewal before the undo); the new cases
+  hold the old holder at the read of its undo's done mark, in `onCompensationStart` and in
+  `onActionStart`, for a root's, a failed join's and a child's undo, and each check bites.
+
 - **A failed join's undo ran again after a takeover** (#607): its undos wrote no done mark, so the
   instance that recovered the tree — from the checkpoint before the failure became durable — undid
   the booking a second time, a refund paid twice. Each undo of a failed join is now marked done
