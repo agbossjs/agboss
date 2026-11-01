@@ -244,6 +244,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **The READMEs and the agboss skill stated the budget's overrun bound narrow** (#686, after
+  #664): the root README, the package README and the skill's FinOps reference now state the same
+  bound as CLAUDE.md — the calls in flight, plus the steps it never holds back, plus, across
+  instances, other trees' steps before the spend is in the ledger.
 - **A child's result lost when the host's clock stepped back** (#661) — a child's end was read at
   its thread's latest checkpoint, the greatest id — LangGraph's UUIDv6 of `Date.now()`. After a
   backward step of the wall clock (an NTP `settimeofday`: −50.8 ms where it was seen) the child's

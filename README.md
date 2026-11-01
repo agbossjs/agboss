@@ -1658,8 +1658,11 @@ stops the execution with `BudgetExceededError` — `budget` (`{ name }`), `scope
 application's name, the `tenantId` or the execution's id), `maxSpend`, `spent`, and a sentence:
 `tenant acme spent $40.05 today; tenant-daily-budget allows $40`. `.onError(BudgetExceededError, …)`
 takes it. Nothing is reserved: a budget protects from draining money, so parallel executions of one
-tenant may overrun it a little, and a budget is exceeded by at most the calls in flight when it was
-exhausted (a cost is known after its call): within one tree every call counts the moment it is made,
+tenant may overrun it a little, and a budget is exceeded by at most (#664) the calls in flight when it
+was exhausted (a cost is known after its call), plus the spend of the steps it never holds back — the
+undos, automatic or a side path's, and the actions of the side path that took a limit, step by step
+—, plus, across instances, what other trees' steps spend that start before that spend is in the
+ledger (at the end of the superstep that spent it): within one tree every call counts the moment it is made,
 and the call that exhausts a budget aborts the in-flight calls of the parallel branches beside it
 (#338). A decision a
 tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A paid service
