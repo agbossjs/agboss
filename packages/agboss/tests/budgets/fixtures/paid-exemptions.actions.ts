@@ -24,12 +24,15 @@ export const exemptions = {
   ended: [] as string[],
   /** The key of every undo that started (#675: `<step key>:compensation`). */
   undone: [] as string[],
+  /** The undos every failed execution lists (#683): `<node> <reason> <status>`. */
+  undos: [] as string[],
 };
 
 export function resetExemptions(): void {
   exemptions.declines = false;
   exemptions.ended.length = 0;
   exemptions.undone.length = 0;
+  exemptions.undos.length = 0;
 }
 
 @Action({
@@ -101,5 +104,7 @@ export class ExemptionsLog implements OnExecutionEnd, OnExecutionError, OnCompen
 
   onExecutionError(event: ExecutionErrorEvent): void {
     exemptions.ended.push(event.error.name);
+    for (const undo of event.compensations)
+      exemptions.undos.push(`${undo.compensated.nodeId} ${undo.reason} ${undo.status}`);
   }
 }
