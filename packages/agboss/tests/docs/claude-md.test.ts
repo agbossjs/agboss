@@ -20,8 +20,8 @@ afterAll(() => {
 
 // each test runs tsc (or vitest) over a generated project: slower than 5 s on CI runners
 describe("#196 AC2: the CLAUDE.md worked example", { timeout: 60_000 }, () => {
-  it("typechecks against the built agboss, every block of the doc", () => {
-    const result = checkDocs(dir, writeDocs(dir, { "CLAUDE.md": claudeMd }));
+  it("typechecks against the built agboss, every block of the doc", async () => {
+    const result = await checkDocs(dir, writeDocs(dir, { "CLAUDE.md": claudeMd }));
 
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
@@ -37,20 +37,20 @@ describe("#196 AC2: the CLAUDE.md worked example", { timeout: 60_000 }, () => {
       expect(existsSync(join(project, file)), file).toBe(true);
   });
 
-  it("assembles and runs: its testWith test goes start → router → agent + tool → finish", () => {
-    const result = runVitest(project);
+  it("assembles and runs: its testWith test goes start → router → agent + tool → finish", async () => {
+    const result = await runVitest(project);
 
     expect(result.stdout + result.stderr).toMatch(/Tests\s+2 passed \(2\)/);
     expect(result.status).toBe(0);
   }, 120_000);
 
-  it("the old DSL in its place does not compile — the doc cannot drift back", () => {
+  it("the old DSL in its place does not compile — the doc cannot drift back", async () => {
     const stale = claudeMd.replace(
       "route(SupportAgent)\n          .toFinish(ChatWorkflowFinish),",
       "route(SupportAgent)\n          .next(ChatWorkflowFinish),",
     );
     const other = scratch();
-    const result = checkDocs(other, writeDocs(other, { "CLAUDE.md": stale }));
+    const result = await checkDocs(other, writeDocs(other, { "CLAUDE.md": stale }));
     rmSync(other, { recursive: true, force: true });
 
     expect(stale).not.toBe(claudeMd);

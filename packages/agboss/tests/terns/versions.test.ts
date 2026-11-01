@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { executionVersions } from "../../src/index.js";
 import { NonJsonValueError, shortVersion, stableJson, versionOf } from "../../src/terns/index.js";
 import { fakeDeps } from "../helpers.js";
+import { outputOf } from "../helpers/process.js";
 
 /** An IEEE 754 double from its 16 hex digits (RFC 8785 Appendix B notation). */
 const double = (hex: string): number => Buffer.from(hex, "hex").readDoubleBE(0);
@@ -77,15 +77,16 @@ describe("canonical JSON (RFC 8785)", () => {
     );
   });
 
-  it("AC2: the same object gives byte-identical output under different locales", () => {
+  it("AC2: the same object gives byte-identical output under different locales", async () => {
     const module = new URL("../../src/terns/versions.ts", import.meta.url).href;
     const script = `import { stableJson } from ${JSON.stringify(module)};
       process.stdout.write(stableJson({ t: 1, z: 2, ä: 3, a: { "10": 1, "9": 2 } }));`;
-    const outputs = ["en_US.UTF-8", "et_EE.UTF-8", "sv_SE.UTF-8"].map((locale) =>
-      execFileSync(process.execPath, ["--input-type=module", "-e", script], {
-        env: { ...process.env, LANG: locale, LC_ALL: locale },
-        encoding: "utf8",
-      }),
+    const outputs = await Promise.all(
+      ["en_US.UTF-8", "et_EE.UTF-8", "sv_SE.UTF-8"].map((locale) =>
+        outputOf(process.execPath, ["--input-type=module", "-e", script], {
+          env: { ...process.env, LANG: locale, LC_ALL: locale },
+        }),
+      ),
     );
 
     expect(outputs).toEqual(Array<string>(3).fill('{"a":{"10":1,"9":2},"t":1,"z":2,"ä":3}'));

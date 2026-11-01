@@ -31,26 +31,26 @@ const router = [
 
 // each test runs tsc (or vitest) over a generated project: slower than 5 s on CI runners
 describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
-  it("a snippet that does not compile fails the check, naming the doc line and the TS error", () => {
+  it("a snippet that does not compile fails the check, naming the doc line and the TS error", async () => {
     const stale = router.map((line) => line.replace("ROUTE", 'route(Answer, "Done")'));
-    const result = check({ "guide.md": `# Guide\n\n${fence("ts", ...stale)}\n` });
+    const result = await check({ "guide.md": `# Guide\n\n${fence("ts", ...stale)}\n` });
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("guide.md:8: TS2552 Cannot find name 'route'.");
   });
 
-  it("the same snippet written against the current API passes", () => {
+  it("the same snippet written against the current API passes", async () => {
     const current = router.map((line) =>
       line.replace("ROUTE", '{ prompt: "Done", target: Answer }'),
     );
-    const result = check({ "guide.md": `# Guide\n\n${fence("ts", ...current)}\n` });
+    const result = await check({ "guide.md": `# Guide\n\n${fence("ts", ...current)}\n` });
 
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("docs ok: 1 snippets compiled in 1 docs");
   });
 
-  it("a fragment compiles inside its hidden snippet-context; file= snippets import each other", () => {
+  it("a fragment compiles inside its hidden snippet-context; file= snippets import each other", async () => {
     const markdown = [
       fence("ts file=src/answer.ts", "export class Answer {}"),
       "",
@@ -67,17 +67,19 @@ describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
       "",
     ].join("\n");
 
-    expect(check({ "guide.md": markdown }).status).toBe(0);
-    expect(check({ "guide.md": markdown.replace("target: Answer", "to: Answer") }).stderr).toMatch(
+    expect((await check({ "guide.md": markdown })).status).toBe(0);
+    expect(
+      (await check({ "guide.md": markdown.replace("target: Answer", "to: Answer") })).stderr,
+    ).toMatch(
       // @Router is overloaded by decidedBy (#280): the model router's overload names the field
       /guide\.md:15: TS2769 [^]*'to' does not exist in type 'ChosenRouterRoute'/,
     );
   });
 
-  it("an opt-out needs a reason", () => {
+  it("an opt-out needs a reason", async () => {
     // one call per line (#289): the flow lint reads opted-out snippets too
-    const bare = check({ "guide.md": fence("ts no-check", "route(A)", "  .to(B)") + "\n" });
-    const reasoned = check({
+    const bare = await check({ "guide.md": fence("ts no-check", "route(A)", "  .to(B)") + "\n" });
+    const reasoned = await check({
       "guide.md": fence("ts no-check: pseudo-code, the shape only", "route(A)", "  .to(B)") + "\n",
     });
 
@@ -86,7 +88,7 @@ describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
     expect(reasoned.status).toBe(0);
   });
 
-  it("a script, npm script or agboss command a doc mentions must exist", () => {
+  it("a script, npm script or agboss command a doc mentions must exist", async () => {
     const markdown = [
       "Run `scripts/check-old-names.sh`, then `npm run test:routers`.",
       "Approve with `agb resume <id> --approve`, validate with `agboss check --nope`.",
@@ -98,7 +100,7 @@ describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
       "Existing ones pass: `scripts/check-root.mjs`, `npm run check:docs`, `agboss check --models`, `make check`.",
       "",
     ].join("\n");
-    const result = check({ "guide.md": markdown });
+    const result = await check({ "guide.md": markdown });
 
     expect(result.status).toBe(1);
     expect(result.stderr.trim().split("\n").slice(1)).toEqual([

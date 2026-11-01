@@ -42,7 +42,7 @@ const header = (version: string): string =>
 
 // each test runs tsc over the written snippets: the whole skill takes ~25 s locally
 describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
-  it("AC1: the shipped SKILL.md and its 13 references pass — header, codes, matrix coverage", () => {
+  it("AC1: the shipped SKILL.md and its 13 references pass — header, codes, matrix coverage", async () => {
     const references = readdirSync(join(SKILLS, "references")).sort();
     const files = Object.fromEntries([
       ["SKILL.md", readFileSync(join(SKILLS, "SKILL.md"), "utf8")],
@@ -52,7 +52,7 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
       ]),
     ]) as Record<string, string>;
 
-    const result = checkSkills(files);
+    const result = await checkSkills(files);
 
     expect(references).toHaveLength(13);
     // stderr may carry Node's warnings (SQLite in a compiled snippet), never a problem
@@ -69,8 +69,8 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     expect(Object.keys(SKILL_COVERAGE).sort()).toEqual(shipped);
   });
 
-  it("SKILL.md: the frontmatter first, then the header of the package's version", () => {
-    const result = checkSkills({
+  it("SKILL.md: the frontmatter first, then the header of the package's version", async () => {
+    const result = await checkSkills({
       "SKILL.md": `${header("0.0.1")}\n# AGBoss\n\nseconds usd\n`,
     });
 
@@ -78,8 +78,8 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     expect(result.stderr).toContain(`SKILL.md:6: skills version 0.0.1, agboss is ${VERSION}`);
   });
 
-  it("AC1: a matrix name missing from its file fails, naming the coverage list", () => {
-    const result = checkSkills({ "references/12-end-to-end-recipes.md": "# Recipes\n" });
+  it("AC1: a matrix name missing from its file fails, naming the coverage list", async () => {
+    const result = await checkSkills({ "references/12-end-to-end-recipes.md": "# Recipes\n" });
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
@@ -87,11 +87,11 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     );
   });
 
-  it("an unknown [x.y] code fails; the error catalog is checked once it says it is complete", () => {
+  it("an unknown [x.y] code fails; the error catalog is checked once it says it is complete", async () => {
     const names = SKILL_COVERAGE["references/11-cli-studio-and-error-catalog.md"] ?? [];
     const stub = `# CLI\n\n${names.join(" ")} \`[graph.dead-end]\`\n`;
-    const draft = checkSkills({ "references/11-cli-studio-and-error-catalog.md": stub });
-    const complete = checkSkills({
+    const draft = await checkSkills({ "references/11-cli-studio-and-error-catalog.md": stub });
+    const complete = await checkSkills({
       "references/11-cli-studio-and-error-catalog.md": `<!-- agboss-skills-catalog: complete -->\n${stub}[graph.no-such-rule]\n`,
     });
 
@@ -102,8 +102,8 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     expect(complete.stderr).not.toContain("misses [graph.dead-end]");
   });
 
-  it("AC2: a snippet that does not compile and a two-call line fail with file:line", () => {
-    const result = checkSkills({
+  it("AC2: a snippet that does not compile and a two-call line fail with file:line", async () => {
+    const result = await checkSkills({
       "references/02-flow-dsl-all-combinations.md": [
         "# Flow",
         "",
@@ -122,8 +122,8 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     expect(result.stderr).toMatch(/02-flow-dsl-all-combinations\.md:8: .*newline-per-chained-call/);
   });
 
-  it("a skill names only npx agboss … and npm test, never the repo's npm run or make", () => {
-    const result = checkSkills({
+  it("a skill names only npx agboss … and npm test, never the repo's npm run or make", async () => {
+    const result = await checkSkills({
       "references/10-testing-vcr-and-evals.md": "# Tests\n\ntestTool — run `npm run check`.\n",
     });
 
@@ -133,12 +133,12 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     );
   });
 
-  it("#395 S5: both command lines of a stale cassette pass; a wrong mode or variable does not", () => {
-    const passing = checkSkills({
+  it("#395 S5: both command lines of a stale cassette pass; a wrong mode or variable does not", async () => {
+    const passing = await checkSkills({
       "references/99-commands.md":
         "# Tests\n\ntestTool — `npx agboss check --cassettes`, then `AGBOSS_VCR_MODE=RECORD_STALE npm test`.\n",
     });
-    const failing = checkSkills({
+    const failing = await checkSkills({
       "references/99-commands.md":
         "# Tests\n\ntestTool — `AGBOSS_VCR_MODE=STALE npm test`, `CI=1 npm test`, `npx agboss check --cassette`.\n",
     });

@@ -225,6 +225,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **The gate can no longer pass without the fault suite** (#630) — one run of `make check` ran 587
+  files and not one of `tests/faults/`: vitest 3's forks pool skips a `singleFork` project whole when
+  another fork of the pool rejects, and a test that held its fork 60 s with a synchronous child
+  process made the fork's report to vitest time out. `npm run coverage` now holds vitest's JSON
+  report against `packages/agboss/test-run.json` (`scripts/check-test-run.mjs`): every file of
+  `unit` and `faults` ran a test, each at least its `minFiles`, else it fails naming the project and
+  the files. The core's tests await their child processes (ESLint refuses `spawnSync`,
+  `execFileSync` and `execSync` there). No API change.
+
 - **An undo runs only while its holder holds the tree** (#605, found in the acceptance of #596 /
   #597) — a holder frozen right before its failed step's error reached the checkpointer, whose tree
   another instance took over and undid, ran the undo a second time when it thawed (a child's, or a

@@ -3,10 +3,10 @@
  * `skills/agboss/` with SKILL.md and its 13 references, the ones `agboss create` and `agboss check`
  * copy into a project. Also checks `"bin"` and `"NOTICE"` in package.json#files.
  */
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { outputOf } from "./helpers/process.js";
 
 const PACKAGE = new URL("..", import.meta.url).pathname;
 
@@ -38,10 +38,9 @@ describe("#305 AC2: the package ships the skills and proxy bin", () => {
     ]);
   });
 
-  it("packages/agboss/bin/agboss.js resolves the installed agboss-cli locally", () => {
-    const out = execFileSync(process.execPath, [join(PACKAGE, "bin/agboss.js"), "--help"], {
+  it("packages/agboss/bin/agboss.js resolves the installed agboss-cli locally", async () => {
+    const out = await outputOf(process.execPath, [join(PACKAGE, "bin/agboss.js"), "--help"], {
       cwd: PACKAGE,
-      encoding: "utf8",
       env: { ...process.env, AGBOSS_NO_STAR: "1" },
     });
 

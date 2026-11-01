@@ -3,11 +3,11 @@
  * own, `--no-cache`), and says how many passed. Its pure parts here, then the whole command on a
  * passing and a failing test file in a scratch project of their own.
  */
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { runNode } from "../helpers/process.js";
 
 const repo = new URL("../../../../", import.meta.url).pathname;
 
@@ -39,11 +39,8 @@ interface Ran {
   readonly out: string;
 }
 
-const flakyProbe = (...args: string[]): Ran => {
-  const result = spawnSync(process.execPath, [join(repo, "scripts/flaky-probe.mjs"), ...args], {
-    cwd: repo,
-    encoding: "utf8",
-  });
+const flakyProbe = async (...args: string[]): Promise<Ran> => {
+  const result = await runNode([join(repo, "scripts/flaky-probe.mjs"), ...args], { cwd: repo });
   return { status: result.status, out: `${result.stdout}${result.stderr}` };
 };
 
@@ -96,13 +93,17 @@ describe("#509 AC1: flaky-probe's command line", () => {
     expect(() => parseArguments(["a.test.ts", "1.5"])).toThrow(UsageError);
   });
 
-  it("AC1: a usage error exits 2 with its message; --help exits 0 with the usage", SPAWNS, () => {
-    expect(flakyProbe("x.test.ts", "zero")).toMatchObject({ status: 2 });
-    expect(flakyProbe("no-such.test.ts", "1").out).toContain("no such test file");
-    const help = flakyProbe("--help");
-    expect(help.status).toBe(0);
-    expect(help.out).toContain("usage: node scripts/flaky-probe.mjs <test file> <runs>");
-  });
+  it(
+    "AC1: a usage error exits 2 with its message; --help exits 0 with the usage",
+    SPAWNS,
+    async () => {
+      expect(await flakyProbe("x.test.ts", "zero")).toMatchObject({ status: 2 });
+      expect((await flakyProbe("no-such.test.ts", "1")).out).toContain("no such test file");
+      const help = await flakyProbe("--help");
+      expect(help.status).toBe(0);
+      expect(help.out).toContain("usage: node scripts/flaky-probe.mjs <test file> <runs>");
+    },
+  );
 });
 
 describe("#509 AC1: what flaky-probe reports", () => {
@@ -127,16 +128,16 @@ describe("#509 AC1: what flaky-probe reports", () => {
     expect(() => projectOf("/no-config-anywhere/a.test.ts")).toThrow("no vitest config above");
   });
 
-  it("AC1: every cold run passed → exit 0 and N/N", SPAWNS, () => {
-    const ran = flakyProbe(projectWith("passing", "expect(1).toBe(1);"), "2");
+  it("AC1: every cold run passed → exit 0 and N/N", SPAWNS, async () => {
+    const ran = await flakyProbe(projectWith("passing", "expect(1).toBe(1);"), "2");
 
     expect(ran.status).toBe(0);
     expect(ran.out).toContain("run 2: passed");
     expect(ran.out).toContain("flaky-probe: 2/2 passed");
   });
 
-  it("AC1: a failing run → exit 1, its output printed", SPAWNS, () => {
-    const ran = flakyProbe(projectWith("failing", "expect(1).toBe(2);"), "1");
+  it("AC1: a failing run → exit 1, its output printed", SPAWNS, async () => {
+    const ran = await flakyProbe(projectWith("failing", "expect(1).toBe(2);"), "1");
 
     expect(ran.status).toBe(1);
     expect(ran.out).toContain("run 1: FAILED");
