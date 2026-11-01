@@ -1393,7 +1393,10 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`), and one any execution had —
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
   (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
-  launch failed before it starts; a resume or a recovery is not a create. Never a `pauseId`
+  launch failed before it starts; a resume or a recovery is not a create. A minted thread id the
+  tenant has is minted again (#550), 100 times at most, then `DuplicateThreadIdError`
+  (`run.duplicate-thread-id`: `generator`, `tries`, never an id, #613; `idGeneratorNameOf` names
+  the project's class for a store of your own). Never a `pauseId`
   (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,

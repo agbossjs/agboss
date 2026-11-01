@@ -132,3 +132,5 @@ export {
   OutboundCallSettings,
   type OutboundCallsOptions,
 } from "../infrastructure/fenced-effect-settings.js";
+// the class a refusal of minted ids names, for a store of your own (#613)
+export { idGeneratorNameOf } from "../infrastructure/clock.js";

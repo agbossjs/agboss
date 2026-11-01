@@ -12,7 +12,7 @@ import {
   type VersionScore,
 } from "../terns/index.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { Clock, IdGenerator } from "./clock.js";
+import { Clock, IdGenerator, mintedThreadIdsOf } from "./clock.js";
 import { pauseAnswerRecordOfJson } from "./pause-record.js";
 
 export type { NewThread } from "../terns/index.js";
@@ -271,6 +271,6 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
 @Injectable({ deps: [Clock, IdGenerator] })
 export class InMemoryExecutionRecordRepository extends TernStoreRecordRepository {
   constructor(clock: Clock, idGenerator: IdGenerator) {
-    super(createSqliteTernStore(":memory:", () => clock.now(), idGenerator));
+    super(createSqliteTernStore(":memory:", () => clock.now(), mintedThreadIdsOf(idGenerator)));
   }
 }

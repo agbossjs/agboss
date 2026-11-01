@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
 import {
   DuplicateExecutionIdError,
+  DuplicateThreadIdError,
   InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
@@ -183,9 +184,24 @@ export interface ExecutionIds {
   newExecutionId(tenantId: string): Promise<string>;
 }
 
-/** The class a refusal names: the project's own generator, not the framework's check around it. */
-const generatorNameOf = (idGenerator: IdGenerator): string =>
+/**
+ * The class a refusal of its ids names (#591, #613): the project's own generator, never the
+ * framework's check around it — for a store of your own that refuses a minted id too.
+ */
+export const idGeneratorNameOf = (idGenerator: object): string =>
   (idGenerator instanceof CheckedIdGenerator ? idGenerator.minting : idGenerator).constructor.name;
+
+/** The thread ids a record store mints (#550, #613): the generator's, a typed refusal when exhausted. */
+export interface MintedThreadIds {
+  newThreadId(): string;
+  exhausted(tries: number): Error;
+}
+
+/** `idGenerator`'s thread ids for a record store: `DuplicateThreadIdError` once every try is taken. */
+export const mintedThreadIdsOf = (idGenerator: IdGenerator): MintedThreadIds => ({
+  newThreadId: () => idGenerator.newThreadId(),
+  exhausted: (tries) => new DuplicateThreadIdError(idGeneratorNameOf(idGenerator), tries),
+});
 
 /** The ids of an application instance: minted by `idGenerator`, kept in `leases`. */
 export const executionIdsOf = (
@@ -195,7 +211,7 @@ export const executionIdsOf = (
   async newExecutionId(tenantId: string): Promise<string> {
     const executionId = idGenerator.newExecutionId();
     if (await leases.saveExecutionIdIfAbsent({ executionId, tenantId })) return executionId;
-    throw new DuplicateExecutionIdError(generatorNameOf(idGenerator));
+    throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
   },
 });
 

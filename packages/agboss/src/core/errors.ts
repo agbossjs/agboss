@@ -222,3 +222,29 @@ export class DuplicateExecutionIdError extends AGBossError {
     this.generator = generator;
   }
 }
+
+/**
+ * A new thread for which the application's `IdGenerator` minted only ids the tenant already has
+ * (#613, after #550): each taken one is skipped and the next minted, up to `tries`, then this — a
+ * generator stuck on one id, or a sequential one restarted on a kept database. No thread is shared
+ * and none is written. Names the generator's class and the tries, never an id.
+ */
+export class DuplicateThreadIdError extends AGBossError {
+  /** `run.duplicate-thread-id`. */
+  static override readonly code: string = "run.duplicate-thread-id";
+  /** `DuplicateThreadIdError`. */
+  override name = "DuplicateThreadIdError";
+  /** The generator's class name. */
+  readonly generator: string;
+  /** How many minted ids were tried. */
+  readonly tries: number;
+
+  constructor(generator: string, tries: number) {
+    super(
+      `${generator}.newThreadId() minted ${String(tries)} ids in a row that are threads the tenant has — an IdGenerator never repeats an id over the life of the application's stores`,
+      { details: { generator, method: "newThreadId", tries } },
+    );
+    this.generator = generator;
+    this.tries = tries;
+  }
+}
