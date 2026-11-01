@@ -31,8 +31,9 @@ import {
 
 /**
  * #607 — one tree per automatic undo: a failed join's, a root's own (failed, cancelled at its gate,
- * out of budget), a held-back refund's (#675), a `ParentInstance` child's, an `AnyInstance`
- * child's, and a recursion level's followed by its root's. Each books a paid item and fails after it.
+ * out of budget, its refund's branch held back by the budget — #683), a held-back refund's (#675),
+ * a `ParentInstance` child's, an `AnyInstance` child's, and a recursion level's followed by its
+ * root's. Each books a paid item and fails after it.
  */
 
 const startOf = (name: string) =>
@@ -235,6 +236,32 @@ export class OnceHeldWorkflowFinish {}
 })
 export class OnceHeldWorkflow {}
 
+@startOf("once-branch")
+export class OnceBranchWorkflowStart {}
+@finishOf("once-branch")
+export class OnceBranchWorkflowFinish {}
+
+/**
+ * #683: booked, a paid call past every budget, then the refund launched as a branch beside the
+ * confirmation — held back as a step, the join fails: the root's automatic undo refunds once.
+ */
+@Workflow({
+  name: "once-branch-workflow",
+  version: "1.0.0",
+  flow: [
+    start(OnceBranchWorkflowStart)
+      .returns(ItemDto)
+      .toAction(PaidBookingAction)
+      .returns(BookingDto)
+      .toAction(OverspendAction)
+      .returns(ItemResultDto)
+      .toParallelActions(RefundBookingAction, ConfirmBookingAction)
+      .join()
+      .toFinish(OnceBranchWorkflowFinish),
+  ],
+})
+export class OnceBranchWorkflow {}
+
 @startOf("once-level")
 export class OnceLevelWorkflowStart {}
 @finishOf("once-level")
@@ -276,6 +303,7 @@ export class OnceLevelWorkflow {}
     OnceAnyWorkflow,
     OnceBudgetWorkflow,
     OnceHeldWorkflow,
+    OnceBranchWorkflow,
     OnceLevelWorkflow,
   ],
   observers: [UndoOnceLog],

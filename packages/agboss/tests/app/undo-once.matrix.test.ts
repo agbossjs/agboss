@@ -23,6 +23,7 @@ import { openGate, resetYield, yieldSeen } from "./fixtures/remote-child-yield.w
 import { atUndo, resetUndoOnce, undoOnceSeen, UndoPoint } from "./fixtures/undo-once.actions.js";
 import {
   OnceAnyWorkflowStart,
+  OnceBranchWorkflowStart,
   OnceBudgetWorkflowStart,
   OnceHeldWorkflowStart,
   OnceJoinSideWorkflowStart,
@@ -71,6 +72,7 @@ interface UndoCase {
     | typeof OnceAnyWorkflowStart
     | typeof OnceBudgetWorkflowStart
     | typeof OnceHeldWorkflowStart
+    | typeof OnceBranchWorkflowStart
     | typeof OnceLevelWorkflowStart;
   readonly name: string;
   readonly undos: number;
@@ -131,6 +133,14 @@ const CASES: readonly UndoCase[] = [
     undos: 1,
     rootUndos: 1,
     error: undefined,
+  },
+  {
+    undo: "#683: the undo of a root whose refund, launched as a branch, the budget held back",
+    start: OnceBranchWorkflowStart,
+    name: "branch",
+    undos: 1,
+    rootUndos: 1,
+    error: "BudgetExceededError",
   },
   {
     undo: "a ParentInstance child's undo",
