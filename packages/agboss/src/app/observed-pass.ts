@@ -3,7 +3,7 @@ import { maskedRecordOf, runResultOf } from "./result.js";
 import { executionEventAt, observeLeg } from "./run-events.js";
 import { leasedDeps } from "./tree-ends.js";
 import type { HeldPass, TreeCall, TreeMoveParts, TreePass, TreeState } from "./tree-move-types.js";
-import { unwindingDeps, type EndedTreeUndo } from "./tree-unwind.js";
+import { unwindingDeps } from "./tree-unwind.js";
 import type { ExecutionOutput } from "./types.js";
 
 /**
@@ -22,7 +22,7 @@ export function observedPass(
   const { deps, live, paused } = parts;
   const stops = [held.lease.signal, held.watch.signal];
   const caller = call.signal === undefined ? stops : [call.signal, ...stops];
-  const undo: EndedTreeUndo = { compensations: [] };
+  const { undo } = held;
   const signal = AbortSignal.any([held.lease.signal, live.interruption]);
   const at = { signal, lease: held.lease, undo };
   const moving = unwindingDeps(leasedDeps(deps, held.lease), state, at);
@@ -36,7 +36,7 @@ export function observedPass(
     deps.observer,
     executionEventAt(state, deps),
     () => heldAtTheEnd(held, leg),
-    () => undo.compensations,
+    () => undo.compensations ?? [],
   );
 }
 

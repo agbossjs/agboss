@@ -30,6 +30,7 @@ import type * as CancelRequests from "./cancel-requests.js";
 import type * as UnwindingTakeover from "./unwinding-takeover.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
+import type { EndedTreeUndo } from "./tree-unwind.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = (): Promise<typeof CancelRequests> => import("./cancel-requests.js");
@@ -206,6 +207,8 @@ class TreeMover implements TreeMoves {
     first: PlannedPass,
   ): Promise<ExecutionOutput> {
     const { deps, live } = this.parts;
+    // what the undo of the pass that ends the tree ran: its record lists it, as its event (#635)
+    const undo: EndedTreeUndo = {};
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
       const watch = (await cancelRequests()).cancelWatchOf(this.parts.trees, state);
@@ -214,14 +217,14 @@ class TreeMover implements TreeMoves {
       let result: ExecutionOutput;
       const passed = new Set<string>();
       do {
-        result = await observedPass(this.parts, state, call, { lease, watch }, planned.pass);
+        result = await observedPass(this.parts, state, call, { lease, watch, undo }, planned.pass);
         if (planned.resume !== undefined) {
           await markTaken(deps, planned.resume);
           for (const pauseId of planned.resume.pauseIds) passed.add(pauseId);
         }
         await (
           await cancelRequests()
-        ).endIfCancelledAtRest(this.parts, state, { result, watch, lease });
+        ).endIfCancelledAtRest(this.parts, state, { result, watch, lease, undo });
         const isPaused = result.status === ExecutionStatus.Paused;
         planned = isPaused ? await this.nextPass(state, call, passed) : undefined;
         if (planned !== undefined)
@@ -234,7 +237,7 @@ class TreeMover implements TreeMoves {
     } catch (error) {
       if (!isHandedOver(error)) {
         await forgetTree(this.parts, state);
-        await keepExecutionRecord(deps, state, historyEndOf(error));
+        await keepExecutionRecord(deps, state, historyEndOf(error, undo.compensations));
       }
       throw error;
     } finally {

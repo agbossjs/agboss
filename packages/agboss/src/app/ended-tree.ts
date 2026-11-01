@@ -61,6 +61,8 @@ export interface TreeEnd {
   readonly signal: AbortSignal;
   /** The lease the undo runs under: its actions fence with it (#471). */
   readonly lease: FrameLease;
+  /** Where what the undo ran goes, for a caller that keeps the record again (#635). */
+  readonly undo?: EndedTreeUndo;
 }
 
 /** Ends the tree as described above. */
@@ -79,18 +81,18 @@ export async function endedWithoutPass(
   }
   const stored = await paused.find(state);
   if (stored?.run.runId === state.runId) await paused.drop(state);
-  const undo: EndedTreeUndo = { compensations: [] };
+  const undo: EndedTreeUndo = end.undo ?? {};
   const failure = { error: end.cause, signal: end.signal, lease: end.lease };
   const ended = await undoneTreeEnd(deps, state, failure, undo);
   const error: Error = ended;
   const isEnded = record !== undefined && (await failedRecord(deps, record, error));
   await forgetTree(parts, state);
   // its undo ran here without a pass: the record lists what ran, as the event does (#484)
-  const compensations = undo.compensations;
-  if (isEnded) await keepExecutionRecord(deps, state, { ...historyEndOf(error), compensations });
+  const { compensations } = undo;
+  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations));
   if (isEnded) {
     const event = executionEventAt(state, deps);
-    await deps.observer.onExecutionError({ ...event, error, compensations: undo.compensations });
+    await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
   }
   return { error, isEnded };
 }

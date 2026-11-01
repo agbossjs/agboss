@@ -51,13 +51,20 @@ export const historyRestOf = (status: ExecutionStatus): HistoryEnd => ({
       : ExecutionHistoryStatus.Paused,
 });
 
-/** How an error ended a tree: a cancel, or a failure. */
-export const historyEndOf = (error: unknown): HistoryEnd => ({
+/**
+ * How an error ended a tree: a cancel, or a failure — with what its undo ran, when one ran (#635:
+ * a root's own undo closes its entries outside the checkpoint, so they are not in the state).
+ */
+export const historyEndOf = (
+  error: unknown,
+  compensations?: readonly CompensationRecord[],
+): HistoryEnd => ({
   status:
     error instanceof ExecutionCancelledError
       ? ExecutionHistoryStatus.Cancelled
       : ExecutionHistoryStatus.Failed,
   error,
+  ...(compensations === undefined ? {} : { compensations }),
 });
 
 /** The channels a record reads. */
