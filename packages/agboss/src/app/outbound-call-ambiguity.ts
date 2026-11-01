@@ -55,7 +55,8 @@ export function leftPending<TRequest, TResult>(
 
 /** A time the store wrote, in ms since the epoch; `undefined` when it wrote none (or not a time). */
 const timeOf = (text: string | undefined): number | undefined => {
-  const time = text === undefined ? Number.NaN : Date.parse(text);
+  // none is "undefined", which parses to NaN, like every text that is not a time
+  const time = Date.parse(String(text));
   return Number.isFinite(time) ? time : undefined;
 };
 
