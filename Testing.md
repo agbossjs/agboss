@@ -855,6 +855,15 @@ a "never hangs" bound is the test's own timeout. `npm run check:real-time` (in `
 on a comparison matcher against a number whose argument is a duration or a real time read, and
 `node scripts/flaky-probe.mjs <file> 50` proves a rewritten test.
 
+The gate runs every test it declares (#630): `npm run coverage` holds vitest's JSON report against
+`packages/agboss/test-run.json` (`scripts/check-test-run.mjs`) — every file of the `unit` and
+`faults` projects ran a test, each project at least its `minFiles` — and fails naming the project
+and the files otherwise. Vitest 3's forks pool skips a `singleFork` project (the fault suite) whole
+when another fork of the pool rejects; a test that holds its fork's event loop 60 s — a synchronous
+child process — times out the fork's report to vitest and does exactly that. So the core's tests
+await their child processes (`tests/helpers/process.ts`; ESLint refuses `spawnSync`,
+`execFileSync` and `execSync` there).
+
 ## Ids
 
 Every thread id and execution id the framework mints comes from the application's `IdGenerator`

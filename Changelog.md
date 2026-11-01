@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the gate runs the fault suite or fails (#630)
+
+- **Fixed**: one `make check` ran 587 files and not one of `tests/faults/` — vitest 3 skipped the
+  `singleFork` project after a fork, held 60 s by a test's synchronous child process, timed out its
+  report. `npm run coverage` now fails by name unless every file of `unit` and `faults` ran
+  (`packages/agboss/test-run.json`, `scripts/check-test-run.mjs`); the core's tests await their child
+  processes. No API change. [Testing](Testing#the-clock).
+
 ## Unreleased — 0.1.1: a minted thread id that never finds a free one is a typed error (#613)
 
 - **Fixed**: after 100 minted thread ids the tenant all has, `execute` fails with
