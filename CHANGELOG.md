@@ -279,6 +279,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   just before and at each lease expiry inside it; one nobody saw answer may land any time after its
   invoke (a store applies a request whose caller is gone), so a take that landed after the expiry
   no longer fails a sound history.
+- **The linearizability checker takes a renewal where the answers after it pin it** (#660, found in
+  the acceptance of #617) — a renewal answered at 100 ms, then a take refused at 30 050 ms and the
+  old token read as expired at 30 070 ms, is sound only with the renewal at 50–80 ms, which neither
+  end of its span is: the checker failed it. An acquire, a renewal or a reclaim is now also tried
+  where the expiry it sets meets another operation's span end.
 - **An explorer case aborted while it shrinks a violation makes no store call after** (#618, found
   in the acceptance of #590) — the cutting down of a found schedule replayed it again and again,
   each replay resetting the store, after vitest had timed the case out and moved on. The cutting

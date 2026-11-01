@@ -143,6 +143,19 @@ const LEASE_KINDS: ReadonlySet<string> = new Set([
   StoreHoldPoint.LeaseReclaim,
 ]);
 
+/** The operations that set a lease's expiry to the instant they take effect at plus their lease. */
+const EXPIRY_KINDS: ReadonlySet<string> = new Set([
+  StoreHoldPoint.LeaseAcquire,
+  StoreHoldPoint.LeaseRenew,
+  StoreHoldPoint.LeaseReclaim,
+]);
+
+/** How long after its instant the lease `operation` sets expires (#660); none when it sets none. */
+export const leaseSetBy = (operation: CheckedOperation): number | undefined =>
+  EXPIRY_KINDS.has(operation.kind)
+    ? (numberOf(operation.input, "lease") ?? DEFAULT_LEASE)
+    : undefined;
+
 /** `operation` taking effect at `now` on `state`: the next state, or `undefined` when the store's answer is not the model's. */
 export function applied(state: FencingState, operation: CheckedOperation, now: number): Applied {
   if (LEASE_KINDS.has(operation.kind)) return leaseApplied(state, operation, now);
