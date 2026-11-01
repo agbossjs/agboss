@@ -269,6 +269,13 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   not fenced. Every action now checks its holder's fence right before `execute`, nothing awaited in
   between; a holder past its lease hands over.
 
+- **A booking stopped by the budget at its refund was never refunded** (#675, a follow-up of
+  #656): a main-path refund that is also a booking's undo, held back by the exhausted budget, with
+  its own `.onError(BudgetExceededError, …)`, closed the booking as a failed undo — nothing was
+  refunded. The forward visit stays stopped; the booking it would have closed is now undone at once
+  as an undo (its own key `<step key>:compensation`, past the budget, durable once like the
+  automatic undo), before the side path goes on: `Compensated`, or `Failed` only with the undo's
+  own error.
 - **The budget's two exemptions failed open** (#656, found by a security review of #634): once any
   limit had been handled, every later action of the execution skipped the budgets — the branches a
   side path launched, what followed their join —, and an action that is some open entry's undo

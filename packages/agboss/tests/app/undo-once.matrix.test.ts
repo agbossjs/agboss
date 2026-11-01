@@ -24,6 +24,7 @@ import { atUndo, resetUndoOnce, undoOnceSeen, UndoPoint } from "./fixtures/undo-
 import {
   OnceAnyWorkflowStart,
   OnceBudgetWorkflowStart,
+  OnceHeldWorkflowStart,
   OnceJoinSideWorkflowStart,
   OnceJoinWorkflowStart,
   OnceLevelWorkflowStart,
@@ -46,6 +47,7 @@ beforeAll(async () => {
     import("../../src/app/cancel-thread.js"),
     import("../../src/app/compensation/root-unwind.js"),
     import("../../src/flow/runtime/compensation/child-unwind.js"),
+    import("../../src/flow/runtime/compensation/held-undo.js"),
     import("../../src/flow/runtime/compensation/join-unwind.js"),
     import("../../src/flow/runtime/compensation/unwinding-marks.js"),
     import("../../src/flow/runtime/compensation/visit-entries.js"),
@@ -68,6 +70,7 @@ interface UndoCase {
     | typeof OnceLocalWorkflowStart
     | typeof OnceAnyWorkflowStart
     | typeof OnceBudgetWorkflowStart
+    | typeof OnceHeldWorkflowStart
     | typeof OnceLevelWorkflowStart;
   readonly name: string;
   readonly undos: number;
@@ -120,6 +123,14 @@ const CASES: readonly UndoCase[] = [
     undos: 1,
     rootUndos: 1,
     error: "BudgetExceededError",
+  },
+  {
+    undo: "#675: the undo a refund held back by the budget owes, then its side path to a finish",
+    start: OnceHeldWorkflowStart,
+    name: "held",
+    undos: 1,
+    rootUndos: 1,
+    error: undefined,
   },
   {
     undo: "a ParentInstance child's undo",

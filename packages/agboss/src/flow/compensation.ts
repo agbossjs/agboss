@@ -15,7 +15,9 @@ import type { ExecutionStateType } from "./runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { JoinUnwindSite } from "./runtime/compensation/join-unwind.js";
 import type { ComponentRecord, ScopeRecords } from "./runtime/records.js";
-import { lazyLoad } from "../infrastructure/clock.js";
+import { lazyLoad, type Clock } from "../infrastructure/clock.js";
+import type { UndoSite } from "./runtime/compensation/undo.js";
+import type { ExecutionLimits } from "./runtime/limits.js";
 
 /**
  * Declared action compensation at run time (#340): what an undo of an `@Action({ compensateWith })`
@@ -213,6 +215,36 @@ export async function compensationsOfVisit(
   const { entriesOfVisit } = await lazyLoad(import("./runtime/compensation/visit-entries.js"));
   const written = entriesOfVisit(site);
   return written.length === 0 ? {} : { compensations: [...written] };
+}
+
+/**
+ * A visit of an undo action that a limit held back before it ran, whose `.onError` took the error
+ * (#675): with what its owed undo runs.
+ */
+export interface HeldVisitSite extends VisitCompensationSite {
+  readonly clock: Clock;
+  readonly deps: Pick<
+    UndoSite,
+    "graph" | "container" | "components" | "observer" | "stepEntries"
+  > & {
+    readonly limits: ExecutionLimits;
+  };
+}
+
+/** What the owed undo of a held-back visit writes: its entry closed, and the undo's spend. */
+export interface HeldUndo {
+  readonly compensations?: CompensationEntry[];
+  readonly usage?: UsageRecord[];
+}
+
+/**
+ * The entry a held-back undo action owes is undone as an undo, never closed as failed (#675): the
+ * money goes back; the runtime is loaded only for a visit that touches an open entry.
+ */
+export async function compensationsOfHeldVisit(site: HeldVisitSite): Promise<HeldUndo> {
+  if (!touchesCompensations(site.node, site.entries)) return {};
+  const { heldUndoOf } = await lazyLoad(import("./runtime/compensation/held-undo.js"));
+  return heldUndoOf(site);
 }
 
 /** A branch of a launch that ended with its node's answer (#273). */

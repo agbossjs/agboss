@@ -183,7 +183,9 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     action of the side path that took a limit (the application's reaction to it, and what it
     leads to step by step; its spend counts). Both only on that side path (#656): a launch ends
     it — its branches and what follows its join are checked —, and the same action reached any
-    other way (a step of the main path that is also some entry's undo) is checked. The first exhausted **fails the execution** — never a quiet stop,
+    other way (a step of the main path that is also some entry's undo) is checked — and when the
+    budget holds such a step back and its `.onError` takes the error, the entry it would have
+    closed is undone at once as an undo (#675: the money goes back; never `Failed` for the budget). The first exhausted **fails the execution** — never a quiet stop,
     unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,
     `maxSpend`, `spent` and a sentence (`tenant acme spent $40.05 today; tenant-daily-budget allows
 $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`

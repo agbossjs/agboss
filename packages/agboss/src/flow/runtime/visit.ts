@@ -10,8 +10,17 @@ import {
   type NodeOutcome,
   type NodeRunner,
 } from "./node-runner.js";
-import { compensationsOfVisit } from "../compensation.js";
+import {
+  compensationsOfHeldVisit,
+  compensationsOfVisit,
+  type CompensationEntry,
+  type HeldUndo,
+} from "../compensation.js";
 import type { CompensationParts } from "./compensation/registry.js";
+import type { Class } from "../../components/injection.js";
+import type { StepEntries } from "./step-entries.js";
+import { LimitExceededError } from "../../graph/limits.js";
+import type { Clock } from "../../infrastructure/clock.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
 import { reportOutdating } from "./outdating-report.js";
@@ -56,6 +65,35 @@ export interface VisitDeps extends StepFrameDeps {
   readonly slots?: TreeSlotRegistry;
   /** The instance's undo bound and registry (#340); absent = the default bound, no registry. */
   readonly compensation?: CompensationParts | undefined;
+  /** Where an undo action comes from (#675: the owed undo of a held-back visit), and the running steps. */
+  readonly container: { readonly get: <T>(token: Class<T>) => T };
+  readonly stepEntries?: StepEntries | undefined;
+}
+
+/** A failed visit's own entries: a held-back undo action's owed undo run (#675), else its close. */
+function failedCompensations(
+  site: Parameters<typeof compensationsOfVisit>[0],
+  deps: VisitDeps,
+  { isHeldBack, clock }: { readonly isHeldBack: boolean; readonly clock: Clock },
+): ReturnType<typeof compensationsOfHeldVisit> {
+  return isHeldBack
+    ? compensationsOfHeldVisit({ ...site, clock, deps })
+    : compensationsOfVisit(site);
+}
+
+/**
+ * A handled failure's update with its entries — a failed child's undone ones first (#340), the
+ * visit's own after them — and the owed undo's spend after the visit's own (#675).
+ */
+function withOwnCompensations(
+  handled: ExecutionStateUpdate,
+  childEntries: readonly CompensationEntry[],
+  own: HeldUndo,
+): ExecutionStateUpdate {
+  const compensations = [...childEntries, ...(own.compensations ?? [])];
+  const visitUsage = Array.isArray(handled.usage) ? handled.usage : [];
+  const usage = [...visitUsage, ...(own.usage ?? [])];
+  return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
 }
 
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
@@ -151,6 +189,8 @@ function succeeded(
 export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps): GraphNode {
   return async (state, config) => {
     let ranAsStep = false;
+    // whether the visit's limits passed (#675): a limit thrown before held it back
+    const limitsChecked = { isDone: false };
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
     const { reported, services } = reportingOf(deps.limits, node, state.path);
@@ -168,6 +208,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       // a slot of the tree first (#264), then the limits (#634: every node that can spend)
       const outcome = await inTreeSlot(slot, async () => {
         ranAsStep = await checkVisit(state, node, deps.limits, deps.workflow, frame.step.component);
+        limitsChecked.isDone = true;
         return runInFrame(frame, () => runner(state, config));
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
@@ -187,10 +228,11 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
       const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);
       const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
-      const own = await compensationsOfVisit({ ...failed, failure: error });
-      // a failed child's undone entries first (#340): the visit's own close after them
-      const compensations = [...reported.compensations, ...(own.compensations ?? [])];
-      return { ...handled, ...(compensations.length === 0 ? {} : { compensations }), ...kept };
+      // #675: a limit thrown before the node ran held the visit back — it ran nothing
+      const isHeldBack = !limitsChecked.isDone && error instanceof LimitExceededError;
+      const site = { ...failed, failure: error };
+      const own = await failedCompensations(site, deps, { isHeldBack, clock });
+      return { ...withOwnCompensations(handled, reported.compensations, own), ...kept };
     }
   };
 }

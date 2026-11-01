@@ -10,7 +10,11 @@ import { BudgetExceededError, CompensationReason, CompensationStatus } from "../
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { PaidExemptionsApplication } from "./fixtures/paid-exemptions.application.js";
-import { exemptions, resetExemptions } from "./fixtures/paid-exemptions.actions.js";
+import {
+  exemptions,
+  resetExemptions,
+  TellOrderAction,
+} from "./fixtures/paid-exemptions.actions.js";
 import {
   HeldLimitWorkflowStart,
   JoinLimitWorkflowStart,
@@ -25,7 +29,11 @@ import {
   RefundStepWorkflowStart,
 } from "./fixtures/paid-exemptions.workflow.js";
 import { paidSteps, resetPaidSteps } from "./fixtures/paid-steps.dto.js";
-import { HoldOrderAction, NoteOrderAction } from "./fixtures/paid-steps.actions.js";
+import {
+  HoldOrderAction,
+  NoteOrderAction,
+  RefundOrderAction,
+} from "./fixtures/paid-steps.actions.js";
 
 const test = testWith(PaidExemptionsApplication);
 
@@ -87,21 +95,24 @@ describe("#656 AC2: an undo action is exempt only as an undo", () => {
     expect(done.spend.totalUsd).toBe(150);
   });
 
-  test("held back as a step with its own side path: its entry is a failed undo, never silent", async ({
+  test("#675: held back as a step with its own side path: the booking is still refunded once, as its undo", async ({
     app,
   }) => {
     const done = await execute(app, RefundHandledWorkflowStart, order);
 
-    // the side path is the application's reaction; the booking's undo is listed as failed
+    // the forward visit stays stopped; the booking's undo runs past the budget, then the side path
     expect(done).toFinishWith(RefundToldWorkflowFinish, order);
-    expect(paidSteps.ran).toEqual(["book", "check", "tell"]);
-    expect(done.compensations).toMatchObject([
-      {
-        reason: CompensationReason.SidePath,
-        status: CompensationStatus.Failed,
-        error: { name: "BudgetExceededError" },
-      },
+    expect(paidSteps.ran).toEqual(["book", "check", "refund o1", "tell"]);
+    expect(exemptions.undone).toEqual([
+      expect.stringMatching(/:book-order-action:1:compensation$/),
     ]);
+    expect(done.compensations).toMatchObject([
+      { reason: CompensationReason.SidePath, status: CompensationStatus.Compensated },
+    ]);
+    expect(done).toHaveHandledError(BudgetExceededError, {
+      at: RefundOrderAction,
+      by: TellOrderAction,
+    });
   });
 
   test("a refund of a booking made on the side path itself is a step: held back", async ({

@@ -2304,8 +2304,10 @@ const readiness: HealthReport = await app.checkReadiness();
   path's undo action of an entry open when the side path was entered too), nor an
   action of the side path that took a limit, `.onError(BudgetExceededError, toAction(…))`, the
   application's reaction to it, and what it leads to step by step — its spend counted; #656: both
-  only on that side path, which a launch ends, never an action by its name alone; the deadline is
-  checked there too) and
+  only on that side path, which a launch ends, never an action by its name alone; #675: a step of
+  the main path that is some entry's undo, held back with its own `.onError` taking the error,
+  undoes that entry at once as an undo — `<step key>:compensation`, unchecked, marked done —, so the
+  money still goes back; the deadline is checked there too) and
   aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
   with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
   accepted, and a budget is exceeded by at most the calls in flight when it was exhausted. Hitting a limit **fails the

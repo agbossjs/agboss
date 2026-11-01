@@ -26,6 +26,7 @@ import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-st
 export class RefundOrderAction {
   execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<void> {
     paidSteps.ran.push(`refund ${input.order.value.orderId}`);
+    if (paidSteps.refundFails) return Promise.reject(new Error("the gateway refused the refund"));
     return Promise.resolve();
   }
 }
