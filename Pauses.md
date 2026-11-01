@@ -121,9 +121,9 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
-  answer `{ approved }` — never a `reason` or `overrideArguments`. A question role (`ask` + `answer`)
-  on a decision model is `[reply-interpreter.decision-model]` at assembly: its answer needs more than
-  a yes / no can give (the message names the answer DTO). Either model's call goes through the provider its model
+  answer `{ approved }` — never a `reason` or `overrideArguments`. (Every role is an approval role,
+  #647: a question role cannot be declared, so `[reply-interpreter.decision-model]` is gone.) Either
+  model's call goes through the provider its model
   resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
   before it is made (an exhausted one → `BudgetExceededError`, the pause untouched), is counted in
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is

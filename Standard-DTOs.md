@@ -45,8 +45,8 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`@agboss/c
 | `PlainTextDto`             | `text`                                                     | plain text, e.g. a text-only MCP server tool's result             |
 | `RagSearchResultDto`       | `text`, `source`, `score?` (0…1)                           | a piece of text a knowledge base (`@Rag`) found for a query       |
 
-A workflow question asks a `WorkflowPauseQuestionDto` (#267; tools no longer pause themselves —
-[Pause seam](Pause-seam)).
+`WorkflowPauseQuestionDto` / `WorkflowPauseAnswerDto` are for workflow questions, which nothing
+asks yet (#659; tools no longer pause themselves — [Pause seam](Pause-seam)).
 
 Renamed in #270 (old names removed, not aliased): every standard DTO got the `Dto` suffix
 (`WorkflowStartText` → `WorkflowStartTextDto`, `Money` → `MoneyDto`, …). Renamed before, in #141: `ChatMessage` → `WorkflowStartText`, `TextAnswer`

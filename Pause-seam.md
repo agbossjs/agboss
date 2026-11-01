@@ -85,7 +85,8 @@ fields of the input DTO are shown masked.
 
 A tool no longer pauses **to ask a question** itself: `ctx.pause(question)` went with `ctx` (#280).
 Workflow questions — a `WorkflowPauseQuestionDto` asked of a person, the answer resuming the
-execution — come back as their own steps with channel roles (#267).
+execution — are not built yet: a question role (`ask` / `answer`) cannot be declared (#647), and
+asking one from a step or a tool is #659.
 
 Paused runs and their pauses live in the application's `PausedExecutionRepository` and their state
 in its `BaseCheckpointSaver` (#261) — in memory by default, lost on restart. A pause survives a

@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a question role cannot be declared (#647)
+
+- **Breaking**: `@ChannelRole({ ask, answer })` compiled and passed `agboss check`, but nothing could
+  ask it (a tool naming it was `[channel.wrong-tool]`, no step pauses on one). The form is gone from
+  the types (`ChannelQuestionRoleOptions` removed); its decorator throws
+  `[channel.question-role-unavailable]` for a JS caller; `[reply-interpreter.decision-model]` is gone
+  with it. Migration: an approval role (`approves`), a changed call through `overrideArguments`.
+  Workflow questions: #659. [Tools](Tools), [Pauses](Pauses).
+
 ## Unreleased — 0.1.1: `clock.advance` right after `app.execute` is deterministic (#646)
 
 - **Fixed**: under `agbossTest()` the first execution of a test file loads the core's lazy modules

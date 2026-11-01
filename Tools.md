@@ -515,13 +515,15 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 }
 ```
 
-- **`@ChannelRole({ name, description, answeredBy, approves | ask + answer, replyInterpreter? })`**
-  — two forms, never both (`[channel.role-form]`): `approves: XDto` for a tool approval (the
-  question is `ToolCallApprovalAskDto` with `arguments: XDto`, the answer
-  `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`), or `ask` / `answer` for a workflow
-  question. `answeredBy` is required — `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no
-  default. A tool whose `input` is not its role's `approves` (or that names a question role) fails
-  assembly with `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
+- **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
+  approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
+  answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
+  `answer`) cannot be declared (#647): nothing could ask one — it does not compile, and its decorator
+  throws `[channel.question-role-unavailable]` for a JS caller; ask through an approval role, a
+  changed call through `overrideArguments` (workflow questions: #659). `answeredBy` is required —
+  `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
+  it, or without `approves`). A tool whose `input` is not its role's `approves` fails assembly with
+  `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
   `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
   reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's
   answer — by its chat model, for an approval role a decision model (approve / refuse only, #267
