@@ -1,3 +1,4 @@
+import type { EndedTreeUndo } from "./tree-unwind.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
@@ -43,6 +44,8 @@ export interface PlannedPass {
 export interface HeldPass {
   readonly lease: HeldExecutionLease;
   readonly watch: CancelWatch;
+  /** What the undo of a pass that fails ran: its error event's and its kept record's (#635). */
+  readonly undo: EndedTreeUndo;
 }
 
 /** A pass that takes recorded answers. */

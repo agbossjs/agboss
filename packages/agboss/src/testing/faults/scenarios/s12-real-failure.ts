@@ -8,7 +8,8 @@ import { eventsOf, expectThat, heldStep, holdStep, startOrder, takenOverBy } fro
  * recovery. The order's charge declines for real: the tree fails and its reservation is undone.
  * The pod running the undo is killed in it; the pod that takes the tree over finishes the undo
  * (`Unwinding`), and the reservation is released once. A hand-over never undoes (scenarios 1–11);
- * a real failure always does, exactly once.
+ * a real failure always does, exactly once. Before it, an order declined and undone by its own
+ * pass: its kept record lists the undo too (#635), which `no-undo-on-hand-over` checks.
  */
 export const s12RealFailure: FaultScenario = {
   id: "s12-real-failure-undone-once",
@@ -17,6 +18,14 @@ export const s12RealFailure: FaultScenario = {
   run: async (world) => {
     const a = await world.pod("a");
     const b = await world.pod("b");
+    // #635: one declined and undone by its own pass — its record lists the undo (no-undo-on-hand-over)
+    const own = await startOrder(world, a, "o-12-own", { decline: true });
+    const ownEnd = await world.ended(own.rootExecutionId);
+    expectThat(
+      world,
+      ownEnd.type === "failed" && ownEnd.pod === "a",
+      `the tree declined on a ${ownEnd.type === "failed" ? "failed" : "ended"} on ${ownEnd.pod}`,
+    );
     await holdStep(a, FaultStepPoint.Release, "o-12");
     const order = await startOrder(world, a, "o-12", { decline: true });
     await heldStep(world, a, FaultStepPoint.Release, "o-12");
@@ -33,7 +42,9 @@ export const s12RealFailure: FaultScenario = {
       end.type === "failed" && end.pod === "b",
       `the declined tree ${end.type === "failed" ? "failed" : "ended"} on ${end.pod}`,
     );
-    const released = eventsOf(world, "released").map((event) => event.pod);
+    const released = eventsOf(world, "released")
+      .filter((event) => event.orderId === "o-12")
+      .map((event) => event.pod);
     expectThat(
       world,
       released.join() === "b",

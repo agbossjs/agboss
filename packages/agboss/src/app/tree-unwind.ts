@@ -11,9 +11,12 @@ import type { TreeState } from "./tree-move-types.js";
  * stops or crashes mid-undo leaves it to the recovery sweep, which finishes it (PR 4).
  */
 
-/** What the tree's error event is told of its undo (`ExecutionErrorEvent.compensations`). */
+/**
+ * What the tree's undo ran, for its error event (`ExecutionErrorEvent.compensations`) and its kept
+ * record (#635); `undefined` until the undo ran.
+ */
 export interface EndedTreeUndo {
-  compensations: readonly CompensationRecord[];
+  compensations?: readonly CompensationRecord[];
 }
 
 /**

@@ -13,6 +13,7 @@ import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.rep
 import { rootTakeOf } from "./execution-leases.js";
 import { recordEndedOf } from "./recovery-pass.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
+import type { EndedTreeUndo } from "./tree-unwind.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
 /**
@@ -78,9 +79,11 @@ export async function endCancelled(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
+  undo?: EndedTreeUndo,
 ): Promise<Error> {
   const cause = cancelledErrorOf(state.threadId);
-  return (await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease })).error;
+  const end = { cause, signal: lease.signal, lease, ...(undo === undefined ? {} : { undo }) };
+  return (await endedWithoutPass(parts, state, end)).error;
 }
 
 /** A lease just taken (a resume, a recovery): a tree with a request is ended, the lease released. */
@@ -105,11 +108,13 @@ export async function endIfCancelledAtRest(
     readonly result: ExecutionOutput;
     readonly watch: CancelWatch;
     readonly lease: HeldExecutionLease;
+    /** What its undo runs, for the record its pass keeps after (#635). */
+    readonly undo: EndedTreeUndo;
   },
 ): Promise<void> {
-  const { result, watch, lease } = rest;
+  const { result, watch, lease, undo } = rest;
   if (result.status !== ExecutionStatus.Paused || !(await watch.isRequested())) return;
-  throw await endCancelled(parts, state, lease);
+  throw await endCancelled(parts, state, lease, undo);
 }
 
 /** A root the recovery sweep found `running`: its record (#520: ended → no takeover). */
