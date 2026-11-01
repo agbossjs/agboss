@@ -1333,7 +1333,7 @@ path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/test
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 21 scenarios (#584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #533: `s13-clock-ahead`
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 22 scenarios (#584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `confirmNow()` refused; #533: `s13-clock-ahead`
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
