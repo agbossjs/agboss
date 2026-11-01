@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: every action checks its holder's fence right before it runs (#662)
+
+- **Fixed**: an action's visit — a side path's undo action too — awaited `onActionStart` and ran
+  with no fence check, so a holder held there past its lease ran the action again after another
+  instance took the tree over and ran it (a refund or a charge paid twice when not fenced). The
+  holder's fence is now checked right before `execute`, as #640 does for the automatic undo. No API
+  change. [Guarantees across processes](Guarantees-across-processes).
+
 ## Unreleased — 0.1.1: the budget's exemptions hold only on their side path (#656)
 
 - **Fixed**: once any limit had been handled, every later action of the execution skipped the

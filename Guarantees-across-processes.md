@@ -184,6 +184,13 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   holder whose tree another instance took over and undid undoes nothing when it goes on, even
   before its expiry timer fires: it hands over at the undo (`HandOverSite.Compensation`).
 
+  **Every action runs only while its holder holds the tree** (#662): an action's visit — the undo
+  action a side path runs (`.onError(DeclinedError, toAction(RefundAction))`) and any forward
+  step — checks the same fence right before `execute`, after its awaited `onActionStart`, with
+  nothing awaited in between. A holder held there past its lease runs nothing; it hands over at
+  the step (`HandOverSite.Step`) and the new holder runs the action. What is left is the action
+  itself, from its start to its own write, as for an undo.
+
   What is left is the undo action itself, from its start to its own write. A holder frozen inside
   it, past its lease, goes on writing. An undo whose external system checks the fence closes that
   window: a fenced effect, `OutboundCalls`, or a write that checks `executionContext.fence`. The
