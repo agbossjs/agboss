@@ -528,6 +528,8 @@ const outcome = await this.outboundCalls.send(fencedEffectKeyOf(this.executionCo
   operation: "charge",
   request: { orderId: order.id, amountUsd: order.amountUsd }, // JSON; send gets it as it is
   send: (call) => this.paymentClient.charge(call.request, { idempotencyKey: call.idempotencyKey }),
+  // #657: only an error that proves nothing was charged is a failure; any other one is reconciled
+  isDefiniteFailure: (error) => error instanceof PaymentDeclinedError,
   reconcile: async (lookup) => {
     // asked only for an intent left pending: look the call up by its key, never by the request
     const found = await this.paymentClient.findByIdempotencyKey(lookup.idempotencyKey);
@@ -552,8 +554,8 @@ same on every attempt, replay and holder.
 | none | recorded `Pending` (fenced), the lease renewed (`fence.confirmNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
 | `Completed` | its stored result, nothing sent — `Replayed` |
 | (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
-| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1; `unknown({ reason })` → `OutboundCallUnreconciledError` |
-| `Failed` | the other system answered with an error: sent again with the same key, attempt + 1 |
+| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — unless the call's `keyRetention` has passed (#658); `unknown({ reason })` → `OutboundCallUnreconciledError` |
+| `Failed` | the other system definitely did not carry it out (`isDefiniteFailure`, #657): sent again with the same key, attempt + 1 |
 
 - **Fenced like a fenced effect:** every read and write of an intent checks the key's lease and the
   scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
@@ -577,9 +579,45 @@ same on every attempt, replay and holder.
   a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason`) — also when
   `reconcile` throws (its error the `cause`) or gives no verdict. Nothing is sent; the intent stays
   `Pending` for an operator or a retry policy; `.onError(OutboundCallUnreconciledError, …)` takes it.
-- **A send that fails** records `Failed` with the error's name, code and message, and rethrows. A
-  send aborted by the step's signal (a lost lease, a cancel, a timeout) records nothing: the intent
-  stays `Pending`, because nobody knows what arrived.
+- **A send that fails, for certain or not (#657).** An error `send` throws is a failure only when
+  the call says so: `isDefiniteFailure(error)` returns `true` — the other system answered that it
+  did not carry the call out (a validation error, a decline). Then the intent is `Failed` with the
+  error's name, code and message, and the next call sends it again under the same key, with no
+  `reconcile`. **Any other error is of unknown outcome** — no predicate, an answer other than
+  `true`, a predicate that throws (a warning `outbound-call.classifier-threw`): a 5xx after the
+  other system acted, a reset connection, the SDK's own timeout. The intent stays `Pending` (told
+  `Ambiguous`, a warning `outbound-call.outcome-unknown` naming the error's code, never its text),
+  and the next call asks `reconcile` before anything is sent again, exactly as after a crash.
+  The error is rethrown either way; a call this instance joined meanwhile gets the same error. A
+  send aborted by the step's signal (a lost lease, a cancel, a timeout) records nothing too. Under a
+  business key, the pending intent of an execution that still holds its lease is in flight for
+  another one (`OutboundCallInFlightError`, nothing sent) until that lease ends.
+
+  | Error | `isDefiniteFailure` | The intent | The next call |
+  | --- | --- | --- | --- |
+  | a decline, a validation error the other system answered | `true` | `Failed` | sends it again, the same key |
+  | a 5xx, a reset connection, an SDK timeout, anything not classified | not `true` (the default) | `Pending` | `reconcile`, then only on `notSent()` |
+  | the step's signal aborted it | not asked | `Pending` | `reconcile` |
+- **The key's age (#658).** `reconcile` is told when the pending attempt started
+  (`lookup.attemptStartedAt`, a `Date`) and how old its key is (`lookup.keyAge`, ms from the start
+  of the call's first attempt — before the key could reach the other system — to now). Both are
+  the **store's** time: the record's `attemptStartedAt` and `firstAttemptStartedAt`, written by
+  `saveIfAbsent` and `markPending`, and `readAt`, stamped by every `findByKey` (never stored) — on
+  PostgreSQL the database's own clock, read by the fence after it locked the lease row, so every
+  instance and every holder after a takeover sees the same times, whatever its own clock says. The
+  age adds what passed since the read on the instance's monotonic clock, from before the read, so it
+  is never less than the other system's age of the key (up to the store's millisecond and the drift
+  bound A4). An intent recorded before 0.1.1 has neither: both `undefined`.
+- **`keyRetention` (#658).** A call whose `notSent()` relies on the other system **replaying the
+  key** — a gateway with no lookup (Adyen), a search that lags (Stripe) — declares how long that
+  system keeps a key, its documented minimum: `keyRetention: hours(24)`. A `notSent()` is then sent
+  again only while `keyAge + outboundCalls.attemptTimeout` (how long the resend may take to arrive,
+  A6) is below it, measured again after `reconcile` answers; past it, or with the age unknown or a
+  `keyRetention` that is not a positive number, nothing is sent: `OutboundCallUnreconciledError`
+  naming the age and the retention, the intent `Pending` for an operator (`app.pendingOutboundCalls`).
+  The framework never resends such a call by itself. A `Failed` intent is sent again at any age (it
+  moved no money). Without `keyRetention`, `notSent()` is trusted at any age — right for a lookup
+  that proves the call never arrived.
 - **Masked when written.** Everything an intent stores — its request, its result, its failure's text
   — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
   also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
@@ -599,10 +637,12 @@ same on every attempt, replay and holder.
 - **For operators:** `app.outboundCallsOf({ tenantId, rootExecutionId })` (every call of a tree, in
   the order recorded) and `app.pendingOutboundCalls({ tenantId })` (what waits for reconciliation) —
   `OutboundCallRecord`: the step, the workflow, `target`, `operation`, `idempotencyKey`, `status`,
-  `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`.
-- **What exactly-once means here:** the framework never sends twice without a `notSent()` from
-  `reconcile`; whether the other system charged twice depends on it — idempotency keys and a lookup
-  by key.
+  `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`,
+  `attemptStartedAt?`, `firstAttemptStartedAt?` (#658, the store's time).
+- **What exactly-once means here:** the framework never sends twice without a definite failure
+  (`isDefiniteFailure`) or a `notSent()` from `reconcile` inside the declared `keyRetention`;
+  whether the other system charged twice depends on those answers being true — idempotency keys and
+  a lookup that does not lag or expire.
 - **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
   on a gate, `leases.stall(apps[0])` and `clock.advance` past the lease, then the other instance's
   recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
@@ -619,8 +659,10 @@ same on every attempt, replay and holder.
   an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
   intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
 
-A store of another database implements `OutboundCallRepository` (fenced `findByKey`,
-`saveIfAbsent`, `markPending` — a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
+A store of another database implements `OutboundCallRepository` (fenced `findByKey` — the record
+with `readAt`, the store's time of the read —, `saveIfAbsent` — `attemptStartedAt` and
+`firstAttemptStartedAt` at the store's time —, `markPending` — the next `attemptStartedAt` at the
+store's time, the first kept; a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
 attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
 on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
 the two listings; `leaseStateOf` — which closes an expired lease in the same atomic step, so a late

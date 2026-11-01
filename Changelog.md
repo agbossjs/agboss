@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an error of unknown outcome is reconciled; a replay past the key's retention is never sent (#657, #658)
+
+- **Changed (#657)**: an error `send` throws is `Failed` — sent again under the same key with no
+  `reconcile` — only when the call's new `isDefiniteFailure(error)` returns `true` (the other system
+  refused it: a validation error, a decline). Any other error, the default, leaves the intent
+  `Pending` (`OutboundCallEventOutcome.Ambiguous`, the warning `outbound-call.outcome-unknown`), and
+  the next call reconciles it first. A call that relied on a resend after a decline adds
+  `isDefiniteFailure`. [Several instances](Several-instances#calls-that-leave-the-system-505).
+- **Added (#658)**: `OutboundCallLookup.attemptStartedAt` and `.keyAge` — on the store's clock (the
+  database's own on PostgreSQL); `OutboundCallOptions.keyRetention` — a `notSent()` is sent again
+  only while `keyAge + attemptTimeout` is below it, else `OutboundCallUnreconciledError`, nothing
+  sent. `OutboundCallRecord` gains `attemptStartedAt`, `firstAttemptStartedAt` and, on a read by
+  key, `readAt`; `outboundCallContract` checks them (a store of your own writes them). The fault
+  suite gains scenarios 14 and 15 and `FAULT_SABOTAGE_SCENARIOS`; [Guarantees](Guarantees) gains
+  A14 and A15; PS1 and PS17 of [Payment scenarios](Payment-scenarios) are guarantees now.
+  agbossjs/postgres: the times by the database's clock, no migration (an intent of before has none:
+  its age is unknown, so `keyRetention` refuses its replay).
+
 ## Unreleased — 0.1.1: every payment scenario fully labelled, the notice on Example (#686)
 
 - **Docs**: [Payment scenarios](Payment-scenarios) PS6 gains its Wrong and AGBoss, PS16 says it has

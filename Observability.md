@@ -369,7 +369,10 @@ Each move of a step's call that leaves the system (`OutboundCalls.send` —
 `target` and `operation`, the intent's `status` (`OutboundCallStatus`) and `attempt` after the
 move, `outcome` (`OutboundCallEventOutcome.Recorded` — the intent written, nothing sent yet —,
 `Sent`, `Replayed`, `Reconciled`, `NotSent` — `reconcile` found it never arrived, it goes out again
-—, `Unknown` — the step fails with `OutboundCallUnreconciledError` —, `Failed`, `Joined` — the same
+—, `Unknown` — the step fails with `OutboundCallUnreconciledError` (also a `notSent()` refused past
+the call's `keyRetention`, #658) —, `Failed` — a definite failure (`isDefiniteFailure`, #657) —,
+`Ambiguous` — `send` threw an error of unknown outcome: the intent stays pending, the next call
+reconciles it (#657) —, `Joined` — the same
 call of this instance was made meanwhile, its outcome shared), the lease's
 `scopeKey` and `token`, and `holderInstanceId`. Never the request or the result. Its
 `OutboundCall` row of the lease log is written first; an observer that throws is a warning.
