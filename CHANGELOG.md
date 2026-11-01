@@ -220,6 +220,18 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **Wiki → Guarantees says what each proof bounds** (#625, found in the acceptance of #533) — a
+  stepped database clock can make two instances trust one lease (A3); the explorer covers P2 for the
+  step's key only, up to its depth and over its listed races; on PostgreSQL it explores the SQL on
+  the test's clock, and database time is proved by agbossjs/postgres' clock tests; the mutation row
+  names its scope and its over-broad comments; P5 rests on store conformance, with its proofs.
+- **The linearizability checker places each operation inside its own span** (#617, found in the
+  acceptance of #533) — it took an operation at the latest instant of an earlier one, past its own
+  completion: a take of a live lease at 10 ms passed behind a frozen holder's renewal that answered
+  at 40 s. An operation now takes effect within its span; the instants tried are the span's ends and
+  just before and at each lease expiry inside it; one nobody saw answer may land any time after its
+  invoke (a store applies a request whose caller is gone), so a take that landed after the expiry
+  no longer fails a sound history.
 - **An explorer case aborted while it shrinks a violation makes no store call after** (#618, found
   in the acceptance of #590) — the cutting down of a found schedule replayed it again and again,
   each replay resetting the store, after vitest had timed the case out and moved on. The cutting

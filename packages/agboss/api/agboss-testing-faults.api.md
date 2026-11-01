@@ -716,7 +716,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/invariants/violations.ts:30:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/invariants/violations.ts:33:5 - (ae-undocumented) Missing documentation for "scenario".
 // src/testing/faults/invariants/violations.ts:34:5 - (ae-undocumented) Missing documentation for "violations".
-// src/testing/faults/linearizability/search.ts:20:3 - (ae-undocumented) Missing documentation for "operations".
+// src/testing/faults/linearizability/search.ts:21:3 - (ae-undocumented) Missing documentation for "operations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".
