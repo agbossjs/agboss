@@ -813,6 +813,16 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   track every store call of their targets. Work that does not settle within
   `new VirtualClock(start, { settleTimeout })` of real time (default 2 s) fails `advance` with
   `UnsettledWorkError` (`test.unsettled-work`, its `inFlight` count): the test never hangs.
+- **Right after `app.execute` (#646)**: `const run = app.execute(…); await clock.advance(…)` is
+  deterministic — no fixture, no wait for the model's requests. The first execution of a test file
+  loads the core's lazy modules (under `agbossTest()` through vite's module runner: ~300 turns of the
+  event loop), and an execution of an app not built yet builds it first, loading its files by path;
+  every one of those loads is `lazyLoad(import(…))` in the core (lint-enforced), and `advance` waits
+  for every load in flight — before the jump and after each wait it wakes — so the executions the
+  test started reach their next wait on the clock first (a model call scripted with `waitFor`, a step
+  slot, a timeout). A load that does not settle within 30 s of real time fails `advance` with
+  `UnsettledWorkError`. What `advance` cannot see is work that waits on something else than the
+  clock — a promise the test itself holds, a stalled store (`leases.stall`): await that yourself.
 - What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
   records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
   the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's timeout, the waits

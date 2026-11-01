@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `clock.advance` right after `app.execute` is deterministic (#646)
+
+- **Fixed**: under `agbossTest()` the first execution of a test file loads the core's lazy modules
+  through vite (~300 turns of the event loop), and `advance` waited one turn: the time jumped before
+  the execution reached its wait. Every dynamic import of the core is now `lazyLoad(import(…))`
+  (lint-enforced) and `advance` waits for the loads in flight. No API change.
+  [Testing](Testing).
+
 ## Unreleased — 0.1.1: every action checks its holder's fence right before it runs (#662)
 
 - **Fixed**: an action's visit — a side path's undo action too — awaited `onActionStart` and ran
