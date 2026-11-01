@@ -1390,7 +1390,8 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   itself, unchecked (#614) — a component mints through `deps: [IdGenerator]`, never its own class. An id is
   never repeated over the life of the application's stores (#591): every execution id minted is kept
   by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
-  by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`), and one any execution had —
+  by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`; the ids of before from the
+  leases and the outbound calls' executions, #638), and one any execution had —
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
   (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
   launch failed before it starts; a resume or a recovery is not a create. A minted thread id the

@@ -1,7 +1,9 @@
 /**
  * #591 on SQLite — the ids handed out live in the file (`execution_ids`): a repeated root id is
  * refused with nothing written, two instances on one file minting one id at once run one tree, and
- * a file an older version wrote knows its trees' ids from their leases.
+ * a file an older version wrote knows its trees' ids from their leases — and (#638) the ids of
+ * every execution that made an outbound call, a `ParentInstance` child's too, whose step key the
+ * other system has seen.
  */
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect } from "vitest";
@@ -68,6 +70,35 @@ function fileOfAnOlderVersion(rootExecutionId: string): void {
   }
 }
 
+/**
+ * #638: a file of before whose `ParentInstance` child `childId` made a step-keyed call: the row of
+ * `outbound_calls` as its store wrote it (the record names the child's execution), under its root's
+ * lease scope.
+ */
+function fileWithAChildsCall(rootExecutionId: string, childId: string): void {
+  fileOfAnOlderVersion(rootExecutionId);
+  const database = new DatabaseSync(file.path);
+  try {
+    database.exec(`CREATE TABLE outbound_calls (
+      scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
+      tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, status TEXT NOT NULL,
+      ended_at INTEGER, record TEXT NOT NULL, business_key TEXT);`);
+    const record = { rootExecutionId, executionId: childId, tenantId: "acme", name: "pay" };
+    database
+      .prepare(
+        "INSERT INTO outbound_calls VALUES (?, ?, 'pay', 'acme', ?, 'completed', 0, ?, NULL)",
+      )
+      .run(
+        `acme:${rootExecutionId}`,
+        `${childId}:pay-action:1`,
+        rootExecutionId,
+        JSON.stringify(record),
+      );
+  } finally {
+    database.close();
+  }
+}
+
 describe("#591 on SQLite", () => {
   test("a repeated root id is refused with nothing written to the file", async ({
     app,
@@ -111,6 +142,17 @@ describe("#591 on SQLite", () => {
   }) => {
     fileOfAnOlderVersion("old-root");
     minting.executions = ["old-root"];
+
+    const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "a" }));
+
+    expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
+  });
+
+  test("#638: a file of before — a ParentInstance child that made an outbound call keeps its id, of any tenant", async ({
+    app,
+  }) => {
+    fileWithAChildsCall("old-root", "old-child-3");
+    minting.executions = ["old-child-3"];
 
     const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "a" }));
 
