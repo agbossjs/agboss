@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a resume after the host's clock stepped back continues where it rested (#682)
+
+- **Fixed**: LangGraph continues a resume, a recovery or a re-entered child from a thread's latest
+  checkpoint — the greatest id, a UUIDv6 of `Date.now()`. After a backward step of the wall clock it
+  continued from the checkpoint before the step: an agent ran its earlier tool again and the approved
+  charge never ran, though the run finished. The application's checkpointer, over whatever saver is
+  listed (PostgreSQL's too), now reads the checkpoint written last: a `put` whose id sorts below its
+  thread's greatest first marks the thread (a checkpoint in the namespace `agboss-out-of-order`), and
+  a marked thread's latest is its highest LangGraph step. An unmarked thread costs one more look per
+  latest read. No API change. [Guarantees](Guarantees) (A13).
 ## Unreleased — 0.1.1: every payment scenario fully labelled, the notice on Example (#686)
 
 - **Docs**: [Payment scenarios](Payment-scenarios) PS6 gains its Wrong and AGBoss, PS16 says it has
@@ -17,8 +27,7 @@ Breaking changes and notable additions, newest first. The API reports
   was seen) the child's newest checkpoints sorted before older ones, the one before its action read as
   ended, and the parent got `undefined` for the child's result. Now its end is read at the checkpoint
   its own run wrote last; a re-entered child and a remote child's parent read its thread's leaf (the
-  checkpoint no other names as its parent). On both placements; no API change. A continuation from a
-  thread's latest checkpoint after such a step: #682. [Guarantees](Guarantees) (A13).
+  checkpoint no other names as its parent). On both placements; no API change. [Guarantees](Guarantees) (A13).
 ## Unreleased — 0.1.1: the budget's overrun bound, stated in full (#664)
 
 - **Docs**: a budget is exceeded by at most the calls in flight when it was exhausted, **plus** the
