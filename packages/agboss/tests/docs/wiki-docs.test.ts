@@ -42,9 +42,9 @@ const home =
 
 // each test runs tsc over a generated project: slower than 5 s on CI runners
 describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, () => {
-  it("a wiki page with a snippet that does not compile fails, naming the page and line (AC2)", () => {
+  it("a wiki page with a snippet that does not compile fails, naming the page and line (AC2)", async () => {
     const stale = router('route("Code changes").to(CoderAgent)');
-    const result = check({
+    const result = await check({
       "Home.md": home,
       "Workflow.md": "",
       "Routers.md": `# Routers\n\n${stale}\n`,
@@ -54,9 +54,9 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     expect(result.stderr).toContain("wiki/Routers.md:9: TS2552 Cannot find name 'route'.");
   });
 
-  it("the same pages written against the current API pass, links included (AC1)", () => {
+  it("the same pages written against the current API pass, links included (AC1)", async () => {
     const current = router('{ prompt: "Code changes", target: CoderAgent }');
-    const result = check({
+    const result = await check({
       "Home.md": home,
       "Workflow.md": "",
       "Routers.md": `# Routers\n\n${current}\n`,
@@ -69,8 +69,8 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     );
   });
 
-  it("a link to a page the wiki does not have fails; scripts and commands are checked as in the repo", () => {
-    const result = check({
+  it("a link to a page the wiki does not have fails; scripts and commands are checked as in the repo", async () => {
+    const result = await check({
       "Home.md": `${home}Run \`npm run test:routers\` or \`agb resume <id>\`.\n`,
       "Workflow.md": "See [the old page](Graph-API) and [the code](https://github.com/x/y).\n",
     });

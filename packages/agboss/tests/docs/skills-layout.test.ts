@@ -10,10 +10,10 @@
  * `dto/`, tests mirroring `src/` — and `examples/flow-patterns` keeps to it with its real files. The
  * rules live in layout-rules.ts.
  */
-import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runNode } from "../helpers/process.js";
 import { repo, scratch } from "./docs-check.js";
 import {
   KINDS,
@@ -525,9 +525,9 @@ describe("#474: examples/flow-patterns keeps to the layout", () => {
 });
 
 /** `agboss …` of the built CLI in `cwd`. */
-function agboss(cwd: string, args: readonly string[]): void {
+async function agboss(cwd: string, args: readonly string[]): Promise<void> {
   const cli = join(repo, "packages/agboss-cli/bin/agboss.js");
-  const done = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" });
+  const done = await runNode([cli, ...args], { cwd });
   expect(done.status, `${args.join(" ")}\n${done.stdout}${done.stderr}`).toBe(0);
 }
 
@@ -539,8 +539,8 @@ describe("#474: the snippets' layout is the one agboss generate writes", () => {
   });
 
   /** A project as `agboss create` writes it, then a workflow with an agent, a router and a tool. */
-  const generated = (): string[] => {
-    agboss(dir, [
+  const generated = async (): Promise<string[]> => {
+    await agboss(dir, [
       "create",
       "shop",
       "--yes",
@@ -548,10 +548,16 @@ describe("#474: the snippets' layout is the one agboss generate writes", () => {
       "--agents",
       "triage-agent:Sorts requests",
     ]);
-    agboss(project, ["generate", "workflow", "refund-workflow"]);
-    agboss(project, ["generate", "agent", "billing-agent", "--workflow", "refund-workflow"]);
-    agboss(project, ["generate", "router", "escalation-router", "--workflow", "refund-workflow"]);
-    agboss(project, [
+    await agboss(project, ["generate", "workflow", "refund-workflow"]);
+    await agboss(project, ["generate", "agent", "billing-agent", "--workflow", "refund-workflow"]);
+    await agboss(project, [
+      "generate",
+      "router",
+      "escalation-router",
+      "--workflow",
+      "refund-workflow",
+    ]);
+    await agboss(project, [
       "generate",
       "tool",
       "refund-tool",
@@ -563,8 +569,8 @@ describe("#474: the snippets' layout is the one agboss generate writes", () => {
     return treeOf(project, ["src", "tests"]);
   };
   let files: readonly string[] = [];
-  beforeAll(() => {
-    files = generated();
+  beforeAll(async () => {
+    files = await generated();
   }, 120_000);
 
   it("AC2: generate writes a workflow folder, an agent folder and a tool", () => {

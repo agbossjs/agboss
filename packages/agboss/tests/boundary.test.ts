@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as publicApi from "../src/index.js";
+import { outputOf } from "./helpers/process.js";
 
 const root = new URL("../../..", import.meta.url).pathname;
 const framework = new URL("../src", import.meta.url).pathname;
@@ -89,12 +89,12 @@ describe("framework and examples apart (#91)", () => {
     expect(pkg.dependencies?.["agboss-cli"]).toBeUndefined();
   });
 
-  it("AC4 (#101): no graphInject / graphinject left in the repository's code, commands or docs", () => {
+  it("AC4 (#101): no graphInject / graphinject left in the repository's code, commands or docs", async () => {
     const skip =
       /(^|\/)(node_modules|\.git|dist|coverage|\.langgraph_api|\.idea)(\/|$)|(^|\/)(\.env|package-lock\.json)$/;
     // the files git tracks: walking the tree races with tests that create and delete temp copies
     // (examples/.scaffold-tmp-*) and would also read untracked build output
-    const tracked = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" }).split("\n");
+    const tracked = (await outputOf("git", ["ls-files"], { cwd: root })).split("\n");
     const files = tracked.filter(
       (file) =>
         file !== "" &&

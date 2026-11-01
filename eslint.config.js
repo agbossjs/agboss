@@ -172,7 +172,7 @@ export default tseslint.config(
     files: ["packages/agboss-cli/src/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: cliImportPatterns() }] },
   },
-  testRules,
+  ...testRules,
   componentStateRules,
   directTimeRules,
   // one call per line in flow chains (#289): these files are formatted by ESLint, not Prettier

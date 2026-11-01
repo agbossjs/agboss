@@ -1,0 +1,16 @@
+{
+  "//": "#630: what `npm run coverage` must run — scripts/check-test-run.mjs holds vitest's JSON report against it. The projects of vitest.config.ts, stated again on purpose: a project dropped from the config, a moved folder or a run cut short fails here by name.",
+  "projects": [
+    {
+      "name": "unit",
+      "include": ["tests/**/*.test.ts"],
+      "exclude": ["tests/faults/**/*.test.ts", "tests/smoke/**", "tests/fixtures/contracts/**"],
+      "minFiles": 550
+    },
+    {
+      "name": "faults",
+      "include": ["tests/faults/**/*.test.ts"],
+      "minFiles": 16
+    }
+  ]
+}

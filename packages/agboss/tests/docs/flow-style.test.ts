@@ -98,12 +98,12 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
   const fence = (...lines: string[]): string =>
     ["```ts no-check: a fragment", ...lines, "```"].join("\n");
 
-  it("a flow snippet with two calls on one line fails check:docs, naming the doc, the line and the rule", () => {
+  it("a flow snippet with two calls on one line fails check:docs, naming the doc, the line and the rule", async () => {
     const dir = scratch();
     dirs.push(dir);
     const doc = `# Guide\n\n${fence("export const paths = [", "  start(A).toFinish(B),", "];")}\n`;
 
-    const result = checkDocs(dir, writeDocs(dir, { "guide.md": doc }));
+    const result = await checkDocs(dir, writeDocs(dir, { "guide.md": doc }));
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
@@ -111,7 +111,7 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
     );
   });
 
-  it("a flow snippet one call per line, and a chain that builds no path, pass", () => {
+  it("a flow snippet one call per line, and a chain that builds no path, pass", async () => {
     const dir = scratch();
     dirs.push(dir);
     const doc = [
@@ -123,7 +123,7 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
       "",
     ].join("\n");
 
-    const result = checkDocs(dir, writeDocs(dir, { "guide.md": doc }));
+    const result = await checkDocs(dir, writeDocs(dir, { "guide.md": doc }));
 
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);

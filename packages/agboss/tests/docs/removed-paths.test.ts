@@ -109,20 +109,20 @@ describe("#489 AC4: no link to examples/job-scout outside ADRs and the Changelog
   });
 
   // the next two spawn check-docs, as `npm run check:docs` and CI's wiki step do
-  it("check:docs fails on a repo doc that links the folder; the Changelog keeps its mention", () => {
+  it("check:docs fails on a repo doc that links the folder; the Changelog keeps its mention", async () => {
     const dir = fresh();
     const docs = writeDocs(dir, {
       "guide.md": "# Guide\n\nTry [job-scout](examples/job-scout).\n",
       "CHANGELOG.md": "# Changelog\n\n- job-scout added in examples/job-scout\n",
     });
 
-    const result = checkDocs(dir, docs);
+    const result = await checkDocs(dir, docs);
 
     expect(result.status).toBe(1);
     expect(result.stderr.trim().split("\n").slice(1)).toEqual([`  ${problem("guide.md", 3)}`]);
   }, 60_000);
 
-  it("check:docs --wiki fails on a current page that links the folder; ADRs keep theirs", () => {
+  it("check:docs --wiki fails on a current page that links the folder; ADRs keep theirs", async () => {
     const dir = fresh();
     const wiki = join(dir, "wiki");
     mkdirSync(join(wiki, ".git"), { recursive: true });
@@ -133,7 +133,7 @@ describe("#489 AC4: no link to examples/job-scout outside ADRs and the Changelog
       "Changelog.md": "# Changelog\n\n- examples/job-scout\n",
     });
 
-    const result = checkWiki(dir, "wiki");
+    const result = await checkWiki(dir, "wiki");
 
     expect(result.status).toBe(1);
     expect(result.stderr.trim().split("\n").slice(1)).toEqual([

@@ -2438,7 +2438,12 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 `RELEASE_CHECKLIST.md` → Dependency installs), no real-time threshold in a test (`npm run
 check:real-time`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
-prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
+prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage
+(the core's held against `packages/agboss/test-run.json` by `scripts/check-test-run.mjs`, #630: every
+file of each project — `unit`, `faults` — ran a test, at least its `minFiles`, else it fails by name;
+vitest 3 skips a `singleFork` project whole when another fork of the pool rejects, as one held 60 s by
+a synchronous child process does — so the package's tests await theirs, `tests/helpers/process.ts`,
+ESLint refusing `spawnSync` / `execFileSync` / `execSync` there),
 `agboss check --strict` on flow-patterns' two applications (warnings are errors, `--federation`
 between them) and its own lint and `agboss check --models` on flow-patterns (`npm run check:models`). CI's separate `mutation` jobs (#533, #626) run Stryker per shard of `packages/agboss/stryker.config.mjs` (`MUTATION_SHARD`): `fencing` (the leases, the fence, the held lease, the fenced effect, the outbound call's protocol and in-memory store, the store's clock; `vitest.mutation.config.ts`) and `sqlite-stores` (the SQLite lease, fenced-effect and outbound-call stores; `vitest.mutation-sqlite.config.ts`) — each incremental from its last run, every shard cold nightly (`mutation-nightly.yml`), failing below 100 %: every mutant killed, or justified where it stands (`// Stryker disable next-line <mutator>: <reason>`, only mutators whose every mutant on the line is equivalent, #619); locally `MUTATION_SHARD=<shard> npm run test:mutation -w @agboss/core`. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built

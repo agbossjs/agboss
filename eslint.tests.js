@@ -7,7 +7,20 @@ const FAKE_INTERRUPT = [
   message: "Do not fake a LangGraph interrupt — pause the run for real (testWith).",
 }));
 
-export const testRules = {
+// #630: a synchronous child process holds the vitest fork's event loop; held 60 s, its pending
+// `onTaskUpdate` times out, the fork's run rejects and vitest 3's forks pool skips the singleFork
+// fault suite whole. Only packages/agboss runs two projects on one pool.
+const BLOCKING = "/^(spawnSync|execFileSync|execSync)$/";
+const BLOCKING_CHILD_PROCESS = [
+  `ImportDeclaration[source.value=/^(node:)?child_process$/] ImportSpecifier[imported.name=${BLOCKING}]`,
+  `MemberExpression[property.name=${BLOCKING}]`,
+].map((selector) => ({
+  selector,
+  message:
+    "No synchronous child process in a test (#630): it can drop the fault suite from the run — await one with tests/helpers/process.ts.",
+}));
+
+const allTests = {
   files: [
     "packages/agboss/tests/**/*.ts",
     "packages/agboss-cli/tests/**/*.ts",
@@ -26,3 +39,11 @@ export const testRules = {
     "no-restricted-syntax": ["error", ...FAKE_INTERRUPT],
   },
 };
+
+export const testRules = [
+  allTests,
+  {
+    files: ["packages/agboss/tests/**/*.ts"],
+    rules: { "no-restricted-syntax": ["error", ...FAKE_INTERRUPT, ...BLOCKING_CHILD_PROCESS] },
+  },
+];

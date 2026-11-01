@@ -4,12 +4,12 @@
  * handles. Each import runs in a fresh Node process on `dist`, the package as a user installs it.
  * #205: the import stays lean — a module budget, and nothing of the `agboss` CLI (agboss-cli).
  */
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { runNode } from "../helpers/process.js";
 
 const dist = new URL("../../dist/", import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), "agboss-side-effects-"));
@@ -73,11 +73,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
 /** Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before; 1,500 at #340 for its public names). */
 const MODULE_BUDGET = 1_500;
 
-function importInFreshProcess(module: string): Probe {
+async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");
   writeFileSync(probe, PROBE);
-  const run = spawnSync(process.execPath, [probe, module], {
-    encoding: "utf8",
+  const run = await runNode([probe, module], {
     env: { ...process.env, LANGFUSE_PUBLIC_KEY: "pk", LANGFUSE_SECRET_KEY: "sk", TERN_DB: "x" },
   });
   expect(run.stderr).toBe("");
@@ -89,12 +88,12 @@ afterAll(() => {
 });
 
 describe("the root entry has no side effects (#195)", () => {
-  it("loads no tracing, MCP, SQLite or .env, reads no env variable and opens no handle", () => {
+  it("loads no tracing, MCP, SQLite or .env, reads no env variable and opens no handle", async () => {
     expect(existsSync(new URL("index.js", dist)), "build the package first: npm run build").toBe(
       true,
     );
 
-    const root = importInFreshProcess(fileURLToPath(new URL("index.js", dist)));
+    const root = await importInFreshProcess(fileURLToPath(new URL("index.js", dist)));
 
     expect(root.exports).toEqual(
       expect.arrayContaining(["createApp", "Agent", "Workflow", "start"]),
@@ -104,20 +103,20 @@ describe("the root entry has no side effects (#195)", () => {
     expect(root.after).toEqual(root.before);
   });
 
-  it("#205 AC1: stays under the module budget and loads nothing of the CLI", () => {
-    const root = importInFreshProcess(fileURLToPath(new URL("index.js", dist)));
+  it("#205 AC1: stays under the module budget and loads nothing of the CLI", async () => {
+    const root = await importInFreshProcess(fileURLToPath(new URL("index.js", dist)));
 
     expect(root.loaded.length).toBeLessThan(MODULE_BUDGET);
     expect(root.loaded.filter((url) => CLI_ONLY.test(url))).toEqual([]);
     expect(root.loaded.filter((url) => url.endsWith("/dist/internal.js"))).toEqual([]);
   });
 
-  it("the probe sees modules and env reads: agboss/mcp loads the MCP SDK", () => {
-    const mcp = importInFreshProcess(fileURLToPath(new URL("mcp/index.js", dist)));
+  it("the probe sees modules and env reads: agboss/mcp loads the MCP SDK", async () => {
+    const mcp = await importInFreshProcess(fileURLToPath(new URL("mcp/index.js", dist)));
     const reader = join(dir, "reader.mjs");
     writeFileSync(reader, "export const key = process.env.LANGFUSE_PUBLIC_KEY;\n");
 
-    expect(importInFreshProcess(reader).reads).toEqual(["LANGFUSE_PUBLIC_KEY"]);
+    expect((await importInFreshProcess(reader)).reads).toEqual(["LANGFUSE_PUBLIC_KEY"]);
 
     expect(mcp.loaded.some((url) => url.includes("node_modules/@modelcontextprotocol/sdk/"))).toBe(
       true,

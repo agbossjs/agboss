@@ -157,7 +157,7 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "coverage": "vitest run --coverage",
+    "coverage": "node ../../scripts/check-test-run.mjs --expect test-run.json -- vitest run --coverage",
     "smoke": "vitest run --config vitest.smoke.config.ts",
     "test:mutation": "stryker run",
     "schema": "tsx src/config/write-profile-schema.ts"
