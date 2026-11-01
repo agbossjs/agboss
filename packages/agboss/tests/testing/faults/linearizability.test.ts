@@ -250,6 +250,24 @@ describe("#533 item 5: the linearizability checker", () => {
     expect(failures(tooEarly)).toHaveLength(1);
   });
 
+  it("#660: a renewal the later answers pin inside its span (50–80 ms) is taken there — a sound history passes", () => {
+    // a's lease, renewed at t, runs to t + 30 s: b's take is refused at 30 050 ms (t > 50) and
+    // the read finds it expired at 30 070 ms (t ≤ 80) — neither end of the renewal's span is t
+    const renewed = () =>
+      new Recorded()
+        .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
+        .op(StoreHoldPoint.LeaseRenew, "a", lease("a", 1), 30_000, 10, 100);
+    const sound = renewed()
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, null, 30_050, 30_060)
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "superseded", 30_070, 30_080);
+    const refusedAfterExpired = renewed()
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "superseded", 30_070, 30_080)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, null, 30_090, 30_095);
+
+    expect(failures(sound)).toEqual([]);
+    expect(failures(refusedAfterExpired)).toHaveLength(1);
+  });
+
   it("#617: a stale read across two processes — the old token Live after the newer grant completed — fails", () => {
     const history = new Recorded()
       .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)

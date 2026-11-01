@@ -1,5 +1,5 @@
 import { EMPTY_FENCING_STATE, type FencingState } from "../../contracts/models/lease-model.js";
-import { applied, objectsOf } from "./apply.js";
+import { applied, leaseSetBy, objectsOf } from "./apply.js";
 import { UNKNOWN, type CheckedOperation } from "./operations.js";
 
 /**
@@ -10,7 +10,7 @@ import { UNKNOWN, type CheckedOperation } from "./operations.js";
  * slack and not before the last one taken — never after its own end (#617): an operation that
  * completed took effect by then. The instants tried, earliest first, are where the model's answers
  * can change: the span's start, just before and at each lease expiry of the state inside the span,
- * and its end. An operation whose answer nobody saw may never have taken effect, or may have at
+ * where the expiry the operation sets meets another span's end (#660), and its end. An operation whose answer nobody saw may never have taken effect, or may have at
  * any instant after its invoke (its span has no end: a store can apply a request whose caller is
  * gone). A state already reached with the same operations taken and the same last instant is not
  * searched again.
@@ -61,10 +61,14 @@ interface SearchState {
 /** The search of one part. */
 class PartSearch {
   readonly #seen = new Set<string>();
+  /** Every finite span end of the part: where a later answer can flip (#660). */
+  readonly #ends: readonly number[];
   longest: readonly CheckedOperation[] = [];
   stuck: readonly CheckedOperation[] = [];
 
-  constructor(readonly operations: readonly CheckedOperation[]) {}
+  constructor(readonly operations: readonly CheckedOperation[]) {
+    this.#ends = operations.flatMap(({ from, to }) => [from, to]).filter(Number.isFinite);
+  }
 
   /** Whether every operation with a seen answer can be taken, from `at`. */
   search(at: SearchState): boolean {
@@ -93,7 +97,7 @@ class PartSearch {
     const operation = this.operations[index] ?? never();
     const taken = at.taken.map((done, other) => done || other === index);
     if (operation.output === UNKNOWN && this.search({ ...at, taken })) return true;
-    return instantsOf(at.state, operation, at.last).some((instant) => {
+    return instantsOf(at.state, operation, at.last, this.#ends).some((instant) => {
       const state = applied(at.state, operation, instant);
       const order = [...at.order, operation];
       return state !== undefined && this.search({ taken, state, last: instant, order });
@@ -105,14 +109,27 @@ class PartSearch {
 const JUST_BEFORE = 0.001;
 
 /**
+ * Where a later answer can flip between live and expired because of the instant `operation` takes
+ * effect at (#660): one that sets an expiry `d` after it, taken at `end − d` or just after, ends its
+ * lease at or just past `end`, for each span end of the part. The rest set no expiry: none.
+ */
+function flipsOf(operation: CheckedOperation, ends: readonly number[]): readonly number[] {
+  const length = leaseSetBy(operation);
+  if (length === undefined) return [];
+  return ends.flatMap((end) => [end - length, end - length + JUST_BEFORE]);
+}
+
+/**
  * The instants `operation` may take effect at after `last`, earliest first (#617): its span's start,
- * just before and at each lease expiry of `state` inside the span, and its end — none when the span
- * ended before `last`.
+ * just before and at each lease expiry of `state` inside the span, where the expiry it sets makes a
+ * later answer flip (#660: `ends`, the part's span ends), and its end — none when the span ended
+ * before `last`.
  */
 function instantsOf(
   state: FencingState,
   operation: CheckedOperation,
   last: number,
+  ends: readonly number[],
 ): readonly number[] {
   const from = Math.max(operation.from, last);
   const to = operation.output === UNKNOWN ? Number.POSITIVE_INFINITY : operation.to;
@@ -121,9 +138,11 @@ function instantsOf(
     expiresAt - JUST_BEFORE,
     expiresAt,
   ]);
-  const inside = expiries.filter((instant) => instant > from && instant <= to);
-  const ends = Number.isFinite(to) && to > from ? [to] : [];
-  return [...new Set([from, ...inside, ...ends])].sort((left, right) => left - right);
+  const inside = [...expiries, ...flipsOf(operation, ends)].filter(
+    (instant) => instant > from && instant <= to,
+  );
+  const end = Number.isFinite(to) && to > from ? [to] : [];
+  return [...new Set([from, ...inside, ...end])].sort((left, right) => left - right);
 }
 
 const never = (): never => {
