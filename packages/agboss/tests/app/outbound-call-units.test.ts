@@ -11,7 +11,12 @@ import {
   replayedFromOf,
   reportedKeyOf,
 } from "../../src/app/outbound-call-business.js";
-import { fencedEnd, leaseSuperseded, superseded } from "../../src/app/outbound-call-endings.js";
+import {
+  fencedEnd,
+  leaseSuperseded,
+  superseded,
+  unreconciledOf,
+} from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
 import { OutboundCallOutcomeStatus } from "../../src/app/outbound-calls.js";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
@@ -78,7 +83,7 @@ function endingRun(findByKey: () => Promise<unknown>) {
     frame: frameWith({
       recordOutboundCall: (move: Record<string, unknown>) => moves.push(move),
     }),
-    parts: { repository: { findByKey }, log },
+    parts: { repository: { findByKey }, log, settings: { requiresMask: false } },
     key: { name: "charge", tenantId: "default", scopeKey: "s", token: 2 },
     options: { target: "payments", operation: "charge" },
   } as never;
@@ -171,6 +176,20 @@ describe("#626: an attempt's fenced end", () => {
     const { run } = endingRun(() => Promise.resolve(undefined));
 
     await expect(fencedEnd(run, 1, () => Promise.resolve(false))).resolves.toBe(false);
+  });
+});
+
+describe("#626: a call reconcile could not settle", () => {
+  it("is told Unknown at the found attempt, and its error names the reason and the key's handle", async () => {
+    const { run, moves } = endingRun(() => Promise.resolve(undefined));
+    const found = { status: OutboundCallStatus.Pending, attempt: 3 } as never;
+
+    const error = await unreconciledOf(run, found, "the gateway does not know it");
+
+    expect(movedOf(moves)).toEqual([
+      { outcome: OutboundCallEventOutcome.Unknown, status: OutboundCallStatus.Pending, attempt: 3 },
+    ]);
+    expect(error).toMatchObject({ reason: "the gateway does not know it" });
   });
 });
 
