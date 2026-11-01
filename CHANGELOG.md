@@ -220,6 +220,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **Wiki → Guarantees says what each proof bounds** (#625, found in the acceptance of #533) — a
+  stepped database clock can make two instances trust one lease (A3); the explorer covers P2 for the
+  step's key only, up to its depth and over its listed races; on PostgreSQL it explores the SQL on
+  the test's clock, and database time is proved by agbossjs/postgres' clock tests; the mutation row
+  names its scope and its over-broad comments; P5 rests on store conformance, with its proofs.
 - **The linearizability checker places each operation inside its own span** (#617, found in the
   acceptance of #533) — it took an operation at the latest instant of an earlier one, past its own
   completion: a take of a live lease at 10 ms passed behind a frozen holder's renewal that answered
