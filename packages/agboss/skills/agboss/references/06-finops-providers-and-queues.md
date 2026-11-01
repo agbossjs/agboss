@@ -121,7 +121,11 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   finishes only, `[graph.limit-handler-uses-model]`), else the execution fails. In a parallel launch the
   call that exhausts a budget aborts the calls in flight of every branch of the tree.
 - **Nothing is reserved**: a budget is exceeded by at most the calls in flight when it was exhausted,
-  and parallel executions of one tenant may overrun it a little. An automatic undo is never refused
+  plus the spend of the steps it never holds back (the undos, automatic or a side path's; the
+  actions of the side path that took a limit, step by step — a paid notice there overruns by what it
+  costs), plus, across instances, what other trees' steps spend that start before that spend is in
+  the ledger (at the end of the superstep that spent it, #664); parallel executions of one tenant
+  may overrun it a little. An automatic undo is never refused
   by a budget (reference 02, section 8).
 - Assembly: `[budget.execution-budget-required]`, `[budget.duplicate-execution-budget]`,
   `[budget.duplicate-default-execution-budget]`, `[budget.tenant-budget-required]`,
