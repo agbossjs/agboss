@@ -254,8 +254,20 @@ on its cost, its tenant's and the application's. All violations at once, before 
   | Step | Why it runs |
   | --- | --- |
   | a start, a finish | it spends nothing: an execution whose last action overspends ends at its finish, its spend counted |
-  | an undo (`compensateWith`) | it gives money back: a failure for the budget runs the open undos ([Rollback](Rollback)), with no budget check — and so does the undo action a side path runs to close an open entry (`.onError(DeclinedError, toAction(RefundAction)…)`) |
-  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onJoinError(…)`) | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
+  | an undo (`compensateWith`) | it gives money back: a failure for the budget runs the open undos ([Rollback](Rollback)), with no budget check — and so does the undo action a side path runs to close an entry that was open when the side path was entered (`.onError(DeclinedError, toAction(RefundAction)…)`) |
+  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onJoinError(…)`), and the actions it leads to step by step | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
+
+  Both exemptions hold **only on that side path** (#656): it is the visit the `.onError` /
+  `.onJoinError` leads to and, one visit after another, the visit each leads to — a record in the
+  execution's checkpointed state, so the visit run again after a resume or a takeover reads it as
+  the first run did. A finish or a launch ends it: the branches a side path launches, and whatever
+  follows their join, are held back. An undo action reached any other way — a step of the main path
+  that is also some entry's undo, or the undo of an entry opened on the side path itself — is a
+  step like any other: held back. Without a side path for the budget's error the execution fails
+  and its automatic undo undoes the entry; with one (`.toAction(RefundAction).onError(BudgetExceededError, …)`)
+  the entry it would have closed is listed as a failed undo (`CompensationStatus.Failed`, the
+  budget's error), as for any undo whose own `.onError` took its failure — that side path is the
+  application's reaction.
 
 - **A call that exhausts a budget** runs none of the tools its move asks for: the agent fails with
   `BudgetExceededError`, the call's cost in its spend. An answer it gave is kept — the next step or

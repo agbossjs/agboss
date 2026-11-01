@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the budget's exemptions hold only on their side path (#656)
+
+- **Fixed**: once any limit had been handled, every later action of the execution skipped the
+  budgets, and an action that is some open entry's undo skipped them on any visit. Now the side
+  path that took a limit exempts its actions and what they lead to step by step, until a finish or
+  a launch; an undo action is exempt only on a side path, undoing an entry open when it was
+  entered. The side path is kept in the execution's checkpointed state (a takeover reads it as the
+  first run did). No API change. [FinOps → Budgets](FinOps).
+
 ## Unreleased — 0.1.1: an answer-only agent answers with one call (#649)
 
 - **Fixed**: an agent whose only tools are its answer tools sends `parallel_tool_calls: false` to
