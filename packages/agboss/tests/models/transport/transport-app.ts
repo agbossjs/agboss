@@ -7,7 +7,8 @@ import type { ProviderFetch } from "../../../src/models/resilient-fetch.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { SequentialIdGenerator } from "../../../src/testing/id-generator.js";
 import { seconds } from "../../../src/units/index.js";
-import { BedrockSdkClient } from "./bedrock-provider.fixture.js";
+import { execute } from "../../helpers/flow.js";
+import { answer, BedrockSdkClient, ScriptedBedrockClient } from "./bedrock-provider.fixture.js";
 
 /** What a transport test's instance runs on: the scripted SDK client, the clock, an HTTP stub. */
 export interface TransportAppParts {
@@ -52,15 +53,21 @@ export async function transportApp(application: Class, parts: TransportAppParts)
   return built.app;
 }
 
-/** A real macrotask: what a first execution loads lazily (its modules) gets to load. */
+/** A real macrotask: the work a woken sleep scheduled gets to run before the next second. */
 const realTick = (): Promise<void> =>
   new Promise((resolve) => {
     setImmediate(resolve);
   });
 
+/** How far `advanceUntilSettled` moves the clock before it gives up. */
+const MOST_SECONDS = 600;
+
 /**
  * Moves the test's clock a second at a time, a real tick between, until `done` settles — so a
- * call's backoff and timeout pass on the clock while the execution's own lazy loading takes real time.
+ * call's backoff and timeout pass on the clock. The clock moves with every real tick, so the work
+ * must do no real I/O meanwhile: a first execution's modules, loaded lazily, are real I/O, and the
+ * clock runs on while they load (#604) — warm them first (`warmedUp`). Fails after `MOST_SECONDS`
+ * on the clock instead of leaving a wait no one will wake.
  */
 export async function advanceUntilSettled<T>(clock: VirtualClock, done: Promise<T>): Promise<T> {
   const progress = { settled: false };
@@ -68,9 +75,24 @@ export async function advanceUntilSettled<T>(clock: VirtualClock, done: Promise<
     progress.settled = true;
   };
   void done.then(settle, settle);
-  for (let step = 0; step < 600 && !progress.settled; step++) {
+  for (let step = 0; step < MOST_SECONDS && !progress.settled; step++) {
     await realTick();
     await clock.advance(seconds(1));
   }
+  if (!progress.settled)
+    throw new Error(`not settled after ${String(MOST_SECONDS)} s on the test's clock`);
   return done;
+}
+
+/**
+ * Runs one execution of `application` to its end, answered at once, without moving any clock
+ * (#604): every module a first execution loads lazily — its pass, its lease's events, its end — is
+ * loaded then, so the clocked tests after it do no real I/O while `advanceUntilSettled` moves
+ * their clock. Under load such a load outlasted the 600 ticks and the retry's backoff was never woken.
+ */
+export async function warmedUp(application: Class, start: Class): Promise<void> {
+  const client = new ScriptedBedrockClient([answer("warm")]);
+  const app = await transportApp(application, { client });
+  await execute(app, start, { text: "warm" });
+  await app.close();
 }
