@@ -58,9 +58,8 @@ export async function checkedCall<TRequest, TResult>(
   const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
   if (key.businessKey === undefined) return undefined;
-  const isUnderThisLease =
-    found.leaseExecutionId === key.leaseExecutionId && found.token === key.token;
-  if (isUnderThisLease) return undefined;
+  // the caller holds this lease's current token: an older one of it is ended whatever its token
+  if (found.leaseExecutionId === key.leaseExecutionId) return undefined;
   const { tenantId, leaseExecutionId, token } = found;
   const state = await run.parts.repository.leaseStateOf({ tenantId, leaseExecutionId, token });
   if (state === OutboundCallLeaseState.Live) throw inFlight;
