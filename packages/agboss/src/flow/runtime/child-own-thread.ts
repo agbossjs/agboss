@@ -3,7 +3,16 @@ import { Command, interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import type { ExecutionGraph } from "./build.js";
 import type { ChildGraph } from "./child.js";
 import type { ChildEntered } from "./child-identity.js";
-import { asRootRun, isExecutionState, rootConfigOf } from "./child-thread.js";
+import {
+  WRITTEN_MODES,
+  asRootRun,
+  atLeafCheckpoint,
+  checkpointAt,
+  isExecutionState,
+  rootConfigOf,
+  valuesWritten,
+  type WrittenCheckpoint,
+} from "./child-thread.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
 /**
@@ -77,6 +86,8 @@ interface Streamed {
   last?: ExecutionStateType;
   /** This call streamed the child's graph at least once (#562). */
   isStreamed?: boolean;
+  /** The checkpoint this call's runs wrote last (#661). */
+  written?: WrittenCheckpoint;
 }
 
 /** Streams the child's graph on its own thread, as a root graph, into `seen`. */
@@ -87,15 +98,24 @@ async function stream(
   seen: Streamed,
 ): Promise<void> {
   seen.isStreamed = true;
+  const written = (seen.written ??= {});
   await asRootRun(async () => {
-    const states = await run.graph.stream(input, { ...config, streamMode: "values" });
-    for await (const state of states) if (isExecutionState(state)) seen.last = state;
+    const chunks = await run.graph.stream(input, { ...config, streamMode: WRITTEN_MODES });
+    for await (const state of valuesWritten(chunks, written))
+      if (isExecutionState(state)) seen.last = state;
   });
 }
 
-/** The child's state on its own thread, and whether it rests (tasks left with an interrupt). */
-async function snapshotOf(run: OwnThreadRun, config: RunnableConfig) {
-  const snapshot = await run.graph.getState(config);
+/**
+ * The child's state on its own thread, and whether it rests (tasks left with an interrupt): at the
+ * checkpoint this call wrote last, else at its thread's leaf (#661, `child-thread.ts`).
+ */
+async function snapshotOf(run: OwnThreadRun, config: RunnableConfig, seen: Streamed) {
+  const at =
+    seen.written?.id === undefined
+      ? await atLeafCheckpoint(run.graph.checkpointer, config)
+      : checkpointAt(config, seen.written);
+  const snapshot = await run.graph.getState(at);
   const interrupts = snapshot.tasks.flatMap((task) =>
     task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
   );
@@ -110,7 +130,7 @@ async function reenteredOf(
   run: OwnThreadRun,
   config: RunnableConfig,
 ): Promise<{ readonly hasFailed: boolean; readonly rests: boolean }> {
-  const { snapshot, rests } = await snapshotOf(run, config);
+  const { snapshot, rests } = await snapshotOf(run, config, {});
   return { hasFailed: snapshot.tasks.some((task) => task.error !== undefined), rests };
 }
 
@@ -124,7 +144,7 @@ async function movedOn(
   config: RunnableConfig,
   seen: Streamed,
 ): Promise<ExecutionStateType | undefined> {
-  const { snapshot, rests, interrupts } = await snapshotOf(run, config);
+  const { snapshot, rests, interrupts } = await snapshotOf(run, config, seen);
   if (!rests) {
     const state = isExecutionState(snapshot.values) ? snapshot.values : seen.last;
     if (state === undefined) throw new TypeError(`${run.thread} ended without a state`);

@@ -5,7 +5,14 @@ import { leasedDeps, leasedGraphDeps } from "../tree-ends.js";
 import { runIdOf, type RunContext } from "../../core/run-context.js";
 import { totalCost } from "../../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../../flow/runtime/build.js";
-import { asRootRun, isExecutionState } from "../../flow/runtime/child-thread.js";
+import {
+  WRITTEN_MODES,
+  asRootRun,
+  atLeafCheckpoint,
+  checkpointAt,
+  isExecutionState,
+  valuesWritten,
+} from "../../flow/runtime/child-thread.js";
 import { decodedRun, parentOfRecord } from "../../flow/runtime/remote/remote-child-run.js";
 import type { RemoteChildRun } from "../../flow/runtime/remote/remote-child-run.js";
 import { failureTextOf } from "../../flow/runtime/remote/remote-failure.js";
@@ -21,7 +28,7 @@ import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
 import { resumedSpendOf } from "./queued-child-spend.js";
 import { cancelledOf, type AnnouncedPass, type ClaimedChild } from "./child-end-event.js";
-import type { ExecutionStateType } from "../../flow/runtime/state.js";
+import type { ExecutionStateType, ExecutionStateUpdate } from "../../flow/runtime/state.js";
 
 /**
  * One queued child run on the instance that claimed it (#333 PR 2, PR 4): its workflow's graph
@@ -126,6 +133,24 @@ const passOf = (snapshot: Awaited<ReturnType<ExecutionGraph["getState"]>>): Stre
   last: isExecutionState(snapshot.values) ? snapshot.values : undefined,
 });
 
+/**
+ * One run of the child's graph from `input`, drained: how it left the child, read at the checkpoint
+ * it wrote last — never the thread's greatest id (#661, `child-thread.ts`).
+ */
+async function passRunOf(
+  graph: ExecutionGraph,
+  config: Parameters<typeof checkpointAt>[0],
+  input: ExecutionStateUpdate | Command | null,
+  drain: (states: AsyncIterable<ExecutionStateType>) => Promise<unknown>,
+): Promise<StreamedPass> {
+  const written: { id?: string } = {};
+  await asRootRun(async () => {
+    const chunks = await graph.stream(input, { ...config, streamMode: WRITTEN_MODES });
+    await drain(valuesWritten(chunks, written));
+  });
+  return passOf(await asRootRun(() => graph.getState(checkpointAt(config, written))));
+}
+
 /** Streams the child's graph on its own thread; whether it rests at a pause. */
 async function streamed(
   childDeps: GraphDeps<string>,
@@ -140,7 +165,9 @@ async function streamed(
     budgets: (await continuedExecutionBudgets(rootDeps, initial.budgets, totalCost(initial.usage)))
       .meter,
   });
-  const before = await asRootRun(() => reading.getState(config));
+  // a re-entered child as an earlier pass left it: its thread's leaf (#661)
+  const at = await atLeafCheckpoint(reading.checkpointer, config);
+  const before = await asRootRun(() => reading.getState(at));
   if (!isExecutionState(before.values)) {
     const budgets = await continuedExecutionBudgets(
       rootDeps,
@@ -149,10 +176,7 @@ async function streamed(
     );
     const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
     const record = recorder(budgets.meter, []);
-    await asRootRun(async () =>
-      drainRun(await graph.stream(initial, config), record, initial.usage),
-    );
-    return passOf(await asRootRun(() => graph.getState(config)));
+    return passRunOf(graph, config, initial, (states) => drainRun(states, record, initial.usage));
   }
   if (before.next.length === 0) return passOf(before);
   const interrupts = interruptIdsOf(before);
@@ -172,8 +196,7 @@ async function streamed(
   const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
   const record = recorder(budgets.meter, []);
   const input = isResuming ? new Command({ resume }) : null;
-  await asRootRun(async () => drainRun(await graph.stream(input, config), record, spent));
-  return passOf(await asRootRun(() => graph.getState(config)));
+  return passRunOf(graph, config, input, (states) => drainRun(states, record, spent));
 }
 
 /** What a claimed child's run needs from its instance. */

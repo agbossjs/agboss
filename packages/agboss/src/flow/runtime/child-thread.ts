@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
-import { emptyCheckpoint, type BaseCheckpointSaver } from "@langchain/langgraph";
+import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
 import type { ChildIdentityRecord } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
 
@@ -131,4 +131,70 @@ export async function childGraphOf<G extends WithSubgraphs>(
     // LangGraph boundary: a node's registered subgraph is the child's compiled graph (same kind)
     if (name === waiting.node) return subgraph as G;
   return undefined;
+}
+
+/**
+ * The checkpoint a run wrote last (#661), where its end is read — never a thread's latest. LangGraph
+ * names each checkpoint by a UUIDv6 of `Date.now()` and a saver's latest checkpoint is the one with
+ * the greatest id, so after the host's wall clock steps back (an NTP `settimeofday`) a run's newest
+ * checkpoints sort before older ones: its thread's latest is then a checkpoint whose tasks all wrote
+ * — `next` empty, read as ended — with none of their values (a child's result lost). A run streamed
+ * with `WRITTEN_MODES` names each checkpoint it writes; `checkpointAt` reads that one by its id.
+ */
+
+/** The stream modes of a run whose checkpoints are read back: its states and its checkpoints. */
+export const WRITTEN_MODES: ["values", "checkpoints"] = ["values", "checkpoints"];
+
+/** The id of the checkpoint a run wrote last, filled while it streams. */
+export interface WrittenCheckpoint {
+  id?: string;
+}
+
+/** A streamed checkpoint's id (LangGraph's `checkpoints` stream mode: checked, not cast). */
+function checkpointIdOf(payload: unknown): string | undefined {
+  const config: unknown = isRecord(payload) ? payload.config : undefined;
+  const configurable: unknown = isRecord(config) ? config.configurable : undefined;
+  const id: unknown = isRecord(configurable) ? configurable.checkpoint_id : undefined;
+  return typeof id === "string" ? id : undefined;
+}
+
+/** The values chunks of a `WRITTEN_MODES` stream; the id of each checkpoint chunk kept in `written`. */
+export async function* valuesWritten<TValues>(
+  chunks: AsyncIterable<readonly ["values", TValues] | readonly ["checkpoints", unknown]>,
+  written: WrittenCheckpoint,
+): AsyncGenerator<TValues> {
+  for await (const chunk of chunks) {
+    if (chunk[0] === "values") yield chunk[1];
+    else written.id = checkpointIdOf(chunk[1]) ?? written.id;
+  }
+}
+
+/** `config` at the checkpoint the run wrote last; the thread's latest when it wrote none. */
+export const checkpointAt = (config: RunnableConfig, written: WrittenCheckpoint): RunnableConfig =>
+  written.id === undefined
+    ? config
+    : { ...config, configurable: { ...config.configurable, checkpoint_id: written.id } };
+
+/**
+ * `config` at the leaf of its thread's checkpoint chain — the one checkpoint no other names as its
+ * parent: what a reader that did not stream the run (a remote child's parent) reads instead of the
+ * greatest id; the thread's latest when there is no single leaf (no checkpoint, or a fork).
+ */
+export async function atLeafCheckpoint(
+  saver: BaseCheckpointSaver | boolean | undefined,
+  config: RunnableConfig,
+): Promise<RunnableConfig> {
+  if (!(saver instanceof BaseCheckpointSaver)) return config;
+  const ids = new Set<string>();
+  const parents = new Set<string>();
+  const threadId: unknown = config.configurable?.thread_id;
+  const namespace: unknown = config.configurable?.checkpoint_ns ?? "";
+  const thread = { configurable: { thread_id: threadId, checkpoint_ns: namespace } };
+  for await (const tuple of saver.list(thread)) {
+    ids.add(tuple.checkpoint.id);
+    const parent: unknown = tuple.parentConfig?.configurable?.checkpoint_id;
+    if (typeof parent === "string") parents.add(parent);
+  }
+  const leaves = [...ids].filter((id) => !parents.has(id));
+  return leaves.length === 1 ? checkpointAt(config, { id: leaves[0] }) : config;
 }
