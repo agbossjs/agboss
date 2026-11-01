@@ -4,7 +4,7 @@
  * provider's whole queue, the attempt's timeout on an SDK that ignores its signal, any other error
  * not retried but counted by the breaker — open, it fails fast and readiness is `Degraded`.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { HealthComponentKind, HealthStatus } from "../../../src/index.js";
 import {
   ModelCallError,
@@ -17,7 +17,7 @@ import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { BedrockApplication } from "./bedrock-apps.fixture.js";
 import { answer, ScriptedBedrockClient } from "./bedrock-provider.fixture.js";
-import { advanceUntilSettled, transportApp } from "./transport-app.js";
+import { advanceUntilSettled, transportApp, warmedUp } from "./transport-app.js";
 
 /** When each call came, in seconds after the first. */
 const secondsOf = (client: ScriptedBedrockClient): readonly number[] =>
@@ -31,6 +31,9 @@ function isCircuitOpen(error: unknown): boolean {
 }
 
 describe("#385: the gateway's policies run around complete()", { timeout: 20_000 }, () => {
+  // the modules a first execution loads lazily, loaded before any clock moves (#604)
+  beforeAll(() => warmedUp(BedrockApplication, ChatStart), 20_000);
+
   it("retryPolicy: a ModelFailure.ServerError is retried after its backoff — one call, paid once", async () => {
     const clock = new VirtualClock();
     const failure = new ModelProviderFailureError(ModelFailure.ServerError);
