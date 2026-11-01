@@ -217,7 +217,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         from.attempt,
         from.attemptOwner,
       );
-    return oneRowChanged(changes, "an intent read in its own write's transaction");
+    return oneRowChanged(changes);
   }
 
   /** `work` after the fencing checks, the mark raised, in one transaction. */

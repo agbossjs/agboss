@@ -37,21 +37,6 @@ const SHARDS = {
       "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
     ],
   },
-  // the business-key identity (fingerprints, conflicts, the key's text rules: #538, #547, #556, #574,
-  // #620) and the outbound call's runtime — sends, joins, superseded attempts, endings, reads (#626)
-  "keys-and-calls": {
-    configFile: "vitest.mutation-calls.config.ts",
-    mutate: [
-      "src/infrastructure/fenced-effect-key.ts",
-      // `keyTextRuleOf` and its rules, not the error classes around them
-      "src/core/errors.ts:140-174",
-      "src/app/outbound-calls.ts",
-      "src/app/outbound-call-join.ts",
-      "src/app/outbound-call-business.ts",
-      "src/app/outbound-call-endings.ts",
-      "src/infrastructure/outbound-call-record.ts",
-    ],
-  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

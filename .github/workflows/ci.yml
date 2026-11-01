@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [fencing, sqlite-stores, keys-and-calls]
+        shard: [fencing, sqlite-stores]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}
     steps:

@@ -224,12 +224,12 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
     await expect(call).rejects.toMatchObject({ name: "FencedEffectAsyncWorkError" });
   });
 
-  it("oneRowChanged: true for one row, an Error naming the write for any other count", () => {
-    expect(oneRowChanged(1, "a row")).toBe(true);
-    expect(oneRowChanged(1n, "a row")).toBe(true);
-    expect(() => oneRowChanged(0, "an intent")).toThrow(
-      new Error("unreachable: 0 rows changed by a write of an intent"),
+  it("oneRowChanged: true for one row, an Error for any other count", () => {
+    expect(oneRowChanged(1)).toBe(true);
+    expect(oneRowChanged(1n)).toBe(true);
+    expect(() => oneRowChanged(0)).toThrow(
+      new Error("unreachable: 0 rows changed by a write of a row read first"),
     );
-    expect(() => oneRowChanged(2n, "an intent")).toThrow(/2 rows/);
+    expect(() => oneRowChanged(2n)).toThrow(/2 rows/);
   });
 });
