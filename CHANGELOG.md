@@ -244,6 +244,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A child's result lost when the host's clock stepped back** (#661) — a child's end was read at
+  its thread's latest checkpoint, the greatest id — LangGraph's UUIDv6 of `Date.now()`. After a
+  backward step of the wall clock (an NTP `settimeofday`: −50.8 ms where it was seen) the child's
+  newest checkpoints sorted before older ones, the one before its action looked ended, and the
+  parent got `undefined` for its result (a `DtoValidationError` at the parent's finish, or a value
+  missing on the path). Now a child's end is read at the checkpoint its own run wrote last — a
+  re-entered child and a remote child's parent at its thread's leaf —, on either placement. A
+  continuation from a thread's latest checkpoint after such a step is #682.
+
 - **A model reply interpreter sees the call it approves, and can say "not understood"** (#648) —
   its answer tool described `overrideArguments` as any object, and "not understood" was only
   "call no tool": cheap models read "ok but only up to $500" as a refusal and "🤷" as one too. Now

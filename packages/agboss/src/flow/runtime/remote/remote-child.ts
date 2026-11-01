@@ -11,7 +11,7 @@ import { treeKeyOf } from "../../../infrastructure/in-memory-database.js";
 import { seconds, type Milliseconds } from "../../../units/index.js";
 import type { ExecutionGraph } from "../build.js";
 import { resumeMapOf, type ChildWaiting } from "../child-own-thread.js";
-import { asRootRun, isExecutionState, rootConfigOf } from "../child-thread.js";
+import { asRootRun, atLeafCheckpoint, isExecutionState, rootConfigOf } from "../child-thread.js";
 import type { ExecutionStateType } from "../state.js";
 import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
 import { remoteChildSignals } from "./remote-child-signals.js";
@@ -172,7 +172,8 @@ async function hasOpenInterrupt(
   thread: string,
   resume: Readonly<Record<string, string>>,
 ): Promise<boolean> {
-  const snapshot = await asRootRun(() => graph.getState(rootConfigOf(config, thread)));
+  const at = await atLeafCheckpoint(graph.checkpointer, rootConfigOf(config, thread));
+  const snapshot = await asRootRun(() => graph.getState(at));
   return snapshot.tasks.some((task) =>
     task.interrupts.some((each) => each.id !== undefined && each.id in resume),
   );
@@ -205,7 +206,9 @@ async function lastStateOf(
   config: RunnableConfig,
   thread: string,
 ): Promise<ExecutionStateType | undefined> {
-  const snapshot = await asRootRun(() => graph.getState(rootConfigOf(config, thread)));
+  // its leaf checkpoint, never the greatest id (#661, `child-thread.ts`)
+  const at = await atLeafCheckpoint(graph.checkpointer, rootConfigOf(config, thread));
+  const snapshot = await asRootRun(() => graph.getState(at));
   return isExecutionState(snapshot.values) ? snapshot.values : undefined;
 }
 

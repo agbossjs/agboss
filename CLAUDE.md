@@ -597,7 +597,10 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   draws it inside) — a run of its own: its graph runs as a root graph on its own checkpoint thread
   `<parentThreadId>/child/<childExecutionId>` (never a thread of the API), awaited in its parent's
   step; the launching task's `checkpoint_ns` on the parent's thread holds only a marker (its
-  identity and thread, `flow/runtime/child-thread.ts`); a child that rests at a pause makes its
+  identity and thread, `flow/runtime/child-thread.ts`); its end is read at the checkpoint its own
+  run wrote last (a re-entry and a remote child's parent: its thread's leaf), never at the
+  thread's greatest checkpoint id — a UUIDv6 of the wall clock, out of order once the host's clock
+  steps back (#661, `child-thread.ts`; a continuation still starts there, #682); a child that rests at a pause makes its
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one
