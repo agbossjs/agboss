@@ -19,6 +19,7 @@ import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { MaskedRequest } from "../../pii/model-boundary.js";
 import { maskedRequest, outgoingMove } from "./model-pii.js";
+import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -56,7 +57,7 @@ async function callModel(
   if (binding.model.bindTools === undefined) {
     throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
   }
-  return binding.model.bindTools([...tools]).invoke([...messages], call);
+  return binding.model.bindTools([...tools], toolBindingOf(deps.agent)).invoke([...messages], call);
 }
 
 /** What `withCallIds` reads of the loop's state: the run, the visit and the turn. */

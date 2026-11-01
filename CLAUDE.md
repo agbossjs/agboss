@@ -724,7 +724,9 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
 --workflow <name>-workflow [--agent <name>-agent]` writes a code arbiter for a launch.
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
-  them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`;
+  them; an agent whose only tools are its answer tools sends `parallel_tool_calls: false`, and a
+  move of several answer calls is one answer when they repeat it exactly, refused when they differ,
+  #649), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`;
   `compensateWith: UndoAction` / `committedBy: CommitAction`, #339 — checked at assembly: the
   undo reads only what the path holds right after the action, `[action.invalid-compensator-input]`;
   an `.onError` / `.onJoinError` side path after it reaches a finish only through its undo, newest

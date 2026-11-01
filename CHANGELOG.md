@@ -233,6 +233,13 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
+  parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every
+  attempt was refused and the step failed. An agent whose only tools are its answer tools (not a
+  list of variants, which may answer with several) now sends `parallel_tool_calls: false` to
+  OpenAI-compatible servers. A move that still holds several answer calls is one answer when they
+  repeat it exactly, and refused — never one picked — when they differ: the model reads why, and the
+  step's `AgentAnswerInvalidError` names "N different answers in one move".
 - **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
   and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
   inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
