@@ -220,6 +220,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An explorer case aborted while it shrinks a violation makes no store call after** (#618, found
+  in the acceptance of #590) — the cutting down of a found schedule replayed it again and again,
+  each replay resetting the store, after vitest had timed the case out and moved on. The cutting
+  down, each replay and each walk now stop with the case's signal and time limit; the case still
+  fails, with the schedule as found and why it was not shrunk.
 - **The key-text cases catch an accent-insensitive collation** (#620, found in the acceptance of
   #533) — a store whose business-key column compares accent-blind (MySQL's `_ai_ci`, an ICU
   strength-1 collation, a unique index on `unaccent(key)`) and keeps each key as first given passed
