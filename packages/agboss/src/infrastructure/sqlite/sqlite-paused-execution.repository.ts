@@ -11,7 +11,8 @@ import {
 } from "../paused-execution.repository.js";
 import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { PAUSE_ANSWERS_MIGRATION, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
+import { SqlitePauseRows } from "./sqlite-pause-rows.js";
+import { migratePauses, PAUSES_SCHEMA } from "./sqlite-pause-schema.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
 const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
@@ -105,9 +106,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
       if (columns.length > 0 && !columns.includes("tenant_id"))
         connection.database.exec(TENANT_MIGRATION);
       else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
-      const pauseColumns = connection.columnsOf("pauses");
-      if (pauseColumns.length > 0 && !pauseColumns.includes("resolved_at"))
-        connection.database.exec(PAUSE_ANSWERS_MIGRATION);
+      migratePauses(connection);
     });
     connection.ensureSchema("paused_executions", SCHEMA);
     connection.ensureSchema("pauses", PAUSES_SCHEMA);
@@ -153,7 +152,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
 
   findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
     const found = this.connection.transaction((): PauseRecord => {
-      const stored = this.#pauses.findByStepKey(pause.tenantId, pause.stepKey);
+      const stored = this.#pauses.findByStepKey(pause);
       if (stored !== undefined) return stored;
       this.#pauses.insert(pause);
       return pause;

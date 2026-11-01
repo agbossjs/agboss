@@ -11,26 +11,9 @@ import {
 
 /**
  * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
- * key of a tenant; every change of a pending pause is one conditional `UPDATE … WHERE status =
+ * key of a tree (#663); every change of a pending pause is one conditional `UPDATE … WHERE status =
  * 'pending'`, so of two connections exactly one changes it.
  */
-
-export const PAUSES_SCHEMA = `CREATE TABLE IF NOT EXISTS pauses (
-  tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
-  root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
-  pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
-  PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, step_key));
-CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
-CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
-
-/**
- * The migration of a file written before the pause answer records (#267 S107): the answer column
- * was named `resolution`; how and when a pause was resolved get columns of their own.
- */
-export const PAUSE_ANSWERS_MIGRATION = `ALTER TABLE pauses RENAME COLUMN resolution TO answer;
-ALTER TABLE pauses ADD COLUMN resolution TEXT;
-ALTER TABLE pauses ADD COLUMN resolved_at TEXT;
-CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
 
 /**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
@@ -155,10 +138,13 @@ const storedOf = (pause: PauseRecord): string =>
 export class SqlitePauseRows {
   constructor(private readonly database: DatabaseSync) {}
 
-  findByStepKey(tenantId: string, stepKey: string): PauseRecord | undefined {
+  /** The pause of the step key in the tenant's tree (#663: never another tree's). */
+  findByStepKey({ tenantId, rootExecutionId, stepKey }: PauseRecord): PauseRecord | undefined {
     const row = this.database
-      .prepare("SELECT * FROM pauses WHERE tenant_id = ? AND step_key = ?")
-      .get(tenantId, stepKey);
+      .prepare(
+        "SELECT * FROM pauses WHERE tenant_id = ? AND root_execution_id = ? AND step_key = ?",
+      )
+      .get(tenantId, rootExecutionId, stepKey);
     return row === undefined ? undefined : toPauseRecord(row);
   }
 

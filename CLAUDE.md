@@ -1410,7 +1410,7 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   never repeated over the life of the application's stores (#591): every execution id minted is kept
   by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
   by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`; the ids of before from the
-  leases and the outbound calls' executions, #638), and one any execution had —
+  leases, the outbound calls' executions, #638, and the pauses' executions and trees, #663), and one any execution had —
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
   (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
   launch failed before it starts; a resume or a recovery is not a create. A minted thread id the
@@ -1957,8 +1957,9 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
   other credential → `PauseAnswererError`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
   `reason?`, `overrideArguments?` only with `approved: true`) is validated before it is recorded.
-  Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key
-  before `send`: `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
+  Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key in
+  its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
+  tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
   any but `Pending` → `NotPausedError`. `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the

@@ -56,8 +56,11 @@ export abstract class PausedExecutionRepository {
   abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
 
   /**
-   * Atomic: the pause of `pause.stepKey` in its tenant when one exists, else `pause` saved and
-   * returned — so a step re-entered (a resume of a sibling, a retry after a crash) keeps its id.
+   * Atomic: the pause of `pause.stepKey` in its tenant's tree (`pause.rootExecutionId`) when one
+   * exists, else `pause` saved and returned — so a step re-entered (a resume of a sibling, a retry
+   * after a crash) keeps its id. A pause of the same step key in another tree is never found (#663):
+   * a step key names no tree, so an execution id kept from nowhere and minted again would otherwise
+   * take that tree's decision without asking — that step gets a pause of its own.
    */
   abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
 
@@ -158,7 +161,10 @@ export class InMemoryPausedExecutionRepository extends PausedExecutionRepository
 
   findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
     const found = [...this.#pauses.values()].find(
-      (stored) => stored.tenantId === pause.tenantId && stored.stepKey === pause.stepKey,
+      (stored) =>
+        stored.tenantId === pause.tenantId &&
+        stored.rootExecutionId === pause.rootExecutionId &&
+        stored.stepKey === pause.stepKey,
     );
     if (found !== undefined) return Promise.resolve(found);
     this.#pauses.set(pauseKeyOf(pause.tenantId, pause.pauseId), pause);
