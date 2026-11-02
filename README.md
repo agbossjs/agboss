@@ -302,6 +302,75 @@ export const durableStores = [
 ];
 ```
 
+**Several machines: PostgreSQL** (#482, #483). Pods on different machines share no file; they
+share one PostgreSQL database through [`@agboss/postgres`](https://github.com/agbossjs/postgres), a
+package of its own released with the core (its version is the core's, its peer dependency
+`@agboss/core` of that version). It has a store for every contract above — leases, records, trees,
+pauses, the child queue, checkpoints, the fenced effect, the outbound calls, the lease log, the
+ledger, the history, rate limits and mesh requests — listed in `providers` like the SQLite ones,
+on one `pg` pool per instance:
+
+```sh
+npm install @agboss/postgres
+```
+
+```ts no-check: @agboss/postgres is a package of agbossjs/postgres, not installed in this repository
+import { secret, type Secret } from "@agboss/core";
+import {
+  PostgresCheckpointSaver,
+  PostgresChildExecutionQueueRepository,
+  PostgresCostLedgerRepository,
+  PostgresExecutionHistoryRepository,
+  PostgresExecutionLeaseEventRepository,
+  PostgresExecutionLeaseRepository,
+  PostgresExecutionRecordRepository,
+  PostgresExecutionTreeRepository,
+  PostgresFencedEffectRepository,
+  PostgresMeshRequestRepository,
+  PostgresOutboundCallRepository,
+  PostgresPausedExecutionRepository,
+  PostgresRateLimitRepository,
+} from "@agboss/postgres";
+
+// environments/app.environment.ts — required as soon as one PostgreSQL store is listed
+export class StoreEnvironment {
+  postgresUrl!: Secret; // [environment.missing-field] at assembly without it
+  postgresPoolSize?: number; // connections of this instance's pool, default 10
+  postgresMigrateOnStart?: boolean; // default off: migrate with the command instead
+}
+
+// environments/prod.environment.ts
+export const environment: StoreEnvironment = { postgresUrl: secret("DATABASE_URL") };
+
+// @Application({ …, environment: StoreEnvironment, providers: postgresStores })
+export const postgresStores = [
+  PostgresCheckpointSaver,
+  PostgresChildExecutionQueueRepository,
+  PostgresCostLedgerRepository,
+  PostgresExecutionHistoryRepository,
+  PostgresExecutionLeaseEventRepository,
+  PostgresExecutionLeaseRepository, // the three fencing stores: one backend, "postgres"
+  PostgresFencedEffectRepository,
+  PostgresOutboundCallRepository,
+  PostgresExecutionRecordRepository,
+  PostgresExecutionTreeRepository,
+  PostgresMeshRequestRepository,
+  PostgresPausedExecutionRepository,
+  PostgresRateLimitRepository,
+];
+```
+
+The schema is created by the package's versioned migrations, run before the new version starts —
+`npx agboss-postgres migrate --url "$DATABASE_URL"` (a Kubernetes Job), or `postgresMigrateOnStart:
+true` for a single instance; a second run changes nothing, and an instance never starts on a
+database older or newer than its package (`PostgresSchemaMissingError`, `PostgresSchemaTooNewError`).
+The lease, fenced-effect and outbound-call stores must be on one database (`static backend =
+"postgres"`, else `[application.store-backend-mismatch]` at assembly); every pod's pool counts
+against the server's `max_connections`; a lease's expiry is decided by the database's own
+`clock_timestamp()`, so the pods' clocks may disagree. Wiki → Running-on-PostgreSQL has the whole
+setup, its limits and how the stores are proved (`storeConformance` and `faultSuite` against a
+real PostgreSQL).
+
 **Time is the application's `Clock`** (#262, infrastructure like the stores): every time the
 framework reads (the ledger's day, records, leases) and every wait it makes (lease renewals,
 recovery, the shutdown timeout, a tool's `timeout`, model call timeouts, retry backoff,
