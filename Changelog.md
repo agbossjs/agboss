@@ -10,7 +10,8 @@ Breaking changes and notable additions, newest first. The API reports
   one (a check-then-write `acquire` passed every other lease case); the lease handed over while its
   holder's fenced write runs must make the take wait or the write refused (a lease check that locks
   nothing passed the zombie's race of the same key). The record contract's compare-and-set race no
-  longer asserts which of two instances' writes lands: two connections deliver in any order.
+  longer asserts which of two instances' writes lands: two connections deliver in any order; nor
+  does the paused-execution contract's race of two resolves of one pause (#704).
   [Your own store](Your-own-store#prove-it-storeconformance).
 ## Unreleased — 0.1.1: running on PostgreSQL, from the core's side (#482)
 
