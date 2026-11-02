@@ -23,7 +23,7 @@ const framework = JSON.parse(
 describe("the command ships apart from the framework (#101, #205)", () => {
   it("AC1 (#101): the command is agboss and agboss-cli — in @agboss/cli", () => {
     expect(cli.name).toBe("@agboss/cli");
-    expect(cli.bin).toEqual({ agboss: "./bin/agboss.js", "agboss-cli": "./bin/agboss.js" });
+    expect(cli.bin).toEqual({ agboss: "bin/agboss.js", "agboss-cli": "bin/agboss.js" });
     expect(cli.files).toContain("NOTICE");
     expect(usage()).toContain("AGBoss");
   });

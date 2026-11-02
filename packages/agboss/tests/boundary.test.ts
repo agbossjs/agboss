@@ -83,7 +83,7 @@ describe("framework and examples apart (#91)", () => {
     };
 
     expect(pkg.name).toBe("@agboss/core");
-    expect(pkg.bin).toEqual({ agboss: "./bin/agboss.js" });
+    expect(pkg.bin).toEqual({ agboss: "bin/agboss.js" });
     expect(pkg.files).toEqual(expect.arrayContaining(["bin", "NOTICE"]));
     expect(pkg.dependencies?.["@agboss/cli"]).toBeUndefined();
     expect(pkg.dependencies?.["agboss-cli"]).toBeUndefined();

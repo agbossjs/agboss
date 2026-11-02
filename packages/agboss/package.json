@@ -43,7 +43,7 @@
     "node": ">=22.13"
   },
   "bin": {
-    "agboss": "./bin/agboss.js"
+    "agboss": "bin/agboss.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

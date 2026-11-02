@@ -64,11 +64,12 @@ chore/<issue>-<slug>     ← e.g. chore/167-rebrand-agboss
 docs/<issue>-<slug>
 spike/<issue>-<slug>     ← experiments, never merged as is
 v1, v2 …                 ← maintenance lines, created only when a major ships
-tags vX.Y.Z              ← every npm release; GitHub Release with notes
+tags vX.Y.Z              ← every npm release (.github/workflows/release.yml publishes it, #691); GitHub Release with notes
 ```
 
 - Work branches are created from `main` and merged back into `main` via PR (squash).
-- Releases are tags on `main` (`vX.Y.Z`), not separate long-lived branches. A maintenance line
+- Releases are tags on `main` (`vX.Y.Z`), not separate long-lived branches. Only the maintainer pushes
+  one; the release workflow publishes it once CI passed on that commit (`RELEASE_CHECKLIST.md`). A maintenance line
   (`v1`, `v2`, …) is cut only once a major version ships and needs backports.
 - Nobody pushes directly to `main`.
 - Pre-OSS history: the old `staging`/`production` branches are archived as tags
