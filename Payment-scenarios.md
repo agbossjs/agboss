@@ -74,7 +74,7 @@ The gateway charged, but the answer was lost.
     The intent stays pending, exactly as after a crash, and the next attempt calls `reconcile`
     before anything is sent again. Only a definite failure is recorded `Failed` and sent again
     under the same `call.idempotencyKey`, with no lookup: it moved no money.
-- **Guarantee:** P3. Assumptions: A6, A7 (the gateway's G1–G3) and A14 (only a definite failure is
+- **Guarantee:** P3. Assumptions: A6, A7 (the gateway's G1–G3) and A15 (only a definite failure is
   classified so; the default, anything unclassified, is unknown).
 - **Boundary:** an error the application marks definite while the gateway did charge is resent
   without a lookup — safe only while the gateway keeps the key. Mark only the errors your gateway
@@ -372,7 +372,7 @@ weekend, an operator's retry, a customer paying again the next day.
     `keyRetention` (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) sends a
     `notSent()` again only while `keyAge + attemptTimeout` is below it; past it, or with the age
     unknown, nothing is sent: `OutboundCallUnreconciledError`, the intent pending for an operator.
-- **Guarantee:** P3. Assumptions: A7 (G3), A12 (retention), A14 (honest classification) and A15
+- **Guarantee:** P3. Assumptions: A7 (G3), A12 (retention), A15 (honest classification) and A16
   (`keyRetention` at most the gateway's documented minimum, declared wherever `notSent()` relies
   on a replay).
 - **Boundary:**
@@ -384,7 +384,7 @@ weekend, an operator's retry, a customer paying again the next day.
     key must declare `keyRetention`. After the refusal, a person decides (the gateway's dashboard,
     its reports, a webhook stored by your code).
   - A `keyRetention` longer than the gateway's real one, or none on a replay-only gateway, brings the
-    second charge back (A15).
+    second charge back (A16).
 - **Proof:** `s15-key-expired-not-resent` — a pod killed with its answer in flight on a gateway with
   no lookup, the key expired before the takeover: the next pod is told the key's age and sends
   nothing; its sabotage (no `keyRetention`) pays twice, on SQLite and PostgreSQL;

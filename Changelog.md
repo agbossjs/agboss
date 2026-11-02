@@ -17,7 +17,7 @@ Breaking changes and notable additions, newest first. The API reports
   sent. `OutboundCallRecord` gains `attemptStartedAt`, `firstAttemptStartedAt` and, on a read by
   key, `readAt`; `outboundCallContract` checks them (a store of your own writes them). The fault
   suite gains scenarios 14 and 15 and `FAULT_SABOTAGE_SCENARIOS`; [Guarantees](Guarantees) gains
-  A14 and A15; PS1 and PS17 of [Payment scenarios](Payment-scenarios) are guarantees now.
+  A15 and A16; PS1 and PS17 of [Payment scenarios](Payment-scenarios) are guarantees now.
   agbossjs/postgres: the times by the database's clock, no migration (an intent of before has none:
   its age is unknown, so `keyRetention` refuses its replay).
 

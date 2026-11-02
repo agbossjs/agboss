@@ -61,7 +61,7 @@ Read your gateway's documentation and answer in order:
    (PS17).
 4. **Do your stores pass `storeConformance` and `faultSuite`, and share one backend with the lease
    store?** No → P1–P3 do not hold (A1, A2).
-5. **Do you keep A3–A15 of [Guarantees](Guarantees)?** One slewed database clock, a shared
+5. **Do you keep A3–A16 of [Guarantees](Guarantees)?** One slewed database clock, a shared
    `pseudonymKey`, every write inside a step, repeats inside the retention, only definite failures
    marked definite, the gateway's key retention declared where a replay stands in for a lookup.
 
