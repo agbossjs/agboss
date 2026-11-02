@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the races the store contracts were missing (#695)
+
+- **Added** to the published contract suites (found by `@agboss/mongodb`, #527): two instances'
+  `acquire` of one free lease at once — never leased, released, expired — must give it to exactly
+  one (a check-then-write `acquire` passed every other lease case); the lease handed over while its
+  holder's fenced write runs must make the take wait or the write refused (a lease check that locks
+  nothing passed the zombie's race of the same key). The record contract's compare-and-set race no
+  longer asserts which of two instances' writes lands: two connections deliver in any order.
+  [Your own store](Your-own-store#prove-it-storeconformance).
 ## Unreleased — 0.1.1: running on PostgreSQL, from the core's side (#482)
 
 - **Docs**: [Running on PostgreSQL](Running-on-PostgreSQL) — installing `@agboss/postgres` (released

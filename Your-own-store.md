@@ -401,12 +401,19 @@ storeConformance({
     same key: one business row;
   - two instances on one key, and on one business key from two executions;
   - two attempts of one intent;
-  - `leaseStateOf` against a late renewal and against a take.
+  - `leaseStateOf` against a late renewal and against a take;
+  - two instances' `acquire` of one free lease — never leased, released, expired (#695): exactly
+    one is given it;
+  - the lease released and taken **while** its holder's fenced write runs, the new holder writing
+    nothing (#695): the take waits for the write, or the write is refused. The zombie's race above
+    writes the same key on both sides, so a unique result row hides a lease check that takes no
+    lock; this one does not. A store whose work must be synchronous (SQLite) passes it trivially.
 
   The core proves they bite: deliberately broken sets fail them, each on the rule it breaks
-  (`tests/testing/contracts/broken-store-set.test.ts`): check-then-write, business rows outside
-  the transaction, a read-then-close `leaseStateOf`, a lease log on a pre-#508 row schema, and
-  stores of no backend or another.
+  (`tests/testing/contracts/broken-store-set.test.ts`, `contract-gaps.test.ts`): check-then-write,
+  business rows outside the transaction, a read-then-close `leaseStateOf`, a lease log on a pre-#508
+  row schema, stores of no backend or another, a check-then-write `acquire`, and a fenced effect
+  whose lease check is a read that locks nothing.
 - One function per contract (`fencedEffectContract`, …) is still there for a store run on its own.
 
 ### Interleavings: the explorer (#533)
