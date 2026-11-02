@@ -5,8 +5,6 @@ import type { Class } from "../../components/injection.js";
 import { StoreClock, type Clock, lazyLoad } from "../clock.js";
 import type { FencedEffectKey } from "../fenced-effect.repository.js";
 import {
-  endedOf,
-  isInState,
   OutboundCallRepository,
   OutboundCallStatus,
   type OutboundCallLease,
@@ -16,7 +14,6 @@ import {
   type OutboundCallClaim,
   type OutboundCallEnding,
   type OutboundCallState,
-  withoutEnd,
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
 import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -84,12 +81,27 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     connection.ensureSchema("outbound_calls", SCHEMA);
   }
 
+  /**
+   * How it changes an intent (#658), loaded when the store is made, not with the root import (its
+   * module budget): long loaded by the first change.
+   */
+  readonly #changes = lazyLoad(import("../outbound-call-changes.js"));
+
+  /** The store's time as a record keeps it (#658: when a read by key read). */
+  #now(): string {
+    return this.clock.now().toISOString();
+  }
+
   ping(): Promise<void> {
     return this.connection.ping();
   }
 
   findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
-    return this.#fenced(key, () => this.#found(key));
+    return this.#fenced(key, () => {
+      const found = this.#found(key);
+      // read now (#658), on the store's clock
+      return found === undefined ? undefined : { ...structuredClone(found), readAt: this.#now() };
+    });
   }
 
   saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
@@ -111,16 +123,15 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     });
   }
 
-  markPending(
+  async markPending(
     key: FencedEffectKey,
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
-    return this.#update(key, (found) =>
-      isInState(found, expected)
-        ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
-        : undefined,
-    );
+    // the store's changes load on first use (#658: the root import stays within its budget)
+    const startedAt = this.clock.now();
+    const { claimedOf } = await this.#changes;
+    return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
   markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
@@ -132,8 +143,13 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
-  #ended(key: FencedEffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+  async #ended(
+    key: FencedEffectKey,
+    attemptOwner: string,
+    ending: OutboundCallEnding,
+  ): Promise<boolean> {
     const endedAt = this.clock.now().toISOString();
+    const { endedOf } = await this.#changes;
     return this.#update(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
   }
 

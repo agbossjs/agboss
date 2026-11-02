@@ -43,10 +43,20 @@ export interface GatewayPaymentFact {
 /** An event of a pod, with the pod's name. */
 export type PodEventFact = PodEvent & { readonly pod: string };
 
+/**
+ * One start of an order: its id, whether its charge declines, and whether the tree fails for real
+ * at its payment (#657, #658) — each a failure whose undo runs once; otherwise it must finish.
+ */
+export interface FaultRunOrder {
+  readonly orderId: string;
+  readonly decline: boolean;
+  readonly fails: boolean;
+}
+
 /** Everything a scenario's invariants read. */
 export interface FaultRun extends FaultFacts {
   /** The orders the test started, by the order's id, and whether each must finish. */
-  readonly orders: readonly { readonly orderId: string; readonly decline: boolean }[];
+  readonly orders: readonly FaultRunOrder[];
   readonly requests: readonly GatewayRequest[];
   readonly payments: readonly GatewayPaymentFact[];
   readonly events: readonly PodEventFact[];

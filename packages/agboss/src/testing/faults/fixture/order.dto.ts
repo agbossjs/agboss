@@ -1,12 +1,21 @@
-import { Flag, ListOf, Text } from "../../../dto/index.js";
+import { Flag, ListOf, OneOf, Text } from "../../../dto/index.js";
 
-/** An order the fault fixture moves: its id, and whether its charge declines for real. */
+/**
+ * An order the fault fixture moves: its id, whether its charge declines for real, and how its
+ * payment talks to the gateway (`FaultPayment`'s value, #657, #658).
+ */
 export class FaultOrderDto {
   @Text({ prompt: "the order's id" })
   orderId!: string;
 
   @Flag({ prompt: "whether its charge declines" })
   decline!: boolean;
+
+  @OneOf({
+    prompt: "how its payment talks to the gateway",
+    values: ["lookup", "replay-only", "replay-only-undeclared", "every-error-definite"],
+  })
+  payment!: "lookup" | "replay-only" | "replay-only-undeclared" | "every-error-definite";
 }
 
 /** The order, reserved. */

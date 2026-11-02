@@ -13,12 +13,10 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { fencedKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
+import { endedOf, isInState, withoutEnd } from "../../src/infrastructure/outbound-call-changes.js";
 import {
-  endedOf,
   InMemoryOutboundCallRepository,
-  isInState,
   OutboundCallStatus,
-  withoutEnd,
   type OutboundCallClaim,
   type OutboundCallLease,
   type OutboundCallFailure,

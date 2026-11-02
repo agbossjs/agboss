@@ -25,7 +25,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { hours } from "../../../src/units/index.js";
 import { start, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
+import { isDeclined, PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
 import { untilReached } from "../../helpers/reached.js";
 
 /**
@@ -121,6 +121,8 @@ export class ChargeOrderAction {
       request,
       send: (call) => this.paymentGateway.charge(call),
       reconcile: (call) => this.paymentGateway.reconcile(call),
+      // #657: a decline is the provider's definite answer — anything else is of unknown outcome
+      isDefiniteFailure: isDeclined,
     });
     runs.outcomes.push({ status: outcome.status, attempt: outcome.attempt });
     await frozenWhen("freezeAfter");
@@ -153,6 +155,8 @@ export class ChargeAndNotifyAction {
       request,
       send: (call) => this.paymentGateway.charge(call),
       reconcile: (call) => this.paymentGateway.reconcile(call),
+      // #657: a decline is the provider's definite answer — anything else is of unknown outcome
+      isDefiniteFailure: isDeclined,
     });
     const mailKey = fencedEffectKeyOf(this.executionContext, "receipt-mail");
     await this.outboundCalls.send(mailKey, {

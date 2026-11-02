@@ -7,7 +7,7 @@ import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/orde
 import { sendToTest } from "./fixture/pod-link.js";
 import type { HeldStoreSeam } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
-import { FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
+import { FaultPayment, FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
 import type { FaultFacts } from "./facts.js";
 
 /**
@@ -78,8 +78,9 @@ function started(
   const input = orders.map((order) => ({
     orderId: order.orderId,
     decline: order.decline ?? false,
+    payment: order.payment ?? FaultPayment.Lookup,
   }));
-  const [first = { orderId: "", decline: false }] = input;
+  const [first = { orderId: "", decline: false, payment: FaultPayment.Lookup }] = input;
   // the fixture's starts, typed by no generated table inside the package
   const execute = app.execute.bind(app) as (
     start: Class,

@@ -9,18 +9,10 @@ import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
-import {
-  callKeyOf,
-  checkedCall,
-  keyedByRequest,
-  replayedFromOf,
-  stateOf,
-} from "./outbound-call-business.js";
+import { callKeyOf, checkedCall, keyedByRequest, stateOf } from "./outbound-call-business.js";
 import {
   callOf,
   lookupOf,
-  maskedFailureOf,
-  notStoredOf,
   outcomeOf,
   storedJson,
   storedResultOf,
@@ -33,13 +25,24 @@ import {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
-  OutboundCallResultNotStoredError,
   OutboundCallVerdict,
   type OutboundCallOptions,
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
 
-import { fencedEnd, leaseSuperseded, superseded, unreconciledOf } from "./outbound-call-endings.js";
+import {
+  attemptStartedAtOf,
+  failedOrPending,
+  keyAgeOf,
+  keyRetentionRefusalOf,
+} from "./outbound-call-ambiguity.js";
+import {
+  fencedEnd,
+  leaseSuperseded,
+  replayed,
+  superseded,
+  unreconciledOf,
+} from "./outbound-call-endings.js";
 import { joinedOrMade, owning } from "./outbound-call-join.js";
 
 export type { OutboundCallParts } from "./outbound-call-parts.js";
@@ -47,8 +50,10 @@ export type { OutboundCallParts } from "./outbound-call-parts.js";
 /**
  * The protocol of a call that leaves the system (#505), loaded on the first `OutboundCalls.send`:
  * the request masked for the store first (fails closed), then the intent of the key looked up
- * (fenced) and, by its state — completed: replayed; pending: reconciled; failed: sent again; none:
- * recorded (fenced), then sent. Before the network the lease is renewed (`confirmNow`); the answer
+ * (fenced) and, by its state — completed: replayed; pending: reconciled; failed (for certain,
+ * #657): sent again; none: recorded (fenced), then sent. An error `send` throws is a failure only
+ * when the call's `isDefiniteFailure` says so, else the intent stays pending (#657); a `notSent()`
+ * past the call's `keyRetention` is refused (#658). Before the network the lease is renewed (`confirmNow`); the answer
  * is written back fenced — a refusal there is a hand-over, and the new holder reconciles. A new
  * attempt is a compare-and-set on the intent as read — its status, attempt and attempt owner (a
  * random id per claim): a call that loses it sends nothing and reads the intent again, a bounded
@@ -83,13 +88,7 @@ async function sendNow<TRequest, TResult>(
     answer = await run.options.send(call);
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
-    if (!call.signal.aborted) {
-      run.answer.isAnswered = true;
-      const failure = await maskedFailureOf(run, error);
-      const isFailed = () => repository.markFailed(run.key, owner, failure);
-      if (!(await fencedEnd(run, attempt, isFailed))) await superseded(run, attempt);
-      else told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
-    }
+    if (!call.signal.aborted) await failedOrPending(run, attempt, owner, error);
     throw error;
   }
   // stored masked (or a marker: the call happened); the step gets the answer as it is
@@ -122,22 +121,35 @@ async function movedAndSent<TRequest, TResult>(
   });
 }
 
-/** The pending intent `found`, reconciled: completed, sent again, or the step fails. */
+/**
+ * The pending intent `found` (read from `readStarted` on, the monotonic clock), reconciled:
+ * completed, sent again — only inside the call's `keyRetention` (#658) —, or the step fails.
+ */
 async function reconciled<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
+  readStarted: number,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
   const unreconciled = (reason: string, cause?: unknown) =>
     unreconciledOf(run, found, reason, cause);
+  const ages = {
+    attemptStartedAt: attemptStartedAtOf(found),
+    keyAge: keyAgeOf(run, found, readStarted),
+  };
   let verdict: unknown;
   try {
-    verdict = await run.options.reconcile(lookupOf(run, found.request, found.attempt));
+    verdict = await run.options.reconcile(lookupOf(run, found, ages));
   } catch (error) {
     throw await unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
   }
   if (!(verdict instanceof OutboundCallReconciliation))
     throw await unreconciled("reconcile gave no OutboundCallReconciliation verdict");
-  if (verdict.verdict === OutboundCallVerdict.NotSent) return movedAndSent(run, found, true);
+  if (verdict.verdict === OutboundCallVerdict.NotSent) {
+    // the key aged while reconcile ran too: measured again, now
+    const refusal = keyRetentionRefusalOf(run, keyAgeOf(run, found, readStarted));
+    if (refusal !== undefined) throw await unreconciled(refusal);
+    return movedAndSent(run, found, true);
+  }
   if (verdict.verdict === OutboundCallVerdict.Unknown) throw await unreconciled(verdict.reason);
   const stored = await storedResultOf(run, verdict.result);
   // settled for its owner, which is gone; one that moved it on meanwhile wins: read again
@@ -183,6 +195,8 @@ async function settled<TRequest, TResult>(
   request: string,
   read: number,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
+  // before the read (#658): what passes from here on ages the key the store read
+  const readStarted = run.parts.clock.monotonicNow();
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
   if ((await checkedCall(run, found)) === OutboundCallLeaseState.Superseded)
@@ -190,27 +204,7 @@ async function settled<TRequest, TResult>(
   if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
   if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
   if (read > 1) throw inFlight(run);
-  return reconciled(run, found);
-}
-
-/**
- * A completed intent's stored result — masked by the PII policies — and who made it (#508); one
- * whose result was not stored is `OutboundCallResultNotStoredError`, nothing sent again.
- */
-function replayed<TRequest, TResult>(
-  run: CallRun<TRequest, TResult>,
-  found: OutboundCallRecord,
-): OutboundCallOutcome<TResult> {
-  const stored: unknown = JSON.parse(found.result ?? "null");
-  // answered, its result not stored (#508): no result to give, never the marker as one
-  const notStored = notStoredOf(stored);
-  if (notStored !== undefined)
-    throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
-  const replayedFrom = replayedFromOf(run.key, found);
-  const moved = [OutboundCallStatus.Completed, found.attempt] as const;
-  told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });
-  const outcome = outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
-  return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
+  return reconciled(run, found, readStarted);
 }
 
 /** The reads of one call: until one settles it, at most `MAX_READS`, then in flight. */

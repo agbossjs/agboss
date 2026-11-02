@@ -4,13 +4,26 @@ import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
-import { reportedKeyOf } from "./outbound-call-business.js";
-import { maskedTextOf, subjectOf, told, type CallRun } from "./outbound-call-parts.js";
-import { OutboundCallUnreconciledError } from "./outbound-calls.js";
+import { replayedFromOf, reportedKeyOf } from "./outbound-call-business.js";
+import {
+  maskedTextOf,
+  notStoredOf,
+  outcomeOf,
+  subjectOf,
+  told,
+  type CallRun,
+} from "./outbound-call-parts.js";
+import {
+  OutboundCallOutcomeStatus,
+  OutboundCallResultNotStoredError,
+  OutboundCallUnreconciledError,
+  type OutboundCallOutcome,
+} from "./outbound-calls.js";
 
 /**
- * How an attempt ends badly (#505, #508), loaded with the protocol: superseded by a newer attempt
- * while it was in flight, or left pending with no verdict `reconcile` could give.
+ * How a call ends (#505, #508), loaded with the protocol: replayed from a completed intent, or
+ * badly — superseded by a newer attempt while it was in flight, or left pending with no verdict
+ * `reconcile` could give.
  */
 
 /**
@@ -92,4 +105,24 @@ export async function unreconciledOf<TRequest, TResult>(
     { ...run.options, name: run.key.name, idempotencyKey, reason: masked },
     cause,
   );
+}
+
+/**
+ * A completed intent's stored result — masked by the PII policies — and who made it (#508); one
+ * whose result was not stored is `OutboundCallResultNotStoredError`, nothing sent again.
+ */
+export function replayed<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  found: OutboundCallRecord,
+): OutboundCallOutcome<TResult> {
+  const stored: unknown = JSON.parse(found.result ?? "null");
+  // answered, its result not stored (#508): no result to give, never the marker as one
+  const notStored = notStoredOf(stored);
+  if (notStored !== undefined)
+    throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
+  const replayedFrom = replayedFromOf(run.key, found);
+  const moved = [OutboundCallStatus.Completed, found.attempt] as const;
+  told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });
+  const outcome = outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
+  return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
 }

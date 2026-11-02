@@ -63,7 +63,10 @@ export enum OutboundCallOutcomeStatus {
 export enum OutboundCallVerdict {
   /** It happened: here is its result. */
   Completed = "completed",
-  /** It never arrived: send it, with the same key. */
+  /**
+   * It never arrived — or the other system replays its key (#658): send it, with the same key;
+   * refused past the call's `keyRetention`.
+   */
   NotSent = "not-sent",
   /** The other system cannot say: the step fails, the intent stays pending. */
   Unknown = "unknown",
@@ -96,7 +99,11 @@ export class OutboundCallReconciliation<TResult> {
     return new OutboundCallReconciliation<TResult>(OutboundCallVerdict.Completed, result);
   }
 
-  /** The call never arrived: it is sent once more, with the same key and the next attempt. */
+  /**
+   * The call never arrived (or the other system replays its key): it is sent once more, with the
+   * same key and the next attempt — unless the key is past the call's `keyRetention` (#658):
+   * `OutboundCallUnreconciledError`, nothing sent.
+   */
   static notSent(): OutboundCallReconciliation<never> {
     return new OutboundCallReconciliation<never>(OutboundCallVerdict.NotSent);
   }
@@ -132,9 +139,11 @@ export class OutboundCalls {
 
   /**
    * Sends the call of `key` (`fencedEffectKeyOf(executionContext, name)`) at most once per
-   * outcome: completed → its stored result (`Replayed`); left pending → `reconcile` decides;
-   * failed → sent again with the same key; none → recorded, then sent. A zombie's call is refused
-   * (`ExecutionFencedError`) before anything is recorded or sent.
+   * outcome: completed → its stored result (`Replayed`); left pending — a crash before the answer,
+   * an error of unknown outcome (#657) — → `reconcile` decides, a `notSent()` refused past the
+   * call's `keyRetention` (#658); failed for certain (`isDefiniteFailure`) → sent again with the
+   * same key; none → recorded, then sent. A zombie's call is refused (`ExecutionFencedError`)
+   * before anything is recorded or sent.
    */
   async send<TRequest, TResult>(
     key: FencedEffectKey,
@@ -152,6 +161,7 @@ export class OutboundCalls {
       live,
       owners: this.#owners,
       log: frameworkLogOf(this.logger, this.clock),
+      clock: this.clock,
     };
     return sendOutboundCall(parts, key, options);
   }
@@ -159,7 +169,8 @@ export class OutboundCalls {
 
 /**
  * An intent left pending could not be reconciled (#505): `reconcile` said `unknown`, threw (its
- * error the `cause`), or gave no verdict. Nothing was sent; the intent stays `Pending`, listed by
+ * error the `cause`), gave no verdict, or said `notSent()` for a key past the call's
+ * `keyRetention` (#658: a resend could be a new call). Nothing was sent; the intent stays `Pending`, listed by
  * `app.pendingOutboundCalls` for an operator. A `StepFailedError`: `.onError(…)` may take it.
  */
 export class OutboundCallUnreconciledError extends StepFailedError {

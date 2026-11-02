@@ -106,6 +106,9 @@ export class PaymentDeclinedError extends Error {
   override name = "PaymentDeclinedError";
 }
 
+/** #657: whether `error` is the provider's decline — it did not charge, for certain. */
+export const isDeclined = (error: unknown): boolean => error instanceof PaymentDeclinedError;
+
 /** A plain object where a verdict belongs: a hook that breaks its contract (JavaScript). */
 const notAVerdict = (): OutboundCallReconciliation<ChargeReceipt> =>
   JSON.parse('{"verdict":"completed"}') as OutboundCallReconciliation<ChargeReceipt>;

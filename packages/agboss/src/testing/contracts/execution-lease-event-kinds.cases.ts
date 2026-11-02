@@ -84,6 +84,7 @@ const STATUS_OF: Readonly<Record<OutboundCallEventOutcome, OutboundCallStatus>> 
   [OutboundCallEventOutcome.NotSent]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Unknown]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Failed]: OutboundCallStatus.Failed,
+  [OutboundCallEventOutcome.Ambiguous]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Superseded]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Joined]: OutboundCallStatus.Completed,
   [OutboundCallEventOutcome.LeaseSuperseded]: OutboundCallStatus.Completed,

@@ -298,7 +298,9 @@ const businessFactsOf = (
 /**
  * The record `saveIfAbsent` keeps for `key`'s intent (#505, exported for stores outside the core,
  * #526): the intent as given, `Pending` under the key's lease and token, its business identity
- * (#508) and when it was recorded (`recordedAt`, the framework's clock).
+ * (#508) and when it was recorded (`recordedAt`, the framework's clock) — also when its first
+ * attempt started (#658: `attemptStartedAt`, `firstAttemptStartedAt`), which a store with a clock
+ * of its own (a database's) writes by that clock instead.
  */
 export const pendingOutboundCallOf = (
   key: FencedEffectKey,
@@ -314,6 +316,9 @@ export const pendingOutboundCallOf = (
   leaseExecutionId: key.leaseExecutionId,
   ...businessFactsOf(key),
   recordedAt: recordedAt.toISOString(),
+  // its first attempt starts now (#658): a store with a clock of its own writes its time instead
+  attemptStartedAt: recordedAt.toISOString(),
+  firstAttemptStartedAt: recordedAt.toISOString(),
 });
 
 /**

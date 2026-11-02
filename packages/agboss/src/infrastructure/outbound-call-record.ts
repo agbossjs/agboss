@@ -69,6 +69,19 @@ export interface OutboundCallRecord extends OutboundCallIntent {
   readonly recordedAt: string;
   /** When it last ended — `Completed` or `Failed`; none while `Pending`. */
   readonly endedAt?: string;
+  /**
+   * When its current attempt started (#658: claimed by `saveIfAbsent` or `markPending`, before it
+   * was sent), ISO 8601 on the store's clock — the database's own where it has one; none on an
+   * intent recorded before 0.1.1.
+   */
+  readonly attemptStartedAt?: string;
+  /** When its first attempt started (#658), as `attemptStartedAt`: what a key's age is counted from. */
+  readonly firstAttemptStartedAt?: string;
+  /**
+   * When `findByKey` read it (#658), on the same clock as `attemptStartedAt`: what the key's age is
+   * measured to. Set by every read by key, never stored.
+   */
+  readonly readAt?: string;
 }
 
 /** The lease a pending intent was written under (#508): its tree key and the token it was held at. */

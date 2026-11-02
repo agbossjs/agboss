@@ -14,11 +14,11 @@ export {
   type FaultWorldOptions,
 } from "./world-options.js";
 import { DatabaseProxy } from "./database-proxy.js";
-import type { FaultRun, PodEventFact, FaultFacts } from "./facts.js";
+import type { FaultRun, FaultRunOrder, PodEventFact, FaultFacts } from "./facts.js";
 import { FaultGateway } from "./fault-gateway.js";
 import { OperationHistory } from "./operation-history.js";
 import { FaultWaitError, launchPod, type FaultPod } from "./pod.js";
-import type { FaultOrder, FaultWorkflow, PodEvent } from "./pod-protocol.js";
+import { runOrderOf, type FaultOrder, type FaultWorkflow, type PodEvent } from "./pod-protocol.js";
 import { StoreOutageMode } from "./store-outage.js";
 import { StoreHoldPoint } from "./store-points.js";
 import { ExecutionHistoryStatus } from "../../infrastructure/execution-history.repository.js";
@@ -35,7 +35,7 @@ export class FaultWorld {
   readonly history = new OperationHistory();
   readonly gateway = new FaultGateway();
   readonly events: PodEventFact[] = [];
-  readonly orders: { readonly orderId: string; readonly decline: boolean }[] = [];
+  readonly orders: FaultRunOrder[] = [];
   readonly pods: FaultPod[] = [];
   /** The scenario's own expectations that did not hold (`expectThat`), checked after the invariants. */
   readonly expectations: string[] = [];
@@ -128,8 +128,7 @@ export class FaultWorld {
   ): Promise<string> {
     this.#starts += 1;
     const tag = `${pod.name}:${String(this.#starts)}`;
-    for (const order of orders)
-      this.orders.push({ orderId: order.orderId, decline: order.decline ?? false });
+    this.orders.push(...orders.map(runOrderOf));
     await pod.command({ op: "start", tag, workflow, orders });
     return tag;
   }
