@@ -6,7 +6,7 @@ import {
 import type { NewTern, TernOutcome } from "../../terns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import { PAUSE_ANSWER_CASES } from "./pause-answer-log.cases.js";
+import { pauseAnswerCases } from "./pause-answer-log.cases.js";
 import type { ContractTarget } from "./seam.js";
 
 /** An outcome with `status`. */
@@ -170,7 +170,7 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
   registerContract(
     "execution record contract",
     target,
-    [{ cases: RECORD_CASES }, { cases: PAUSE_ANSWER_CASES }],
+    [{ cases: RECORD_CASES }, { cases: pauseAnswerCases() }],
     pingOf,
   );
 }

@@ -51,7 +51,7 @@ const respondersOf = async (
     (answer) => answer.responder,
   );
 
-export const PAUSE_ANSWER_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
+const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
   {
     name: "#676: two trees whose pauses share a step key each keep their own answer",
     run: async ({ first, second }) => {
@@ -73,3 +73,6 @@ export const PAUSE_ANSWER_CASES: readonly ContractCase<ExecutionRecordRepository
     },
   },
 ];
+
+/** The pause answer log's cases (#676), for `executionRecordContract`. */
+export const pauseAnswerCases = (): readonly ContractCase<ExecutionRecordRepository>[] => CASES;
