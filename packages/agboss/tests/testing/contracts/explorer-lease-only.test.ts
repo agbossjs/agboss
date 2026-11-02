@@ -57,7 +57,7 @@ describe("#694: the explorer on a lease store alone", () => {
   it("AC2: a finish that only releases breaks no-takeover-of-finished-work and the #520 race", () => {
     const failed = failedOf("leases alone, a finish that only releases");
     expect(
-      failed.some((found) => /\[no-takeover-of-finished-work\]/u.test(found.errors[0] ?? "")),
+      failed.some((found) => (found.errors[0] ?? "").includes("[no-takeover-of-finished-work]")),
     ).toBe(true);
     expect(
       failed.filter((found) => found.name.startsWith("AC7: ")).map((found) => found.name),
