@@ -229,14 +229,15 @@ class TreeMover implements TreeMoves {
         if (planned !== undefined)
           await this.announce(ResumeReason.Answered, planned.resume, state);
       } while (planned !== undefined);
-      if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);
+      // #699: the kept record first — a pod killed in the cleanup's round trips keeps it
       await keepExecutionRecord(deps, state, historyRestOf(result.status));
+      if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);
       // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
       return await withPauseAnswers(result, deps);
     } catch (error) {
       if (!isHandedOver(error)) {
-        await forgetTree(this.parts, state);
         await keepExecutionRecord(deps, state, historyEndOf(error, undo.compensations));
+        await forgetTree(this.parts, state);
       }
       throw error;
     } finally {
