@@ -600,7 +600,11 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   identity and thread, `flow/runtime/child-thread.ts`); its end is read at the checkpoint its own
   run wrote last (a re-entry and a remote child's parent: its thread's leaf), never at the
   thread's greatest checkpoint id — a UUIDv6 of the wall clock, out of order once the host's clock
-  steps back (#661, `child-thread.ts`; a continuation still starts there, #682); a child that rests at a pause makes its
+  steps back (#661, `child-thread.ts`); every read of a thread's latest checkpoint — a resume, a
+  recovery, a re-entry — goes through `OrderedCheckpointSaver` over the listed saver
+  (`app/leased-checkpointer.ts`, #682): a `put` whose id sorts below its thread's greatest first
+  marks the thread (namespace `agboss-out-of-order`), whose latest is then its highest LangGraph
+  step; a child that rests at a pause makes its
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one

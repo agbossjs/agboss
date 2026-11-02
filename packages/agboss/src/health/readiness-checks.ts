@@ -1,4 +1,5 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { seconds, type Milliseconds } from "../units/index.js";
@@ -39,6 +40,9 @@ export async function pingCheckpointSaver(saver: BaseCheckpointSaver): Promise<v
 /** The stores of the instance, each with its ping: the #265 contracts and the checkpoint saver. */
 function storesOf(sources: HealthSources): readonly [object, () => Promise<void>][] {
   const { infrastructure: stores } = sources;
+  // the listed saver, under the ordered checkpointer the instance reads through (#682)
+  const { checkpointer } = stores;
+  const saver = checkpointer instanceof OrderedCheckpointSaver ? checkpointer.saver : checkpointer;
   return [
     [stores.records, () => stores.records.ping()],
     [stores.costLedger, () => stores.costLedger.ping()],
@@ -49,7 +53,7 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     [stores.meshRequests, () => stores.meshRequests.ping()],
     [stores.executionHistory, () => stores.executionHistory.ping()],
     [stores.leaseEvents, () => stores.leaseEvents.ping()],
-    [stores.checkpointer, () => pingCheckpointSaver(stores.checkpointer)],
+    [saver, () => pingCheckpointSaver(saver)],
   ];
 }
 
