@@ -100,27 +100,65 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 /**
  * A model's approval with its correction on top of the call's own arguments (the pause's `ask`):
- * the call it approves is the whole input, the fields the reply changed replaced. Anything else —
- * no correction, a refusal — as it is.
+ * the call it approves is the whole input, the fields the reply changed replaced — or why the
+ * model's answer is none (#688: failing closed).
  */
-export function withCorrectedCall(answer: unknown, ask: unknown): unknown {
-  return correctedCallOf(approvalOf(answer), ask);
+export function withCorrectedCall(answer: unknown, ask: unknown): ReplyAnswer {
+  const approval = approvalOf(answer);
+  return approval.kind === "answer"
+    ? { kind: "answer", answer: correctedCallOf(approval.answer, ask) }
+    : approval;
+}
+
+/** The model's answer as the role's, or why it is none: never a guess (#688). */
+export type ReplyAnswer =
+  | { readonly kind: "answer"; readonly answer: unknown }
+  | { readonly kind: "invalid"; readonly reason: string };
+
+/** The keys an approval may carry: in the DTO's own shape (a script's), or beside a decision. */
+const DTO_KEYS: ReadonlySet<string> = new Set(["approved", "reason", "overrideArguments"]);
+const DECISION_KEYS: ReadonlySet<string> = new Set(["decision", "reason", "overrideArguments"]);
+
+const invalid = (reason: string): ReplyAnswer => ({ kind: "invalid", reason });
+
+/** Keys of `answer` outside `known`: an answer that says more than a decision can is none. */
+const unknownKeysOf = (
+  answer: Readonly<Record<string, unknown>>,
+  known: ReadonlySet<string>,
+): readonly string[] => Object.keys(answer).filter((key) => !known.has(key));
+
+/** The reason, when the answer gives one as text. */
+const reasonOf = (answer: Readonly<Record<string, unknown>>): { readonly reason?: string } =>
+  typeof answer.reason === "string" && answer.reason !== "" ? { reason: answer.reason } : {};
+
+/** The answer in the DTO's own shape (a script's): as it is, its keys the DTO's only. */
+function dtoShaped(answer: Readonly<Record<string, unknown>>): ReplyAnswer {
+  const extra = unknownKeysOf(answer, DTO_KEYS);
+  return extra.length === 0 ? { kind: "answer", answer } : invalid(`it has ${extra.join(", ")}`);
 }
 
 /**
- * The model's decision as the role's answer (#688): `approve` the call as it is (a correction
- * beside it dropped — never a raise the reply did not ask for), `approve-with-changes` with its
- * correction (none: no answer), `refuse` with its reason. An answer in the DTO's own shape (a
- * script's) as it is.
+ * The model's decision as the role's answer (#688), failing closed: with a `decision` nothing else
+ * of the answer counts — `approve` is the call as it is (a correction beside it dropped, never a
+ * raise the reply did not ask for), `approve-with-changes` needs a correction of at least one field,
+ * `refuse` is a refusal with its reason; an unknown decision, or a key beside it no decision has
+ * (`approved` too), is no answer.
  */
-function approvalOf(answer: unknown): unknown {
-  if (!isRecord(answer) || !("decision" in answer)) return answer;
-  const { decision, overrideArguments, ...rest } = answer;
-  if (decision === ReplyDecision.Refuse) return { ...rest, approved: false };
-  if (decision === ReplyDecision.Approve) return { ...rest, approved: true };
-  if (decision === ReplyDecision.ApproveWithChanges && isRecord(overrideArguments))
-    return { ...rest, approved: true, overrideArguments };
-  return { ...rest, decision };
+function approvalOf(answer: unknown): ReplyAnswer {
+  if (!isRecord(answer)) return { kind: "answer", answer };
+  if (!("decision" in answer)) return dtoShaped(answer);
+  const extra = unknownKeysOf(answer, DECISION_KEYS);
+  if (extra.length > 0) return invalid(`it has ${extra.join(", ")} beside its decision`);
+  const { decision, overrideArguments } = answer;
+  const reason = reasonOf(answer);
+  if (decision === ReplyDecision.Refuse)
+    return { kind: "answer", answer: { ...reason, approved: false } };
+  if (decision === ReplyDecision.Approve)
+    return { kind: "answer", answer: { ...reason, approved: true } };
+  if (decision !== ReplyDecision.ApproveWithChanges) return invalid("it names no decision");
+  if (!isRecord(overrideArguments) || Object.keys(overrideArguments).length === 0)
+    return invalid("an approval with changes that changes nothing");
+  return { kind: "answer", answer: { ...reason, approved: true, overrideArguments } };
 }
 
 /**

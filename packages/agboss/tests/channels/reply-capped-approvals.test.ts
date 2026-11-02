@@ -230,6 +230,22 @@ describe("#688: the model's named decision is the role's answer", () => {
       "a raise read from the reply",
       { decision: "approve-with-changes", overrideArguments: { amountCents: 200_000 } },
     ],
+    // fail closed (security review): a decision present takes nothing else of the model's answer
+    ["an unknown decision beside approved: true", { decision: "bogus", approved: true }],
+    [
+      "approve-with-changes beside approved: true, no correction",
+      { decision: "approve-with-changes", approved: true },
+    ],
+    [
+      "approve-with-changes beside approved: true, an empty correction",
+      { decision: "approve-with-changes", approved: true, overrideArguments: {} },
+    ],
+    ["refuse beside approved: true", { decision: "refuse", approved: true }],
+    [
+      "approve-with-changes with an empty correction",
+      { decision: "approve-with-changes", overrideArguments: {} },
+    ],
+    ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
     test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
       app,

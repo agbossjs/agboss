@@ -149,7 +149,10 @@ function readingOf(
   }
   const answer = calls.find((call) => call.name === tools.answer);
   if (answer === undefined) return { kind: "declined", reason: "the model gave no answer", usage };
-  const corrected = withCorrectedCall(answer.args, ask);
+  const read = withCorrectedCall(answer.args, ask);
+  if (read.kind === "invalid")
+    return { kind: "declined", reason: `the model gave no answer it may: ${read.reason}`, usage };
+  const corrected = read.answer;
   const raised = raisedFieldsOf(corrected, ask);
   if (raised.length > 0) {
     const reason = `the reply would raise ${raised.join(", ")} above the call's own: a raise is decided, never read from a reply`;

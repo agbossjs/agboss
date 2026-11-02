@@ -6,7 +6,10 @@
  * dollars; a reply naming no currency, a call naming none, a refusal and an approval as asked are
  * left as the model read them.
  */
+import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
+import { readByModel } from "../../src/channels/reply-reader.js";
+import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import type { AssembledReplyInterpreter } from "../../src/channels/discovery.js";
 import { currencyMismatchOf, withinCurrency } from "../../src/channels/reply-currency.js";
 import type { ModelReading } from "../../src/channels/reply-reader.js";
@@ -66,7 +69,10 @@ describe("#688: the reply's currency against the call's", () => {
 
   it("no false currency in ordinary words: details, pencils, a franchise, Euripides", () => {
     expect(
-      currencyMismatchOf("yes, up to 900 — see the details, pencils, franchise, Euripides", OrderInDollarsDto),
+      currencyMismatchOf(
+        "yes, up to 900 — see the details, pencils, franchise, Euripides",
+        OrderInDollarsDto,
+      ),
     ).toBeUndefined();
   });
 });
@@ -86,11 +92,18 @@ describe("#688: what the guard does to a reading", () => {
     const read = withinCurrency(capped, interpreter, "yes, up to €900");
 
     expect(read).toMatchObject({ kind: "declined", usage: [] });
-    expect(read).toHaveProperty("reason", expect.stringContaining("the reply does not answer the question"));
+    expect(read).toHaveProperty(
+      "reason",
+      expect.stringContaining("the reply does not answer the question"),
+    );
   });
 
   it("a refusal and an approval as asked stay as read, whatever currency the reply names", () => {
-    const refused: ModelReading = { kind: "answered", answer: { approved: false, reason: "no" }, usage: [] };
+    const refused: ModelReading = {
+      kind: "answered",
+      answer: { approved: false, reason: "no" },
+      usage: [],
+    };
     const asAsked: ModelReading = { kind: "answered", answer: { approved: true }, usage: [] };
 
     expect(withinCurrency(refused, interpreter, "no, not even 900 euros")).toBe(refused);
@@ -99,5 +112,71 @@ describe("#688: what the guard does to a reading", () => {
 
   it("a capped approval in dollars stays as read", () => {
     expect(withinCurrency(capped, interpreter, "yes, up to $900")).toBe(capped);
+  });
+});
+
+describe("#688: the guard on a model interpreter's reading", () => {
+  /** A chat model that answers every call with the one move given. */
+  const answering = (args: Readonly<Record<string, unknown>>) =>
+    ({
+      bindTools: () => ({
+        invoke: () =>
+          Promise.resolve(
+            new AIMessage({
+              content: "",
+              tool_calls: [{ id: "c1", name: "answer-tool-call-approval-decision-dto", args }],
+              usage_metadata: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+            }),
+          ),
+      }),
+    }) as never;
+  const interpreter = {
+    channel: "purchase-approval-channel",
+    interpreter: OrderInDollarsDto,
+    name: "purchase-reply-interpreter",
+    answer: ToolCallApprovalDecisionDto,
+    approves: OrderInDollarsDto,
+    model: "test/interpreter",
+    instructions: "Read the reply.",
+  } as unknown as AssembledReplyInterpreter;
+  const ask = { tool: "order-tool", arguments: { supplier: "Acme", amountUsd: 1200 } };
+  const siteOf = (args: Readonly<Record<string, unknown>>) => ({
+    gateway: { chatModel: () => answering(args) } as never,
+    settings: {
+      model: "test/interpreter",
+      temperature: 0,
+      maxTokens: 100,
+      price: { inputPerMTok: 1, outputPerMTok: 1 },
+    },
+    callbacks: [],
+    pii: { policies: new PiiPolicySet([], ""), known: {} },
+  });
+
+  it("a capped approval in euros the model approved is not understood", async () => {
+    const capped = { decision: "approve-with-changes", overrideArguments: { amountUsd: 900 } };
+
+    const reading = await readByModel(
+      interpreter,
+      { ask, reply: "yes, up to €900" },
+      siteOf(capped),
+    );
+
+    expect(reading).toMatchObject({ kind: "declined" });
+    expect(reading).toHaveProperty("reason", expect.stringContaining("EUR"));
+  });
+
+  it("the same in dollars is the capped approval", async () => {
+    const capped = { decision: "approve-with-changes", overrideArguments: { amountUsd: 900 } };
+
+    const reading = await readByModel(
+      interpreter,
+      { ask, reply: "yes, up to $900" },
+      siteOf(capped),
+    );
+
+    expect(reading).toMatchObject({
+      kind: "answered",
+      answer: { approved: true, overrideArguments: { supplier: "Acme", amountUsd: 900 } },
+    });
   });
 });
