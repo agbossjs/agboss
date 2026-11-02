@@ -128,7 +128,18 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   `@agboss/core/dto`) for a reply that does not answer ("🤷", off topic): never a refusal — the pause
   stays `Pending`, `UninterpretableReplyError.reason` is "the reply does not answer the question:
   <its reason>", as a code interpreter's `notUnderstood`. One call per move (`parallel_tool_calls:
-  false`); a "not understood" call wins over an answer beside it. Tests:
+  false`); a "not understood" call wins over an answer beside it. The framework's instructions
+  and tools (#688) make a one-line `prompt` enough on a cheap model: for an approval role the
+  answer tool names three decisions — `approve` (the call as it is: a plain yes, or a limit at or
+  above the call's value; a correction beside it is dropped), `approve-with-changes` (with
+  `overrideArguments`: "yes, up to $900", "ok but max 900", "да, но не больше 900 долларов", "כן, עד
+  900 דולר" on a $1,200 call → 900) and `refuse` (a no, with or without a reason) — mapped onto
+  `ToolCallApprovalDecisionDto` (a scripted answer in the DTO's own shape is read as it is); no yes
+  or no, a maybe, a question back is not understood. Two things are never read from a reply,
+  whatever the model answered: a raise (a correction above the call's own number) and a conversion
+  (a change while the reply names a currency the approved call's fields — their names, `amountUsd`
+  / `amount_usd`, and descriptions — do not, "yes, up to €900" on a call in US dollars): both are
+  not understood. Tests:
   `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For an approval role the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's

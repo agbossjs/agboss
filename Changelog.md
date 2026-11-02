@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a model reply interpreter reads capped approvals (#688)
+
+- **Fixed**: on a cheap model with a one-line prompt, "yes, up to $900" on a $1,200 call was read as
+  not understood (and "no, we are not buying laptops this quarter" too). For an approval role the
+  interpreter's answer tool now names its decisions — `approve`, `approve-with-changes`, `refuse` —
+  and its instructions say what a capped approval is in any language. A raise or a currency
+  conversion is never read from a reply: both are not understood. Scripts in the DTO's shape
+  (`replyWith(ToolCallApprovalDecisionDto, …)`) are unchanged. [Pauses](Pauses).
+
 ## Unreleased — 0.1.1: Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice (#749)
 
 - **Fixed (docs)**: Running-on-PostgreSQL's *Wire the stores* imported `days` from
