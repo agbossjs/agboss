@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: running on PostgreSQL, from the core's side (#482)
+
+- **Docs**: [Running on PostgreSQL](Running-on-PostgreSQL) — installing `@agboss/postgres` (released
+  with the core, its version), wiring its 13 stores, the environment fields, migrations (the command,
+  the start flag, a newer schema refused), the one-backend check of the three fencing stores,
+  connection limits (pool size × pods, a fenced effect's work holding the lease row, poolers), what
+  the guarantees assume of the database (`clock_timestamp()`, one slewed clock, `READ COMMITTED`) and
+  how the stores are proved (`storeConformance`, `faultSuite`). [Several instances](Several-instances)
+  lists the outbound-call store; [Guarantees](Guarantees) A3 names PostgreSQL's clock. No behaviour
+  change.
 ## Unreleased — 0.1.1: another tree's approval is kept in the history (#676)
 
 - **Fixed**: the pause answer log behind `record.pauses` kept one answer per tenant and step key; a
@@ -10,6 +20,7 @@ Breaking changes and notable additions, newest first. The API reports
   lost its answer. Now one answer per pause of a tree (tenant, `rootExecutionId`, step key): the
   SQLite record store rebuilds `pause_answers` (migration 15, every row kept), PostgreSQL's 0021
   replaces the key, and `executionRecordContract` checks it. [Pauses](Pauses).
+
 
 ## Unreleased — 0.1.1: a resume after the host's clock stepped back continues where it rested (#682)
 
@@ -21,6 +32,7 @@ Breaking changes and notable additions, newest first. The API reports
   thread's greatest first marks the thread (a checkpoint in the namespace `agboss-out-of-order`), and
   a marked thread's latest is its highest LangGraph step. An unmarked thread costs one more look per
   latest read. No API change. [Guarantees](Guarantees) (A13).
+
 ## Unreleased — 0.1.1: every payment scenario fully labelled, the notice on Example (#686)
 
 - **Docs**: [Payment scenarios](Payment-scenarios) PS6 gains its Wrong and AGBoss, PS16 says it has

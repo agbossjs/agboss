@@ -235,14 +235,18 @@ listed in `@Application({ providers })` like a SQLite one; they share one `pg` p
 | `ExecutionHistoryRepository`    | `PostgresExecutionHistoryRepository`    | `agboss records export` on any pod lists every pod's executions       |
 | `RateLimitRepository`           | `PostgresRateLimitRepository`           | `maxConcurrentCalls`, per-minute windows, a 429 pause, an open breaker |
 | `MeshRequestRepository`         | `PostgresMeshRequestRepository`         | a mesh request retried against another pod runs once                  |
+| `OutboundCallRepository`        | `PostgresOutboundCallRepository`        | a call's intent, reconciled by whichever pod runs the step next       |
 
-The calls that leave the system (`OutboundCallRepository`, #505) have no PostgreSQL store yet.
-Each store runs its contract's published suite against PostgreSQL, and two-process tests prove it
-across real processes: a takeover, `AnyInstance` children, a pause resumed elsewhere, a shared
-budget, a rate limit across pods, the history export and mesh deduplication. The semantics are the
-SQLite stores' — the same contracts; each store's locking is in its doc comment. The schema is
-migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job before a
-rollout, or `postgresMigrateOnStart` for one instance.
+Each store runs its contract's published suite against PostgreSQL (`storeConformance`, the
+interleaving explorer included), the core's `faultSuite` runs on the full set, and two-process tests
+prove it across real processes: a takeover, `AnyInstance` children, a pause resumed elsewhere, a
+shared budget, a rate limit across pods, the history export, mesh deduplication and a payment
+reconciled after its pod froze mid-charge. The semantics are the SQLite stores' — the same
+contracts; each store's locking is in its doc comment, and a lease's expiry is decided by the
+database's `clock_timestamp()`. The three fencing stores declare one backend, `"postgres"`. The
+schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job
+before a rollout, or `postgresMigrateOnStart` for one instance. Installing, wiring, migrations,
+connection limits and what the guarantees assume of the database: [Running-on-PostgreSQL](Running-on-PostgreSQL).
 
 ## The execution lease
 
