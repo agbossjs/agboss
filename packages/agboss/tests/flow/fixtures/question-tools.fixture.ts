@@ -119,6 +119,14 @@ export class RuleApproverChannel extends ApproverQuestion {
   }
 }
 
+/** Decides at once with what is no answer of the role: a limit below zero. */
+@Channel({ name: "wrong-approver-channel", description: "Answers out of range" })
+export class WrongApproverChannel extends ApproverQuestion {
+  send(): Promise<ChannelOutcome<ApproverQuestion>> {
+    return Promise.resolve(ChannelOutcome.decided({ approved: true, limitUsd: -5 }));
+  }
+}
+
 /** A channel that cannot be reached. */
 @Channel({ name: "down-approver-channel", description: "Unreachable" })
 export class DownApproverChannel extends ApproverQuestion {
@@ -238,3 +246,13 @@ export class RuleQuestionToolsApplication {}
   providers: [DownApproverChannel],
 })
 export class DownQuestionToolsApplication {}
+
+@Application({
+  name: "wrong-question-tools-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [BuyerWorkflow],
+  budgets: TEST_BUDGETS,
+  providers: [WrongApproverChannel],
+})
+export class WrongQuestionToolsApplication {}

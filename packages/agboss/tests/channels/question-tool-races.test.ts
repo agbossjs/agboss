@@ -7,6 +7,7 @@
 import { describe, expect } from "vitest";
 import { UnknownPauseError } from "../../src/app/resume.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
+import { DtoValidationError } from "../../src/dto/errors.js";
 import { NotPausedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { ThreadOwnerError } from "../../src/run/thread.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
@@ -19,6 +20,7 @@ import {
   BuyerWorkflowFinish,
   BuyerWorkflowStart,
   DownQuestionToolsApplication,
+  WrongQuestionToolsApplication,
   OwnerBuyerAgent,
   OwnerBuyerWorkflowStart,
   QuestionToolsApplication,
@@ -30,6 +32,7 @@ import { usd } from "../../src/units/index.js";
 
 const test = testWith(QuestionToolsApplication, { instances: 2 });
 const down = testWith(DownQuestionToolsApplication);
+const wrong = testWith(WrongQuestionToolsApplication);
 
 const owner = { ownerId: "alice" };
 const asking = { threadId: "buy-1", ownerId: "alice" };
@@ -210,6 +213,18 @@ describe("#712 AC4: a channel that fails", () => {
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
         AgentFailedError,
         { cause: expect.objectContaining({ message: "the approvals service is down" }) },
+      );
+    },
+  );
+
+  wrong(
+    "AC4: a channel's decided(…) that is no valid answer fails the step, the validation its cause",
+    async ({ app, mockLlm }) => {
+      mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+
+      await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
+        AgentFailedError,
+        { cause: expect.any(DtoValidationError) },
       );
     },
   );

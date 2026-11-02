@@ -107,18 +107,20 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
  */
 
 /**
- * The ask's decision; a channel that failed fails the agent's step (its error as `cause`) — and a
- * question's answer its channel decided at once that is no valid answer (#712).
+ * The ask's decision; a channel that failed fails the agent's step (its error as `cause`) — and,
+ * for a question (#712), an answer its channel decided at once that is no valid answer (an
+ * approval's invalid decision rises as it is, #267 AC7).
  */
 async function askedOrFailed<TAnswer>(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
   ask: () => Promise<TAnswer>,
+  isQuestion = false,
 ): Promise<TAnswer> {
   try {
     return await ask();
   } catch (error) {
-    if (error instanceof DtoValidationError)
+    if (isQuestion && error instanceof DtoValidationError)
       throw new AgentFailedError(deps.agent.name, loopUsage(state), error);
     if (!(error instanceof ChannelSendError)) throw error;
     throw new AgentFailedError(deps.agent.name, loopUsage(state), error.cause);
@@ -158,8 +160,11 @@ async function askQuestion(
   if (ask.kind === "invalid")
     return { questionAnswers: { [call.callId]: { tool: tool.name, problem: ask.problem } } };
   checkBeforeAsking(state, deps, tool);
-  const reply = await askedOrFailed(state, deps, () =>
-    approval.requestAnswer(ask.value, deps.agent.name, tool, config?.signal),
+  const reply = await askedOrFailed(
+    state,
+    deps,
+    () => approval.requestAnswer(ask.value, deps.agent.name, tool, config?.signal),
+    true,
   );
   const answered = { tool: tool.name, answer: reply.answer, by: reply.by };
   return { questionAnswers: { [call.callId]: answered }, usage: [...reply.usage] };
