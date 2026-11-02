@@ -3,6 +3,10 @@ import {
   InMemoryExecutionHistoryRepository,
   type ExecutionHistoryRecord,
 } from "../../../src/infrastructure/execution-history.repository.js";
+import {
+  InMemoryExecutionTreeRepository,
+  type ExecutionTree,
+} from "../../../src/infrastructure/execution-tree.repository.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { hours } from "../../../src/units/index.js";
@@ -80,3 +84,38 @@ export class RefusingExecutionHistoryRepository extends InMemoryExecutionHistory
   executionRecordRetention: hours(24),
 })
 export class BrokenHistoryDeskApplication {}
+
+/** What the order fixtures below saw, in order (#699): each history save and each tree forgotten. */
+export const endOrder: string[] = [];
+
+/** A history store that notes each save in `endOrder`. */
+@Injectable({ deps: [IN_MEMORY_DATABASE] })
+export class NotingExecutionHistoryRepository extends InMemoryExecutionHistoryRepository {
+  override save(record: ExecutionHistoryRecord): Promise<void> {
+    endOrder.push(`history ${record.status}`);
+    return super.save(record);
+  }
+}
+
+/** A tree store that notes each tree forgotten in `endOrder` (the first step of a tree's cleanup). */
+@Injectable({ deps: [IN_MEMORY_DATABASE] })
+export class NotingExecutionTreeRepository extends InMemoryExecutionTreeRepository {
+  override deleteAllInTree(tree: ExecutionTree): Promise<void> {
+    endOrder.push("forgotten");
+    return super.deleteAllInTree(tree);
+  }
+}
+
+/** The refunds desk whose history and tree stores note the order of a tree's end (#699). */
+@Application({
+  name: "end-order-desk-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [EvalDeskWorkflow],
+  tenantContext: DeskTenantContext,
+  executionContext: DeskExecutionContext,
+  providers: [NotingExecutionHistoryRepository, NotingExecutionTreeRepository],
+  budgets: TEST_BUDGETS,
+  executionRecordRetention: hours(24),
+})
+export class EndOrderDeskApplication {}

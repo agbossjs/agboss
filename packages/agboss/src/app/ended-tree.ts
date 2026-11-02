@@ -87,10 +87,11 @@ export async function endedWithoutPass(
   const ended = await undoneTreeEnd(deps, state, failure, undo);
   const error: Error = ended;
   const isEnded = record !== undefined && (await failedRecord(deps, record, error));
-  await forgetTree(parts, state);
-  // its undo ran here without a pass: the record lists what ran, as the event does (#484)
+  // its undo ran here without a pass: the record lists what ran, as the event does (#484); kept
+  // before the tree is forgotten (#699): a pod killed in the cleanup's round trips keeps it
   const { compensations } = undo;
   if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations));
+  await forgetTree(parts, state);
   if (isEnded) {
     const event = executionEventAt(state, deps);
     await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });

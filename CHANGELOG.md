@@ -252,6 +252,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A tree's kept record is saved before its cleanup** (#699) — the history record
+  (`executionRecordRetention`) was saved after the tree's keys, its queued children and its pauses
+  were removed, so a pod killed during that cleanup's round trips lost the record of a tree that had
+  ended: nothing writes it later. The record is now saved first. Found by the fault suite's scenario
+  12 on agbossjs/redis (a Redis child queue beside SQLite fencing).
 - **The explorer on a lease store alone** (#694) — a store set with a lease store and no
   outbound-call store (the coordination stores of Redis, `without` its fenced-effect and
   outbound-call stores) registered no `interleavings (<name>)` case at all: its leases were never

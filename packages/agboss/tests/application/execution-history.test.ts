@@ -28,6 +28,8 @@ import {
 } from "../flow/fixtures/eval-desk.fixture.js";
 import {
   BrokenHistoryDeskApplication,
+  EndOrderDeskApplication,
+  endOrder,
   HistoryDeskApplication,
   HistorySensitiveApplication,
   HistoryTreasuryApplication,
@@ -230,3 +232,17 @@ describe("#401 PR 1: a paused tree's history", () => {
     },
   );
 });
+
+testWith(EndOrderDeskApplication)(
+  "#699: a tree's kept record is saved before the tree is forgotten — a pod killed in the cleanup keeps it",
+  async ({ app, mockLlm }) => {
+    endOrder.length = 0;
+    mockLlm(DeskAgent).thenReturn(...refundScript);
+
+    await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
+    mockLlm(DeskAgent).thenReturn(failWith(ModelFailure.BadRequest));
+    await execute(app, DeskWorkflowStart, { text: REFUND }, contexts).catch(() => undefined);
+
+    expect(endOrder).toEqual(["history finished", "forgotten", "history failed", "forgotten"]);
+  },
+);
