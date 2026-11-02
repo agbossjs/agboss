@@ -8,7 +8,7 @@ import { GuardrailSide } from "../../components/policy-decorators.js";
 import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
 import { runGuardrails } from "../../guardrails/runtime.js";
 import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
-import { modelReadingMaskOf, withModelReading } from "../../pii/model-reading.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { memoryViewOf } from "./memory-view.js";

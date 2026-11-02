@@ -2,7 +2,7 @@ import { coerceMessageLikeToMessage, type BaseMessageLike } from "@langchain/cor
 import type { UsageRecord } from "../../finops/usage.js";
 import type { DecisionRequest, DecisionQuestions } from "../../llm/decisions.js";
 import { maskedMessageOf } from "../../pii/message-mask.js";
-import type { ModelReadingMask } from "../../pii/model-reading.js";
+import type { ModelReadingMask } from "../../pii/model-boundary.js";
 import { mappedStringsAsync } from "../../pii/strings.js";
 import { revealedText, type PiiTokenMap } from "../../pii/tokens.js";
 

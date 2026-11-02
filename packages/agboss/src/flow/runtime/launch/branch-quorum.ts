@@ -1,4 +1,4 @@
-import type { ModelReadingMask } from "../../../pii/model-reading.js";
+import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Class } from "../../../components/injection.js";

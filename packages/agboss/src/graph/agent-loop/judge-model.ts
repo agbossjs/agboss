@@ -6,8 +6,14 @@ import { ModelKind, ModelKindError } from "../../llm/decision-errors.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../llm/decisions.js";
 import type { JudgeBinding } from "../../llm/registry.js";
 import type { AgentJudge } from "./deps.js";
-import type { ModelReadingMask } from "../../pii/model-reading.js";
-import { JudgeReading } from "./judge-reading.js";
+import type { ModelReadingMask } from "../../pii/model-boundary.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
+
+/** A judge's reading (#708), loaded on its first use: only an agent with PII policies needs it. */
+async function judgeReadingOf(mask: ModelReadingMask) {
+  const { JudgeReading } = await lazyLoad(import("./judge-reading.js"));
+  return new JudgeReading(mask);
+}
 
 /** The cost caller of a judge's model calls (category `review`). */
 const judgeCaller = (judge: string): string => `judge:${judge}`;
@@ -24,7 +30,7 @@ function invokeOf(
       throw new ModelKindError(binding.model, ModelKind.Decisions, "invoke");
     }
     const { model, settings } = binding.chat;
-    const reading = mask === undefined ? undefined : new JudgeReading(mask);
+    const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const sent = reading === undefined ? input : await reading.input(input);
     spent.push(...(reading?.usage ?? []));
     const response = await model.invoke(typeof sent === "string" ? sent : [...sent]);
@@ -45,7 +51,7 @@ function decideOf(
     if (binding.kind !== ModelKind.Decisions) {
       throw new ModelKindError(binding.model, ModelKind.Chat, "decide");
     }
-    const reading = mask === undefined ? undefined : new JudgeReading(mask);
+    const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const sent = reading === undefined ? request : await reading.request(request);
     spent.push(...(reading?.usage ?? []));
     const outcome = await binding.decide(sent);

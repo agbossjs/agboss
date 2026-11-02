@@ -13,7 +13,7 @@ import { JudgeReading } from "../../src/graph/agent-loop/judge-reading.js";
 import { createArbiterModel } from "../../src/flow/runtime/launch/arbiter-model.js";
 import { Decision } from "../../src/index.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
-import { modelReadingMaskOf, type ModelReadingMask } from "../../src/pii/model-reading.js";
+import { modelReadingMaskOf, type ModelReadingMask } from "../../src/pii/model-boundary.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";

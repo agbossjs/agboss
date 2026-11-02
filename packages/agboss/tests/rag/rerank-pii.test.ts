@@ -17,7 +17,7 @@ import type { App } from "../../src/app/types.js";
 import { boundRerankerOf, knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
-import { modelReadingMaskOf, withModelReading } from "../../src/pii/model-reading.js";
+import { modelReadingMaskOf, withModelReading } from "../../src/pii/model-boundary.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";

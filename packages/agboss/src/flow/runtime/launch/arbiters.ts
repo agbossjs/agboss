@@ -1,4 +1,4 @@
-import type { ModelReadingMask } from "../../../pii/model-reading.js";
+import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";

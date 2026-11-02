@@ -12,7 +12,7 @@ import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/ind
 import type { Bytes } from "../../units/index.js";
 import type { BoundedText } from "./tool-result-size.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
-import { modelReadingMaskOf, withModelReading } from "../../pii/model-reading.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.js";
 import type { AgentLoopDeps } from "./deps.js";
 import type { ToolTask } from "./state.js";
 

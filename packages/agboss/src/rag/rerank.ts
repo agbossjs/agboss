@@ -10,7 +10,7 @@ import {
   RerankReplyError,
   type RerankReading,
 } from "./llm-reranker.js";
-import { modelReadingNow } from "../pii/model-reading.js";
+import { modelReadingNow } from "../pii/model-boundary.js";
 import {
   RERANK_FAILED_CODE,
   RerankFailurePolicy,

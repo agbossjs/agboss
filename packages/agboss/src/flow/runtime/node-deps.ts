@@ -2,7 +2,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import type { Class } from "../../components/injection.js";
 import type { GraphDeps } from "../../graph/deps.js";
-import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-reading.js";
+import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
 import type { PiiRuntime } from "../../pii/runtime.js";
 import type { ExecutionStateType } from "./state.js";
 import { standaloneContexts } from "../context/runtime-contexts.js";

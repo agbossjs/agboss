@@ -15,7 +15,7 @@ import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
 import { loopPoliciesOf } from "./model-pii.js";
-import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-reading.js";
+import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
