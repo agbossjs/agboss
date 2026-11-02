@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: models called on an agent's behalf read through its PII policies (#708)
+
+- **Fixed**: the core's LLM reranker sent the query and the candidates to its model unmasked. It now
+  reads them through the reading agent's PII policies (its sensitive values and key too), in tool and
+  in context mode; a block rule in a candidate refuses as at the agent's own boundary, and the
+  reranker's model reads nothing. The trace of the reranking holds the masked text. A code
+  reranker's call stays the project's own.
+- **Fixed**, found on the sweep: a model judge's calls in an agent's quality gate (`judgeModel.invoke`
+  / `decide`) and a model arbiter's call went unmasked too; both now read through the agent's
+  policies, a chat judge's reply revealed before `judge()` reads it. Every other model the framework
+  calls — agents, routers, guardrails, compaction, reply interpreters — was already masked.
+  [Knowledge bases](Knowledge-bases), [Judges](Judges-And-Quality-Gates).
+
 ## Unreleased — 0.1.1: an error of unknown outcome is reconciled; a replay past the key's retention is never sent (#657, #658)
 
 - **Changed (#657)**: an error `send` throws is `Failed` — sent again under the same key with no

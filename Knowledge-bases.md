@@ -236,7 +236,18 @@ candidates } })` runs the contract's cases through the reranking.
   `rag`, `reranker`, `cause`) fails the agent's step in both modes — context mode does not swallow
   it, tool mode does not hand it to the model; `.onError(RerankFailedError, …)` may take it.
 
-**Cost and traces:** the reranking is the span `rerank:<rag name>`, its model call inside it; its
+**PII (#708):** the core's LLM reranker reads the query and the candidates — their texts and
+sources — as the reading agent's own model does: through that agent's PII policies (the application's,
+the workflow's and the agent's own), with its execution's sensitive values and key. In context mode the
+reading agent is the one the knowledge block is for, in tool mode the one that searches. A candidate
+holding `alice@example.com` under a `replaceWithToken()` rule reaches the reranker's model as
+`<email:7f3a91>`; the reranked passage reaches the agent as retrieved, its own boundary masking it as
+before. A block rule in a candidate refuses as it would at the agent's own model — the search call
+refused (the model reads `Tool error: the call was refused: …`), in context mode the execution
+(`PiiRefusedError`) — and the reranker's model reads nothing. A code reranker's call
+(`DecidedBy.Code`) is the project's own, unmasked, as a connector's embeddings call is.
+
+**Cost and traces:** the reranking is the span `rerank:<rag name>` (its query masked as above), its model call inside it; its
 spend is billed to `rag:<rag name>` (category `retrieval`) with the reranker's model — a code
 reranker's `costUsd` under its `@Reranker` name — so it is in `result.spend`, the ledger and every
 budget, counted at once. `npm run describe`: `rag: reranked-docs-rag (tool, k 4, reranked by

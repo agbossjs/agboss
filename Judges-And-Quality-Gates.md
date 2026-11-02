@@ -422,6 +422,15 @@ The judges are registered by the agent; list a judge's own dependencies in the w
    runs again — until every judge passes or `maxRetries` retries are spent (`QualityGateError`,
    `rejections` of the last answer).
 
+A model judge's calls read as the judged agent's model reads (#708): what `judgeModel.invoke` sends
+(a text or messages) and what `judgeModel.decide` sends (the state and the questions) go through that
+agent's PII policies, with its execution's sensitive values and key, and a chat reply's tokens are
+revealed before `judge()` reads it — the judge sees `alice@example.com`, its model `<email:7f3a91>`.
+The masking's spend is the judge's. A model arbiter of a quorum reads each answer through the
+answering agent's policies the same way — every copy of a launch (`critic-agent#2`) through its
+agent's, and an element no list names through the workflow's policies, never through none. An eval suite's judge runs outside any agent and is not
+masked.
+
 In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
 `mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
