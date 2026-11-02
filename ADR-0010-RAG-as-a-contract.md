@@ -24,7 +24,7 @@ differently, so a built-in embeddings model or vector store would be the wrong d
   on the application's model providers, or the project's code on a vendor's official SDK) bound by
   `@Rag({ rerank })`; the core runs it, checks its result is a subset of the tenant's candidates,
   bills and traces it, and falls back or fails the step as declared. No reranker package in the
-  core: dedicated rerank APIs stay examples (agboss-examples `11-rag-reranking`).
+  core: dedicated rerank APIs stay examples (agboss-examples `13-rag-reranking`).
 
 ## Consequences
 

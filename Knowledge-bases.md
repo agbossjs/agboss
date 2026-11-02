@@ -183,7 +183,7 @@ export class RerankedDocs extends SqliteFtsConnector {}
 
 It works with any connector and in both modes: the search tool returns the reranked `keep`, the
 context block holds them; `testRag(R)` reranks the same way (`model: replyWith(…)` scripts a model
-reranker).
+reranker), and a scripted agent searches a knowledge base with `callTool(CompanyDocs, { query })`.
 
 **The LLM reranker** (`DecidedBy.Model`, the default) is an empty class: `model` is any chat model of
 the application's providers, a cheap one by default (`DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`;
@@ -220,7 +220,7 @@ export class ApiReranker implements RerankerHandler {
 
 Swapping one reranker for another is the `by` of one `@Rag` — nothing else changes. The full
 example with Cohere Rerank, offline: agboss-examples
-[`11-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/11-rag-reranking).
+[`13-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/13-rag-reranking).
 
 **What a reranker may return:** a subset of the candidates it was given — the same `source` and
 `text`, none twice, at most `keep`. Anything else is a failure, so no reranker can put a passage
