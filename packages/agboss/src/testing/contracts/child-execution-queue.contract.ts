@@ -7,6 +7,7 @@ import { ExecutionRecordStatus } from "../../infrastructure/execution-record.rep
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { QUEUE_REQUEUE_CASE } from "./child-execution-queue-requeue.case.js";
+import { QUEUE_DEPTH_CASES } from "./child-execution-queue-depth.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { queuedChild as child } from "./queued-child.js";
 import type { ContractTarget } from "./seam.js";
@@ -122,10 +123,12 @@ const QUEUE_CASES: readonly ContractCase<ChildExecutionQueueRepository>[] = [
 /**
  * `ChildExecutionQueueRepository` (#333 PR 2): a child is queued once and claimed once (of two
  * instances exactly one gets it), the deepest first, then the longest waiting; only its claimer
- * completes it; a tree's rows go with its root; a paused child or a lost claim is queued again.
+ * completes it; a tree's rows go with its root; a paused child or a lost claim is queued again;
+ * its depth (#485) counts every queued and running row once, with the oldest still queued.
  */
 export function childExecutionQueueContract(
   target: ContractTarget<ChildExecutionQueueRepository>,
 ): void {
-  registerContract("child execution queue contract", target, [{ cases: QUEUE_CASES }], pingOf);
+  const cases = [...QUEUE_CASES, ...QUEUE_DEPTH_CASES];
+  registerContract("child execution queue contract", target, [{ cases }], pingOf);
 }

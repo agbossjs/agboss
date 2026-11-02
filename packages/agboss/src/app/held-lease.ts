@@ -103,13 +103,12 @@ export class HeldLease implements HeldExecutionLease {
     this.#current = initial;
     const start = { sentAt, remaining: initial.remaining, margin: taking.safetyMargin };
     this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId);
-    this.#holder = new FencedHolders(this.scopeKey, (error) => {
-      this.fenced(error);
-    });
+    this.#holder = new FencedHolders(this.scopeKey, this.fenced.bind(this));
     this.#holder.hold(initial.leaseEpoch);
     // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral,BooleanLiteral: the abort event fires once and its holder is forgotten at the release as well; a fenced write of a lost holder's token only aborts what is aborted already
     this.#lost.signal.addEventListener("abort", this.#holder.forget, { once: true });
     const working = AbortSignal.any([this.#stopped.signal, this.#lost.signal]);
+    taking.heldLeases?.hold(working);
     void renewInBackground(this.clock, working, () => this.renewNow());
     void expireInBackground(this.clock, working, this.#fence);
   }

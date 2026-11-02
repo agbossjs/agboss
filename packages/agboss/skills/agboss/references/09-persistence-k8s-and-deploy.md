@@ -296,6 +296,29 @@ A check that throws or times out is that component's `Unhealthy`. `HealthCheckRe
 `.degraded({ reason })` / `.unhealthy({ reason })` are the only results (a plain object does not
 compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 
+## Metrics for autoscaling (#485)
+
+`createApp(App, { meterProvider })` publishes the instance's metrics through an OpenTelemetry
+`MeterProvider` the project builds (an SDK one with `@opentelemetry/exporter-prometheus` or an OTLP
+exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { meterProviders:
+[…] })` gives each instance its own, read with an in-memory `MetricReader`.
+
+| Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |
+| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`findQueueDepth()`) | —                     | `max` — every pod reports the same value |
+| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                       | —                     | `sum`                                    |
+| `agboss.instance.leases.held`                                                           | gauge                                                        | —                     | `sum`                                    |
+| `agboss.instance.lease.takeovers`                                                       | counter                                                      | `reason`              | `sum`                                    |
+| `agboss.instance.steps.handed_over`                                                     | counter                                                      | `reason`              | `sum`                                    |
+| `agboss.instance.executions.ended`                                                      | counter                                                      | `workflow`, `outcome` | `sum`                                    |
+| `agboss.instance.compensations`                                                         | counter                                                      | `workflow`, `status`  | `sum`                                    |
+
+Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
+the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +
+sum(waiting)` is 0. Never sum a cluster gauge over pods; never label by tenant or execution. Match
+`terminationGracePeriodSeconds` to `shutdownTimeout` plus the preStop delay. Wiki → Metrics,
+Autoscaling.
+
 ## Several instances
 
 - **The lease.** `execute` / `resume` move a tree only while holding its lease (keyed by `tenantId`

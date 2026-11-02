@@ -56,15 +56,20 @@ const ignore: ObserverFailure = () => undefined;
  * skipped: it never fails the execution.
  */
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
+  /**
+   * `builtIn`: the framework's own observers (#485: the instance's metrics) — called first, on the
+   * event as it is: they read enums and names only, so no mask runs for them.
+   */
   constructor(
     private readonly observers: readonly ExecutionObserver[],
     private readonly onFailure: ObserverFailure = ignore,
     private readonly mask: EventMask = unmasked,
+    private readonly builtIn: readonly ExecutionObserver[] = [],
   ) {}
 
   /** The same observers, every event masked first (a workflow's PII policies, #120 AC7). */
   masked(mask: EventMask): ExecutionObserverManager {
-    return new ExecutionObserverManager(this.observers, this.onFailure, mask);
+    return new ExecutionObserverManager(this.observers, this.onFailure, mask, this.builtIn);
   }
 
   private async each<TEvent>(
@@ -72,12 +77,22 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     event: TEvent,
     call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
   ): Promise<void> {
+    await this.callAll(this.builtIn, hook, event, call);
     if (this.observers.length === 0) return;
     // the mask keeps an event's shape: every string masked, class instances (errors) as they are
     const shown = (await this.mask(event)) as TEvent;
-    for (const observer of this.observers) {
+    await this.callAll(this.observers, hook, shown, call);
+  }
+
+  private async callAll<TEvent>(
+    observers: readonly ExecutionObserver[],
+    hook: ObserverHook,
+    event: TEvent,
+    call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
+  ): Promise<void> {
+    for (const observer of observers) {
       try {
-        await call(observer, shown);
+        await call(observer, event);
       } catch (error) {
         this.onFailure(observer.constructor.name, hook, error);
       }

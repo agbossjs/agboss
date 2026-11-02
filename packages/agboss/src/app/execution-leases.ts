@@ -84,14 +84,22 @@ export interface ExecutionLeases {
 }
 
 /** What a holder records its takeovers with: the instance's lease log, absent = none. */
-export type LeaseTakeoverLog = Pick<LeaseTaking, "events" | "stopping" | "safetyMargin">;
+export type LeaseTakeoverLog = Pick<
+  LeaseTaking,
+  "events" | "stopping" | "safetyMargin" | "heldLeases"
+>;
+
+/** Where a held lease counts itself (#485, `agboss.instance.leases.held`): until `until` aborts. */
+export interface HeldLeases {
+  hold(until: AbortSignal): void;
+}
 
 export function executionLeasesOf(
   repository: ExecutionLeaseRepository,
   clock: Clock,
-  { events, stopping, safetyMargin }: LeaseTakeoverLog = {},
+  { events, stopping, safetyMargin, heldLeases = events?.heldLeases }: LeaseTakeoverLog = {},
 ): ExecutionLeases {
-  const taking = { repository, clock, events, stopping, safetyMargin };
+  const taking = { repository, clock, events, stopping, safetyMargin, heldLeases };
   const take = (tree: ExecutionTree, why?: LeaseTake): Promise<HeldExecutionLease | undefined> =>
     takeLease(taking, tree, why);
   return {
@@ -156,6 +164,8 @@ export interface LeaseEventLog {
   readonly clock: Clock;
   /** The recording (`lease-events.ts`), loading since the instance was built. */
   readonly recording: Promise<typeof LeaseEvents>;
+  /** The instance's count of the leases it holds (#485); absent = not counted. */
+  readonly heldLeases?: HeldLeases | undefined;
 }
 
 /** What an instance's lease log is made of besides its infrastructure. */
@@ -164,13 +174,16 @@ export interface LeaseEventParts {
   /** The application's PII observability mask. */
   readonly mask: ObservabilityMask;
   readonly log: FrameworkLog;
+  /** The instance's count of held leases (#485). */
+  readonly heldLeases?: HeldLeases | undefined;
 }
 
 /** The instance's lease log: its store and clock, its observers, the application's mask. */
 export const leaseEventLogOf = (
   infrastructure: Pick<Infrastructure, "leaseEvents" | "clock">,
-  { observer, mask, log }: LeaseEventParts,
+  { observer, mask, log, heldLeases }: LeaseEventParts,
 ): LeaseEventLog => ({
+  heldLeases,
   repository: infrastructure.leaseEvents,
   observer,
   mask: (event) => mask.value(event),
@@ -210,6 +223,8 @@ export interface LeaseTaking {
   readonly stopping?: AbortSignal | undefined;
   /** What the holder takes off each answer's `remaining` (#533); absent: `LEASE_SAFETY_MARGIN`. */
   readonly safetyMargin?: Milliseconds | undefined;
+  /** Where the holder counts itself while it holds the lease (#485); absent = not counted. */
+  readonly heldLeases?: HeldLeases | undefined;
 }
 
 /** Whether a take of `lease` is a takeover the lease log records. */

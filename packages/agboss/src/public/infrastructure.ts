@@ -24,6 +24,7 @@ export {
 export {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,
+  type ChildExecutionQueueDepth,
   type QueuedChildExecution,
 } from "../infrastructure/child-execution-queue.repository.js";
 export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";

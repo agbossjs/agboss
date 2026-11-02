@@ -47,6 +47,19 @@ export interface ChildExecutionEnd {
 }
 
 /**
+ * What the queue holds now over every tenant and tree (#485): the cluster's queued work, read once
+ * per metrics collection (`agboss.cluster.children.*`).
+ */
+export interface ChildExecutionQueueDepth {
+  /** Children `Queued`: waiting for an instance to claim them. */
+  readonly queued: number;
+  /** Children `Running`: claimed by an instance. */
+  readonly running: number;
+  /** `queuedAt` of the longest-waiting `Queued` child; `undefined` when none is queued. */
+  readonly oldestQueuedAt?: Date | undefined;
+}
+
+/**
  * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
  * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
  * instance of the application with a free step slot (#332) claims the first queued child —
@@ -88,6 +101,27 @@ export abstract class ChildExecutionQueueRepository {
     tenantId: string,
     rootExecutionId: string,
   ): Promise<void>;
+  /**
+   * How many children are `Queued` and `Running` over every tenant and tree, and when the
+   * longest-waiting queued one was queued (#485) — one round trip (an aggregate, never a read per
+   * tree); every instance reads the same.
+   */
+  abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
+}
+
+/** The depth of `children`: what `findQueueDepth()` answers for these rows. */
+export function queueDepthOf(children: Iterable<QueuedChildExecution>): ChildExecutionQueueDepth {
+  let queued = 0;
+  let running = 0;
+  let oldest: number | undefined;
+  for (const child of children) {
+    if (child.status === ExecutionRecordStatus.Running) running += 1;
+    if (child.status !== ExecutionRecordStatus.Queued) continue;
+    queued += 1;
+    const at = child.queuedAt.getTime();
+    oldest = oldest === undefined ? at : Math.min(oldest, at);
+  }
+  return { queued, running, oldestQueuedAt: oldest === undefined ? undefined : new Date(oldest) };
 }
 
 /** The order of the claims: the deepest first, then the longest waiting. */
@@ -181,5 +215,9 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
       if (child.tenantId === tenantId && child.rootExecutionId === rootExecutionId)
         this.database.childQueue.delete(key);
     return Promise.resolve();
+  }
+
+  findQueueDepth(): Promise<ChildExecutionQueueDepth> {
+    return Promise.resolve(queueDepthOf(this.database.childQueue.values()));
   }
 }

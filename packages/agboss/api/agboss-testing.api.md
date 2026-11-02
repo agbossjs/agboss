@@ -9,6 +9,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { IncomingMessage } from 'node:http';
 import { KeyObject } from 'node:crypto';
 import type { MessageContent } from '@langchain/core/messages';
+import type { MeterProvider } from '@opentelemetry/api';
 import { Mocked } from 'vitest';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
@@ -981,6 +982,7 @@ export interface TestWithOptions extends EnvironmentSelection {
     readonly clockSkews?: readonly ClockSkew[];
     readonly concurrency?: TestConcurrency;
     readonly instances?: number;
+    readonly meterProviders?: readonly MeterProvider[];
     readonly overrides?: readonly Override[];
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;

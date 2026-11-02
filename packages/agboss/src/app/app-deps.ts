@@ -1,3 +1,4 @@
+import type { MeterProvider } from "@opentelemetry/api";
 import { resolveTools, type AssembledWorkflow } from "../workflow.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
@@ -104,6 +105,12 @@ export interface AppDepsOptions {
   readonly container?: ContainerOptions;
   /** How launch branches are scheduled: a test's `TestConcurrency` (#262 S33); default the real way. */
   readonly branchScheduler?: BranchScheduler;
+  /**
+   * Where the instance publishes its metrics (#485, Wiki → Metrics): an OpenTelemetry
+   * `MeterProvider` — an SDK one with a Prometheus or an OTLP exporter, or the global one
+   * (`metrics.getMeterProvider()`). Absent = no metrics: nothing loaded, no store read.
+   */
+  readonly meterProvider?: MeterProvider;
 }
 
 /**

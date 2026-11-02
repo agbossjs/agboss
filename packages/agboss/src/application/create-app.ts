@@ -23,8 +23,7 @@ import { instanceAppOf } from "./compose-app.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
-import { observerManagerOf } from "./observers.js";
-import { leaseEventLogOf } from "../app/execution-leases.js";
+import { observersOf } from "./observers.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -190,8 +189,8 @@ export async function buildApplication(
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const instance = await instancePartsOf(assembled, clock, log, infrastructure);
   const workflows: BuiltApp[] = [];
-  const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
-  const leaseEvents = leaseEventLogOf(infrastructure, { observer, mask, log }); // #501
+  const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
+  const { observer, leaseEvents } = await observersOf(seen, { ...container, onCreate }, options);
   const common = { infrastructure, created, leaseEvents, ...instance };
   try {
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
