@@ -3,6 +3,7 @@ import { HandOverSite } from "../../infrastructure/execution-lease-event.reposit
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-reading.js";
 import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
@@ -34,6 +35,19 @@ interface GuardedCall {
   readonly replied?: string;
   readonly stop?: ToolCallStop;
 }
+
+/**
+ * The call with the agent's reading (#708): a model the call makes on the agent's behalf (its
+ * knowledge base's reranker) reads through the agent's policies, its sensitive values and key.
+ */
+const readingAgent = <TResult>(
+  deps: AgentLoopDeps,
+  task: ToolTask,
+  work: () => Promise<TResult>,
+): Promise<TResult> => {
+  const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);
+  return withModelReading(modelReadingMaskOf(set), work);
+};
 
 /** Tool failures are recoverable: whatever went wrong, the model reads it as `Tool error: …`. */
 async function runTool(
@@ -181,7 +195,7 @@ function runTask(
     const guarded = await inToolCallFrame(
       task.callId,
       { reportUsage, meshCall: mesh.services },
-      () => guardedCall(deps, tool, task, () => runTool(tool, task.args, context)),
+      () => guardedCall(deps, tool, task, () => readingAgent(deps, task, () => runTool(tool, task.args, context))),
       call.signal,
     ).finally(call.release);
     const { closed } = guarded;

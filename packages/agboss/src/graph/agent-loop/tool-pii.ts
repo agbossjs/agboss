@@ -1,6 +1,7 @@
 import type { UsageRecord } from "../../finops/usage.js";
 import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
+import { PiiRefusedError } from "../../pii/errors.js";
 import type { PiiFinding } from "../../pii/masking.js";
 import { maskCacheKey } from "../../pii/model-boundary.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
@@ -92,6 +93,12 @@ export async function closedResult(
   maxResultSize: Bytes,
 ): Promise<ClosedResult> {
   const none = { piiTokens: {}, piiMasked: {}, usage: [] };
+  // a block rule in what a model the call made on the agent's behalf would read (#708): refused
+  if (output.kind === "error" && output.cause instanceof PiiRefusedError) {
+    const { cause } = output;
+    const content = refusedCall(cause.refusal);
+    return { ...none, content, usage: cause.usage, isTruncated: false, refusal: cause };
+  }
   if (set === undefined || output.kind === "error") {
     const { kept, marker, isTruncated } = await bounded(renderToolResult(output), maxResultSize);
     return { content: `${kept}${marker}`, ...none, isTruncated };

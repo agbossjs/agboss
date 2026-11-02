@@ -91,13 +91,44 @@ export function rankedCandidates(
   });
 }
 
-/** The LLM reranker of the `@Reranker` named `name`, on its bound model. */
-export function modelRerankerOf(name: string, binding: ModelBinding): RerankerHandler {
+/**
+ * The query and the candidates' texts and sources as the model reads them (#708): masked by the reading
+ * agent's policies, in that order; absent → as retrieved (no policies, or no agent).
+ */
+export interface RerankReading {
+  readonly query: string;
+  readonly texts: readonly string[];
+  readonly sources: readonly string[];
+}
+
+/** The candidates the model reads: each one's text as the reading gives it. */
+const readCandidates = (
+  candidates: readonly RagSearchResultDto[],
+  reading: RerankReading | undefined,
+): readonly RagSearchResultDto[] =>
+  reading === undefined
+    ? candidates
+    : candidates.map((candidate, index) => ({
+        ...candidate,
+        source: reading.sources[index] ?? candidate.source,
+        text: reading.texts[index] ?? candidate.text,
+      }));
+
+/**
+ * The LLM reranker of the `@Reranker` named `name`, on its bound model; its model reads `reading`
+ * (#708), the ranking it gives orders the candidates as retrieved.
+ */
+export function modelRerankerOf(
+  name: string,
+  binding: ModelBinding,
+  reading?: RerankReading,
+): RerankerHandler {
   return {
     rerank: async (query, candidates, { keep, signal }) => {
+      const read = readCandidates(candidates, reading);
       const messages = [
         new SystemMessage(RERANKER_SYSTEM),
-        new HumanMessage(rerankPromptOf(query, candidates, keep)),
+        new HumanMessage(rerankPromptOf(reading?.query ?? query, read, keep)),
       ];
       const response = await binding.model.invoke(messages, { signal });
       const usage = [recordUsage(`reranker:${name}`, binding.settings, response)];

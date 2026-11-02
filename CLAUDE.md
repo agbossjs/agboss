@@ -1723,7 +1723,7 @@ tenantId })` → `RagReranking { results, costUsd? }`, `deps`; a dedicated API s
   unreadable reply, an invalid result) under `RerankFailurePolicy.Fallback` (default) gives the
   retrieval's first `keep` and a span `rerank:<name>:fallback`; under `FailStep` it is
   `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`) failing the agent's step in both
-  modes. The reranking is the span `rerank:<rag>` (its model call inside); its spend a `UsageRecord`
+  modes. The LLM reranker's model reads the query and the candidates (texts and sources) as the reading agent's own model does (#708: that agent's PII policies, its execution's sensitive values and key — in context mode the agent's, in tool mode the searching agent's; a block rule in them refuses as at the agent's boundary: the search call refused, the execution refused in context mode, and no model reads them); a code reranker's call is the project's own. The same holds for a model judge's calls in an agent's quality gate (`judgeModel.invoke` / `decide` masked, its chat reply revealed before the judge reads it) and a model arbiter's (the answering agent's policies). The reranking is the span `rerank:<rag>` (its model call inside, both masked); its spend a `UsageRecord`
   under `rag:<rag>` (category `retrieval`, the reranker's model; a code one's `costUsd` cost source
   `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, reranked by
 docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`

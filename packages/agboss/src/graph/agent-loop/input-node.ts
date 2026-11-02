@@ -8,6 +8,7 @@ import { GuardrailSide } from "../../components/policy-decorators.js";
 import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
 import { runGuardrails } from "../../guardrails/runtime.js";
 import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-reading.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { memoryViewOf } from "./memory-view.js";
@@ -84,12 +85,10 @@ async function guardedInput(
 export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { agent } = deps;
   return async (state, config) => {
-    const knowledge = await gatherKnowledge(
-      agent.knowledge,
-      state.inputMessage,
-      config,
-      deps.observer,
-      agent.maxResultSize,
+    // a reranker's model reads the passages as this agent's model does (#708)
+    const reading = modelReadingMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
+    const knowledge = await withModelReading(reading, () =>
+      gatherKnowledge(agent.knowledge, state.inputMessage, config, deps.observer, agent.maxResultSize),
     );
     const view = await memoryViewOf(agent, state);
     const memory = formatMemory(view, {

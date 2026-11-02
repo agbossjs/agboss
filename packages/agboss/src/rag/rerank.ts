@@ -4,7 +4,13 @@ import { recordReportedCost, type UsageRecord } from "../finops/usage.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import type { ModelBinding } from "../llm/registry.js";
-import { MODEL_RERANKER_USAGE, modelRerankerOf, RerankReplyError } from "./llm-reranker.js";
+import {
+  MODEL_RERANKER_USAGE,
+  modelRerankerOf,
+  RerankReplyError,
+  type RerankReading,
+} from "./llm-reranker.js";
+import { modelReadingNow } from "../pii/model-reading.js";
 import {
   RERANK_FAILED_CODE,
   RerankFailurePolicy,
@@ -106,10 +112,41 @@ const failedSpendOf = (bound: BoundReranker, error: unknown): readonly UsageReco
     ? error.usage.map((record) => ({ ...record, caller: `rag:${bound.rag}` }))
     : [];
 
-const handlerOf = (bound: BoundReranker): RerankerHandler =>
+const handlerOf = (bound: BoundReranker, reading: RerankReading | undefined): RerankerHandler =>
   bound.source.kind === "code"
     ? bound.source.instance()
-    : modelRerankerOf(bound.reranker, bound.source.binding());
+    : modelRerankerOf(bound.reranker, bound.source.binding(), reading);
+
+/** What a model reranker's model reads and what masking it cost (#708). */
+interface MaskedRerank {
+  readonly reading?: RerankReading;
+  readonly usage: readonly UsageRecord[];
+}
+
+/**
+ * The query and the candidates as the core's model reranker reads them (#708): through the reading
+ * agent's PII policies — a block rule in them refuses here, before any model reads them, as the
+ * agent's boundary refuses the same passages; a code reranker's call is the project's own.
+ */
+async function maskedRerankOf(
+  bound: BoundReranker,
+  query: string,
+  candidates: readonly RagSearchResultDto[],
+): Promise<MaskedRerank> {
+  const mask = bound.source.kind === "model" ? modelReadingNow() : undefined;
+  if (mask === undefined) return { usage: [] };
+  const texts = candidates.map((candidate) => candidate.text);
+  const sources = candidates.map((candidate) => candidate.source);
+  const masked = await mask([query, ...texts, ...sources]);
+  const [maskedQuery = query, ...rest] = masked.texts;
+  const reading = {
+    query: maskedQuery,
+    texts: rest.slice(0, texts.length),
+    sources: rest.slice(texts.length),
+  };
+  const usage = masked.usage.map((record) => ({ ...record, caller: `rag:${bound.rag}` }));
+  return { reading, usage };
+}
 
 /** One reranking call. */
 export interface RerankCall {
@@ -132,23 +169,28 @@ export async function rerankedRetrieval(
   const fetched = await retrieve(Math.max(bound.candidates, call.keep));
   if (fetched.results.length === 0) return fetched;
   const { query, keep, tenantId, signal } = call;
-  const sources = fetched.results.map((result) => result.source);
+  // outside the failure policy: a block rule refuses as the agent's own boundary would (#708)
+  const masked = await maskedRerankOf(bound, query, fetched.results);
+  const shown = masked.reading ?? { query, sources: fetched.results.map((r) => r.source) };
   try {
     const reranked = await RunnableLambda.from(async () => {
-      const reranking = await handlerOf(bound).rerank(query, fetched.results, {
+      const reranking = await handlerOf(bound, masked.reading).rerank(query, fetched.results, {
         keep,
         signal,
         tenantId,
       });
       return {
         results: checkedResults(fetched.results, reranking, keep),
-        usage: spendOf(bound, reranking),
+        usage: [...masked.usage, ...spendOf(bound, reranking)],
       };
-    }).invoke({ query, candidates: sources }, { runName: `rerank:${bound.rag}` });
+    }).invoke(
+      { query: shown.query, candidates: shown.sources },
+      { runName: `rerank:${bound.rag}` },
+    );
     return { results: reranked.results, costUsd: fetched.costUsd, usage: reranked.usage };
   } catch (error) {
     if (signal.aborted) throw error;
-    const usage = failedSpendOf(bound, error);
+    const usage = [...masked.usage, ...failedSpendOf(bound, error)];
     if (bound.onFailure === RerankFailurePolicy.FailStep)
       throw new RerankFailedError(bound, error, usage);
     const reason = error instanceof Error ? error.message : String(error);

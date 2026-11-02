@@ -65,6 +65,7 @@ export function routeToActions(
           args: state.decisions[call.callId]?.overrideArguments ?? call.args,
           runId: state.runId,
           piiKey: state.piiKey,
+          piiValues: state.piiValues,
           progress: loopProgressOf(state),
         } satisfies ToolTask),
     );

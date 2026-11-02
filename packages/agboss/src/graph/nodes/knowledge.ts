@@ -11,6 +11,7 @@ import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { DEFAULT_MAX_RESULT_SIZE } from "../../tools/index.js";
 import type { Bytes } from "../../units/index.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { PiiRefusedError } from "../../pii/errors.js";
 
 /** A knowledge base's block within the agent's `maxResultSize` (#336), the marker after a cut. */
 async function boundedBlock(block: string, maxResultSize: Bytes): Promise<string> {
@@ -30,11 +31,18 @@ export const isRerankFailure = (error: unknown): boolean =>
   error instanceof Error && Reflect.get(error, "code") === RERANK_FAILED_CODE;
 
 /**
+ * A block rule in what a reranker's model would have read (#708): the agent's own boundary refuses
+ * the same passages, so the step fails as it would — never a knowledge base left out.
+ */
+const isPiiRefusal = (error: unknown): boolean => error instanceof PiiRefusedError;
+
+/**
  * Context mode: before the agent's loop, each knowledge base is asked for the task's top-k
  * search results. Each retrieval is a named runnable (`rag:<name>`), so it is a span in the trace; its
  * cost is billed to `rag:<name>` (category retrieval), a reranker's too (#703). A failure leaves
  * those results out — the turn goes on (fail-open), the error stays on the span — except a reranking
- * that failed under `RerankFailurePolicy.FailStep` (`step.rerank-failed`), which fails the step.
+ * that failed under `RerankFailurePolicy.FailStep` (`step.rerank-failed`), which fails the step, and
+ * a block rule in what the reranker's model would read (`PiiRefusedError`, #708), which refuses.
  */
 export async function gatherKnowledge(
   sources: readonly KnowledgeSource[],
@@ -61,7 +69,7 @@ export async function gatherKnowledge(
         );
     } catch (error) {
       // fail-open: knowledge is an aid, not a gate — unless its reranking must fail the step (#703)
-      if (isRerankFailure(error)) throw error;
+      if (isRerankFailure(error) || isPiiRefusal(error)) throw error;
     }
   }
   return {

@@ -134,6 +134,11 @@ export interface ToolTask {
   readonly runId: string;
   /** The execution's key of field tokens (#334); absent (a task of an old checkpoint) or null = the policies'. */
   readonly piiKey?: string | null;
+  /**
+   * The execution's sensitive values (#708): what a model called on the agent's behalf during the
+   * call (a knowledge base's reranker) masks as the agent's own model does; absent in an old task.
+   */
+  readonly piiValues?: readonly SensitiveValue[];
   /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
   readonly progress?: LoopProgress;
 }

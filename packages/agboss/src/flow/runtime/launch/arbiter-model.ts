@@ -1,3 +1,4 @@
+import type { ModelReadingMask } from "../../../pii/model-reading.js";
 import type { RouterModel } from "../../../config/types.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import {
@@ -45,7 +46,8 @@ export type ArbiterVerdict =
 
 /** A model arbiter on its model. */
 export interface ArbiterModel {
-  readonly judge: (question: ArbiterQuestion) => Promise<ArbiterVerdict>;
+  /** `reading`: the answering agent's PII policies (#708) — the model reads the answer masked. */
+  readonly judge: (question: ArbiterQuestion, reading?: ModelReadingMask) => Promise<ArbiterVerdict>;
 }
 
 /** The cost caller of an arbiter, also its script key in tests. */
@@ -69,13 +71,16 @@ export function createArbiterModel(
 ): ArbiterModel {
   const decider = createYesNoDecider(voiceOf(name), model, deps);
   return {
-    judge: async (question) => {
+    judge: async (question, reading) => {
+      const texts = [inputOf(question), question.instructions, question.criterion];
+      const read = reading === undefined ? { texts, usage: [] } : await reading(texts);
+      const [input = texts[0], instructions = texts[1], criterion = texts[2]] = read.texts;
       const outcome = await decider.decide({
-        input: inputOf(question),
-        instructions: question.instructions,
-        questions: [{ target: ARBITER_QUESTION, prompt: question.criterion }],
+        input: input ?? "",
+        instructions: instructions ?? "",
+        questions: [{ target: ARBITER_QUESTION, prompt: criterion ?? "" }],
       });
-      const usage = outcome.usage === undefined ? [] : [outcome.usage];
+      const usage = [...read.usage, ...(outcome.usage === undefined ? [] : [outcome.usage])];
       if (outcome.kind === "failed") {
         const { reason, cause } = outcome;
         return { kind: "failed", reason, ...(cause === undefined ? {} : { cause }), usage };

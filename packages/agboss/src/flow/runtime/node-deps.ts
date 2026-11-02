@@ -2,6 +2,9 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import type { Class } from "../../components/injection.js";
 import type { GraphDeps } from "../../graph/deps.js";
+import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-reading.js";
+import type { PiiRuntime } from "../../pii/runtime.js";
+import type { ExecutionStateType } from "./state.js";
 import { standaloneContexts } from "../context/runtime-contexts.js";
 import type { BranchDeps } from "./launch/branch-runner.js";
 import type { JoinDeps } from "./launch/join-node.js";
@@ -9,6 +12,15 @@ import { LaunchRegistry } from "./launch/launch-registry.js";
 import type { VisitDeps } from "./visit.js";
 import { joinKeysOf, workflowIdentityOf } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
+
+/** A model arbiter reads an agent's answer as that agent's model does (#708). */
+const arbiterReadingOf =
+  (pii: PiiRuntime) =>
+  (agent: string, state: ExecutionStateType): ModelReadingMask | undefined =>
+    modelReadingMaskOf(
+      pii.policiesOf(agent).withValues(pii.contextValuesOf(state.contexts)).withFieldKey(state.piiKey),
+      state.piiTokens,
+    );
 
 /** What a launch's branches and join share in one pass: its registry, arbiters and stores. */
 function launchDepsOf(
@@ -25,6 +37,7 @@ function launchDepsOf(
     arbiters: {
       instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
       ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
+      ...(deps.pii === undefined ? {} : { readingOf: arbiterReadingOf(deps.pii) }),
     },
     ...(checkpointer === undefined ? {} : { checkpointer }),
     ...(deps.pause === undefined ? {} : { pauses: deps.pause }),
