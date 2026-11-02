@@ -17,7 +17,7 @@ describe("#305 AC2: the package ships the skills and proxy bin", () => {
       files: readonly string[];
     };
 
-    expect(manifest.bin).toEqual({ agboss: "./bin/agboss.js" });
+    expect(manifest.bin).toEqual({ agboss: "bin/agboss.js" });
     expect(manifest.files).toEqual(expect.arrayContaining(["bin", "skills", "NOTICE"]));
     expect(existsSync(join(PACKAGE, "bin/agboss.js"))).toBe(true);
     expect(existsSync(join(PACKAGE, "skills/agboss/SKILL.md"))).toBe(true);

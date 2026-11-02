@@ -37,8 +37,8 @@
     "node": ">=22.13"
   },
   "bin": {
-    "agboss": "./bin/agboss.js",
-    "agboss-cli": "./bin/agboss.js"
+    "agboss": "bin/agboss.js",
+    "agboss-cli": "bin/agboss.js"
   },
   "files": [
     "bin",
