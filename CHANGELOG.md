@@ -14,6 +14,14 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **The races the store contracts were missing** (#695, found by `@agboss/mongodb`, #527) — the
+  lease contract races two instances' `acquire` of one free lease (never leased, released,
+  expired), round after round in both orders: exactly one is given it. A lease store that checks,
+  then writes, passed every other case. The fenced-effect contract hands the lease over **while**
+  its holder's write runs: the hand-over waits for the write, or the write is refused. A store
+  whose lease check takes no lock (a read in a MongoDB transaction) passed the zombie's race of the
+  same key. The record contract's compare-and-set race no longer asserts which of two instances'
+  writes lands, only that exactly one does and the record holds it.
 - **Fault scenario 12b** (#607) — `s12b-marked-undo-not-again`: a pod frozen right after it marked
   its undo done, before it failed the tree. The next pod takes the tree over and ends it without
   undoing again: the reservation is released once. `StoreHoldPoint.TreeSaveIfAbsent` holds a tree
