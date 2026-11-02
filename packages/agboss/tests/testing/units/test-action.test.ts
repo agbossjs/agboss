@@ -14,7 +14,12 @@ import {
   QuoteRefusedDto,
   QuoteWorkflowStart,
 } from "../../flow/fixtures/units.fixture.js";
-import { FakePriceListService, HangingPriceListService, produced } from "./fakes.js";
+import {
+  FakePriceListService,
+  HangingPriceListService,
+  produced,
+  SqlitePriceListService,
+} from "./fakes.js";
 
 const request = (product: string, quantity: number) => ({
   request: produced(QuoteWorkflowStart, { product, quantity }),
@@ -66,5 +71,26 @@ describe("testAction", () => {
   it("a class that is no @Action is a setup error", () => {
     // @ts-expect-error — a class without execute(input) is no action
     expect(() => testAction(PriceListService)).toThrow("not an @Action");
+  });
+
+  it("#644 (4): a service on SQLite takes only the field it reads: environment { sqlitePath }", async () => {
+    const runQuote = testAction(PriceQuoteAction, {
+      overrides: [override(PriceListService, SqlitePriceListService)],
+      environment: { sqlitePath: ":memory:" },
+    });
+
+    const { output } = await runQuote(request("pen", 2));
+
+    expect(output).toEqual(variant(QuoteDto, { cents: 500, pricedBy: "price-quote-action" }));
+  });
+
+  it("#644 (4): without it, the error says how to pass it to the runner", async () => {
+    const runQuote = testAction(PriceQuoteAction, {
+      overrides: [override(PriceListService, SqlitePriceListService)],
+    });
+
+    await expect(runQuote(request("pen", 2))).rejects.toThrow(
+      /testAction\(X, \{ environment: \{ sqlitePath: ":memory:" \} \}\)/,
+    );
   });
 });

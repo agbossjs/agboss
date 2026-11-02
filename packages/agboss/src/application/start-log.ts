@@ -11,6 +11,10 @@ import { ExecutionHistoryRepository } from "../infrastructure/execution-history.
 import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
+import { componentOf } from "../components/metadata.js";
+import { hasSensitiveFields } from "../dto/redact.js";
+import type { DtoClass } from "../dto/types.js";
+import { NodeKind } from "../flow/ast.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 
 /**
@@ -38,6 +42,11 @@ export interface WarningSources {
   readonly isPiiKeyOfInstance?: boolean;
   /** `@Application({ executionRecordRetention })` (#401): root executions are kept when it is set. */
   readonly executionRecordRetention?: number | undefined;
+  /** The application's own PII policies (#644: a policy makes tokens, so the key matters). */
+  readonly piiPolicies?: readonly Class[];
+  /** Its declared contexts: a `sensitive` field of theirs makes tokens too (#644). */
+  readonly tenantContext?: Class;
+  readonly executionContext?: Class;
 }
 
 const IN_MEMORY_LEDGER: AssemblyWarning = {
@@ -46,11 +55,20 @@ const IN_MEMORY_LEDGER: AssemblyWarning = {
     "in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
 };
 
-const IN_MEMORY_PAUSES: AssemblyWarning = {
-  code: "application.in-memory-pauses",
-  message:
-    "in-memory pauses: another application instance cannot resume them and they are lost on restart",
-};
+/**
+ * `[application.in-memory-pauses]` naming the stores that are in memory (#644): the pause records,
+ * the checkpoints, or both — the one a project left out is the one to list.
+ */
+function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning {
+  const stores = [
+    ...(records ? ["the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository)"] : []),
+    ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver)"] : []),
+  ];
+  return {
+    code: "application.in-memory-pauses",
+    message: `in-memory pauses: ${stores.join(" and ")} are kept in memory — another application instance cannot resume a pause and it is lost on restart`,
+  };
+}
 
 const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
   code: "application.in-memory-execution-history",
@@ -75,6 +93,38 @@ const notAtomic = (store: Class): AssemblyWarning => ({
   code: "application.lease-check-not-atomic",
   message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`,
 });
+
+/** The DTOs of a workflow's tools: an agent's `@Tool` / `@McpTool` input and output. */
+const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
+  [...workflow.graph.nodes.values()].flatMap((node) => {
+    const { declaration } = node;
+    if (declaration.kind !== NodeKind.Agent) return [];
+    return (declaration.options.tools ?? []).flatMap((cls): readonly DtoClass[] => {
+      const component = componentOf(cls);
+      return component?.kind === "tool" || component?.kind === "mcp-tool"
+        ? [component.meta.input, component.meta.output]
+        : [];
+    });
+  });
+
+/**
+ * Whether anything of the application makes a PII token (#644): a PII policy (the application's or
+ * a workflow's), or a `sensitive` field of a DTO on a path, of a tool or of a context. Without one
+ * the key a token would be made with is never used, and the instance-key warning is noise.
+ */
+function makesPiiTokens(sources: WarningSources): boolean {
+  const workflows = sources.workflows;
+  if ((sources.piiPolicies?.length ?? 0) > 0) return true;
+  if (workflows.some((workflow) => (workflow.pii?.classes.length ?? 0) > 0)) return true;
+  const contexts = [sources.tenantContext, sources.executionContext].flatMap((cls) =>
+    cls === undefined ? [] : [cls as DtoClass],
+  );
+  const dtos = [
+    ...contexts,
+    ...workflows.flatMap((workflow) => [...workflow.graph.dtos.values(), ...toolDtosOf(workflow)]),
+  ];
+  return dtos.some(hasSensitiveFields);
+}
 
 /** Whether a tenant or an application budget is listed (counted across executions). */
 const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
@@ -105,7 +155,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
     [
       canPause(sources.workflows) &&
         (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver)),
-      IN_MEMORY_PAUSES,
+      inMemoryPauses(inMemory(PausedExecutionRepository), inMemory(BaseCheckpointSaver)),
     ],
     [
       sources.executionRecordRetention !== undefined && inMemory(ExecutionHistoryRepository),
@@ -115,7 +165,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
       launchesAnywhere(sources.workflows) && inMemory(ChildExecutionQueueRepository),
       IN_MEMORY_CHILD_QUEUE,
     ],
-    [sources.isPiiKeyOfInstance === true, PII_INSTANCE_KEY],
+    [sources.isPiiKeyOfInstance === true && makesPiiTokens(sources), PII_INSTANCE_KEY],
   ];
   return [
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),

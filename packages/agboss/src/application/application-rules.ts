@@ -16,6 +16,7 @@ import {
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import {
   providerBreakerViolations,
+  providerFieldsViolations,
   providerModeViolations,
 } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
@@ -198,6 +199,7 @@ export function applicationRuleViolations(
     ...modelProviderNameViolations(options),
     ...providerModeViolations(options.name, options.providers),
     ...providerBreakerViolations(options.name, options.providers),
+    ...providerFieldsViolations(options.name, options.providers),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,

@@ -98,6 +98,8 @@ describe("AC7: groups with priority", () => {
     expect(result).toFinishWith(SecondOpinionPanelWorkflowFinish, { objection: "the price" });
     expect(result.launches[0]?.group).toEqual({ agents: ["critic-panel-agent"], priority: 2 });
     expect(result.launches[0]?.branches[0]).toMatchObject({ status: BranchStatus.Cancelled });
+    // #644 (6): a cancelled branch failed at nothing of its own — no raw AbortError in its record
+    expect(result.launches[0]?.branches[0]).not.toHaveProperty("error");
   });
 
   deal("one answer completing two groups: the higher wins", async ({ app, mockLlm, clock }) => {
@@ -114,6 +116,7 @@ describe("AC7: groups with priority", () => {
     expect(result).toFinishWith(DealReportPanelWorkflowFinish);
     expect(result.launches[0]?.group?.priority).toBe(1);
     expect(result.launches[0]?.branches[2]).toMatchObject({ status: BranchStatus.Cancelled });
+    expect(result.launches[0]?.branches[2]).not.toHaveProperty("error");
   });
 
   deal(

@@ -197,7 +197,7 @@ async function byModel(
   interpreter: AssembledReplyInterpreter,
   model: string,
   input: ReplyInterpreterInput,
-  call: ReplyCall,
+  call: Pick<ReplyCall, "beforeModelCall" | "callbacks" | "pii">,
   parts: ReplyReaderParts,
 ): Promise<Interpreted> {
   await call.beforeModelCall();
@@ -214,38 +214,54 @@ async function byModel(
   return readByModel(interpreter, input, site);
 }
 
+/** One reply to read by one interpreter: the question it answers and where it is reported. */
+export interface InterpreterCall extends Omit<ReplyCall, "pause"> {
+  /** What the reply answers: the pause's question. */
+  readonly ask: unknown;
+  /** Who it answers, for the error's message: `pause <id>`. */
+  readonly label: string;
+}
+
+/**
+ * One interpreter reads one reply: in the call's frame, by code or by its model, the answer
+ * validated by the call — the reader of a tree's pauses, and `testReplyInterpreter` (#644).
+ */
+export async function readReplyBy(
+  interpreter: AssembledReplyInterpreter,
+  call: InterpreterCall,
+  parts: ReplyReaderParts,
+): Promise<ReplyReading> {
+  const input = { ask: call.ask, reply: call.reply };
+  const { model } = interpreter;
+  const interpreted = await runInFrame(call.frame, () =>
+    model === undefined
+      ? readByCode(interpreter, input, parts.instanceOf(interpreter.interpreter))
+      : byModel(interpreter, model, input, call, parts),
+  );
+  const unreadable = (declined: Declined): ReplyReading => {
+    const message = `${call.label}: ${interpreter.name} could not read the reply — ${declined.reason}`;
+    const { reason, cause } = declined;
+    const error = new UninterpretableReplyError(message, { reason, cause });
+    return { kind: "unreadable", error, usage: interpreted.usage };
+  };
+  if (interpreted.kind === "declined") return unreadable(interpreted);
+  try {
+    return { kind: "read", decision: call.validate(interpreted.answer), usage: interpreted.usage };
+  } catch (invalid) {
+    return unreadable(crashed(invalid, interpreted.usage));
+  }
+}
+
 /** The reader of a workflow's tree. */
 export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
   return async (call) => {
-    const { pause, reply } = call;
+    const { pause, ...rest } = call;
     const interpreter = parts.interpreters.find((found) => found.channel === pause.channel);
     if (interpreter === undefined) {
       throw new ReplyInterpreterMissingError(
         `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
       );
     }
-    const input = { ask: pause.ask, reply };
-    const { model } = interpreter;
-    const interpreted = await runInFrame(call.frame, () =>
-      model === undefined
-        ? readByCode(interpreter, input, parts.instanceOf(interpreter.interpreter))
-        : byModel(interpreter, model, input, call, parts),
-    );
-    const unreadable = (declined: Declined): ReplyReading => {
-      const message = `pause ${pause.pauseId}: ${interpreter.name} could not read the reply — ${declined.reason}`;
-      const { reason, cause } = declined;
-      const error = new UninterpretableReplyError(message, { reason, cause });
-      return { kind: "unreadable", error, usage: interpreted.usage };
-    };
-    if (interpreted.kind === "declined") return unreadable(interpreted);
-    try {
-      return {
-        kind: "read",
-        decision: call.validate(interpreted.answer),
-        usage: interpreted.usage,
-      };
-    } catch (invalid) {
-      return unreadable(crashed(invalid, interpreted.usage));
-    }
+    return readReplyBy(interpreter, { ...rest, ask: pause.ask, label: `pause ${pause.pauseId}` }, parts);
   };
 }

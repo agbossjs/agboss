@@ -189,7 +189,9 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   }
   leaveQuorum(live, ticket);
   const update = { ...branchVisitOf(run), usage, ...failedVisitOf(run.visited?.(), error, usage) };
-  return { status, read: [], error: errorRecordOf(failure), update };
+  // a cancelled branch failed at nothing of its own: its launch was aborted (#644) — no error kept
+  const own = status === BranchStatus.Cancelled ? {} : { error: errorRecordOf(failure) };
+  return { status, read: [], ...own, update };
 }
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {

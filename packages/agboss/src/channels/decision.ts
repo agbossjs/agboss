@@ -41,7 +41,10 @@ export function approvalDecisionOf(
 }
 
 /** The decision as a `ToolCallApprovalDecisionDto`, its `overrideArguments` checked by the tool's input. */
-export function validDecisionOf(decision: unknown, tool: AnyTool): ToolCallApprovalDecisionDto {
+export function validDecisionOf(
+  decision: unknown,
+  tool: Pick<AnyTool, "input">,
+): ToolCallApprovalDecisionDto {
   const valid = validate(ToolCallApprovalDecisionDto, decision);
   if (valid.overrideArguments === undefined) return valid;
   const checked = tool.input.safeParse(valid.overrideArguments);

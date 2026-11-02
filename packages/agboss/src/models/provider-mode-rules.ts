@@ -72,3 +72,32 @@ export function providerBreakerViolations(
       return violation("model-provider.circuit-breaker-required", message, [application]);
     });
 }
+
+/** Whether an HTTP provider's instance is an OpenAI-compatible one whose class sets no `requestFields`. */
+function lacksRequestFields(cls: ModelProviderType): boolean {
+  if (isTransportClass(cls)) return false;
+  // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
+  const instance: unknown = new (cls as unknown as new () => object)();
+  if (typeof Reflect.get(instance as object, "wirePlanOf") !== "function") return false;
+  const fields: unknown = Reflect.get(instance as object, "requestFields");
+  return typeof fields !== "object" || fields === null;
+}
+
+/**
+ * `[model-provider.request-fields-missing]` (#644) for every listed OpenAI-compatible provider whose
+ * class sets no `requestFields`: the type requires it (`abstract`), a JS project or a run before
+ * `tsc` can leave it out — named at assembly and by `agboss check`, never a `TypeError` at the first
+ * model call.
+ */
+export function providerFieldsViolations(
+  application: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  return classes.filter(lacksRequestFields).map((cls) => {
+    const message =
+      `${modelProviderOf(cls).name} (${cls.name}) sets no requestFields — an OpenAI-compatible ` +
+      "provider says which request fields it sends: override readonly requestFields = {} (none)";
+    return violation("model-provider.request-fields-missing", message, [application]);
+  });
+}

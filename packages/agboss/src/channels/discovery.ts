@@ -231,28 +231,51 @@ export function replyInterpreterViolations(uses: readonly ChannelUse[]): RuleVio
   return [...undecorated, ...interpretedRolesOf(uses).flatMap(declarationViolations)];
 }
 
+/** One role's interpreter as the tree's reader runs it, a model one's instructions loaded by `loader`. */
+async function assembledOf(
+  { role, interpreter, declaration }: InterpretedRole,
+  loader: PromptLoader,
+): Promise<AssembledReplyInterpreter> {
+  const { options, source } = declaration;
+  const isCode = isCodeReplyInterpreter(options);
+  const label = `@ReplyInterpreter "${options.name}"`;
+  return {
+    channel: role.options.name,
+    interpreter,
+    name: options.name,
+    answer: answerOf(role),
+    approves: role.options.approves,
+    model: isCode ? undefined : options.model,
+    instructions: isCode ? "" : await loader.load({ label, options, source }),
+  };
+}
+
 /** The interpreters of a workflow's tree, model ones with their instructions loaded by `loader`. */
 export async function replyInterpretersOf(
   workflow: Class,
   loader: PromptLoader,
 ): Promise<readonly AssembledReplyInterpreter[]> {
   const roles = interpretedRolesOf(channelUsesOf([workflow]));
-  return Promise.all(
-    roles.map(async ({ role, interpreter, declaration }) => {
-      const { options, source } = declaration;
-      const isCode = isCodeReplyInterpreter(options);
-      const label = `@ReplyInterpreter "${options.name}"`;
-      return {
-        channel: role.options.name,
-        interpreter,
-        name: options.name,
-        answer: answerOf(role),
-        approves: role.options.approves,
-        model: isCode ? undefined : options.model,
-        instructions: isCode ? "" : await loader.load({ label, options, source }),
-      };
-    }),
-  );
+  return Promise.all(roles.map((role) => assembledOf(role, loader)));
+}
+
+/**
+ * A role's interpreter on its own (`testReplyInterpreter`, #644): its rules checked as at assembly
+ * — `undefined` when the role names none (or an undecorated one, which the violations name).
+ */
+export async function roleInterpreterOf(
+  role: FoundChannelRole,
+  loader: PromptLoader,
+): Promise<{
+  readonly interpreter: AssembledReplyInterpreter | undefined;
+  readonly violations: readonly RuleViolation[];
+}> {
+  const { options } = role;
+  const toolInput = isQuestionRole(options) ? options.ask : options.approves;
+  const use = { tool: options.name, toolInput, channel: role.role, workflow: "" };
+  const violations = replyInterpreterViolations([use]);
+  const [found] = interpretedRolesOf([use]);
+  return { interpreter: found === undefined ? undefined : await assembledOf(found, loader), violations };
 }
 
 /** The code interpreters among them: the classes the container creates. */
