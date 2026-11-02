@@ -158,7 +158,7 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       // order (#695) — exactly one lands, and the record holds that one's status
       expect(landed.filter(Boolean)).toHaveLength(1);
       expect((await second.byIds([id]))[0]?.status).toBe(
-        landed[0] === true ? ExecutionRecordStatus.Running : ExecutionRecordStatus.Failed,
+        landed[0] ? ExecutionRecordStatus.Running : ExecutionRecordStatus.Failed,
       );
     },
   },
