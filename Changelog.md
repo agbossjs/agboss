@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: another tree's approval is kept in the history (#676)
+
+- **Fixed**: the pause answer log behind `record.pauses` kept one answer per tenant and step key; a
+  step key names no tree, so another tree's pause under the same key (an id minted again, #663)
+  lost its answer. Now one answer per pause of a tree (tenant, `rootExecutionId`, step key): the
+  SQLite record store rebuilds `pause_answers` (migration 15, every row kept), PostgreSQL's 0021
+  replaces the key, and `executionRecordContract` checks it. [Pauses](Pauses).
+
 ## Unreleased — 0.1.1: a resume after the host's clock stepped back continues where it rested (#682)
 
 - **Fixed**: LangGraph continues a resume, a recovery or a re-entered child from a thread's latest

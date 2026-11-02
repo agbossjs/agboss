@@ -371,7 +371,9 @@ resolved pause of the tree, in the order they were asked:
 
 The list is the permanent history: each entry is written when its pause is resolved — answered,
 decided at once, withdrawn or cancelled — into the execution records
-(`ExecutionRecordRepository.savePauseAnswer(tenantId, rootExecutionId, answer)`, once per pause), and
+(`ExecutionRecordRepository.savePauseAnswer(tenantId, rootExecutionId, answer)`, once per pause of a
+tree — by tenant, `rootExecutionId` and step key, #676: a step key names no tree, so another tree's
+pause under the same key keeps its own answer), and
 read back with `findPauseAnswersByTenantIdAndRootExecutionId`. The pause records are operational
 state and are never read for it: the retention above removes a pause record, never its entry, so an
 execution paused for days still lists every pause it was asked.
