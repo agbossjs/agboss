@@ -13,6 +13,7 @@ import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
+import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
@@ -355,6 +356,7 @@ export interface AppDepsOptions {
     readonly environmentName?: string;
     // Warning: (ae-forgotten-export) The symbol "ModelGateway" needs to be exported by the entry point index.d.ts
     readonly gateway?: ModelGateway;
+    readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
     // Warning: (ae-forgotten-export) The symbol "ProviderFetch" needs to be exported by the entry point index.d.ts
     readonly providerFetch?: ProviderFetch;
@@ -868,11 +870,19 @@ export class ChildExecutionFailedError extends StepFailedError {
 }
 
 // @public
+export interface ChildExecutionQueueDepth {
+    readonly oldestQueuedAt?: Date | undefined;
+    readonly queued: number;
+    readonly running: number;
+}
+
+// @public
 export abstract class ChildExecutionQueueRepository {
     abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
     abstract completeByTenantIdAndExecutionId(tenantId: string, executionId: string, end: ChildExecutionEnd): Promise<boolean>;
     abstract deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
+    abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(child: QueuedChildExecution): Promise<boolean>;
 }
@@ -1999,7 +2009,7 @@ export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & On
 
 // @public
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
-    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask);
+    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[]);
     masked(mask: EventMask): ExecutionObserverManager;
     // (undocumented)
     onActionEnd(event: ActionEndEvent): Promise<void>;
@@ -5707,6 +5717,7 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     // (undocumented)
     findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
+    findQueueDepth(): Promise<ChildExecutionQueueDepth>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -6805,8 +6816,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:58:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:104:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:59:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:105:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/create-app.ts:59:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:13:12 - (ae-undocumented) Missing documentation for "name".
@@ -7088,39 +7099,39 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:87:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-manager.ts:90:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-manager.ts:93:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-manager.ts:96:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-manager.ts:99:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:123:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:126:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:129:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:132:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:135:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-manager.ts:138:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-manager.ts:147:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-manager.ts:150:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-manager.ts:153:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-manager.ts:156:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-manager.ts:159:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-manager.ts:162:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
-// src/core/observer-manager.ts:165:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/core/observer-manager.ts:168:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
-// src/core/observer-manager.ts:171:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts:174:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts:177:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts:180:3 - (ae-undocumented) Missing documentation for "onFencedEffect".
-// src/core/observer-manager.ts:183:3 - (ae-undocumented) Missing documentation for "onOutboundCall".
+// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-manager.ts:123:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts:126:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-manager.ts:129:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-manager.ts:132:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-manager.ts:135:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-manager.ts:138:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-manager.ts:147:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-manager.ts:150:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-manager.ts:153:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-manager.ts:156:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-manager.ts:159:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-manager.ts:162:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-manager.ts:165:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-manager.ts:168:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-manager.ts:171:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-manager.ts:174:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
+// src/core/observer-manager.ts:177:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
+// src/core/observer-manager.ts:180:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts:183:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
+// src/core/observer-manager.ts:186:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
+// src/core/observer-manager.ts:189:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
+// src/core/observer-manager.ts:192:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
+// src/core/observer-manager.ts:195:3 - (ae-undocumented) Missing documentation for "onFencedEffect".
+// src/core/observer-manager.ts:198:3 - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/dto/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
@@ -7679,12 +7690,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:102:9 - (ae-undocumented) Missing documentation for "putWrites".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:141:3 - (ae-undocumented) Missing documentation for "deleteThread".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:91:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:135:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:145:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:174:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
-// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:196:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:92:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:136:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:146:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:175:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
+// src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:52:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:66:3 - (ae-undocumented) Missing documentation for "saveAll".

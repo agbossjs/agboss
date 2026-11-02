@@ -2254,6 +2254,20 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; 
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
+- **Metrics (#485):** `createApp(App, { meterProvider })` (`AppDepsOptions.meterProvider`, an
+  `@opentelemetry/api` `MeterProvider`; `testWith(App, { meterProviders: [...] })` by instance)
+  publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,
+  `lazyLoad`), none given → nothing loaded, no store read. Cluster gauges from the shared child
+  queue (`ChildExecutionQueueRepository.findQueueDepth()` → `ChildExecutionQueueDepth { queued,
+running, oldestQueuedAt? }`, one read per collection, a batch callback; a failed read reports
+  none and warns `metrics.child-queue-unreadable` once per streak): `agboss.cluster.children.queued`
+  / `.running` / `.oldest_queued_seconds` — the same on every instance, aggregated with `max`;
+  per instance (`sum`): `agboss.instance.step_slots.limit` / `.busy` / `.free`,
+  `agboss.instance.steps.waiting` (only with `maxConcurrentSteps`), `agboss.instance.leases.held`
+  (the held leases' tally, `HeldLeases` on the lease log), counters `agboss.instance.lease.takeovers{reason}`,
+  `.steps.handed_over{reason}`, `.executions.ended{workflow,outcome}`, `.compensations{workflow,status}`
+  from a built-in observer the manager calls unmasked before the project's. Names, kinds, units and
+  labels: `src/metrics/metric-catalog.ts`, Wiki → Metrics; the callbacks end at `onDestroy`.
 - **Health checks (#300):** `app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status,
 components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`; each
   `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Store |

@@ -1,3 +1,4 @@
+import type { MeterProvider } from "@opentelemetry/api";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
@@ -73,6 +74,12 @@ export interface TestWithOptions extends EnvironmentSelection {
    */
   readonly clockSkews?: readonly ClockSkew[];
   /**
+   * Each instance's OpenTelemetry `MeterProvider` (#485), by instance like `clockSkews`
+   * (`meterProviders[0]` is `apps[0]`'s; a missing one = no metrics on that instance): read it
+   * with an in-memory reader, `await reader.collect()`.
+   */
+  readonly meterProviders?: readonly MeterProvider[];
+  /**
    * How parallel branches run (#262 S33): `TestConcurrency.Sequential` (default — one at a time,
    * in listed / item order), `TestConcurrency.Real`, or `TestConcurrency.inOrder([step(A), …])`.
    */
@@ -127,6 +134,8 @@ export class TestEnvironment {
   readonly #piiTestKey: string | undefined;
   /** Each instance's clock skew, by instance (#533). */
   readonly #skews: readonly ClockSkew[];
+  /** Each instance's meter provider, by instance (#485). */
+  readonly #meterProviders: readonly MeterProvider[];
   #reused: ReadonlyMap<Class, unknown> = new Map();
   readonly #beforeClose: (() => void)[] = [];
   /** The app being built: instances are built one after the other, the first one's stores kept. */
@@ -149,6 +158,7 @@ export class TestEnvironment {
     this.#servers = mcpServersOf(assembled);
     this.#piiTestKey = testPiiKeyOf(options);
     this.#skews = options.clockSkews ?? [];
+    this.#meterProviders = options.meterProviders ?? [];
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     this.#options = {
@@ -195,6 +205,7 @@ export class TestEnvironment {
   newApp(leaseGate?: ExecutionLeaseGate): Promise<BuiltApplication> {
     this.mocks.started();
     const building = this.#building.then(async () => {
+      const index = this.#apps.length;
       const seams = {
         reused: this.#reused,
         instanceId: `instance-${String(this.#apps.length + 1)}`,
@@ -208,13 +219,19 @@ export class TestEnvironment {
         observers: [this.mocks.actions],
         ...(leaseGate === undefined ? {} : { leaseGate }),
       };
-      const built = await buildApplication(this.assembled, this.#options, seams);
+      const built = await buildApplication(this.assembled, this.#optionsOf(index), seams);
       if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);
       this.#apps.push(built);
       return built;
     });
     this.#building = building.catch(() => undefined);
     return building;
+  }
+
+  /** The build options of the instance built `index`-th: its meter provider (#485), if any. */
+  #optionsOf(index: number): BuildOptions {
+    const meterProvider = this.#meterProviders[index];
+    return meterProvider === undefined ? this.#options : { ...this.#options, meterProvider };
   }
 
   /** The clock of the instance built `index`-th: the test's, skewed as `clockSkews` says (#533). */

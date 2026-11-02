@@ -5,6 +5,7 @@ import { Clock } from "../clock.js";
 import {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,
+  type ChildExecutionQueueDepth,
   type QueuedChildExecution,
 } from "../child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../execution-record.repository.js";
@@ -199,6 +200,26 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
       .run(tenantId, rootExecutionId);
     return Promise.resolve();
   }
+
+  /** One aggregate over the claims index's `status` prefix: the queued and the running rows only. */
+  findQueueDepth(): Promise<ChildExecutionQueueDepth> {
+    const { Queued, Running } = ExecutionRecordStatus;
+    const row = this.connection.database
+      .prepare(
+        `SELECT COALESCE(SUM(status = ?), 0) AS queued, COALESCE(SUM(status = ?), 0) AS running,
+                MIN(CASE WHEN status = ? THEN queued_at END) AS oldest
+         FROM child_execution_queue WHERE status IN (?, ?)`,
+      )
+      .get(Queued, Running, Queued, Queued, Running);
+    const { queued, running, oldest } = DepthRow.parse(row);
+    return Promise.resolve({ queued, running, oldestQueuedAt: dateOf(oldest) });
+  }
 }
+
+const DepthRow = z.object({
+  queued: z.number(),
+  running: z.number(),
+  oldest: z.number().nullable(),
+});
 
 sqliteImplementation(SqliteChildExecutionQueueRepository);
