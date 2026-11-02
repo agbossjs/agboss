@@ -174,7 +174,7 @@ cd "$WORKSPACE_ROOT/postgres" && git fetch origin && \
   node scripts/pin-framework.mjs --registry "$RELEASE_VERSION" && \
   test "$(node -p "require('./.agboss-version.json').source")" = registry && \
   npm ci && npm run pack:framework && npm run install:packed && \
-  AGBOSS_POSTGRES_TEST_URL="${AGBOSS_POSTGRES_TEST_URL:?a PostgreSQL for the tests}" npm run check -- --maxWorkers=3 && \
+  AGBOSS_POSTGRES_TEST_URL="${AGBOSS_POSTGRES_TEST_URL:?a PostgreSQL for the tests}" VITEST_MAX_FORKS=3 npm run check && \
   git commit -am "chore(agbossjs/agboss#691): pin @agboss/core $RELEASE_VERSION from npm" && \
   git push --force-with-lease origin HEAD
 gh pr create -R agbossjs/postgres --fill --base main   # or the PR already open from the branch
