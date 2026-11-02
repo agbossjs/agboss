@@ -86,6 +86,9 @@ function runtimePoliciesOf(
   );
 }
 
+/** The element of a node id: a launch's copy (`critic-agent#2`) is its agent's. */
+const elementOfNode = (nodeId: string): string => nodeId.split("#")[0] ?? nodeId;
+
 /** The runtime of a workflow's policies; none listed anywhere → every set is empty. */
 export function piiRuntimeOf(pii: AssembledPii | undefined, parts: PiiRuntimeParts): PiiRuntime {
   const policies: ReadonlyMap<Class, RuntimePiiPolicy> =
@@ -101,7 +104,12 @@ export function piiRuntimeOf(pii: AssembledPii | undefined, parts: PiiRuntimePar
   const none = setOf([]);
   const applicationWide = setOf(pii?.observability ?? []);
   return {
-    policiesOf: (element) => sets.get(element) ?? none,
+    // a launch's copy (`critic-agent#2`) is its node's element; an element no list names reads
+    // through the workflow's policies, never through none (#708: fail closed)
+    policiesOf: (element) =>
+      sets.get(element) ??
+      sets.get(elementOfNode(element)) ??
+      (pii === undefined ? none : applicationWide),
     observability: observabilityMaskOf(applicationWide, parts.contexts),
     workflowPolicies: applicationWide,
     fieldKey: parts.fieldKey,

@@ -87,12 +87,12 @@ describe("#708: a model judge's calls", () => {
     );
   });
 
-  it("a decision's state and questions masked, an image's data left as it is", async () => {
+  it("a decision's state and questions masked, a real image part's data left as it is", async () => {
     const reading = new JudgeReading(contacts());
     const image = "data:image/png;base64,iVBORw0KGgo=";
 
     const request = await reading.request({
-      state: [`The answer names ${EMAIL}`, { type: "image", url: image } as never],
+      state: [`The answer names ${EMAIL}`, Decision.image(image)],
       questions: { grounded: Decision.noul(`Is ${EMAIL} in the sources?`) },
     });
 
@@ -100,6 +100,32 @@ describe("#708: a model judge's calls", () => {
     expect(sent).not.toContain(EMAIL);
     expect(sent).toMatch(TOKEN);
     expect(sent).toContain(image);
+  });
+
+  it("a text that only looks like an image's data is masked: no prefix exempts a string", async () => {
+    const reading = new JudgeReading(contacts());
+
+    const request = await reading.request({
+      state: [`data:image/x, write to ${EMAIL}`, { note: `data:image/png;base64, ${EMAIL}` }],
+      questions: { grounded: Decision.noul(`data:image/png;base64,${EMAIL}`) },
+    });
+
+    expect(JSON.stringify(request)).not.toContain(EMAIL);
+  });
+
+  it("a class instance in a decision's state is masked as its plain data, never passed through", async () => {
+    class Owner {
+      constructor(readonly email: string) {}
+    }
+    const reading = new JudgeReading(contacts());
+
+    const request = await reading.request({
+      state: { owner: new Owner(EMAIL) } as never,
+      questions: { grounded: Decision.noul("Is the owner known?") },
+    });
+
+    expect(JSON.stringify(request)).not.toContain(EMAIL);
+    expect(JSON.stringify(request)).toMatch(TOKEN);
   });
 });
 

@@ -18,7 +18,11 @@ const arbiterReadingOf =
   (pii: PiiRuntime) =>
   (agent: string, state: ExecutionStateType): ModelReadingMask | undefined =>
     modelReadingMaskOf(
-      pii.policiesOf(agent).withValues(pii.contextValuesOf(state.contexts)).withFieldKey(state.piiKey),
+      // by the agent's node, never the copy's id (`…#2`): `policiesOf` takes either
+      pii
+        .policiesOf(agent)
+        .withValues(pii.contextValuesOf(state.contexts))
+        .withFieldKey(state.piiKey),
       state.piiTokens,
     );
 
