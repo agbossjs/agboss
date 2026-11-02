@@ -4,7 +4,7 @@ How to scale AGBoss workers on their real queued work (#486): the core's
 [OpenTelemetry metrics](Metrics) through the **official** exporter — no AGBoss package in between —,
 then KEDA or an HPA on Kubernetes, or the platform's own rule on ECS, Cloud Run and Container Apps
 through the OpenTelemetry Collector. Every file below is in
-[`13-kubernetes-postgres-scaling`](https://github.com/agbossjs/agboss-examples/tree/main/13-kubernetes-postgres-scaling)
+[`14-kubernetes-postgres-scaling`](https://github.com/agbossjs/agboss-examples/tree/main/14-kubernetes-postgres-scaling)
 of agbossjs/agboss-examples, validated by kubeconform (the example's `check:k8s` script); the cluster run of the
 whole cycle is #487.
 
