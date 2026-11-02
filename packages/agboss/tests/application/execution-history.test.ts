@@ -240,7 +240,7 @@ testWith(EndOrderDeskApplication)(
     mockLlm(DeskAgent).thenReturn(...refundScript);
 
     await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
-    mockLlm(DeskAgent).thenReturn(failWith(ModelFailure.BadRequest));
+    mockLlm(DeskAgent).thenReturn(failWith(ModelFailure.ServerError));
     await execute(app, DeskWorkflowStart, { text: REFUND }, contexts).catch(() => undefined);
 
     expect(endOrder).toEqual(["history finished", "forgotten", "history failed", "forgotten"]);
