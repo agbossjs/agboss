@@ -238,7 +238,10 @@ on its cost, its tenant's and the application's. All violations at once, before 
 - **During the execution** every model call's (and paid service's) real cost is counted the moment
   it is made — a live tally of the tree's pass on this instance (#338) — and added to all of its
   counters as the execution streams (the ledger is written once per superstep; what it records
-  leaves the tally, so nothing is counted twice). Before every step that can spend or reach out
+  leaves the tally, so nothing is counted twice). A read of the counters never overlaps a write of
+  the same pass, and a child on any instance — whose instance writes its spend to the ledger as it
+  is made — has its spend taken in by its parent's pass with a read of the counters before the
+  parent's state shows it: every dollar counts once, whatever the placement (#685). Before every step that can spend or reach out
   the counters are read again — the tenant's other executions count, on any instance, through the
   ledger — and every budget (and the execution's deadline) is checked; before every model call of
   an agent's loop too. The first exhausted **stops** the execution with `BudgetExceededError`

@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: every dollar of a tree counted once (#685)
+
+- **Fixed**: a child on any instance (`ChildPlacement.AnyInstance`) could count its spend twice
+  against the root's budgets — $60 under a $100 execution budget refused as "$120". A counter read
+  that overlapped a ledger write of the same pass held the write in the ledger's value but not in
+  what the pass had recorded, and a remote child's spend, written to the ledger by its instance,
+  was counted from the ledger and from the parent's state until the parent recorded it. The
+  budget meter's reads and writes now run one at a time, and the parent takes a remote child's
+  spend in with a read before its state shows it. The ledger contract is unchanged; nothing to
+  migrate. [FinOps](FinOps).
+
 ## Unreleased — 0.1.1: reranking for knowledge bases (#703)
 
 - **Added**: `@Rag({ rerank: { by, candidates, keep, onFailure } })` in place of `topK` and
