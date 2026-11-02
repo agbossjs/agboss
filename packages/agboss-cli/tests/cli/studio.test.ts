@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -107,6 +115,21 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
     expect(one).toEqual(expect.arrayContaining(["studio-item-workflow:check-item-action"]));
     expect(recursive).toContain("this-workflow");
     expect(recursive.filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
+  });
+
+  it("#666 / #671: a project reached through a symlink still loads its application in the module", async () => {
+    const root = project();
+    const real = join(root, "deep", "er", "project");
+    mkdirSync(real, { recursive: true });
+    const linked = join(root, "linked");
+    symlinkSync(real, linked, "dir");
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-placeholder");
+
+    const studio = await prepareStudio(contextOf(linked, {}));
+
+    expect(await drawn(studio.entry, "studioOneWorkflow")).toEqual(
+      expect.arrayContaining(["studio-item-workflow:check-item-action"]),
+    );
   });
 
   it("--env <name> is written into the module; the project's .env into langgraph.json", async () => {
