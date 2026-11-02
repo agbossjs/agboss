@@ -5,7 +5,7 @@ step slots, the tree leases it holds, takeovers, hand-overs, ended executions an
 through **OpenTelemetry metrics** (#485). The core ships no exporter and opens no port: the
 application gives it a `MeterProvider`, and any OpenTelemetry exporter takes the numbers to
 Prometheus (and so to KEDA or an HPA), AWS CloudWatch, Google Cloud Monitoring or Azure Monitor.
-Scaling on them with KEDA, an HPA or a cloud platform's own rules is the next step (#486).
+How to scale on them — the Prometheus recipe, KEDA, an HPA, ECS, Cloud Run, Container Apps: [Autoscaling](Autoscaling).
 
 ## Giving the app a meter
 
@@ -106,7 +106,8 @@ lease: neither reads idle (`tests/metrics/scale-signals.test.ts` looks at every 
 never sees idle before its end). Roots arrive through your own endpoints, not a queue: they count
 through their slots and leases once they run. A scale-in still removes a pod that may hold work —
 its graceful stop (`app.close({ timeout })` within the pod's termination grace) and the
-[recovery](Several-instances#recovery) of what it hands over are what make that safe.
+[recovery](Several-instances#recovery) of what it hands over are what make that safe —
+[Autoscaling → Graceful termination](Autoscaling#graceful-termination).
 
 ## Testing
 

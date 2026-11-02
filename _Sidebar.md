@@ -28,6 +28,7 @@
 - [Mesh Hub — agboss hub](Mesh-Hub)
 - [Health checks](Health-checks)
 - [Metrics](Metrics)
+- [Autoscaling](Autoscaling)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [The test split](Test-split)
