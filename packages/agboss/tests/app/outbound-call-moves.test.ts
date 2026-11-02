@@ -104,10 +104,13 @@ function callsInFrame() {
   };
 }
 
-/** The provider: answers each charge, or fails the next one; counts what reached it. */
+/**
+ * The provider: answers each charge, or fails the next one — a decline (definite, #657) or a
+ * gateway timeout (of unknown outcome); counts what reached it.
+ */
 function provider() {
   const sent: number[] = [];
-  const state = { failNext: false };
+  const state = { failNext: false, timesOut: false };
   const options = {
     target: "payments",
     operation: "charge",
@@ -116,9 +119,10 @@ function provider() {
       sent.push(call.attempt);
       if (!state.failNext) return { chargeId: `ch-${String(call.attempt)}` };
       state.failNext = false;
-      throw new Error("declined");
+      throw new Error(state.timesOut ? "gateway timeout" : "declined");
     },
     reconcile: () => OutboundCallReconciliation.notSent(),
+    isDefiniteFailure: (error: unknown) => error instanceof Error && error.message === "declined",
   };
   return { sent, state, options };
 }
@@ -154,6 +158,28 @@ describe("#533: the moves of a call, told to its lease", () => {
 
     expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
     expect(movesOf(reports)).toEqual([
+      [OutboundCallEventOutcome.Sent, OutboundCallStatus.Completed, 2],
+    ]);
+    expect(sent).toEqual([1, 2]);
+  });
+
+  it("#657: an error of unknown outcome: Recorded, then Ambiguous (pending, 1) — the next call reconciles, NotSent then Sent", async () => {
+    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { sent, state, options } = provider();
+    const key = await keyIn("execution-1");
+    state.failNext = true;
+    state.timesOut = true;
+
+    await expect(runInFrame(recording, () => calls.send(key, options))).rejects.toThrow(
+      "gateway timeout",
+    );
+    const again = await runInFrame(recording, () => calls.send(key, options));
+
+    expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(movesOf(reports)).toEqual([
+      [OutboundCallEventOutcome.Recorded, OutboundCallStatus.Pending, 1],
+      [OutboundCallEventOutcome.Ambiguous, OutboundCallStatus.Pending, 1],
+      [OutboundCallEventOutcome.NotSent, OutboundCallStatus.Pending, 2],
       [OutboundCallEventOutcome.Sent, OutboundCallStatus.Completed, 2],
     ]);
     expect(sent).toEqual([1, 2]);

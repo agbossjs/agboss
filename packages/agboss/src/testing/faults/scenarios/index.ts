@@ -13,6 +13,7 @@ import { s11InGrace, s11Misconfigured } from "./s11-short-grace.js";
 import { s12RealFailure } from "./s12-real-failure.js";
 import { s12bMarkedUndo } from "./s12b-marked-undo.js";
 import { s13ClockAhead, s13ClockBehind } from "./s13-clock-skew.js";
+import { s14AmbiguousAnswer, s15KeyExpired } from "./s14-s15-key-expiry.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const FAULT_SCENARIOS: readonly FaultScenario[] = [
@@ -39,4 +40,6 @@ export const FAULT_SCENARIOS: readonly FaultScenario[] = [
   s12bMarkedUndo,
   s13ClockAhead,
   s13ClockBehind,
+  s14AmbiguousAnswer,
+  s15KeyExpired,
 ];

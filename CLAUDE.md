@@ -1353,7 +1353,10 @@ path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/test
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 23 scenarios (#607:
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 25 scenarios (#657, #658:
+  `s14-ambiguous-answer-reconciled`, the gateway's answer lost after it charged, the key forgotten,
+  the order paid again — reconciled, not resent; `s15-key-expired-not-resent`, a replay-only gateway
+  whose declared key retention passed before the takeover — nothing sent; #607:
   `s12b-marked-undo-not-again`, a pod frozen once its undo is marked done — the next pod ends the
   tree without undoing again, held at `StoreHoldPoint.TreeSaveIfAbsent`, a tree key by its family; #584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `confirmNow()` refused; #533: `s13-clock-ahead`
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
@@ -2135,11 +2138,20 @@ send, reconcile })` records an intent before the call and settles it after, over
   listed with `SqliteExecutionLeaseRepository`, else `[application.store-backend-mismatch]`; every
   read and write of an intent fenced like a fenced effect — a zombie can neither record nor send):
   none → recorded `Pending`, `fence.confirmNow()`, `send(call)` with `call.idempotencyKey` (the step's
-  key and the name) → `Completed` (`Sent`); `Completed` → its stored result (`Replayed`); `Pending` →
-  `reconcile(lookup)` → `OutboundCallReconciliation.completed(result)` (`Reconciled`) / `.notSent()`
-  (sent once more, the same key, attempt + 1) / `.unknown({ reason })` →
+  key and the name) → `Completed` (`Sent`); an error `send` throws → `Failed` only when the call's
+  `isDefiniteFailure(error)` returns `true` (#657: the other system did not carry it out — a
+  validation error, a decline), any other error (no predicate, `false`, a throw — a 5xx, a reset
+  connection, the SDK's timeout) leaves it `Pending` (`Ambiguous`, a warning
+  `outbound-call.outcome-unknown`), so the next call reconciles it; `Completed` → its stored result
+  (`Replayed`); `Pending` → `reconcile(lookup)` — `lookup.attemptStartedAt` and `lookup.keyAge`
+  (#658: the pending attempt's start and the key's age from its first attempt, on the store's clock;
+  `undefined` for an intent recorded without them) — → `OutboundCallReconciliation.completed(result)`
+  (`Reconciled`) / `.notSent()` (sent once more, the same key, attempt + 1 — refused when the call
+  declares `keyRetention` and `keyAge + attemptTimeout` is not below it, or the age is unknown:
+  `OutboundCallUnreconciledError`, nothing sent) / `.unknown({ reason })` →
   `OutboundCallUnreconciledError` (`outbound-call.unreconciled`, a `StepFailedError`, the intent kept
-  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again. Every attempt
+  pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again (no key-age check:
+  nothing moved). Every attempt
   has an owner (`attemptOwner`, a random id per claim); a new attempt is a compare-and-set on status,
   attempt and owner (`markPending(key, expected, claim)`, `OutboundCallState`, `OutboundCallClaim`):
   the loser sends nothing and reads again; `markCompleted` / `markFailed` end an attempt only for its owner (a compare-and-set), the owner live from before its intent is recorded, nothing sent once the step aborted — the winner's result replayed, its pending attempt
@@ -2154,7 +2166,7 @@ send, reconcile })` records an intent before the call and settles it after, over
   pending ones never). Read by `app.outboundCallsOf({ tenantId, rootExecutionId })` /
   `app.pendingOutboundCalls({ tenantId })`, `ExecutionHistoryRecord.outboundCalls`, each move an
   `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
-  `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`; never a payload);
+  `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Ambiguous`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
 - **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
 fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; a key's text,

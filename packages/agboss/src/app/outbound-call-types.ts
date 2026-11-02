@@ -1,4 +1,5 @@
 import type { FencedEffectOrigin, JsonResult } from "../infrastructure/fenced-effect.repository.js";
+import type { Milliseconds } from "../units/index.js";
 import type {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
@@ -36,6 +37,19 @@ export interface OutboundCallLookup {
   readonly storedRequest: string;
   /** The attempt left pending, from 1. */
   readonly attempt: number;
+  /**
+   * When the attempt left pending started (#658) — claimed, right before it was sent — on the
+   * store's clock: the database's own on PostgreSQL, the same on every instance and after a
+   * takeover. `undefined` for an intent its store recorded without it (one written before 0.1.1).
+   */
+  readonly attemptStartedAt: Date | undefined;
+  /**
+   * How old the key is (#658): from the start of the call's first attempt — before the key could
+   * reach the other system — to now, on the store's clock (its reading at the lookup, plus what
+   * passed since on this instance's monotonic clock): at least as old as the other system's
+   * record of the key. `undefined` when the store did not record the first attempt's start.
+   */
+  readonly keyAge: Milliseconds | undefined;
   readonly target: string;
   readonly operation: string;
   /** The step's signal (`executionContext.signal`): pass it to the client. */
@@ -56,11 +70,31 @@ export interface OutboundCallOptions<TRequest, TResult> {
   ) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
   /**
    * Asked only for an intent left pending — the process died, or lost its lease, before the
-   * answer: what happened, from the other system, looked up by `lookup.idempotencyKey`.
+   * answer, or `send` threw an error of unknown outcome: what happened, from the other system,
+   * looked up by `lookup.idempotencyKey` or a reference that does not expire.
    */
   readonly reconcile: (
     lookup: OutboundCallLookup,
   ) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
+  /**
+   * Whether an error `send` threw proves the other system did **not** carry the call out (#657) —
+   * a validation error, a decline it answered: the intent is `Failed`, and the next call sends it
+   * again under the same key. Anything else is of unknown outcome — no predicate, an answer other
+   * than `true`, a predicate that throws: a 5xx, a reset connection, the SDK's own timeout may
+   * come after the other system acted. The intent then stays `Pending`, and the next call asks
+   * `reconcile` before anything is sent again, as after a crash.
+   */
+  readonly isDefiniteFailure?: (error: unknown) => boolean;
+  /**
+   * How long the other system keeps an idempotency key, at least (#658: its documented minimum —
+   * Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`). Set it when `notSent()`
+   * relies on the other system replaying the key (a gateway whose only lookup is the replay, or
+   * whose search lags): a `notSent()` is sent again only while `lookup.keyAge` plus
+   * `outboundCalls.attemptTimeout` (how long the resend may take to arrive) is below it; else
+   * nothing is sent — `OutboundCallUnreconciledError`, the intent pending for an operator. Unset:
+   * `notSent()` is trusted at any age.
+   */
+  readonly keyRetention?: Milliseconds;
 }
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */

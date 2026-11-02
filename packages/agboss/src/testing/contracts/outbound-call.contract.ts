@@ -9,6 +9,7 @@ import { outboundRaceCases } from "./outbound-call-race.cases.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { outboundListingCases, outboundRefusalCases } from "./outbound-call-refusal.cases.js";
 import { outboundTextCases } from "./outbound-call-text.cases.js";
+import { outboundTimeCases } from "./outbound-call-time.cases.js";
 import { outboundWriteCases } from "./outbound-call-write.cases.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -21,7 +22,8 @@ export type { OutboundCallStores } from "./outbound-call-data.js";
  * attempt only from the state its caller read (a compare-and-set, one winner); every fenced
  * method refused for a stale token, a released or an expired lease, changing nothing; listed by
  * tree and by status in the order recorded; removed by the retention cutoff on the `Clock` once
- * ended, never while pending; under a business key (#508) one intent per tenant, name and key. A
+ * ended, never while pending; under a business key (#508) one intent per tenant, name and key; each
+ * attempt's start and its read on the store's clock (#658: what a `reconcile` is told). A
  * store that opts out of the atomic lease check passes none of the fencing cases (#543): they fail
  * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`,
  * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
@@ -52,6 +54,7 @@ export function registerOutboundCallContract(
       outboundRaceCases(),
       outboundLeaseRaceCases(),
       outboundExpiryCases(),
+      outboundTimeCases(),
     ],
     (stores) => stores.calls.ping(),
     { storeOf: (stores) => stores.calls, ...optOut },

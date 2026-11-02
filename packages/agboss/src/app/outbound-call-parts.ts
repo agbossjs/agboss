@@ -7,6 +7,7 @@ import type {
   OutboundCallSupersededLease,
 } from "../infrastructure/execution-lease-event.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
+import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
 import type {
   FencedEffectKey,
@@ -14,6 +15,7 @@ import type {
 } from "../infrastructure/fenced-effect.repository.js";
 import type {
   OutboundCallFailure,
+  OutboundCallRecord,
   OutboundCallRepository,
   OutboundCallStatus,
 } from "../infrastructure/outbound-call.repository.js";
@@ -47,6 +49,8 @@ export interface OutboundCallParts {
   readonly owners: Set<string>;
   /** The instance's log (#508): two attempts that reached the other system, a late answer. */
   readonly log: FrameworkLog;
+  /** The application's clock (#658): its monotonic time ages a key between the read and the resend. */
+  readonly clock: Pick<Clock, "monotonicNow">;
 }
 
 /** How a call this instance makes ended (#508): `isAnswered` once the other system answered it. */
@@ -175,15 +179,19 @@ export const callOf = <TRequest, TResult>(
   signal: run.frame.execution.signal,
 });
 
-/** What `reconcile` gets: the request as stored (masked) and the key to look the call up by. */
+/**
+ * What `reconcile` gets: the request as stored (masked), the key to look the call up by, when its
+ * pending attempt started and how old its key is (#658).
+ */
 export const lookupOf = <TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
-  storedRequest: string,
-  attempt: number,
+  found: OutboundCallRecord,
+  ages: Pick<OutboundCallLookup, "attemptStartedAt" | "keyAge">,
 ): OutboundCallLookup => ({
   idempotencyKey: run.idempotencyKey,
-  storedRequest,
-  attempt,
+  storedRequest: found.request,
+  attempt: found.attempt,
+  ...ages,
   target: run.options.target,
   operation: run.options.operation,
   signal: run.frame.execution.signal,

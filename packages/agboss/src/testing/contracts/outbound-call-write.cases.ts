@@ -31,6 +31,10 @@ const savedThenFound: OutboundCallCase = {
       token: 1,
       leaseExecutionId: "execution-1",
       recordedAt: clock.now().toISOString(),
+      // #658: its first attempt started when it was recorded, read now — on the store's clock
+      attemptStartedAt: clock.now().toISOString(),
+      firstAttemptStartedAt: clock.now().toISOString(),
+      readAt: clock.now().toISOString(),
     });
   },
 };

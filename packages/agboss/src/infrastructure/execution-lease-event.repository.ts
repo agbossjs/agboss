@@ -41,8 +41,13 @@ export enum OutboundCallEventOutcome {
   NotSent = "not-sent",
   /** Left pending, nobody could say what happened: the step fails, the intent stays pending. */
   Unknown = "unknown",
-  /** The other system answered with an error: the intent is failed. */
+  /** The other system definitely did not carry it out (`isDefiniteFailure`): the intent is failed. */
   Failed = "failed",
+  /**
+   * `send` threw an error that does not prove the other system did not act (#657: a 5xx, a reset
+   * connection, a client timeout): the intent stays pending, and the next call reconciles it.
+   */
+  Ambiguous = "ambiguous",
   /**
    * Answered after a newer attempt took the intent over (#508): two attempts reached the other
    * system — its answer not stored, an error in the log.

@@ -1,5 +1,6 @@
 import type { HeldOperation, HoldRequest } from "./hold-points.js";
 import type { OperationEvent } from "./operation-history.js";
+import type { FaultRunOrder } from "./facts.js";
 import type { StoreOutageMode } from "./store-outage.js";
 
 /**
@@ -17,12 +18,42 @@ export enum FaultWorkflow {
   Batch = "batch",
 }
 
+/**
+ * How the fixture's payment talks to the gateway (#657, #658): its `reconcile`, what it says of an
+ * error, and the key retention it declares — the default and one each scenario needs, with the
+ * sabotages that prove the scenarios bite.
+ */
+export enum FaultPayment {
+  /** A lookup by the order's reference (it never expires); every error of unknown outcome. */
+  Lookup = "lookup",
+  /** A gateway with no lookup: `reconcile` replays the key, the gateway's retention declared. */
+  ReplayOnly = "replay-only",
+  /** The sabotage of `ReplayOnly`: the same replay, no retention declared. */
+  ReplayOnlyUndeclared = "replay-only-undeclared",
+  /** The sabotage of `Lookup`: every error the gateway answers taken for a definite failure. */
+  EveryErrorDefinite = "every-error-definite",
+}
+
 /** An order of the fixture application. */
 export interface FaultOrder {
   readonly orderId: string;
   /** The charge declines for real: the tree fails and its reservation is undone. */
   readonly decline?: boolean;
+  /**
+   * The tree fails for real at its payment (#657, #658: an error of unknown outcome, a refused
+   * resend) — its reservation undone once; another start of the order may still pay it.
+   */
+  readonly fails?: boolean;
+  /** How its payment talks to the gateway (default `Lookup`). */
+  readonly payment?: FaultPayment;
 }
+
+/** A start of `order` as the run's facts keep it (#657, #658: whether it fails for real). */
+export const runOrderOf = (order: FaultOrder): FaultRunOrder => ({
+  orderId: order.orderId,
+  decline: order.decline ?? false,
+  fails: order.fails ?? false,
+});
 
 /** What a test asks of a pod. */
 export type PodCommand =
