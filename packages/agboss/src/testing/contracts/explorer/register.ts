@@ -2,6 +2,7 @@ import { describe, expect, it, type TestContext } from "vitest";
 import { isOptedOutStore, optedOutRefusal, OPTED_OUT_REASON } from "../fencing-gate.js";
 import type { FencedEffectStores } from "../fenced-effect-data.js";
 import type { OutboundCallStores } from "../outbound-call-data.js";
+import type { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
 import type { ContractTarget } from "../seam.js";
 import { LEASE_RACES, raced, type ForcedRace } from "./races.js";
 import { CALL_RACES, EFFECT_RACES } from "./store-races.js";
@@ -13,6 +14,7 @@ import {
   CALL_SKEWS,
   callTarget,
   effectTarget,
+  leaseTarget,
   EXPLORED_SKEWS,
   skewText,
   worldOf,
@@ -47,8 +49,12 @@ interface RegisterOptions extends InterleavingOptions {
   readonly isOptOutAccepted?: boolean;
 }
 
-/** The fencing targets the explorer runs on. */
+/**
+ * The fencing targets the explorer runs on. The lease store alone (#694: a set of coordination
+ * stores, `without` its fenced-effect and outbound-call stores) is explored without `leaseStateOf`.
+ */
 export interface InterleavingTargets {
+  readonly executionLease?: ContractTarget<ExecutionLeaseRepository> | undefined;
   readonly fencedEffect?: ContractTarget<FencedEffectStores<unknown>> | undefined;
   readonly outboundCall?: ContractTarget<OutboundCallStores> | undefined;
 }
@@ -61,19 +67,35 @@ interface WorldCase {
   readonly target: ContractTarget<ExplorerStores>;
 }
 
+/**
+ * The lease world's target: the outbound-call store's leases with `leaseStateOf`, else the lease
+ * store alone (#694) — never nothing for a set with a lease store.
+ */
+function leaseWorldOf(targets: InterleavingTargets): WorldCase | undefined {
+  if (targets.outboundCall !== undefined)
+    return {
+      title: "every lease operation and leaseStateOf",
+      kind: ExplorerWorldKind.Lease,
+      isBusinessKey: false,
+      target: callTarget(targets.outboundCall),
+    };
+  if (targets.executionLease === undefined) return undefined;
+  return {
+    title: "every lease operation",
+    kind: ExplorerWorldKind.Lease,
+    isBusinessKey: false,
+    target: leaseTarget(targets.executionLease),
+  };
+}
+
 /** The worlds a set's targets give. */
 function worldCases(targets: InterleavingTargets): WorldCase[] {
   const cases: WorldCase[] = [];
   const calls = targets.outboundCall === undefined ? undefined : callTarget(targets.outboundCall);
   const effects =
     targets.fencedEffect === undefined ? undefined : effectTarget(targets.fencedEffect);
-  if (calls !== undefined)
-    cases.push({
-      title: "every lease operation and leaseStateOf",
-      kind: ExplorerWorldKind.Lease,
-      isBusinessKey: false,
-      target: calls,
-    });
+  const leases = leaseWorldOf(targets);
+  if (leases !== undefined) cases.push(leases);
   if (effects !== undefined)
     cases.push({
       title: "the step's fenced effect",
@@ -206,6 +228,12 @@ export function registerInterleavings(
       targets.fencedEffect === undefined ? undefined : effectTarget(targets.fencedEffect);
     if (calls !== undefined)
       for (const race of [...LEASE_RACES, ...CALL_RACES]) registerRace(race, calls, options);
+    else if (targets.executionLease !== undefined) {
+      // #694: the races of the leases alone; those of leaseStateOf need the outbound-call store
+      const leases = leaseTarget(targets.executionLease);
+      for (const race of LEASE_RACES.filter((one) => one.kind === ExplorerWorldKind.Lease))
+        registerRace(race, leases, options);
+    }
     if (effects !== undefined)
       for (const race of EFFECT_RACES) registerRace(race, effects, options);
   });

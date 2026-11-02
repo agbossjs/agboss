@@ -71,7 +71,7 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
    * The fencing contracts a set with a lease store has no store of — a set of coordination stores
    * (leases, rate limits, the queue on Redis) says `["fencedEffect", "outboundCall"]`; an
    * application on these leases then lists none of them either (assembly refuses one of another
-   * backend).
+   * backend). The interleaving explorer then runs on the lease store alone (#694).
    */
   readonly without?: readonly LeftOutContract[];
   /**
@@ -159,7 +159,7 @@ export function storeConformance<TTransaction>(
   if (executionLease !== undefined && set.interleavings !== false)
     registerInterleavings(
       set.name,
-      { fencedEffect, outboundCall },
+      { executionLease, fencedEffect, outboundCall },
       {
         ...set.interleavings,
         isOptOutAccepted: set.acceptWithoutDoubleChargeProtection === true,
