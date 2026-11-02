@@ -1149,6 +1149,11 @@ over one backing store and its own `VirtualClock`, each store call tracked on it
 close? }` — [Several instances → Writing your own store](Several-instances#writing-your-own-store-the-published-contract-suites-481).
 It is an entry of its own: `@agboss/core/testing` does not load it.
 
+
+A knowledge base connector has its own suite in the same entry: `ragConnectorContract({ name,
+connector, documents, reset? })` (#700) — tenant isolation, re-indexing that replaces, `topK`, the
+signal, the cost ([Knowledge bases](Knowledge-bases#prove-it--ragconnectorcontract)).
+
 ## Lower level
 
 A class created by hand — a budget's `maxSpend()`, a service — takes `testExecutionContext()`;

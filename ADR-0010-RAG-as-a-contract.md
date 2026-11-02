@@ -15,6 +15,11 @@ differently, so a built-in embeddings model or vector store would be the wrong d
 - The core does the wiring, cost reporting (category `retrieval`) and tracing; context retrieval
   fails open.
 - The reference implementation is SQLite FTS5 (BM25): no dependencies, no cost, deterministic in tests.
+- **Amended by #700:** tenant isolation is part of the contract, not of one connector. The core
+  passes the execution's tenant on every `retrieve` and `index`; every connector returns and
+  indexes that tenant's passages only, proved by the published `ragConnectorContract`. The earlier
+  "no multi-tenant access control" is withdrawn; per-document access within a tenant is still the
+  connector's.
 
 ## Consequences
 

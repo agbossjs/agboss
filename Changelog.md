@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: knowledge bases are tenant-scoped (#700)
+
+- **Breaking** for a connector of your own: the RAG contract had no tenant, so an agent working for
+  tenant A could be handed tenant B's passages. The core now passes the execution's tenant on every
+  `retrieve(query, { topK, signal, tenantId })` and `index({ tenantId, signal })`; a connector
+  returns and indexes that tenant's passages only, comparing the id as given. TypeScript does not
+  flag one that ignores the field. **Migration:** read `options.tenantId` in both, key every stored
+  chunk by it, run `ragConnectorContract` (`@agboss/core/testing/contracts`). A retrieval outside an
+  execution is `context.unavailable`; an id that is no key's text `dto.invalid` (the rule, never the
+  id). `KnowledgeSource.retrieve` is a `KnowledgeRetrieve` (the core supplies the tenant).
+- **`SqliteFtsConnector`**: every chunk keyed by tenant, each document replaced in one transaction;
+  `folder` may be `tenantId → folder | undefined`; an index file of before migrates itself (its
+  chunks the `default` tenant's), a later version is `rag.index-version`. Nothing to change in a
+  project that uses it with one folder.
+- **Added**: `ragConnectorContract` — isolation, near-identical tenant ids, re-index replaces,
+  `topK`, the signal, the cost; `agboss rag index --tenant <id>`.
+  [Knowledge bases](Knowledge-bases#tenants).
+
 ## Unreleased — 0.1.1: the stores on MongoDB (#527)
 
 - **Added**: `@agboss/mongodb` (agbossjs/mongodb) — every store of the core on one MongoDB replica
