@@ -162,7 +162,7 @@ prompt-injection-guardrail has no model — set model or defaults.guardrail.mode
 
 `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default (agents +
 routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,
-`[limits.max-steps-unused]`); `maxVisits` on a router or an agent — its visits in one execution.
+`[limits.max-steps-unused]`, the warning `[limits.max-steps-below-worst-case]` — #643, [FinOps](FinOps)); `maxVisits` on a router or an agent — its visits in one execution.
 Money is not a workflow setting (#261): the application's `@Budget`s — an execution budget for every
 workflow (its own `workflow: X`, or the default), tenant and application budgets per
 `BudgetPeriod` — listed in `@Application({ budgets })`; `settings()` has no `limits` any more.

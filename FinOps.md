@@ -388,7 +388,13 @@ any; codes `limit.steps`, `limit.visits`, `limit.budget`, `limit.depth`). A recu
 executions each count their own `maxSteps`; its money is the root's budgets, every level included. `maxSteps` is checked at assembly:
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
 worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
-grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
+grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
+`[limits.max-steps-below-worst-case]` (#643; an error under `--strict`): a hand-set `maxSteps` below
+the worst case of a flow whose every loop `maxVisits` bounds — each loop counted at its nodes'
+`maxVisits`, its other nodes between two of their visits — would end a run with
+`StepsLimitExceededError` before the loop's own `.onError(VisitsLimitExceededError, …)` does; the
+message names the loop and the `maxSteps` that fits. A flow that takes the steps limit itself is not
+warned.
 `agboss studio` runs the flow graphs with their steps and visits limited; budgets are opened per
 execution by the app, so Studio's own runs are not capped by them. Optional extra backstop outside
 the app: a spending limit on the OpenRouter key itself.

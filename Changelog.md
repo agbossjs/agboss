@@ -3,6 +3,12 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a hand-set maxSteps below a bounded loop's worst case warns (#643)
+
+- **Added**: `[limits.max-steps-below-worst-case]` — `agboss check` computes the worst case of a flow
+  whose every loop `maxVisits` bounds and warns (an error under `--strict`) when a hand-set
+  `maxSteps` is below it, naming the loop and the `maxSteps` that fits. [FinOps](FinOps).
+
 ## Unreleased — 0.1.1: callTools is an agent's typed turn; a scripted call names a tool the agent lists (#679)
 
 - **Fixed**: `mockLlm(Agent).thenReturn(callTools(callTool(A, a), callTool(B, b)))` needed a cast in
