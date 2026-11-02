@@ -10,6 +10,7 @@ import { LEASE_FINISH_EDGE_CASES } from "./execution-lease-finish-edges.cases.js
 import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
 import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
 import { LEASE_IDENTITY_CASES } from "./execution-lease-identity.cases.js";
+import { LEASE_TAKE_RACE_CASES } from "./execution-lease-take-races.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
 import { LEASE_YIELD_EDGE_CASES } from "./execution-lease-yield-edges.cases.js";
 import { LEASE_YIELD_CASES } from "./execution-lease-yield.cases.js";
@@ -109,7 +110,8 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 /**
  * `ExecutionLeaseRepository` (#265 AC11, Q58): one lease per tree, keyed by `(tenantId,
  * rootExecutionId)` — not given to another instance while valid (`expiresAt > now`), taken with
- * `leaseEpoch + 1` after it expired or was released, the old holder's `renew` then `false`; at
+ * `leaseEpoch + 1` after it expired or was released (#695: by exactly one of two instances taking a
+ * free lease at once), the old holder's `renew` then `false`; at
  * `now >= expiresAt` the lease is over for its holder too (#534: `renew`, `yield`, `reclaim` and the
  * holder's `confirmNow()` refused, taken or not) — a take after expiry names the
  * expired holder (`takenOverFrom`, #501), one after a release none —; a yielded lease (#516) still
@@ -128,6 +130,7 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
     target,
     [
       { cases: LEASE_CASES },
+      { title: "two takes of a free lease at once", cases: LEASE_TAKE_RACE_CASES },
       { title: "a yielded lease", cases: [...LEASE_YIELD_CASES, ...LEASE_YIELD_EDGE_CASES] },
       {
         title: "the lease's expiry, for its holder too",

@@ -11,6 +11,7 @@ import {
   type FencedEffectStores,
   type WriteCount,
 } from "./fenced-effect-data.js";
+import { handOverDuringWrite } from "./fenced-effect-hand-over.cases.js";
 import { ROUNDS } from "./outbound-call-race.cases.js";
 
 /**
@@ -109,5 +110,9 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
 /** The key built by hand and the zombie. */
 export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
   title: "a key built by hand, a zombie",
-  cases: [badNameRefused<TTransaction>(), zombieRacingNewHolder<TTransaction>()],
+  cases: [
+    badNameRefused<TTransaction>(),
+    zombieRacingNewHolder<TTransaction>(),
+    handOverDuringWrite<TTransaction>(),
+  ],
 });

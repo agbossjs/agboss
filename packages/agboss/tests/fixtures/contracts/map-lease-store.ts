@@ -66,6 +66,12 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return stored !== undefined && stored.expiresAt.getTime() > this.now();
   }
 
+  /** Whether a take of the tree would find its lease free now (#695: what a broken take checks). */
+  protected isFreeNow(tenantId: string, rootExecutionId: string): boolean {
+    const key = keyOf(tenantId, rootExecutionId);
+    return !this.isValid(this.table.rows.get(key)) && !this.table.finished.has(key);
+  }
+
   acquire(
     tenantId: string,
     rootExecutionId: string,

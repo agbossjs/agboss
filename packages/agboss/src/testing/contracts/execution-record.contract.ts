@@ -154,8 +154,12 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         second.completeIfStatus(id, from, outcome(ExecutionRecordStatus.Failed)),
       ]);
 
+      // two instances are two connections: which write reaches the store first is not the call
+      // order (#695) — exactly one lands, and the record holds that one's status
       expect(landed.filter(Boolean)).toHaveLength(1);
-      expect((await second.byIds([id]))[0]?.status).toBe(ExecutionRecordStatus.Running);
+      expect((await second.byIds([id]))[0]?.status).toBe(
+        landed[0] ? ExecutionRecordStatus.Running : ExecutionRecordStatus.Failed,
+      );
     },
   },
 ];
