@@ -15,7 +15,7 @@
   "ignoreBinaries": ["diff"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.{mjs,cjs}", "eslint.tests.js"],
+      "entry": ["scripts/*.{mjs,cjs}", "scripts/release/*.mjs", "eslint.tests.js"],
     },
     "packages/agboss": {
       // the entries of package.json#exports (as sources) and the `schema` script

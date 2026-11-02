@@ -1,0 +1,128 @@
+name: Release
+
+# #691 — the train's first car: @agboss/core, then @agboss/cli, to npm.
+#
+# A pushed tag `vX.Y.Z` publishes both packages at X.Y.Z with provenance, in that order (the CLI
+# depends on exactly that core), only when:
+#   - the tag is the version of both packages and the CLI depends on that exact core
+#     (`scripts/release/release-plan.mjs`), and the commit is on `main`;
+#   - the full CI (`ci.yml`: check, mutation, packed-project) passed on a push of this exact commit
+#     (`scripts/release/ci-gate.mjs`, which waits while it runs).
+# A version already on npm from this commit is left as it is (a re-run after a failure between the
+# two packages publishes only what is missing); from another commit, the run fails. Pull requests
+# that touch the release path, and a manual dispatch, run the dry run: `npm publish --dry-run` of
+# both packages, never a publish. The other cars (`@agboss/postgres`, `@agboss/mongodb`,
+# `@agboss/redis`) publish from their own repositories on `<name>-vX.Y.Z`,
+# each pinned to this core from npm. The maintainer pushes every tag (RELEASE_CHECKLIST.md); the
+# secret `NPM_TOKEN` lives in the `npm` environment.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/release.yml
+      - scripts/release/**
+      - packages/agboss/package.json
+      - packages/agboss-cli/package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    name: dry run (npm publish --dry-run)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: The release plan
+        run: node scripts/release/release-plan.mjs --dry-run
+      - name: Build
+        run: npm run build
+      - name: npm publish --dry-run (@agboss/core, then @agboss/cli)
+        run: |
+          npm publish --dry-run --access public -w @agboss/core
+          npm publish --dry-run --access public -w @agboss/cli
+
+  publish:
+    name: publish @agboss/core and @agboss/cli
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    # ci-gate waits for main's CI on this commit (a cold mutation shard takes up to 90 min)
+    timeout-minutes: 180
+    environment: npm
+    permissions:
+      contents: read
+      actions: read # the CI runs of this commit
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+
+      - name: The tag and the versions
+        run: node scripts/release/release-plan.mjs --tag "$GITHUB_REF_NAME"
+
+      - name: The commit is on main
+        run: |
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main"
+            exit 1
+          }
+
+      - name: CI passed on this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/ci-gate.mjs --sha "$GITHUB_SHA" --workflow ci.yml --timeout-minutes 150
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish @agboss/core, then @agboss/cli (each skipped when this commit's version is on npm already)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          test -n "$NODE_AUTH_TOKEN" || { echo "::error::the npm environment has no NPM_TOKEN secret"; exit 1; }
+          for folder in packages/agboss packages/agboss-cli; do
+            workspace="$(node -p "require('./$folder/package.json').name")"
+            version="$(node -p "require('./$folder/package.json').version")"
+            packed="$(npm pack --json --pack-destination "$RUNNER_TEMP" -w "$workspace" | node -p "const p = JSON.parse(require('fs').readFileSync(0, 'utf8')); (Array.isArray(p) ? p[0] : Object.values(p)[0]).integrity")"
+            if [ -n "$(npm view "$workspace@$version" version 2>/dev/null)" ]; then
+              found="$(npm view "$workspace@$version" gitHead 2>/dev/null || true)"
+              if [ "$found" != "$GITHUB_SHA" ]; then
+                echo "::error::$workspace@$version is on npm from ${found:-an unknown commit}, not $GITHUB_SHA"
+                exit 1
+              fi
+              echo "$workspace@$version is on npm from $GITHUB_SHA already: nothing to publish"
+            else
+              npm publish --provenance --access public -w "$workspace"
+            fi
+            # the registry serves what was packed, before the next car goes
+            for _ in $(seq 20); do
+              listed="$(npm view "$workspace@$version" dist.integrity 2>/dev/null || true)"
+              [ "$listed" = "$packed" ] && break
+              sleep 15
+            done
+            [ "$listed" = "$packed" ] || { echo "::error::the registry lists ${listed:-nothing} for $workspace@$version, packed $packed"; exit 1; }
+            echo "$workspace@$version: $listed"
+          done
