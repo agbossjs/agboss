@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an agent asks a question role as a tool (#712)
+
+- **Added**: a question role listed in `@Agent({ tools })` is a tool its model calls (input = the
+  role's `ask`); the call pauses on the role's channel and the typed `answer` is the call's result,
+  with every guarantee of a question step. `[channel.approval-role-as-tool]`; `callTool(Role, ask)`
+  in tests. [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712).
+
 ## Unreleased — 0.1.1: models called on an agent's behalf read through its PII policies (#708)
 
 - **Fixed**: the core's LLM reranker sent the query and the candidates to its model unmasked. It now

@@ -333,8 +333,43 @@ value for the steps after it. Everything else is a pause like an approval's:
 - `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
   `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
   its `OutputOf` `AnswerDto`. `agboss describe` prints the role with `asked at <step> (<workflow>)`.
-- A tool that names a question role is `[channel.wrong-tool]`: an agent asking one as a tool is
-  #712.
+- A tool that names a question role is `[channel.wrong-tool]` — an agent asks one by listing the
+  role itself in its tools ([below](#an-agent-asks-a-question-role-as-a-tool-712)).
+
+## An agent asks a question role as a tool (#712)
+
+When the model should decide **whether** and **when** to ask, the role goes in the agent's tools —
+`@Agent({ …, tools: [SpendingLimitQuestion, OrderTool] })`. The model sees a tool named the role's
+name (`spending-limit-question`), described by the role's description, its input the role's `ask`;
+it calls it like any tool, and:
+
+- Its arguments are validated as the role's `ask` first, strictly (a field the ask does not declare
+  is refused too): invalid ones ask nobody — no pause, no send —, the model reads a tool error and
+  may try again, and the call counts against the role's `maxVisits`. Only the validated ask reaches
+  the channel.
+
+- The call is asked at the loop's approval step, before the move's other tools run — one pause per
+  call, keyed by the call's step key, the calls of one move one after another (as approvals are).
+  Nothing runs before the ask, so the loop's re-entry on resume repeats nothing and the channel is
+  never asked twice.
+- `result.pending[i]`: `kind: PauseKind.Question`, `agent` the asking agent, `channel` the role,
+  `ask` the masked question; the record's `component` is the role (`kind: "question"`) — the same
+  discriminator as a question step's, no store change.
+- The answer — a `decision` validated as the role's `answer` DTO, a reply its interpreter read into
+  it, or the channel's `decided(answer)` — is the **call's result**: it goes through the tool-result
+  path (the answer DTO's `sensitive` fields masked for the model, `maxResultSize`, `onToolStart` /
+  `onToolEnd` once, after the answer, `result.toolCalls` with `step.component.kind` `question`, its
+  `output` the answer). Tool interceptors do not apply: the call runs no tool.
+- Every guarantee of a question step holds: one answer wins, another instance resumes it, a cancel
+  withdraws it, tenant and owner checks, an interpreter that does not understand keeps it pending.
+- The role's `maxVisits` bounds how many of its calls one visit of the agent asks: the next one fails
+  the step with `VisitsLimitExceededError` before it is asked. The budgets and the holder's fence
+  are checked before every ask (a budget another execution exhausted meanwhile asks nobody).
+- A `send` that throws, or a `decided(…)` that is not an `AnswerDto`, fails the agent's step
+  (`AgentFailedError`, the cause kept). An approval role in `tools` is
+  `[channel.approval-role-as-tool]`. An agent loop with no pause seam reads a tool error.
+- Tests: `callTool(SpendingLimitQuestion, { item, priceUsd })`, typed by the role's ask;
+  `agboss describe` prints `asked at <agent>'s tool loop (<workflow>)`.
 
 ## Who may answer
 

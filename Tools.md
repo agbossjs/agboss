@@ -518,9 +518,10 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 - **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
   approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
   answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
-  `answer`, #659) is asked by a flow step, never by a tool — `.toQuestion(Role)`
-  ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)); a tool naming one is
-  `[channel.wrong-tool]`. `answeredBy` is required —
+  `answer`, #659) is asked by a flow step — `.toQuestion(Role)`
+  ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)) — or by an agent that lists the
+  role itself in its `tools` (#712, [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712));
+  a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `answeredBy` is required —
   `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
   it, with both `approves` and `ask` / `answer`, or with neither). A tool whose `input` is not its role's `approves` fails assembly with
   `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
