@@ -17,6 +17,8 @@ import type {
 } from "../fixtures/questions.fixture.js";
 import { RefundCardInputDto, type RefundApprovalChannel } from "../fixtures/refunds.fixture.js";
 import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
+import { ApproverQuestion } from "../fixtures/question-tools.fixture.js";
+import { callTool, type ToolCallTurn } from "../../../src/testing/index.js";
 
 /**
  * #267 AC6 (PR 1): a channel role's `approves` types the ask's `arguments` and the decision's
@@ -125,5 +127,16 @@ describe("#659 AC6: a question role's ask and answer type its channel and its in
     expectTypeOf<
       InputOf<SpendingLimitQuestion>["question"]["value"]
     >().toEqualTypeOf<PurchaseQuestionDto>();
+  });
+});
+
+describe("#712: a question role an agent asks is typed by its role", () => {
+  it("callTool(Role, args) takes the role's ask; another shape does not compile", () => {
+    expectTypeOf(
+      callTool(ApproverQuestion, { item: "laptop", priceUsd: 900 }),
+    ).toEqualTypeOf<ToolCallTurn>();
+    // @ts-expect-error — the ask's priceUsd is a number
+    callTool(ApproverQuestion, { item: "laptop", priceUsd: "900" });
+    expectTypeOf<ChannelAsk<ApproverQuestion>["value"]>().toEqualTypeOf<PurchaseQuestionDto>();
   });
 });

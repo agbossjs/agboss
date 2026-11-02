@@ -19,7 +19,7 @@ import {
 import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { PauseWithdrawn } from "../../pause/index.js";
-import { plainRecordOf } from "./records.js";
+import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -46,6 +46,11 @@ export interface PauseChannel {
 export interface PauseQuestion {
   readonly agent: string;
   readonly ask: PauseAsk;
+  /**
+   * What asks, when it is not the step's own component: the question role an agent asks through
+   * its tool loop (#712) — the record's `component`, the #659 discriminator of a question.
+   */
+  readonly component?: ComponentRecord;
 }
 
 /** The answer a pause gives its step: the decision (validated by the caller) and who gave it. */
@@ -148,7 +153,7 @@ function newRecordOf(
     // a per-item child's own index when its step has none (#263)
     itemIndex: step.itemIndex ?? execution.itemIndex,
     copyNumber: step.copyNumber,
-    component: plainRecordOf(step.component),
+    component: plainRecordOf(question.component ?? step.component),
     ...(step.toolLoopIteration === undefined ? {} : { toolLoopIteration: step.toolLoopIteration }),
     validationAttempts: step.validationAttempts,
     agent: question.agent,

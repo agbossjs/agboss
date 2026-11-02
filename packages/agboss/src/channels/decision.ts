@@ -63,7 +63,8 @@ export interface AnswerChecks {
 
 /**
  * How a pause's answer is validated: a tool call's decision against the tool (#267 AC7); a question
- * role's (#659) as the role's `answer` DTO.
+ * role's (#659) as the role's `answer` DTO — a question step's, or the question tool of the agent
+ * that asked it (#712), by the role's name on the pause's component.
  */
 export function answerValidatorOf(
   pause: PauseRecord,
@@ -73,8 +74,14 @@ export function answerValidatorOf(
     const tool = checks.tools(pause.ask.tool);
     return (decision) => validDecisionOf(decision, tool);
   }
-  const answer = checks.questions?.(pause.workflow, pause.agent);
+  const answer = checks.questions?.(pause.workflow, pause.agent) ?? askedByAgent(pause, checks);
   if (answer === undefined)
     throw new TypeError(`pause ${pause.pauseId}: ${pause.agent} is no question of this tree`);
   return (decision) => validate(answer, decision);
+}
+
+/** The answer of a question role an agent asked through its tool loop (#712): its tool's. */
+function askedByAgent(pause: PauseRecord, checks: AnswerChecks): DtoClass | undefined {
+  const role = pause.component?.name;
+  return role === undefined ? undefined : checks.tools(role).question?.answer;
 }

@@ -121,6 +121,12 @@ export function callTool(rag: Class<RagConnector>, args: {
     readonly query: string;
 }): ToolCallTurn;
 
+// Warning: (ae-forgotten-export) The symbol "QuestionRoleClass" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function callTool<TRole extends QuestionRoleClass>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn;
+
 // @public
 export function callTools(...calls: readonly [ToolCallTurn, ...ToolCallTurn[]]): ToolCallsTurn;
 
@@ -1330,11 +1336,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:35:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:40:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:109:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:145:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:146:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:43:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:125:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:161:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:162:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".

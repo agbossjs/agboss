@@ -7,6 +7,7 @@ import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { ragMeta, rerankerClassesOf, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
+import { channelNameOf } from "../channels/discovery.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/in-memory-database.js";
 import type { Mcp } from "./assemble-tools.js";
@@ -21,8 +22,10 @@ import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
 export interface ToolClasses {
   readonly local: readonly Class[];
   readonly mcp: readonly Class[];
-  /** The question roles the flow asks (#659): channels a flow step names, not a tool. */
+  /** The question roles the flow asks (#659), and its agents (#712): channels, not tools. */
   readonly questions?: readonly Class[];
+  /** The question roles the agents ask through their tool loop (#712): tools to their models. */
+  readonly asked?: readonly Class[];
 }
 
 /**
@@ -58,6 +61,9 @@ export const toolNames = (
   });
   rags.forEach((cls) => {
     add(cls, searchToolName(ragMeta(cls)));
+  });
+  (tools.asked ?? []).forEach((cls) => {
+    add(cls, channelNameOf(cls));
   });
 
   return map;
@@ -107,7 +113,11 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
   const searches = rags.flatMap((cls) =>
     modelNameViolations(searchToolName(ragMeta(cls)), tokenName(cls)),
   );
-  return [...own, ...searches];
+  // a question role's name is the tool name its agents' models see (#712)
+  const questions = (tools.asked ?? []).flatMap((cls) =>
+    modelNameViolations(channelNameOf(cls), tokenName(cls)),
+  );
+  return [...own, ...searches, ...questions];
 }
 
 /** The classes among a workflow's `providers` (values excluded). */

@@ -12,7 +12,6 @@
   "src eslint:@typescript-eslint/no-unsafe-assignment": 1,
   "src eslint:@typescript-eslint/no-unused-vars": 1,
   "src eslint:@typescript-eslint/prefer-nullish-coalescing": 3,
-  "src eslint:@typescript-eslint/prefer-optional-chain": 2,
   "src eslint:@typescript-eslint/unbound-method": 1,
   "src eslint:@typescript-eslint/unified-signatures": 1,
   "src eslint:complexity": 1,

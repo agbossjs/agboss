@@ -17,7 +17,9 @@ import { InjectionToken, type Class, type Token } from "./injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
-import { channelNameOf } from "../channels/discovery.js";
+import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
+import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
+import type { ToolClasses } from "./assemble-checks.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
@@ -104,16 +106,43 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   return container;
 };
 
+/**
+ * A question role as an agent's tool (#712): `@Agent({ tools: [SpendingLimitQuestion] })`. Its
+ * model sees a tool named the role's name, described by the role's description, whose input is the
+ * role's `ask`; the loop asks the role's channel at the call (the approval step, through the pause
+ * seam) and the role's `answer` is the call's result. The tool itself runs nothing: called without
+ * a pause seam — an agent loop on its own — it is a tool error its model reads.
+ */
+
+/** Why a question is no tool call on its own: it waits for an answer only an application records. */
+const UNASKED =
+  "a question is asked only inside its application: its answer comes through the application's pauses";
+
+/** The tool a question role is to the agents that list it. */
+export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
+  const tool = defineTool({
+    name: role.name,
+    description: role.description,
+    input: schemaOf(role.ask),
+    output: schemaOf(role.answer),
+    channel: role.name,
+    run: () => Promise.reject(new Error(UNASKED)),
+  });
+  const { ask, answer, maxVisits } = role;
+  const question = { ask, answer, ...(maxVisits === undefined ? {} : { maxVisits }) };
+  return { ...tool, question };
+}
+
 /** Tools per run of the app: tools and MCP tools (created by the container), knowledge-base search tools. */
 export const toolBuilder =
   (
     bundle: WorkflowMeta,
     agents: readonly AgentMeta[],
-    local: readonly Class[],
-    mcpTools: readonly Class[],
+    tools: ToolClasses,
     serverNames: ReadonlyMap<Class, string>,
   ) =>
   (services: WorkflowServices): readonly AnyTool[] => {
+    const { local, mcp: mcpTools } = tools;
     const container = containerFor(bundle, services);
     const instances = local.map((cls) =>
       adapt(
@@ -139,7 +168,11 @@ export const toolBuilder =
       const reranker = boundRerankerOf(meta, (c) => container.get(c), services);
       return searchTool(meta, container.get(cls) as RagConnector, reranker);
     });
-    return [...instances, ...mcp, ...search];
+    const asked = (tools.asked ?? []).flatMap((cls) => {
+      const role = questionRoleOf(cls);
+      return role === undefined ? [] : [questionToolOf(role)];
+    });
+    return [...instances, ...mcp, ...search, ...asked];
   };
 
 export const ragParts = (

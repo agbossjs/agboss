@@ -49,6 +49,16 @@ export interface CallDecision {
   readonly overrideArguments?: Record<string, unknown>;
 }
 
+/**
+ * The answer to one question call of the move (#712): the role's validated answer — the call's
+ * result —, which role it answered (`maxVisits` counts them per visit) and who answered.
+ */
+export interface QuestionCallAnswer {
+  readonly tool: string;
+  readonly answer: unknown;
+  readonly by: string;
+}
+
 /** How long the appended lists were when the flow handed the agent its work. */
 export interface HandedOver {
   readonly usage: number;
@@ -81,6 +91,11 @@ export const AgentLoopState = Annotation.Root({
   move: Annotation<AIMessage | null>({ reducer: replace, default: () => null }),
   results: Annotation<Record<string, StoredToolCall>>({ reducer: merge, default: () => ({}) }),
   decisions: Annotation<Record<string, CallDecision>>({ reducer: merge, default: () => ({}) }),
+  /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
+  questionAnswers: Annotation<Record<string, QuestionCallAnswer>>({
+    reducer: merge,
+    default: () => ({}),
+  }),
   /** Each ended call's record by its call id (#395): run, refused, declined or unparsable. */
   callRecords: Annotation<Record<string, ToolCallRecord>>({ reducer: merge, default: () => ({}) }),
   /** The visit's tool calls in call order (#395): a move's records, appended when it is collected. */
@@ -141,6 +156,8 @@ export interface ToolTask {
   readonly piiValues?: readonly SensitiveValue[];
   /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
   readonly progress?: LoopProgress;
+  /** A question call's answer (#712): its result — the call asks, it runs nothing. */
+  readonly answer?: unknown;
 }
 
 /**

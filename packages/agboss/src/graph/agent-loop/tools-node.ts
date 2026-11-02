@@ -10,6 +10,7 @@ import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import { interceptedCall } from "./tool-interception.js";
+import type { ToolInterceptorChains } from "../../tool-interceptors/runtime.js";
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
 import { storedCallOf } from "./stored-call.js";
 import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
@@ -58,6 +59,23 @@ async function runTool(
   }
 }
 
+/**
+ * What a call gives: a question's answer (#712) — asked before the move's tools ran, validated —,
+ * else the tool's run.
+ */
+const callOf = (
+  tool: AnyTool,
+  task: ToolTask,
+  context: ToolInvocationContext,
+): Promise<ToolOutput<unknown>> =>
+  tool.question !== undefined && "answer" in task
+    ? Promise.resolve({ kind: "ok", value: task.answer })
+    : runTool(tool, task.args, context);
+
+/** A call's tool interceptors: a question call (#712) runs no tool, its answer was asked already. */
+const interceptorsOf = (deps: AgentLoopDeps, tool: AnyTool): ReturnType<ToolInterceptorChains> =>
+  tool.question === undefined ? (deps.interceptors?.(tool.name) ?? []) : [];
+
 /** What the model would read of a stopped call: the loop fails the step before it reads it. */
 const stoppedContent = (stop: ToolCallStop): string =>
   `Tool error: the call was stopped by ${stop.interceptor}: ${stop.reason}`;
@@ -83,7 +101,7 @@ async function guardedCall(
   }
   // the tool's own bound, else its workflow's `defaults.tools` (#336)
   const maxResultSize = tool.maxResultSize ?? deps.agent.maxResultSize;
-  const chain = deps.interceptors?.(tool.name) ?? [];
+  const chain = interceptorsOf(deps, tool);
   const keep = (error: unknown): void => {
     keepStopCause(task.runId, task.callId, error);
   };
@@ -183,7 +201,7 @@ function runTask(
       { reportUsage, meshCall: mesh.services },
       () =>
         guardedCall(deps, tool, task, () =>
-          readingAgent(deps, task, () => runTool(tool, task.args, context)),
+          readingAgent(deps, task, () => callOf(tool, task, context)),
         ),
       call.signal,
     ).finally(call.release);

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { DtoClass } from "../dto/types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
 
@@ -26,6 +27,19 @@ export type ToolOutput<TOutput> =
       readonly cause?: unknown;
     };
 
+/**
+ * What makes a tool a question role an agent asks (#712): its call pauses on the role's channel and
+ * its result is the role's answer — it runs nothing of its own.
+ */
+export interface QuestionToolFacts {
+  /** The role's `ask`: what the call's arguments are. */
+  readonly ask: DtoClass;
+  /** The role's `answer`: what the call's result is, validated as it. */
+  readonly answer: DtoClass;
+  /** How many times one visit of the agent may ask it; none → no bound of its own. */
+  readonly maxVisits?: number;
+}
+
 /** One shape for every tool — own functions and MCP facades alike. */
 export interface Tool<TName extends string = string, TInput = unknown, TOutput = unknown> {
   readonly name: TName;
@@ -38,6 +52,8 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
   readonly invoke: (raw: unknown, ctx?: ToolInvocationContext) => Promise<ToolOutput<TOutput>>;
+  /** Set when the tool is a question role (#712): the call is asked, never run. */
+  readonly question?: QuestionToolFacts;
   /** Who reported costs are billed to (default `tool:<name>`), e.g. `rag:<name>` → category retrieval. */
   readonly costCaller?: string;
 }

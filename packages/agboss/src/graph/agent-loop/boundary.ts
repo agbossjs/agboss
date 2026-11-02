@@ -20,7 +20,10 @@ import {
   type ToolTask,
 } from "./state.js";
 
-/** Calls of the move that wait for a decision: their tool needs one and nobody decided yet. */
+/**
+ * Calls of the move that wait for a decision — their tool needs one and nobody decided yet — or for
+ * an answer: a question role's call (#712), asked before the move's tools run.
+ */
 export function awaitingApproval(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
@@ -29,13 +32,11 @@ export function awaitingApproval(
   if (approval === undefined) return [];
   return callsOf(state.move).filter((call) => {
     const tool = toolNamed(deps.agent, call.tool);
-    return (
-      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
-      tool !== undefined &&
-      tool.channel !== undefined &&
-      state.decisions[call.callId] === undefined &&
-      state.results[call.callId] === undefined
-    );
+    if (tool?.channel === undefined || state.results[call.callId] !== undefined) return false;
+    // a question call (#712) waits for its answer, an approval's for its decision
+    return tool.question === undefined
+      ? state.decisions[call.callId] === undefined
+      : state.questionAnswers[call.callId] === undefined;
   });
 }
 
@@ -45,6 +46,12 @@ export const runnableCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
     (call) =>
       state.results[call.callId] === undefined && state.decisions[call.callId]?.approved !== false,
   );
+
+/** A question call's answer for its task (#712); nothing for any other call. */
+const answerOf = (state: AgentLoopStateType, callId: string): Pick<ToolTask, "answer"> => {
+  const answered = state.questionAnswers[callId];
+  return answered === undefined ? {} : { answer: answered.answer };
+};
 
 /**
  * After the boundary (and after each decision): ask about the next call that waits (one per pause),
@@ -67,6 +74,7 @@ export function routeToActions(
           piiKey: state.piiKey,
           piiValues: state.piiValues,
           progress: loopProgressOf(state),
+          ...answerOf(state, call.callId),
         } satisfies ToolTask),
     );
   };
