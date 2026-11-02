@@ -3,9 +3,9 @@ name: agboss
 description: How to write and change AGBoss applications (decorators, the flow DSL, DI, budgets, tests, CLI). Use on any task in this project that touches src/, tests/ or an agboss command.
 ---
 
-<!-- agboss-skills-version: 0.1.0 — managed by `agboss check`; edits here are replaced -->
+<!-- agboss-skills-version: 0.1.1 — managed by `agboss check`; edits here are replaced -->
 
-# AGBoss 0.1.0
+# AGBoss 0.1.1
 
 AGBoss is a TypeScript framework over LangGraph: an **application** (`@Application`) lists its
 **workflows** (`@Workflow`), each a list of **paths** through decorated components — starts,

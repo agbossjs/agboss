@@ -10,183 +10,52 @@ with every breaking change, its reason and the migration — is the Wiki's
 entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced here too
 ([`SECURITY.md`](SECURITY.md)).
 
-## [Unreleased] — 0.1.1
+## [0.1.1] — 2026-11-05
 
-### Added
-
-- **A child queued in another process wakes the claimers at once** (#777) — the optional
-  `ChildExecutionQueueRepository.watchQueued(onQueued)` (`ChildExecutionQueueWatch`): a store that
-  can be woken (PostgreSQL `LISTEN` / `NOTIFY`, a MongoDB change stream) has every instance with a
-  free step slot claim a child another instance queued as soon as it is queued, instead of at its
-  next sweep (every 30 s). A hint only: a wake-up lost is claimed at the sweep; a watch that does not
-  open is warned (`child-queue.watch-failed`) and opened again at the next sweep. The contract suite
-  checks a store's watch when it has one.
-
-- **`testReplyInterpreter(Role, { model })`** (#644) — a role's `@ReplyInterpreter` on its own:
-  `{ ask, reply }` in, `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }` out, as
-  `app.resume({ pauseId, reply })` reads it; a code one through its container, a model one on its
-  script.
-- **DX papercuts** (#644): `[application.pii-instance-key]` only when something makes a PII token (a
-  policy, a `sensitive` field — a text start's optional `sender` is one); `[application.in-memory-pauses]` names the store left in memory; an
-  OpenAI-compatible provider without `requestFields` is `[model-provider.request-fields-missing]` at
-  assembly; a unit runner's `environment` takes only the fields the unit reads, and the SQLite
-  error says how to pass `sqlitePath`; a cancelled launch branch keeps no raw `AbortError`.
-- **`[limits.max-steps-below-worst-case]`** (#643) — `agboss check` warns (an error under `--strict`)
-  when a hand-set `maxSteps` is below the worst case of a flow whose every loop `maxVisits` bounds:
-  the run would fail with `StepsLimitExceededError` before the loop's own
-  `.onError(VisitsLimitExceededError, …)` ends it. The message names the loop and the `maxSteps` that fits.
-- **The business-key identity and the outbound call's runtime are mutation-tested** (#626) — the
-  `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
-  100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
-  271 mutants; every one killed, timed out or justified where it stands).
-- **Takeover, recovery, undo and the budgets' money are mutation-tested** (#633) — five Stryker
-  shards join the three: `takeover` (the lease's yields, attempts and takes, the hand-over),
-  `recovery` (the sweep, a root taken over, a tree's end and moves), `undo` and `unwind` (each
-  automatic undo, its entries, marks and registry; a step's, a child's, a failed join's and the
-  root's unwind) and `money` (the budget meter, the application's spend, the cost ledgers), cold
-  every night, failing below 100 %. Wiki → Guarantees states each shard's counts.
-- **`PauseAnswerRecord.asked`** (#688) — the call as asked (an approval's tool and its own arguments,
-  before any correction a reply made) or a question's ask, masked like `decision`: beside the call as
-  it ran, every change a reply made is auditable. Absent on a record kept before.
-
-- **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
-  `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
-  `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
-  flow step asks it: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (`question(Role)` for
-  its own path). The step pauses like any pause — `result.pending` (`kind: PauseKind.Question`,
-  the masked ask), `answeredBy`, the pause records and their retention, `result.record.pauses` —
-  and the answer goes on the path: `app.resume({ pauseId, decision })` validated as `AnswerDto`,
-  `{ reply }` read by the role's `@ReplyInterpreter` into it (not understood → the pause stays
-  pending), or the channel's `ChannelOutcome.decided(answer)` at once. Exactly one answer wins,
-  another instance continues it, a cancel withdraws it. `ChannelRoles` types `ask` / `answer`,
-  `agboss describe` prints where each question is asked. A failed `send` is `QuestionFailedError`
-  (`step.question`). `PendingPause` is now a union on `kind` (`PendingApproval` |
-  `PendingQuestion`); a pause record's `ask` is a `PauseAsk`.
-- **An agent asks a question role as a tool** (#712) — `@Agent({ tools: [SpendingLimitQuestion] })`:
-  the model calls the role (input = its `ask`), the loop pauses on the role's channel before the
-  move's other tools run, and the typed `answer` (a decision, an interpreted reply or the channel's
-  `decided(…)`) is the call's result, PII-masked; every guarantee of a question step holds, the
-  role's `maxVisits` bounds one visit's calls, budgets and the fence are checked before each ask.
-  `callTool(Role, ask)` scripts it; an approval role in `tools` is `[channel.approval-role-as-tool]`.
-- **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
-  fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
-  context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default
-  `openai/gpt-4.1-nano`) runs on the application's model providers — its cost in the turn's
-  `retrieval` spend and every budget, its call traced (`rerank:<name>`), scripted in tests with
-  `mockLlm(Reranker)`. A dedicated rerank API plugs in as `@Reranker({ decidedBy: DecidedBy.Code })`
-  - `implements RerankerHandler` on its own SDK. A reranker's result must be a subset of the
-    tenant's candidates. On a failure: the retrieval's own order with a `rerank:<name>:fallback` span
-    (default), or `RerankFailurePolicy.FailStep` → `RerankFailedError` (`step.rerank-failed`).
-    `ragConnectorContract` takes `rerank` to run its cases through the reranking.
-- **The races the store contracts were missing** (#695, found by `@agboss/mongodb`, #527) — the
-  lease contract races two instances' `acquire` of one free lease (never leased, released,
-  expired), round after round in both orders: exactly one is given it. A lease store that checks,
-  then writes, passed every other case. The fenced-effect contract hands the lease over **while**
-  its holder's write runs: the hand-over waits for the write, or the write is refused. A store
-  whose lease check takes no lock (a read in a MongoDB transaction) passed the zombie's race of the
-  same key. The record contract's compare-and-set race no longer asserts which of two instances'
-  writes lands, only that exactly one does and the record holds it; nor does the paused-execution
-  contract's race of two resolves of one pause (#704).
-- **Fault scenario 12b** (#607) — `s12b-marked-undo-not-again`: a pod frozen right after it marked
-  its undo done, before it failed the tree. The next pod takes the tree over and ends it without
-  undoing again: the reservation is released once. `StoreHoldPoint.TreeSaveIfAbsent` holds a tree
-  key's write by its family; `no-undo-on-hand-over` also fails a declined order released twice. A
-  tree store that forgets the done marks fails 12b.
-- **Fault scenario 5d** (#608, the gap #584 left) — `s05d-zombie-recorded-not-sent`: a pod frozen
-  right after recording its payment's intent and before sending it, thawed after another pod took
-  the tree over. The new holder reconciles the pending intent and pays once; the zombie is refused
-  at its renewal before the send and hands over: one gateway request, one payment. A lease store
-  whose renewal says yes to a lease that is over fails it on `effects-once` and `linearizable`.
-- **Mutation testing of the fencing modules** (#533) — Stryker on the leases, the holder's fence,
-  the held lease, the fenced effect, the outbound call's protocol and store, and the store's clock,
-  in a CI job of its own: every mutant is killed by a test or justified at the code; the job fails
-  below 100 %.
-
-- **The interleaving explorer** (#533) — `storeConformance` now runs `interleavings (<name>)` on a
-  set's fencing stores: a deterministic scheduler of simulated instances that take, renew, yield,
-  reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
-  move an outbound call through its protocol, one operation at a time — every schedule of two
-  instances up to a depth (each state once), seeded walks of three, the second instance's clock off
-  by ± lease/2, ± lease and ± 10 × lease while the store keeps the run's time — and every
-  two-outcome race of the contracts forced in both orders (`finish` against a take, a release, a
-  `leaseStateOf`, a write against its hand-over, each compare-and-set of an intent). After each step
-  it checks one live holder, no write at a superseded, closed or expired token, one effect per key,
-  one charge per business key and no takeover of finished work; a failure prints the minimal
-  schedule. Its budget is
-  `storeConformance({ interleavings: { depth, walks, walkDepth, seed, timeLimit } })`
-  (`AGBOSS_EXPLORER_SEED`), `false` to leave it out. A search that runs out of `timeLimit` (default
-  8 min) or is aborted with its case stops and fails with what it explored — schedules, states and
-  how many it left — never a pass, and never goes on resetting the store under later cases (#590).
-  Wiki → Your-own-store.
-
-- **The linearizability checker** (#533) — every fault run's store history is checked against the
-  sequential model of the fencing stores (`faultViolationsOf` → `linearizable`): one order of the
-  recorded operations, each at an instant of its span on the store's time, in which every answer is
-  the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
-  reported with the longest order found and what could not follow it. `linearizabilityOf(history,
-{ timeScale })` (`@agboss/core/testing/faults`) checks any history; `faultSuite({ storeTimeScale })`
-  says how fast the store's own clock runs (1 for a database that decides by its clock). The history
-  now keeps a lease's length, a claim's expected state and an ending's owner.
-
-- **The guarantees page** (#533) — Wiki → Guarantees: the five guarantees of several instances
-  (one owner per tree, one effect per business key, one send per attempt, no takeover of finished
-  work, compensation only on real failure), the eleven assumptions they rest on with what breaks
-  when one does not hold, every proof with where it bites, and what no checker reaches.
-
-- **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
-  loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
-  the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
-  SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 20 scenarios (#533:
-  two of a pod whose clock is ten leases ahead or behind, `world.pod(name, { clockSkew })`)
-  that each tree had one owner at a time, every child and every charge happened once, a hand-over
-  undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
-  points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations
-  across processes, and the run's history (`OperationHistory`) keeps every store operation's
-  invoke and complete. The core runs it on SQLite; Wiki → Guarantees-across-processes.
-
-- **Business idempotency keys** (#508) — `fencedEffectKeyOf(executionContext, name, { businessKey,
-fingerprint? })`: one fenced effect or outbound call per tenant, name and business key, whatever
-  step, execution or thread makes it; another fingerprint is `IdempotencyKeyConflictError`; a
-  business key shows only by its keyed handle. A pending call under a business key is in flight
-  while the lease that wrote it is live (`OutboundCallRepository.leaseStateOf`, an expired lease
-  closed by the check in one atomic step); a holder waits for its attempts within
-  `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
-  start) — a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). `OutboundCallResultNotStoredError`, `Superseded` outcomes and the
-  `outbound-call.*` log codes; no read shows a fingerprint.
-
-- **Handover telemetry: the lease log** (#501) — a takeover of a tree's lease is told and kept:
-  `onExecutionLeaseTakeover` (`ExecutionLeaseTakeoverEvent`: the new holder and token, the expired
-  holder when the store names it — `ExecutionLease.takenOverFrom`, optional for an external store —,
-  `LeaseTakeoverReason`, the head checkpoint) and a `Takeover` row of the new infrastructure contract
-  `ExecutionLeaseEventRepository` (in-memory default, `SqliteExecutionLeaseEventRepository`, the
-  published `executionLeaseEventContract`), always written, read with `app.leaseEventsOf({ tenantId,
-rootExecutionId })` and removed by the recovery sweep after `@Application({ leaseEventRetention })`
-  (default `hours(24)`). A step handed over (a lost lease, a fenced write, the app's stop) is told
-  and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
-  `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
-  a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
-  `agboss records export`). Every call of a fenced effect from a step is told and kept as well:
-  `onFencedEffect` (`FencedEffectEvent`, `FencedEffectEventOutcome`: ran, replayed, joined,
-  refused — never the result) and a `FencedEffect` row, so the public log alone tells a zombie
-  refused at its write from one that never reached it, and a replay from a new write.
-  `FencedEffectAsyncWorkError` moved to the SQLite store's module (still exported from the root).
-
-- **A store outside the core on the public surface alone** (#511, found by `@agboss/postgres`):
-  `@Injectable({ environmentFields })` + `EnvironmentField` — a class declares the environment fields
-  it reads, checked at assembly for every listed class and every class its `deps` reach
-  (`[environment.missing-field]`, `[environment.conflicting-field]`; `SqliteConnection` declares
-  `sqlitePath` so); `VirtualClock.track(work)` and `{ settleTimeout }` — `advance` waits for tracked
-  work (`UnsettledWorkError`), and the published contract suites track every store call of their
-  targets; every type an infrastructure contract names is exported by the root entry (`Tern`,
-  `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
-  `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
+The release in one line: several instances of one application share their trees safely — on SQLite
+in the core, on PostgreSQL through `@agboss/postgres` and on MongoDB through `@agboss/mongodb`, with
+`@agboss/redis` for the leases, the child queue and the rate limits (each released with it, on the
+published core) — with every guarantee stated, its assumptions and the checkers that prove it (Wiki → Guarantees). Read **Changed —
+breaking** first: an application upgrading from 0.1.0 needs at most the migrations listed there.
 
 ### Changed — breaking
 
-- **A decision's `overrideArguments` pass the tool's input strictly** (#688) — from a reply, `app.resume`
-  or a channel's `decided(…)`: a key the tool's input does not have, at any depth, is a
-  `DtoValidationError`. Before, the input check stripped it and the raw value — the unknown key with
-  it — reached the tool.
+- **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
+  passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
+  no flow step pauses on one. The form is gone from `@ChannelRole`'s types
+  (`ChannelQuestionRoleOptions` removed), its decorator throws
+  `[channel.question-role-unavailable]` for a JS caller, and the docs and skills describe the
+  approval form only; `[reply-interpreter.decision-model]` is gone with it (every role is an
+  approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
+  Re-added in the same release with a flow step that asks it (#659, Added below).
+
+- **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
+  first execution of a test file loads the core's lazy modules through vite's module runner, ~300
+  turns of the event loop, and an execution of an app not built yet builds it first; `advance`
+  waited one turn, so the time jumped before the execution reached its wait (05's step-slots test
+  failed 3/3). Every dynamic import of the core is now `lazyLoad(import(…))` (lint-enforced), and
+  `advance` waits for the loads in flight (30 s of real time at
+  most, then `UnsettledWorkError`) before it moves the time. **Migration:** none for a test that awaited its execution's waits; `advance` now waits up to 30 s of real time for the core's loads in flight, then fails with `UnsettledWorkError` instead of moving the time too early.
+
+- **A model reply interpreter sees the call it approves, and can say "not understood"** (#648) —
+  its answer tool described `overrideArguments` as any object, and "not understood" was only
+  "call no tool": cheap models read "ok but only up to $500" as a refusal and "🤷" as one too. Now
+  `overrideArguments` is described by the approved tool's input, every field optional — the fields
+  the reply changes, laid over the call's own arguments before validation — and a second tool,
+  `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
+  `@agboss/core/dto`), keeps the pause pending with `UninterpretableReplyError` carrying the
+  reason, as a code interpreter's `ReplyInterpretation.notUnderstood` does. Tests script it as
+  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`. **Migration:** a test that scripted "not understood" as no tool call scripts `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`; one that read a partial `overrideArguments` gets the merged call.
+
+- **The budget's two exemptions failed open** (#656, found by a security review of #634): once any
+  limit had been handled, every later action of the execution skipped the budgets — the branches a
+  side path launched, what followed their join —, and an action that is some open entry's undo
+  skipped them on any visit, also as a step of the main path. Both are now scoped to the side path
+  itself, a record in the execution's checkpointed state (so a takeover or a resume reads it as the
+  first run did): the side path that took a limit exempts its actions and what they lead to step by
+  step, until a finish or a launch; an undo action is exempt only on a side path, undoing an entry
+  that was open when the side path was entered. Elsewhere the exhausted budget stops it (an undo
+  still runs, as the execution's automatic undo). **Migration:** a path that relied on running past an exhausted budget after a handled limit now stops with `BudgetExceededError` there; take it with its own `.onError(BudgetExceededError, …)`.
 
 - **Knowledge bases are tenant-scoped** (#700) — an agent working for tenant A could be handed
   passages of tenant B's documents: the RAG contract had no tenant. Now the core passes the
@@ -205,31 +74,30 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   outside an execution is `context.unavailable`. `KnowledgeSource.retrieve` is `KnowledgeRetrieve`
   (the core supplies the tenant).
 
-- **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
-  passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
-  no flow step pauses on one. The form is gone from `@ChannelRole`'s types
-  (`ChannelQuestionRoleOptions` removed), its decorator throws
-  `[channel.question-role-unavailable]` for a JS caller, and the docs and skills describe the
-  approval form only; `[reply-interpreter.decision-model]` is gone with it (every role is an
-  approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
-  Re-added in the same release with a flow step that asks it (#659, Added above).
+- **Ids and keys must be a key's text** (#538, #547, #552, #556, #578, #589, #591) — a business key,
+  a thread id, a tenant id, an `ownerId` and every id a project's own `IdGenerator` mints are now
+  checked against `keyTextRuleOf`'s rules (1–200 characters, no control, format, invisible, private,
+  unassigned or lone-surrogate code point, no look-alike space, NFC) and refused with a typed error
+  naming the rule, never the value; a project's `IdGenerator` that repeats an execution id gets
+  `DuplicateExecutionIdError`. **Migration:** ids that are plain printable text pass unchanged;
+  normalize (NFC) and strip invisible characters before handing ids to the framework. Each change is
+  under Guarantees and safety fixes below.
+
+- **A test's `clock.advance` of a whole lease is a frozen holder** (#534, #533) — one advance of
+  30 s or more past a live execution ends its lease even when no other instance took it, and a
+  holder trusts its lease 29 s, not 30 s. **Migration:** to let time pass for a live holder, advance
+  in steps shorter than the lease (`seconds(10)`). Details under Changed — breaking for stores
+  outside the core.
+
+- **A decision's `overrideArguments` pass the tool's input strictly** (#688) — from a reply, `app.resume`
+  or a channel's `decided(…)`: a key the tool's input does not have, at any depth, is a
+  `DtoValidationError`. Before, the input check stripped it and the raw value — the unknown key with
+  it — reached the tool.
+
+  **Migration:** a decision, reply correction or `decided(…)` that carried a key the tool's input
+  does not declare now fails validation; send only the input's own fields.
 
 ### Changed — breaking for stores outside the core
-
-- **The ledger's entries are pruned, and a write of one it may have pruned is refused** (#771) —
-  every tallied spend is an entry under its `ledgerId` (#727), now dated by the record's new
-  `madeAt`. `CostLedgerRepository` has a new abstract `deleteEntriesByMadeAtBefore(cutoff)`: it
-  raises the store's pruning mark to `cutoff` (never lowers it) and removes the entries made before
-  it, atomically against a save; the recovery sweep calls it every look with `now −
-@Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
-  `[application.ledger-entry-retention-invalid]`). `saveAll` refuses an entry made before the mark
-  that it does not hold — `CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of
-  the save added — so a lost answer retried after its entry was pruned is never counted twice (the
-  pass's reads fail with it); one retried within the retention counts once, as before. The
-  `costLedgerContract` checks the prune, the refusal, the mark that never goes back and saves
-  racing a prune. **Migration:** a ledger of your own keeps each entry's `madeAt` and a pruning mark
-  read with the insert; the SQLite store dates the entries of a #727 file "never" (agbossjs/postgres:
-  migration `0023`; agbossjs/mongodb: `madeAt` on `agboss_cost_entries`).
 
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
   new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic
@@ -271,6 +139,7 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   gone; `static leaseRepository` now only tells unit runners where to hold their lease. **Migration:**
   add `static override readonly backend = "<your backend>"` to your lease, fenced-effect and
   outbound-call stores.
+
 - **A lease is over at its expiry, for its holder too** (#534) — a lease is live while
   `expiresAt > now`, and only then: at `now >= expiresAt` `renew` (held or yielded) and `yield` are
   `false`, `reclaim` is `undefined`, `fence.confirmNow()` loses the lease and every fenced write and
@@ -297,6 +166,7 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   execution `app.close()` interrupts at its shutdown timeout (`ApplicationStoppingError`, #582)
   says it stays running and the next take of its lease continues it — another instance, or this
   application once it starts again — not "another instance continues it".
+
 - **The store's time decides a lease's expiry; the holder fences itself on elapsed time** (#533) —
   instances whose wall clocks disagree no longer disagree on when a lease ends.
   `ExecutionLease.remaining` (new, required) is the time the store says the lease has left;
@@ -322,16 +192,19 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   database's time inside each statement (PostgreSQL `clock_timestamp()`) unless
   `StoreClock.isDatabaseTime` is false (a test's clock), and builds from `seam.storeClock` in its
   contract target. A test that expected a holder to trust its lease for the full 30 s counts 29 s.
+
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
   `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
   and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.
   `FencedEffectStoreMismatchError` and `FencedEffectResultTooLargeError` moved modules (still exported
   from the root).
+
 - **A store's connection need not be listed** (#526, found by agbossjs/postgres#8) — with
   `OutboundCalls`, or a component that injects a store's own class, an unlisted `SqliteConnection` or
   `PostgresConnection` no longer fails assembly with `"…Connection" is not registered`: the workflow
   graph check takes an unlisted class under an infrastructure implementation as its own registration,
   as the container creates it.
+
 - **`storeConformance`** (#526) in `@agboss/core/testing/contracts` — one call runs every contract a
   store set claims (`stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, … }`)
   and the `store set (<name>)` cases (each fencing store declares its `static backend`, one with its
@@ -343,6 +216,26 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   one business row. The Wiki's [Your own store](https://github.com/agbossjs/agboss/wiki/Your-own-store)
   page: what each contract must make atomic, recipes for SQL, MongoDB, Redis, DynamoDB and Cassandra.
 
+- **The ledger's entries are pruned, and a write of one it may have pruned is refused** (#771) —
+  every tallied spend is an entry under its `ledgerId` (#727), now dated by the record's new
+  `madeAt`. `CostLedgerRepository` has a new abstract `deleteEntriesByMadeAtBefore(cutoff)`: it
+  raises the store's pruning mark to `cutoff` (never lowers it) and removes the entries made before
+  it, atomically against a save; the recovery sweep calls it every look with `now −
+@Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
+  `[application.ledger-entry-retention-invalid]`). `saveAll` refuses an entry made before the mark
+  that it does not hold — `CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of
+  the save added — so a lost answer retried after its entry was pruned is never counted twice (the
+  pass's reads fail with it); one retried within the retention counts once, as before. The
+  `costLedgerContract` checks the prune, the refusal, the mark that never goes back and saves
+  racing a prune. **Migration:** a ledger of your own keeps each entry's `madeAt` and a pruning mark
+  read with the insert; the SQLite store dates the entries of a #727 file "never" (agbossjs/postgres:
+  migration `0023`; agbossjs/mongodb: `madeAt` on `agboss_cost_entries`).
+
+- **`ChildExecutionQueueRepository.findQueueDepth()`** (#485) — a new abstract method: one read of
+  the queue's `ChildExecutionQueueDepth { queued, running, oldestQueuedAt? }`, which the cluster
+  gauges of the autoscaling metrics read once per collection. **Migration:** a child queue of your
+  own answers it in one query (agbossjs/postgres, agbossjs/mongodb and agbossjs/redis do).
+
 ### Security
 
 - **No CI install takes a release nobody reviewed** (#523): every workflow installs from its
@@ -352,125 +245,23 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `make check`) enforces it; the same in agbossjs/postgres and agbossjs/agboss-examples.
   `RELEASE_CHECKLIST.md` → Dependency installs states the policy.
 
-### Fixed
+- **A model the framework calls for an agent reads through that agent's PII policies** (#708) —
+  the core's LLM reranker sent the query and the candidates to its model unmasked, and so did a
+  model judge in an agent's quality gate and a model arbiter. Each now reads as the agent's own
+  model does: its PII policies, its execution's sensitive values and key; a block rule refuses
+  before any model reads the text. A launch's copy (`agent#2`) reads through its agent's policies
+  and an element no list names through the workflow's, never none; only a real image part's
+  `data:` URL is exempt from a judge's masking.
 
-- **`testWith` gives the application's PII key field the test key** (#778) — a fixed test key
-  covered a PII policy's own `pseudonymKey`, but `@Application({ pseudonymKey: "piiPseudonymKey" })`
-  with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")` in the test environment failed as a missing
-  variable, so every project set `PII_PSEUDONYM_KEY` in its vitest `env`. The field's variable now
-  gets the test key when the test process does not set it (a test that sets it keeps its value);
-  `createApp` and the CLI still refuse to start without the real key.
-- **A child on any instance waits for its siblings' spend too — now pinned by a test, and the
-  checkpoint write that waits for the pass's spend is mutation-tested** (#776) — the `settled()`
-  before a child on any instance is queued (#732) covers spend a sibling branch tallies after the
-  launching step's checkpoint, which the checkpoint gating does not: a test now holds a sibling's
-  $60 write while a grandchild is about to be queued (without the wait it pays $50 twice beside it,
-  $160 of $100). `SettledSpendCheckpointSaver` joins the `money` mutation shard.
-- **A ledger write whose answer was lost is counted once by the pass's own checks too** (#770) —
-  the write of a tallied spend (#727) that landed while its caller heard an error was held by the
-  pass's next read of the counters while its tally still counted it: a check or a tally before the
-  write was retried counted it twice, and a launch beside a step that paid $60 stopped with
-  `BudgetExceededError` at "$146" for $86 spent of $100. A read now writes such spend again first,
-  and fails when that write fails again.
-- **A worker claims children on any instance up to its free step slots** (#767) — an instance with
-  `maxConcurrentSteps` counted each `AnyInstance` child it ran twice while the child's step ran (its
-  slot and its claim), so under a backlog it kept fewer children at work than it had slots. A claimed
-  child now counts once — by the slot it holds, or as a claim while it holds none —, never more
-  children than slots.
-- **`agboss check --strict` reports every analyser warning as an error** (#769) — it kept only
-  three codes of a hand-written list, so `[limits.max-steps-below-worst-case]` (#643),
-  `[limits.child-concurrency-above-parent]` and `[flow.committer-unreachable]` printed under a plain
-  `agboss check` and vanished under `--strict`, which exited 0. The analyser's own warnings are now
-  the errors `--strict` reports; there is no list to fall behind.
-- **The e-mail PII detector no longer takes a file extension into the address** (#729) —
-  `anna@acme.com.pdf` was found as the address `anna@acme.com.pdf`, so its token, or the domain
-  `replacePart({ keepDomain: true })` keeps, held the extension; `.mp4` cut the match inside the
-  extension. The match drops its last label only when that label, with any letters or digits glued
-  to it, is a common file extension that is no top-level domain (`.md`, `.zip`, `.py` are still read
-  as domains) and what is left is a whole address; anything else is masked as before, so an address
-  is never left unmasked (a property test holds it).
+### Fixed — guarantees and safety
 
-  extension. The last label of a domain now ends at a label boundary and is no common file extension
-  that is not a top-level domain (`.md`, `.zip`, `.py` are still read as domains).
-
-- **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
-  (#749) — _Wire the stores_ imported `days` from `@agboss/core/units`, which exports `seconds`,
-  `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
-  README the same); Several-instances names Adyen and Stripe (`keyRetention`, #658) and now links
-  the notice, as #686 asked of every page naming a gateway.
-- **A question role's pause is stored and read back on SQLite** (#746) — `SqlitePausedExecutionRepository`
-  read every pause's `ask` as an approval's tool call (`callId`, `tool`, `arguments`, `summary`),
-  so a question asked by a flow step (#659) or by an agent's tool (#712) on the SQLite stores failed
-  its execution reading its own pause back. A question's ask is kept as written, told apart by the
-  pause's `component.kind`. `pausedExecutionContract` gains the case (a question's pause found,
-  sent, answered and taken on the other instance as written), which a store that reads only an
-  approval's ask fails — as `@agboss/postgres` and `@agboss/mongodb` did.
-- **No store is called before the components started** (#747) — `createApp` wrote each workflow's
-  config snapshot (the config-drift warning) through the record store before any component's
-  `onInit`, so a store readied there failed first: on a fresh PostgreSQL `createApp` died on
-  `relation "agboss_config_versions" does not exist` instead of `PostgresSchemaMissingError`, and
-  `postgresMigrateOnStart` could never migrate. The snapshot is now written after every `onInit` →
-  `onStart`; its warning is still in `app.warnings` and the start log.
-- **The linearizability checker follows a chain of expiries** (#750) — an acquire pinned by a
-  renewal that the later answers pin inside its span was reported in a sound history (#660 tried one
-  hop). Seeded histories the lease model answers itself (`linearizability-generated.test.ts`) are
-  never reported.
-- **The idle scale-in signal does not see a root that waits for the recovery sweep** (#751): a
-  root handed over by a graceful stop (or left by a crash) is on no gauge until another instance's
-  sweep takes it, so idle can read true for up to one sweep. Wiki → Metrics and Autoscaling say so,
-  and keep `minReplicaCount ≥ 1` (`tests/metrics/hand-over-window.test.ts`).
-- **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
-  two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
-  `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
-  `callTool` / `callTools` turn of a tool the agent does not list does not compile.
-  `ToolCallTurn` / `ToolCallsTurn` take the tool's name as a type parameter.
-- **A spend that reaches a budget exactly exhausts it** (#728) — a float sum of costs lands a hair
-  off its decimal value (eight $0.10 calls make 0.7999999999999999), so a $0.80 budget let a ninth
-  step through. Spend and limit are compared in whole micro-dollars (rounded, no epsilon) before
-  each step and model call, in the live tally, at a new execution's admission and for the
-  application's spend outside an execution.
-- **A model reply interpreter reads capped approvals** (#688) — on a cheap model "yes, up to $900" on
-  a $1,200 call was read as not understood. For an approval role the answer tool names its decision
-  (`approve` / `approve-with-changes` / `refuse`), the instructions say what a capped approval is in
-  any language, and the answer's shape is checked, failing closed: an unknown decision,
-  `approve-with-changes` without a correction, `approved` beside a decision or a correction that
-  changes the call's shape (a new key at any depth, another kind of value, a list of another length)
-  is not understood. A reply interpreter may change approved arguments within the call's DTO; put
-  money limits in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected
-  call before the tool runs).
-
-- **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
-  `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
-  the module loader resolves a relative import from the importer's real path, so a project or
-  `.agboss/` under a symlinked folder (macOS's `/var` → `/private/var`, a linked checkout) loaded
-  nothing. The specifier is now computed between the real paths of both.
-- **An application that calls no model no longer needs the OpenRouter key** (#716) — `createApp`
-  read the key of every model provider at start, so an application of actions only failed without
-  `openRouterApiKey`. A provider is now connected at start only when a model of the workflow
-  resolves to it (or it is that provider's breaker fallback); another connects on its first call.
-  An application that uses a model still fails at start without its key, naming the field.
-
-- **A tree's kept record is saved before its cleanup** (#699) — the history record
-  (`executionRecordRetention`) was saved after the tree's keys, its queued children and its pauses
-  were removed, so a pod killed during that cleanup's round trips lost the record of a tree that had
-  ended: nothing writes it later. The record is now saved first. Found by the fault suite's scenario
-  12 on agbossjs/redis (a Redis child queue beside SQLite fencing).
-- **The explorer on a lease store alone** (#694) — a store set with a lease store and no
-  outbound-call store (the coordination stores of Redis, `without` its fenced-effect and
-  outbound-call stores) registered no `interleavings (<name>)` case at all: its leases were never
-  explored. The world "every lease operation" now runs on the lease store alone — every schedule of
-  two instances, seeded walks of three, every skew, no `leaseStateOf` step — with the two lease
-  races (`finish` and `release` against another instance's take).
 - **Another tree's approval was dropped from the history** (#676, after #663) — the pause answer
   log kept one answer per tenant and step key, and a step key names no tree: a pause of another
   tree under the same key (an id minted again that the kept ids miss) was asked again since #663,
   but its answer never reached `record.pauses`. The log is now one answer per pause of a tree
   (tenant, `rootExecutionId`, step key): the SQLite record store's migration 15 rebuilds
   `pause_answers` with every row and rowid kept; `executionRecordContract` gains the case.
-- **The READMEs and the agboss skill stated the budget's overrun bound narrow** (#686, after
-  #664): the root README, the package README and the skill's FinOps reference now state the same
-  bound as CLAUDE.md — the calls in flight, plus the steps it never holds back, plus, across
-  instances, other trees' steps before the spend is in the ledger.
+
 - **A child's result lost when the host's clock stepped back** (#661) — a child's end was read at
   its thread's latest checkpoint, the greatest id — LangGraph's UUIDv6 of `Date.now()`. After a
   backward step of the wall clock (an NTP `settimeofday`: −50.8 ms where it was seen) the child's
@@ -488,22 +279,6 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   the thread (namespace `agboss-out-of-order`), and a marked thread is read by LangGraph's step.
   An unmarked thread costs one more look per latest read. No API change.
 
-- **A model reply interpreter sees the call it approves, and can say "not understood"** (#648) —
-  its answer tool described `overrideArguments` as any object, and "not understood" was only
-  "call no tool": cheap models read "ok but only up to $500" as a refusal and "🤷" as one too. Now
-  `overrideArguments` is described by the approved tool's input, every field optional — the fields
-  the reply changes, laid over the call's own arguments before validation — and a second tool,
-  `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
-  `@agboss/core/dto`), keeps the pause pending with `UninterpretableReplyError` carrying the
-  reason, as a code interpreter's `ReplyInterpretation.notUnderstood` does. Tests script it as
-  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
-- **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
-  first execution of a test file loads the core's lazy modules through vite's module runner, ~300
-  turns of the event loop, and an execution of an app not built yet builds it first; `advance`
-  waited one turn, so the time jumped before the execution reached its wait (05's step-slots test
-  failed 3/3). Every dynamic import of the core is now `lazyLoad(import(…))` (lint-enforced), and
-  `advance` waits for the loads in flight (30 s of real time at
-  most, then `UnsettledWorkError`) before it moves the time.
 - **An action ran without a fence after its `onActionStart`** (#662, found in the acceptance of
   #640): #640 checks the holder's fence right before an automatic undo's action; an ordinary action
   visit — the undo action a side path runs (`.onError(DeclinedError, toAction(RefundAction))`) and
@@ -520,30 +295,6 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   as an undo (its own key `<step key>:compensation`, past the budget, durable once like the
   automatic undo), before the side path goes on: `Compensated`, or `Failed` only with the undo's
   own error.
-- **The budget's two exemptions failed open** (#656, found by a security review of #634): once any
-  limit had been handled, every later action of the execution skipped the budgets — the branches a
-  side path launched, what followed their join —, and an action that is some open entry's undo
-  skipped them on any visit, also as a step of the main path. Both are now scoped to the side path
-  itself, a record in the execution's checkpointed state (so a takeover or a resume reads it as the
-  first run did): the side path that took a limit exempts its actions and what they lead to step by
-  step, until a finish or a launch; an undo action is exempt only on a side path, undoing an entry
-  that was open when the side path was entered. Elsewhere the exhausted budget stops it (an undo
-  still runs, as the execution's automatic undo).
-
-- **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
-  parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every
-  attempt was refused and the step failed. An agent whose only tools are its answer tools (not a
-  list of variants, which may answer with several) now sends `parallel_tool_calls: false` to
-  OpenAI-compatible servers. A move that still holds several answer calls is one answer when they
-  repeat it exactly, and refused — never one picked — when they differ: the model reads why, and the
-  step's `AgentAnswerInvalidError` names "N different answers in one move".
-- **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
-  and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
-  inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
-  trace inside the core named files that did not exist; now it names lines of the installed
-  package. `npm run check:packed` fails when a shipped map names a source the tarball lacks, when
-  the probe project's test run prints the warning, or when a failure inside the core names a frame
-  the package does not have.
 
 - **An undo's fence was checked before its observers, not before the undo action** (#640, found
   in the acceptance of #605): the holder checked its lease, then awaited `onCompensationStart` and
@@ -564,6 +315,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   path's finish never commits it. Every automatic undo — a join's, a root's (failed, cancelled, out
   of budget), a child's on either placement, a recursion level's — is now proven to run to effect
   once across one and two takeovers.
+
 - **The gate can no longer pass without the fault suite** (#630) — one run of `make check` ran 587
   files and not one of `tests/faults/`: vitest 3's forks pool skips a `singleFork` project whole when
   another fork of the pool rejects, and a test that held its fork 60 s with a synchronous child
@@ -579,11 +331,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   root's own): its expiry timer had not fired yet, and nothing checked the lease before the undo
   action. Each undo action now runs only after the holder's own fence (`assertHeld`, #533): a holder
   past its lease hands over at the undo (`HandOverSite.Compensation`) and undoes nothing.
-- **Wiki → Guarantees says what each proof bounds** (#625, found in the acceptance of #533) — a
-  stepped database clock can make two instances trust one lease (A3); the explorer covers P2 for the
-  step's key only, up to its depth and over its listed races; on PostgreSQL it explores the SQL on
-  the test's clock, and database time is proved by agbossjs/postgres' clock tests; the mutation row
-  names its scope and its over-broad comments; P5 rests on store conformance, with its proofs.
+
 - **The linearizability checker places each operation inside its own span** (#617, found in the
   acceptance of #533) — it took an operation at the latest instant of an earlier one, past its own
   completion: a take of a live lease at 10 ms passed behind a frozen holder's renewal that answered
@@ -591,22 +339,20 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   just before and at each lease expiry inside it; one nobody saw answer may land any time after its
   invoke (a store applies a request whose caller is gone), so a take that landed after the expiry
   no longer fails a sound history.
-- **The linearizability checker takes a renewal where the answers after it pin it** (#660, found in
-  the acceptance of #617) — a renewal answered at 100 ms, then a take refused at 30 050 ms and the
-  old token read as expired at 30 070 ms, is sound only with the renewal at 50–80 ms, which neither
-  end of its span is: the checker failed it. An acquire, a renewal or a reclaim is now also tried
-  where the expiry it sets meets another operation's span end.
+
 - **An explorer case aborted while it shrinks a violation makes no store call after** (#618, found
   in the acceptance of #590) — the cutting down of a found schedule replayed it again and again,
   each replay resetting the store, after vitest had timed the case out and moved on. The cutting
   down, each replay and each walk now stop with the case's signal and time limit; the case still
   fails, with the schedule as found and why it was not shrunk.
+
 - **The key-text cases catch an accent-insensitive collation** (#620, found in the acceptance of
   #533) — a store whose business-key column compares accent-blind (MySQL's `_ai_ci`, an ICU
   strength-1 collation, a unique index on `unaccent(key)`) and keeps each key as first given passed
   every case of `storeConformance`: "Zoë-17" found "Zoe-17"'s intent and replayed its payment. The
   round-trip keys now hold each one's accent-free twin ("café" and "cafe", "q̇" and "q", "straße"
   and "strasse"), each its own row.
+
 - **A side path on a child's own error class is taken on every holder** (#598, found while fixing
   #596) — a child's failure that crossed a takeover (its claimed failure, #596; its undo's mark,
   #340) or an instance (an `AnyInstance` child's queue row) came back with its name and message
@@ -616,12 +362,14 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   original; a mark or a row written before this release routes as before, the same on every
   instance. A remote child's exhausted budget or failed undo now passes its parent's boundary as it
   is, as a local child's does.
+
 - **A root's end is heard once** (#597, found in the acceptance of #562) — a root's holder that
   froze right after its tree's end became durable (its finish checkpoint, its failed step's error),
   whose tree another instance recovered and announced, announced the end again when it thawed, and
   its `app.execute` resolved with the output (or rejected with the tree's own error) as if it still
   held the tree. The end is now announced only while the pass holds the lease: the thawed holder
   stops at its own fence, rejects with `ExecutionLeaseLostError` and announces nothing.
+
 - **An announced child failure stays the child's end** (#596, found in the acceptance of #562) — a
   `ParentInstance` child whose failure its parent's holder announced, the holder then frozen before
   its step was checkpointed, was run again by the instance that took the tree over: a step that
@@ -632,17 +380,20 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   the error's name and message, not its class (as #340's unwinding mark): a side path on
   `ChildExecutionFailedError` / `StepFailedError` takes it again, one on the child's own error class
   by the cause chain does not.
+
 - **Who calls is a key's text** (#589, found in the acceptance of #568) — an `ownerId` with a lone
   surrogate (`bob\uD800`, from `JSON.parse` of a token's `sub`) made `app.execute` on SQLite or
   PostgreSQL create a thread stored as `bob\uFFFD`'s, then refuse its own caller; the `bob\uFFFD`
   owner had the thread. `ownerId` at `execute`, `resume` and `cancel`, and a `Channel` pause's
   `answeredBy`, are now held to the key-text rules before anything is read or written:
   `dto.invalid` naming the field and the rule, never the id.
+
 - **An empty fingerprint is not none** (#574, found by #533's mutation testing) — under a business
   key, a fenced effect with `fingerprint: ""` in flight on one instance beside one with no
   fingerprint was joined to it and got its result, though the pair made one after the other was
   `IdempotencyKeyConflictError`. Any text is a fingerprint, `""` too, and both orders are refused,
   in flight or stored; `fencedEffectContract` holds every store to keeping `""` as `""`.
+
 - **The fault suite proves the payment's fence and refuses an opted-out set** (#584, found in the
   acceptance of #484) — no scenario let a zombie reach the outbound-call store after a takeover, so
   a store that recorded a payment's intent under any token passed all twenty; scenario 5c
@@ -652,6 +403,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   word of it: `faultSuite` now registers `fences atomically: no store declares
 LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store]`
   (`FaultSuiteOptedOutError`, naming the stores).
+
 - **A child's end is heard once** (#562, found by #484) — a parent whose holder froze after its
   child ended, before its step was checkpointed, announced the child's `onExecutionEnd` (or
   `onExecutionError`), and the instance that took the tree over read the ended child again and
@@ -706,15 +458,10 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
   it lists every undo action that ran, as its `onExecutionError` does.
 
-- **The store-backend hint names no function** (#554) — a backend named like an object's own
-  member (`"constructor"`, `"toString"`) made the hint of `[application.store-backend-mismatch]` print
-  `(function Object() { [native code] })` as the core store to list; it is now a name with no core
-  store, like `"postgres:billing"`.
-- **`circuitBreakerPolicy: null`** (#529) is a missing policy: `[model-provider.circuit-breaker-required]`
-  at assembly and in `agboss check`, never a `TypeError` in `createApp`.
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
   `InvalidThreadIdError`): SQLite and PostgreSQL keep text as UTF-8, where two such keys were one
   row, and an outbound call's key threw `URIError`.
+
 - **Keys with look-alike spaces are refused** (#547) — a business key and a thread id are refused
   when they hold a space other than U+0020 (Unicode `Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F,
   U+205F, U+3000) or a line or paragraph separator (U+2028, U+2029) — `KeyTextRule.SpaceSeparator`,
@@ -726,6 +473,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   `KeyTextRule`'s order (`length`, `lone-surrogate`, `control-character`, `format-character`,
   `space-separator`, `spacing`, `not-nfc`), wherever each breach stands — the enum is declared in that
   order now (#547 acceptance).
+
 - **Keys with invisible, private or unassigned characters are refused** (#556) — a business key, a
   thread id and a tenant id are refused when they hold a code point Unicode says renders as nothing
   (`Default_Ignorable_Code_Point`, whatever its category: the combining grapheme joiner U+034F, the
@@ -741,6 +489,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   a rolling upgrade a key holding a character only the newer runtime's Unicode assigns is refused by
   an older instance — closed, nothing charged. **Migration:** drop variation selectors (an emoji
   without U+FE0F) and these characters where keys, thread ids and tenant ids are made.
+
 - **A tenant id is a key's text too** (#552) — the rules of #538 hold a tenant id at
   `app.execute` (`tenant: { tenantId }`), `app.resume` and `app.cancel` (`dto.invalid`, the field
   and the rule named, never the id): a tenant id with a lone surrogate was written to SQLite and
@@ -757,6 +506,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss records export
 --tenant` and `agboss generate eval-case --tenant` refuse a tenant id that is no key's text (exit 2,
   `usage.option-value`, the rule named, never the id) instead of reading nothing.
+
 - **Look-alike keys are refused, never charged twice** (#538) — a business key and a thread id
   are refused when they hold a C1 control (U+0080–U+009F, beside C0 and DEL), a format character
   (Unicode `Cf`: zero-width space and joiners — so emoji joined by U+200D too —, bidi controls,
@@ -770,12 +520,6 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   refused by every method. **Migration:** normalize a key where it is made (`text.normalize("NFC")`)
   and strip invisible characters from imported identifiers; `InvalidBusinessKeyErrorOptions` takes
   `rule` instead of `problem`.
-- **`check:installs` and `check:real-time`** (#531) miss no common form: `npm install-test`, a line
-  continued with `\`, every `--package=`, `["i", …]` and `"npm install …"` in scripts; a duration
-  through a second variable, a limit named by a constant.
-- **No test asserts real elapsed time against a fixed number** (#523, after #509): the model
-  call and Jev timeout tests run on a `VirtualClock`; `npm run check:real-time` (in `make check`)
-  fails on a new real-time threshold.
 
 - **A parent waiting for `AnyInstance` children is no longer taken over by another instance**
   (#516) — while it waited, the parent released its lease and only its own process knew the tree
@@ -787,12 +531,15 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   lease expires and the tree is recovered as before. **Breaking for a store of your own**: implement
   the two methods; `executionLeaseContract` checks them. The in-memory and SQLite stores implement
   them (SQLite adds the `yielded` column to an existing file).
+
 - **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
   10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
   `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,
   `@agboss/core/testing`) instead of hanging the run: vitest bounds no fixture's teardown.
+
 - `checkpointSaverContract`'s `put` passes the changed channels' versions, as LangGraph does: a saver
   that writes values only for those versions (LangGraph's `PostgresSaver`) passes as it is (#511).
+
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
   by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
   `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the
@@ -801,9 +548,416 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   `test: agbossTest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
   packed packages in a project of their own (`npm run check:packed`) (#497).
 
-## [Unreleased] — 0.1.0 (`v0.1.0-rc` Pre-Release Candidate)
+- **A tree's kept record is saved before its cleanup** (#699) — the history record
+  (`executionRecordRetention`) was saved after the tree's keys, its queued children and its pauses
+  were removed, so a pod killed during that cleanup's round trips lost the record of a tree that had
+  ended: nothing writes it later. The record is now saved first. Found by the fault suite's scenario
+  12 on agbossjs/redis (a Redis child queue beside SQLite fencing).
+  A tree ended without a pass (a paused tree cancelled, an unwinding takeover, a cancel request)
+  keeps its record first too, pinned by a test (#787).
 
-The first substantive release of the framework (`0.1.0`, prepared for manual owner publication; not yet published to `registry.npmjs.org`). Everything below is new compared with the `0.0.1` placeholder;
+- **The explorer on a lease store alone** (#694) — a store set with a lease store and no
+  outbound-call store (the coordination stores of Redis, `without` its fenced-effect and
+  outbound-call stores) registered no `interleavings (<name>)` case at all: its leases were never
+  explored. The world "every lease operation" now runs on the lease store alone — every schedule of
+  two instances, seeded walks of three, every skew, no `leaseStateOf` step — with the two lease
+  races (`finish` and `release` against another instance's take).
+
+- **A child on any instance waits for its siblings' spend too — now pinned by a test, and the
+  checkpoint write that waits for the pass's spend is mutation-tested** (#776) — the `settled()`
+  before a child on any instance is queued (#732) covers spend a sibling branch tallies after the
+  launching step's checkpoint, which the checkpoint gating does not: a test now holds a sibling's
+  $60 write while a grandchild is about to be queued (without the wait it pays $50 twice beside it,
+  $160 of $100). `SettledSpendCheckpointSaver` joins the `money` mutation shard.
+
+- **A ledger write whose answer was lost is counted once by the pass's own checks too** (#770) —
+  the write of a tallied spend (#727) that landed while its caller heard an error was held by the
+  pass's next read of the counters while its tally still counted it: a check or a tally before the
+  write was retried counted it twice, and a launch beside a step that paid $60 stopped with
+  `BudgetExceededError` at "$146" for $86 spent of $100. A read now writes such spend again first,
+  and fails when that write fails again.
+
+- **A worker claims children on any instance up to its free step slots** (#767) — an instance with
+  `maxConcurrentSteps` counted each `AnyInstance` child it ran twice while the child's step ran (its
+  slot and its claim), so under a backlog it kept fewer children at work than it had slots. A claimed
+  child now counts once — by the slot it holds, or as a claim while it holds none —, never more
+  children than slots.
+
+- **A spend that reaches a budget exactly exhausts it** (#728) — a float sum of costs lands a hair
+  off its decimal value (eight $0.10 calls make 0.7999999999999999), so a $0.80 budget let a ninth
+  step through. Spend and limit are compared in whole micro-dollars (rounded, no epsilon) before
+  each step and model call, in the live tally, at a new execution's admission and for the
+  application's spend outside an execution.
+
+- **A model reply interpreter reads capped approvals** (#688) — on a cheap model "yes, up to $900" on
+  a $1,200 call was read as not understood. For an approval role the answer tool names its decision
+  (`approve` / `approve-with-changes` / `refuse`), the instructions say what a capped approval is in
+  any language, and the answer's shape is checked, failing closed: an unknown decision,
+  `approve-with-changes` without a correction, `approved` beside a decision or a correction that
+  changes the call's shape (a new key at any depth, another kind of value, a list of another length)
+  is not understood. A reply interpreter may change approved arguments within the call's DTO; put
+  money limits in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected
+  call before the tool runs).
+
+- **The e-mail PII detector no longer takes a file extension into the address** (#729) —
+  `anna@acme.com.pdf` was found as the address `anna@acme.com.pdf`, so its token, or the domain
+  `replacePart({ keepDomain: true })` keeps, held the extension; `.mp4` cut the match inside the
+  extension. The match drops its last label only when that label, with any letters or digits glued
+  to it, is a common file extension that is no top-level domain (`.md`, `.zip`, `.py` are still read
+  as domains) and what is left is a whole address; anything else is masked as before, so an address
+  is never left unmasked (a property test holds it).
+
+- **The linearizability checker follows a chain of expiries** (#750) — an acquire pinned by a
+  renewal that the later answers pin inside its span was reported in a sound history (#660 tried one
+  hop). Seeded histories the lease model answers itself (`linearizability-generated.test.ts`) are
+  never reported.
+
+- **The linearizability checker takes a renewal where the answers after it pin it** (#660, found in
+  the acceptance of #617) — a renewal answered at 100 ms, then a take refused at 30 050 ms and the
+  old token read as expired at 30 070 ms, is sound only with the renewal at 50–80 ms, which neither
+  end of its span is: the checker failed it. An acquire, a renewal or a reclaim is now also tried
+  where the expiry it sets meets another operation's span end.
+
+- **Every dollar of a tree is counted once** (#685) — an `AnyInstance` child's spend was counted
+  twice against the root's budgets ($60 spent refused as more): a counter read that overlapped a
+  ledger write of the same pass, and a parent counting a remote child's spend from the ledger and
+  from its own state. The meter's reads and writes now run one at a time, and a remote child's
+  spend is taken in with a read of the counters before the parent's state shows it.
+
+- **A child on any instance is never stuck behind a lease nobody runs** (#720) — a claim the store
+  made whose answer was lost left the child `Running`; the reclaim kept its lease for the worker's
+  next claim, and when that answer was lost too the lease was renewed for ever with nothing running
+  and the tree never ended. A lease the reclaim's look did not start the child with now goes back.
+  The child queue contract checks that a claim marks exactly the child it answers; the fault suite's
+  `s16-claim-answer-lost` (`HoldRequest.loseAnswer`, `StoreAnswerLostError`) loses claim answers
+  twice.
+
+### Added
+
+- **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
+  fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
+  context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default
+  `openai/gpt-4.1-nano`) runs on the application's model providers — its cost in the turn's
+  `retrieval` spend and every budget, its call traced (`rerank:<name>`), scripted in tests with
+  `mockLlm(Reranker)`. A dedicated rerank API plugs in as `@Reranker({ decidedBy: DecidedBy.Code })`
+  - `implements RerankerHandler` on its own SDK. A reranker's result must be a subset of the
+    tenant's candidates. On a failure: the retrieval's own order with a `rerank:<name>:fallback` span
+    (default), or `RerankFailurePolicy.FailStep` → `RerankFailedError` (`step.rerank-failed`).
+    `ragConnectorContract` takes `rerank` to run its cases through the reranking.
+
+- **The races the store contracts were missing** (#695, found by `@agboss/mongodb`, #527) — the
+  lease contract races two instances' `acquire` of one free lease (never leased, released,
+  expired), round after round in both orders: exactly one is given it. A lease store that checks,
+  then writes, passed every other case. The fenced-effect contract hands the lease over **while**
+  its holder's write runs: the hand-over waits for the write, or the write is refused. A store
+  whose lease check takes no lock (a read in a MongoDB transaction) passed the zombie's race of the
+  same key. The record contract's compare-and-set race no longer asserts which of two instances'
+  writes lands, only that exactly one does and the record holds it; nor does the paused-execution
+  contract's race of two resolves of one pause (#704).
+
+- **Fault scenario 12b** (#607) — `s12b-marked-undo-not-again`: a pod frozen right after it marked
+  its undo done, before it failed the tree. The next pod takes the tree over and ends it without
+  undoing again: the reservation is released once. `StoreHoldPoint.TreeSaveIfAbsent` holds a tree
+  key's write by its family; `no-undo-on-hand-over` also fails a declined order released twice. A
+  tree store that forgets the done marks fails 12b.
+
+- **Fault scenario 5d** (#608, the gap #584 left) — `s05d-zombie-recorded-not-sent`: a pod frozen
+  right after recording its payment's intent and before sending it, thawed after another pod took
+  the tree over. The new holder reconciles the pending intent and pays once; the zombie is refused
+  at its renewal before the send and hands over: one gateway request, one payment. A lease store
+  whose renewal says yes to a lease that is over fails it on `effects-once` and `linearizable`.
+
+- **Mutation testing of the fencing modules** (#533) — Stryker on the leases, the holder's fence,
+  the held lease, the fenced effect, the outbound call's protocol and store, and the store's clock,
+  in a CI job of its own: every mutant is killed by a test or justified at the code; the job fails
+  below 100 %.
+
+- **The interleaving explorer** (#533) — `storeConformance` now runs `interleavings (<name>)` on a
+  set's fencing stores: a deterministic scheduler of simulated instances that take, renew, yield,
+  reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
+  move an outbound call through its protocol, one operation at a time — every schedule of two
+  instances up to a depth (each state once), seeded walks of three, the second instance's clock off
+  by ± lease/2, ± lease and ± 10 × lease while the store keeps the run's time — and every
+  two-outcome race of the contracts forced in both orders (`finish` against a take, a release, a
+  `leaseStateOf`, a write against its hand-over, each compare-and-set of an intent). After each step
+  it checks one live holder, no write at a superseded, closed or expired token, one effect per key,
+  one charge per business key and no takeover of finished work; a failure prints the minimal
+  schedule. Its budget is
+  `storeConformance({ interleavings: { depth, walks, walkDepth, seed, timeLimit } })`
+  (`AGBOSS_EXPLORER_SEED`), `false` to leave it out. A search that runs out of `timeLimit` (default
+  8 min) or is aborted with its case stops and fails with what it explored — schedules, states and
+  how many it left — never a pass, and never goes on resetting the store under later cases (#590).
+  Wiki → Your-own-store.
+
+- **The linearizability checker** (#533) — every fault run's store history is checked against the
+  sequential model of the fencing stores (`faultViolationsOf` → `linearizable`): one order of the
+  recorded operations, each at an instant of its span on the store's time, in which every answer is
+  the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
+  reported with the longest order found and what could not follow it. `linearizabilityOf(history,
+{ timeScale })` (`@agboss/core/testing/faults`) checks any history; `faultSuite({ storeTimeScale })`
+  says how fast the store's own clock runs (1 for a database that decides by its clock). The history
+  now keeps a lease's length, a claim's expected state and an ending's owner.
+
+- **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
+  loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
+  the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
+  SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 20 scenarios (#533:
+  two of a pod whose clock is ten leases ahead or behind, `world.pod(name, { clockSkew })`)
+  that each tree had one owner at a time, every child and every charge happened once, a hand-over
+  undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
+  points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations
+  across processes, and the run's history (`OperationHistory`) keeps every store operation's
+  invoke and complete. The core runs it on SQLite; Wiki → Guarantees-across-processes.
+
+- **Business idempotency keys** (#508) — `fencedEffectKeyOf(executionContext, name, { businessKey,
+fingerprint? })`: one fenced effect or outbound call per tenant, name and business key, whatever
+  step, execution or thread makes it; another fingerprint is `IdempotencyKeyConflictError`; a
+  business key shows only by its keyed handle. A pending call under a business key is in flight
+  while the lease that wrote it is live (`OutboundCallRepository.leaseStateOf`, an expired lease
+  closed by the check in one atomic step); a holder waits for its attempts within
+  `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
+  start) — a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). `OutboundCallResultNotStoredError`, `Superseded` outcomes and the
+  `outbound-call.*` log codes; no read shows a fingerprint.
+
+- **Handover telemetry: the lease log** (#501) — a takeover of a tree's lease is told and kept:
+  `onExecutionLeaseTakeover` (`ExecutionLeaseTakeoverEvent`: the new holder and token, the expired
+  holder when the store names it — `ExecutionLease.takenOverFrom`, optional for an external store —,
+  `LeaseTakeoverReason`, the head checkpoint) and a `Takeover` row of the new infrastructure contract
+  `ExecutionLeaseEventRepository` (in-memory default, `SqliteExecutionLeaseEventRepository`, the
+  published `executionLeaseEventContract`), always written, read with `app.leaseEventsOf({ tenantId,
+rootExecutionId })` and removed by the recovery sweep after `@Application({ leaseEventRetention })`
+  (default `hours(24)`). A step handed over (a lost lease, a fenced write, the app's stop) is told
+  and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
+  `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
+  a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
+  `agboss records export`). Every call of a fenced effect from a step is told and kept as well:
+  `onFencedEffect` (`FencedEffectEvent`, `FencedEffectEventOutcome`: ran, replayed, joined,
+  refused — never the result) and a `FencedEffect` row, so the public log alone tells a zombie
+  refused at its write from one that never reached it, and a replay from a new write.
+  `FencedEffectAsyncWorkError` moved to the SQLite store's module (still exported from the root).
+
+- **A store outside the core on the public surface alone** (#511, found by `@agboss/postgres`):
+  `@Injectable({ environmentFields })` + `EnvironmentField` — a class declares the environment fields
+  it reads, checked at assembly for every listed class and every class its `deps` reach
+  (`[environment.missing-field]`, `[environment.conflicting-field]`; `SqliteConnection` declares
+  `sqlitePath` so); `VirtualClock.track(work)` and `{ settleTimeout }` — `advance` waits for tracked
+  work (`UnsettledWorkError`), and the published contract suites track every store call of their
+  targets; every type an infrastructure contract names is exported by the root entry (`Tern`,
+  `NewTern`, `TernOutcome`, `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`,
+  `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
+
+- **Tag-triggered releases** (#691) — `.github/workflows/release.yml` publishes `@agboss/core`
+  then `@agboss/cli` with npm provenance on a pushed tag `vX.Y.Z`, only when CI passed on that exact
+  commit; agbossjs/postgres publishes `@agboss/postgres` on `postgres-vX.Y.Z` on the core from npm.
+  `RELEASE_CHECKLIST.md` is the maintainer's ordered runbook.
+
+- **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
+  `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
+  `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
+  flow step asks it: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (`question(Role)` for
+  its own path). The step pauses like any pause — `result.pending` (`kind: PauseKind.Question`,
+  the masked ask), `answeredBy`, the pause records and their retention, `result.record.pauses` —
+  and the answer goes on the path: `app.resume({ pauseId, decision })` validated as `AnswerDto`,
+  `{ reply }` read by the role's `@ReplyInterpreter` into it (not understood → the pause stays
+  pending), or the channel's `ChannelOutcome.decided(answer)` at once. Exactly one answer wins,
+  another instance continues it, a cancel withdraws it. `ChannelRoles` types `ask` / `answer`,
+  `agboss describe` prints where each question is asked. A failed `send` is `QuestionFailedError`
+  (`step.question`). `PendingPause` is now a union on `kind` (`PendingApproval` |
+  `PendingQuestion`); a pause record's `ask` is a `PauseAsk`.
+
+- **An agent asks a question role as a tool** (#712) — `@Agent({ tools: [SpendingLimitQuestion] })`:
+  the model calls the role (input = its `ask`), the loop pauses on the role's channel before the
+  move's other tools run, and the typed `answer` (a decision, an interpreted reply or the channel's
+  `decided(…)`) is the call's result, PII-masked; every guarantee of a question step holds, the
+  role's `maxVisits` bounds one visit's calls, budgets and the fence are checked before each ask.
+  `callTool(Role, ask)` scripts it; an approval role in `tools` is `[channel.approval-role-as-tool]`.
+
+- **A child queued in another process wakes the claimers at once** (#777) — the optional
+  `ChildExecutionQueueRepository.watchQueued(onQueued)` (`ChildExecutionQueueWatch`): a store that
+  can be woken (PostgreSQL `LISTEN` / `NOTIFY`, a MongoDB change stream) has every instance with a
+  free step slot claim a child another instance queued as soon as it is queued, instead of at its
+  next sweep (every 30 s). A hint only: a wake-up lost is claimed at the sweep; a watch that does not
+  open is warned (`child-queue.watch-failed`) and opened again at the next sweep. The contract suite
+  checks a store's watch when it has one.
+
+- **`testReplyInterpreter(Role, { model })`** (#644) — a role's `@ReplyInterpreter` on its own:
+  `{ ask, reply }` in, `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }` out, as
+  `app.resume({ pauseId, reply })` reads it; a code one through its container, a model one on its
+  script.
+
+- **DX papercuts** (#644): `[application.pii-instance-key]` only when something makes a PII token (a
+  policy, a `sensitive` field — a text start's optional `sender` is one); `[application.in-memory-pauses]` names the store left in memory; an
+  OpenAI-compatible provider without `requestFields` is `[model-provider.request-fields-missing]` at
+  assembly; a unit runner's `environment` takes only the fields the unit reads, and the SQLite
+  error says how to pass `sqlitePath`; a cancelled launch branch keeps no raw `AbortError`.
+
+- **`[limits.max-steps-below-worst-case]`** (#643) — `agboss check` warns (an error under `--strict`)
+  when a hand-set `maxSteps` is below the worst case of a flow whose every loop `maxVisits` bounds:
+  the run would fail with `StepsLimitExceededError` before the loop's own
+  `.onError(VisitsLimitExceededError, …)` ends it. The message names the loop and the `maxSteps` that fits.
+
+- **`PauseAnswerRecord.asked`** (#688) — the call as asked (an approval's tool and its own arguments,
+  before any correction a reply made) or a question's ask, masked like `decision`: beside the call as
+  it ran, every change a reply made is auditable. Absent on a record kept before.
+
+- **The business-key identity and the outbound call's runtime are mutation-tested** (#626) — the
+  `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
+  100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
+  271 mutants; every one killed, timed out or justified where it stands).
+
+- **Takeover, recovery, undo and the budgets' money are mutation-tested** (#633) — five Stryker
+  shards join the three: `takeover` (the lease's yields, attempts and takes, the hand-over),
+  `recovery` (the sweep, a root taken over, a tree's end and moves), `undo` and `unwind` (each
+  automatic undo, its entries, marks and registry; a step's, a child's, a failed join's and the
+  root's unwind) and `money` (the budget meter, the application's spend, the cost ledgers), cold
+  every night, failing below 100 %. Wiki → Guarantees states each shard's counts.
+
+- **Autoscaling metrics through OpenTelemetry** (#485) — `createApp(App, { meterProvider })`
+  publishes the instance's metrics on a meter the application gives (none given → nothing loaded,
+  no store read): cluster gauges read once from the shared child queue
+  (`agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`, the same on every
+  instance), per-instance step slots, waiting steps and held leases, and counters of takeovers,
+  hand-overs, ended executions and compensations, with bounded labels. Names, kinds, units and
+  labels: Wiki → Metrics; one source feeds Prometheus / KEDA, CloudWatch, Cloud Monitoring and Azure
+  Monitor through the standard exporters.
+
+- **Projects created by `agboss create` come ready for graphify** (#480) — a `.graphifyignore`, a
+  `.graphifyrc` and a git-ignored `graphify-out/`; the project's `AGENTS.md` and the agboss skill
+  ask the code graph first when there is one. `create` says in one line how to enable it; it never
+  runs graphify.
+
+### Fixed — other
+
+- **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
+  parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every
+  attempt was refused and the step failed. An agent whose only tools are its answer tools (not a
+  list of variants, which may answer with several) now sends `parallel_tool_calls: false` to
+  OpenAI-compatible servers. A move that still holds several answer calls is one answer when they
+  repeat it exactly, and refused — never one picked — when they differ: the model reads why, and the
+  step's `AgentAnswerInvalidError` names "N different answers in one move".
+
+- **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
+  and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
+  inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
+  trace inside the core named files that did not exist; now it names lines of the installed
+  package. `npm run check:packed` fails when a shipped map names a source the tarball lacks, when
+  the probe project's test run prints the warning, or when a failure inside the core names a frame
+  the package does not have.
+
+- **The store-backend hint names no function** (#554) — a backend named like an object's own
+  member (`"constructor"`, `"toString"`) made the hint of `[application.store-backend-mismatch]` print
+  `(function Object() { [native code] })` as the core store to list; it is now a name with no core
+  store, like `"postgres:billing"`.
+
+- **`circuitBreakerPolicy: null`** (#529) is a missing policy: `[model-provider.circuit-breaker-required]`
+  at assembly and in `agboss check`, never a `TypeError` in `createApp`.
+
+- **`check:installs` and `check:real-time`** (#531) miss no common form: `npm install-test`, a line
+  continued with `\`, every `--package=`, `["i", …]` and `"npm install …"` in scripts; a duration
+  through a second variable, a limit named by a constant.
+
+- **No test asserts real elapsed time against a fixed number** (#523, after #509): the model
+  call and Jev timeout tests run on a `VirtualClock`; `npm run check:real-time` (in `make check`)
+  fails on a new real-time threshold.
+
+- **The packages keep their commands on npm 12** (#691) — `bin` is `bin/agboss.js`, not
+  `./bin/agboss.js`, which npm 12's publish rejects; found by the release workflow's dry run.
+
+- **A question role's pause is stored and read back on SQLite** (#746) — `SqlitePausedExecutionRepository`
+  read every pause's `ask` as an approval's tool call (`callId`, `tool`, `arguments`, `summary`),
+  so a question asked by a flow step (#659) or by an agent's tool (#712) on the SQLite stores failed
+  its execution reading its own pause back. A question's ask is kept as written, told apart by the
+  pause's `component.kind`. `pausedExecutionContract` gains the case (a question's pause found,
+  sent, answered and taken on the other instance as written), which a store that reads only an
+  approval's ask fails — as `@agboss/postgres` and `@agboss/mongodb` did.
+
+- **No store is called before the components started** (#747) — `createApp` wrote each workflow's
+  config snapshot (the config-drift warning) through the record store before any component's
+  `onInit`, so a store readied there failed first: on a fresh PostgreSQL `createApp` died on
+  `relation "agboss_config_versions" does not exist` instead of `PostgresSchemaMissingError`, and
+  `postgresMigrateOnStart` could never migrate. The snapshot is now written after every `onInit` →
+  `onStart`; its warning is still in `app.warnings` and the start log.
+
+- **An application that calls no model no longer needs the OpenRouter key** (#716) — `createApp`
+  read the key of every model provider at start, so an application of actions only failed without
+  `openRouterApiKey`. A provider is now connected at start only when a model of the workflow
+  resolves to it (or it is that provider's breaker fallback); another connects on its first call.
+  An application that uses a model still fails at start without its key, naming the field.
+
+- **`testWith` gives the application's PII key field the test key** (#778) — a fixed test key
+  covered a PII policy's own `pseudonymKey`, but `@Application({ pseudonymKey: "piiPseudonymKey" })`
+  with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")` in the test environment failed as a missing
+  variable, so every project set `PII_PSEUDONYM_KEY` in its vitest `env`. The field's variable now
+  gets the test key when the test process does not set it (a test that sets it keeps its value);
+  `createApp` and the CLI still refuse to start without the real key.
+
+- **`agboss check --strict` reports every analyser warning as an error** (#769) — it kept only
+  three codes of a hand-written list, so `[limits.max-steps-below-worst-case]` (#643),
+  `[limits.child-concurrency-above-parent]` and `[flow.committer-unreachable]` printed under a plain
+  `agboss check` and vanished under `--strict`, which exited 0. The analyser's own warnings are now
+  the errors `--strict` reports; there is no list to fall behind.
+
+- **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
+  two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
+  `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
+  `callTool` / `callTools` turn of a tool the agent does not list does not compile.
+  `ToolCallTurn` / `ToolCallsTurn` take the tool's name as a type parameter.
+
+- **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
+  `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
+  the module loader resolves a relative import from the importer's real path, so a project or
+  `.agboss/` under a symlinked folder (macOS's `/var` → `/private/var`, a linked checkout) loaded
+  nothing. The specifier is now computed between the real paths of both.
+
+- **`@agboss/core/testing/faults` is imported from the build outside vitest** (#721), and three
+  tests that flaked under load are fixed (#717 flow-patterns' coverage run, #722 the knowledge
+  base's tenant isolation, #762 the store's-time authority cases judge only timed attempts).
+
+### Docs
+
+- **The guarantees page** (#533) — Wiki → Guarantees: the five guarantees of several instances
+  (one owner per tree, one effect per business key, one send per attempt, no takeover of finished
+  work, compensation only on real failure), the eleven assumptions they rest on with what breaks
+  when one does not hold, every proof with where it bites, and what no checker reaches.
+
+- **The READMEs and the agboss skill stated the budget's overrun bound narrow** (#686, after
+  #664): the root README, the package README and the skill's FinOps reference now state the same
+  bound as CLAUDE.md — the calls in flight, plus the steps it never holds back, plus, across
+  instances, other trees' steps before the spend is in the ledger.
+
+- **Wiki → Guarantees says what each proof bounds** (#625, found in the acceptance of #533) — a
+  stepped database clock can make two instances trust one lease (A3); the explorer covers P2 for the
+  step's key only, up to its depth and over its listed races; on PostgreSQL it explores the SQL on
+  the test's clock, and database time is proved by agbossjs/postgres' clock tests; the mutation row
+  names its scope and its over-broad comments; P5 rests on store conformance, with its proofs.
+
+- **Running on PostgreSQL** (#482) — the README and Wiki → Running-on-PostgreSQL: installing
+  `@agboss/postgres` (released with the core, its version), wiring its 13 stores, migrations, the
+  one-backend check of the fencing stores, connection limits, what the guarantees assume of the
+  database (`clock_timestamp()`, one slewed clock) and how the stores are proved
+  (`storeConformance`, `faultSuite`).
+
+- **The idle scale-in signal does not see a root that waits for the recovery sweep** (#751): a
+  root handed over by a graceful stop (or left by a crash) is on no gauge until another instance's
+  sweep takes it, so idle can read true for up to one sweep. Wiki → Metrics and Autoscaling say so,
+  and keep `minReplicaCount ≥ 1` (`tests/metrics/hand-over-window.test.ts`).
+
+- **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
+  (#749) — _Wire the stores_ imported `days` from `@agboss/core/units`, which exports `seconds`,
+  `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
+  README the same); Several-instances names Adyen and Stripe (`keyRetention`, #658) and now links
+  the notice, as #686 asked of every page naming a gateway.
+
+- **A fenced effect's `work` may run more than once per call** (#730) — `FencedEffectWork`,
+  `saveResultIfAbsent` and CLAUDE.md now say what `@agboss/mongodb` documents: a store may run
+  `work` again within one call (MongoDB re-runs an aborted transaction), keeping the last attempt's
+  writes, so `work` writes only through its transaction and calls no other system.
+
+- **The README lists all 14 examples of agbossjs/agboss-examples** (#420).
+
+## [0.1.0] — 2026-10-26
+
+The first substantive release of the framework, published to npm on 2026-10-26. Everything below is new compared with the `0.0.1` placeholder;
 the Wiki's Changelog lists the breaking changes made between pull requests on the way.
 
 ### Added

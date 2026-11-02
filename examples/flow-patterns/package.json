@@ -1,7 +1,7 @@
 {
   "name": "flow-patterns-example",
   "license": "Apache-2.0",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "AGBoss example: the zero-cost harness of the public surface \u2014 flow patterns (a review loop, a code router, parallel launches, a quorum, child workflows, recursion, two approvals at once, undo), the extension points on an offline transport model provider, two applications over A2A checked by check --federation, an offline eval suite, a VCR cassette recorded offline; scripted tests, real runs with OPENROUTER_API_KEY",
@@ -26,11 +26,11 @@
     "records:check": "tsx src/scripts/records-check.ts"
   },
   "dependencies": {
-    "@agboss/core": "0.1.0",
+    "@agboss/core": "0.1.1",
     "@modelcontextprotocol/server-filesystem": "^2026.8.31"
   },
   "devDependencies": {
-    "@agboss/cli": "0.1.0",
+    "@agboss/cli": "0.1.1",
     "@eslint/js": "^9.0.0",
     "@stylistic/eslint-plugin": "^5.10.0",
     "eslint": "^9.0.0",
