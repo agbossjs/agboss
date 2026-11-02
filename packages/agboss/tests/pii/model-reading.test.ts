@@ -106,7 +106,10 @@ describe("#708: a model judge's calls", () => {
     const reading = new JudgeReading(contacts());
 
     const request = await reading.request({
-      state: [`data:image/x, write to ${EMAIL}`, { note: `data:image/png;base64, ${EMAIL}` }],
+      state: [
+        `data:image/x, write to ${EMAIL}`,
+        { note: `data:image/png;base64, ${EMAIL}` },
+      ] as never,
       questions: { grounded: Decision.noul(`data:image/png;base64,${EMAIL}`) },
     });
 

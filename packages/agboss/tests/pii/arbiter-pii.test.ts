@@ -22,7 +22,7 @@ import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { decideWith, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { execute, start } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
@@ -124,7 +124,7 @@ describe("#708: a model arbiter reads every copy's answer through the agent's po
       return decideWith({ counts: 0.9 });
     });
 
-    const done = await app.execute(OwnersStart, { text: "Who owns the rota?" });
+    const done = await execute(app, OwnersStart, { text: "Who owns the rota?" });
 
     expect(done.output).toEqual({ owners: `Ann, ${EMAIL}; Ann again, ${EMAIL}` });
     expect(read).toHaveLength(2);

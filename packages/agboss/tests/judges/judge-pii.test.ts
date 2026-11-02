@@ -20,7 +20,7 @@ import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { execute, start } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./fixtures/judged.workflow.js";
@@ -99,7 +99,7 @@ describe("#708: a model judge reads as its agent's model reads", () => {
     // the judge's model echoes what it read: the token, which the framework reveals for judge()
     mockLlm(ContactJudge).thenReturn(replyWith("ECHO"));
 
-    await app.execute(ContactStart, { text: "Who handles on-call?" });
+    await execute(app, ContactStart, { text: "Who handles on-call?" });
 
     const read = requestText(mockLlm(ContactJudge).onlyRequest);
     expect(read).not.toContain(EMAIL);
