@@ -235,7 +235,9 @@ The application's PII key (#120) is a `Secret` field of the environment, named b
     its token map (`piiTokens`) and handed to its child workflows — so a pause resumed, a failover
     or a recovery on another instance gives one value the same token within the execution
     ([Several instances → PII tokens](Several-instances#pii-tokens-across-instances)). The start goes
-    on, with the warning `[application.pii-instance-key]` in `app.warnings` and the start log — an
+    on, with the warning `[application.pii-instance-key]` in `app.warnings` and the start log — only
+    when something of the application makes a token (a PII policy, a `sensitive` field of a path's,
+    a tool's or a context's DTO, #644) — an
     error under `agboss check --strict`, silent in tests. Only one value gets another token in each
     execution, and logs and traces mask with a key of the instance, so tokens compare across
     executions (and the logs of several instances) only with the application's key.

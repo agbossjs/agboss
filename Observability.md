@@ -579,7 +579,7 @@ no budget amount), nothing per tenant — two kinds of lines, then the startup w
 ```text
 15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
 15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 agent and router steps
-15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: another application instance cannot resume them and they are lost on restart [app.warning]
+15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart [app.warning]
 ```
 
 More at start is the project's own: a component with `OnStart` logs what it wants (a budget is a
@@ -597,5 +597,5 @@ there):
 | Code                                 | When                                                                                         |
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
-| `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints |
+| `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints — the message names the one left in memory (#644) |
 | `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyInstance` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |

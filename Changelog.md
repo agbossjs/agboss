@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: DX papercuts (#644)
+
+- **Added**: `testReplyInterpreter(Role, { model })` — a role's reply interpreter on its own
+  ([Testing](Testing)); `[model-provider.request-fields-missing]` for an OpenAI-compatible provider
+  subclass without `requestFields` (assembly and `agboss check`, never a `TypeError` at its first
+  call).
+- **Changed**: `[application.pii-instance-key]` only when something makes a PII token
+  ([Environments](Environments)); `[application.in-memory-pauses]` names the store left in memory
+  ([Observability](Observability)); a unit runner's `environment` is a `Partial` of the contract —
+  the fields the unit reads —, and the SQLite error says how to pass `sqlitePath`; a cancelled launch
+  branch's record keeps no raw `AbortError`.
+
 ## Unreleased — 0.1.1: a hand-set maxSteps below a bounded loop's worst case warns (#643)
 
 - **Added**: `[limits.max-steps-below-worst-case]` — `agboss check` computes the worst case of a flow

@@ -989,6 +989,7 @@ failure rejects as the component threw it.
 | `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
 | `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt, toolCalls? }, { timeout })` — typed by the judge; `toolCalls` `[]` when not given | its `JudgeVerdict`              |
 | `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
+| `testReplyInterpreter(Role, options)`   | `run({ ask, reply }, { timeout })` — typed by the role (#644) | `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
 | `testCompaction(Compaction, options)`   | `run({ previousSummaries, turnsToCompact }, { timeout })` (#395) | `{ summaries, requests }` (`CompactionResult`) |
 
