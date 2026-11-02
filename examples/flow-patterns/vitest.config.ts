@@ -8,9 +8,9 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
-    // one module graph per worker: the framework and the components load once, not per file —
-    // every test assembles its application anew anyway (testWith), so nothing leaks between files
-    isolate: false,
+    // a module graph per file (#717): with one per worker (`isolate: false`, #440) a coverage run
+    // ended with an unhandled "Terminating worker thread" about one run in three — every test passed,
+    // the run failed; isolated it never did (0 of 28), at about 4 s more
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
