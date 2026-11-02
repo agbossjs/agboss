@@ -20,11 +20,28 @@ export { NOT_UNDERSTOOD_TOOL };
 
 /** What the model reads about a correction: the fields the reply changes, the rest kept. */
 export const OVERRIDE_ARGUMENTS_DESCRIPTION =
-  "Only with approved: true — an approval that changes the call. The fields the reply changes, with their new values; every field left out keeps the call's own value.";
+  "Only with approve-with-changes — an approval with a limit or a change (\"yes, up to $900\"). The fields the reply changes, with their new values in the units of the call's own arguments; every field left out keeps the call's own value.";
+
+/** An approval role's decisions as the interpreter's model names them (#688). */
+export enum ReplyDecision {
+  Approve = "approve",
+  ApproveWithChanges = "approve-with-changes",
+  Refuse = "refuse",
+}
+
+/** What the model reads about its decision (#688). */
+export const DECISION_DESCRIPTION =
+  "approve: the reply agrees to the call as it is (a plain yes, or a limit at or above what the call asks). approve-with-changes: the reply agrees but changes the call — a limit below what it asks, another value — and overrideArguments says what changes. refuse: the reply refuses the call.";
+
+const DECISION_SCHEMA: JsonSchema = {
+  type: "string",
+  enum: [ReplyDecision.Approve, ReplyDecision.ApproveWithChanges, ReplyDecision.Refuse],
+  description: DECISION_DESCRIPTION,
+};
 
 /** What the model reads about the not-understood tool. */
 export const NOT_UNDERSTOOD_DESCRIPTION =
-  "The reply does not answer the question — unclear, off topic, a shrug: say why. Not a refusal: the question stays open.";
+  "The reply neither approves nor refuses — unclear, off topic, a shrug, a maybe — or names a limit that would need converting: say why. Not a refusal: the question stays open. A yes with a limit is an approval, never this.";
 
 /** An interpreter's tools: what its answer is, and the names of each. */
 export interface ReplyTools {
@@ -47,12 +64,14 @@ function answerDefinitionOf(answer: DtoClass, approves: DtoClass | undefined): T
   const parameters = tool.definition.function.parameters as JsonSchema & {
     readonly properties: Readonly<Record<string, JsonSchema>>;
   };
-  const properties = { ...parameters.properties, overrideArguments: correctionOf(approves) };
+  // #688: three named decisions, never a boolean a cheap model reads "a limit below the call" into
+  const { approved: _approved, ...rest } = parameters.properties;
+  const properties = { ...rest, decision: DECISION_SCHEMA, overrideArguments: correctionOf(approves) };
   return {
     ...tool.definition,
     function: {
       ...tool.definition.function,
-      parameters: withSortedKeys({ ...parameters, properties }),
+      parameters: withSortedKeys({ ...parameters, properties, required: ["decision"] }),
     },
   };
 }
@@ -85,6 +104,41 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
  * no correction, a refusal — as it is.
  */
 export function withCorrectedCall(answer: unknown, ask: unknown): unknown {
+  return correctedCallOf(approvalOf(answer), ask);
+}
+
+/**
+ * The model's decision as the role's answer (#688): `approve` the call as it is (a correction
+ * beside it dropped — never a raise the reply did not ask for), `approve-with-changes` with its
+ * correction (none: no answer), `refuse` with its reason. An answer in the DTO's own shape (a
+ * script's) as it is.
+ */
+function approvalOf(answer: unknown): unknown {
+  if (!isRecord(answer) || !("decision" in answer)) return answer;
+  const { decision, overrideArguments, ...rest } = answer;
+  if (decision === ReplyDecision.Refuse) return { ...rest, approved: false };
+  if (decision === ReplyDecision.Approve) return { ...rest, approved: true };
+  if (decision === ReplyDecision.ApproveWithChanges && isRecord(overrideArguments))
+    return { ...rest, approved: true, overrideArguments };
+  return { ...rest, decision };
+}
+
+/**
+ * The numbers a correction raises above the call's own (#688): a reply's limit lowers a value, and
+ * a model that "applies" a limit above the call raises it — money the approver never asked to
+ * spend. A free-text reply may lower or change a value, never raise one; a raise is decided, not
+ * read.
+ */
+export function raisedFieldsOf(answer: unknown, ask: unknown): readonly string[] {
+  if (!isRecord(answer) || !isRecord(answer.overrideArguments) || !isRecord(ask)) return [];
+  const asked = isRecord(ask.arguments) ? ask.arguments : {};
+  return Object.entries(answer.overrideArguments).flatMap(([field, value]) => {
+    const own = asked[field];
+    return typeof value === "number" && typeof own === "number" && value > own ? [field] : [];
+  });
+}
+
+function correctedCallOf(answer: unknown, ask: unknown): unknown {
   if (!isRecord(answer) || !isRecord(answer.overrideArguments) || !isRecord(ask)) return answer;
   if (!isRecord(ask.arguments)) return answer;
   return { ...answer, overrideArguments: { ...ask.arguments, ...answer.overrideArguments } };

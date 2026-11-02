@@ -23,7 +23,8 @@ import {
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
-import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
+import { raisedFieldsOf, replyToolsOf, withCorrectedCall } from "./reply-tools.js";
+import { withinCurrency } from "./reply-currency.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
 /**
@@ -119,7 +120,8 @@ export async function readByModel(
   }
   // a question role's answer (#659) is the role's own DTO: nothing laid over a call
   const ask = interpreter.approves === undefined ? undefined : input.ask;
-  return readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
+  const reading = readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
+  return withinCurrency(reading, interpreter, input.reply);
 }
 
 /** One tool call of the interpreter's move, as LangChain gives it. */
@@ -146,9 +148,14 @@ function readingOf(
     return { kind: "declined", reason: `the reply does not answer the question: ${why}`, usage };
   }
   const answer = calls.find((call) => call.name === tools.answer);
-  return answer === undefined
-    ? { kind: "declined", reason: "the model gave no answer", usage }
-    : { kind: "answered", answer: withCorrectedCall(answer.args, ask), usage };
+  if (answer === undefined) return { kind: "declined", reason: "the model gave no answer", usage };
+  const corrected = withCorrectedCall(answer.args, ask);
+  const raised = raisedFieldsOf(corrected, ask);
+  if (raised.length > 0) {
+    const reason = `the reply would raise ${raised.join(", ")} above the call's own: a raise is decided, never read from a reply`;
+    return { kind: "declined", reason, usage };
+  }
+  return { kind: "answered", answer: corrected, usage };
 }
 
 /** One reply to read: its pause, the text, and what the caller does around the model call. */

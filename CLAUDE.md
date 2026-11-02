@@ -1537,7 +1537,10 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideArguments`
   described by the approved tool's input, every field optional: the fields the reply changes, laid
   over the call's own arguments before validation, #648 — and `answer-reply-interpreter-not-understood-dto`
-  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal), one
+  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: the
+  framework's instructions read a yes with a limit below the call's value as an approval with the field
+  set to it, in any language, a limit at or above it as the call as it is, and a change in a currency
+  the call's fields do not name — `reply-currency.ts` — as not understood, never converted), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
