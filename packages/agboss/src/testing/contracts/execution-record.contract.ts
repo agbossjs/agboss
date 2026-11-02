@@ -167,5 +167,10 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
  * answer per pause of a tree (#676).
  */
 export function executionRecordContract(target: ContractTarget<ExecutionRecordRepository>): void {
-  registerContract("execution record contract", target, [{ cases: RECORD_CASES }, { cases: PAUSE_ANSWER_CASES }], pingOf);
+  registerContract(
+    "execution record contract",
+    target,
+    [{ cases: RECORD_CASES }, { cases: PAUSE_ANSWER_CASES }],
+    pingOf,
+  );
 }
