@@ -1981,7 +1981,8 @@ answeredBy, responder, resolution: PauseResolution.Decided | Replied | Withdrawn
 askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn or cancelled; each
   child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is
   resolved into the execution records (`ExecutionRecordRepository.savePauseAnswer` /
-  `findPauseAnswersByTenantIdAndRootExecutionId`), the permanent history; the pause records are
+  `findPauseAnswersByTenantIdAndRootExecutionId`; once per pause of a tree — tenant,
+  `rootExecutionId` and step key, #676), the permanent history; the pause records are
   operational state, never read for it. A resolved pause record (`Taken`,
   `Cancelled`) is kept `@Application({ pauseRecordRetention })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a

@@ -143,9 +143,11 @@ export abstract class ExecutionRecordRepository {
   ): Promise<Summary[]>;
   abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
   /**
-   * Keeps how a pause of a tree was resolved (#267 S107), once per pause (by its tenant and
-   * `step.idempotencyKey`: a second save is ignored) — the permanent log `ExecutionRecord.pauses`
-   * reads, whatever the pause records' retention removed since.
+   * Keeps how a pause of a tree was resolved (#267 S107), once per pause of the tree (by its
+   * tenant, `rootExecutionId` and `step.idempotencyKey`: a second save is ignored; #676 — a step
+   * key names no tree, so another tree's pause under the same key keeps its own answer) — the
+   * permanent log `ExecutionRecord.pauses` reads, whatever the pause records' retention removed
+   * since.
    */
   abstract savePauseAnswer(
     tenantId: string,
