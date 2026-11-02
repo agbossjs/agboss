@@ -294,6 +294,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **An application that calls no model no longer needs the OpenRouter key** (#716) — `createApp`
+  read the key of every model provider at start, so an application of actions only failed without
+  `openRouterApiKey`. A provider is now connected at start only when a model of the workflow
+  resolves to it (or it is that provider's breaker fallback); another connects on its first call.
+  An application that uses a model still fails at start without its key, naming the field.
+
 - **Another tree's approval was dropped from the history** (#676, after #663) — the pause answer
   log kept one answer per tenant and step key, and a step key names no tree: a pause of another
   tree under the same key (an id minted again that the kept ids miss) was asked again since #663,

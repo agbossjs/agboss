@@ -45,6 +45,12 @@ export interface ProviderClientOptions {
   readonly clock?: Clock;
   /** Creates a transport provider's instance (the application's container), on its first call. */
   readonly transports?: TransportResolver;
+  /**
+   * The providers connected — their keys read — at start (#716): those a model use of the workflow
+   * resolves to, and their breakers' fallbacks. Absent → every provider of the directory. Any other
+   * connects on its first call, so a provider that serves no model of the application needs no key.
+   */
+  readonly connectAtStart?: readonly RegisteredModelProvider[];
 }
 
 /** The chat models of transport providers (#385), loaded only when an application has one. */
@@ -61,8 +67,9 @@ export async function chatExtensionsFor(
 /**
  * The raw clients of the default gateway over model providers: the provider serving each model
  * makes its chat model (`chat`, or a transport's `complete`, #385) or answers its decision; a
- * breaker's fallback wraps the chat model. Every HTTP provider's key is read here, at startup, from
- * the application's environment.
+ * breaker's fallback wraps the chat model. The key of every HTTP provider a model use needs is read
+ * here, at startup, from the application's environment (`connectAtStart`, #716); another's on its
+ * first call.
  */
 export function providerClients(
   directory: ModelProviderDirectory,
@@ -70,8 +77,8 @@ export function providerClients(
   extensions?: ChatExtensions,
 ): { readonly chatModel: ModelFactory; readonly jevClient: JevClient } {
   const connectionFor = connectionsOf(options);
-  directory.providers.forEach(connectionFor);
   const registeredFor = registeredIn(directory);
+  (options.connectAtStart ?? directory.providers).forEach(connectionFor);
   const chatOf = chatOfProviders({
     options,
     connectionFor,
