@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the stores on MongoDB (#527)
+
+- **Added**: `@agboss/mongodb` (agbossjs/mongodb) — every store of the core on one MongoDB replica
+  set, held to `storeConformance` (the explorer included) and the fault suite. Its required
+  settings (`w=majority`, majority reads, retryable writes, the simple collation) are refused at
+  start when weaker; its assumptions are [Guarantees](Guarantees) A14. [MongoDB](MongoDB).
+
 ## Unreleased — 0.1.1: the races the store contracts were missing (#695)
 
 - **Added** to the published contract suites (found by `@agboss/mongodb`, #527): two instances'

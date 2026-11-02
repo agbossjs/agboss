@@ -230,13 +230,29 @@ How a database gives that step decides **what it can hold**.
 
 ### MongoDB: multi-document transactions
 
+agbossjs/mongodb is the reference ([MongoDB](MongoDB)); what it learnt:
+
 - Transactions need a **replica set** (or a sharded cluster). Use `session.withTransaction(…)`
-  with `writeConcern: { w: "majority" }` and `readConcern: "snapshot"`. It retries the whole
-  callback on `TransientTransactionError`.
-- A read inside a transaction **does not lock**. Make the lease check a **write** instead: a
-  conditional `updateOne` on the lease document that matches the token, not released and not
-  expired, and touches a field. Then a concurrent takeover conflicts with this transaction
-  (`WriteConflict`): one of them aborts and retries, never both commit.
+  with `writeConcern: { w: "majority" }` and `readConcern: "snapshot"`. It runs the whole callback
+  again on `TransientTransactionError` (the work included: it must do nothing outside the session)
+  and commits again on `UnknownTransactionCommitResult` (never runs it again).
+- A read inside a transaction **does not lock**. Make the lease check a **write**: touch the lease
+  document first, then read it in the same transaction. A concurrent take committed after the
+  snapshot makes the touch conflict (`WriteConflict`: the transaction runs again and sees it); one
+  not yet made waits for the transaction. The touch must **change** the document — `$set` of a
+  value it already has is skipped by the server and locks nothing (a test's fixed clock writes the
+  same `checkedAt` twice): count a field up as well. Set the time it writes from `$$NOW` and read it
+  back: that is the store's now of the check.
+- A business key's row is one for every scope of the tenant: lock it the same way (a write to a
+  document of its identity) **before** the work runs, else two executions both run it and one
+  aborts at its commit — the work ran twice.
+- MongoDB's transactions take no lock they wait on: of two transactions on one document, the one
+  that writes it second conflicts and retries. Of two calls one instance makes at once, the one
+  that reached the server first wins, not the one called first — queue an instance's calls on one
+  lease or key in the order they were made.
+- `$expr` (and so `$$NOW`) is refused in an upsert's filter. Take a lease with a conditional update
+  of the existing document, then an upsert matched only by "no lease yet": a held lease makes its
+  insert a duplicate `_id`, refused.
 - The result's `_id` is `fencedKeyIdentityOf(key)` (a unique key). The scope's mark is an
   `updateOne(…, { $max: { highestToken: token } }, { upsert: true })` in the same transaction.
 - The business documents are written with the same `session`. A business write outside it is
@@ -246,13 +262,13 @@ How a database gives that step decides **what it can hold**.
 
 ```ts no-check: needs the mongodb driver — the shape of saveResultIfAbsent's transaction
 await session.withTransaction(async () => {
-  const lease = await leases.updateOne(
-    { _id: [tenantId, leaseExecutionId], leaseEpoch: token, released: false, expiresAt: { $gt: now } },
-    { $set: { checkedAt: now } }, // a write: a concurrent takeover conflicts with this transaction
-    { session },
-  );
-  if (lease.matchedCount !== 1) throw new ExecutionFencedError({ scopeKey, token });
-  // …the mark ($max), the stored result by fencedKeyIdentityOf(key), the work(session), the result
+  const id = { _id: JSON.stringify([tenantId, leaseExecutionId]) };
+  // a write that always changes the document: the lease is locked for this transaction
+  await leases.updateOne(id, [{ $set: { checkedAt: "$$NOW", checks: { $add: [{ $ifNull: ["$checks", 0] }, 1] } } }], { session });
+  const lease = await leases.findOne(id, { session });
+  if (!lease || lease.released || lease.leaseEpoch !== token || lease.expiresAt <= lease.checkedAt)
+    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.leaseEpoch });
+  // …the mark ($max), a business key's lock, the stored result by fencedKeyIdentityOf(key), the work, the result
 });
 ```
 

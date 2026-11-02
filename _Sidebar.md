@@ -18,6 +18,7 @@
 - [Several instances](Several-instances)
 - [Running on PostgreSQL](Running-on-PostgreSQL)
 - [Your own store](Your-own-store)
+  - [MongoDB](MongoDB)
 - [Guarantees](Guarantees)
 - [Guarantees across processes](Guarantees-across-processes)
 - [Payments](Payments)
