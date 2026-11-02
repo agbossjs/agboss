@@ -60,6 +60,24 @@ export const DRY_RUN: OptionSpec = {
   help: "show what would be written, write nothing",
 };
 
+/** `agboss rag index`'s options (#700: `--tenant`, whose knowledge bases to build). */
+export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
+  APPLICATION,
+  {
+    name: "rag",
+    type: "string",
+    value: "<name>",
+    help: "only this knowledge base (its full name)",
+  },
+  {
+    name: "tenant",
+    type: "string",
+    value: "<id>",
+    help: "the tenant whose knowledge bases to build (default: default)",
+  },
+  ENV,
+];
+
 /** A string option: `--<name> <value>`. */
 export const text = (
   name: string,

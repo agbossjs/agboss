@@ -8,7 +8,7 @@ import {
 } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { didYouMean } from "./cli/did-you-mean.js";
-import { usageError } from "./cli/errors.js";
+import { checkedTenantOption, usageError } from "./cli/errors.js";
 
 /** One knowledge base of the application: its name and its connector. */
 interface KnowledgeBase {
@@ -49,13 +49,21 @@ function selected(
   );
 }
 
+/** `--tenant <id>` (#700): whose knowledge bases to build; none → the default tenant. */
+const tenantOf = (context: CommandContext): string =>
+  checkedTenantOption("rag", textOption(context.values, "tenant")) ?? "default";
+
 const reportLine = (name: string, report: IndexReport): string =>
   `${name}: ${String(report.documents)} documents, ${String(report.chunks)} chunks, ${String(report.skipped)} unchanged · $${(report.costUsd ?? 0).toFixed(6)}`;
 
-/** `agboss rag index [--rag <name>]` — builds or updates every knowledge base of the application. */
+/**
+ * `agboss rag index [--rag <name>] [--tenant <id>]` — builds or updates every knowledge base of the
+ * application for one tenant (#700: each connector indexes into that tenant only).
+ */
 export const handle: CommandHandler = async (context) => {
   if (context.positionals[0] !== "index" || context.positionals.length > 1)
     throw usageError("rag", "usage.missing-argument", 'expected "agboss rag index …"');
+  const tenantId = tenantOf(context);
   const loaded = await loadCliApplication(context);
   const assembled = await assembleApplication(context, loaded);
   const environment = await applicationEnvironment(context, assembled);
@@ -67,9 +75,9 @@ export const handle: CommandHandler = async (context) => {
       context.say(`${name}: no index to build (the connector has none)`);
       continue;
     }
-    const report = await connector.index();
-    indexed.push({ name, ...report });
+    const report = await connector.index({ tenantId, signal: new AbortController().signal });
+    indexed.push({ name, tenantId, ...report });
     context.say(reportLine(name, report));
   }
-  return { result: { indexed } };
+  return { result: { tenantId, indexed } };
 };

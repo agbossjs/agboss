@@ -6,7 +6,11 @@ const ARTICLES = [
   { text: "Archived orders are older than a year.", source: "help/archive.md" },
 ];
 
-/** The help center the desk searches (`search-shipping-policy-rag-tool`): in memory here. */
+/**
+ * The help center the desk searches (`search-shipping-policy-rag-tool`): in memory here. It is
+ * public — every tenant reads the same articles, the connector's choice (#700); a tenant's own
+ * documents would be kept and searched by `options.tenantId`, which every retrieval carries.
+ */
 @Rag({ name: "shipping-policy-rag", description: "Shipping and refund articles", topK: 2 })
 export class ShippingPolicyRag implements RagConnector {
   retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {

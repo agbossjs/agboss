@@ -8,6 +8,9 @@
  * `storeConformance({ name, stores: { executionLease, fencedEffect, … } })` (#526) runs every
  * contract a store set claims in one call and refuses a set that leaves a fencing contract out.
  *
+ * `ragConnectorContract({ name, connector, documents })` (#700) is a knowledge base connector's:
+ * tenant isolation, re-indexing that replaces, `topK`, the signal, the cost.
+ *
  * One function per contract; each registers `describe("<contract> contract (<name>)")` with the
  * contract's rules as cases, every case on two instances over one backing store and the suite's
  * `VirtualClock`. Not re-exported by `@agboss/core/testing`: it imports vitest's `describe` / `it`.
@@ -39,3 +42,5 @@ export {
 export { StoreConformanceError, type LeftOutContract } from "./store-conformance-check.js";
 export type { FencingContractOptions } from "./fencing-gate.js";
 export type { InterleavingOptions } from "./explorer/register.js";
+export { ragConnectorContract } from "./rag-connector.contract.js";
+export type { RagConnectorContractTarget, RagContractDocument } from "./rag-connector-data.js";

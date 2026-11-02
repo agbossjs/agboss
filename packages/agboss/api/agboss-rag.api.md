@@ -8,8 +8,7 @@
 export interface FtsOptions {
     // (undocumented)
     readonly dbFile: string;
-    // (undocumented)
-    readonly folder: string;
+    readonly folder: string | ((tenantId: string) => string | undefined);
     readonly maxChunkChars?: number;
 }
 
@@ -25,11 +24,17 @@ export interface IndexReport {
 }
 
 // @public
+export type KnowledgeRetrieve = (query: string, options: {
+    readonly topK: number;
+    readonly signal: AbortSignal;
+}) => Promise<RagRetrieval>;
+
+// @public
 export interface KnowledgeSource {
     // (undocumented)
     readonly name: string;
     // (undocumented)
-    readonly retrieve: RagConnector["retrieve"];
+    readonly retrieve: KnowledgeRetrieve;
     // (undocumented)
     readonly topK: number;
 }
@@ -49,12 +54,15 @@ export function Rag<const D extends readonly Token[] = []>(options: {
 
 // @public
 export interface RagConnector {
-    readonly index?: () => Promise<IndexReport>;
+    readonly index?: (options: RagIndexOptions) => Promise<IndexReport>;
+    readonly retrieve: (query: string, options: RagRetrieveOptions) => Promise<RagRetrieval>;
+}
+
+// @public
+export interface RagIndexOptions {
     // (undocumented)
-    readonly retrieve: (query: string, options: {
-        readonly topK: number;
-        readonly signal: AbortSignal;
-    }) => Promise<RagRetrieval>;
+    readonly signal: AbortSignal;
+    readonly tenantId: string;
 }
 
 // @public
@@ -73,32 +81,39 @@ export interface RagRetrieval {
 }
 
 // @public
+export interface RagRetrieveOptions {
+    // (undocumented)
+    readonly signal: AbortSignal;
+    readonly tenantId: string;
+    // (undocumented)
+    readonly topK: number;
+}
+
+// @public
 export class SqliteFtsConnector implements RagConnector {
     constructor(options: FtsOptions);
     // (undocumented)
-    index(): Promise<IndexReport>;
+    index(input: RagIndexOptions): Promise<IndexReport>;
     // (undocumented)
-    retrieve(query: string, options: {
-        readonly topK: number;
-        readonly signal: AbortSignal;
-    }): Promise<RagRetrieval>;
+    retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval>;
 }
 
 // Warnings were encountered during analysis:
 //
-// src/rag/sqlite-fts.ts:11:3 - (ae-undocumented) Missing documentation for "folder".
-// src/rag/sqlite-fts.ts:12:3 - (ae-undocumented) Missing documentation for "dbFile".
-// src/rag/sqlite-fts.ts:65:9 - (ae-undocumented) Missing documentation for "index".
-// src/rag/sqlite-fts.ts:100:9 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/sqlite-fts.ts:25:3 - (ae-undocumented) Missing documentation for "dbFile".
+// src/rag/sqlite-fts.ts:87:9 - (ae-undocumented) Missing documentation for "index".
+// src/rag/sqlite-fts.ts:122:9 - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts:5:3 - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts:10:1 - (ae-undocumented) Missing documentation for "IndexReport".
 // src/rag/types.ts:11:3 - (ae-undocumented) Missing documentation for "documents".
 // src/rag/types.ts:12:3 - (ae-undocumented) Missing documentation for "chunks".
 // src/rag/types.ts:15:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/rag/types.ts:23:3 - (ae-undocumented) Missing documentation for "retrieve".
-// src/rag/types.ts:33:3 - (ae-undocumented) Missing documentation for "name".
-// src/rag/types.ts:34:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:35:3 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/types.ts:33:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:34:3 - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts:46:3 - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts:57:3 - (ae-undocumented) Missing documentation for "name".
+// src/rag/types.ts:58:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:59:3 - (ae-undocumented) Missing documentation for "retrieve".
 
 // (No @packageDocumentation comment for this package)
 

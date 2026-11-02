@@ -24,3 +24,18 @@ export function testFrame(): FrameSpec {
 /** Runs `work` inside a test step's frame. */
 export const inTestFrame = <TResult>(work: () => Promise<TResult>): Promise<TResult> =>
   runInFrame(testFrame(), work);
+
+/**
+ * Runs `work` in a test step's frame whose tenant id is `tenantId` as given — unchecked, as a frame
+ * built by hand could carry it (#700: the RAG seam checks it itself).
+ */
+export function inTenantFrame<TResult>(
+  tenantId: string,
+  work: () => Promise<TResult>,
+): Promise<TResult> {
+  const frame = testFrame();
+  const tenant = Object.create(frame.execution.tenant, {
+    tenantId: { value: tenantId, enumerable: true },
+  }) as typeof frame.execution.tenant;
+  return runInFrame({ ...frame, execution: { ...frame.execution, tenant } }, work);
+}

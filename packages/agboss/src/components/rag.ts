@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { SEARCH_TOOL_SUFFIX } from "../prompts/rag.js";
-import { RagMode, type KnowledgeSource, type RagConnector } from "../rag/types.js";
+import { checkedTenantId } from "../flow/context/context-values.js";
+import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
+import { currentFrame } from "../flow/context/frame.js";
+import {
+  RagMode,
+  type KnowledgeRetrieve,
+  type KnowledgeSource,
+  type RagConnector,
+} from "../rag/types.js";
 import { defineTool, type AnyTool } from "../tools/index.js";
 import type { Class } from "./injection.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
@@ -35,6 +43,29 @@ export const ragSettings = (agent: AgentMeta): { name: string; mode: RagMode; to
     return { name: meta.name, mode: binding.mode, topK: meta.topK };
   });
 
+/**
+ * The tenant of a retrieval (#700): the execution's, read from the frame of the step or tool call
+ * that runs it, checked as a key's text (#552: `dto.invalid` naming the rule, never the id). No
+ * open frame → `context.unavailable` — never the default tenant.
+ */
+export function tenantOfRetrieval(meta: RagMeta): string {
+  const frame = currentFrame();
+  const consumer = `@Rag ${meta.name}`;
+  if (frame === undefined)
+    throw ExecutionContextUnavailableError.outside({ consumer, field: "tenantContext.tenantId" });
+  if (frame.isClosed())
+    throw ExecutionContextUnavailableError.ended(frame.step, frame.execution.executionId);
+  const { tenantId } = frame.execution.tenant;
+  checkedTenantId(tenantId);
+  return tenantId;
+}
+
+/** A connector's retrieval with the execution's tenant on every call (#700). */
+export const tenantRetrieve =
+  (meta: RagMeta, connector: RagConnector): KnowledgeRetrieve =>
+  (query, { topK, signal }) =>
+    connector.retrieve(query, { topK, signal, tenantId: tenantOfRetrieval(meta) });
+
 const Output = z.object({
   results: z.array(
     z.object({ source: z.string(), text: z.string(), score: z.number().optional() }),
@@ -49,7 +80,8 @@ export function searchTool(meta: RagMeta, connector: RagConnector): AnyTool {
     input: z.object({ query: z.string().min(1) }),
     output: Output,
     run: async ({ query }, ctx) => {
-      const retrieval = await connector.retrieve(query, { topK: meta.topK, signal: ctx.signal });
+      const retrieve = tenantRetrieve(meta, connector);
+      const retrieval = await retrieve(query, { topK: meta.topK, signal: ctx.signal });
       ctx.reportCost(retrieval.costUsd ?? 0);
       return {
         results: retrieval.results.map((result) => ({
@@ -76,7 +108,7 @@ export function contextSources(
         .map((binding) => {
           const meta = ragMeta(binding.use);
           const connector = instance(binding.use);
-          return { name: meta.name, topK: meta.topK, retrieve: connector.retrieve.bind(connector) };
+          return { name: meta.name, topK: meta.topK, retrieve: tenantRetrieve(meta, connector) };
         }),
     ]),
   );

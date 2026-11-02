@@ -119,6 +119,23 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Changed — breaking
 
+- **Knowledge bases are tenant-scoped** (#700) — an agent working for tenant A could be handed
+  passages of tenant B's documents: the RAG contract had no tenant. Now the core passes the
+  execution's tenant on every call — `retrieve(query, { topK, signal, tenantId })` and
+  `index({ tenantId, signal })` (`RagRetrieveOptions`, `RagIndexOptions`) — and a connector must
+  return and index that tenant's passages only, comparing the id as given. TypeScript does not flag
+  a connector that ignores the field. **Migration for a connector of your own:** read
+  `options.tenantId` in `retrieve` and `index`, key every stored chunk by it, and run
+  `ragConnectorContract` (`@agboss/core/testing/contracts`) in your tests — it fails a connector that
+  ignores or folds the tenant, appends on re-index, ignores `topK` or the signal, or reports a cost
+  that is not a number from 0. Content every tenant may read (a public help center) stays a
+  connector's choice. `SqliteFtsConnector`: nothing to change — its index file migrates itself on
+  first open (the old chunks become the `default` tenant's; another tenant indexes its own copy on
+  its first retrieval); `folder` may now be a function `tenantId → folder | undefined` for each
+  tenant's own documents. `agboss rag index` takes `--tenant <id>` (default `default`); a retrieval
+  outside an execution is `context.unavailable`. `KnowledgeSource.retrieve` is `KnowledgeRetrieve`
+  (the core supplies the tenant).
+
 - **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
   passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
   no flow step pauses on one. The form is gone from `@ChannelRole`'s types

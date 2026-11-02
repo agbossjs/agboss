@@ -8,6 +8,7 @@ import {
   ENV,
   flag,
   PROFILE,
+  RAG_INDEX_OPTIONS,
   START,
   text,
   THREAD,
@@ -113,9 +114,9 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   rag: {
     summary: "build / update the application's knowledge bases",
-    usage: "agboss rag index [--rag <name>] [--env <name>] [--application <path>]",
+    usage: "agboss rag index [--rag <name>] [--tenant <id>] [--env <name>] [--application <path>]",
     positionals: "index",
-    options: [APPLICATION, text("rag", "<name>", "only this knowledge base (its full name)"), ENV],
+    options: RAG_INDEX_OPTIONS,
   },
   records: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
