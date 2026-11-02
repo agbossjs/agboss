@@ -518,11 +518,11 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 - **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
   approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
   answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
-  `answer`) cannot be declared (#647): nothing could ask one — it does not compile, and its decorator
-  throws `[channel.question-role-unavailable]` for a JS caller; ask through an approval role, a
-  changed call through `overrideArguments` (workflow questions: #659). `answeredBy` is required —
+  `answer`, #659) is asked by a flow step, never by a tool — `.toQuestion(Role)`
+  ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)); a tool naming one is
+  `[channel.wrong-tool]`. `answeredBy` is required —
   `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
-  it, or without `approves`). A tool whose `input` is not its role's `approves` fails assembly with
+  it, with both `approves` and `ask` / `answer`, or with neither). A tool whose `input` is not its role's `approves` fails assembly with
   `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
   `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
   reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's

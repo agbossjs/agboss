@@ -1,7 +1,9 @@
 # Pauses
 
-A tool that needs a decision names a channel ([Tools → Approval channels](Tools#approval-channels));
-when its channel answers `ChannelOutcome.awaitReply()` the call **pauses** until someone answers it.
+A tool that needs a decision names a channel ([Tools → Approval channels](Tools#approval-channels)),
+and a workflow that needs a person's typed answer asks a **question role** from a flow step
+([below](#a-question-the-workflow-asks-toquestionrole-659), #659); when the channel answers
+`ChannelOutcome.awaitReply()` the call or the step **pauses** until someone answers it.
 An execution may wait for **several answers at once** — parallel branches each pause on their own —
 and each pause is answered **by its id** (#267). How a pause maps onto LangGraph and the agent's
 loop: [Pause seam](Pause-seam).
@@ -18,12 +20,13 @@ waiting pause, one `PendingPause` each:
 
 | Field              | What it is                                                                             |
 | ------------------ | -------------------------------------------------------------------------------------- |
+| `kind`             | `PauseKind.Approval` (a tool call) or `PauseKind.Question` (a question role's step, #659) |
 | `pauseId`          | what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause (below)         |
 | `answeredBy`       | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's) |
-| `agent`, `channel` | whose tool call waits, and the channel asked (a role's name or a `@Channel`'s)         |
+| `agent`, `channel` | whose tool call waits — or the question step that asks —, and the channel asked (a role's name or a `@Channel`'s) |
 | `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
 | `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
-| `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), `sensitive` fields masked      |
+| `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), or a question role's ask DTO; `sensitive` fields masked |
 
 A pause inside a child workflow is its root's: it is listed in the root's `pending` (with the
 child's `childExecutionId`, and for a per-item child its `itemIndex`), several children may wait at
@@ -130,8 +133,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
-  answer `{ approved }` — never a `reason` or `overrideArguments`. (Every role is an approval role,
-  #647: a question role cannot be declared, so `[reply-interpreter.decision-model]` is gone.) Either
+  answer `{ approved }` — never a `reason` or `overrideArguments`; a question role's interpreter
+  on a decision model is `[reply-interpreter.decision-model]` (#659: its answer needs more than a
+  yes / no). For a question role the model's answer tool is the role's `answer` DTO's, the system
+  message asks for the fields the reply gives, and nothing is laid over a call. Either
   model's call goes through the provider its model
   resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
   before it is made (an exhausted one → `BudgetExceededError`, the pause untouched), is counted in
@@ -296,6 +301,40 @@ export class OfficeWorkflowFinish {}
 })
 export class OfficeWorkflow {}
 ```
+
+## A question the workflow asks: `.toQuestion(Role)` (#659)
+
+A **question role** — `@ChannelRole({ name: "…-question", description, ask: AskDto, answer:
+AnswerDto, answeredBy, replyInterpreter?, maxVisits? })` on an abstract class that `extends
+ChannelOf<Self>`, its one `@Channel` implementation in `@Application({ providers })` — is asked by a
+flow step: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (or `question(Role)…` for its own
+path, a question asked again on a cycle; `maxVisits` its limit there). The role is the step's node
+(`NodeKind.Question`; its name ends with `-question`, `[name.kind-suffix]`); the step reads one
+`AskDto` from the path (`[input.missing-on-path]` when none comes), asks the channel —
+`send({ pauseId, value: question })`, the `sensitive` fields masked — and gives the answer as its
+value for the steps after it. Everything else is a pause like an approval's:
+
+- `ChannelOutcome.awaitReply()` pauses: `result.pending` lists it with `kind: PauseKind.Question`,
+  `agent` the step, `ask` the masked question; `ChannelOutcome.decided(answer)` goes on at once
+  (`PauseResolution.Decided`).
+- `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
+  recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the role's
+  interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
+  interpreter → `ReplyInterpreterMissingError`). Who answers is `answeredBy`, checked as above.
+- Exactly one answer wins (`NotPausedError` for the second, at the same time too); another instance
+  continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
+  (its channel's `withdraw` told); `pauseRecordRetention` and `result.record.pauses` as for any
+  pause — the record's step is the question's (`component.kind: "question"`, no `callId`).
+- The step is code, no model: no step slot, not one of `maxSteps`; the execution's budgets are
+  checked before it asks (a question when the money is gone asks nobody), its holder's fence right
+  before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
+  is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`) —
+  `.onError(E, …)` right after `.toQuestion(Role)` takes it.
+- `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
+  `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
+  its `OutputOf` `AnswerDto`. `agboss describe` prints the role with `asked at <step> (<workflow>)`.
+- A tool that names a question role is `[channel.wrong-tool]`: an agent asking one as a tool is
+  #712.
 
 ## Who may answer
 
@@ -569,5 +608,5 @@ test's clock.
 
 ## Not yet
 
-Choosing a channel implementation per environment (a terminal in dev, Slack in prod) is a
+An agent asking a question role as one of its tools is #712. Choosing a channel implementation per environment (a terminal in dev, Slack in prod) is a
 documented limit: one implementation per application.

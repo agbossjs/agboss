@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: question roles — a workflow asks, the typed answer goes on the path (#659)
+
+- **Added**: `@ChannelRole({ ask, answer, answeredBy })` again (named `…-question`, optional
+  `replyInterpreter`, `maxVisits`), asked by a flow step: `.toQuestion(Role)` / `question(Role)`.
+  The step pauses like an approval and its answer — a `decision` validated as the `answer` DTO, a
+  reply its interpreter reads into it, or the channel's `decided(answer)` — goes on the path.
+  `[reply-interpreter.decision-model]` back for a question role; `QuestionFailedError`
+  (`step.question`); `PauseKind`, `PendingApproval` / `PendingQuestion`, `PauseAsk`, `QuestionAsk`.
+- **Changed**: `PendingPause` is a union on `kind`; a code building one adds `kind:
+  PauseKind.Approval`. `[channel.question-role-unavailable]` is gone. [Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659),
+  [Workflow](Workflow).
+
 ## Unreleased — 0.1.1: every dollar of a tree counted once (#685)
 
 - **Fixed**: a child on any instance (`ChildPlacement.AnyInstance`) could count its spend twice
