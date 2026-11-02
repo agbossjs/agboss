@@ -39,6 +39,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
 | | `leaseStateOf` | read the other execution's lease and, if it expired at the token, close it (released, `superseded`) | the holder renews in the gap and keeps sending, while this caller reconciles and resends: **two senders** |
 | `ChildExecutionQueueRepository` | `claim…` | pick the next queued row and mark it claimed | two workers run one child: **two owners** |
+| | `findQueueDepth` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
 | `ExecutionRecordRepository` | `complete`, status moves | a compare-and-set from the expected status | a lost update; two outcomes for one run |
 | `ExecutionTreeRepository`, `MeshRequestRepository` | `saveIfAbsent` | insert if no row has the key (a unique key) | a request retried on another pod runs twice |
 | `RateLimitRepository` | slots, windows, pauses | count and take under one lock | the limit is exceeded under load |

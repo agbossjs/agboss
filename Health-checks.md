@@ -16,6 +16,10 @@ check that throws or passes its timeout is that component's `Unhealthy`, its `re
 message or `timed out after 2 s`. No check calls a model: a provider's breaker is read from
 `RateLimitRepository`, where every instance keeps it ([Model providers](Model-providers#retry-rate-limit-and-circuit-breaker)).
 
+
+Probes say whether an instance can serve; how busy it is — its step slots, held leases, the
+queued work of the whole application — are its [metrics](Metrics) (#485).
+
 ## The report
 
 ```json

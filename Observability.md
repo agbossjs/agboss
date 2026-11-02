@@ -462,6 +462,12 @@ There is no PII policy hook: `onPiiPolicyStart` / `onPiiPolicyEnd` (the old appr
 are removed in #120 — an observer that still implements one fails assembly with
 `[observer.unknown-hook]`.
 
+## Metrics
+
+The numbers behind autoscaling — queued children, step slots, held leases, and counters of
+takeovers, hand-overs, ended executions and undo actions — are published through an OpenTelemetry
+meter the app is given, by a built-in observer called before yours: [Metrics](Metrics) (#485).
+
 ## Registering an observer
 
 1. A class decorated with `@Injectable()` (its `deps` injected like any component).

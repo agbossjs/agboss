@@ -27,6 +27,7 @@
 - [Execution history](Execution-history)
 - [Mesh Hub — agboss hub](Mesh-Hub)
 - [Health checks](Health-checks)
+- [Metrics](Metrics)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [The test split](Test-split)

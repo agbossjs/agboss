@@ -1509,6 +1509,9 @@ export class DeskApplication {}
   `application.maxConcurrentSteps` (`null` when unset).
 - The slots are in-process (one `StepSlots` per `createApp`); they are not shared through a store —
   each instance caps itself.
+- **Metrics** (#485): `agboss.instance.step_slots.busy` / `.free` / `.limit` and
+  `agboss.instance.steps.waiting` publish these slots through the app's OpenTelemetry meter, and
+  `agboss.cluster.children.queued` the work queued for them — [Metrics](Metrics).
 
 ## Children on any instance (#333)
 
