@@ -292,7 +292,10 @@ listed in `job-scout.application.ts`; `agboss create` generates the same.
   provider sets it, `openRouterApiKey: secret("OPENROUTER_API_KEY")`; the built-ins read
   `openRouterApiKey`. It is read from `applicationContext.environment` when the app starts (a secret
   of an environment passed as written takes its own variable); a provider never reads `process.env`
-  for it. A missing one fails the start of an app that calls the provider:
+  for it. Only a provider that serves a model of the application is connected at start (#716): an
+  application whose workflows call no model — actions only — needs no key at all, and a provider
+  no model resolves to reads its key on its first call. A missing one fails the start of an app
+  that calls the provider:
   `openrouter-model-provider reads its key from the application's environment: the environment has
   no openRouterApiKey — declare openRouterApiKey: Secret in the environment contract and set
   openRouterApiKey: secret("…") in each environment that calls it`. Tests script or replay models,

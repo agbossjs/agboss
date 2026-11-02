@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: no key for an application that calls no model (#716)
+
+- **Fixed**: `createApp` of an application whose workflows call no model (no agent, router,
+  guardrail, judge, compaction or reranker) failed without `openRouterApiKey`, because the built-in
+  provider was connected at start whether it served a model or not. A provider is now connected at
+  start only when a model use of the workflow resolves to it, or it is that provider's breaker
+  fallback; another reads its key on its first call. Nothing to migrate: a placeholder key can be
+  dropped. [Model-providers](Model-providers#the-key-and-the-name).
+
 ## Unreleased — 0.1.1: question roles — a workflow asks, the typed answer goes on the path (#659)
 
 - **Added**: `@ChannelRole({ ask, answer, answeredBy })` again (named `…-question`, optional
