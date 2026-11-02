@@ -65,8 +65,12 @@ function answerDefinitionOf(answer: DtoClass, approves: DtoClass | undefined): T
     readonly properties: Readonly<Record<string, JsonSchema>>;
   };
   // #688: three named decisions, never a boolean a cheap model reads "a limit below the call" into
-  const { approved: _approved, ...rest } = parameters.properties;
-  const properties = { ...rest, decision: DECISION_SCHEMA, overrideArguments: correctionOf(approves) };
+  const rest = Object.entries(parameters.properties).filter(([key]) => key !== "approved");
+  const properties = {
+    ...Object.fromEntries(rest),
+    decision: DECISION_SCHEMA,
+    overrideArguments: correctionOf(approves),
+  };
   return {
     ...tool.definition,
     function: {

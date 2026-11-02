@@ -78,10 +78,15 @@ describe("#688: the reply's currency against the call's", () => {
 });
 
 describe("#688: what the guard does to a reading", () => {
-  const interpreter = {
-    approves: OrderInDollarsDto,
+  const interpreter: AssembledReplyInterpreter = {
+    channel: "purchase-approval-channel",
+    interpreter: OrderInDollarsDto,
+    name: "purchase-reply-interpreter",
     answer: ToolCallApprovalDecisionDto,
-  } as unknown as AssembledReplyInterpreter;
+    approves: OrderInDollarsDto,
+    model: "test/interpreter",
+    instructions: "Read the reply.",
+  };
   const capped: ModelReading = {
     kind: "answered",
     answer: { approved: true, overrideArguments: { supplier: "Acme", amountUsd: 900 } },
@@ -130,7 +135,7 @@ describe("#688: the guard on a model interpreter's reading", () => {
           ),
       }),
     }) as never;
-  const interpreter = {
+  const interpreter: AssembledReplyInterpreter = {
     channel: "purchase-approval-channel",
     interpreter: OrderInDollarsDto,
     name: "purchase-reply-interpreter",
@@ -138,7 +143,7 @@ describe("#688: the guard on a model interpreter's reading", () => {
     approves: OrderInDollarsDto,
     model: "test/interpreter",
     instructions: "Read the reply.",
-  } as unknown as AssembledReplyInterpreter;
+  };
   const ask = { tool: "order-tool", arguments: { supplier: "Acme", amountUsd: 1200 } };
   const siteOf = (args: Readonly<Record<string, unknown>>) => ({
     gateway: { chatModel: () => answering(args) } as never,
