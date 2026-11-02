@@ -48,9 +48,15 @@ export const runnableCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
   );
 
 /** A question call's answer for its task (#712); nothing for any other call. */
-const answerOf = (state: AgentLoopStateType, callId: string): Pick<ToolTask, "answer"> => {
+const answerOf = (
+  state: AgentLoopStateType,
+  callId: string,
+): Pick<ToolTask, "answer" | "invalidAsk"> => {
   const answered = state.questionAnswers[callId];
-  return answered === undefined ? {} : { answer: answered.answer };
+  if (answered === undefined) return {};
+  return answered.problem === undefined
+    ? { answer: answered.answer }
+    : { invalidAsk: answered.problem };
 };
 
 /**

@@ -55,8 +55,12 @@ export interface CallDecision {
  */
 export interface QuestionCallAnswer {
   readonly tool: string;
-  readonly answer: unknown;
-  readonly by: string;
+  /** The role's answer; absent when the call was not asked. */
+  readonly answer?: unknown;
+  /** Who answered; absent when the call was not asked. */
+  readonly by?: string;
+  /** Why the call's arguments are no valid ask: nothing was asked, the model reads it as an error. */
+  readonly problem?: string;
 }
 
 /** How long the appended lists were when the flow handed the agent its work. */
@@ -158,6 +162,8 @@ export interface ToolTask {
   readonly progress?: LoopProgress;
   /** A question call's answer (#712): its result — the call asks, it runs nothing. */
   readonly answer?: unknown;
+  /** Why a question call's arguments are no valid ask (#712): its result is that error. */
+  readonly invalidAsk?: string;
 }
 
 /**

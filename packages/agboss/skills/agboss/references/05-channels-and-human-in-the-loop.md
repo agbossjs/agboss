@@ -450,7 +450,9 @@ names a question role is `[channel.wrong-tool]`.
 When the model should decide **whether** and **when** to ask, list the role in the agent's tools —
 `@Agent({ …, tools: [SpendingLimitQuestion, PlaceOrderTool] })`. Its model sees a tool named the
 role's name (`spending-limit-question`), described by the role's description, whose input is the
-role's `ask`; the call pauses on the role's channel at the loop's approval step, before the move's
+role's `ask` — validated strictly before anything is asked: arguments that are no valid ask (a
+field the ask does not declare too) pause nothing and send nothing, the model reads a tool error
+and may try again, and the call counts against the role's `maxVisits`; a valid call pauses on the role's channel at the loop's approval step, before the move's
 other tools run (several question calls of one move are asked one after the other), and the role's
 `answer` — a `decision`, a reply its interpreter read, or the channel's `decided(…)`, validated as
 the `answer` DTO — is the call's result the model reads next (through the tool-result path: PII

@@ -2,6 +2,7 @@ import { RagMode } from "../rag/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import type { RagConnector } from "../rag/types.js";
 import type { RouterEngine } from "../routers/index.js";
+import { z } from "zod";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
 import { accountedRouters } from "./accounted-router.js";
@@ -123,7 +124,8 @@ export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
   const tool = defineTool({
     name: role.name,
     description: role.description,
-    input: schemaOf(role.ask),
+    // strict: arguments with a field the ask does not declare are no valid ask (never passed on)
+    input: strictObjectOf(schemaOf(role.ask)),
     output: schemaOf(role.answer),
     channel: role.name,
     run: () => Promise.reject(new Error(UNASKED)),
@@ -132,6 +134,10 @@ export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
   const question = { ask, answer, ...(maxVisits === undefined ? {} : { maxVisits }) };
   return { ...tool, question };
 }
+
+/** An object schema that refuses the keys it does not declare. */
+const strictObjectOf = (schema: z.ZodType): z.ZodType =>
+  schema instanceof z.ZodObject ? schema.strict() : schema;
 
 /** Tools per run of the app: tools and MCP tools (created by the container), knowledge-base search tools. */
 export const toolBuilder =

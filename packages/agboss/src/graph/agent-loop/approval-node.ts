@@ -13,7 +13,7 @@ import {
   type CallDecision,
 } from "./state.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { DtoValidationError } from "../../dto/errors.js";
+import { DtoValidationError, pathOf } from "../../dto/errors.js";
 import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { VisitsLimitExceededError } from "../../flow/runtime/errors.js";
@@ -153,10 +153,31 @@ async function askQuestion(
   { call, tool, approval }: QuestionCall,
   config: RunnableConfig | undefined,
 ): Promise<AgentLoopUpdate> {
+  const ask = askOf(tool, call.args);
+  // arguments that are no valid ask ask nobody: the model reads why and may try again
+  if (ask.kind === "invalid")
+    return { questionAnswers: { [call.callId]: { tool: tool.name, problem: ask.problem } } };
   checkBeforeAsking(state, deps, tool);
   const reply = await askedOrFailed(state, deps, () =>
-    approval.requestAnswer(call.args, deps.agent.name, tool, config?.signal),
+    approval.requestAnswer(ask.value, deps.agent.name, tool, config?.signal),
   );
   const answered = { tool: tool.name, answer: reply.answer, by: reply.by };
   return { questionAnswers: { [call.callId]: answered }, usage: [...reply.usage] };
+}
+
+/** A question call's arguments read as the role's ask: valid, or why not. */
+type CheckedAsk =
+  | { readonly kind: "valid"; readonly value: Readonly<Record<string, unknown>> }
+  | { readonly kind: "invalid"; readonly problem: string };
+
+/**
+ * The model's arguments as the role's `ask` — the question tool's input is strict, so a field the
+ * ask does not declare is refused too, never passed on to whoever answers. The problem names paths
+ * and reasons, never a value.
+ */
+function askOf(tool: AnyTool, args: Readonly<Record<string, unknown>>): CheckedAsk {
+  const parsed = tool.input.safeParse(args);
+  if (parsed.success) return { kind: "valid", value: parsed.data as Record<string, unknown> };
+  const issues = parsed.error.issues.map((issue) => `${pathOf(issue.path)}: ${issue.message}`);
+  return { kind: "invalid", problem: `invalid input: ${issues.join("; ")}` };
 }
