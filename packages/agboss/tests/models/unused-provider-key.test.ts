@@ -6,22 +6,13 @@
  * any model call (#266 S73 c).
  */
 import { describe, expect, it } from "vitest";
-import {
-  Action,
-  Agent,
-  EmptyEnvironment,
-  Workflow,
-  WorkflowStart,
-  type ActionHandler,
-  type InputOf,
-  type OutputOf,
-} from "../../src/index.js";
+import { Action, Agent, EmptyEnvironment, Workflow, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { createApp } from "../../src/application/create-app.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
-import { start } from "../helpers/flow.js";
+import { execute, start } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { Reply } from "../testing/fixtures/desk.workflow.js";
 
@@ -39,8 +30,8 @@ class NoteWorkflowStart {}
   input: { note: NoteDto },
   output: WorkflowFinishTextDto,
 })
-class EchoNoteAction implements ActionHandler<EchoNoteAction> {
-  execute(input: InputOf<EchoNoteAction>): Promise<OutputOf<EchoNoteAction>> {
+class EchoNoteAction {
+  execute(input: { readonly note: { readonly value: NoteDto } }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: input.note.value.text });
   }
 }
@@ -99,7 +90,7 @@ describe("#716: a provider that serves no model of the application needs no key"
   it("an application whose workflows call no model starts and runs with no OpenRouter key", async () => {
     const app = await createApp(ModelFreeApplication, { processEnv: NO_KEYS });
 
-    const result = await app.execute(NoteWorkflowStart, { text: "hello" });
+    const result = await execute(app, NoteWorkflowStart, { text: "hello" });
     await app.close();
 
     expect(result.status).toBe(ExecutionStatus.Finished);
