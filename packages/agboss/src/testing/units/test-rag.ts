@@ -3,6 +3,7 @@ import { requireComponent } from "../../components/metadata.js";
 import type { RagSearchResultDto } from "../../dto/standard/framework.js";
 import { recordReportedCost } from "../../finops/usage.js";
 import type { RagConnector } from "../../rag/types.js";
+import { tenantRetrieve } from "../../components/rag.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
@@ -21,8 +22,8 @@ export interface RagRunner extends UnitClock {
 
 /**
  * A `@Rag` knowledge base on its own (#262 S89, S95): created by its own container (its `deps`,
- * `overrides`, the `environment`); each search calls `retrieve(query, { topK, signal })` in a
- * step's frame — the signal aborts after `timeout` on the runner's clock — and gives its results as
+ * `overrides`, the `environment`); each search calls `retrieve(query, { topK, signal, tenantId })` in a
+ * step's frame (#700: the unit's tenant, `tenant: { tenantId }`, else `"default"`) — the signal aborts after `timeout` on the runner's clock — and gives its results as
  * `output`, its reported `costUsd` as `spend` (`rag:<name>`, as an agent's search is billed).
  */
 export function testRag<
@@ -37,7 +38,9 @@ export function testRag<
     const connector = site.instanceOf(rag) as RagConnector;
     const frame = { component: rag, caller, ...callTimeoutOf(call.timeout) };
     return site.run(frame, async ({ signal, spent }) => {
-      const retrieval = await connector.retrieve(query, { topK: call.topK ?? meta.topK, signal });
+      // the unit's tenant, as an execution's search passes it (#700)
+      const retrieve = tenantRetrieve(meta, connector);
+      const retrieval = await retrieve(query, { topK: call.topK ?? meta.topK, signal });
       spent.push(
         recordReportedCost({ name: meta.name, costCaller: caller }, retrieval.costUsd ?? 0),
       );

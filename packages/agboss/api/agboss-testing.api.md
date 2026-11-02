@@ -1383,7 +1383,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-rag.ts:20:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/testing/units/test-tool-interceptor.ts:62:3 - (ae-undocumented) Missing documentation for "afterToolCall".

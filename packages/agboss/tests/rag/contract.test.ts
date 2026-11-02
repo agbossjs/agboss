@@ -6,6 +6,7 @@ import { workflowOf } from "../../src/testing/index.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import type { ToolInvocationContext } from "../../src/tools/index.js";
 import { bundleWith, Handbook, HandbookFromApi } from "./fixture.js";
+import { inTestFrame } from "../helpers/frame.js";
 
 const services: WorkflowServices = {
   router: (name) => ({ name, route: () => Promise.reject(new Error("unused")) }),
@@ -30,7 +31,8 @@ describe("knowledge bases — contract", () => {
       rag: [{ name: "handbook", mode: "tool", topK: 2 }],
     });
     expect(search?.costCaller).toBe("rag:handbook");
-    expect(await search?.invoke({ query: "on-call" }, ctx)).toEqual({
+    // #700: a search runs in an execution's frame (its tenant)
+    expect(await inTestFrame(async () => search?.invoke({ query: "on-call" }, ctx))).toEqual({
       kind: "ok",
       value: {
         results: [
@@ -61,7 +63,10 @@ describe("knowledge bases — contract", () => {
 
     expect(bundle.config.agents["helper-agent"]?.tools).toEqual([]);
     expect(source?.topK).toBe(2);
-    expect((await source?.retrieve("q", { topK: 1, signal: ctx.signal }))?.results).toHaveLength(1);
+    expect(
+      (await inTestFrame(async () => source?.retrieve("q", { topK: 1, signal: ctx.signal })))
+        ?.results,
+    ).toHaveLength(1);
     expect(bundle.knowledgeBases?.(services).map((kb) => kb.name)).toEqual(["handbook"]);
   });
 
@@ -71,7 +76,7 @@ describe("knowledge bases — contract", () => {
     const searchB = resolveTools(b, services).find((tool) => tool.name === "search-handbook-tool");
 
     expect(b.config.agents).toEqual(a.config.agents);
-    expect(await searchB?.invoke({ query: "on-call" }, ctx)).toEqual({
+    expect(await inTestFrame(async () => searchB?.invoke({ query: "on-call" }, ctx))).toEqual({
       kind: "ok",
       value: { results: [{ source: "api:handbook/42", text: "On-call: month 3." }] },
     });

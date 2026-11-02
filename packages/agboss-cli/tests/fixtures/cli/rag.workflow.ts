@@ -6,6 +6,7 @@ import {
   RagMode,
   type IndexReport,
   type RagConnector,
+  type RagIndexOptions,
   type RagRetrieval,
 } from "../../../../agboss/src/rag/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
@@ -18,8 +19,10 @@ export class NotesRag implements RagConnector {
     return Promise.resolve({ results: [] });
   }
 
-  index(): Promise<IndexReport> {
-    return Promise.resolve({ documents: 2, chunks: 3, skipped: 1, costUsd: 0.000_5 });
+  // #700: each tenant its own index — another tenant has more documents here
+  index({ tenantId }: RagIndexOptions): Promise<IndexReport> {
+    const documents = tenantId === "default" ? 2 : 7;
+    return Promise.resolve({ documents, chunks: 3, skipped: 1, costUsd: 0.000_5 });
   }
 }
 

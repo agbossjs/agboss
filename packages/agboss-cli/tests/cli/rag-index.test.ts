@@ -30,9 +30,35 @@ describe("#268 AC12: agboss rag index over the application", () => {
     expect(envelope(call)).toMatchObject({
       ok: true,
       result: {
+        tenantId: "default",
         indexed: [{ name: "notes-rag", documents: 2, chunks: 3, skipped: 1, costUsd: 0.0005 }],
       },
     });
+  });
+
+  it("#700: --tenant <id> indexes that tenant's knowledge bases only", async () => {
+    const call = await agboss(["rag", "index", "--application", NOTES, "--tenant", "acme"]);
+    const json = await agboss([
+      ...["rag", "index", "--application", NOTES, "--tenant", "acme", "--json"],
+    ]);
+
+    expect(call.stdout.split("\n")[0]).toBe(
+      "notes-rag: 7 documents, 3 chunks, 1 unchanged · $0.000500",
+    );
+    expect(envelope(json)).toMatchObject({
+      ok: true,
+      result: { tenantId: "acme", indexed: [{ name: "notes-rag", tenantId: "acme" }] },
+    });
+  });
+
+  it("#700: a --tenant that is no key's text: exit 2 naming the rule, never the id; nothing is indexed", async () => {
+    const tenant = "acme\u200Bcorp";
+    const call = await agboss(["rag", "index", "--application", NOTES, "--tenant", tenant]);
+
+    expect(call.code).toBe(2);
+    expect(call.stdout).toBe("");
+    expect(call.stderr).toContain("this one breaks format-character");
+    expect(call.stderr).not.toContain(tenant);
   });
 
   it("an unknown --rag: exit 2, a hint and the list; nothing is indexed", async () => {

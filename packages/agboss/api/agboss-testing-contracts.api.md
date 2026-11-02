@@ -153,6 +153,26 @@ export interface OutboundCallStores {
 // @public
 export function pausedExecutionContract(target: ContractTarget<PausedExecutionRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function ragConnectorContract<TConnector extends RagConnector>(target: RagConnectorContractTarget<TConnector>): void;
+
+// @public
+export interface RagConnectorContractTarget<TConnector extends RagConnector = RagConnector> {
+    readonly connector: () => TConnector | Promise<TConnector>;
+    readonly documents: (connector: TConnector, tenantId: string, documents: readonly RagContractDocument[]) => Promise<void>;
+    readonly name: string;
+    readonly reset?: () => Promise<void>;
+}
+
+// @public
+export interface RagContractDocument {
+    readonly source: string;
+    // (undocumented)
+    readonly text: string;
+}
+
 // @public
 export function rateLimitContract(target: ContractTarget<RateLimitRepository>): void;
 
@@ -194,6 +214,7 @@ export interface StoreSeam {
 
 // Warnings were encountered during analysis:
 //
+// src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
 // src/testing/contracts/store-conformance-check.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:41:3 - (ae-undocumented) Missing documentation for "problems".

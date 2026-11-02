@@ -1678,7 +1678,17 @@ export class ArchiveAgent {}
 ```
 
 - **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
-  `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. **MCP:** `@McpServer`
+  `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. Tenant-scoped (#700): the core passes the
+  execution's tenant on every `retrieve(query, { topK, signal, tenantId })` and `index({ tenantId,
+signal })` (read from the step's frame, checked as a key's text — `dto.invalid` naming the rule,
+  never the id; none → `context.unavailable`, never `"default"`); a connector returns and indexes
+  that tenant's passages only, compared as given. `SqliteFtsConnector` keys every chunk by tenant
+  (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
+  file migrates in place to the `default` tenant, a later version is `rag.index-version`), each
+  document replaced in one transaction; `agboss rag index --tenant <id>` (default `default`). A
+  connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
+  (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
+  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`). **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
   **A2A (#387, #398 PR 3) — declared contracts:** a call to another application is an
   `@A2AAgent({ name: "-a2a-agent", url, target: { application, start }, input, output, price?, deps })`
