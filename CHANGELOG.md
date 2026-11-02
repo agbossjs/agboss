@@ -253,8 +253,8 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 ### Fixed
 
 - **The explorer on a lease store alone** (#694) — a store set with a lease store and no
-  outbound-call store (the coordination stores of Redis, `without: ["fencedEffect",
-"outboundCall", …]`) registered no `interleavings (<name>)` case at all: its leases were never
+  outbound-call store (the coordination stores of Redis, `without` its fenced-effect and
+  outbound-call stores) registered no `interleavings (<name>)` case at all: its leases were never
   explored. The world "every lease operation" now runs on the lease store alone — every schedule of
   two instances, seeded walks of three, every skew, no `leaseStateOf` step — with the two lease
   races (`finish` and `release` against another instance's take).
