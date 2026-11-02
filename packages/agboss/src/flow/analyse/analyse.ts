@@ -39,6 +39,7 @@ import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
 import { judgeReplyRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
+import { worstCaseStepsWarnings } from "./bounded-steps.js";
 import { walkFlow } from "./walk.js";
 import { worstCasesOf, type WorstCase } from "./worst-case.js";
 
@@ -46,7 +47,8 @@ import { worstCasesOf, type WorstCase } from "./worst-case.js";
  * The static analyser of a v2 workflow (#272 PR 2, #270, #271): walks the flow's paths into a graph,
  * runs the data-flow engine (with outdating) to a fixed point, and checks every rule — all violations at once, before any
  * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`,
- * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`, `[judge.same-model-family]`) are errors
+ * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`, `[judge.same-model-family]`,
+ * `[limits.max-steps-below-worst-case]`) are errors
  * under `strict`.
  * Its result is what type generation (PR 3) and the runtime (PR 4) read.
  */
@@ -150,6 +152,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     ...concurrencyWarnings(context),
     ...compensationWarnings(context),
     ...judgeFamilyWarnings(context),
+    ...worstCaseStepsWarnings(context),
   ].map(named);
   const analysis: FlowAnalysis = {
     workflow: declaration.options.name,

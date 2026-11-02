@@ -208,7 +208,9 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     through the ledger only. A call that exhausts a budget runs none of the tools its move asks for.
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
     `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item
-    launch — set `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
+    launch — set `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`; a hand-set `maxSteps` below the
+    worst case of a flow whose every loop `maxVisits` bounds warns `[limits.max-steps-below-worst-case]`
+    (#643: the run would fail with `StepsLimitExceededError` before the loop's `.onError(VisitsLimitExceededError, …)` ends it; an error under `--strict`).
   - A provider's fallback (`circuitBreakerPolicy.fallback`) maps each used model to its own
     (`fallbackModels`, checked at startup: `model.fallback-unmapped` / `model.fallback-no-price`);
     a fallback call is sent and recorded as that model, at the fallback's prices.

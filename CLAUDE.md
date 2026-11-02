@@ -2368,8 +2368,12 @@ const readiness: HealthReport = await app.checkReadiness();
 - **Limits:** `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default:
   (agents + routers) × 3), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
   hand-set `maxSteps`, or the default cannot hold the worst case of a per-item launch — set
-  `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`; a node's
-  `maxVisits`. **Money is `@Budget` components** (#261), all in `@Application({ budgets })`
+  `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
+  `[limits.max-steps-below-worst-case]` (#643: a hand-set `maxSteps` below the worst case of a flow
+  whose every loop `maxVisits` bounds — each component of a loop counted at its nodes' `maxVisits`
+  and its other nodes between them —, which would end a run with `StepsLimitExceededError` before
+  the loop's `.onError(VisitsLimitExceededError, …)` does; not when a side path takes the steps
+  limit); a node's `maxVisits`. **Money is `@Budget` components** (#261), all in `@Application({ budgets })`
   (`config/budget.config.ts`): `@Budget({ name, scope, period?, workflow?, deps? })` +
   `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`) — `BudgetScope.Execution` (a
   workflow's own `workflow: X`, or the default), `Tenant` and `Application` per

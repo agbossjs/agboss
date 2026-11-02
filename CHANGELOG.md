@@ -14,6 +14,10 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **`[limits.max-steps-below-worst-case]`** (#643) — `agboss check` warns (an error under `--strict`)
+  when a hand-set `maxSteps` is below the worst case of a flow whose every loop `maxVisits` bounds:
+  the run would fail with `StepsLimitExceededError` before the loop's own
+  `.onError(VisitsLimitExceededError, …)` ends it. The message names the loop and the `maxSteps` that fits.
 - **The business-key identity and the outbound call's runtime are mutation-tested** (#626) — the
   `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
   100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
