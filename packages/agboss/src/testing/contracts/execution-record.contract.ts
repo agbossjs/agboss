@@ -6,6 +6,7 @@ import {
 import type { NewTern, TernOutcome } from "../../terns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
+import { PAUSE_ANSWER_CASES } from "./pause-answer-log.cases.js";
 import type { ContractTarget } from "./seam.js";
 
 /** An outcome with `status`. */
@@ -162,8 +163,9 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 /**
  * `ExecutionRecordRepository` (#265 AC7): threads and their owners, one record per execution,
  * recovery's paged look-up of `running` roots, and the compare-and-set write (S66 h): a status
- * write lands only while the record still has the expected status.
+ * write lands only while the record still has the expected status; the pause answer log, one
+ * answer per pause of a tree (#676).
  */
 export function executionRecordContract(target: ContractTarget<ExecutionRecordRepository>): void {
-  registerContract("execution record contract", target, [{ cases: RECORD_CASES }], pingOf);
+  registerContract("execution record contract", target, [{ cases: RECORD_CASES }, { cases: PAUSE_ANSWER_CASES }], pingOf);
 }

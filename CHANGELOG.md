@@ -244,6 +244,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **Another tree's approval was dropped from the history** (#676, after #663) — the pause answer
+  log kept one answer per tenant and step key, and a step key names no tree: a pause of another
+  tree under the same key (an id minted again that the kept ids miss) was asked again since #663,
+  but its answer never reached `record.pauses`. The log is now one answer per pause of a tree
+  (tenant, `rootExecutionId`, step key): the SQLite record store's migration 15 rebuilds
+  `pause_answers` with every row and rowid kept; `executionRecordContract` gains the case.
 - **The READMEs and the agboss skill stated the budget's overrun bound narrow** (#686, after
   #664): the root README, the package README and the skill's FinOps reference now state the same
   bound as CLAUDE.md — the calls in flight, plus the steps it never holds back, plus, across

@@ -102,6 +102,16 @@ const MIGRATIONS: readonly string[] = [
   `UPDATE terns SET task = json_quote(task), replyWith = json_quote(replyWith),
      stop_reason = json_quote(stop_reason);
    UPDATE summaries SET text = json_quote(text);`,
+  // 15 — one answer per pause of a tree (#676): a step key names no tree, and two trees whose ids
+  // repeat (#663) share one. Rebuilt (SQLite cannot change a key in place), every row and rowid kept
+  `CREATE TABLE pause_answers_v15 (tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
+     step_key TEXT NOT NULL, asked_at TEXT NOT NULL, record TEXT NOT NULL,
+     PRIMARY KEY (tenant_id, root_execution_id, step_key));
+   INSERT INTO pause_answers_v15 (rowid, tenant_id, root_execution_id, step_key, asked_at, record)
+     SELECT rowid, tenant_id, root_execution_id, step_key, asked_at, record FROM pause_answers;
+   DROP TABLE pause_answers;
+   ALTER TABLE pause_answers_v15 RENAME TO pause_answers;
+   CREATE INDEX pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);`,
 ];
 
 const TernRow = z.object({
