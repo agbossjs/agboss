@@ -93,10 +93,10 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
   store is **not conformant for fencing**: it gives no double-charge protection and must never back
   payments. `storeConformance` proves only what it does not give up
   ([An opted-out store and `storeConformance`](#an-opted-out-store-and-storeconformance-543)).
-- **Not bound:** rate limits, the child queue and the lease log. The planned Redis store keeps
-  **coordination** stores: leases, rate limits, the queue. An application on Redis leases can then
-  list a fenced-effect or outbound-call store only on Redis too (or one that opts out). One on
-  PostgreSQL beside Redis leases is refused.
+- **Not bound:** rate limits, the child queue and the lease log. `@agboss/redis` keeps
+  **coordination** stores: leases, rate limits, the queue ([Running-on-Redis](Running-on-Redis)). An
+  application on Redis leases lists no fenced-effect or outbound-call store (none is on Redis); one
+  on PostgreSQL beside Redis leases is refused.
 - **An unlisted default fencing store** (the in-memory one beside listed SQLite leases) is not an
   assembly error, so an application that never uses fenced effects need not list one. Its first
   call fails with `FencedEffectStoreMismatchError`.
@@ -427,8 +427,10 @@ store has answered the one before, so the order it chose is the order the store 
 for any store, a networked one included, with no free race.
 
 - **The worlds**: every lease operation with `leaseStateOf`; the step's fenced effect; an outbound
-  call handed over on one tree; and an outbound call under one business key from two trees. Each
-  world runs twice:
+  call handed over on one tree; and an outbound call under one business key from two trees. A set
+  with a lease store and no outbound-call store (coordination stores, `without: ["fencedEffect",
+  "outboundCall", …]`) gets the lease world on its lease store alone, with no `leaseStateOf` step,
+  and the two lease races (#694); before #694 it got no case at all. Each world runs twice:
   - **every schedule** of two instances, up to `interleavings.depth` steps (default 8; each state
     explored once, at the fewest steps that reach it);
   - **seeded walks** of three instances, `interleavings.walks` walks (default 200) of

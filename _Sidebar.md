@@ -17,6 +17,7 @@
 - [App — @Application and createApp](App)
 - [Several instances](Several-instances)
 - [Running on PostgreSQL](Running-on-PostgreSQL)
+- [Running on Redis](Running-on-Redis)
 - [Your own store](Your-own-store)
 - [Guarantees](Guarantees)
 - [Guarantees across processes](Guarantees-across-processes)
