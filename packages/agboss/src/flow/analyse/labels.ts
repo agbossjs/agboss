@@ -45,6 +45,7 @@ const TO_CALLS: Readonly<Record<NodeKind, string>> = {
   [NodeKind.Action]: "toAction",
   [NodeKind.Finish]: "toFinish",
   [NodeKind.Workflow]: "toWorkflow",
+  [NodeKind.Question]: "toQuestion",
   [NodeKind.Start]: "start",
 };
 

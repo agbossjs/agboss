@@ -19,6 +19,8 @@ export enum ComponentKind {
   Router = "router",
   /** A child workflow's node (#263), or the workflow itself. */
   Workflow = "workflow",
+  /** A question role's step (#659): `@ChannelRole({ ask, answer })`. */
+  Question = "question",
   /** `@Arbiter` (#279). */
   Arbiter = "arbiter",
   /** `@InputGuardrail` / `@OutputGuardrail` (#120). */

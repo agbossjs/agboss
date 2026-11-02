@@ -106,6 +106,7 @@ interface KindLabels {
   [NodeKind.Action]: "an action";
   [NodeKind.Router]: "a router";
   [NodeKind.Workflow]: "a workflow";
+  [NodeKind.Question]: "a question role";
 }
 
 export type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
@@ -233,6 +234,14 @@ export interface Transitions<THead extends PathHead> {
   toFinish<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
   ): BuiltPath<THead>;
+  /**
+   * A question role's step (#659): it reads the role's `ask` from the path, pauses on the role's
+   * channel and gives its `answer` — `.returns(AnswerDto)`; `.onError(…)` right after takes a
+   * failed `send`.
+   */
+  toQuestion<const TClass extends Class>(
+    target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+  ): AfterStep<InstanceType<TClass>, THead>;
   /**
    * One child execution of `W` (#263): it enters through the start whose input takes the chain's
    * value, gives one of its finishes' outputs — `.returns(XDto)`, or `.returns(oneOf(…))` and a

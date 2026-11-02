@@ -1,7 +1,7 @@
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
-import { channelRoleOf } from "./channel-role.decorator.js";
+import { channelRoleOf, isQuestionRole } from "./channel-role.decorator.js";
 import { replyInterpreterViolations } from "./discovery.js";
 import {
   channelNameOf,
@@ -31,18 +31,24 @@ export function implementationsOf(role: Class, modules: readonly ProviderModule[
   );
 }
 
-/** A tool approved through a role must take the role's `approves` DTO. */
+/**
+ * A tool approved through a role must take the role's `approves` DTO; a question role (#659) approves
+ * none — it is asked by a flow step, `.toQuestion(Role)`.
+ */
 function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return uses.flatMap((use) => {
     const found = channelRoleOf(use.channel);
-    if (found === undefined) return [];
-    const { approves, name } = found.options;
-    if (approves === use.toolInput) return [];
+    if (found === undefined || use.isQuestion === true) return [];
+    const { options } = found;
+    if (!isQuestionRole(options) && options.approves === use.toolInput) return [];
+    const why = isQuestionRole(options)
+      ? `${options.name} asks a question (ask / answer), it approves no tool — ask it with .toQuestion(${nameOf(found.role)})`
+      : `${options.name} approves ${nameOf(options.approves)}`;
     return [
       violation(
         "channel.wrong-tool",
-        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names channel ${nameOf(use.channel)}, but ${name} approves ${nameOf(approves)} — name a role whose approves is ${nameOf(use.toolInput)}`,
-        [use.tool, name],
+        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names channel ${nameOf(use.channel)}, but ${why} — name a role whose approves is ${nameOf(use.toolInput)}`,
+        [use.tool, options.name],
       ),
     ];
   });

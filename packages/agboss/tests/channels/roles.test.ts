@@ -1,12 +1,18 @@
 /**
- * #267 PR 1 (AC4, AC6): a channel role's form and the tools it may approve. #647: a question role
- * (`ask` / `answer`) cannot be declared — nothing could ask it (#659).
+ * #267 PR 1 (AC4, AC6): a channel role's form and the tools it may approve. #659 (AC1): a question
+ * role (`ask` / `answer`) is declared again — a flow step asks it; a tool that names it is wrong.
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { createApp } from "../../src/application/create-app.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
-import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
+import {
+  ChannelRole,
+  channelRoleOptionsOf,
+  PauseAnswerer,
+} from "../../src/channels/channel-role.decorator.js";
+import { NodeKind } from "../../src/flow/ast.js";
+import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { Tool, type ToolHandler } from "../../src/components/decorators.js";
 import { ComponentError } from "../../src/components/metadata.js";
 import { Text } from "../../src/dto/index.js";
@@ -126,41 +132,51 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
       expect(SomeChannel).toBeDefined();
     };
 
-  it("#647 AC2: a question role (ask / answer) cannot be declared: nothing could ask it", () => {
+  it("#659 AC1: a question role (ask / answer) is declared, and is its step's node", () => {
     const question = {
-      name: "clarification-channel",
+      name: "clarification-question",
       description: "Asks the customer to clarify",
       ask: ClarificationQuestionDto,
       answer: ClarificationAnswerDto,
       answeredBy: PauseAnswerer.ThreadOwner,
+      maxVisits: 2,
     };
+    @ChannelRole(question)
+    abstract class ClarificationQuestion extends ChannelOf<ClarificationQuestion> {}
 
-    expect(declare(question)).toThrow(
-      new ComponentError(
-        '[channel.question-role-unavailable] @ChannelRole "clarification-channel" (SomeChannel) declares ask / answer, a question role — nothing can ask one yet (#659): approve the tool call through a role with approves, its answer\'s overrideArguments for a changed call',
-      ),
-    );
+    expect(channelRoleOptionsOf(ClarificationQuestion)).toEqual(question);
+    expect(declarationOf(ClarificationQuestion)).toMatchObject({
+      kind: NodeKind.Question,
+      options: {
+        name: "clarification-question",
+        input: { question: ClarificationQuestionDto },
+        output: ClarificationAnswerDto,
+        maxVisits: 2,
+      },
+    });
   });
 
-  it("#647 AC2: ask beside approves, or an ask alone, is the same question role", () => {
-    const both = {
-      ...{ name: "both-channel", description: "d" },
-      answeredBy: PauseAnswerer.Channel,
-    };
+  it("#659 AC1: both forms, or half a question, fail: [channel.role-form]", () => {
+    const role = { name: "both-question", description: "d", answeredBy: PauseAnswerer.Channel };
 
     expect(
-      declare({ ...both, approves: RefundCardInputDto, ask: ClarificationQuestionDto }),
-    ).toThrow("[channel.question-role-unavailable]");
-    expect(declare({ ...both, answer: ClarificationAnswerDto })).toThrow(
-      "[channel.question-role-unavailable]",
+      declare({ ...role, approves: RefundCardInputDto, ask: ClarificationQuestionDto }),
+    ).toThrow(
+      new ComponentError(
+        '[channel.role-form] @ChannelRole "both-question" (SomeChannel) declares both approves and ask / answer — keep one form',
+      ),
     );
+    expect(declare({ ...role, answer: ClarificationAnswerDto })).toThrow(
+      "declares neither approves nor both ask and answer",
+    );
+    expect(declare({ ...role, ask: ClarificationQuestionDto })).toThrow("[channel.role-form]");
   });
 
-  it("a role without approves fails: the tools' input DTO", () => {
+  it("a role without approves or ask / answer fails", () => {
     const empty = { name: "empty-channel", description: "d", answeredBy: PauseAnswerer.Channel };
 
     expect(declare(empty)).toThrow("[channel.role-form]");
-    expect(declare(empty)).toThrow("declares no approves");
+    expect(declare(empty)).toThrow("declares neither approves nor both ask and answer");
   });
 
   it("answeredBy is required: a role without it fails, never defaults to the thread's owner", () => {

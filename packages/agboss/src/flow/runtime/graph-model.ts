@@ -136,7 +136,9 @@ export const codeClassesOf = (
 ];
 
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
-  declaration.kind === NodeKind.Agent || declaration.kind === NodeKind.Router
+  declaration.kind === NodeKind.Agent ||
+  declaration.kind === NodeKind.Router ||
+  declaration.kind === NodeKind.Question
     ? declaration.options.maxVisits
     : undefined;
 

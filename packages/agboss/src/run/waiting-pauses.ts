@@ -5,7 +5,8 @@ import {
   type PausedExecutionRepository,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-import type { WaitingPause } from "../pause/index.js";
+import { PauseKind, type WaitingPause } from "../pause/index.js";
+import { isApprovalPause, type QuestionAsk } from "../infrastructure/pause-record.js";
 import { runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
@@ -65,16 +66,20 @@ export async function waitingInterruptsOf(
   return [...found.values()];
 }
 
-/** A pause record as the execution's result lists it. */
-const waitingPauseOf = (pause: PauseRecord): WaitingPause => ({
-  pauseId: pause.pauseId,
-  answeredBy: pause.answeredBy,
-  agent: pause.agent,
-  channel: pause.channel,
-  childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
-  itemIndex: pause.itemIndex,
-  ask: pause.ask,
-});
+/** A pause record as the execution's result lists it: an approval's, or a question's (#659). */
+function waitingPauseOf(pause: PauseRecord): WaitingPause {
+  const site = {
+    pauseId: pause.pauseId,
+    answeredBy: pause.answeredBy,
+    agent: pause.agent,
+    channel: pause.channel,
+    childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
+    itemIndex: pause.itemIndex,
+  };
+  return isApprovalPause(pause)
+    ? { ...site, kind: PauseKind.Approval, ask: pause.ask }
+    : { ...site, kind: PauseKind.Question, ask: pause.ask as QuestionAsk };
+}
 
 /** What the execution's tree waits for: the pending pauses its interrupts carry, in their order. */
 export async function waitingPausesOf(

@@ -41,6 +41,7 @@ export {
 } from "./flow/runtime/router-error.js";
 export {
   ActionFailedError,
+  QuestionFailedError,
   AgentAnswerInvalidError,
   GuardrailBlockedError,
   OutputInvalidError,

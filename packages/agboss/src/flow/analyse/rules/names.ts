@@ -26,6 +26,7 @@ const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
   [NodeKind.Action]: NameKind.Action,
   [NodeKind.Router]: NameKind.Router,
   [NodeKind.Workflow]: NameKind.Workflow,
+  [NodeKind.Question]: NameKind.Question,
 };
 
 /** The DTO classes inside a shape. */
@@ -56,7 +57,8 @@ function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
     }
     case NodeKind.Agent:
     case NodeKind.Action:
-    case NodeKind.Finish: {
+    case NodeKind.Finish:
+    case NodeKind.Question: {
       const { input, output } = declaration.options;
       return [...dtosOfFields(input), ...(output === undefined ? [] : dtosOf(output))];
     }

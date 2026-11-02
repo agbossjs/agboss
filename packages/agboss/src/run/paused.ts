@@ -25,10 +25,18 @@ export async function isWaiting(graph: ExecutionGraph, runId: string): Promise<b
   return (await graph.getState(runConfig(runId))).next.length > 0;
 }
 
-/** The agent loop a run waits in: its state so far. */
+/**
+ * A step a run waits in: an agent loop's own spend so far (what it added to the usage it was
+ * handed), or none for a step that waits at its own interrupt — a question role's (#659).
+ */
 export interface PausedLoop {
-  readonly state: AgentLoopStateType;
+  readonly usage: readonly UsageRecord[];
 }
+
+/** An agent loop's checkpoint as the step it waits in. */
+const loopOf = (state: AgentLoopStateType): PausedLoop => ({
+  usage: state.usage.slice(state.from.usage),
+});
 
 /** A checkpoint's state as LangGraph reads it, with its tasks (a child's own, #263). */
 type Snapshot = Awaited<ReturnType<ExecutionGraph["getState"]>>;
@@ -92,10 +100,10 @@ async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readon
       // `ThisWorkflow` (#264): the workflow's own graph, run from the registry — read it the same way
       if (isChildState(tuple?.checkpoint.channel_values))
         return loopsIn(await search.graph.getState(config, { subgraphs: true }), search);
+      // no checkpoint under the task: the flow's node waits at its own interrupt (a question, #659)
+      if (tuple === undefined) return [{ usage: [] }];
       // LangGraph boundary: checkpoint values are untyped; they are the agent loop's own state
-      return tuple === undefined
-        ? []
-        : [{ state: tuple.checkpoint.channel_values as AgentLoopStateType }];
+      return [loopOf(tuple.checkpoint.channel_values as AgentLoopStateType)];
     }),
   );
   return [...loops.flat(), ...inChildren.flat()];
@@ -127,7 +135,4 @@ export async function pausedLoopsOf(
 export const pausedUsageOf = (
   flowUsage: readonly UsageRecord[],
   loops: readonly PausedLoop[],
-): readonly UsageRecord[] => [
-  ...flowUsage,
-  ...loops.flatMap((loop) => loop.state.usage.slice(loop.state.from.usage)),
-];
+): readonly UsageRecord[] => [...flowUsage, ...loops.flatMap((loop) => loop.usage)];

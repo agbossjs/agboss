@@ -6,14 +6,16 @@ import { isCycle, stronglyConnected } from "../strongly-connected.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
- * `[graph.cycle-without-max-visits]` (#272 AC11, AC14): every cycle passes a router or an agent with
- * `maxVisits` — the only rule on cycles; a cycle may be entered at any of its nodes. Removing the
+ * `[graph.cycle-without-max-visits]` (#272 AC11, AC14): every cycle passes a router, an agent or a
+ * question role's step (#659) with `maxVisits` — the only rule on cycles; a cycle may be entered at any of its nodes. Removing the
  * bounded nodes must leave no cycle: each strongly connected component left is a cycle no limit
  * stops.
  */
 
 const isBounded = (node: FlowNode): boolean =>
-  (node.declaration.kind === NodeKind.Agent || node.declaration.kind === NodeKind.Router) &&
+  (node.declaration.kind === NodeKind.Agent ||
+    node.declaration.kind === NodeKind.Router ||
+    node.declaration.kind === NodeKind.Question) &&
   node.declaration.options.maxVisits !== undefined;
 
 export function cycleRules(context: AnalysisContext): readonly RuleViolation[] {

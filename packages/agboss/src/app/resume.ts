@@ -1,6 +1,6 @@
 import { AGBossError } from "../core/errors.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
-import { validDecisionOf } from "../channels/decision.js";
+import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
@@ -99,6 +99,11 @@ export interface AnswerParts {
   readonly owned: (access: ThreadAccess) => Promise<void>;
   /** The tool a pause approves (its input checks `overrideArguments`). */
   readonly tools: (name: string) => AnyTool;
+  /**
+   * The answer DTO of a question role's step (#659), by the workflow it waits in and its node: what
+   * a question's decision is validated as; `undefined` when the tree has none.
+   */
+  readonly questions?: AnswerChecks["questions"];
   readonly current: ResumeVersions;
   readonly policy: IncompatibleResumePolicy | undefined;
   /** Reads a free-text reply through the pause's role's interpreter (#267 PR 3). */
@@ -192,8 +197,7 @@ async function decisionOf(
   pause: PauseRecord,
   given: GivenAnswer,
 ): Promise<{ readonly read: ReadReply; readonly run: AgentExecutionOutput | undefined }> {
-  const tool = parts.tools(pause.ask.tool);
-  const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
+  const validate = answerValidatorOf(pause, parts);
   if (given.kind === "decision") {
     const decision = validate(given.decision);
     return { read: { decision, usage: [] }, run: await restingRunOf(parts, pause) };

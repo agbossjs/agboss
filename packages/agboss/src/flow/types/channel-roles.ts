@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
-import { channelRoleOf } from "../../channels/channel-role.decorator.js";
+import { channelRoleOf, isQuestionRole } from "../../channels/channel-role.decorator.js";
 import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
 import { channelUsesOf, type ChannelUse } from "../../channels/discovery.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -62,7 +62,9 @@ function roleTypesOf(use: ChannelUse, names: ImportTable): RoleTypes | undefined
   const { options, role } = found;
   names.ref(role);
   const interpreter = options.replyInterpreter;
-  const types = approvalTypes([options.approves], names);
+  const types = isQuestionRole(options)
+    ? { ask: names.dto(options.ask), answer: names.dto(options.answer) }
+    : approvalTypes([options.approves], names);
   return { name: options.name, types, interpreter };
 }
 

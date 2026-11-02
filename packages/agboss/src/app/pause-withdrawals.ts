@@ -8,7 +8,8 @@ import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { systemClock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import type { PauseRecord } from "../infrastructure/pause-record.js";
+import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-record.js";
+import { DEFAULT_TOOL_TIMEOUT } from "../tools/index.js";
 import type { PauseWithdrawn, WithdrawnPause } from "../pause/index.js";
 import type { Milliseconds } from "../units/index.js";
 import type { AppDeps } from "./app-deps.js";
@@ -26,7 +27,7 @@ export interface WithdrawalParts {
   /** The pause's channel, by its workflow and name; `undefined` when the app has none of that name. */
   readonly channelOf: (pause: PauseRecord) => PauseChannel | undefined;
   readonly frameOf: (withdrawn: WithdrawnPause) => Promise<FrameSpec>;
-  /** The waiting tool's `timeout`. */
+  /** The waiting tool's `timeout`; a question's (#659): the default tool timeout. */
   readonly timeoutOf: (pause: PauseRecord) => Milliseconds;
   readonly clock: Clock;
   readonly log: FrameworkLog;
@@ -72,7 +73,10 @@ export const pauseWithdrawalsFor = (deps: AppDeps): PauseWithdrawn =>
   pauseWithdrawalsOf({
     channelOf: (pause) => ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel),
     frameOf: (withdrawn) => frameIn(deps, withdrawn),
-    timeoutOf: (pause) => ownDepsOf(deps, pause.workflow).tools(pause.ask.tool).timeout,
+    timeoutOf: (pause) =>
+      isApprovalPause(pause)
+        ? ownDepsOf(deps, pause.workflow).tools(pause.ask.tool).timeout
+        : DEFAULT_TOOL_TIMEOUT,
     clock: deps.clock ?? systemClock,
     log: deps.log,
   });

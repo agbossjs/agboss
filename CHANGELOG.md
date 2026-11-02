@@ -14,6 +14,20 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
+  `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
+  `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
+  flow step asks it: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (`question(Role)` for
+  its own path). The step pauses like any pause — `result.pending` (`kind: PauseKind.Question`,
+  the masked ask), `answeredBy`, the pause records and their retention, `result.record.pauses` —
+  and the answer goes on the path: `app.resume({ pauseId, decision })` validated as `AnswerDto`,
+  `{ reply }` read by the role's `@ReplyInterpreter` into it (not understood → the pause stays
+  pending), or the channel's `ChannelOutcome.decided(answer)` at once. Exactly one answer wins,
+  another instance continues it, a cancel withdraws it. `ChannelRoles` types `ask` / `answer`,
+  `agboss describe` prints where each question is asked. A failed `send` is `QuestionFailedError`
+  (`step.question`). `PendingPause` is now a union on `kind` (`PendingApproval` |
+  `PendingQuestion`); a pause record's `ask` is a `PauseAsk`. An agent asking one as a tool is
+  #712.
 - **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
   fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
   context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default
@@ -153,7 +167,7 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `[channel.question-role-unavailable]` for a JS caller, and the docs and skills describe the
   approval form only; `[reply-interpreter.decision-model]` is gone with it (every role is an
   approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
-  Workflow questions are #659.
+  Re-added in the same release with a flow step that asks it (#659, Added above).
 
 ### Changed — breaking for stores outside the core
 

@@ -36,7 +36,7 @@ import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js"
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
-import { treeToolsOf } from "./child-deps.js";
+import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
@@ -107,7 +107,8 @@ export async function buildApp(
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
   // a pause inside a child (#263) is validated against the child's tool
-  const answers = { pauses, paused, owned, tools: treeToolsOf(deps), current, policy };
+  const questions = treeQuestionAnswersOf(deps);
+  const answers = { pauses, paused, owned, tools: treeToolsOf(deps), questions, current, policy };
   const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;

@@ -75,8 +75,8 @@ export {
   type PauseCancellation,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-export type { PauseSite } from "../infrastructure/pause-record.js";
-export type { PendingPause } from "../pause/index.js";
+export type { PauseAsk, PauseSite, QuestionAsk } from "../infrastructure/pause-record.js";
+export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";
 export {
   ExecutionLeaseRepository,
   LeaseCheck,

@@ -5,6 +5,7 @@ import type { GraphDeps } from "../graph/deps.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AnyTool } from "../tools/index.js";
+import type { DtoClass } from "../dto/types.js";
 import { UnknownToolError } from "./parts.js";
 
 /**
@@ -70,4 +71,31 @@ export function treeToolsOf(deps: GraphDeps<string>): (name: string) => AnyTool 
     return undefined;
   };
   return (name) => find(deps, name, new Set()) ?? deps.tools(name);
+}
+
+/**
+ * The answer DTO of a question role's step in the workflow's tree (#659), by the workflow it waits
+ * in and its node: what a resume validates a question's decision against; `undefined` when the tree
+ * has no such question.
+ */
+export function treeQuestionAnswersOf(
+  deps: GraphDeps<string>,
+): (workflow: string, node: string) => DtoClass | undefined {
+  const find = (
+    of: GraphDeps<string>,
+    at: { readonly workflow: string; readonly node: string },
+    seen: Set<Class>,
+  ): DtoClass | undefined => {
+    if (seen.has(of.graph.type)) return undefined;
+    seen.add(of.graph.type);
+    const own = of.config.name === at.workflow ? of.graph.nodes.get(at.node) : undefined;
+    if (own?.declaration.kind === NodeKind.Question) return own.declaration.options.output;
+    for (const node of of.graph.nodes.values()) {
+      const child = node.kind === NodeKind.Workflow ? of.childDepsOf?.(node.component) : undefined;
+      const found = child === undefined ? undefined : find(child, at, seen);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  return (workflow, node) => find(deps, { workflow, node }, new Set());
 }

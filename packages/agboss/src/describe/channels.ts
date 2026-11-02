@@ -5,6 +5,7 @@ import { componentOf } from "../components/metadata.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import {
   channelRoleOf,
+  isQuestionRole,
   PauseAnswerer,
   replyInterpreterOf,
   type ChannelRoleOptions,
@@ -48,6 +49,8 @@ export interface DescribedChannel {
   readonly reason?: ChannelImplementationReason;
   /** The tools that name it: `pay-out-tool (treasury-workflow)`. */
   readonly tools: readonly string[];
+  /** The question steps that ask it (#659): `spending-limit-question (purchase-workflow)`. */
+  readonly askedBy?: readonly string[];
 }
 
 const toolLabel = (use: ChannelUse): string => `${use.tool} (${use.workflow})`;
@@ -70,14 +73,17 @@ function roleChannel(
     name: options.name,
     className: role.name,
     isRole: true,
-    question: dtoLabel(options.approves),
-    answer: dtoLabel(ToolCallApprovalDecisionDto),
+    question: dtoLabel(isQuestionRole(options) ? options.ask : options.approves),
+    answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
     answeredBy: options.answeredBy,
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined
       ? {}
       : { implementation: implementation.name, reason: ChannelImplementationReason.Listed }),
-    tools: uses.map(toolLabel),
+    tools: uses.filter((use) => use.isQuestion !== true).map(toolLabel),
+    ...(isQuestionRole(options)
+      ? { askedBy: uses.filter((use) => use.isQuestion === true).map(toolLabel) }
+      : {}),
   };
 }
 
@@ -128,14 +134,22 @@ function channelLine(channel: DescribedChannel): string {
       : `${channel.implementation} (${REASONS[channel.reason]})`;
   const interpreter =
     channel.replyInterpreter === undefined
-      ? ""
+      ? channel.askedBy === undefined
+        ? ""
+        : " · no reply interpreter (answered with a decision only)"
       : ` · reply interpreter ${channel.replyInterpreter}`;
   return (
     `  ${channel.name} (${channel.className}): ${channel.question} → ${channel.answer}` +
     ` · answered by ${ANSWERED_BY[channel.answeredBy]}${interpreter} · ${implementation}` +
-    ` · tools ${channel.tools.join(", ")}`
+    usedByOf(channel)
   );
 }
+
+/** Who uses a channel: the tools that name it, or the question steps that ask it (#659). */
+const usedByOf = (channel: DescribedChannel): string =>
+  channel.askedBy === undefined
+    ? ` · tools ${channel.tools.join(", ")}`
+    : ` · asked at ${channel.askedBy.join(", ")}${channel.tools.length === 0 ? "" : ` · tools ${channel.tools.join(", ")}`}`;
 
 /** `channels` — one line per channel; `channels none` when no tool names one. */
 export function channelLines(assembled: AssembledApplication): string[] {

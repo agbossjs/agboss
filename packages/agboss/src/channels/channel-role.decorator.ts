@@ -5,6 +5,8 @@ import { AGBossError } from "../core/errors.js";
 import type { DtoClass } from "../dto/types.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
+import { NodeKind } from "../flow/ast.js";
+import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
 
 /**
  * `@ChannelRole` (#267): a project's abstract channel class — what a pause asks and who may answer
@@ -31,60 +33,97 @@ export interface ChannelRoleBaseOptions {
   readonly replyInterpreter?: Class;
 }
 
-/**
- * A tool approval: the question is the tool call, its `arguments` typed by `approves`. A question
- * role (`ask` / `answer`) cannot be declared (#647): nothing could ask it — #659.
- */
+/** A tool approval: the question is the tool call, its `arguments` typed by `approves`. */
 export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
   /** The input DTO of the tools the role approves (`[channel.wrong-tool]` for any other tool). */
   readonly approves: DtoClass;
   readonly ask?: never;
   readonly answer?: never;
+  readonly maxVisits?: never;
 }
 
-/** A role's options: the approval form, the only one there is (#647). */
-export type ChannelRoleOptions = ChannelApprovalRoleOptions;
+/**
+ * A workflow question (#659): asked by a flow step, `.toQuestion(Role)` — the role is that step's
+ * node (its `name` ends with `-question`). The step reads one `ask` value from the path, pauses on
+ * the role's channel and puts the `answer` on the path (`.returns(AnswerDto)`).
+ */
+export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
+  /** What is asked: the step reads one value of this class from the path (its field `question`). */
+  readonly ask: DtoClass;
+  /** What answers it: a `decision`, a channel's `decided(…)`, or a reply's interpreted answer. */
+  readonly answer: DtoClass;
+  /** How many times the step may be visited in one execution (required on a cycle). */
+  readonly maxVisits?: number;
+  readonly approves?: never;
+}
+
+/** The two forms of a role, never both. */
+export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+
+/** Whether a role asks a workflow question (`ask` / `answer`, #659) rather than approving a tool. */
+export const isQuestionRole = (
+  options: ChannelRoleOptions,
+): options is ChannelQuestionRoleOptions => options.approves === undefined;
 
 const roles = new WeakMap<Class, ChannelRoleOptions>();
 
 const PAUSE_ANSWERERS: ReadonlySet<string> = new Set(Object.values(PauseAnswerer));
 
-/** Why a role's options cannot be declared, with its rule code; none → `undefined`. */
-interface FormProblem {
-  readonly code: "channel.role-form" | "channel.question-role-unavailable";
-  readonly problem: string;
-}
-
-/** The form problem of a role's options (a question role, no `approves`, no `answeredBy`). */
-function formProblem(options: ChannelRoleOptions): FormProblem | undefined {
+/** The form problem of a role's options (both forms, neither, no `answeredBy`); none → `undefined`. */
+function formProblem(options: ChannelRoleOptions): string | undefined {
   // read as an untyped (JS) caller may pass them: the types rule these forms out already
   const fields: Partial<Record<"approves" | "ask" | "answer" | "answeredBy", unknown>> = options;
-  if (fields.ask !== undefined || fields.answer !== undefined) {
-    const problem =
-      "declares ask / answer, a question role — nothing can ask one yet (#659): approve the tool call through a role with approves, its answer's overrideArguments for a changed call";
-    return { code: "channel.question-role-unavailable", problem };
-  }
-  if (fields.approves === undefined)
-    return { code: "channel.role-form", problem: "declares no approves — the tools' input DTO" };
-  if (typeof fields.answeredBy !== "string" || !PAUSE_ANSWERERS.has(fields.answeredBy)) {
-    const problem =
-      "has no answeredBy — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
-    return { code: "channel.role-form", problem };
-  }
+  const isApproval = fields.approves !== undefined;
+  const isQuestion = fields.ask !== undefined || fields.answer !== undefined;
+  if (isApproval && isQuestion) return "declares both approves and ask / answer — keep one form";
+  if (!isApproval && (fields.ask === undefined || fields.answer === undefined))
+    return "declares neither approves nor both ask and answer";
+  if (typeof fields.answeredBy !== "string" || !PAUSE_ANSWERERS.has(fields.answeredBy))
+    return "has no answeredBy — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
   return undefined;
 }
 
+/**
+ * What a question role's step is as a flow node (#659): its role's name and description, one
+ * input field `question` of the `ask` class, the `answer` as its output, its `maxVisits`.
+ */
+export interface QuestionNodeOptions {
+  readonly name: string;
+  readonly description: string;
+  readonly input: { readonly question: DtoClass };
+  readonly output: DtoClass;
+  readonly maxVisits?: number;
+  /** The role's own options. */
+  readonly role: ChannelQuestionRoleOptions;
+}
+
 export function ChannelRole(options: ChannelRoleOptions) {
+  const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    const found = formProblem(options);
-    if (found !== undefined) {
+    const problem = formProblem(options);
+    if (problem !== undefined) {
       throw new ComponentError(
-        `[${found.code}] @ChannelRole "${options.name}" (${value.name}) ${found.problem}`,
+        `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${problem}`,
       );
     }
     roles.set(value, options);
+    if (isQuestionRole(options)) recordDeclaration(value, questionDeclarationOf(options, source));
     return value;
   };
+}
+
+/** The node a question role's step is (#659). */
+function questionDeclarationOf(options: ChannelQuestionRoleOptions, source: string | undefined) {
+  const { name, description, ask, answer, maxVisits } = options;
+  const node: QuestionNodeOptions = {
+    name,
+    description,
+    input: { question: ask },
+    output: answer,
+    ...(maxVisits === undefined ? {} : { maxVisits }),
+    role: options,
+  };
+  return declared(NodeKind.Question, node, source);
 }
 
 /** The options `@ChannelRole` recorded on this very class; `undefined` for any other class. */
@@ -111,7 +150,7 @@ export function channelRoleOf(cls: Class): FoundChannelRole | undefined {
  * answer — named on the role (`@ChannelRole({ replyInterpreter })`), one interpreter per role. It gets
  * the pause's original question and the reply (`{ ask, reply }`); what it returns is validated like
  * any decision. `DecidedBy.Model` — its chat model answers through one answer tool, a decision model
- * (an approval role's only) through one `Decision.noul("approved")` (static `prompt` / `promptUrls`;
+ * (an approval role's only, `[reply-interpreter.decision-model]` for a question role) through one `Decision.noul("approved")` (static `prompt` / `promptUrls`;
  * `ask` and `reply` come in the input message); `DecidedBy.Code` — the class's `interpret(input)`
  * (`implements ReplyInterpreterHandler<Self>`), returning a `ReplyInterpretation`. Code downstream
  * decides by types, never by text.
@@ -128,8 +167,9 @@ interface ReplyInterpreterBaseOptions {
 export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOptions {
   readonly decidedBy: DecidedBy.Model;
   /**
-   * A chat model (one answer tool), or a decision model (one `Decision.noul("approved")`: approve /
-   * refuse, no `reason`, no `overrideArguments`, #267 S124 a).
+   * A chat model (one answer tool), or — for an approval role only — a decision model (one
+   * `Decision.noul("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
+   * a decision model for a question role is `[reply-interpreter.decision-model]`.
    */
   readonly model: string;
   /** How to read a reply; static — the question and the reply come in the input message. */

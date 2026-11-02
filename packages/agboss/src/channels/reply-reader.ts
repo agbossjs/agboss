@@ -10,7 +10,11 @@ import { resolveSettings } from "../llm/registry.js";
 import { maskForModel, revealFromModel } from "../pii/model-boundary.js";
 import type { PiiPolicySet } from "../pii/policy-set.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
-import { REPLY_INTERPRETER_SYSTEM, replyInputMessage } from "../prompts/reply-interpreter.js";
+import {
+  QUESTION_REPLY_INTERPRETER_SYSTEM,
+  REPLY_INTERPRETER_SYSTEM,
+  replyInputMessage,
+} from "../prompts/reply-interpreter.js";
 import { isDecisionModel } from "../models/decision-models.js";
 import {
   ReplyInterpreterMissingError,
@@ -69,7 +73,11 @@ async function maskedRequestOf(
   input: ReplyInterpreterInput,
   pii: ReplyPii,
 ): Promise<Awaited<ReturnType<typeof maskForModel>>> {
-  const system = `${REPLY_INTERPRETER_SYSTEM}\n\n${interpreter.instructions}`.trim();
+  const head =
+    interpreter.approves === undefined
+      ? QUESTION_REPLY_INTERPRETER_SYSTEM
+      : REPLY_INTERPRETER_SYSTEM;
+  const system = `${head}\n\n${interpreter.instructions}`.trim();
   const messages = [
     new SystemMessage(system),
     new HumanMessage(replyInputMessage(input.ask, input.reply)),
@@ -109,7 +117,9 @@ export async function readByModel(
     const reason = `the model gave unknown tokens ${revealed.unknownTokens.join(", ")}`;
     return { kind: "declined", reason, usage };
   }
-  return readingOf(revealed.move.tool_calls ?? [], tools, input.ask, usage);
+  // a question role's answer (#659) is the role's own DTO: nothing laid over a call
+  const ask = interpreter.approves === undefined ? undefined : input.ask;
+  return readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
 }
 
 /** One tool call of the interpreter's move, as LangChain gives it. */

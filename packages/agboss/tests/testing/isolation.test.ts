@@ -1,3 +1,4 @@
+import { PauseKind } from "../../src/pause/index.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import "../../src/testing/setup.js";
 import { writeFile } from "node:fs/promises";
@@ -132,6 +133,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
         answeredBy: PauseAnswerer.ThreadOwner,
+        kind: PauseKind.Approval,
         agent: "support-agent",
         channel: "terminal-user-channel",
         childExecutionId: undefined,

@@ -17,6 +17,7 @@ import {
 } from "../channels/discovery.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { NodeKind } from "../flow/ast.js";
 import type { AssembledCompactions } from "../compaction/assembly.js";
 import { customCompactionClassesOf } from "../compaction/custom-classes.js";
 
@@ -27,7 +28,7 @@ import { customCompactionClassesOf } from "../compaction/custom-classes.js";
  * application: the container shares it with every workflow.
  */
 
-/** The distinct channel classes the workflow's tools name. */
+/** The distinct channel classes the workflow's tools name, and the question roles it asks (#659). */
 function channelClassesOf(tools: ToolClasses): readonly Class[] {
   const named = [...tools.local, ...tools.mcp].flatMap((cls) => {
     const component = componentOf(cls);
@@ -37,7 +38,7 @@ function channelClassesOf(tools: ToolClasses): readonly Class[] {
         : undefined;
     return channel === undefined ? [] : [channel];
   });
-  return [...new Set(named)];
+  return [...new Set([...named, ...(tools.questions ?? [])])];
 }
 
 /**
@@ -108,3 +109,9 @@ export const createdClassesOf = (
   ...codeInterpreterClassesOf(interpreters),
   ...customCompactionClassesOf(compactions),
 ];
+
+/** The question roles a workflow's flow asks (#659): its question steps' classes. */
+export const questionRolesOf = (graph: Pick<RuntimeGraph, "nodes">): readonly Class[] =>
+  [...graph.nodes.values()].flatMap((node) =>
+    node.kind === NodeKind.Question ? [node.component] : [],
+  );

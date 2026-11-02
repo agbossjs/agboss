@@ -21,6 +21,8 @@ import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
 export interface ToolClasses {
   readonly local: readonly Class[];
   readonly mcp: readonly Class[];
+  /** The question roles the flow asks (#659): channels a flow step names, not a tool. */
+  readonly questions?: readonly Class[];
 }
 
 /**

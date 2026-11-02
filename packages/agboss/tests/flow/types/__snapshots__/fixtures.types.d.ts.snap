@@ -24,6 +24,7 @@ import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, Re
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
 import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
 import type { ChartMergerAgent, MarkUnitFailedAction, OrgChartFailedDto, OrgChartFailedWorkflowFinish, OrgChartWorkflow, OrgChartWorkflowStart, OrgDepthRouter, OrgDrillWorkflow, OrgDrillWorkflowStart, OrgMapperAgent, OrgRetryWorkflow, OrgRetryWorkflowStart, OrgSplitDto, OrgUnitDto, SplitUnitAction, TeamChartDto, TeamChartWorkflowFinish, UnitCharterAgent, UnitPickerAgent } from "../tests/flow/fixtures/org-chart.fixture.js";
+import type { BudgetOwnerQuestion, BudgetOwnerReplyInterpreter, CheckLimitAction, DraftQuestionAction, OwnerPurchaseWorkflow, OwnerPurchaseWorkflowFinish, OwnerPurchaseWorkflowStart, PlacePurchaseAction, PurchasePlacedDto, PurchaseQuestionDto, PurchaseUnaskedWorkflowFinish, PurchaseWorkflow, PurchaseWorkflowFinish, PurchaseWorkflowStart, SpendingLimitAnswerDto, SpendingLimitQuestion, SpendingLimitReplyInterpreter } from "../tests/flow/fixtures/questions.fixture.js";
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
@@ -56,10 +57,12 @@ declare module "../src/flow/generated-types.js" {
     "board-search-agent": readonly CompanyDto[];
     "broken-agent": OfferDraftDto;
     "broken-review-workflow-start": WorkflowStartTextDto;
+    "budget-owner-question": SpendingLimitAnswerDto;
     "candidate-review-workflow-start": CandidateDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
     "chart-merger-agent": TeamChartDto;
+    "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
     "checkout-workflow-start": WorkflowStartTextDto;
     "company-audit-agent": CompanyCheckDto;
     "company-batch-workflow-start": readonly CompanyDto[];
@@ -92,6 +95,7 @@ declare module "../src/flow/generated-types.js" {
     "desk-workflow-start": WorkflowStartTextDto;
     "draft-agent": OfferDraftDto;
     "draft-editor-agent": OfferDraftDto;
+    "draft-question-action": PurchaseQuestionDto;
     "draft-reviewer-agent": ReviewDto;
     "editor-agent": OfferDraftDto;
     "expert-answer-agent": ExpertDraftDto;
@@ -141,16 +145,19 @@ declare module "../src/flow/generated-types.js" {
     "org-retry-workflow-start": OrgUnitDto;
     "outline-agent": ResearchReportDto;
     "outline-workflow-start": ResearchTopicDto;
+    "owner-purchase-workflow-start": WorkflowStartTextDto;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-summary-agent": ScoreReviewDto;
     "panel-workflow-start": CandidateDto;
     "picked-offer-workflow-start": WorkflowStartTextDto;
+    "place-purchase-action": PurchasePlacedDto;
     "plan-researcher-agent": ResearchDto;
     "planner-agent": PlanDto;
     "polish-agent": DraftDto;
     "price-quote-action": QuoteDto | QuoteRefusedDto;
     "profiler-agent": ProfileDto | ResumeMissingDto;
     "publisher-agent": ArticleDto;
+    "purchase-workflow-start": WorkflowStartTextDto;
     "quick-grade-workflow-start": CompanyDto;
     "quote-workflow-start": QuoteRequestDto;
     "ranker-agent": RankingDto;
@@ -182,6 +189,7 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": OrderShippedDto;
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
+    "spending-limit-question": SpendingLimitAnswerDto;
     "split-requests-action": readonly WorkflowStartTextDto[];
     "split-topic-action": readonly ResearchTopicDto[];
     "split-unit-action": readonly OrgUnitDto[];
@@ -231,6 +239,8 @@ declare module "../src/flow/generated-types.js" {
     "board-search-agent": { message: Produced<WorkflowStartTextDto, typeof CompanySearchWorkflowStart> };
     "broken-agent": { readonly __error: "[input.missing-on-path] broken-offer-workflow: broken-agent.unrelated (UnrelatedDto) is not produced on the path offer-workflow-start → draft-agent → broken-agent" };
     "broken-review-workflow-start": WorkflowStartTextDto;
+    "budget-owner-question": { question: Produced<PurchaseQuestionDto, typeof CheckLimitAction | typeof DraftQuestionAction> };
+    "budget-owner-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
     "candidate-review-workflow-start": CandidateDto;
     "charge-card-action":
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
@@ -238,6 +248,7 @@ declare module "../src/flow/generated-types.js" {
     "charge-payment-action": { message: Produced<WorkflowStartTextDto, typeof CheckoutWorkflowStart> };
     "chart-merger-agent": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; charts: readonly Produced<OrgChartFailedDto | TeamChartDto, typeof ThisWorkflow>[] };
     "chat-workflow-finish": NoInput;
+    "check-limit-action": { question: Produced<PurchaseQuestionDto, typeof CheckLimitAction | typeof DraftQuestionAction>; answer: Produced<SpendingLimitAnswerDto, typeof BudgetOwnerQuestion> };
     "checkout-workflow-start": WorkflowStartTextDto;
     "company-audit-agent": { company: Produced<CompanyDto, typeof ScreeningAgent> };
     "company-batch-workflow-start": readonly CompanyDto[];
@@ -289,6 +300,7 @@ declare module "../src/flow/generated-types.js" {
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
     "draft-history-workflow-finish": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
+    "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof OwnerPurchaseWorkflowStart | typeof PurchaseWorkflowStart> };
     "draft-reviewer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent> };
     "due-diligence-report-workflow-finish": NoInput;
     "editor-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewerAgent> };
@@ -377,6 +389,8 @@ declare module "../src/flow/generated-types.js" {
     "outline-agent": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
     "outline-depth-router": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
     "outline-workflow-start": ResearchTopicDto;
+    "owner-purchase-workflow-finish": NoInput;
+    "owner-purchase-workflow-start": WorkflowStartTextDto;
     "panel-failed-workflow-finish": NoInput;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-review-workflow-finish": NoInput;
@@ -386,6 +400,7 @@ declare module "../src/flow/generated-types.js" {
     "payment-workflow-finish": NoInput;
     "payout-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly reply: string };
     "picked-offer-workflow-start": WorkflowStartTextDto;
+    "place-purchase-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction>; answer: Produced<SpendingLimitAnswerDto, typeof SpendingLimitQuestion> };
     "plan-researcher-agent": { plan: Produced<PlanDto, typeof PlannerAgent> };
     "planner-agent": { message: Produced<WorkflowStartTextDto, typeof ResearchWorkflowStart> };
     "polish-agent":
@@ -395,6 +410,9 @@ declare module "../src/flow/generated-types.js" {
     "price-quote-action": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
+    "purchase-unasked-workflow-finish": NoInput;
+    "purchase-workflow-finish": NoInput;
+    "purchase-workflow-start": WorkflowStartTextDto;
     "quick-grade-workflow-start": CompanyDto;
     "quick-reject-panel-workflow-finish": NoInput;
     "quick-reject-workflow-finish": NoInput;
@@ -446,6 +464,8 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
+    "spending-limit-question": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
+    "spending-limit-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
     "split-requests-action": { message: Produced<WorkflowStartTextDto, typeof TreasuryBatchWorkflowStart> };
     "split-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; tooBroad: Produced<ResearchTooBroadDto, typeof TopicResearcherAgent> };
     "split-unit-action": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; split: Produced<OrgSplitDto, typeof OrgMapperAgent> };
@@ -488,9 +508,12 @@ declare module "../src/flow/generated-types.js" {
     "ask-resume-workflow-finish": ResumeMissingDto;
     "audit-bed-action": NoOutput;
     "beds-workflow-finish": BedsDto;
+    "budget-owner-question": SpendingLimitAnswerDto;
+    "budget-owner-reply-interpreter": SpendingLimitAnswerDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
     "chat-workflow-finish": OpeningsDto;
+    "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
     "company-graded-workflow-finish": CompanyGradeDto;
     "company-rejected-workflow-finish": CompanyRejectedDto;
     "company-review-failed-workflow-finish": CompanyReviewFailedDto;
@@ -503,6 +526,7 @@ declare module "../src/flow/generated-types.js" {
     "deposit-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto };
     "desk-workflow-finish": DeskAnswerDto;
     "draft-history-workflow-finish": DraftChangesDto;
+    "draft-question-action": PurchaseQuestionDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
     "fail-topic-action": ResearchFailedDto;
@@ -532,13 +556,17 @@ declare module "../src/flow/generated-types.js" {
     "order-held-workflow-finish": CreditOrderDto;
     "order-workflow-finish": OrderShippedDto;
     "org-chart-failed-workflow-finish": OrgChartFailedDto;
+    "owner-purchase-workflow-finish": PurchasePlacedDto;
     "panel-failed-workflow-finish": CandidateDto;
     "panel-review-workflow-finish": ScoreReviewDto;
     "panel-unjudged-workflow-finish": CandidateDto;
     "payment-workflow-finish": PaymentDto;
     "payout-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto };
+    "place-purchase-action": PurchasePlacedDto;
     "polished-workflow-finish": DraftDto;
     "price-quote-action": QuoteDto | QuoteRefusedDto;
+    "purchase-unasked-workflow-finish": PurchaseQuestionDto;
+    "purchase-workflow-finish": PurchasePlacedDto;
     "quick-reject-panel-workflow-finish": FastScreenDto;
     "quick-reject-workflow-finish": FastScreenDto;
     "quote-refused-workflow-finish": QuoteRefusedDto;
@@ -563,6 +591,8 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "spending-limit-question": SpendingLimitAnswerDto;
+    "spending-limit-reply-interpreter": SpendingLimitAnswerDto;
     "split-requests-action": readonly WorkflowStartTextDto[];
     "split-topic-action": readonly ResearchTopicDto[];
     "split-unit-action": readonly OrgUnitDto[];
@@ -607,9 +637,11 @@ declare module "../src/flow/generated-types.js" {
     "org-drill-workflow-start": { input: OrgUnitDto; output: OrgChartFailedDto | TeamChartDto };
     "org-retry-workflow-start": { input: OrgUnitDto; output: OrgChartFailedDto | TeamChartDto };
     "outline-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
+    "owner-purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto | PurchaseQuestionDto };
     "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "quote-workflow-start": { input: QuoteRequestDto; output: QuoteDto | QuoteRefusedDto | QuoteRequestDto };
     "refund-workflow-start": { input: WorkflowStartTextDto; output: RefundCardOutputDto };
@@ -686,10 +718,12 @@ declare module "../src/flow/generated-types.js" {
     "outline-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto };
   }
   interface ChannelRoles {
+    "budget-owner-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "deposit-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto } };
     "expense-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto } };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
+    "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "transfer-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: TransferRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: TransferRequestDto } };
   }
   interface DtoBrands {
@@ -750,6 +784,8 @@ declare module "../src/flow/generated-types.js" {
     "PlanDto": PlanDto;
     "ProfileDto": ProfileDto;
     "PromisingCompanyDto": PromisingCompanyDto;
+    "PurchasePlacedDto": PurchasePlacedDto;
+    "PurchaseQuestionDto": PurchaseQuestionDto;
     "QuoteDto": QuoteDto;
     "QuoteRefusedDto": QuoteRefusedDto;
     "QuoteRequestDto": QuoteRequestDto;
@@ -772,6 +808,7 @@ declare module "../src/flow/generated-types.js" {
     "SearchRequestDto": SearchRequestDto;
     "ShortlistDto": ShortlistDto;
     "SkillsScoreDto": SkillsScoreDto;
+    "SpendingLimitAnswerDto": SpendingLimitAnswerDto;
     "StockReservationDto": StockReservationDto;
     "SupportIntentDto": SupportIntentDto;
     "TeamChartDto": TeamChartDto;
@@ -1495,6 +1532,60 @@ declare module "../tests/flow/fixtures/org-chart.fixture.js" {
   }
   interface UnitPickerAgent {
     readonly [agbossComponent]?: "unit-picker-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/questions.fixture.js" {
+  interface BudgetOwnerQuestion {
+    readonly [agbossComponent]?: "budget-owner-question";
+  }
+  interface BudgetOwnerReplyInterpreter {
+    readonly [agbossComponent]?: "budget-owner-reply-interpreter";
+  }
+  interface CheckLimitAction {
+    readonly [agbossComponent]?: "check-limit-action";
+  }
+  interface DraftQuestionAction {
+    readonly [agbossComponent]?: "draft-question-action";
+  }
+  interface OwnerPurchaseWorkflow {
+    readonly [agbossComponent]?: "owner-purchase-workflow";
+  }
+  interface OwnerPurchaseWorkflowFinish {
+    readonly [agbossComponent]?: "owner-purchase-workflow-finish";
+  }
+  interface OwnerPurchaseWorkflowStart {
+    readonly [agbossComponent]?: "owner-purchase-workflow-start";
+  }
+  interface PlacePurchaseAction {
+    readonly [agbossComponent]?: "place-purchase-action";
+  }
+  interface PurchasePlacedDto {
+    readonly [agbossDto]?: "PurchasePlacedDto";
+  }
+  interface PurchaseQuestionDto {
+    readonly [agbossDto]?: "PurchaseQuestionDto";
+  }
+  interface PurchaseUnaskedWorkflowFinish {
+    readonly [agbossComponent]?: "purchase-unasked-workflow-finish";
+  }
+  interface PurchaseWorkflow {
+    readonly [agbossComponent]?: "purchase-workflow";
+  }
+  interface PurchaseWorkflowFinish {
+    readonly [agbossComponent]?: "purchase-workflow-finish";
+  }
+  interface PurchaseWorkflowStart {
+    readonly [agbossComponent]?: "purchase-workflow-start";
+  }
+  interface SpendingLimitAnswerDto {
+    readonly [agbossDto]?: "SpendingLimitAnswerDto";
+  }
+  interface SpendingLimitQuestion {
+    readonly [agbossComponent]?: "spending-limit-question";
+  }
+  interface SpendingLimitReplyInterpreter {
+    readonly [agbossComponent]?: "spending-limit-reply-interpreter";
   }
 }
 

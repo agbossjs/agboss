@@ -6,6 +6,7 @@ import type {
   PauseAnswerLog,
   PauseCancellation,
   PauseRecord,
+  QuestionAsk,
 } from "../infrastructure/pause-record.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { FrameSpec } from "../flow/context/frame.js";
@@ -48,11 +49,16 @@ export interface WithdrawnPause {
  */
 export type PauseWithdrawn = (withdrawn: WithdrawnPause) => Promise<void>;
 
-/**
- * One pause an execution waits for (`result.pending`, #267 AC1): where it waits and what it asks.
- * A pause is answered by its id — `app.resume({ pauseId, decision }, …)` — anywhere in the tree.
- */
-export interface PendingPause {
+/** What a pause waits for (#659): a tool call's approval, or a question role's answer. */
+export enum PauseKind {
+  /** An agent's tool call through its channel: `ask` is the call, the answer a `ToolCallApprovalDecisionDto`. */
+  Approval = "approval",
+  /** A question role's step (`.toQuestion(Role)`): `ask` is the role's ask, the answer its `answer` DTO. */
+  Question = "question",
+}
+
+/** Where a pause waits and who answers it, whatever it asks. */
+export interface PendingPauseSite {
   /**
    * The pause's id, what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause. A
    * `PauseAnswerer.Channel` pause's id is the right to answer it: only its channel has it (AC3).
@@ -60,7 +66,7 @@ export interface PendingPause {
   readonly pauseId?: string;
   /** Who may answer it: the thread's owner, or whoever the channel's side authenticates. */
   readonly answeredBy: PauseAnswerer;
-  /** The agent whose tool call waits. */
+  /** The agent whose tool call waits, or the question role's step that asks (#659). */
   readonly agent: string;
   /** The channel asked (a role's name, or a concrete `@Channel`'s). */
   readonly channel: string;
@@ -68,19 +74,37 @@ export interface PendingPause {
   readonly childExecutionId: string | undefined;
   /** The item of a per-item launch it waits in (no copy of the item: its index is enough). */
   readonly itemIndex: number | undefined;
+}
+
+/** A tool call waiting for its approval. */
+export interface PendingApproval extends PendingPauseSite {
+  readonly kind: PauseKind.Approval;
   /** The question: the tool call waiting for an approval, `sensitive` fields masked. */
   readonly ask: ToolCallApprovalAskDto;
 }
 
-/** A pause as the framework keeps it while it waits: its id always (hidden from callers per AC3). */
-export interface WaitingPause extends PendingPause {
-  readonly pauseId: string;
+/** A question role's step waiting for its answer (#659). */
+export interface PendingQuestion extends PendingPauseSite {
+  readonly kind: PauseKind.Question;
+  /** The question role's ask, `sensitive` fields masked. */
+  readonly ask: QuestionAsk;
 }
+
+/**
+ * One pause an execution waits for (`result.pending`, #267 AC1): where it waits and what it asks —
+ * by `kind` (#659), a tool call's approval or a question role's answer. A pause is answered by its
+ * id — `app.resume({ pauseId, decision }, …)` — anywhere in the tree.
+ */
+export type PendingPause = PendingApproval | PendingQuestion;
+
+/** A pause as the framework keeps it while it waits: its id always (hidden from callers per AC3). */
+export type WaitingPause = PendingPause & { readonly pauseId: string };
 
 /** The pause as a caller sees it: a `Channel` pause without its id (AC3). */
 export function pendingPauseOf(waiting: WaitingPause, isShown: boolean): PendingPause {
   const { pauseId, ...rest } = waiting;
-  return isShown ? { pauseId, ...rest } : rest;
+  const hidden = rest as PendingPause;
+  return isShown ? { ...hidden, pauseId } : hidden;
 }
 
 /** A tool call: which agent asked for which tool with which arguments. */

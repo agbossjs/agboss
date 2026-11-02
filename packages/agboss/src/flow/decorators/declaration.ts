@@ -7,6 +7,7 @@ import {
   type ListWrapper,
   type OptionalWrapper,
 } from "../dto-wrappers.js";
+import type { QuestionNodeOptions } from "../../channels/channel-role.decorator.js";
 import type { ActionOptions } from "./action.js";
 import type { AgentOptions } from "./agent.js";
 import type { RouterOptions } from "./router.js";
@@ -47,6 +48,8 @@ export type AgentDeclaration = Declared<NodeKind.Agent, AgentOptions>;
 export type ActionDeclaration = Declared<NodeKind.Action, ActionOptions>;
 export type RouterDeclaration = Declared<NodeKind.Router, RouterOptions>;
 export type WorkflowDeclaration = Declared<NodeKind.Workflow, WorkflowOptions>;
+/** A question role as its step's node (#659): recorded by `@ChannelRole({ ask, answer })`. */
+export type QuestionDeclaration = Declared<NodeKind.Question, QuestionNodeOptions>;
 
 /** What any v2 decorator recorded. */
 export type ComponentDeclaration =
@@ -55,7 +58,8 @@ export type ComponentDeclaration =
   | AgentDeclaration
   | ActionDeclaration
   | RouterDeclaration
-  | WorkflowDeclaration;
+  | WorkflowDeclaration
+  | QuestionDeclaration;
 
 const declarations = new WeakMap<Class, ComponentDeclaration>();
 

@@ -42,6 +42,7 @@ function declaredFields(node: FlowNode): InputFields | undefined {
     case NodeKind.Action:
     case NodeKind.Router:
     case NodeKind.Finish:
+    case NodeKind.Question:
       return declaration.options.input;
     default:
       return undefined;
