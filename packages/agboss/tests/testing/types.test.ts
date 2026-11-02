@@ -26,7 +26,7 @@ describe("AC12: callTool(Tool, args) is checked by the compiler", () => {
     expect(() =>
       // @ts-expect-error — not a tool class: its instances have no run(input)
       callTool(NotATool, {}),
-    ).toThrow("NotATool is not a @Tool or @McpTool");
+    ).toThrow("NotATool is not a @Tool, @McpTool or @Rag");
 
     expect([ok, note].map((turn) => turn.kind)).toEqual(["tool-call", "tool-call"]);
   });

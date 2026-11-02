@@ -113,6 +113,13 @@ export interface CallMatchers<TSelf> {
 // @public
 export function callTool<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<TInput>): ToolCallTurn;
 
+// Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function callTool(rag: Class<RagConnector>, args: {
+    readonly query: string;
+}): ToolCallTurn;
+
 // @public
 export function callTools(...calls: readonly [ToolCallTurn, ...ToolCallTurn[]]): ToolCallsTurn;
 
@@ -914,10 +921,8 @@ export interface TestLeases {
 // @public
 export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
 
-// Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
-//
 // @public
-export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitOptions<TExecution, TTenant>): RagRunner;
+export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitModelOptions<unknown, TExecution, TTenant>): RagRunner;
 
 // Warning: (ae-forgotten-export) The symbol "RouterAnswerOf" needs to be exported by the entry point index.d.ts
 //
@@ -1323,11 +1328,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:34:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:39:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:104:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:140:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:141:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:35:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:40:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:109:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:145:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:146:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
@@ -1383,7 +1388,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-rag.ts:20:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-rag.ts:23:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/testing/units/test-tool-interceptor.ts:62:3 - (ae-undocumented) Missing documentation for "afterToolCall".

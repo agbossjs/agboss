@@ -1,3 +1,4 @@
+import type { RagConnector } from "../rag/types.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
@@ -59,11 +60,12 @@ export type ToolClass<TInput extends object> = Class<{
   run(input: TInput): Promise<unknown>;
 }>;
 
-/** The name an agent's model calls a `@Tool` / `@McpTool` class by. */
+/** The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too (#703). */
 export function toolNameOf(tool: Class): string {
   const meta = componentOf(tool);
+  if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
   if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
-    throw new TestSetupError(`${tool.name} is not a @Tool or @McpTool`);
+    throw new TestSetupError(`${tool.name} is not a @Tool, @McpTool or @Rag`);
   }
   return meta.meta.name;
 }
@@ -75,7 +77,10 @@ export function toolNameOf(tool: Class): string {
 export function callTool<TInput extends object>(
   tool: ToolClass<TInput>,
   args: NoInfer<TInput>,
-): ToolCallTurn {
+): ToolCallTurn;
+/** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
+export function callTool(rag: Class<RagConnector>, args: { readonly query: string }): ToolCallTurn;
+export function callTool(tool: Class, args: object): ToolCallTurn {
   return {
     kind: "tool-call",
     tool: toolNameOf(tool),

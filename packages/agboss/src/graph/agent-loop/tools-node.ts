@@ -16,6 +16,7 @@ import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
 import type { AgentLoopUpdate, ToolTask } from "./state.js";
 import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
+import { isRerankFailure } from "../nodes/knowledge.js";
 import { callSignalOf } from "./call-signal.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 const errorMessage = (error: unknown): string =>
@@ -41,8 +42,12 @@ async function runTool(
   context: ToolInvocationContext,
 ): Promise<ToolOutput<unknown>> {
   try {
-    return await tool.invoke(args, context);
+    const output = await tool.invoke(args, context);
+    // a reranking that must fail the step (#703) is no tool error the model reads
+    if (output.kind === "error" && isRerankFailure(output.cause)) throw output.cause;
+    return output;
   } catch (error) {
+    if (isRerankFailure(error)) throw error;
     if (error && typeof error === "object" && "name" in error && error.name === "GraphInterrupt") {
       throw error;
     }

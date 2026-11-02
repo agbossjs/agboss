@@ -36,7 +36,9 @@ export type ChatModelUser =
       readonly input: ReplyInterpreterInput;
     }
   /** A guardrail's check on a chat model (#120). */
-  | { readonly kind: "guardrail"; readonly guardrail: string };
+  | { readonly kind: "guardrail"; readonly guardrail: string }
+  /** A model `@Reranker` (#703). */
+  | { readonly kind: "reranker"; readonly reranker: string };
 
 /** A chat model request: its user and complete settings (agents, compaction, judges, LLM routers). */
 export interface ChatModelSpec {

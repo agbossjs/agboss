@@ -4,7 +4,7 @@ import { tokenName, type Class, type Provider } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { transportProviderClassesOf } from "../models/resolution.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { ragMeta, searchToolName } from "./rag.js";
+import { ragMeta, rerankerClassesOf, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
 import type { ProviderModule } from "./container/registrations.js";
@@ -128,6 +128,7 @@ export const componentClassesOf = (
   ...tools.local,
   ...tools.mcp,
   ...rags,
+  ...rerankerClassesOf(rags),
   ...created,
   ...channelComponentClassesOf(tools, modules),
   ...agents.flatMap((a) => a.judges ?? []),

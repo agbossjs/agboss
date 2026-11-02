@@ -5,6 +5,7 @@ import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import type { KnowledgeSource } from "../rag/types.js";
+import { rerankerBindingOf } from "../llm/registry.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import {
   chatModelSettingsOf,
@@ -69,6 +70,7 @@ export const servicesFor = (
   router: (name) => defaultRouterOf(name, bundle.config, gateway),
   contexts,
   container,
+  rerankModel: rerankerBindingOf(bundle.config, gateway),
 });
 
 /** Context-mode knowledge bases per agent, when the workflow has any. */

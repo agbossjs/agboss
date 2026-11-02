@@ -1,5 +1,5 @@
 import type { RagSearchResultDto } from "../../dto/standard/framework.js";
-import type { RagConnector, RagRetrieval } from "../../rag/types.js";
+import type { RagConnector, RagRetrieval, RerankerHandler } from "../../rag/types.js";
 
 /**
  * What the RAG connector contract (#700) runs on: the target a connector's own suite gives, the
@@ -31,6 +31,11 @@ export interface RagConnectorContractTarget<TConnector extends RagConnector = Ra
   ) => Promise<void>;
   /** After each case: drop what it stored. */
   readonly reset?: () => Promise<void>;
+  /**
+   * Run every case through the core's reranking (#703): the connector asked for `candidates` (at
+   * least the case's `topK`), `by` reranking them, the case's `topK` kept — as an agent's search runs.
+   */
+  readonly rerank?: { readonly by: RerankerHandler; readonly candidates: number };
 }
 
 /** A retrieval of the suite: the connector's own, or through the core's seam around it (#703). */

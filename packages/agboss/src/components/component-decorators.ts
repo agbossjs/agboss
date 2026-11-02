@@ -31,6 +31,7 @@ export const COMPONENT_DECORATORS = [
   "McpTool",
   // `@agboss/core/rag`
   "Rag",
+  "Reranker",
   // `@agboss/core/a2a`
   "A2AAgent",
 ] as const;

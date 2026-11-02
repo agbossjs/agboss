@@ -29,6 +29,16 @@ import { limitLines } from "./limits.js";
 import { piiPolicyLines } from "./pii-policies.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
+/** A knowledge base's reranking as describe prints it (#703). */
+const rerankText = (
+  rerank:
+    | { readonly reranker: string; readonly candidates: number; readonly onFailure: string }
+    | undefined,
+): string =>
+  rerank === undefined
+    ? ""
+    : `, reranked by ${rerank.reranker} from ${String(rerank.candidates)}, on failure ${rerank.onFailure}`;
+
 /** The application context `describe` builds tools with: an empty environment unless one is given. */
 const describedApplication = (environment: DescribedEnvironment | undefined): RuntimeContexts => ({
   ...standaloneContexts({ name: "describe", version: "0.0.0" }),
@@ -148,7 +158,9 @@ function settingsLines(
 ): string[] {
   return [
     limitsLine(agent, config),
-    ...(agent.rag ?? []).map((kb) => `    rag: ${kb.name} (${kb.mode}, k ${String(kb.topK)})`),
+    ...(agent.rag ?? []).map(
+      (kb) => `    rag: ${kb.name} (${kb.mode}, k ${String(kb.topK)}${rerankText(kb.rerank)})`,
+    ),
   ];
 }
 

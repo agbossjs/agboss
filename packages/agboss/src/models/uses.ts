@@ -49,12 +49,25 @@ export interface ModelNamingComponents {
   readonly interpreters?: readonly ModelNamingInterpreter[] | undefined;
   /** Guardrails (#120 PR 2). */
   readonly guardrails?: readonly ModelNamingRouter[] | undefined;
+  /** Model rerankers of knowledge bases (#703): chat models. */
+  readonly rerankers?: readonly ModelNamingRouter[] | undefined;
 }
+
+/** A chat model's use at `key`, its settings over the workflow's chat defaults. */
+const chatUseOf =
+  (config: AgentsConfigOf<string>) =>
+  (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
+    key,
+    model: settings.model,
+    purpose: ModelPurpose.Chat,
+    settings: resolveSettings(settings, config.defaults.models),
+  });
 
 /**
  * Every model use of a workflow: agents, compactions, judges, the default router, flow routers,
  * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`), model reply
- * interpreters (#267, `replyInterpreters.<name>`) and the guardrails (#120, `guardrails.<name>`).
+ * interpreters (#267, `replyInterpreters.<name>`), the guardrails (#120, `guardrails.<name>`) and the
+ * model rerankers (#703, `rerankers.<name>`).
  */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
@@ -62,12 +75,7 @@ export function modelUsesOf(
   components: ModelNamingComponents = {},
 ): readonly ModelUse[] {
   const { arbiters = [], piiDetectors = [], interpreters = [], guardrails = [] } = components;
-  const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
-    key,
-    model: settings.model,
-    purpose: ModelPurpose.Chat,
-    settings: resolveSettings(settings, config.defaults.models),
-  });
+  const chat = chatUseOf(config);
   return [
     ...Object.entries(config.agents).map(([name, agent]) => chat(`agents.${name}`, agent)),
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
@@ -105,5 +113,6 @@ export function modelUsesOf(
       model: guardrail.model,
       purpose: purposeOf(guardrail.model),
     })),
+    ...(components.rerankers ?? []).map(({ name, model }) => chat(`rerankers.${name}`, { model })),
   ];
 }

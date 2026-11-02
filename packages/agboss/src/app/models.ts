@@ -88,6 +88,7 @@ export async function modelsFor(
     piiDetectors: bundle.pii?.detectors,
     interpreters: bundle.replyInterpreters,
     guardrails: modelGuardrailsOf(bundle.guardrails),
+    rerankers: bundle.rerankers,
   });
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);

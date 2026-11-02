@@ -59,9 +59,17 @@ export type ComponentMeta =
         readonly description: string;
         readonly prompt?: string;
         readonly promptUrls?: readonly string[];
+        /** What the agent gets per retrieval: `topK`, or `rerank.keep` (#703). */
         readonly topK: number;
+        /** Fetch `candidates`, rerank, keep `keep` (#703). */
+        readonly rerank?: import("../rag/types.js").RagRerank;
         readonly deps: readonly Token[];
       };
+    }
+  /** `@Reranker` (#703): re-orders a knowledge base's candidates — by model or by code. */
+  | {
+      readonly kind: "reranker";
+      readonly meta: import("../rag/reranker.decorator.js").RecordedRerankerMeta;
     }
   /** `@PiiPolicy` (#120): declarative rules, or a project's own detector. */
   | {
@@ -138,6 +146,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",
   rag: "Rag",
+  reranker: "Reranker",
   judge: "Judge",
   channel: "Channel",
   budget: "Budget",
