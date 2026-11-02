@@ -192,8 +192,8 @@ export class SqliteFtsConnector implements RagConnector {
 
 // Warnings were encountered during analysis:
 //
-// src/rag/rerank.ts:42:3 - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts:43:12 - (ae-undocumented) Missing documentation for "name".
+// src/rag/rerank.ts:48:3 - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts:49:12 - (ae-undocumented) Missing documentation for "name".
 // src/rag/reranker.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "deps".
 // src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".
