@@ -109,9 +109,9 @@ const readCandidates = (
   reading === undefined
     ? candidates
     : candidates.map((candidate, index) => ({
-        ...candidate,
         source: reading.sources[index] ?? candidate.source,
         text: reading.texts[index] ?? candidate.text,
+        ...(candidate.score === undefined ? {} : { score: candidate.score }),
       }));
 
 /**

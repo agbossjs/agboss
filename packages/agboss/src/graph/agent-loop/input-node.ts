@@ -88,7 +88,13 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     // a reranker's model reads the passages as this agent's model does (#708)
     const reading = modelReadingMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
     const knowledge = await withModelReading(reading, () =>
-      gatherKnowledge(agent.knowledge, state.inputMessage, config, deps.observer, agent.maxResultSize),
+      gatherKnowledge(
+        agent.knowledge,
+        state.inputMessage,
+        config,
+        deps.observer,
+        agent.maxResultSize,
+      ),
     );
     const view = await memoryViewOf(agent, state);
     const memory = formatMemory(view, {

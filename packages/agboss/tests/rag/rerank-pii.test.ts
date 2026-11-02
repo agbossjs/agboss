@@ -72,7 +72,8 @@ const run = async (book: ScriptBook, start: Class) =>
   execute(await appWith(book), start, { text: QUESTION }, { execution: { userId: USER_ID } });
 
 /** The token the address became in a candidate's text ("Write to <email:…>"). */
-const textToken = (read: string): string | undefined => /Write to (<email:[0-9a-f]+>)/u.exec(read)?.[1];
+const textToken = (read: string): string | undefined =>
+  /Write to (<email:[0-9a-f]+>)/u.exec(read)?.[1];
 
 /** What the reranker's model read, as one text. */
 const rerankerRead = (book: ScriptBook): string => requestText(book.scriptOf(RERANKER).lastRequest);
@@ -147,7 +148,9 @@ describe("#708: a block rule in a candidate follows the rule of what the agent r
 
     expect(book.scriptOf(RERANKER).requests).toHaveLength(0);
     const agentRead = requestText(book.scriptOf("agent:cards-tool-agent").lastRequest);
-    expect(agentRead).toContain("Tool error: the call was refused: Please do not send a card-number.");
+    expect(agentRead).toContain(
+      "Tool error: the call was refused: Please do not send a card-number.",
+    );
     expect(agentRead).not.toContain(CARD);
     expect(result.toolCalls[0]?.output).toBeUndefined();
   });
@@ -170,7 +173,8 @@ describe("#708: the reranking's trace holds the masked text only", () => {
     override handleChainStart(
       ...args: Parameters<NonNullable<BaseCallbackHandler["handleChainStart"]>>
     ): void {
-      if (args[7]?.startsWith("rerank:") === true) seen.push(`${String(args[7])} ${JSON.stringify(args[1])}`);
+      if (args[7]?.startsWith("rerank:") === true)
+        seen.push(`${args[7]} ${JSON.stringify(args[1])}`);
     }
     override handleChatModelStart(_llm: unknown, messages: BaseMessage[][]): void {
       seen.push(JSON.stringify(messages.flat().map((message) => message.content)));
@@ -194,7 +198,11 @@ describe("#708: the reranking's trace holds the masked text only", () => {
     };
     const reranker = boundRerankerOf(meta, (cls) => new (cls as new () => unknown)(), services);
     const connector = new (PeopleRag as new () => RagConnector)();
-    const source = { name: meta.name, topK: 3, retrieve: knowledgeRetrieveOf(meta, connector, reranker) };
+    const source = {
+      name: meta.name,
+      topK: 3,
+      retrieve: knowledgeRetrieveOf(meta, connector, reranker),
+    };
     const set = contactPolicies();
     const query = `Ask ${EMAIL} or someone else?`;
 

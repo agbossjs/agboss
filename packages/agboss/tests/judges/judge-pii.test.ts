@@ -17,11 +17,7 @@ import {
   type JudgeInput,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import {
-  PlainTextDto,
-  WorkflowFinishTextDto,
-  WorkflowStartTextDto,
-} from "../../src/dto/index.js";
+import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { start } from "../helpers/flow.js";
@@ -54,7 +50,11 @@ class ContactJudge implements JudgeHandler<PlainTextDto> {
 })
 class ContactWriter {}
 
-@WorkflowStart({ name: "contact-workflow-start", description: "A task", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "contact-workflow-start",
+  description: "A task",
+  input: WorkflowStartTextDto,
+})
 class ContactStart {}
 
 @WorkflowFinish({
@@ -67,7 +67,12 @@ class ContactFinish {}
 @Workflow({
   name: "contact-workflow",
   version: "1.0.0",
-  flow: [start(ContactStart).returns(WorkflowStartTextDto).toAgent(ContactWriter).toFinish(ContactFinish)],
+  flow: [
+    start(ContactStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(ContactWriter)
+      .toFinish(ContactFinish),
+  ],
   defaults: DEFAULTS,
 })
 class ContactWorkflow {}

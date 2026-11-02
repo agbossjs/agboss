@@ -81,7 +81,7 @@ describe("#708: a model judge's calls", () => {
 
     expect(text).toMatch(TOKEN);
     expect(JSON.stringify(messages)).not.toContain(EMAIL);
-    const token = TOKEN.exec(String(text))?.[0] ?? "";
+    const token = typeof text === "string" ? (TOKEN.exec(text)?.[0] ?? "") : "";
     expect(reading.revealed(`FAIL: ${token} is not in the sources`)).toBe(
       `FAIL: ${EMAIL} is not in the sources`,
     );
@@ -120,7 +120,7 @@ describe("#708: a model judge's calls", () => {
     const reading = new JudgeReading(contacts());
 
     const request = await reading.request({
-      state: { owner: new Owner(EMAIL) } as never,
+      state: { owner: new Owner(EMAIL) },
       questions: { grounded: Decision.noul("Is the owner known?") },
     });
 
@@ -137,7 +137,7 @@ describe("#708: a model arbiter's call", () => {
     const model = createArbiterModel(
       "contact-arbiter",
       { kind: "jev", model: "typesafe/jev-1.13" },
-      { gateway, chatDefaults: { temperature: 0 } as never },
+      { gateway, chatDefaults: { temperature: 0 } },
     );
 
     const verdict = await model.judge(

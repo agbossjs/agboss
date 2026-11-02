@@ -12,6 +12,9 @@ import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/ind
 import type { Bytes } from "../../units/index.js";
 import type { BoundedText } from "./tool-result-size.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-reading.js";
+import type { AgentLoopDeps } from "./deps.js";
+import type { ToolTask } from "./state.js";
 
 /**
  * PII in the tool task (#120 AC9): the arguments the model gave were revealed when its move was
@@ -131,3 +134,16 @@ export async function closedResult(
     isTruncated,
   };
 }
+
+/**
+ * The call with the agent's reading (#708): a model the call makes on the agent's behalf (its
+ * knowledge base's reranker) reads through the agent's policies, its sensitive values and key.
+ */
+export const readingAgent = <TResult>(
+  deps: Pick<AgentLoopDeps, "pii">,
+  task: ToolTask,
+  work: () => Promise<TResult>,
+): Promise<TResult> => {
+  const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);
+  return withModelReading(modelReadingMaskOf(set), work);
+};

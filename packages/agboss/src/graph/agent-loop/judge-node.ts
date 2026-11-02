@@ -116,8 +116,7 @@ const verdictRecordOf = (
 const judgeReadingOf = (
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
-): ModelReadingMask | undefined =>
-  modelReadingMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
+): ModelReadingMask | undefined => modelReadingMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
 
 /** The judges that rejected the reply, in the agent's order; every judge runs, its verdict kept. */
 async function rejectionsOf(
@@ -135,11 +134,11 @@ async function rejectionsOf(
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
     const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps));
-    const verdict: JudgeVerdict = await runJudgeCall(model, () =>
-      judge.handler.judge(input),
-    ).catch((error: unknown) => {
-      throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
-    });
+    const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
+      (error: unknown) => {
+        throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
+      },
+    );
     spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),

@@ -28,10 +28,7 @@ export interface BranchArbiters {
   readonly instanceOf: (arbiter: Class) => unknown;
   readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
   /** How a model arbiter reads an agent's answer (#708): as that agent's own model reads it. */
-  readonly readingOf?: (
-    agent: string,
-    state: ExecutionStateType,
-  ) => ModelReadingMask | undefined;
+  readonly readingOf?: (agent: string, state: ExecutionStateType) => ModelReadingMask | undefined;
 }
 
 /** A branch's part of the launch deps: the registry, the arbiters, the checkpointer. */
