@@ -82,8 +82,8 @@ good — size `maxmemory` for it; a full server refuses writes, and the core han
   alone (#694: every schedule of two instances 8 steps deep, 200 seeded walks of three, the second
   clock ± lease/2, ± lease, ± 10 × lease, both #520 races).
 - It bites (`tests/contracts/sabotage.test.ts`): leases decided on the caller's clock fail the
-  explorer's `one-live-holder`; a take made of a read and then a write fails the lease contract's two
-  take races (#695), and only those.
+  explorer's `one-live-holder`; a take made of a read and then a write fails the lease contract's three
+  take races (#695).
 - The fault suite (`tests/faults/`): its 23 scenarios with the Redis queue and rate limits beside the
   core's SQLite fencing set, `children-once` and `linearizable` included — it found #699.
 - A real crash (`tests/crash/`): `docker kill -s KILL` on the server. With the required settings
