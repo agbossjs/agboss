@@ -1342,7 +1342,8 @@ double-charge protection for …` — a fencing contract run on its own with the
   (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the
   transaction, a read-then-close `leaseStateOf`, a pre-#508 lease log, stores of no backend or
   another); and `interleavings (<name>)` (#533, `src/testing/contracts/explorer/`): a deterministic
-  scheduler of simulated instances over the set's fencing stores — every schedule of two up to
+  scheduler of simulated instances over the set's fencing stores (#694: its lease store alone, no
+  `leaseStateOf` step, in a set without an outbound-call store) — every schedule of two up to
   `interleavings.depth` (default 8), seeded walks of three, the second's clock ± lease/2, ± lease,
   ± 10 × lease off the store's time, each operation sent once the one before was answered — checking
   one live holder, no write at a stale token, one effect per key, one charge per business key and no

@@ -1,3 +1,4 @@
+import type { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../../units/index.js";
 import { ClockSkew } from "../../clock-skew.js";
 import type { FencedEffectStores } from "../fenced-effect-data.js";
@@ -12,7 +13,8 @@ import {
 
 /**
  * The worlds the explorer runs (#533 item 1) and the store sets they run on: every lease operation
- * with `leaseStateOf` (on the outbound-call target: its leases and the check), the step's fenced
+ * with `leaseStateOf` (on the outbound-call target: its leases and the check; without one, on the
+ * lease store alone, #694), the step's fenced
  * effect, and the outbound call — handed over on one tree, and under one business key from two.
  * Each runs with the second instance's own clock on time and off by ± lease/2, ± lease and ± 10 ×
  * lease, the store on the run's time: a store that decides by its caller's clock gives two holders.
@@ -81,6 +83,11 @@ function mapped<TStore>(
     },
   };
 }
+
+/** The lease store alone as the explorer's stores (#694: the lease world of a set without calls). */
+export const leaseTarget = (
+  target: ContractTarget<ExecutionLeaseRepository>,
+): ContractTarget<ExplorerStores> => mapped(target, (leases) => ({ leases }));
 
 /** The outbound-call target as the explorer's stores (the lease world's and the call world's). */
 export const callTarget = (
