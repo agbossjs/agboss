@@ -20,6 +20,11 @@ differently, so a built-in embeddings model or vector store would be the wrong d
   indexes that tenant's passages only, proved by the published `ragConnectorContract`. The earlier
   "no multi-tenant access control" is withdrawn; per-document access within a tenant is still the
   connector's.
+- **Amended by #703:** reranking is under the same contract — a `@Reranker` (the core's LLM reranker
+  on the application's model providers, or the project's code on a vendor's official SDK) bound by
+  `@Rag({ rerank })`; the core runs it, checks its result is a subset of the tenant's candidates,
+  bills and traces it, and falls back or fails the step as declared. No reranker package in the
+  core: dedicated rerank APIs stay examples (agboss-examples `11-rag-reranking`).
 
 ## Consequences
 

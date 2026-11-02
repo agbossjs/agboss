@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: reranking for knowledge bases (#703)
+
+- **Added**: `@Rag({ rerank: { by, candidates, keep, onFailure } })` in place of `topK` and
+  `@Reranker` (`@agboss/core/rag`): the core's LLM reranker on any chat model of the application
+  (default `openai/gpt-4.1-nano`), or `DecidedBy.Code` + `RerankerHandler` for a dedicated API on
+  its own SDK. Both modes, `testRag`, `mockLlm(Reranker)`; the spend under `rag:<name>` in every
+  budget; spans `rerank:<name>` (and `:fallback`); `RerankFailurePolicy.Fallback` (default) /
+  `FailStep` → `RerankFailedError` (`step.rerank-failed`); the result must be a subset of the
+  candidates. New model use `rerankers.<name>`; new assembly codes `rag.rerank-invalid`,
+  `rag.not-a-reranker`, `reranker.missing-handler`, `reranker.decision-model`.
+  [Knowledge bases](Knowledge-bases#reranking).
+
 ## Unreleased — 0.1.1: knowledge bases are tenant-scoped (#700)
 
 - **Breaking** for a connector of your own: the RAG contract had no tenant, so an agent working for

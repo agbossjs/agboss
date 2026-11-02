@@ -104,6 +104,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `mcp/<name>.server.ts`                         | an `@McpServer` and the server tools it uses (`extends McpServerClient`) |
 | `mcp/<name>.mcp.ts`                            | an `@McpTool` — a tool with its server injected                          |
 | `rag/<name>.rag.ts`                            | a `@Rag` knowledge base                                                  |
+| `rerankers/<name>.reranker.ts`                 | a `@Reranker` of a knowledge base (#703)                                 |
 | `tool-interceptors/<name>.tool-interceptor.ts` | a `@ToolInterceptor` — before / after an agent's tool calls ([Tools](Tools#tool-interceptors)) |
 | `services/<name>.service.ts`                   | an `@Injectable` (like an Angular service)                               |
 | `helpers/<name>.helper.ts`                     | plain functions                                                          |
@@ -505,7 +506,7 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
 
 ## A knowledge base
 
-`@Rag` classes in `rag/`, bound by agents with a required mode — see [Knowledge bases](Knowledge-bases).
+`@Rag` classes in `rag/`, bound by agents with a required mode, their `@Reranker`s in `rerankers/` — see [Knowledge bases](Knowledge-bases).
 
 ## The module
 

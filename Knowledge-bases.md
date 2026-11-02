@@ -143,6 +143,105 @@ chunks stay; at least one and at most `topK` results; an aborted signal rejects 
 connector that ignores the tenant, folds its id, appends on re-index, ignores `topK` or the signal,
 or reports `NaN` fails its case (the core's own bite proofs).
 
+## Reranking
+
+Retrieval ranks the truly relevant passage below near-misses more often than not. A knowledge base
+reranks (#703) by asking its connector for more `candidates`, re-ordering them with a more precise
+model and giving the agent the best `keep` — `rerank` takes the place of `topK` (both, or neither,
+do not compile):
+
+```ts file=rerankers/docs.reranker.ts
+import { Reranker } from "@agboss/core/rag";
+
+// the core's LLM reranker on any chat model of the application's providers
+@Reranker({ name: "docs-reranker", description: "Reranks the docs", model: "openai/gpt-4.1-nano" })
+export class DocsReranker {}
+```
+
+<!-- snippet-context
+import { Rag, RerankFailurePolicy, SqliteFtsConnector } from "@agboss/core/rag";
+import { DOCS_INDEX } from "./rag/company-docs.rag.js";
+import { DocsReranker } from "./rerankers/docs.reranker.js";
+-->
+
+```ts
+@Rag({
+  name: "reranked-docs-rag",
+  description: "Nimbus Labs docs, reranked",
+  rerank: { by: DocsReranker, candidates: 30, keep: 4, onFailure: RerankFailurePolicy.Fallback },
+  deps: [DOCS_INDEX],
+})
+export class RerankedDocs extends SqliteFtsConnector {}
+```
+
+| Setting     | What it is                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------- |
+| `by`        | a `@Reranker` class (`rerankers/*.reranker.ts`, name ending `-reranker`)                        |
+| `candidates`| how many results the connector is asked for                                                     |
+| `keep`      | how many reach the agent, best first (`1 ≤ keep ≤ candidates`, else `[rag.rerank-invalid]`)     |
+| `onFailure` | `RerankFailurePolicy.Fallback` (default) or `RerankFailurePolicy.FailStep`                       |
+
+It works with any connector and in both modes: the search tool returns the reranked `keep`, the
+context block holds them; `testRag(R)` reranks the same way (`model: replyWith(…)` scripts a model
+reranker).
+
+**The LLM reranker** (`DecidedBy.Model`, the default) is an empty class: `model` is any chat model of
+the application's providers, a cheap one by default (`DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`;
+under providers that do not serve it `[model.unserved]` names `rerankers.<name>`; a decision model is
+`[reranker.decision-model]`). One call per reranking: the query and the numbered candidates in, a
+JSON ranking out (`{"ranking":[27,1,2]}`) — the model names candidates by number, never rewrites
+one; the ones it does not rank follow in retrieval order. Its retries, rate limit and breaker are its
+provider's. In tests: `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1,2]}'))`;
+unscripted it ranks nothing (the retrieval's order).
+
+**Your own reranker** — a dedicated API such as Cohere Rerank, on its official SDK, no AGBoss
+wrapper — is code:
+
+<!-- snippet-context
+import { DecidedBy } from "@agboss/core";
+import { Reranker, type RagReranking, type RerankerHandler, type RerankOptions } from "@agboss/core/rag";
+import type { RagSearchResultDto } from "@agboss/core/dto";
+declare const rerankApi: { rerank(query: string, documents: readonly string[], topN: number): Promise<readonly { index: number; score: number }[]> };
+-->
+
+```ts
+@Reranker({ name: "api-reranker", description: "A rerank API", decidedBy: DecidedBy.Code })
+export class ApiReranker implements RerankerHandler {
+  async rerank(query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions): Promise<RagReranking> {
+    const ranked = await rerankApi.rerank(query, candidates.map((c) => c.text), options.keep);
+    const results = ranked.flatMap(({ index, score }) => {
+      const candidate = candidates[index];
+      return candidate === undefined ? [] : [{ ...candidate, score }];
+    });
+    return { results, costUsd: 0.002 };
+  }
+}
+```
+
+Swapping one reranker for another is the `by` of one `@Rag` — nothing else changes. The full
+example with Cohere Rerank, offline: agboss-examples
+[`11-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/11-rag-reranking).
+
+**What a reranker may return:** a subset of the candidates it was given — the same `source` and
+`text`, none twice, at most `keep`. Anything else is a failure, so no reranker can put a passage
+the tenant's retrieval did not return before the agent ([Tenants](#tenants)); it sees only the
+current tenant's candidates (`options.tenantId`). `ragConnectorContract({ …, rerank: { by,
+candidates } })` runs the contract's cases through the reranking.
+
+**When it fails** (it throws, times out, gives no ranking, or an invalid result):
+
+- `RerankFailurePolicy.Fallback` (default) — the retrieval's own first `keep`; the trace has the
+  failed span `rerank:<name>` and a span `rerank:<name>:fallback` with the reason.
+- `RerankFailurePolicy.FailStep` — `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`:
+  `rag`, `reranker`, `cause`) fails the agent's step in both modes — context mode does not swallow
+  it, tool mode does not hand it to the model; `.onError(RerankFailedError, …)` may take it.
+
+**Cost and traces:** the reranking is the span `rerank:<rag name>`, its model call inside it; its
+spend is billed to `rag:<rag name>` (category `retrieval`) with the reranker's model — a code
+reranker's `costUsd` under its `@Reranker` name — so it is in `result.spend`, the ledger and every
+budget, counted at once. `npm run describe`: `rag: reranked-docs-rag (tool, k 4, reranked by
+docs-reranker from 30, on failure fallback)`.
+
 ## Costs and traces
 
 Retrieval is billed to `rag:<name>` — FinOps category **`retrieval`**; context retrieval is a named
