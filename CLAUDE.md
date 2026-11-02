@@ -625,7 +625,8 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   reclaims only that child once its lease is free and continues it from its last checkpoint;
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
   checked where it runs, and each superstep's spend is written to the root's counters at once
-  (`isRecordedElsewhere`, #333 PR 3). A remote child that pauses completes its pass at `Paused` and
+  (`isRecordedElsewhere`, #333 PR 3) — its parent's pass takes that spend in with a read of the
+  counters before its state shows it, so it counts once (#685). A remote child that pauses completes its pass at `Paused` and
   interrupts the parent's node with `{ waitingForChild: { …, remote: true } }`, forwarding the
   child's resume map through the queue on `app.resume` (#333 PR 4); its failure is kept as its
   durable record and rebuilt as a `RecordedError` that `.onError` routes as the original (#598:

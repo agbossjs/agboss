@@ -13,6 +13,7 @@ import type { ExecutionGraph } from "../build.js";
 import { resumeMapOf, type ChildWaiting } from "../child-own-thread.js";
 import { asRootRun, atLeafCheckpoint, isExecutionState, rootConfigOf } from "../child-thread.js";
 import type { ExecutionStateType } from "../state.js";
+import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
 import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
 import { remoteChildSignals } from "./remote-child-signals.js";
 import { remoteFailureOf } from "./remote-failure.js";
@@ -226,16 +227,22 @@ const recordedElsewhere = (
   ),
 });
 
-/** The child queued for any instance and awaited: its end as its parent continues it. */
+/**
+ * The child queued for any instance and awaited: its end as its parent continues it. Its spend is
+ * in the ledger already (its worker wrote it as it was made): the parent's pass takes it in with a
+ * read of the counters before its state shows it, so it counts once (#685).
+ */
 export async function remoteChildEndOf(
   graph: ExecutionGraph,
   config: RunnableConfig,
   site: RemoteChildSite,
+  budgets: Pick<BudgetMeter, "takeRecordedElsewhere"> | undefined,
 ): Promise<RemoteChildEnd> {
   const { row, isSeen } = await settledRow(graph, config, site);
   const last = await lastStateOf(graph, config, site.run.thread);
   const inherited = site.run.initial.child.inheritedUsage;
   const state = last === undefined ? {} : { state: recordedElsewhere(last, inherited) };
+  await budgets?.takeRecordedElsewhere(state.state?.usage ?? []);
   // its finish is announced by the worker that completed its row, never here (#562)
   if (row.status === ExecutionRecordStatus.Answered)
     return { ...state, failed: false, announces: false };

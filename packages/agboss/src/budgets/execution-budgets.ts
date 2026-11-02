@@ -2,26 +2,22 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { Class } from "../components/injection.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
-import { BudgetExceededError } from "../graph/limits.js";
-import type {
-  BudgetAccount,
-  CostCounter,
-  CostLedgerRepository,
-} from "../infrastructure/cost-ledger.repository.js";
+import type { BudgetExceededError } from "../graph/limits.js";
+import type { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
-import { usd } from "../units/index.js";
 import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
-import type { BudgetCheck } from "./budget-check.js";
+import { budgetExceededErrorOf, counterOf, isRecordedHere } from "./budget-check.js";
+import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
+import { budgetOf, BudgetScope, type BudgetHandler, type BudgetMeta } from "./budget.js";
 
-export { NO_BUDGET_CHECK, type BudgetCheck } from "./budget-check.js";
-import {
-  budgetOf,
-  BudgetScope,
-  type BudgetHandler,
-  type BudgetMeta,
-  type BudgetPeriod,
-} from "./budget.js";
-import { periodStartOf } from "./budget-period.js";
+export {
+  accountOf,
+  budgetExceededErrorOf,
+  counterOf,
+  NO_BUDGET_CHECK,
+  type BudgetCheck,
+  type ExecutionBudgetRecord,
+} from "./budget-check.js";
 
 /**
  * Budgets at run time (#261 PR 5): which budgets an execution has — its own workflow's execution
@@ -36,18 +32,6 @@ import { periodStartOf } from "./budget-period.js";
  * a limit, step by step) and, across instances, what other trees' steps spend that start before
  * that spend is in the ledger — at the end of the superstep that spent it.
  */
-
-/** One budget of an execution as it keeps it: plain data (checkpointed), the amount read at its start. */
-export interface ExecutionBudgetRecord {
-  readonly budget: { readonly name: string };
-  readonly scope: BudgetScope;
-  /** A tenant or application budget's period; none for an execution budget. */
-  readonly period?: BudgetPeriod;
-  /** The application's name, the `tenantId`, or the root execution's id. */
-  readonly key: string;
-  /** What `maxSpend()` gave at the start of the execution, in USD. */
-  readonly maxSpend: number;
-}
 
 /** A budget class with what `@Budget` says of it. */
 interface ListedBudget {
@@ -104,52 +88,12 @@ export const budgetKeyOf = (scope: BudgetScope, keys: ExecutionKeys): string =>
       ? keys.tenantId
       : keys.executionId;
 
-export const accountOf = (record: ExecutionBudgetRecord): BudgetAccount => ({
-  budget: record.budget.name,
-  scope: record.scope,
-  key: record.key,
-});
-
-/** The counter a record's spend goes to at `moment`: its period's, or the execution's own. */
-export const counterOf = (record: ExecutionBudgetRecord, moment: Date): CostCounter => ({
-  ...accountOf(record),
-  period: record.period === undefined ? "" : periodStartOf(record.period, moment),
-});
-
-/** The error of an exhausted budget. */
-export const budgetExceededErrorOf = (
-  record: ExecutionBudgetRecord,
-  spent: number,
-  path: readonly string[],
-  executionSpent: number,
-  usage: readonly UsageRecord[],
-): BudgetExceededError =>
-  new BudgetExceededError(
-    {
-      budget: record.budget,
-      scope: record.scope,
-      period: record.period,
-      key: record.key,
-      maxSpend: usd(record.maxSpend),
-      spent: usd(Math.max(0, spent)),
-    },
-    path,
-    executionSpent,
-    usage,
-  );
-
-/** The counters as one read saw them, and what this pass had written to the ledger by then. */
-interface CounterSnapshot {
-  readonly values: ReadonlyMap<string, number>;
-  readonly recorded: number;
-}
-
 /**
  * The budgets of one pass of an execution (its run, a resume, a recovery): their counters read
  * before each step (`refresh`, so the spend of the tenant's other executions counts),
  * checked before each step and model call (`check`), each call's cost added to every one of them
  * (`record`). A counter's value now = what it held at the last read + what the execution spent
- * since that is not in the ledger yet.
+ * since that the read does not hold.
  *
  * The live tally (#338): the pass's spend is also counted as it is made (`tally` — an agent's
  * model calls, guardrails and judges, a tool's or a step's service spend, an arbiter's decision),
@@ -161,13 +105,24 @@ interface CounterSnapshot {
  * with that `BudgetExceededError`: every branch of the pass's launches watches it, so their
  * in-flight calls stop at once. One meter per pass and tree on this instance (the lease gives one
  * mover); other instances see the spend through the ledger only.
+ *
+ * Counted once (#685): the meter's reads and writes run one at a time, so a read holds a write
+ * whole or not at all — never the ledger's value with the write and `recorded` without it. A
+ * child's spend recorded on another instance (`isRecordedElsewhere`, #333 PR 3) is in the ledger
+ * before its parent's state holds it: the parent takes it in (`takeRecordedElsewhere`) with a read
+ * of the counters, in one turn, before its state shows it — so no read holds it uncounted, and no
+ * check counts it from the ledger and the state both.
  */
 export class BudgetMeter implements BudgetCheck {
-  /** What this pass wrote to the ledger. */
+  /** What this pass wrote to the ledger, and what it took in as written there elsewhere. */
   #recorded = 0;
   #snapshot: CounterSnapshot = { values: new Map(), recorded: 0 };
   /** The pass's spend tallied as it was made and not written to the ledger yet. */
   #tallied: UsageRecord[] = [];
+  /** Spend recorded elsewhere, taken in before its records reached `record` (as a multiset). */
+  #takenIn: UsageRecord[] = [];
+  /** The meter's reads and writes, one at a time. */
+  #turns: Promise<unknown> = Promise.resolve();
   readonly #exhausted = new AbortController();
 
   /**
@@ -188,16 +143,30 @@ export class BudgetMeter implements BudgetCheck {
     return this.#exhausted.signal;
   }
 
-  /** Reads every counter of the execution's budgets in their current period. */
-  async refresh(): Promise<void> {
-    const recorded = this.#recorded;
+  /** Runs `work` after the meter's reads and writes before it: never beside one. */
+  #inTurn(work: () => Promise<void>): Promise<void> {
+    const turn = this.#turns.then(work);
+    this.#turns = turn.catch(() => undefined);
+    return turn;
+  }
+
+  /** Every counter of the execution's budgets in its current period, as the ledger holds it now. */
+  async #read(): Promise<ReadonlyMap<string, number>> {
     const now = this.clock.now();
     const values = new Map<string, number>();
     for (const record of this.records) {
       const counter = counterOf(record, now);
       values.set(counterKeyOf(counter), await this.ledger.findSpentByCounter(counter));
     }
-    this.#snapshot = { values, recorded };
+    return values;
+  }
+
+  /** Reads every counter of the execution's budgets in their current period. */
+  refresh(): Promise<void> {
+    return this.#inTurn(async () => {
+      const values = await this.#read();
+      this.#snapshot = { values, recorded: this.#recorded };
+    });
   }
 
   /** A budget's spend now, from the last read and the execution's total `executionSpent`. */
@@ -234,8 +203,10 @@ export class BudgetMeter implements BudgetCheck {
   }
 
   tally(records: readonly UsageRecord[], path: readonly string[] = []): void {
-    if (records.length === 0 || this.records.length === 0) return;
-    this.#tallied.push(...records);
+    // spend recorded elsewhere is in the ledger already: counted when it is taken in (#685)
+    const own = records.filter(isRecordedHere);
+    if (own.length === 0 || this.records.length === 0) return;
+    this.#tallied.push(...own);
     if (this.#exhausted.signal.aborted) return;
     // the records are in the tally (and soon in the state): the error carries none of them
     const breach = this.#breachOf(this.#executionSpent(), path, []);
@@ -268,26 +239,53 @@ export class BudgetMeter implements BudgetCheck {
     );
   }
 
-  /** Adds the calls' cost to every counter (their period); one recorded elsewhere only counts (#333). */
-  async record(records: readonly UsageRecord[]): Promise<void> {
-    if (records.length === 0 || this.records.length === 0) return;
-    const now = this.clock.now();
-    // counted first: a read meanwhile sees a little less, never twice the same call
+  /** Counts spend already in the ledger, with a read that holds it: in one turn, nothing between. */
+  async #takeIn(records: readonly UsageRecord[]): Promise<void> {
+    const values = await this.#read();
     this.#recorded += totalCost(records);
-    // what was tallied as it was made is in the ledger now: out of the tally (as multisets)
-    this.#tallied = [...unrecordedOf(this.#tallied, records)];
-    const own = records.filter((record) => record.isRecordedElsewhere !== true);
-    if (own.length === 0) return;
-    await this.ledger.saveAll(
-      this.records.map((record) => counterOf(record, now)),
-      own,
-    );
+    this.#snapshot = { values, recorded: this.#recorded };
+  }
+
+  /**
+   * Takes in a child's spend that its instance wrote to the ledger as it was made (#333 PR 3,
+   * #685), before the parent's state shows it: counted, never written again — once, when its records
+   * reach `record` later.
+   */
+  takeRecordedElsewhere(records: readonly UsageRecord[]): Promise<void> {
+    const elsewhere = records.filter((record) => !isRecordedHere(record));
+    if (elsewhere.length === 0 || this.records.length === 0) return Promise.resolve();
+    return this.#inTurn(async () => {
+      this.#takenIn.push(...elsewhere);
+      await this.#takeIn(elsewhere);
+    });
+  }
+
+  /** Adds the calls' cost to every counter (their period); one recorded elsewhere only counts (#333). */
+  record(records: readonly UsageRecord[]): Promise<void> {
+    if (records.length === 0 || this.records.length === 0) return Promise.resolve();
+    return this.#inTurn(async () => {
+      const own = records.filter(isRecordedHere);
+      const elsewhere = records.filter((record) => !isRecordedHere(record));
+      const notTakenIn = unrecordedOf(elsewhere, this.#takenIn);
+      this.#takenIn = [...unrecordedOf(this.#takenIn, elsewhere)];
+      this.#recorded += totalCost(own);
+      // what was tallied as it was made is in the ledger now: out of the tally (as multisets)
+      this.#tallied = [...unrecordedOf(this.#tallied, own)];
+      if (own.length > 0) {
+        const now = this.clock.now();
+        await this.ledger.saveAll(
+          this.records.map((record) => counterOf(record, now)),
+          own,
+        );
+      }
+      if (notTakenIn.length > 0) await this.#takeIn(notTakenIn);
+    });
   }
 }
 
 /** A pass's budgets over the records the execution keeps. */
 export const meterOf = (
-  application: Pick<ApplicationBudgets, "ledger" | "clock">,
+  application: { readonly ledger: CostLedgerRepository; readonly clock: Clock },
   records: readonly ExecutionBudgetRecord[],
   spentBefore: number,
   deadline?: ExecutionDeadline,
