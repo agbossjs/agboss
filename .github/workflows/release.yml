@@ -52,10 +52,24 @@ jobs:
         run: node scripts/release/release-plan.mjs --dry-run
       - name: Build
         run: npm run build
+      # npm refuses a dry run over a published version (between releases the packages are at the last
+      # one): such a package is dry-run as X.Y.Z-dry-run.<run id>, on this runner only
+      - name: A version already on npm takes a dry-run suffix
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          for folder in packages/agboss packages/agboss-cli; do
+            name="$(node -p "require('./$folder/package.json').name")"
+            version="$(node -p "require('./$folder/package.json').version")"
+            if npm view "$name@$version" version > /dev/null 2>&1; then
+              npm pkg set "version=$version-dry-run.$RUN_ID" -w "$folder"
+              echo "$name@$version is on npm: dry-run as $version-dry-run.$RUN_ID"
+            fi
+          done
       - name: npm publish --dry-run (@agboss/core, then @agboss/cli)
         run: |
-          npm publish --dry-run --access public -w @agboss/core
-          npm publish --dry-run --access public -w @agboss/cli
+          npm publish --dry-run --access public --tag dry-run -w @agboss/core
+          npm publish --dry-run --access public --tag dry-run -w @agboss/cli
 
   publish:
     name: publish @agboss/core and @agboss/cli
