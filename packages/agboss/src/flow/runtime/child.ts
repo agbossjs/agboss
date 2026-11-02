@@ -119,7 +119,7 @@ async function runChild(
   const end =
     run.remote === undefined
       ? await childEndOf(child, run)
-      : await remoteChildEndOf(child.graph, run.config, run.remote);
+      : await remoteChildEndOf(child.graph, run.config, run.remote, parent.undo.budgets);
   if (end.failed) {
     // #596: with tree keys the claim decides who announces it; without, the pass that saw it first
     const announces = end.announces || parent.deps.compensation?.trees !== undefined;
