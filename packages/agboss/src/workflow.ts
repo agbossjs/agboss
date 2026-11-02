@@ -2,6 +2,7 @@ import type { JudgeInstance } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
+import type { ModelBinding } from "./llm/registry.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { AssembledGuardrails } from "./guardrails/assembly.js";
@@ -31,6 +32,11 @@ export interface WorkflowServices {
   readonly contexts?: RuntimeContexts;
   /** Framework wiring of the app's container: replacements (test mocks) and lifecycle. */
   readonly container?: ContainerOptions;
+  /**
+   * A model `@Reranker`'s chat model (#703), through the application's model gateway with the
+   * workflow's chat defaults; absent where no gateway is (describe, the CLI's index).
+   */
+  readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
 }
 
 /** Tools as a list, or a factory when they need core services. */
@@ -75,6 +81,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly knowledge?: (
     services: WorkflowServices,
   ) => ReadonlyMap<string, readonly KnowledgeSource[]>;
+  /** Its knowledge bases' model rerankers (#703), by name and model: model uses `rerankers.<name>`. */
+  readonly rerankers?: readonly { readonly name: string; readonly model: string }[];
   /** Every knowledge base of the workflow (for `npm run rag:index`). */
   readonly knowledgeBases?: (
     services: WorkflowServices,

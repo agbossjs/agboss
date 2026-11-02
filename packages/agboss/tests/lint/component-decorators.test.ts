@@ -123,6 +123,10 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Rag({ name: "jobs-rag", description: "d" })',
     "async search(): Promise<void>",
   ),
+  Reranker: statefulClass(
+    '@Reranker({ name: "jobs-reranker", description: "d", decidedBy: DecidedBy.Code })',
+    "async rerank(): Promise<void>",
+  ),
   A2AAgent: statefulClass(
     '@A2AAgent({ name: "remote-agent", url: "http://localhost:4000" })',
     "async send(): Promise<void>",

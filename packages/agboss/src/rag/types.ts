@@ -1,4 +1,6 @@
 import type { RagSearchResultDto } from "../dto/standard/framework.js";
+import type { UsageRecord } from "../finops/usage.js";
+import type { Class } from "../components/injection.js";
 
 /** What a knowledge base found for a query: its search results (each cited as `[source]`). */
 export interface RagRetrieval {
@@ -46,11 +48,75 @@ export interface RagIndexOptions {
   readonly signal: AbortSignal;
 }
 
+/** A retrieval the core ran: the connector's, and the reranker's model calls when it reranked (#703). */
+export interface KnowledgeRetrieval extends RagRetrieval {
+  /** The reranker's spend (#703), under `rag:<name>`: counted by the budgets like a retrieval's. */
+  readonly usage?: readonly UsageRecord[];
+}
+
 /** A retrieval as the core asks it: the tenant is the execution's, supplied by the core (#700). */
 export type KnowledgeRetrieve = (
   query: string,
   options: { readonly topK: number; readonly signal: AbortSignal },
-) => Promise<RagRetrieval>;
+) => Promise<KnowledgeRetrieval>;
+
+/** What one reranking is asked for (#703). */
+export interface RerankOptions {
+  /** At most this many results, best first. */
+  readonly keep: number;
+  readonly signal: AbortSignal;
+  /** The execution's tenant (#700): the candidates are its own. */
+  readonly tenantId: string;
+}
+
+/** A reranker's answer (#703): some of the candidates, best first, with its own scores. */
+export interface RagReranking {
+  /** A subset of the candidates as given — never a passage of its own, at most `keep`. */
+  readonly results: readonly RagSearchResultDto[];
+  /** What this reranking cost (a rerank API); 0 or absent when free. */
+  readonly costUsd?: number;
+}
+
+/**
+ * The contract of a reranker (#703): `@Reranker({ decidedBy: DecidedBy.Code })` + `implements
+ * RerankerHandler` — a dedicated API (Cohere Rerank, …) on its official SDK, or your own code.
+ */
+export interface RerankerHandler {
+  readonly rerank: (
+    query: string,
+    candidates: readonly RagSearchResultDto[],
+    options: RerankOptions,
+  ) => Promise<RagReranking>;
+}
+
+/** What a knowledge base does when its reranker fails (#703): the default is `Fallback`. */
+export enum RerankFailurePolicy {
+  /** The retrieval's own first `keep` results, a `rerank:<name>:fallback` span in the trace. */
+  Fallback = "fallback",
+  /** `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`) fails the agent's step. */
+  FailStep = "fail-step",
+}
+
+/**
+ * The model of a model `@Reranker` without its own (#703): cheap, non-reasoning, served by the
+ * built-in OpenRouter; `[model.unserved]` names `rerankers.<name>` under providers that do not.
+ */
+export const DEFAULT_RERANKER_MODEL = "openai/gpt-4.1-nano";
+
+/** The code of a reranking that failed under `RerankFailurePolicy.FailStep` (#703). */
+export const RERANK_FAILED_CODE = "step.rerank-failed";
+
+/** `@Rag({ rerank })` (#703): fetch `candidates`, rerank them with `by`, give the agent `keep`. */
+export interface RagRerank {
+  /** A `@Reranker` class: the LLM reranker (`DecidedBy.Model`) or your own (`DecidedBy.Code`). */
+  readonly by: Class;
+  /** How many results the connector is asked for. */
+  readonly candidates: number;
+  /** How many reach the agent, best first (`1 ≤ keep ≤ candidates`). */
+  readonly keep: number;
+  /** Default `RerankFailurePolicy.Fallback`. */
+  readonly onFailure?: RerankFailurePolicy;
+}
 
 /** A knowledge base as the core runs it in context mode (retrieved before the agent's loop). */
 export interface KnowledgeSource {

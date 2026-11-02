@@ -5,6 +5,7 @@ import { isCodeJudge } from "../components/judge-decorators.js";
 import { componentOf } from "../components/metadata.js";
 import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { DecidedBy } from "../flow/decorators/router.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
 import {
@@ -18,9 +19,18 @@ import {
   arbiterKeyOf,
   judgeScriptKeyOf,
   replyInterpreterKeyOf,
+  rerankerKeyOf,
   routerKeyOf,
   type ModelTarget,
 } from "./scripted-gateway.js";
+
+/** The script key of a model `@Reranker` (#703); a code one calls no model. */
+const rerankerScriptKeyOf = (target: ModelTarget): string | undefined => {
+  const found = componentOf(target);
+  return found?.kind === "reranker" && found.meta.decidedBy !== DecidedBy.Code
+    ? rerankerKeyOf(found.meta.name)
+    : undefined;
+};
 
 /** Whether a class is a `@Judge` decided by code (#396): it calls no model. */
 const isCodeJudgeClass = (target: ModelTarget): boolean => {
@@ -67,7 +77,7 @@ export class ModelTargets {
     );
   }
 
-  /** The script key of a judge, a model arbiter, a PII detection, a model interpreter or a guardrail. */
+  /** The script key of a judge, a model arbiter, a PII detection, a model interpreter, a guardrail or a model reranker. */
   componentKeyOf(target: ModelTarget): string | undefined {
     const judge = judgeScriptKeyOf(target, this.#judges);
     if (judge !== undefined) return judge;
@@ -76,10 +86,16 @@ export class ModelTargets {
       return interpreter.model === undefined ? undefined : replyInterpreterKeyOf(interpreter.name);
     const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
     if (options !== undefined && !isCodeArbiter(options)) return arbiterKeyOf(options.name);
+    return this.#policyKeyOf(target);
+  }
+
+  /** The script key of a PII detection, a model guardrail, a compaction or a model reranker (#703). */
+  #policyKeyOf(target: ModelTarget): string | undefined {
     return (
       piiScriptKeyOf(target, this.assembled) ??
       guardrailScriptKeyOf(target, this.assembled) ??
-      compactionScriptKeyOf(target, this.assembled)
+      compactionScriptKeyOf(target, this.assembled) ??
+      rerankerScriptKeyOf(target)
     );
   }
 
@@ -96,6 +112,8 @@ export class ModelTargets {
       return "a code judge calls no model — mockOf() the services its judge() uses";
     if (isCodeGuardrailOf(target, this.assembled))
       return "a code guardrail calls no model — mockOf() the services its check() uses";
+    if (componentOf(target)?.kind === "reranker")
+      return "a code reranker calls no model — mockOf() it, or the services its rerank() uses";
     if (isCustomCompactionIn(target, this.assembled))
       return "a custom compaction calls no model — mockOf() it, or the services its compact() uses";
     return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application";

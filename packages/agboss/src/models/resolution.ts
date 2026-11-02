@@ -64,6 +64,8 @@ export interface WorkflowModels {
   readonly replyInterpreters?: readonly ModelNamingInterpreter[];
   /** Its guardrails (#120): the model ones by `name` and `model`, a code one (#383) names none. */
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] };
+  /** Its knowledge bases' model rerankers (#703), by `name` and `model`. */
+  readonly rerankers?: readonly ModelNamingRouter[];
   readonly modelProviders: readonly ModelProviderType[];
 }
 
@@ -74,6 +76,7 @@ const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly Mode
     piiDetectors: workflow.pii?.detectors,
     interpreters: workflow.replyInterpreters,
     guardrails: modelGuardrailsOf(workflow.guardrails),
+    rerankers: workflow.rerankers,
   });
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */

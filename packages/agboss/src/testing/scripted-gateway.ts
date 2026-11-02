@@ -34,6 +34,8 @@ export function chatKeyOf(user: ChatModelUser): string {
       return replyInterpreterKeyOf(user.interpreter);
     case "guardrail":
       return guardrailKeyOf(user.guardrail);
+    case "reranker":
+      return rerankerKeyOf(user.reranker);
   }
 }
 /** The script key of a model reply interpreter (#267 PR 3): its cost caller. */
@@ -46,6 +48,8 @@ export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
 export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;
 /** The script key of a compaction (#120 PR 3): its cost caller. */
 export const compactionKeyOf = (compaction: string): string => `compaction:${compaction}`;
+/** The script key of a model `@Reranker` (#703): `mockLlm(DocsReranker)`. */
+export const rerankerKeyOf = (reranker: string): string => `reranker:${reranker}`;
 /** The script key of a guardrail (#120): its cost caller. */
 export const guardrailKeyOf = (guardrail: string): string => `guardrail:${guardrail}`;
 
@@ -137,6 +141,11 @@ function unscriptedSummary(script: ComponentScript): void {
   if (!script.isScripted) script.thenReturnAlways(replyWith(UNSCRIPTED_SUMMARY));
 }
 
+/** A reranker's script without turns ranks nothing (#703): the retrieval's own order, at no cost. */
+function unscriptedRanking(script: ComponentScript): void {
+  if (!script.isScripted) script.thenReturnAlways(replyWith('{"ranking":[]}'));
+}
+
 /**
  * The model gateway of a test: every chat model and every decision answers by script. A failure
  * that must fail the test (no script, script exhausted, not a route) is reported to the book and
@@ -149,6 +158,7 @@ export function createScriptedGateway(
   return {
     chatModel: ({ user, settings }) => {
       if (user.kind === "compaction") unscriptedSummary(book.scriptOf(chatKeyOf(user)));
+      if (user.kind === "reranker") unscriptedRanking(book.scriptOf(chatKeyOf(user)));
       return new ScriptedChatModel(
         {
           book,

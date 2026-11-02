@@ -1,5 +1,6 @@
 import { afterEach, describe, it } from "vitest";
-import type { RagConnector } from "../../rag/types.js";
+import { rerankedRetrieval } from "../../rag/rerank.js";
+import { RerankFailurePolicy, type RagConnector } from "../../rag/types.js";
 import { RAG_CONNECTOR_CASES } from "./rag-connector.cases.js";
 import {
   liveSignal,
@@ -38,6 +39,28 @@ async function contextOf<TConnector extends RagConnector>(
     await target.documents(connector, tenantId, documents);
     await connector.index?.({ tenantId, signal: liveSignal() });
   };
-  const retrieve: ContractRetrieve = (query, options) => connector.retrieve(query, options);
-  return { connector, fill, retrieve };
+  return { connector, fill, retrieve: retrieveOf(target, connector) };
+}
+
+/** A case's retrieval: the connector's own, or through the core's reranking (#703). */
+function retrieveOf<TConnector extends RagConnector>(
+  target: RagConnectorContractTarget<TConnector>,
+  connector: TConnector,
+): ContractRetrieve {
+  const { rerank } = target;
+  if (rerank === undefined) return (query, options) => connector.retrieve(query, options);
+  const bound = {
+    rag: target.name,
+    reranker: "contract-reranker",
+    candidates: rerank.candidates,
+    onFailure: RerankFailurePolicy.Fallback,
+    source: { kind: "code", instance: () => rerank.by },
+  } as const;
+  return (query, { topK, tenantId, signal }) =>
+    rerankedRetrieval((k) => connector.retrieve(query, { topK: k, tenantId, signal }), bound, {
+      query,
+      keep: topK,
+      tenantId,
+      signal,
+    });
 }

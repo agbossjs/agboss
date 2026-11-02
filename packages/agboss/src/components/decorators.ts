@@ -1,5 +1,5 @@
 import type { McpServerConfig } from "../config/types.js";
-import type { RagConnector } from "../rag/types.js";
+import type { RagConnector, RagRerank } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ChannelMeta } from "./meta-types.js";
@@ -132,20 +132,29 @@ export function McpTool<
   };
 }
 
+/** How many results a knowledge base gives (#703): `topK`, or `rerank` — never both, never neither. */
+type RagResultCount =
+  | { readonly topK: number; readonly rerank?: never }
+  | { readonly topK?: never; readonly rerank: RagRerank };
+
 /**
  * A knowledge base: a class implementing `RagConnector`. `topK` (passages per retrieval) is required —
- * there is no default. Agents bind it with a required `mode`: `rag: [{ use: CompanyDocs, mode: "tool" }]`.
+ * there is no default — or `rerank` in its place (#703: fetch `candidates`, a `@Reranker` keeps
+ * `keep`). Agents bind it with a required `mode`: `rag: [{ use: CompanyDocs, mode: "tool" }]`.
  */
-export function Rag<const D extends readonly Token[] = []>(options: {
-  readonly name: string;
-  readonly description: string;
-  readonly topK: number;
-  readonly prompt?: string;
-  readonly promptUrls?: readonly string[];
-  readonly deps?: D;
-}) {
+export function Rag<const D extends readonly Token[] = []>(
+  options: {
+    readonly name: string;
+    readonly description: string;
+    readonly prompt?: string;
+    readonly promptUrls?: readonly string[];
+    readonly deps?: D;
+  } & RagResultCount,
+) {
   return <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C): C => {
-    recordComponent(value, { kind: "rag", meta: withDeps(options) });
+    const { rerank, topK, ...rest } = options;
+    const kept = rerank === undefined ? { topK } : { topK: rerank.keep, rerank };
+    recordComponent(value, { kind: "rag", meta: withDeps({ ...rest, ...kept }) });
     return value;
   };
 }

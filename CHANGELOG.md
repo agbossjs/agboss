@@ -14,6 +14,16 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
+  fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
+  context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default
+  `openai/gpt-4.1-nano`) runs on the application's model providers — its cost in the turn's
+  `retrieval` spend and every budget, its call traced (`rerank:<name>`), scripted in tests with
+  `mockLlm(Reranker)`. A dedicated rerank API plugs in as `@Reranker({ decidedBy: DecidedBy.Code })`
+  - `implements RerankerHandler` on its own SDK. A reranker's result must be a subset of the
+    tenant's candidates. On a failure: the retrieval's own order with a `rerank:<name>:fallback` span
+    (default), or `RerankFailurePolicy.FailStep` → `RerankFailedError` (`step.rerank-failed`).
+    `ragConnectorContract` takes `rerank` to run its cases through the reranking.
 - **The races the store contracts were missing** (#695, found by `@agboss/mongodb`, #527) — the
   lease contract races two instances' `acquire` of one free lease (never leased, released,
   expired), round after round in both orders: exactly one is given it. A lease store that checks,

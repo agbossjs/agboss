@@ -1231,10 +1231,10 @@ export const quorumPaths = [
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
   `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `compactions/`, `tools/`,
-  `services/`, `mcp/`, `rag/`, `a2a/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
+  `services/`, `mcp/`, `rag/`, `rerankers/`, `a2a/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
   `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`,
   `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.compaction.ts` (+
-  `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`,
+  `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.reranker.ts`,
   `*.helper.ts`, `*.eval-suite.ts`, `*.a2a-agent.ts`, `*.a2a-expose.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
@@ -1688,7 +1688,28 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   document replaced in one transaction; `agboss rag index --tenant <id>` (default `default`). A
   connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
   (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
-  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`). **MCP:** `@McpServer`
+  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, keep, onFailure? } })` in place of `topK`
+  (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ keep ≤ candidates`;
+  `[rag.not-a-reranker]`) — the connector is asked for `candidates`, the `@Reranker`
+  (`rerankers/*.reranker.ts`, `-reranker`, `@agboss/core/rag`) re-orders them, the agent gets `keep`,
+  in tool and context mode alike (`testRag` too). `DecidedBy.Model` (the default, an empty class):
+  the core's LLM reranker on `model` (else `DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`), a model use
+  `rerankers.<name>` (`[model.unserved]`; a decision model `[reranker.decision-model]`), one call —
+  the numbered candidates in, `{"ranking":[…]}` out (unranked ones follow in retrieval order),
+  `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1]}'))`, unscripted the retrieval's
+  order; `DecidedBy.Code` — `implements RerankerHandler` (`rerank(query, candidates, { keep, signal,
+tenantId })` → `RagReranking { results, costUsd? }`, `deps`; a dedicated API such as Cohere Rerank on
+  its official SDK; none → `[reranker.missing-handler]`). The result must be a subset of the
+  candidates (by `source` + `text`, none twice, at most `keep`), else it is a failure — no reranker can
+  put a passage the tenant's retrieval did not return before the agent. A failure (a throw, an
+  unreadable reply, an invalid result) under `RerankFailurePolicy.Fallback` (default) gives the
+  retrieval's first `keep` and a span `rerank:<name>:fallback`; under `FailStep` it is
+  `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`) failing the agent's step in both
+  modes. The reranking is the span `rerank:<rag>` (its model call inside); its spend a `UsageRecord`
+  under `rag:<rag>` (category `retrieval`, the reranker's model; a code one's `costUsd` cost source
+  `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, reranked by
+docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`
+  runs the suite through the core's reranking; a scripted agent searches with `callTool(HandbookRag, { query })` (the `@Rag`'s search tool), `testRag(R, { model })` scripts its model reranker. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
   **A2A (#387, #398 PR 3) — declared contracts:** a call to another application is an
   `@A2AAgent({ name: "-a2a-agent", url, target: { application, start }, input, output, price?, deps })`

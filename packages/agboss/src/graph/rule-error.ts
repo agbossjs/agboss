@@ -138,6 +138,11 @@ export type RuleCode =
   | "guardrail.threshold-invalid"
   | "guardrail.output-on-router"
   | "guardrail.no-model-call"
+  // knowledge bases' reranking (#703)
+  | "rag.rerank-invalid"
+  | "rag.not-a-reranker"
+  | "reranker.missing-handler"
+  | "reranker.decision-model"
   // code guardrails (#383): a DecidedBy.Code guardrail's class has its check(text)
   | "guardrail.missing-handler"
   // tool interceptors (#384), reported at each workflow's assembly

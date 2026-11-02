@@ -4,6 +4,27 @@
 
 ```ts
 
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { z } from 'zod';
+
+// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "RerankerBaseMeta" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> extends RerankerBaseMeta {
+    // Warning: (ae-forgotten-export) The symbol "DecidedBy" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly decidedBy: DecidedBy.Code;
+    // (undocumented)
+    readonly deps?: D;
+    // (undocumented)
+    readonly model?: never;
+}
+
+// @public
+export const DEFAULT_RERANKER_MODEL = "openai/gpt-4.1-nano";
+
 // @public
 export interface FtsOptions {
     // (undocumented)
@@ -24,10 +45,16 @@ export interface IndexReport {
 }
 
 // @public
+export interface KnowledgeRetrieval extends RagRetrieval {
+    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
+    readonly usage?: readonly UsageRecord[];
+}
+
+// @public
 export type KnowledgeRetrieve = (query: string, options: {
     readonly topK: number;
     readonly signal: AbortSignal;
-}) => Promise<RagRetrieval>;
+}) => Promise<KnowledgeRetrieval>;
 
 // @public
 export interface KnowledgeSource {
@@ -39,18 +66,26 @@ export interface KnowledgeSource {
     readonly topK: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
+// @public
+export interface ModelRerankerMeta extends RerankerBaseMeta {
+    // (undocumented)
+    readonly decidedBy?: DecidedBy.Model;
+    // (undocumented)
+    readonly deps?: never;
+    readonly model?: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "RagResultCount" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
 //
 // @public
 export function Rag<const D extends readonly Token[] = []>(options: {
     readonly name: string;
     readonly description: string;
-    readonly topK: number;
     readonly prompt?: string;
     readonly promptUrls?: readonly string[];
     readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C) => C;
+} & RagResultCount): <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C) => C;
 
 // @public
 export interface RagConnector {
@@ -72,10 +107,24 @@ export enum RagMode {
 }
 
 // @public
-export interface RagRetrieval {
+export interface RagRerank {
+    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
+    readonly by: Class;
+    readonly candidates: number;
+    readonly keep: number;
+    readonly onFailure?: RerankFailurePolicy;
+}
+
+// @public
+export interface RagReranking {
     readonly costUsd?: number;
     // Warning: (ae-forgotten-export) The symbol "RagSearchResultDto" needs to be exported by the entry point index.d.ts
-    //
+    readonly results: readonly RagSearchResultDto[];
+}
+
+// @public
+export interface RagRetrieval {
+    readonly costUsd?: number;
     // (undocumented)
     readonly results: readonly RagSearchResultDto[];
 }
@@ -90,6 +139,49 @@ export interface RagRetrieveOptions {
 }
 
 // @public
+export function Reranker(options: ModelRerankerMeta): <C extends new () => object>(value: C) => C;
+
+// @public
+export function Reranker<const D extends readonly Token[] = []>(options: CodeRerankerMeta<D>): <C extends new (...args: ResolvedAll<D>) => RerankerHandler>(value: C) => C;
+
+// @public
+export interface RerankerHandler {
+    // (undocumented)
+    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => Promise<RagReranking>;
+}
+
+// @public
+export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
+
+// Warning: (ae-forgotten-export) The symbol "StepFailedError" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class RerankFailedError extends StepFailedError {
+    // Warning: (ae-forgotten-export) The symbol "BoundReranker" needs to be exported by the entry point index.d.ts
+    constructor(bound: BoundReranker, cause: unknown, usage: readonly UsageRecord[]);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+    readonly rag: string;
+    readonly reranker: string;
+}
+
+// @public
+export enum RerankFailurePolicy {
+    FailStep = "fail-step",
+    Fallback = "fallback"
+}
+
+// @public
+export interface RerankOptions {
+    readonly keep: number;
+    // (undocumented)
+    readonly signal: AbortSignal;
+    readonly tenantId: string;
+}
+
+// @public
 export class SqliteFtsConnector implements RagConnector {
     constructor(options: FtsOptions);
     // (undocumented)
@@ -100,20 +192,29 @@ export class SqliteFtsConnector implements RagConnector {
 
 // Warnings were encountered during analysis:
 //
+// src/rag/rerank.ts:42:3 - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts:43:12 - (ae-undocumented) Missing documentation for "name".
+// src/rag/reranker.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "deps".
+// src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts:33:3 - (ae-undocumented) Missing documentation for "model".
+// src/rag/reranker.decorator.ts:34:3 - (ae-undocumented) Missing documentation for "deps".
 // src/rag/sqlite-fts.ts:25:3 - (ae-undocumented) Missing documentation for "dbFile".
 // src/rag/sqlite-fts.ts:87:9 - (ae-undocumented) Missing documentation for "index".
 // src/rag/sqlite-fts.ts:122:9 - (ae-undocumented) Missing documentation for "retrieve".
-// src/rag/types.ts:5:3 - (ae-undocumented) Missing documentation for "results".
-// src/rag/types.ts:10:1 - (ae-undocumented) Missing documentation for "IndexReport".
-// src/rag/types.ts:11:3 - (ae-undocumented) Missing documentation for "documents".
-// src/rag/types.ts:12:3 - (ae-undocumented) Missing documentation for "chunks".
-// src/rag/types.ts:15:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/rag/types.ts:33:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:34:3 - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts:46:3 - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts:57:3 - (ae-undocumented) Missing documentation for "name".
-// src/rag/types.ts:58:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:59:3 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/types.ts:7:3 - (ae-undocumented) Missing documentation for "results".
+// src/rag/types.ts:12:1 - (ae-undocumented) Missing documentation for "IndexReport".
+// src/rag/types.ts:13:3 - (ae-undocumented) Missing documentation for "documents".
+// src/rag/types.ts:14:3 - (ae-undocumented) Missing documentation for "chunks".
+// src/rag/types.ts:17:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/rag/types.ts:35:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:36:3 - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts:48:3 - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts:67:3 - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts:85:3 - (ae-undocumented) Missing documentation for "rerank".
+// src/rag/types.ts:123:3 - (ae-undocumented) Missing documentation for "name".
+// src/rag/types.ts:124:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:125:3 - (ae-undocumented) Missing documentation for "retrieve".
 
 // (No @packageDocumentation comment for this package)
 

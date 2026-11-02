@@ -10,7 +10,7 @@ import type { AssembledWorkflow } from "../workflow.js";
 import { dependencyTree } from "./container/graph-check.js";
 import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
 import { mcpOf, resultSizeViolations, toolsOf, type Mcp } from "./assemble-tools.js";
-import { ragClassesOf } from "./rag.js";
+import { checkedRagClassesOf, rerankerModelsOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { containerPartsOf } from "./assemble-parts.js";
@@ -182,7 +182,7 @@ export async function workflowOf(
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model);
   const tools = toolsOf(bundle, agents);
   const mcp = mcpOf(bundle, tools.mcp);
-  const rags = ragClassesOf(bundle, agents);
+  const rags = await checkedRagClassesOf(bundle, agents);
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
   const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
@@ -196,7 +196,7 @@ export async function workflowOf(
   const prompts = await promptsOf(agents, loader);
   const config = configOf(bundle, agents, names, mcp, judges, compactions);
   validateAgentsConfig(config, [...names.values()]);
-  const modelUsers = { ...policies.models, replyInterpreters };
+  const modelUsers = { ...policies.models, replyInterpreters, rerankers: rerankerModelsOf(rags) };
   const models = modelPartsOf(owner, { config, routers }, graph, modelUsers);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {

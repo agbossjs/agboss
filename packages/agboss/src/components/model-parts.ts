@@ -16,6 +16,8 @@ export interface PolicyModels {
 /** The model-calling components besides config and routers: policies and reply interpreters. */
 export interface ModelUsers extends PolicyModels {
   readonly replyInterpreters: readonly AssembledReplyInterpreter[];
+  /** The knowledge bases' model rerankers (#703). */
+  readonly rerankers: readonly { readonly name: string; readonly model: string }[];
 }
 
 /**
@@ -27,18 +29,20 @@ export function modelPartsOf(
   models: Pick<WorkflowModels, "config" | "routers">,
   graph: RuntimeGraph,
   users: ModelUsers,
-): Pick<AssembledWorkflow, "arbiters" | "modelProviders" | "replyInterpreters"> {
+): Pick<AssembledWorkflow, "arbiters" | "modelProviders" | "replyInterpreters" | "rerankers"> {
   const arbiters = modelArbitersOf(graph.launches);
-  const { replyInterpreters } = users;
+  const { replyInterpreters, rerankers } = users;
   return {
     arbiters,
     replyInterpreters,
+    rerankers,
     modelProviders: resolvedModelProvidersOf(owner?.providers, {
       ...models,
       arbiters,
       pii: { detectors: users.pii },
       guardrails: { guardrails: users.guardrails },
       replyInterpreters,
+      rerankers,
     }),
   };
 }

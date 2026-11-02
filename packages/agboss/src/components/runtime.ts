@@ -16,7 +16,7 @@ import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { contextSources, ragMeta, searchTool } from "./rag.js";
+import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
 import { channelNameOf } from "../channels/discovery.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
@@ -134,9 +134,11 @@ export const toolBuilder =
         ),
       ),
     ];
-    const search = searched.map((cls) =>
-      searchTool(ragMeta(cls), container.get(cls) as RagConnector),
-    );
+    const search = searched.map((cls) => {
+      const meta = ragMeta(cls);
+      const reranker = boundRerankerOf(meta, (c) => container.get(c), services);
+      return searchTool(meta, container.get(cls) as RagConnector, reranker);
+    });
     return [...instances, ...mcp, ...search];
   };
 
@@ -146,7 +148,7 @@ export const ragParts = (
   rags: readonly Class[],
 ): Required<Pick<AssembledWorkflow, "knowledge" | "knowledgeBases">> => ({
   knowledge: (services: WorkflowServices) =>
-    contextSources(agents, (cls) => containerFor(bundle, services).get(cls) as RagConnector),
+    contextSources(agents, (cls) => containerFor(bundle, services).get(cls), services),
   knowledgeBases: (services: WorkflowServices) =>
     rags.map((cls) => ({
       name: ragMeta(cls).name,

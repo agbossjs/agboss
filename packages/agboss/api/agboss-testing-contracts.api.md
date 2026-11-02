@@ -163,6 +163,10 @@ export interface RagConnectorContractTarget<TConnector extends RagConnector = Ra
     readonly connector: () => TConnector | Promise<TConnector>;
     readonly documents: (connector: TConnector, tenantId: string, documents: readonly RagContractDocument[]) => Promise<void>;
     readonly name: string;
+    readonly rerank?: {
+        readonly by: RerankerHandler;
+        readonly candidates: number;
+    };
     readonly reset?: () => Promise<void>;
 }
 
@@ -215,6 +219,7 @@ export interface StoreSeam {
 // Warnings were encountered during analysis:
 //
 // src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
+// src/testing/contracts/rag-connector-data.ts:38:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
 // src/testing/contracts/store-conformance-check.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:41:3 - (ae-undocumented) Missing documentation for "problems".

@@ -42,6 +42,7 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
     ["ignores topK", [TOP_K]],
     ["ignores the signal", [ABORT]],
     ["reports NaN", [COST]],
+    ["ignores the tenant, reranked", [ISOLATION, NEAR, REINDEX]],
   ])("a connector that %s fails %j only", (target, expected) => {
     expect(failedOf(target)).toEqual(expected);
   });
