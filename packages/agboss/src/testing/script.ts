@@ -8,7 +8,7 @@ import { millisecondsOf, type ClockDuration } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { questionRoleOf } from "../channels/discovery.js";
 import type { QuestionRoleClass } from "../components/decorators.js";
-import type { ChannelQuestionOf } from "../flow/generated-types.js";
+import type { ChannelQuestionOf, ToolNameOf } from "../flow/generated-types.js";
 import type {
   AnswerDetails,
   AnswerTurn,
@@ -80,22 +80,26 @@ export function toolNameOf(tool: Class): string {
 
 /**
  * An agent's model calls a tool: `callTool(SaveShortlist, { jobs: ["Acme"] })` — the arguments are
- * typed by the tool's input DTO (compile time) and validated by the tool when it runs.
+ * typed by the tool's input DTO (compile time) and validated by the tool when it runs; the turn
+ * carries the tool's name, so a tool the agent does not list does not compile (#679).
  */
-export function callTool<TInput extends object>(
-  tool: ToolClass<TInput>,
+export function callTool<TInput extends object, TTool extends ToolClass<TInput>>(
+  tool: TTool,
   args: NoInfer<TInput>,
-): ToolCallTurn;
+): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 /** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
-export function callTool(rag: Class<RagConnector>, args: { readonly query: string }): ToolCallTurn;
+export function callTool<TRag extends Class<RagConnector>>(
+  rag: TRag,
+  args: { readonly query: string },
+): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 /**
  * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
- * the arguments typed by the role's `ask` (the generated `ChannelRoles`).
+ * the arguments typed by the role's `ask` (the generated `ChannelRoles`), the turn by its name.
  */
 export function callTool<TRole extends QuestionRoleClass>(
   role: TRole,
   args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>,
-): ToolCallTurn;
+): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
 export function callTool(tool: Class, args: object): ToolCallTurn {
   return {
     kind: "tool-call",
@@ -104,11 +108,18 @@ export function callTool(tool: Class, args: object): ToolCallTurn {
   };
 }
 
+/** The search tool a knowledge base gives its agents (#703, #679): `search-<rag>-tool`. */
+type SearchToolNameOf<TRag> =
+  string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
+
 /**
  * An agent's model calls several tools in one move (#508): `callTools(callTool(ChargeTool, a),
- * callTool(ChargeTool, b))` — each call its own task, at once under `TestConcurrency.Real`.
+ * callTool(ChargeTool, b))` — each call its own task, at once under `TestConcurrency.Real`; an
+ * agent's turn like one call (#679), each of its tools one the agent lists.
  */
-export function callTools(...calls: readonly [ToolCallTurn, ...ToolCallTurn[]]): ToolCallsTurn {
+export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(
+  ...calls: TCalls
+): ToolCallsTurn<TCalls[number]["tool"]> {
   return { kind: "tool-calls", calls };
 }
 

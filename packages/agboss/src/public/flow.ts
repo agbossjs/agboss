@@ -165,6 +165,8 @@ export {
 export {
   agbossComponent,
   agbossDto,
+  type AgentToolNamesOf,
+  type AgentTools,
   type ChannelAnswerOf,
   type ChannelQuestionOf,
   type ChannelRoles,
@@ -188,6 +190,7 @@ export {
   type RouterAnswerOf,
   type RouterAnswers,
   type Routes,
+  type ToolNameOf,
   type WorkflowStarts,
 } from "../flow/generated-types.js";
 export type { ComponentRecord } from "../flow/runtime/records.js";

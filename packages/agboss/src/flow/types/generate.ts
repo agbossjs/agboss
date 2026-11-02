@@ -15,6 +15,7 @@ import { ImportTable } from "./imports.js";
 import { ClassLocator } from "./locate.js";
 import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow } from "./tables.js";
+import { agentToolsTableOf } from "./agent-tools.js";
 import { contextTypesOf } from "./contexts.js";
 import { channelTablesOf } from "./channel-roles.js";
 
@@ -149,6 +150,8 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const tables = tablesOf(workflows, names);
   // a reply interpreter (#267 PR 3) is typed like a handler: `InputOf` / `OutputOf` by its name
   const channels = channelTablesOf(all, names, tables);
+  // each agent's tools (#679): what its scripted tool calls may name
+  const agentTools = agentToolsTableOf(workflows, names);
   // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
   all.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
@@ -167,7 +170,13 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   );
   const tablesModule = names.specifier(request.tablesModule ?? "@agboss/core");
   const text = printTypes(
-    { ...tables, ...channels, workflowStarts: contexts.workflowStarts, environments: contracts },
+    {
+      ...tables,
+      ...channels,
+      agentTools,
+      workflowStarts: contexts.workflowStarts,
+      environments: contracts,
+    },
     names,
     tablesModule,
     contexts.augmentations,

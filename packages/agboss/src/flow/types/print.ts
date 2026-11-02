@@ -2,6 +2,7 @@ import { declarationOf } from "../decorators/declaration.js";
 import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
 import { channelBrandOf } from "./channel-roles.js";
+import { toolComponentNameOf } from "./agent-tools.js";
 
 /**
  * Prints `.agboss/types.d.ts` (#272 S3, S39): the imports, the tables augmented into the tables
@@ -49,7 +50,9 @@ function dtoBrands(names: ImportTable): TypeTable {
 /** The brand of one class: its component `name`, or a DTO's class name. */
 function brandLines(imported: ClassImport, names: ImportTable): readonly string[] {
   const name =
-    declarationOf(imported.component)?.options.name ?? channelBrandOf(imported.component);
+    declarationOf(imported.component)?.options.name ??
+    channelBrandOf(imported.component) ??
+    toolComponentNameOf(imported.component);
   const brand =
     name === undefined
       ? `readonly [${names.use(TablesImport.DtoBrand)}]?: ${JSON.stringify(imported.component.name)};`
@@ -86,6 +89,7 @@ export function printTypes(
   tables: TypeTables & {
     readonly environments?: readonly string[];
     readonly channelRoles?: TypeTable;
+    readonly agentTools?: TypeTable;
   },
   names: ImportTable,
   tablesModule: string,
@@ -102,6 +106,7 @@ export function printTypes(
     ...tableLines("JoinOutputs", tables.joinOutputs),
     ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs),
     ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
+    ...tableLines("AgentTools", tables.agentTools ?? new Map()),
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];
   const brands = brandBlocks(names);
