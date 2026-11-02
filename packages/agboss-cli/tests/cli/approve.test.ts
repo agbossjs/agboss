@@ -24,7 +24,14 @@ import {
   untilDone,
 } from "../../src/cli/approve.js";
 
+import {
+  LimitApplication,
+  LimitWorkflowFinish,
+  LimitWorkflowStart,
+} from "./fixtures/question.workflow.js";
+
 const test = testWith(DeskApplication);
+const asking = testWith(LimitApplication);
 
 describe("terminal approval (agboss run and agboss chat)", () => {
   test("asks about the pending call; yes runs the tool and the run finishes", async ({
@@ -70,6 +77,35 @@ describe("terminal approval (agboss run and agboss chat)", () => {
 
       expect(done).toFinishWith(Reply, { text: "Not saved." });
       expect(notes.calls).toEqual([]);
+    },
+  );
+});
+
+describe("#659: a question pause in the terminal", () => {
+  asking("JSON is the typed answer; one that is not valid is asked again", async ({ app }) => {
+    const paused = await executeUnchecked(app, LimitWorkflowStart, { item: "laptop" });
+    const ask = vi
+      .fn<(question: string) => Promise<string | undefined>>()
+      .mockResolvedValueOnce('{ "approved": true }')
+      .mockResolvedValueOnce('{ "approved": true, "limitUsd": 900 }');
+
+    const done = await untilDone(paused, app, ask);
+
+    expect(ask.mock.calls[0]?.[0]).toBe('limit-question asks {"item":"laptop"} — your answer: ');
+    expect(ask.mock.calls[1]?.[0]).toMatch(/limitUsd[\s\S]*your answer: $/);
+    expect(done).toFinishWith(LimitWorkflowFinish, { approved: true, limitUsd: 900 });
+  });
+
+  asking(
+    "free text is a reply: without an interpreter it is refused, nothing asked again",
+    async ({ app }) => {
+      const paused = await executeUnchecked(app, LimitWorkflowStart, { item: "desk" });
+
+      await expect(
+        untilDone(paused, app, () => Promise.resolve("up to 300")),
+      ).rejects.toMatchObject({
+        name: "ReplyInterpreterMissingError",
+      });
     },
   );
 });

@@ -78,6 +78,26 @@ export class ActionFailedError extends StepFailedError {
 }
 
 /**
+ * A question role's step (#659) whose channel's `send` threw (not cancelled): the step's failure,
+ * the channel's error as `cause` — `.onError(E, …)` right after `.toQuestion(Role)` takes it by
+ * class or cause chain.
+ */
+export class QuestionFailedError extends StepFailedError {
+  static override readonly code: string = "step.question";
+  override name = "QuestionFailedError";
+
+  constructor(question: string, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(
+      `Question "${question}" failed: ${reason}`,
+      [],
+      cause,
+      stepCoordinatesOf(question, ComponentKind.Question),
+    );
+  }
+}
+
+/**
  * What a step's code may throw that is not its failure (S21, S22): a limit, a cancel or a pause —
  * passed on as it is, never wrapped in the step's error.
  */

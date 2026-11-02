@@ -159,6 +159,7 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
     case NodeKind.Agent:
     case NodeKind.Action:
     case NodeKind.Finish:
+    case NodeKind.Question:
       return declaration.options.output;
     case NodeKind.Workflow:
       return childWorkflowOf(childClassOf(node))?.output;

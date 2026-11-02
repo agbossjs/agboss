@@ -3,6 +3,7 @@
  * `result.pending` (with the child's execution id and, per item, its index), resumed by its
  * `pauseId`; the child goes on with the id it started with and its parent continues to its finish.
  */
+import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { ChildExecutionStatus, PauseAnswerer } from "../../src/index.js";
@@ -46,6 +47,7 @@ describe("#267 × #263: a single child pauses", () => {
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
         answeredBy: PauseAnswerer.ThreadOwner,
+        kind: PauseKind.Approval,
         agent: "child-refund-agent",
         channel: "order-confirmation-channel",
         childExecutionId: expect.any(String),
@@ -82,6 +84,7 @@ describe("#267 × #263: per-item children pause at once", () => {
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
         answeredBy: PauseAnswerer.Channel,
+        kind: PauseKind.Approval,
         agent: "child-refund-agent",
         channel: "refund-approval-channel",
         childExecutionId: expect.any(String),

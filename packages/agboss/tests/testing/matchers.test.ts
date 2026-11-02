@@ -3,6 +3,7 @@ import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { buildCostReport } from "../../src/finops/usage.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
+import { PauseKind } from "../../src/pause/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import {
   GraphRuleError,
@@ -51,6 +52,7 @@ const paused = run({
   output: undefined,
   pending: [
     {
+      kind: PauseKind.Approval,
       pauseId: "pause-1",
       answeredBy: PauseAnswerer.ThreadOwner,
       agent: "support-agent",

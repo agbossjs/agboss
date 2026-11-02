@@ -7,7 +7,7 @@ import { DEFAULT_TENANT, type ExecutionContextValues } from "../flow/context/con
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { NodeKind } from "../flow/ast.js";
 import type { GraphDeps } from "../graph/deps.js";
-import type { PauseRecord } from "../infrastructure/pause-record.js";
+import { callIdOfPause, type PauseRecord } from "../infrastructure/pause-record.js";
 import { runConfig } from "../run/paused.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import type { WithdrawalTree } from "../pause/index.js";
@@ -76,10 +76,10 @@ function pauseWorkflowOf(
   return { own, workflow: { ...identity, startedVersion } };
 }
 
-/** The waiting step of a pause: its agent, node, visit, item, copy and tool call. */
+/** The waiting step of a pause: its agent (or question, #659), node, visit, item, copy and tool call. */
 function pauseStepOf(pause: PauseRecord, own: GraphDeps<string>): StepDescriptor {
   const { executionId, nodeId, visitNumber, itemIndex } = pause;
-  const callId = pause.ask.callId;
+  const callId = callIdOfPause(pause);
   const type = own.graph.nodes.get(pause.agent)?.component ?? own.graph.type;
   return Object.freeze({
     component: { type, ...nodeRecordIn(own, pause.agent) },

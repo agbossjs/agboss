@@ -4,6 +4,7 @@
  * every waiting pause; a pause is resumed by its id anywhere in the tree, and an execution with
  * other pauses left pauses again with the rest.
  */
+import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseAnswerer, UnknownPauseError } from "../../src/index.js";
@@ -38,6 +39,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
         answeredBy: PauseAnswerer.Channel,
+        kind: PauseKind.Approval,
         agent: "batch-refund-agent",
         channel: "refund-approval-channel",
         childExecutionId: undefined,

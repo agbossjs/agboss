@@ -92,18 +92,30 @@ export interface PauseSite {
   readonly branchKeys?: readonly string[];
 }
 
+/**
+ * What a question role's step asks (#659): the role's `ask` value, `sensitive` fields masked — the
+ * project's own DTO, so any object.
+ */
+export type QuestionAsk = Readonly<Record<string, unknown>>;
+
+/** What a pause asks: a tool call to approve, or a question role's ask (#659). */
+export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
+
 /** A pause: its id, where it waits, what it asks and where it is. */
 export interface PauseRecord extends PauseSite {
   /** A random 128-bit token (hex), made once per pause: the right to answer it (AC3). */
   readonly pauseId: string;
-  /** The agent whose tool call waits. */
+  /** The agent whose tool call waits, or the question role's step that asks (#659). */
   readonly agent: string;
   /** The channel asked: a role's name or a concrete `@Channel`'s. */
   readonly channel: string;
   /** Who may answer it (its channel role's `answeredBy`). */
   readonly answeredBy: PauseAnswerer;
-  /** The question, `sensitive` fields masked. */
-  readonly ask: ToolCallApprovalAskDto;
+  /**
+   * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
+   * role's ask (#659) — told apart by the waiting step's `component.kind` (`isQuestionPause`).
+   */
+  readonly ask: PauseAsk;
   readonly status: PauseStatus;
   /** Whether its channel's `send` returned (`awaitReply`): a re-entry does not ask again. */
   readonly isSent: boolean;
@@ -116,6 +128,21 @@ export interface PauseRecord extends PauseSite {
   /** When it was resolved (ISO 8601); a resolved record is kept `pauseRecordRetention` after it. */
   readonly resolvedAt?: string;
 }
+
+/** A pause of a question role's step (#659): its step's component is a question, not an agent. */
+export const isQuestionPause = (pause: Pick<PauseRecord, "component">): boolean =>
+  pause.component?.kind === ComponentKind.Question;
+
+/** A pause of an agent's tool call: its `ask` is the call (every pause before #659). */
+export type ApprovalPauseRecord = PauseRecord & { readonly ask: ToolCallApprovalAskDto };
+
+/** Whether a pause approves a tool call (not a question role's, #659). */
+export const isApprovalPause = (pause: PauseRecord): pause is ApprovalPauseRecord =>
+  !isQuestionPause(pause);
+
+/** The tool call a pause waits on; `undefined` for a question (#659), which waits on none. */
+export const callIdOfPause = (pause: PauseRecord): string | undefined =>
+  isApprovalPause(pause) ? pause.ask.callId : undefined;
 
 /** A pause's id: a cryptographically random 128-bit token, made once per pause (AC3). */
 export const newPauseId = (): string => randomBytes(16).toString("hex");
@@ -180,7 +207,7 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
       nodeId: pause.nodeId,
       visitNumber: pause.visitNumber,
       idempotencyKey: pause.stepKey,
-      callId: pause.ask.callId,
+      callId: callIdOfPause(pause),
       itemIndex: pause.itemIndex,
       copyNumber: pause.copyNumber,
       toolLoopIteration: pause.toolLoopIteration,

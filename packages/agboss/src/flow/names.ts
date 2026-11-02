@@ -24,6 +24,8 @@ export enum NameKind {
   EvalSuite = "eval-suite",
   A2AAgent = "a2a-agent",
   A2AExpose = "a2a-expose",
+  /** A question role (#659): `@ChannelRole({ ask, answer })` — its step's node. */
+  Question = "question",
 }
 
 /** The decorator each kind is declared with, as a message names it. */
@@ -44,6 +46,7 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.EvalSuite]: "@EvalSuite",
   [NameKind.A2AAgent]: "@A2AAgent",
   [NameKind.A2AExpose]: "@A2AExpose",
+  [NameKind.Question]: "@ChannelRole",
 };
 
 /** The stable codes of the name rules. */

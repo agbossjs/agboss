@@ -8,10 +8,12 @@ import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { isDecisionModel } from "../models/decision-models.js";
 import {
   channelRoleOf,
   channelRoleOptionsOf,
   isCodeReplyInterpreter,
+  isQuestionRole,
   replyInterpreterOf,
   type FoundChannelRole,
   type ReplyInterpreterDeclaration,
@@ -20,19 +22,22 @@ import {
 /**
  * Channels are found from the graph (#267 AC9), like services through `deps`: every tool of every
  * agent of the workflows and of the child workflows they launch names its channel — a concrete
- * `@Channel` (used as is) or a `@ChannelRole` (its implementation comes from the application).
+ * `@Channel` (used as is) or a `@ChannelRole` (its implementation comes from the application) —
+ * and every question step (#659) is its question role.
  */
 
-/** One tool that names a channel. */
+/** One tool that names a channel, or one question step (#659). */
 export interface ChannelUse {
-  /** The tool's `name`. */
+  /** The tool's `name`; a question step's: its node's, the role's name. */
   readonly tool: string;
-  /** The tool's input DTO: what an approval role's `approves` must be. */
+  /** The tool's input DTO: what an approval role's `approves` must be; a question's: its `ask`. */
   readonly toolInput: DtoClass;
   /** The class the tool names: a role or a concrete channel. */
   readonly channel: Class;
-  /** The workflow whose agent has the tool. */
+  /** The workflow whose agent has the tool, or whose flow asks the question. */
   readonly workflow: string;
+  /** A question step (`.toQuestion(Role)`, #659), not a tool. */
+  readonly isQuestion?: true;
 }
 
 interface ToolChannel {
@@ -58,15 +63,34 @@ function toolsOfWorkflow(workflow: Class): readonly Class[] {
   });
 }
 
-/** Every tool with a channel in the workflows and their children, each tool once per workflow. */
+/** The question steps of a workflow's flow (#659), each role once: its node's declaration. */
+function questionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
+  const declaration = declarationOf(workflow);
+  if (declaration?.kind !== NodeKind.Workflow) return [];
+  return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
+    const question = declarationOf(node);
+    if (question?.kind !== NodeKind.Question) return [];
+    const { options } = question;
+    const ask = options.input.question;
+    return [
+      { tool: options.name, toolInput: ask, channel: node, workflow: name, isQuestion: true },
+    ];
+  });
+}
+
+/**
+ * Every tool with a channel in the workflows and their children, each tool once per workflow, and
+ * every question step (#659).
+ */
 export function channelUsesOf(workflows: readonly Class[]): readonly ChannelUse[] {
   return withChildWorkflows(workflows).flatMap((workflow) => {
     const name = declarationOf(workflow)?.options.name ?? workflow.name;
-    return [...new Set(toolsOfWorkflow(workflow))].flatMap((cls): readonly ChannelUse[] => {
+    const tools = [...new Set(toolsOfWorkflow(workflow))].flatMap((cls): readonly ChannelUse[] => {
       const tool = toolChannelOf(cls);
       if (tool?.channel === undefined) return [];
       return [{ tool: tool.name, toolInput: tool.input, channel: tool.channel, workflow: name }];
     });
+    return [...tools, ...questionUsesOf(workflow, name)];
   });
 }
 
@@ -97,7 +121,9 @@ export function rolesOf(uses: readonly ChannelUse[]): readonly FoundChannelRole[
 /**
  * The reply interpreters of a workflow's tree (#267 PR 3): the `replyInterpreter` of every channel
  * role its tools — its children's too — name, checked at assembly (`[name.kind-suffix]`,
- * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
+ * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]` — a decision model
+ * for a question role, whose answer needs more than `approved` —,
+ * `[reply-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
  * interpreter, its instructions loaded.
  */
 
@@ -108,11 +134,14 @@ export interface AssembledReplyInterpreter {
   /** The interpreter class (a code one is created by the container). */
   readonly interpreter: Class;
   readonly name: string;
-  /** What its answer is validated as: `ToolCallApprovalDecisionDto` (approval roles only, #647). */
+  /** What its answer is validated as: `ToolCallApprovalDecisionDto`, or a question role's `answer`. */
   readonly answer: DtoClass;
-  /** The input of the tools the role approves: what `overrideArguments` is (#648). */
-  readonly approves: DtoClass;
-  /** A model interpreter's model (a chat model, or a decision model); `undefined` for a code one. */
+  /**
+   * The input of the tools the role approves: what `overrideArguments` is (#648); `undefined` for a
+   * question role (#659).
+   */
+  readonly approves: DtoClass | undefined;
+  /** A model interpreter's model (a chat model, or a decision model for an approval); `undefined` for a code one. */
   readonly model: string | undefined;
   /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
   readonly instructions: string;
@@ -127,8 +156,9 @@ interface InterpretedRole {
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
-/** The answer a role's interpreter gives: an approval decision, the one form of a role (#647). */
-const answerOf = (): DtoClass => ToolCallApprovalDecisionDto;
+/** The answer a role's interpreter gives: a question role's `answer`, else an approval decision. */
+const answerOf = (role: FoundChannelRole): DtoClass =>
+  isQuestionRole(role.options) ? role.options.answer : ToolCallApprovalDecisionDto;
 
 /** The roles of the uses that name an interpreter, each with it (an undecorated one has none). */
 function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRole[] {
@@ -142,7 +172,11 @@ function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRo
 }
 
 /** What is wrong with one interpreter's declaration. */
-function declarationViolations({ interpreter, declaration }: InterpretedRole): RuleViolation[] {
+function declarationViolations({
+  role,
+  interpreter,
+  declaration,
+}: InterpretedRole): RuleViolation[] {
   const { options } = declaration;
   const suffix = kindSuffixProblem(options.name, NameKind.ReplyInterpreter);
   const found =
@@ -153,7 +187,11 @@ function declarationViolations({ interpreter, declaration }: InterpretedRole): R
     const message = `${nameOf(interpreter)} (${options.name}) is decided by code but has no interpret(input) method — implements ReplyInterpreterHandler<${nameOf(interpreter)}>`;
     return [...found, violation("reply-interpreter.no-interpret-method", message, [options.name])];
   }
-  return found;
+  // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
+  if (!isDecisionModel(options.model) || !isQuestionRole(role.options)) return found;
+  const answer = nameOf(answerOf(role));
+  const message = `${options.name}: ${options.model} is a decision model — it answers only yes / no (approved), but channel role ${role.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code (DecidedBy.Code)`;
+  return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
 }
 
 /** Every interpreter rule over a workflow's channel uses. */
@@ -182,7 +220,7 @@ export async function replyInterpretersOf(
         channel: role.options.name,
         interpreter,
         name: options.name,
-        answer: answerOf(),
+        answer: answerOf(role),
         approves: role.options.approves,
         model: isCode ? undefined : options.model,
         instructions: isCode ? "" : await loader.load({ label, options, source }),

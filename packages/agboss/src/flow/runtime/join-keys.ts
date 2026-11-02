@@ -26,6 +26,7 @@ const KIND_OF_NODE: Readonly<Record<NodeKind, ComponentKind>> = {
   [NodeKind.Action]: ComponentKind.Action,
   [NodeKind.Router]: ComponentKind.Router,
   [NodeKind.Workflow]: ComponentKind.Workflow,
+  [NodeKind.Question]: ComponentKind.Question,
 };
 
 /** The component kind of a node kind. */
@@ -101,7 +102,8 @@ export function componentIoOf(declaration: ComponentDeclaration): ComponentIo {
       return { input: declaration.options.input };
     case NodeKind.Finish:
     case NodeKind.Agent:
-    case NodeKind.Action: {
+    case NodeKind.Action:
+    case NodeKind.Question: {
       const { input, output } = declaration.options;
       return {
         ...(input === undefined ? {} : { input }),

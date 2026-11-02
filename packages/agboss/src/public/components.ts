@@ -135,9 +135,12 @@ export {
   ChannelRole,
   PauseAnswerer,
   type ChannelApprovalRoleOptions,
+  type ChannelQuestionRoleOptions,
   type ChannelRoleBaseOptions,
   type ChannelRoleOptions,
+  type QuestionNodeOptions,
 } from "../channels/channel-role.decorator.js";
+export { PauseKind, type PendingPauseSite } from "../pause/index.js";
 export {
   ChannelOf,
   type ChannelAsk,

@@ -32,7 +32,7 @@ import type { GroupStart } from "./quorum-types.js";
 
 /**
  * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
- * (#263) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
+ * (#263), `question(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
  * `toRouter(R)…`, `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
  * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
  */
@@ -81,6 +81,17 @@ export function workflow<const TClass extends Class>(
 ): AfterStep<InstanceType<TClass>, SourceHead>;
 export function workflow(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Workflow, source);
+}
+
+/**
+ * The own path of a question role's step reached from two or more places (#659):
+ * `question(Q).returns(AnswerDto)…` — a question asked again on a cycle.
+ */
+export function question<const TClass extends Class>(
+  source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+): AfterStep<InstanceType<TClass>, SourceHead>;
+export function question(source: Class): PathBuilder<PathSource> {
+  return fromComponent(NodeKind.Question, source);
 }
 
 /** One target of `.chooseOne(…)` and what follows it. */

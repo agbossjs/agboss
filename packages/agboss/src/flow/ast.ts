@@ -21,6 +21,8 @@ export enum NodeKind {
   Action = "action",
   Router = "router",
   Workflow = "workflow",
+  /** A question role's step (#659): `.toQuestion(Role)` — it pauses on the role's channel. */
+  Question = "question",
 }
 
 /** What a step of a path does. */
@@ -57,7 +59,8 @@ export interface StartSource {
 }
 
 export interface ComponentSource {
-  readonly kind: NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow;
+  readonly kind:
+    NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
   readonly node: ComponentClass;
 }
 
@@ -80,8 +83,8 @@ export interface ReturnsStep {
 }
 
 /**
- * `.toAgent` / `.toRouter` / `.toAction` / `.toFinish` / `.toWorkflow` (#263): the kind is the
- * transition's.
+ * `.toAgent` / `.toRouter` / `.toAction` / `.toFinish` / `.toWorkflow` (#263) / `.toQuestion` (#659):
+ * the kind is the transition's.
  */
 export interface ToStep {
   readonly kind: StepKind.To;

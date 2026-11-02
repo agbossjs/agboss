@@ -457,6 +457,7 @@ describe("AC4 / AC8: removed forms do not exist", () => {
       "anyOf",
       "caseOf",
       "group",
+      "question",
       "route",
       "router",
       "start",

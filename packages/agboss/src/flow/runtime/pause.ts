@@ -3,7 +3,6 @@ import { AGBossError } from "../../core/errors.js";
 import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { ChannelSender } from "../../channels/channel-sender.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
-import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -14,6 +13,7 @@ import {
   PauseResolution,
   PauseStatus,
   type PauseAnswerLog,
+  type PauseAsk,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
 import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
@@ -39,10 +39,13 @@ export interface PauseChannel {
   readonly answeredBy: PauseAnswerer;
 }
 
-/** What a step asks: whose tool call, and the question (`sensitive` fields masked). */
+/**
+ * What a step asks: whose tool call — or which question role's step (#659) — and the question
+ * (`sensitive` fields masked).
+ */
 export interface PauseQuestion {
   readonly agent: string;
-  readonly ask: ToolCallApprovalAskDto;
+  readonly ask: PauseAsk;
 }
 
 /** The answer a pause gives its step: the decision (validated by the caller) and who gave it. */
@@ -81,7 +84,7 @@ export class ChannelSendError extends Error {
 /** The channel asked once: its outcome, a failure (not a cancellation) as `ChannelSendError`. */
 export async function sentBy(
   channel: Pick<PauseChannel, "name" | "sender">,
-  ask: { readonly pauseId: string; readonly value: ToolCallApprovalAskDto },
+  ask: { readonly pauseId: string; readonly value: PauseAsk },
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
   try {

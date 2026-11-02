@@ -120,9 +120,9 @@ export interface RouterAnswers {
 /**
  * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
  * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
- * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`. A concrete `@Channel` a tool names
- * as is approves those tools. The
- * built-in channels approve any tool.
+ * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`; a question role (#659) with `ask` /
+ * `answer` asks and is answered with those DTOs. A concrete `@Channel` a tool names as is approves
+ * those tools. The built-in channels approve any tool.
  */
 export interface ChannelRoles {
   readonly [notGenerated]?: never;
@@ -142,8 +142,8 @@ export interface ChannelRoles {
 
 /**
  * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
- * `ChannelRoles` entry of the role: the tool call it approves; `MissingGeneratedTypes` before
- * `agboss check`.
+ * `ChannelRoles` entry of the role: the tool call an approval role approves, a question role's
+ * `ask` (#659); `MissingGeneratedTypes` before `agboss check`.
  */
 export type ChannelQuestionOf<TRole> =
   GeneratedEntry<ChannelRoles, TRole> extends { readonly ask: infer TAsk }
@@ -152,8 +152,8 @@ export type ChannelQuestionOf<TRole> =
 
 /**
  * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
- * `ToolCallApprovalDecisionDto` of the role's `approves`; `MissingGeneratedTypes` before
- * `agboss check`.
+ * `ToolCallApprovalDecisionDto` of an approval role's `approves`, a question role's `answer` (#659);
+ * `MissingGeneratedTypes` before `agboss check`.
  */
 export type ChannelAnswerOf<TRole> =
   GeneratedEntry<ChannelRoles, TRole> extends { readonly answer: infer TAnswer }
@@ -191,7 +191,9 @@ export type KindOfName<TName extends string> = TName extends `${string}-workflow
           ? NodeKind.Router
           : TName extends `${string}-action`
             ? NodeKind.Action
-            : never;
+            : TName extends `${string}-question`
+              ? NodeKind.Question
+              : never;
 
 /** A component's kind from its brand; `never` when it is not branded. */
 export type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;

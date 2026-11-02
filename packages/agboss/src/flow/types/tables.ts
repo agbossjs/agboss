@@ -132,6 +132,7 @@ function writeNode(
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       return;
     case NodeKind.Action:
+    case NodeKind.Question:
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       tables.outputs.set(name, outputText(declaration.options.output, names));
       return;

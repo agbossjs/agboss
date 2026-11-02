@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import type { DtoClass } from "../dto/types.js";
 import {
   NodeKind,
   QuorumKind,
@@ -24,10 +23,10 @@ import {
   groupsQuorumOf,
   priorityOf,
   quorumGroupOf,
-  type GroupStart,
 } from "./quorum-step.js";
 import { returnedValue } from "./returns-step.js";
 import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
+import type { PathStart } from "./path-start.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -37,13 +36,7 @@ import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
 export { FlowSyntaxError } from "./launch-step.js";
 export { aboutTargets } from "./returns-step.js";
 
-/** How a builder's path begins: a source, a route, a case, or the side path of `.onError`. */
-export type PathStart =
-  | { readonly kind: "source" }
-  | { readonly kind: "route"; readonly target: Class; readonly placement?: ChildPlacement }
-  | { readonly kind: "case"; readonly dto: DtoClass; readonly about?: readonly DtoClass[] }
-  | { readonly kind: "side" }
-  | GroupStart;
+export type { PathStart } from "./path-start.js";
 
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
 type SourceOf = PathSource | undefined;
@@ -108,6 +101,11 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   toFinish(target: Class): PathBuilder<TSource> {
     return this.to(target, NodeKind.Finish);
+  }
+
+  /** `.toQuestion(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
+  toQuestion(target: Class): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Question);
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */

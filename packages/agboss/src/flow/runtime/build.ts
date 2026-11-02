@@ -17,7 +17,7 @@ import type { Class } from "../../components/injection.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { NodeKind } from "../ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
-import type { NodeRunner } from "./node-runner.js";
+import { lazyQuestionRunner, type NodeRunner } from "./node-runner.js";
 import { actionRunner } from "./runners/action.js";
 import { finishRunner } from "./runners/finish.js";
 import { codeRouterRunner } from "./runners/code-router.js";
@@ -30,6 +30,7 @@ import { LAUNCH_NEXT } from "./launch/launch-exit.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
 import { visitNode } from "./visit.js";
 import { childRunner, type ChildGraph } from "./child.js";
+import { ChildWorkflowUnavailableError } from "./child-errors.js";
 import { nodeDepsOf } from "./node-deps.js";
 import { isThisWorkflow } from "../this-workflow.js";
 import { nodeOptionsOf, recursiveChildOf, type OwnGraph } from "./recursive-child.js";
@@ -127,6 +128,8 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): Nod
     case NodeKind.Agent:
     case NodeKind.Workflow:
       return subgraphRunnerOf(node, deps, parts);
+    case NodeKind.Question:
+      return lazyQuestionRunner(node, deps);
   }
 }
 
@@ -140,11 +143,6 @@ function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Par
   const child = parts.children.get(node.id);
   if (child === undefined) throw new UnknownAgentError(`Unknown child workflow: ${node.id}`);
   return childRunner(node, deps, child, parts);
-}
-
-/** A child workflow cannot be built: it runs only in its application, or it launches an ancestor. */
-class ChildWorkflowUnavailableError extends Error {
-  override name = "ChildWorkflowUnavailableError";
 }
 
 /**

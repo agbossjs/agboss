@@ -22,7 +22,7 @@ import {
   toolNames,
 } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { channelPartsOf } from "./channel-parts.js";
+import { channelPartsOf, questionRolesOf } from "./channel-parts.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
@@ -180,7 +180,7 @@ export async function workflowOf(
   const agents = agentMetasOf(graph);
   const loader = new PromptLoader(bundle.promptVariables ?? {});
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model);
-  const tools = toolsOf(bundle, agents);
+  const tools = { ...toolsOf(bundle, agents), questions: questionRolesOf(graph) };
   const mcp = mcpOf(bundle, tools.mcp);
   const rags = await checkedRagClassesOf(bundle, agents);
   checkClasses(bundle, agents);

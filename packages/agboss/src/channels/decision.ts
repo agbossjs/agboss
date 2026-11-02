@@ -3,6 +3,8 @@ import { validate } from "../dto/schema.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { AnyTool } from "../tools/index.js";
+import type { DtoClass } from "../dto/types.js";
+import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-record.js";
 
 /**
  * A decision on a tool call, validated on the way in (#267 AC7) — from `app.resume` or a channel's
@@ -51,4 +53,28 @@ export function validDecisionOf(decision: unknown, tool: AnyTool): ToolCallAppro
       reason: issue.message,
     })),
   );
+}
+
+/** Where a pause's answer is checked: its tool, or its question's answer DTO (#659). */
+export interface AnswerChecks {
+  readonly tools: (name: string) => AnyTool;
+  readonly questions?: (workflow: string, node: string) => DtoClass | undefined;
+}
+
+/**
+ * How a pause's answer is validated: a tool call's decision against the tool (#267 AC7); a question
+ * role's (#659) as the role's `answer` DTO.
+ */
+export function answerValidatorOf(
+  pause: PauseRecord,
+  checks: AnswerChecks,
+): (decision: unknown) => unknown {
+  if (isApprovalPause(pause)) {
+    const tool = checks.tools(pause.ask.tool);
+    return (decision) => validDecisionOf(decision, tool);
+  }
+  const answer = checks.questions?.(pause.workflow, pause.agent);
+  if (answer === undefined)
+    throw new TypeError(`pause ${pause.pauseId}: ${pause.agent} is no question of this tree`);
+  return (decision) => validate(answer, decision);
 }

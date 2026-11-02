@@ -4,7 +4,17 @@ import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import type { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import type { ToolArguments } from "../../../src/dto/standard/framework.js";
-import type { MissingGeneratedTypes } from "../../../src/flow/generated-types.js";
+import type {
+  InputOf,
+  MissingGeneratedTypes,
+  OutputOf,
+} from "../../../src/flow/generated-types.js";
+import type {
+  PurchaseQuestionDto,
+  SpendingLimitAnswerDto,
+  SpendingLimitQuestion,
+  SpendingLimitReplyInterpreter,
+} from "../fixtures/questions.fixture.js";
 import { RefundCardInputDto, type RefundApprovalChannel } from "../fixtures/refunds.fixture.js";
 import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
 
@@ -58,21 +68,62 @@ describe("#267 AC6: approves types arguments", () => {
     expectTypeOf<ChannelAsk<NotARole>["value"]>().toEqualTypeOf<MissingGeneratedTypes>();
   });
 
-  it("a question role (ask / answer) does not compile, alone or beside approves (#647)", () => {
+  it("AC1: a question role (ask / answer) compiles; beside approves it does not (#659)", () => {
     type RoleOptions = Parameters<typeof ChannelRole>[0];
     const role = {
-      name: "question-channel",
+      name: "clarification-question",
       description: "A question",
       answeredBy: PauseAnswerer.Channel,
     };
     const question = { ...role, ask: ShortlistDto, answer: OfferDraftDto };
     const both = { ...question, approves: RefundCardInputDto };
 
-    expectTypeOf(question).not.toExtend<RoleOptions>();
+    expectTypeOf(question).toExtend<RoleOptions>();
+    expectTypeOf({ ...question, maxVisits: 2 }).toExtend<RoleOptions>();
     expectTypeOf(both).not.toExtend<RoleOptions>();
+    expectTypeOf({ ...role, ask: ShortlistDto }).not.toExtend<RoleOptions>();
+    expectTypeOf({
+      ...role,
+      approves: RefundCardInputDto,
+      maxVisits: 2,
+    }).not.toExtend<RoleOptions>();
     expectTypeOf({ ...role, approves: RefundCardInputDto }).toExtend<RoleOptions>();
     // @ts-expect-error — answeredBy is required: who may answer is never a default
     ChannelRole({ name: "open-channel", description: "Open", approves: RefundCardInputDto });
     expectTypeOf(ChannelRole).toBeFunction();
+  });
+});
+
+describe("#659 AC6: a question role's ask and answer type its channel and its interpreter", () => {
+  it("ask.value is the role's ask DTO", () => {
+    expectTypeOf<ChannelAsk<SpendingLimitQuestion>["value"]>().toEqualTypeOf<PurchaseQuestionDto>();
+  });
+
+  it("a decided outcome takes the role's answer DTO", () => {
+    const decided: ChannelOutcome<SpendingLimitQuestion> = ChannelOutcome.decided({
+      approved: true,
+      limitUsd: 500,
+    });
+    expectTypeOf(decided).not.toBeNever();
+    // @ts-expect-error — limitUsd is required by SpendingLimitAnswerDto
+    const partial: ChannelOutcome<SpendingLimitQuestion> = ChannelOutcome.decided({
+      approved: true,
+    });
+    expectTypeOf(partial).not.toBeNever();
+  });
+
+  it("the interpreter reads { ask, reply } and gives the answer", () => {
+    expectTypeOf<InputOf<SpendingLimitReplyInterpreter>>().toEqualTypeOf<{
+      readonly ask: PurchaseQuestionDto;
+      readonly reply: string;
+    }>();
+    expectTypeOf<OutputOf<SpendingLimitReplyInterpreter>>().toEqualTypeOf<SpendingLimitAnswerDto>();
+  });
+
+  it("the step's input and output: the ask in, the answer out", () => {
+    expectTypeOf<OutputOf<SpendingLimitQuestion>>().toEqualTypeOf<SpendingLimitAnswerDto>();
+    expectTypeOf<
+      InputOf<SpendingLimitQuestion>["question"]["value"]
+    >().toEqualTypeOf<PurchaseQuestionDto>();
   });
 });

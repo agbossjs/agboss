@@ -534,9 +534,9 @@ provider and guardrail) and its first workflow `<project>-workflow` in `src/<pro
 one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
 
 - **Sources:** `start(Start)` (where an execution begins); `agent(X)` / `router(R)` / `action(A)` /
-  `workflow(W)` (#263) — the path of a node reached from two places (a review loop), written once.
+  `workflow(W)` (#263) / `question(Q)` (#659) — the path of a node reached from two places (a review loop), written once.
 - **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)`
-  (#263); `.returns(Dto)` says
+  (#263), `.toQuestion(Q)` (#659: a question role's step, Components → Channels); `.returns(Dto)` says
   what the step before put on the path (its **scope**: later nodes read their `input` fields from
   it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
   chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
@@ -786,7 +786,8 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
   stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*` / `eval.*`): names end with their kind
-  (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`) and are unique
+  (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, a question
+  role's `-question`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
@@ -1503,9 +1504,22 @@ output })` on a successful result, inner first, each output validated against th
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
   `@ChannelRole({ name, description, approves: XDto, answeredBy: PauseAnswerer.… })`
   that `extends ChannelOf<Self>` — `answeredBy` is required, `approves` must be the tool's input
-  (`[channel.wrong-tool]`; a question role, `ask` / `answer`, does not compile and is
-  `[channel.question-role-unavailable]` when its decorator runs — nothing can ask one, #647, #659), one `replyInterpreter` belongs to one role
-  (`[channel.shared-interpreter]`). Its one implementation (`@Channel`, `extends` the role) is
+  (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
+  (`[channel.shared-interpreter]`). **Question roles (#659):** `@ChannelRole({ name: "…-question",
+description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxVisits? })` is a
+  workflow question asked by a flow step — `.returns(AskDto).toQuestion(Role).returns(AnswerDto)`
+  (`question(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
+  `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
+  from the path (its field `question`), asks the role's channel through the pause seam like an
+  approval (`result.pending[i].kind === PauseKind.Question`, `ask` the masked question, `agent` the
+  step; the record's `component.kind` is `question`, no `callId`), and puts the answer on the path —
+  `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
+  into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
+  once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
+  checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
+  (`step.question`) for `.onError` right after it; a tool naming a question role is
+  `[channel.wrong-tool]`; `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
+  `agboss describe` prints `asked at <step> (<workflow>)` for it. An agent's tool form is #712. Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
   one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,

@@ -124,12 +124,16 @@ const isBudgeted = (state: ExecutionStateType, node: RuntimeNode): boolean => {
   return !(isAfterLimit || isOwedUndo(state, node));
 };
 
-/** Throws the limit a visit of an agent or a router would cross: its visits, the steps. */
+/**
+ * Throws the limit a visit would cross: its visits, and — of an agent or a router (`isStep`) — the
+ * steps.
+ */
 function checkSteps(
   state: ExecutionStateType,
   node: RuntimeNode,
   limits: ExecutionLimits,
   site: { readonly workflow: WorkflowIdentity; readonly component: ComponentRecord },
+  isStep: boolean,
 ): void {
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
@@ -137,7 +141,7 @@ function checkSteps(
   if (node.maxVisits !== undefined && visits > node.maxVisits) {
     throw new VisitsLimitExceededError(plainRecordOf(site.component), node.maxVisits, path, spent);
   }
-  if (state.steps + 1 > limits.maxSteps) {
+  if (isStep && state.steps + 1 > limits.maxSteps) {
     const record = { ...site.workflow, startedVersion: startedVersionOf(state, site.workflow) };
     throw new StepsLimitExceededError(record, limits.maxSteps, path, spent);
   }
@@ -155,7 +159,9 @@ export async function checkVisit(
   component: ComponentRecord,
 ): Promise<boolean> {
   const isStep = isWorkingNode(node);
-  if (isStep) checkSteps(state, node, limits, { workflow, component });
+  // a question role's step (#659) is no step, but its own `maxVisits` holds on a cycle
+  if (isStep || node.kind === NodeKind.Question)
+    checkSteps(state, node, limits, { workflow, component }, isStep);
   if (!isBudgeted(state, node)) return isStep;
   await limits.budgets.refresh();
   limits.budgets.check(totalCost(state.usage), [...state.path, node.id]);

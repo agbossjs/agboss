@@ -1,6 +1,7 @@
 # 05 — Channels and human in the loop
 
-Read this when a tool call must be approved by a person or a system before it runs, when an
+Read this when a tool call must be approved by a person or a system before it runs, when a
+workflow asks a person a typed question and goes on with the answer (a question role, #659), when an
 execution pauses and is answered later (`app.resume`), or when a reply arrives as free text.
 Tools themselves: `03-components-di-and-lifecycle.md`; durable stores: `09-persistence-k8s-and-deploy.md`.
 
@@ -19,8 +20,9 @@ decision }, { tenantId, answeredBy | ownerId })` — or with free text, `{ pause
    by the role's `@ReplyInterpreter`. Approved → the tool runs once (with `overrideArguments` if
    given); rejected → the model reads `Tool error: the call was rejected …` and goes on.
 
-There is no pause step in the flow: a pause is always a tool call through a channel. Nothing waits
-in memory — a pause survives a restart when the pause store and the checkpointer are durable.
+A pause is a tool call through a channel — or a **question step** of the flow,
+`.toQuestion(QuestionRole)` (below: Questions). Nothing waits in memory — a pause survives a
+restart when the pause store and the checkpointer are durable.
 
 ## A worked example: refunds approved in Slack
 
@@ -323,10 +325,131 @@ gets it by extending the role (`ChannelOf<Role>` implements it, `withdraw` a no-
 tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat` / `run`),
 `AutoApproveChannel`, `AutoRejectChannel` (decide at once — scripts and tests).
 
+## Questions: the workflow asks, the answer goes on the path
+
+A **question role** (#659) is `@ChannelRole({ ask, answer, answeredBy })` — its name ends with
+`-question` — and a flow step asks it: the step reads one `ask` value from the path, pauses on the
+role's channel like an approval, and puts the typed `answer` on the path for the steps after it.
+
+```ts file=src/purchases/dto/purchase.dto.ts
+import { Integer, Text } from "@agboss/core/dto";
+
+export class PurchaseDto {
+  @Text({ prompt: "what is bought" })
+  item!: string;
+
+  @Integer({ prompt: "its price in dollars", min: 0 })
+  priceUsd!: number;
+}
+```
+
+```ts file=src/purchases/dto/spending-limit.dto.ts
+import { Flag, Integer } from "@agboss/core/dto";
+
+export class SpendingLimitDto {
+  @Flag({ prompt: "whether the purchase may go on" })
+  approved!: boolean;
+
+  @Integer({ prompt: "the most it may cost, in dollars", min: 0 })
+  limitUsd!: number;
+}
+```
+
+```ts file=src/purchases/channels/spending-limit.channel-role.ts
+// the question: what is asked, what answers it, who may answer
+import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+import { PurchaseDto } from "../dto/purchase.dto.js";
+import { SpendingLimitDto } from "../dto/spending-limit.dto.js";
+
+@ChannelRole({
+  name: "spending-limit-question", // a question role's name ends with -question
+  description: "Asks the budget owner for this purchase's limit",
+  ask: PurchaseDto,
+  answer: SpendingLimitDto,
+  answeredBy: PauseAnswerer.ThreadOwner, // the thread's owner answers, by the listed pauseId
+  maxVisits: 3, // the step's limit when it is asked again on a cycle
+})
+export abstract class SpendingLimitQuestion extends ChannelOf<SpendingLimitQuestion> {}
+```
+
+```ts file=src/purchases/channels/slack-spending-limit.channel.ts
+import { Channel, ChannelOutcome } from "@agboss/core";
+import type { ChannelAsk } from "@agboss/core";
+import { SlackClientService } from "../../refunds/services/slack-client.service.js";
+import { SpendingLimitQuestion } from "./spending-limit.channel-role.js";
+
+@Channel({ name: "slack-spending-limit-channel", description: "Asks in Slack", deps: [SlackClientService] })
+export class SlackSpendingLimitChannel extends SpendingLimitQuestion {
+  constructor(private readonly slackClientService: SlackClientService) {
+    super();
+  }
+
+  async send(ask: ChannelAsk<SpendingLimitQuestion>): Promise<ChannelOutcome<SpendingLimitQuestion>> {
+    const { item, priceUsd } = ask.value; // typed by the role's ask: PurchaseDto
+    if (priceUsd <= 50) return ChannelOutcome.decided({ approved: true, limitUsd: 50 }); // the answer DTO
+    await this.slackClientService.postApproval(ask.pauseId, `Limit for ${item} ($${String(priceUsd)})?`);
+    return ChannelOutcome.awaitReply();
+  }
+}
+```
+
+```ts file=src/purchases/workflows/purchase/purchase.workflow-start.ts
+import { WorkflowStart } from "@agboss/core";
+import { PurchaseDto } from "../../dto/purchase.dto.js";
+
+@WorkflowStart({ name: "purchase-workflow-start", description: "A purchase", input: PurchaseDto })
+export class PurchaseWorkflowStart {}
+```
+
+```ts file=src/purchases/workflows/purchase/purchase.workflow-finish.ts
+import { WorkflowFinish } from "@agboss/core";
+import { SpendingLimitDto } from "../../dto/spending-limit.dto.js";
+
+@WorkflowFinish({ name: "purchase-workflow-finish", description: "The limit", output: SpendingLimitDto })
+export class PurchaseWorkflowFinish {}
+```
+
+```ts file=src/purchases/workflows/purchase/purchase.workflow.ts
+import { Workflow, start } from "@agboss/core";
+import { SpendingLimitQuestion } from "../../channels/spending-limit.channel-role.js";
+import { PurchaseDto } from "../../dto/purchase.dto.js";
+import { SpendingLimitDto } from "../../dto/spending-limit.dto.js";
+import { SlackClientService } from "../../../refunds/services/slack-client.service.js";
+import { PurchaseWorkflowFinish } from "./purchase.workflow-finish.js";
+import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
+
+@Workflow({
+  name: "purchase-workflow",
+  version: "1.0.0",
+  flow: [
+    start(PurchaseWorkflowStart)
+      .returns(PurchaseDto) // the ask, on the path (an agent or an action may build it)
+      .toQuestion(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow
+      .returns(SpendingLimitDto) // the typed answer: later steps read it like any value
+      .toFinish(PurchaseWorkflowFinish),
+  ],
+  providers: [SlackClientService],
+})
+export class PurchaseWorkflow {}
+```
+
+The role's implementation (`SlackSpendingLimitChannel`) is listed in `@Application({ providers })`
+and the workflow in its `workflows`, as for an approval. Answering: `app.resume({ pauseId, decision:
+{ approved: true, limitUsd: 900 } }, { ownerId })` — validated as the role's `answer` DTO before it
+is recorded — or `{ pauseId, reply: "up to 900" }`, read by the role's `replyInterpreter` into that
+DTO (a chat model gets one answer tool, `answer-<answer dto>`, and the not-understood tool; a code
+interpreter returns `ReplyInterpretation.understood(answer)`; a decision model cannot answer a
+question, `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.Question`,
+`agent` the step, `ask` the masked question. Exactly one answer wins (`NotPausedError` for the
+second), another instance continues it, a cancel withdraws it — as any pause. The step is no model
+call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
+names a question role is `[channel.wrong-tool]`; an agent cannot ask one as a tool yet (#712).
+
 ## The pause's life and its records
 
-- **`PendingPause`** (`result.pending`): `pauseId?` (ThreadOwner roles only), `answeredBy`, `agent`,
-  `channel`, `ask` (the `ToolCallApprovalAskDto`: `tool`, `arguments`, `summary`, `callId` —
+- **`PendingPause`** (`result.pending`): `kind` (`PauseKind.Approval` | `PauseKind.Question`),
+  `pauseId?` (ThreadOwner roles only), `answeredBy`, `agent`, `channel`, `ask` (an approval's
+  `ToolCallApprovalAskDto`: `tool`, `arguments`, `summary`, `callId`; a question's ask DTO —
   `sensitive` fields masked), `itemIndex`, `childExecutionId` (a pause in a child workflow is the
   root's). Parallel branches pause on their own; the execution rests when nothing else can move,
   and answering one continues it while the rest keep waiting.
@@ -404,7 +527,10 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | Code / error                              | Cause → fix                                                                                        |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                           |
-| `[channel.question-role-unavailable]`     | a role with `ask` / `answer` — nothing can ask one yet (#659) → `approves` + `overrideArguments`   |
+| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                     |
+| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                |
+| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`              |
+| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`) → `.onError`    |
 | `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application       |
 | `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                   |
 | `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                   |
