@@ -31,14 +31,17 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
         second.resolveByTenantIdAndPauseId("default", "pause-a", no, NINE),
       ]);
 
+      // two instances are two connections: which answer reaches the store first is not the call
+      // order (#704) — exactly one resolves the pause, and the stored pause holds that one's answer
+      const outcomes = [one, other].filter((pause) => pause !== undefined);
+      expect(outcomes).toHaveLength(1);
       const replied = {
         status: PauseStatus.Resolved,
-        answer: APPROVED_BY_MANAGER,
+        answer: one === undefined ? no : APPROVED_BY_MANAGER,
         resolution: PauseResolution.Replied,
         resolvedAt: NINE.toISOString(),
       };
-      expect(one).toMatchObject(replied);
-      expect(other).toBeUndefined();
+      expect(outcomes[0]).toMatchObject(replied);
       expect(await second.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject(replied);
       expect(
         await first.resolveByTenantIdAndPauseId(
