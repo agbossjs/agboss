@@ -262,6 +262,10 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
         `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
       );
     }
-    return readReplyBy(interpreter, { ...rest, ask: pause.ask, label: `pause ${pause.pauseId}` }, parts);
+    return readReplyBy(
+      interpreter,
+      { ...rest, ask: pause.ask, label: `pause ${pause.pauseId}` },
+      parts,
+    );
   };
 }

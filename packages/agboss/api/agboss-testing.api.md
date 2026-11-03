@@ -680,6 +680,31 @@ export interface RagRunner extends UnitClock {
 export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
 
 // @public
+export type ReplyInterpreterReading<TRole> = {
+    readonly isUnderstood: true;
+    readonly answer: ChannelAnswerOf<TRole>;
+} | {
+    readonly isUnderstood: false;
+    readonly reason: string;
+};
+
+// @public
+export interface ReplyInterpreterRunner<TRole> extends UnitClock {
+    // (undocumented)
+    (input: ReplyInterpreterRunnerInput<TRole>, options?: UnitCallOptions): Promise<UnitRun<ReplyInterpreterReading<TRole>>>;
+}
+
+// @public
+export interface ReplyInterpreterRunnerInput<TRole> {
+    // Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly ask: ChannelQuestionOf<TRole>;
+    // (undocumented)
+    readonly reply: string;
+}
+
+// @public
 export interface ReplyTurn {
     // (undocumented)
     readonly details: AnswerDetails;
@@ -935,6 +960,9 @@ export function testPii<TExecution extends ExecutionContext = ExecutionContext, 
 // @public
 export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitModelOptions<unknown, TExecution, TTenant>): RagRunner;
 
+// @public
+export function testReplyInterpreter<TRole extends Class, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(role: TRole, options?: UnitModelOptions<unknown, TExecution, TTenant>): ReplyInterpreterRunner<InstanceType<TRole>>;
+
 // Warning: (ae-forgotten-export) The symbol "RouterAnswerOf" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -1136,7 +1164,7 @@ export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor
 
 // @public
 export interface UnitOptions<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
-    readonly environment?: Environment;
+    readonly environment?: Partial<Environment>;
     readonly overrides?: readonly Override[];
 }
 
@@ -1399,12 +1427,16 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:23:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-reply-interpreter.ts:32:36 - (ae-forgotten-export) The symbol "ChannelAnswerOf" needs to be exported by the entry point index.d.ts
+// src/testing/units/test-reply-interpreter.ts:37:3 - (ae-undocumented) Missing documentation for "ask".
+// src/testing/units/test-reply-interpreter.ts:38:3 - (ae-undocumented) Missing documentation for "reply".
+// src/testing/units/test-reply-interpreter.ts:43:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/testing/units/test-tool-interceptor.ts:62:3 - (ae-undocumented) Missing documentation for "afterToolCall".
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".
+// src/testing/units/unit-types.ts:60:3 - (ae-undocumented) Missing documentation for "output".
 // src/testing/vcr.ts:23:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:57:3 - (ae-undocumented) Missing documentation for "cassetteName".
 

@@ -49,16 +49,17 @@ describe("#644: testReplyInterpreter — a code interpreter", () => {
 describe("#644: testReplyInterpreter — a chat-model interpreter", () => {
   it("its answer tool: the answer, validated, its spend under reply-interpreter:<name>", async () => {
     const read = testReplyInterpreter(BudgetOwnerQuestion, {
-      model: replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: 800 }, { cost: usd(0.001) }),
+      model: replyWith(
+        SpendingLimitAnswerDto,
+        { approved: true, limitUsd: 800 },
+        { cost: usd(0.001) },
+      ),
     });
 
     const { output, spend } = await read({ ask, reply: "fine, up to eight hundred" });
 
     expect(output).toEqual({ isUnderstood: true, answer: { approved: true, limitUsd: 800 } });
-    expect(spend.totalUsd).toBeCloseTo(0.001);
-    expect(spend.calls.map((call) => call.caller)).toEqual([
-      "reply-interpreter:budget-owner-reply-interpreter",
-    ]);
+    expect(spend.byCaller).toEqual({ "reply-interpreter:budget-owner-reply-interpreter": 0.001 });
   });
 
   it("its not-understood tool, or an answer the role refuses: not understood", async () => {
@@ -92,11 +93,13 @@ describe("#644: testReplyInterpreter — what it refuses", () => {
       answeredBy: PauseAnswerer.ThreadOwner,
     })
     abstract class TypedOnlyQuestion extends ChannelOf<TypedOnlyQuestion> {}
-    class NotARole {}
+    class NotARole {
+      readonly kind = "plain";
+    }
 
-    await expect(testReplyInterpreter(TypedOnlyQuestion)({ ask, reply: "x" } as never)).rejects.toThrow(
-      /names no replyInterpreter/,
-    );
+    await expect(
+      testReplyInterpreter(TypedOnlyQuestion)({ ask, reply: "x" } as never),
+    ).rejects.toThrow(/names no replyInterpreter/);
     await expect(testReplyInterpreter(NotARole)({ ask, reply: "x" } as never)).rejects.toThrow(
       /not a @ChannelRole/,
     );

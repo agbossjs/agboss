@@ -77,9 +77,9 @@ export function providerBreakerViolations(
 function lacksRequestFields(cls: ModelProviderType): boolean {
   if (isTransportClass(cls)) return false;
   // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
-  const instance: unknown = new (cls as unknown as new () => object)();
-  if (typeof Reflect.get(instance as object, "wirePlanOf") !== "function") return false;
-  const fields: unknown = Reflect.get(instance as object, "requestFields");
+  const instance: object = Reflect.construct(cls, []) as object;
+  if (typeof Reflect.get(instance, "wirePlanOf") !== "function") return false;
+  const fields: unknown = Reflect.get(instance, "requestFields");
   return typeof fields !== "object" || fields === null;
 }
 

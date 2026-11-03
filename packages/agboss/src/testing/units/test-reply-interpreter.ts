@@ -46,10 +46,14 @@ export interface ReplyInterpreterRunner<TRole> extends UnitClock {
   ): Promise<UnitRun<ReplyInterpreterReading<TRole>>>;
 }
 
+/** A role and its interpreter. */
+interface RoleInterpreter {
+  readonly found: FoundChannelRole;
+  readonly interpreter: AssembledReplyInterpreter;
+}
+
 /** The role and its interpreter, checked as at assembly. */
-async function interpreterOfRole(
-  role: Class,
-): Promise<{ readonly found: FoundChannelRole; readonly interpreter: AssembledReplyInterpreter }> {
+async function interpreterOfRole(role: Class): Promise<RoleInterpreter> {
   const found = channelRoleOf(role);
   if (found === undefined)
     throw new TestSetupError(`testReplyInterpreter(${role.name}): not a @ChannelRole`);
@@ -70,34 +74,19 @@ const validatorOf = ({ options }: FoundChannelRole): ((decision: unknown) => unk
     ? (decision) => validate(options.answer, decision)
     : (decision) => validDecisionOf(decision, { input: schemaOf(options.approves) });
 
-/**
- * `testReplyInterpreter(Role, options)`: the role's interpreter created by its own container (a code
- * one's `deps`, `overrides`, the `environment`), a model one answering from `model` —
- * `replyWith(AnswerDto, { … })` for its answer tool, `replyWith(ReplyInterpreterNotUnderstoodDto,
- * { reason })` for "not understood" (`{ cost }` its spend, `reply-interpreter:<name>`); its rules
- * checked first, as at assembly.
- */
-export function testReplyInterpreter<
-  TRole extends Class,
-  TExecution extends ExecutionContext = ExecutionContext,
-  TTenant extends TenantContext = TenantContext,
->(
+/** One call of a runner, without its clock. */
+type ReadReply<TRole> = (
+  input: ReplyInterpreterRunnerInput<TRole>,
+  options?: UnitCallOptions,
+) => Promise<UnitRun<ReplyInterpreterReading<TRole>>>;
+
+/** The runner's calls: each reads one reply by the role's interpreter, in a unit frame. */
+function readingsOf<TRole extends Class>(
   role: TRole,
-  options: UnitModelOptions<unknown, TExecution, TTenant> = {},
-): ReplyInterpreterRunner<InstanceType<TRole>> {
-  const site = new UnitSite(options);
-  const ready = interpreterOfRole(role).then((assembled) => {
-    const { name, model } = assembled.interpreter;
-    if (model === undefined && options.model !== undefined)
-      throw new TestSetupError(
-        `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
-      );
-    site.scriptModel(replyInterpreterKeyOf(name), name, options.model);
-    return assembled;
-  });
-  // a runner never called reports its setup error at its first call, not as an unhandled rejection
-  ready.catch(() => undefined);
-  const run = async (
+  site: UnitSite,
+  ready: Promise<RoleInterpreter>,
+): ReadReply<InstanceType<TRole>> {
+  return async (
     input: ReplyInterpreterRunnerInput<InstanceType<TRole>>,
     call: UnitCallOptions = {},
   ): Promise<UnitRun<ReplyInterpreterReading<InstanceType<TRole>>>> => {
@@ -132,5 +121,34 @@ export function testReplyInterpreter<
         : { isUnderstood: false, reason: reading.error.reason };
     });
   };
-  return Object.assign(run, { clock: site.clock });
+}
+
+/**
+ * `testReplyInterpreter(Role, options)`: the role's interpreter created by its own container (a code
+ * one's `deps`, `overrides`, the `environment`), a model one answering from `model` —
+ * `replyWith(AnswerDto, { … })` for its answer tool, `replyWith(ReplyInterpreterNotUnderstoodDto,
+ * { reason })` for "not understood" (`{ cost }` its spend, `reply-interpreter:<name>`); its rules
+ * checked first, as at assembly.
+ */
+export function testReplyInterpreter<
+  TRole extends Class,
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
+  role: TRole,
+  options: UnitModelOptions<unknown, TExecution, TTenant> = {},
+): ReplyInterpreterRunner<InstanceType<TRole>> {
+  const site = new UnitSite(options);
+  const ready = interpreterOfRole(role).then((assembled) => {
+    const { name, model } = assembled.interpreter;
+    if (model === undefined && options.model !== undefined)
+      throw new TestSetupError(
+        `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+      );
+    site.scriptModel(replyInterpreterKeyOf(name), name, options.model);
+    return assembled;
+  });
+  // a runner never called reports its setup error at its first call, not as an unhandled rejection
+  ready.catch(() => undefined);
+  return Object.assign(readingsOf(role, site, ready), { clock: site.clock });
 }

@@ -19,7 +19,7 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   `app.resume({ pauseId, reply })` reads it; a code one through its container, a model one on its
   script.
 - **DX papercuts** (#644): `[application.pii-instance-key]` only when something makes a PII token (a
-  policy, a `sensitive` field); `[application.in-memory-pauses]` names the store left in memory; an
+  policy, a `sensitive` field — a text start's optional `sender` is one); `[application.in-memory-pauses]` names the store left in memory; an
   OpenAI-compatible provider without `requestFields` is `[model-provider.request-fields-missing]` at
   assembly; a unit runner's `environment` takes only the fields the unit reads, and the SQLite
   error says how to pass `sqlitePath`; a cancelled launch branch keeps no raw `AbortError`.

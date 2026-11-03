@@ -61,7 +61,9 @@ const IN_MEMORY_LEDGER: AssemblyWarning = {
  */
 function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning {
   const stores = [
-    ...(records ? ["the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository)"] : []),
+    ...(records
+      ? ["the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository)"]
+      : []),
     ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver)"] : []),
   ];
   return {

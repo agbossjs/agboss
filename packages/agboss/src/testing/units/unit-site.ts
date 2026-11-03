@@ -10,7 +10,7 @@ import { JudgeModel } from "../../components/judge-decorators.js";
 import { LiveJudgeModel } from "../../components/judge-call.js";
 import { ROUTER_FACTORY } from "../../components/runtime.js";
 import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorder.js";
-import { NO_ENVIRONMENT_VALUES } from "../../environments/resolve.js";
+import { NO_ENVIRONMENT_VALUES, unitEnvironmentOf } from "../../environments/resolve.js";
 import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
@@ -82,7 +82,10 @@ function unitContexts(clock: Clock, options: UnitOptions): RuntimeContexts {
     instanceId: "test-instance",
     startedAt: clock.now(),
     environmentName: "test",
-    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
+    environment:
+      options.environment === undefined
+        ? NO_ENVIRONMENT_VALUES
+        : unitEnvironmentOf(options.environment),
   });
   return {
     application,

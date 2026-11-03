@@ -8,7 +8,13 @@
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js";
+import {
+  ModelCost,
+  ModelProvider,
+  PromptCaching,
+  Reasoning,
+  RetryPolicy,
+} from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { OpenRouterProvider, type OpenRouterFields } from "../../src/models/openrouter.provider.js";
 import { minutes, seconds } from "../../src/units/index.js";
@@ -22,12 +28,14 @@ const options = {
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  reasoning: Reasoning.off(),
 } as const;
 
-@ModelProvider({ ...options, name: "bare-model-provider" })
+@ModelProvider({ ...options, name: "bare-model-provider", promptCaching: PromptCaching.off() })
 // @ts-expect-error — what a JS project writes: the abstract requestFields left out
 class BareModelProvider extends OpenRouterProvider {}
 
+// @ts-expect-error — what a JS project writes: promptCaching left out
 @ModelProvider({ ...options, name: "fielded-model-provider" })
 class FieldedModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};

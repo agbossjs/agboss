@@ -1305,8 +1305,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".
 // src/environments/resolve.ts:42:3 - (ae-undocumented) Missing documentation for "field".
 // src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
-// src/environments/resolve.ts:181:3 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:182:3 - (ae-undocumented) Missing documentation for "values".
+// src/environments/resolve.ts:188:3 - (ae-undocumented) Missing documentation for "name".
+// src/environments/resolve.ts:189:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
 // src/eval/calibrate/taxonomy.ts:12:3 - (ae-undocumented) Missing documentation for "tag".
 // src/eval/calibrate/taxonomy.ts:13:3 - (ae-undocumented) Missing documentation for "description".

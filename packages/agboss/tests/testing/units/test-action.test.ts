@@ -7,6 +7,13 @@ import { describe, expect, it } from "vitest";
 import { override, testAction } from "../../../src/testing/index.js";
 import { variant } from "../../../src/flow/dto-wrappers.js";
 import { seconds } from "../../../src/units/index.js";
+import type { Environment } from "../../../src/flow/generated-types.js";
+
+/**
+ * A project's generated `Environment` names its fields (`sqlitePath` among them for SQLite stores);
+ * the core's own tests generate none, so the one field is given its type here.
+ */
+const SQLITE_ONLY = { sqlitePath: ":memory:" } as object as Partial<Environment>;
 import {
   PriceListService,
   PriceQuoteAction,
@@ -76,7 +83,7 @@ describe("testAction", () => {
   it("#644 (4): a service on SQLite takes only the field it reads: environment { sqlitePath }", async () => {
     const runQuote = testAction(PriceQuoteAction, {
       overrides: [override(PriceListService, SqlitePriceListService)],
-      environment: { sqlitePath: ":memory:" },
+      environment: SQLITE_ONLY,
     });
 
     const { output } = await runQuote(request("pen", 2));

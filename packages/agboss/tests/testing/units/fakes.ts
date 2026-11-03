@@ -53,8 +53,7 @@ export class SqlitePriceListService extends PriceListService {
 
   override priceOf(product: string): Promise<number | undefined> {
     const row = this.sqliteConnection.database.prepare("SELECT 250 AS cents").get() as
-      | { readonly cents: number }
-      | undefined;
+      { readonly cents: number } | undefined;
     return Promise.resolve(product === "pen" ? row?.cents : undefined);
   }
 }

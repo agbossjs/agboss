@@ -259,6 +259,13 @@ export async function replyInterpretersOf(
   return Promise.all(roles.map((role) => assembledOf(role, loader)));
 }
 
+/** A role's interpreter as assembly finds it, and what its rules say of it. */
+export interface RoleInterpreterFound {
+  /** `undefined` when the role names none, or an undecorated one. */
+  readonly interpreter: AssembledReplyInterpreter | undefined;
+  readonly violations: readonly RuleViolation[];
+}
+
 /**
  * A role's interpreter on its own (`testReplyInterpreter`, #644): its rules checked as at assembly
  * — `undefined` when the role names none (or an undecorated one, which the violations name).
@@ -266,16 +273,16 @@ export async function replyInterpretersOf(
 export async function roleInterpreterOf(
   role: FoundChannelRole,
   loader: PromptLoader,
-): Promise<{
-  readonly interpreter: AssembledReplyInterpreter | undefined;
-  readonly violations: readonly RuleViolation[];
-}> {
+): Promise<RoleInterpreterFound> {
   const { options } = role;
   const toolInput = isQuestionRole(options) ? options.ask : options.approves;
   const use = { tool: options.name, toolInput, channel: role.role, workflow: "" };
   const violations = replyInterpreterViolations([use]);
   const [found] = interpretedRolesOf([use]);
-  return { interpreter: found === undefined ? undefined : await assembledOf(found, loader), violations };
+  return {
+    interpreter: found === undefined ? undefined : await assembledOf(found, loader),
+    violations,
+  };
 }
 
 /** The code interpreters among them: the classes the container creates. */

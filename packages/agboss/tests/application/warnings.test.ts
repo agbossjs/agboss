@@ -21,6 +21,7 @@ import { HistoryDeskApplication } from "../flow/fixtures/execution-history.fixtu
 import { SqliteExecutionHistoryRepository } from "../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import { SqlitePausedExecutionRepository } from "../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { QuestionsApplication } from "../flow/fixtures/questions.fixture.js";
+import { OrderApplication } from "../testing/fixtures/order.application.js";
 import {
   DurableLoggedApplication,
   LoggedApplication,
@@ -43,11 +44,11 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     const app = await createApp(LoggedApplication, offline);
     await app.close();
 
-    // nothing of it makes a PII token (#644): no instance-key warning
-    expect(app.warnings).toEqual([LEDGER, PAUSES]);
+    // its text start's `sender` is sensitive (a token): the instance key's warning too (#644)
+    expect(app.warnings).toEqual([LEDGER, PAUSES, PII_KEY]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
-    ).toEqual([LEDGER, PAUSES]);
+    ).toEqual([LEDGER, PAUSES, PII_KEY]);
   });
 
   it("no workflow can pause: only the ledger's", async () => {
@@ -58,12 +59,14 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     ]);
   });
 
-  it("durable stores listed: none", async () => {
+  it("durable stores listed: none of the stores' (the PII key's stays: no pseudonymKey)", async () => {
     const app = await createApp(DurableLoggedApplication, offline);
     await app.close();
 
-    expect(app.warnings).toEqual([]);
-    expect(logged.filter((entry) => entry.level === LogLevel.Warn)).toEqual([]);
+    expect(app.warnings).toEqual([PII_KEY]);
+    expect(
+      logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
+    ).toEqual([PII_KEY]);
   });
 
   it("#644: only the pause records listed — the warning names the checkpoints, the one left in memory", async () => {
@@ -104,18 +107,19 @@ describe("#401 PR 1: kept execution history in memory warns", () => {
 
 describe("#120 S94: no application key → a key of the instance, and a warning", () => {
   it("not set and not needed: the start goes on, the warning in app.warnings and the log", async () => {
-    const app = await createApp(QuestionsApplication, offline);
+    const app = await createApp(NoteLoggedApplication, offline);
     await app.close();
 
     expect(app.warnings).toContain(PII_KEY);
     expect(logged.map((entry) => entry.message)).toContain(PII_KEY);
   });
 
-  it("#644: nothing makes a PII token — no policy, no sensitive field — no warning", async () => {
-    const app = await createApp(NoteLoggedApplication, offline);
-    await app.close();
+  it("#644: nothing makes a PII token — no policy, no sensitive field, no text start — no warning", async () => {
+    const assembled = await applicationOf(OrderApplication);
 
-    expect(app.warnings).not.toContain(PII_KEY);
+    expect(applicationWarningsOf(assembled).map((warning) => warning.code)).toEqual([
+      "application.in-memory-cost-ledger",
+    ]);
   });
 
   it("#644: a sensitive field of a path's DTO, or a PII policy, makes tokens: the warning", async () => {
