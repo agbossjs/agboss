@@ -152,11 +152,12 @@ three stub gateways:
 | Level | The stub offers | PS1 timeout | PS5 crash before the answer | A late replay |
 | --- | --- | --- | --- | --- |
 | **Full** | keys (G1), lookup (G2), retention (G3), first response (G4), conflict (G5), status (G6) | one charge (`Reconciled`, the SDK's error or the aborted wait alike, #657) | one charge (`Reconciled`) | one charge: by the lookup, whatever the key's age |
-| **No lookup** | keys, no lookup | one charge: `notSent()` replays the key while it lives, refused after `keyRetention` (#658) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
-| **No keys** | neither | **two charges** | `unknown` only | **two charges** |
+| **No lookup** | keys, no lookup | one charge: `unknown`, a person decides — or `notSent()` replaying the key while it lives, refused after `keyRetention` (#658) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
+| **No keys** | neither | one charge, `unknown` only (#657): a `notSent()` would charge **twice** | `unknown` only | one charge, `unknown` only (#657) |
 
 - **Wrong:** a gateway without keys turns a timeout's retry into two charges, one without a
-  lookup turns a crash before the answer into a guess.
+  lookup turns a crash before the answer into a guess. Without keys, two requests that meet at
+  the gateway charge twice whatever AGBoss does (PS23).
 - **AGBoss:** the same intent, claim and `reconcile` on every level; what it can tell depends on
   what the gateway offers (the table).
 - **Guarantee:** P3, through A7.
@@ -392,7 +393,10 @@ weekend, an operator's retry, a customer paying again the next day.
   `keyAge + attemptTimeout` one millisecond below the retention resends, equal refuses; an instance
   two days ahead reads the same age); the times on every store, `outboundCallContract` → times, and
   on PostgreSQL's database time, agbossjs/postgres `tests/stores/outbound-call-times.test.ts`.
-  `outboundGatewayChecklist` probes G3. Full example: `ps17`.
+  `outboundGatewayChecklist` probes G3. Full example: `ps17` — (c) the late retry after a `502`
+  and (d) the replay-only gateway's recovery past `keyRetention` asserted exactly once, as `ps6 …
+  late` on every level; on the gateways' SDKs, `12-payment-gateways` → Checkout.com `ps17c` and
+  Adyen `ps17d`.
 
 ### PS18. A partial capture
 
