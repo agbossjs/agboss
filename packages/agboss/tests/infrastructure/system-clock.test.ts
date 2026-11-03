@@ -13,9 +13,10 @@ import {
   RandomIdGenerator,
   SystemClock,
   timeoutError,
+  timeoutOn,
 } from "../../src/infrastructure/clock.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours, type Milliseconds } from "../../src/units/index.js";
+import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -112,5 +113,31 @@ describe("#533: the clock's other parts", () => {
       name: "TimeoutError",
       message: "The operation was aborted due to timeout",
     });
+  });
+});
+
+describe("#626: a timeout on the clock", () => {
+  it("aborts its signal with its reason once its delay has passed on the clock", async () => {
+    const clock = new VirtualClock();
+    const reason = new Error("too slow");
+    const timeout = timeoutOn(clock, seconds(5), () => reason);
+
+    await clock.advance(seconds(5));
+
+    expect(timeout.signal.aborted).toBe(true);
+    expect(timeout.signal.reason).toBe(reason);
+  });
+
+  it("released before its delay, never aborts: not at the release, not once the delay has passed", async () => {
+    const clock = new VirtualClock();
+    const timeout = timeoutOn(clock, seconds(5), timeoutError);
+
+    timeout.release();
+    await clock.advance(seconds(1));
+    const isAbortedAtRelease = timeout.signal.aborted;
+    await clock.advance(seconds(10));
+
+    expect(isAbortedAtRelease).toBe(false);
+    expect(timeout.signal.aborted).toBe(false);
   });
 });
