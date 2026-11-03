@@ -29,6 +29,9 @@ import {
   offerPaths,
 } from "../fixtures/offer.fixture.js";
 import { agent, caseOf, start, toAction } from "../fixtures/paths.js";
+import type { ComponentName } from "../../../src/flow/registry.js";
+
+const OFFER_START = "offer-workflow-start" as ComponentName;
 
 /** The credit review of agboss-examples 09: an officer (maxVisits 4) and an editor (maxVisits 3). */
 @Agent({
@@ -53,7 +56,9 @@ class OfficerAgent {}
 })
 class RewriterAgent {}
 
-const reviewPaths = (handled = VisitsLimitExceededError as abstract new () => Error) => [
+const reviewPaths = (
+  handled = VisitsLimitExceededError as abstract new (...args: never[]) => Error,
+) => [
   start(OfferWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftAgent)
@@ -74,7 +79,7 @@ const reviewPaths = (handled = VisitsLimitExceededError as abstract new () => Er
     ),
 ];
 
-function reviewWith(maxSteps: number, handled?: abstract new () => Error) {
+function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) => Error) {
   @Workflow({
     name: "review-steps-workflow",
     version: "1.0.0",
@@ -140,7 +145,7 @@ describe("#643 AC2: what is not warned", () => {
 
   it("AC2: the bound is exact for the walk of 09's loop and for a flow without a cycle", () => {
     const walked = walkFlow(reviewPaths());
-    expect(boundedStepsFrom(walked.graph, "offer-workflow-start")?.most).toBe(8);
+    expect(boundedStepsFrom(walked.graph, OFFER_START)?.most).toBe(8);
     const straight = walkFlow([
       start(OfferWorkflowStart)
         .returns(ShortlistDto)
@@ -148,7 +153,7 @@ describe("#643 AC2: what is not warned", () => {
         .returns(OfferDraftDto)
         .toFinish(OfferFailedWorkflowFinish),
     ]);
-    expect(boundedStepsFrom(straight.graph, "offer-workflow-start")).toEqual({
+    expect(boundedStepsFrom(straight.graph, OFFER_START)).toEqual({
       most: 1,
       loops: [],
     });

@@ -111,32 +111,50 @@ export interface BoundedSteps {
   readonly loops: readonly string[];
 }
 
+/** The components of a flow, and the one each node belongs to. */
+interface Components {
+  readonly graph: FlowGraph;
+  readonly edges: readonly FlowEdge[];
+  readonly owner: ReadonlyMap<ComponentName, Component>;
+}
+
+/** The longest way on from `part` to an end of the flow; `undefined` when one way is unbounded. */
+function longestOnward(
+  { graph, edges, owner }: Components,
+  part: Component,
+  from: (next: Component) => BoundedSteps | undefined,
+): BoundedSteps | undefined {
+  let best: BoundedSteps = { most: 0, loops: [] };
+  for (const edge of edges) {
+    const target = owner.get(edge.to);
+    if (!part.nodes.includes(edge.from) || target === undefined || target === part) continue;
+    const after = from(target);
+    const running = mostRunning(graph, edge);
+    if (after === undefined || running === undefined) return undefined;
+    if (after.most + running > best.most) best = { ...after, most: after.most + running };
+  }
+  return best;
+}
+
 /** The bounded worst case from `start`; `undefined` when a cycle or a launch leaves it unbounded. */
 export function boundedStepsFrom(graph: FlowGraph, start: ComponentName): BoundedSteps | undefined {
   const edges = stepEdgesOf(graph);
   const successors = (node: ComponentName): readonly ComponentName[] =>
     edges.filter((edge) => edge.from === node).map((edge) => edge.to);
-  const components = stronglyConnected([...graph.nodes.keys()], successors).map((nodes) =>
+  const parts = stronglyConnected([...graph.nodes.keys()], successors).map((nodes) =>
     componentOf(graph, nodes, edges),
   );
-  const owner = new Map(components.flatMap((part) => part.nodes.map((n) => [n, part] as const)));
+  const owner = new Map(parts.flatMap((part) => part.nodes.map((n) => [n, part] as const)));
+  const components: Components = { graph, edges, owner };
+  // the components form a graph without cycles: each is reached once per way, memoized
   const memo = new Map<Component, BoundedSteps | undefined>();
   const from = (part: Component): BoundedSteps | undefined => {
     if (memo.has(part)) return memo.get(part);
-    memo.set(part, undefined);
-    let best: BoundedSteps | undefined = { most: 0, loops: [] };
-    for (const edge of edges) {
-      const target = owner.get(edge.to);
-      if (!part.nodes.includes(edge.from) || target === undefined || target === part) continue;
-      const after = from(target);
-      const running = mostRunning(graph, edge);
-      if (after === undefined || running === undefined) return undefined;
-      if (after.most + running > (best?.most ?? 0)) best = { ...after, most: after.most + running };
-    }
+    const onward = longestOnward(components, part, from);
     const found =
-      part.most === undefined || best === undefined
+      part.most === undefined || onward === undefined
         ? undefined
-        : { most: part.most + best.most, loops: [...part.loop, ...best.loops] };
+        : { most: part.most + onward.most, loops: [...part.loop, ...onward.loops] };
     memo.set(part, found);
     return found;
   };
