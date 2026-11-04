@@ -36,7 +36,8 @@ export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined 
   const pending: unknown[] = [error];
   while (pending.length > 0) {
     const next = pending.shift();
-    if (next === undefined || next === null || seen.has(next)) continue;
+    // `undefined` and `null` are neither errors nor fenced: they fall through every check below
+    if (seen.has(next)) continue;
     seen.add(next);
     if (next instanceof ExecutionFencedError) return next;
     if (next instanceof AggregateError) pending.push(...(next.errors as unknown[]));
@@ -48,7 +49,8 @@ export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined 
 /** What stops the lease a fenced write ran under (`execution-leases.ts` registers each held one). */
 type FencedHolder = (error: ExecutionFencedError) => void;
 
-const holders = new Map<string, FencedHolder>();
+/** Keyed by scope and token; `undefined`, a holder's key before it holds, is never a key here. */
+const holders = new Map<string | undefined, FencedHolder>();
 
 const holderKeyOf = (scopeKey: string, token: number): string => `${scopeKey}#${String(token)}`;
 
@@ -71,7 +73,7 @@ export class FencedHolders {
   }
 
   readonly forget = (): void => {
-    if (this.#key !== undefined && holders.get(this.#key) === this.stop) holders.delete(this.#key);
+    if (holders.get(this.#key) === this.stop) holders.delete(this.#key);
     this.#key = undefined;
   };
 }
@@ -106,8 +108,9 @@ export function recordedHandOver<T extends HandedOver>(
   site: HandOverSite,
   frame: FrameSpec | undefined = currentFrame(),
 ): T {
-  const lease = frame?.execution.lease;
-  if (frame === undefined || lease?.recordHandOver === undefined) return handedOver;
+  if (frame === undefined) return handedOver;
+  const { lease } = frame.execution;
+  if (lease?.recordHandOver === undefined) return handedOver;
   const scopes = recorded.get(handedOver) ?? new Set<string>();
   if (scopes.has(lease.scopeKey)) return handedOver;
   recorded.set(handedOver, scopes.add(lease.scopeKey));

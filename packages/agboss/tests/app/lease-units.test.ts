@@ -7,9 +7,20 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
-import { FencedHolders, handedOverOf, isHandedOver } from "../../src/app/handed-over.js";
+import {
+  fencedErrorOf,
+  FencedHolders,
+  handedOverOf,
+  isHandedOver,
+  recordedHandOver,
+} from "../../src/app/handed-over.js";
 import { LeaseAttempts, LeaseYields } from "../../src/app/lease-yields.js";
-import { ExecutionFencedError, scopeKeyOf } from "../../src/app/lease-lost.js";
+import {
+  ExecutionFencedError,
+  ExecutionLeaseLostError,
+  scopeKeyOf,
+} from "../../src/app/lease-lost.js";
+import { HandOverSite } from "../../src/infrastructure/execution-lease-event.repository.js";
 import { leaseReleases } from "../../src/app/lease-releases.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
@@ -204,6 +215,48 @@ describe("#633: hand-overs", () => {
   it("a fenced error behind a driver's error is a hand-over", () => {
     expect(isHandedOver(new Error("driver failed", { cause: fenced(3) }))).toBe(true);
     expect(isHandedOver(new Error("driver failed"))).toBe(false);
+  });
+
+  it("a cause chain that loops, or an AggregateError that holds itself: walked once, nothing fenced", () => {
+    const looped = new Error("looped");
+    looped.cause = looped;
+    const aggregate = new AggregateError([], "both");
+    aggregate.errors.push(aggregate, looped);
+
+    expect([fencedErrorOf(looped), fencedErrorOf(aggregate)]).toEqual([undefined, undefined]);
+    const behind = fenced(4);
+    expect(fencedErrorOf(new AggregateError([looped, new Error("x", { cause: behind })]))).toBe(
+      behind,
+    );
+  });
+
+  it("only an Error's cause is followed: a plain object's is not", () => {
+    expect(fencedErrorOf({ cause: fenced(2) })).toBeUndefined();
+  });
+
+  it("a hand-over outside any frame, or under a lease that records none: as it is", () => {
+    const lost = new ExecutionLeaseLostError("root-1");
+
+    expect(recordedHandOver(lost, HandOverSite.Step, undefined)).toBe(lost);
+    expect(recordedHandOver(lost, HandOverSite.Step, { execution: { lease: {} } } as never)).toBe(
+      lost,
+    );
+  });
+
+  it("a holder's forget never removes another holder's stop of the same scope and token", () => {
+    const [first, second] = [vi.fn(), vi.fn()];
+    const one = new FencedHolders(scopeKeyOf("acme", "root-1"), first);
+    const other = new FencedHolders(scopeKeyOf("acme", "root-1"), second);
+
+    one.hold(5);
+    other.hold(5);
+    one.forget();
+    handedOverOf(fenced(5), undefined);
+    other.forget();
+    handedOverOf(fenced(5), undefined);
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
   });
 
   it("a holder taken again at a new token no longer stops for the old one", () => {
