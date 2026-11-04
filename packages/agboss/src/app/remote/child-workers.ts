@@ -10,7 +10,7 @@ import { treeKeyOf } from "../../infrastructure/in-memory-database.js";
 import type { FrameworkLog } from "../../infrastructure/logger.js";
 import { SWEEP_EVERY } from "../../infrastructure/recovery.js";
 import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signals.js";
-import type { StepCapacity } from "../step-slots.js";
+import { claimRoomOf, type StepCapacity } from "../step-slots.js";
 import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
 import { announcePass } from "./child-end-event.js";
@@ -40,7 +40,8 @@ export interface ChildWorkers {
 
 class Workers implements ChildWorkers {
   readonly #stopped = new AbortController();
-  readonly #running = new Map<string, Promise<void>>();
+  /** The claimed children at work here, by tree key: each one's queue row and its run. */
+  readonly #running = new Map<string, QueuedChildExecution & { readonly done: Promise<void> }>();
   readonly #preHeld = new Map<string, HeldExecutionLease>();
   readonly #reclaiming = new Set<string>();
   readonly #onQueued: () => void;
@@ -68,7 +69,7 @@ class Workers implements ChildWorkers {
     this.#stopped.abort();
     this.#unsubscribe();
     await this.#loop;
-    await Promise.allSettled([...this.#running.values()]);
+    await Promise.allSettled([...this.#running.values()].map((child) => child.done));
   }
 
   async #sweep(): Promise<void> {
@@ -78,9 +79,9 @@ class Workers implements ChildWorkers {
     }
   }
 
+  /** The children it may claim now: each claimed child counted once, by its slot or its claim (#767). */
   #room(): number {
-    const cap = this.parts.capacity;
-    return cap === undefined ? Number.POSITIVE_INFINITY : cap.freeSlots() - this.#running.size;
+    return claimRoomOf(this.parts.capacity, this.#running.values());
   }
 
   #look(): Promise<void> {
@@ -130,7 +131,7 @@ class Workers implements ChildWorkers {
     const done = this.#run(row, stopClaiming).then(finish, () => {
       finish(false);
     });
-    this.#running.set(key, done);
+    this.#running.set(key, { ...row, done });
   }
 
   async #run(row: QueuedChildExecution, stopClaiming: () => void): Promise<boolean> {

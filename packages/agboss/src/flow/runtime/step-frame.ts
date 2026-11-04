@@ -224,7 +224,8 @@ async function takeSlots(site: TreeSlotSite, slots: TreeSlotRegistry): Promise<S
   const tree = await slots.slotsOf(root, cap, clock).take(claim, signal, site.watch);
   if (tree === undefined) throw cancelledWaiting("a tree slot");
   if (slots.instance === undefined) return tree;
-  const step = await slots.instance.take(claim, signal, site.watch);
+  // the slot is its lease's (#767): a claimed child at work is counted once by its worker
+  const step = await slots.instance.take(claim, signal, site.watch, site.execution.lease?.scopeKey);
   if (step !== undefined) {
     return {
       release: (): void => {

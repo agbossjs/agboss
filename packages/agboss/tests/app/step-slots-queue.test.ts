@@ -139,3 +139,30 @@ describe("AC2: the queue order", () => {
     expect(slots.freeSlots()).toBe(1);
   });
 });
+
+describe("#767: the slots a lease holds", () => {
+  it("holdsSlot follows a lease's slots, taken at once or granted from the queue, until the last is released", async () => {
+    const slots = new StepSlots(2, new VirtualClock());
+    const first = await slots.take(claim(), never, undefined, "t:child-1");
+    const second = await slots.take(claim(), never, undefined, "t:child-1");
+    expect(slots.holdsSlot("t:child-1")).toBe(true);
+    expect(slots.holdsSlot("t:child-2")).toBe(false);
+
+    const waiting = slots.take(claim(), never, undefined, "t:child-2");
+    first?.release();
+    const third = await waiting;
+    expect(slots.holdsSlot("t:child-2")).toBe(true);
+    // one of its two slots released: child-1 still holds one
+    expect(slots.holdsSlot("t:child-1")).toBe(true);
+
+    second?.release();
+    second?.release(); // released once: the count is not taken twice
+    expect(slots.holdsSlot("t:child-1")).toBe(false);
+    const unowned = await slots.take(claim(), never);
+    expect(slots.busySlots()).toBe(2);
+    third?.release();
+    unowned?.release();
+    expect(slots.holdsSlot("t:child-2")).toBe(false);
+    expect(slots.freeSlots()).toBe(2);
+  });
+});

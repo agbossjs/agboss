@@ -331,6 +331,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A worker claims children on any instance up to its free step slots** (#767) — an instance with
+  `maxConcurrentSteps` counted each `AnyInstance` child it ran twice while the child's step ran (its
+  slot and its claim), so under a backlog it kept fewer children at work than it had slots. A claimed
+  child now counts once — by the slot it holds, or as a claim while it holds none —, never more
+  children than slots.
 - **`agboss check --strict` reports every analyser warning as an error** (#769) — it kept only
   three codes of a hand-written list, so `[limits.max-steps-below-worst-case]` (#643),
   `[limits.child-concurrency-above-parent]` and `[flow.committer-unreachable]` printed under a plain
