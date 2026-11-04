@@ -23,7 +23,8 @@ function rangesOf(detector: FormatDetector, rank: number, text: string): FoundRa
   for (const match of text.matchAll(pattern)) {
     const range = rangeOf(match);
     if (range === undefined) continue;
-    const [start, end] = range;
+    const [start, matchEnd] = range;
+    const end = detector.endOf === undefined ? matchEnd : detector.endOf(text, start, matchEnd);
     if (detector.isValid !== undefined && !detector.isValid(text.slice(start, end))) continue;
     found.push({ start, end, kind: detector.kind, rank });
   }

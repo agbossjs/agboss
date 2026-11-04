@@ -1,4 +1,5 @@
 import { PiiKind } from "../kinds.js";
+import { emailEndOf } from "./email.js";
 import {
   isGeoValid,
   isIbanValid,
@@ -23,34 +24,18 @@ export interface FormatDetector {
   readonly pattern: RegExp;
   /** The match is that kind only when it passes (check digits, issuance rules). */
   readonly isValid?: (match: string) => boolean;
+  /** Where the match ends once what is not of the kind is cut off (#729); the match's end when absent. */
+  readonly endOf?: (text: string, start: number, end: number) => number;
 }
 
 const BOUNDED = (source: string): RegExp => new RegExp(`(?<![\\w-])(?:${source})(?![\\w-])`, "gd");
-
-/**
- * File extensions that are no top-level domain (#729): `anna@acme.com.pdf` names a file, its address
- * is `anna@acme.com`. One that is also a domain (`.md`, `.zip`, `.mov`, `.py`, `.sh`) is not here.
- */
-const FILE_EXTENSIONS: readonly string[] = (
-  "pdf csv tsv txt json xml yaml yml html htm doc docx xls xlsx ppt pptx odt rtf png jpg " +
-  "jpeg gif svg webp bmp tif tiff heic wav eml msg vcf ics gz tar rar log bak tmp exe"
-).split(" ");
-
-/**
- * An address: its last label ends where a label ends (never inside `.mp4`) and is no file
- * extension, so the extension of a file named after it stays outside the match (#729).
- */
-const EMAIL = new RegExp(
-  "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}(?![A-Za-z0-9])" +
-    `(?<!\\.(?:${FILE_EXTENSIONS.join("|")}))`,
-  "dgi",
-);
 
 /** In order of specificity: of two matches of one span the first kind wins (a card before a phone). */
 export const FORMAT_DETECTORS: readonly FormatDetector[] = [
   {
     kind: PiiKind.Email,
-    pattern: EMAIL,
+    pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/dg,
+    endOf: emailEndOf,
   },
   { kind: PiiKind.UsSsn, pattern: BOUNDED("\\d{3}-\\d{2}-\\d{4}"), isValid: isUsSsnValid },
   { kind: PiiKind.UsItin, pattern: BOUNDED("9\\d{2}-\\d{2}-\\d{4}"), isValid: isUsItinValid },
