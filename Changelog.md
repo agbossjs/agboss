@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: callTools is an agent's typed turn; a scripted call names a tool the agent lists (#679)
+
+- **Fixed**: `mockLlm(Agent).thenReturn(callTools(callTool(A, a), callTool(B, b)))` needed a cast in
+  a project with generated types: `callTools` was not one of an agent's turns. It is now, like
+  `callTool`.
+- **Changed**: `.agboss/types.d.ts` gains `AgentTools`, the tool names each agent may call (its
+  `@Tool` / `@McpTool` classes and its tool-mode knowledge bases' `search-<rag>-tool`), and brands
+  each tool class with its name. A scripted call of a tool the agent does not list no longer
+  compiles, alone or inside `callTools`. `ToolCallTurn` / `ToolCallsTurn` take the tool's name as a
+  type parameter (`string` by default). [Testing](Testing).
+
 ## Unreleased — 0.1.1: a budget's spend is compared in whole micro-dollars (#728)
 
 - **Fixed**: eight $0.10 calls summed to 0.7999999999999999, under a $0.80 budget, so one more
