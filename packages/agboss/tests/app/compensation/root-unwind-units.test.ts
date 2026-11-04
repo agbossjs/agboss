@@ -62,7 +62,7 @@ const USAGE = recordToolCost("release-room-action", 0.25);
 
 const undoable = {
   kind: NodeKind.Action,
-  declaration: { kind: NodeKind.Action, options: { compensateWith: class {} } },
+  declaration: { kind: NodeKind.Action, options: { compensateWith: Object } },
 };
 const plain = { kind: NodeKind.Action, declaration: { kind: NodeKind.Action, options: {} } };
 const childNode = {
@@ -137,7 +137,7 @@ describe("#633: a tree with nothing to undo", () => {
     ["no undoable action anywhere", { nodes: [plain, childNode], child: [plain] }],
     ["a child node whose workflow is unknown", { nodes: [{ ...childNode, component: "other" }] }],
   ])("%s: the cause as it is, nothing marked", async (_case, options) => {
-    const { deps, trees } = depsOf(options as DepsOptions);
+    const { deps, trees } = depsOf(options);
 
     await markTreeUnwinding(deps, STATE, new Error("declined"));
     const ended = await unwoundTree(deps, STATE, call());

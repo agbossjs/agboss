@@ -100,7 +100,7 @@ function siteOf(options: SiteOptions = {}): UndoSite {
     ["book-action", { component: BookAction }],
     ["plain-action", { component: PlainAction }],
     ["odd-action", { component: OddAction }],
-    ["not-an-action", { component: class NotAnAction {} }],
+    ["not-an-action", { component: Object }],
   ]);
   const instance = "instance" in options ? options.instance : runningUndo;
   const site: UndoSite = {

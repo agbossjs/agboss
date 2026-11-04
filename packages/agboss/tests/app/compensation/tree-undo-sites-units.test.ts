@@ -31,9 +31,6 @@ vi.mock("../../../src/flow/runtime/workflow-keys.js", () => ({
   }),
 }));
 
-class BookingWorkflow {}
-class NightWorkflow {}
-
 type Deps = GraphDeps<string> & { readonly label: string };
 
 function depsNamed(
@@ -58,7 +55,7 @@ const night = depsNamed("night-workflow", "3.0.0", {});
 const booking = depsNamed("booking-workflow", "2.0.0", {
   "night-workflow": {
     kind: NodeKind.Workflow,
-    component: Object.assign(NightWorkflow, { label: "night-workflow" }),
+    component: { label: "night-workflow" },
   },
 });
 const root = depsNamed(
@@ -67,10 +64,10 @@ const root = depsNamed(
   {
     "booking-workflow": {
       kind: NodeKind.Workflow,
-      component: Object.assign(BookingWorkflow, { label: "booking-workflow" }),
+      component: { label: "booking-workflow" },
     },
     "this-workflow": { kind: NodeKind.Workflow, component: ThisWorkflow },
-    "reserve-room-action": { kind: NodeKind.Action, component: class {} },
+    "reserve-room-action": { kind: NodeKind.Action, component: Object },
     "lost-workflow": { kind: NodeKind.Workflow, component: { label: "lost" } },
   },
   { booking, night },
@@ -158,7 +155,7 @@ describe("#633: undoSiteOf", () => {
       entryOf("k"),
     );
     const builtIn = undoSiteOf(
-      sitesOf({ clock: undefined, compensation: undefined } as never),
+      sitesOf({ clock: undefined, compensation: undefined }),
       entryOf("k"),
     );
 

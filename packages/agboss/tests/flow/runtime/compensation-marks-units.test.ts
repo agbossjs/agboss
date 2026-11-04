@@ -50,7 +50,7 @@ describe("#633: a mark at the store's boundary", () => {
     ["a cause without a text message", { reason: "execution-failed", cause: { name: "n" } }],
   ])("%s: no mark", async (_case, value) => {
     const trees = storeOf();
-    await trees.saveIfAbsentInTree(TREE, UNWINDING_KEY, value as never);
+    await trees.saveIfAbsentInTree(TREE, UNWINDING_KEY, value);
 
     expect(await unwindingOf(trees, TREE, UNWINDING_KEY)).toBeUndefined();
   });

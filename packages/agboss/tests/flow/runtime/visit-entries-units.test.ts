@@ -111,7 +111,7 @@ function siteOf(
       step: stepOf(nodeId),
       execution: { executionId: "root-1", tenant: { tenantId: "acme" } },
     } as never,
-    scope: { [GUEST_SLOT]: record(GUEST_SLOT, { name: "ada" }, "start") } as never,
+    scope: { [GUEST_SLOT]: record(GUEST_SLOT, { name: "ada" }, "start") },
     startedAt: new Date("2026-10-20T12:00:00.000Z"),
     endedAt: new Date("2026-10-20T12:00:01.000Z"),
     ...overrides,
@@ -127,7 +127,7 @@ describe("#633: an undoable action's visit opens an entry", () => {
     };
     const entries = [entryOf("older", { sequence: 3 })];
 
-    const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { scope, entries } as never));
+    const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { scope, entries }));
 
     expect(opened).toStrictEqual({
       key: "root-1:book-action:2",
@@ -173,7 +173,7 @@ describe("#633: an undoable action's visit opens an entry", () => {
       siteOf("book-action", BookAction, { parts, failure: new Error("declined") }),
     );
     const plain = entriesOfVisit(siteOf("plain-action", PlainAction, { parts }));
-    const other = entriesOfVisit(siteOf("other-node", class NotAnAction {}, { parts }));
+    const other = entriesOfVisit(siteOf("other-node", Object, { parts }));
 
     expect([failed, plain, other]).toEqual([[], [], []]);
     expect(registry.write).not.toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe("#633: a branch's entry reads the branch's own value", () => {
   it("its output's slot, built from nothing, with no variant", () => {
     const branch = { launchId: "launch-1", value: { value: { bookingId: "b-2" } }, dtos };
 
-    const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { branch } as never));
+    const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { branch }));
 
     expect(opened?.launchId).toBe("launch-1");
     expect(opened?.input[BOOKING_SLOT]).toStrictEqual({
@@ -244,7 +244,7 @@ describe("#633: a branch's entry reads the branch's own value", () => {
     const value = { variant: "waitlist", value: { placeId: "p-1" } };
     const branch = { launchId: "launch-1", value, dtos };
 
-    const [opened] = entriesOfVisit(siteOf("wait-action", WaitAction, { branch } as never));
+    const [opened] = entriesOfVisit(siteOf("wait-action", WaitAction, { branch }));
 
     expect(opened?.input).toStrictEqual({
       [WAITLIST_SLOT]: {
@@ -263,7 +263,7 @@ describe("#633: a branch's entry reads the branch's own value", () => {
     const none = { launchId: "launch-1", value: undefined, dtos };
 
     for (const branch of [unknown, none]) {
-      const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { branch } as never));
+      const [opened] = entriesOfVisit(siteOf("book-action", BookAction, { branch }));
 
       expect(Object.keys(opened?.input ?? {})).toEqual([GUEST_SLOT]);
     }

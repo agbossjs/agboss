@@ -204,7 +204,13 @@ describe("#633: a sealing unwind", () => {
       stepEntries: { closedWhere } as never,
       ...overrides,
     });
-    return { ...parts, clock, returned: () => returned() };
+    return {
+      ...parts,
+      clock,
+      returned: () => {
+        returned();
+      },
+    };
   }
 
   it("a late entry undone at once, its spend recorded", async () => {
@@ -294,7 +300,7 @@ describe("#633: a sealing unwind", () => {
     ["no parts", { parts: undefined }],
     ["no step entries", { stepEntries: undefined }],
   ])("%s: no seal", async (_case, overrides) => {
-    const { site, registry } = sealing(overrides as Partial<UnwindSite>);
+    const { site, registry } = sealing(overrides);
     await unwound(site);
 
     registry.write(TREE, [entryOf("late")]);
