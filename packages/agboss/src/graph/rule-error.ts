@@ -102,6 +102,7 @@ export type RuleCode =
   // a bound on tool results (#336), reported at assembly by `src/components/assemble-tools.ts`
   | "tools.max-result-size-invalid"
   | "limits.max-steps-too-low"
+  | "limits.max-steps-below-worst-case"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"
   | "agent.dynamic-options"
