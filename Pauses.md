@@ -135,11 +135,11 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   `overrideArguments`: "yes, up to $900", "ok but max 900", "да, но не больше 900 долларов", "כן, עד
   900 דולר" on a $1,200 call → 900) and `refuse` (a no, with or without a reason) — mapped onto
   `ToolCallApprovalDecisionDto` (a scripted answer in the DTO's own shape is read as it is); no yes
-  or no, a maybe, a question back is not understood. Two things are never read from a reply,
-  whatever the model answered: a raise (a correction above the call's own number) and a conversion
-  (a change while the reply names a currency the approved call's fields — their names, `amountUsd`
-  / `amount_usd`, and descriptions — do not, "yes, up to €900" on a call in US dollars): both are
-  not understood. Tests:
+  or no, a maybe, a question back is not understood. The model's answer is checked for its shape,
+  failing closed: the tool's schema is strict, an unknown decision or `approve-with-changes` without
+  a correction is not understood, an `approved` beside a decision is no answer (the decision alone
+  sets it), a correction may name only fields the call already has, and the corrected call passes
+  the tool's own input validation. Tests:
   `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For an approval role the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
@@ -312,6 +312,42 @@ export class OfficeWorkflowFinish {}
 })
 export class OfficeWorkflow {}
 ```
+
+### A reply interpreter reads intent — it is not a guardrail
+
+A reply interpreter turns a person's words into a decision on the call: approve, approve with a
+change, refuse, or not understood. It does not judge whether that decision is allowed. "Never above
+the amount the agent asked", "only in the call's currency", "never below 0" are rules of the call,
+and they hold only where every approval passes — whoever or whatever approved it, a button, a
+script, a model reading free text. Put them there: a tool interceptor's `beforeToolCall` sees the
+call as it runs, after the approval and with any correction laid over it, and
+`ToolCallDecision.block({ reason })` fails the step with `ToolBlockedError` before the tool runs; or
+the tool's (or action's) own check, and `min` / `max` on the input DTO's field for a plain bound,
+which the corrected call is validated against.
+
+<!-- snippet-context
+import { ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
+-->
+```ts
+@ToolInterceptor({
+  name: "payout-limit-tool-interceptor",
+  description: "Blocks a payout above the treasury's limit, whoever approved it",
+})
+export class PayoutLimitToolInterceptor implements BeforeToolCall {
+  beforeToolCall({ input }: ToolCallContext): ToolCallDecision {
+    const amount =
+      typeof input === "object" && input !== null && "amountCents" in input ? input.amountCents : 0;
+    return typeof amount === "number" && amount > 150_000
+      ? ToolCallDecision.block({ reason: "a payout above $1,500" })
+      : ToolCallDecision.allow();
+  }
+}
+// @Tool({ …, toolInterceptors: [PayoutLimitToolInterceptor] }) on the payout tool
+```
+
+The payment guarantees do not depend on the interpreter: a fenced effect still runs once per step,
+an outbound call is still sent once per key and reconciled, one business key is still charged once
+([Payments](Payments), [Guarantees](Guarantees)) — whatever the interpreter read.
 
 ## A question the workflow asks: `.toQuestion(Role)` (#659)
 
