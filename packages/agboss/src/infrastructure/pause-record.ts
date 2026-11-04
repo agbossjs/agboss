@@ -220,6 +220,7 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
     askedAt: pause.askedAt,
     resolvedAt: pause.resolvedAt,
     decision: hasAnswer ? pause.answer?.decision : undefined,
+    asked: pause.ask,
   };
 }
 
@@ -253,6 +254,7 @@ const StoredPauseAnswer = z.object({
   askedAt: z.string(),
   resolvedAt: optionalText,
   decision: z.unknown().optional(),
+  asked: z.unknown().optional(),
 });
 
 /** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
@@ -272,5 +274,6 @@ export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
     responder: stored.responder,
     resolvedAt: stored.resolvedAt,
     decision: stored.decision,
+    ...(stored.asked === undefined ? {} : { asked: stored.asked }),
   };
 }

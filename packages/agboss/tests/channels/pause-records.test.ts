@@ -108,6 +108,11 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           askedAt: TEST_START,
           resolvedAt: "2026-01-05T09:01:00.000Z",
           decision: { approved: false, reason: "ask <email>" },
+          // #688: the call as asked, beside the decision on it
+          asked: expect.objectContaining({
+            tool: "pay-out-tool",
+            arguments: { payee: "ann", amountCents: 1000 },
+          }),
         },
       ]);
     },

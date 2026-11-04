@@ -76,7 +76,9 @@ describe("#688: the framework's texts say what a capped approval is", () => {
     expect(system).toContain('"yes, up to $900"');
     expect(system).toContain("approve with the amount set to 900 — a limit is never a refusal");
     expect(system).toContain("never raise an amount up to a limit");
-    expect(system).toContain("a no is never unclear, even when it says nothing about the details of the call");
+    expect(system).toContain(
+      "a no is never unclear, even when it says nothing about the details of the call",
+    );
     expect(system).toContain("would need converting");
     expect(system).toContain(`call ${NOT_UNDERSTOOD_TOOL} with why; that is not a refusal`);
     const byName = new Map(request.tools.map((tool) => [tool.function.name, tool.function]));
@@ -127,10 +129,20 @@ describe("#688: a capped approval after a reply not understood", () => {
     const shrug = await app.resume({ pauseId, reply: "🤷" }, manager).catch((e: unknown) => e);
     expect(shrug).toBeInstanceOf(UninterpretableReplyError);
 
-    const done = await app.resume({ pauseId, reply: "yes, up to $900" }, manager);
+    const done = await app.resume(
+      { pauseId, reply: "yes, up to $900" },
+      { ...manager, record: true },
+    );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Paid." });
     expect(replyDesk.payouts).toEqual([{ payee: "ann", amountCents: 90_000 }]);
+    // auditable (#688): the kept record shows the call as asked and as it ran
+    expect(done.record?.pauses).toMatchObject([
+      {
+        asked: { tool: "pay-out-tool", arguments: { payee: "ann", amountCents: 120_000 } },
+        decision: { approved: true, overrideArguments: { payee: "ann", amountCents: 90_000 } },
+      },
+    ]);
   });
 });
 

@@ -495,9 +495,12 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   answer ("🤷"), which is never a refusal (#648). Tests:
   `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`. For an approval role (#688) its decision
   is named — `approve` / `approve-with-changes` / `refuse`; an unknown one, `approve-with-changes`
-  without a correction, `approved` beside a decision or a correction naming a field the call does
-  not have is not understood, and the corrected call passes the tool's own input validation.
-- **A reply interpreter reads intent; it is not a guardrail** (#688). It does not decide whether a
+  without a correction, `approved` beside a decision or a correction that changes the call's shape
+  (a new key at any depth, another kind of value, a list of another length) is not understood, and
+  the corrected call passes the tool's own input strictly (an unknown key is refused). The kept
+  record's `PauseAnswerRecord.asked` is the call as asked, beside its `decision`.
+- **A reply interpreter may change approved arguments within the call's DTO; put money limits in a
+  guardrail or the action.** A reply interpreter reads intent; it is not a guardrail (#688). It does not decide whether a
   correction is allowed — "never above the call's amount", "only in the call's currency", "never
   below 0". Put such a limit where it holds whoever approved the call: a tool interceptor's
   `beforeToolCall` on the call as it runs (after the approval, with any correction —

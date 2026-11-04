@@ -110,23 +110,15 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 export function withCorrectedCall(answer: unknown, ask: unknown): ReplyAnswer {
   const approval = approvalOf(answer);
   if (approval.kind !== "answer") return approval;
-  const unknown = fieldsTheCallLacks(approval.answer, ask);
-  if (unknown.length > 0)
-    return invalid(`its correction names ${unknown.join(", ")}: the call has no such field`);
-  return { kind: "answer", answer: correctedCallOf(approval.answer, ask) };
-}
-
-/**
- * The fields a correction names that the call's own arguments do not have (#688, structural): a
- * correction changes the call's fields, never adds one. What the values may be is the call's own
- * DTO validation, once the correction is laid over the call; what they should be — never above
- * the call's amount, in its currency — is a guardrail's or the tool's own rule, not the reply
- * interpreter's.
- */
-function fieldsTheCallLacks(answer: unknown, ask: unknown): readonly string[] {
-  if (!isRecord(answer) || !isRecord(answer.overrideArguments)) return [];
-  const asked = isRecord(ask) && isRecord(ask.arguments) ? ask.arguments : {};
-  return Object.keys(answer.overrideArguments).filter((field) => !Object.hasOwn(asked, field));
+  const { answer: approved } = approval;
+  const correction = isRecord(approved) ? approved.overrideArguments : undefined;
+  if (correction !== undefined) {
+    const why = isRecord(correction)
+      ? recordChangeOf(correction, callArgumentsOf(ask), "")
+      : "it is not the call's arguments";
+    if (why !== undefined) return invalid(`its correction changes the call's shape: ${why}`);
+  }
+  return { kind: "answer", answer: correctedCallOf(approved, ask) };
 }
 
 /** The model's answer as the role's, or why it is none: never a guess (#688). */
@@ -180,8 +172,59 @@ function approvalOf(answer: unknown): ReplyAnswer {
   return { kind: "answer", answer: { ...reason, approved: true, overrideArguments } };
 }
 
+/** The kind of a JSON value, as a correction must keep it: an object, a list, or its `typeof`. */
+const kindOf = (value: unknown): string =>
+  value === null ? "null" : Array.isArray(value) ? "list" : typeof value;
+
+/**
+ * Why a correction's value is not the shape of the call's own (#688, structural): a new key at any
+ * depth, another kind of value, a list of another length. What the values may be is the call's own
+ * DTO validation, once the correction is laid over the call; what they should be — never above the
+ * call's amount, in its currency — is a guardrail's or the tool's own rule, not the reply
+ * interpreter's.
+ */
+function shapeChangeOf(value: unknown, own: unknown, path: string): string | undefined {
+  if (kindOf(value) !== kindOf(own)) return `${path} is not the call's kind of value`;
+  if (Array.isArray(value) && Array.isArray(own)) {
+    if (value.length !== own.length) return `${path} is a list of another length than the call's`;
+    for (const [index, item] of value.entries()) {
+      const why = shapeChangeOf(item, own[index], `${path}.${String(index)}`);
+      if (why !== undefined) return why;
+    }
+    return undefined;
+  }
+  return isRecord(value) && isRecord(own) ? recordChangeOf(value, own, path) : undefined;
+}
+
+/** A correction's object against the call's: its keys the call's only, each of the call's shape. */
+function recordChangeOf(
+  value: Readonly<Record<string, unknown>>,
+  own: Readonly<Record<string, unknown>>,
+  path: string,
+): string | undefined {
+  for (const [key, item] of Object.entries(value)) {
+    const at = path === "" ? key : `${path}.${key}`;
+    if (!Object.hasOwn(own, key)) return `${at}: the call has no such field`;
+    const why = shapeChangeOf(item, own[key], at);
+    if (why !== undefined) return why;
+  }
+  return undefined;
+}
+
+/** The call's own arguments, as the pause asked them (none when the ask has none). */
+const callArgumentsOf = (ask: unknown): Readonly<Record<string, unknown>> =>
+  isRecord(ask) && isRecord(ask.arguments) ? ask.arguments : {};
+
+/** A correction laid over the call's own value: objects merged at every depth, the rest replaced. */
+function laidOver(own: unknown, correction: unknown): unknown {
+  if (!isRecord(own) || !isRecord(correction)) return correction;
+  const merged: Record<string, unknown> = { ...own };
+  for (const [key, item] of Object.entries(correction)) merged[key] = laidOver(own[key], item);
+  return merged;
+}
+
 function correctedCallOf(answer: unknown, ask: unknown): unknown {
   if (!isRecord(answer) || !isRecord(answer.overrideArguments) || !isRecord(ask)) return answer;
   if (!isRecord(ask.arguments)) return answer;
-  return { ...answer, overrideArguments: { ...ask.arguments, ...answer.overrideArguments } };
+  return { ...answer, overrideArguments: laidOver(ask.arguments, answer.overrideArguments) };
 }

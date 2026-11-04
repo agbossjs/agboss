@@ -22,6 +22,10 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
   100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
   271 mutants; every one killed, timed out or justified where it stands).
+- **`PauseAnswerRecord.asked`** (#688) — the call as asked (an approval's tool and its own arguments,
+  before any correction a reply made) or a question's ask, masked like `decision`: beside the call as
+  it ran, every change a reply made is auditable. Absent on a record kept before.
+
 - **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
   `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
   `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
@@ -155,6 +159,11 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
   `ExecutionData`, `CostReport`, `Usd`, …), a test enforces it.
 
 ### Changed — breaking
+
+- **A decision's `overrideArguments` pass the tool's input strictly** (#688) — from a reply, `app.resume`
+  or a channel's `decided(…)`: a key the tool's input does not have, at any depth, is a
+  `DtoValidationError`. Before, the input check stripped it and the raw value — the unknown key with
+  it — reached the tool.
 
 - **Knowledge bases are tenant-scoped** (#700) — an agent working for tenant A could be handed
   passages of tenant B's documents: the RAG contract had no tenant. Now the core passes the
@@ -330,6 +339,17 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   step through. Spend and limit are compared in whole micro-dollars (rounded, no epsilon) before
   each step and model call, in the live tally, at a new execution's admission and for the
   application's spend outside an execution.
+- **A model reply interpreter reads capped approvals** (#688) — on a cheap model "yes, up to $900" on
+  a $1,200 call was read as not understood. For an approval role the answer tool names its decision
+  (`approve` / `approve-with-changes` / `refuse`), the instructions say what a capped approval is in
+  any language, and the answer's shape is checked, failing closed: an unknown decision,
+  `approve-with-changes` without a correction, `approved` beside a decision or a correction that
+  changes the call's shape (a new key at any depth, another kind of value, a list of another length)
+  is not understood. A reply interpreter may change approved arguments within the call's DTO; put
+  money limits in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected
+  call before the tool runs). Also: a typed `mockLlm(X)` script of an agent or a reply interpreter
+  takes `callTools(…)` (#508).
+
 - **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
   `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
   the module loader resolves a relative import from the importer's real path, so a project or

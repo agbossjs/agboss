@@ -4748,6 +4748,7 @@ export class PauseAnswererError extends AGBossError {
 // @public
 export interface PauseAnswerRecord {
     readonly answeredBy: PauseAnswerer;
+    readonly asked?: unknown;
     readonly askedAt: string;
     readonly decision: unknown;
     readonly executionId: string;
