@@ -326,6 +326,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
   extension. The last label of a domain now ends at a label boundary and is no common file extension
   that is not a top-level domain (`.md`, `.zip`, `.py` are still read as domains).
+
 - **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
   (#749) — _Wire the stores_ imported `days` from `@agboss/core/units`, which exports `seconds`,
   `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
