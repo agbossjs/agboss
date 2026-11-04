@@ -3,6 +3,11 @@
  * B's documents say, in tool mode and in context mode, and gets nothing of B; B gets its own. The
  * tenant comes from the execution's frame — none is `context.unavailable`, an id that is no key's
  * text is refused naming the rule, never the id.
+ *
+ * #722: a cold first app loads the core's subsystems lazily, through vite, in real time — ~200 ms
+ * idle, past 5 s on a loaded machine, inside the first test's own timeout. The file warms the whole
+ * path once while it is collected (one app, one search to its finish), so each test's timeout
+ * bounds its own work only (QUALITY.md → Tests: warm the path first).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
@@ -42,6 +47,20 @@ async function appWith(book: ScriptBook): Promise<App> {
   app = await createApp(TenantDocsApplication, { gateway: createScriptedGateway(book) });
   return app;
 }
+
+/** One search to its finish on a throwaway app: the lazy loads of every test's path, done once. */
+async function warmedPath(): Promise<void> {
+  const book = new ScriptBook();
+  book.scriptOf("agent:searching-agent").thenReturn(searchVault, replyWith("done"));
+  const warm = await createApp(TenantDocsApplication, { gateway: createScriptedGateway(book) });
+  try {
+    await execute(warm, SearchStart, { text: QUESTION }, { tenant: { tenantId: "tenant-a" } });
+  } finally {
+    await warm.close();
+  }
+}
+
+await warmedPath();
 
 describe("#700 AC1: tenant A's agent never gets tenant B's passage", () => {
   it.each(["tenant-a", "tenant-b"])(
