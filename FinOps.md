@@ -229,6 +229,10 @@ on its cost, its tenant's and the application's. All violations at once, before 
   every tenant budget (keyed by the execution's `tenantId`) and every application budget (keyed by
   the application's name). Several budgets of one scope with different periods work at once
   (tenant daily + tenant monthly).
+- **Exhausted** means the counter has reached the limit, compared in whole micro-dollars (USD ×
+  10⁶, rounded, #728). A sum of float costs lands a hair off its decimal value (eight $0.10 calls
+  make 0.7999999999999999), and a plain `>=` would let one more step through a limit the spend
+  reached exactly. There is no epsilon: a spend a micro-dollar under the limit still passes.
 - **Before the first step** every budget is checked against its counter in the current period:
   one exhausted **rejects** the execution — `BudgetExceededError`, an `onExecutionRejected` (code
   `limit.budget`) — and the refused request leaves no trace: no thread (a new thread is created only
