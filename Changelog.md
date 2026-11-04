@@ -11,6 +11,9 @@ Breaking changes and notable additions, newest first. The API reports
   and its instructions say what a capped approval is in any language. A raise or a currency
   conversion is never read from a reply: both are not understood. Scripts in the DTO's shape
   (`replyWith(ToolCallApprovalDecisionDto, …)`) are unchanged. [Pauses](Pauses).
+- **Fixed**, found on the way: `mockLlm(X).thenReturn(…)` of an agent or a reply interpreter whose
+  types are generated refused `callTools(…)` — a move of several tool calls (#508) — at compile time;
+  it takes one now.
 
 ## Unreleased — 0.1.1: Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice (#749)
 
