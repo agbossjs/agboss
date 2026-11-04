@@ -347,8 +347,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   changes the call's shape (a new key at any depth, another kind of value, a list of another length)
   is not understood. A reply interpreter may change approved arguments within the call's DTO; put
   money limits in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected
-  call before the tool runs). Also: a typed `mockLlm(X)` script of an agent or a reply interpreter
-  takes `callTools(…)` (#508).
+  call before the tool runs).
 
 - **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
   `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
