@@ -268,6 +268,23 @@ describe("#533 item 5: the linearizability checker", () => {
     expect(failures(refusedAfterExpired)).toHaveLength(1);
   });
 
+  it("#750: expiries that chain — an acquire pinned by a renewal the later read pins inside its span — a sound history passes", () => {
+    // lease 50 ms: the read at 100–110 ms pins the renewal after 50 ms, so the acquire after
+    // 0 ms; the read at 0–5 ms pins the acquire at or before 5 ms — the acquire in (0, 5]
+    const SHORT = { ...TREE, lease: 50 };
+    const held = { ...lease("b", 1), lease: 50 };
+    const chained = (from: number, to: number) =>
+      new Recorded()
+        .op(StoreHoldPoint.LeaseAcquire, "b", SHORT, granted("b", 1), 0, 15)
+        .op(StoreHoldPoint.OutboundLeaseStateOf, "b", stateOf(1), "live", 0, 5)
+        .op(StoreHoldPoint.LeaseRenew, "b", held, 50, 48, 60)
+        .op(StoreHoldPoint.OutboundLeaseStateOf, "b", stateOf(1), "live", from, to);
+
+    expect(failures(chained(100, 110))).toEqual([]);
+    // no renewal by 60 ms keeps the lease live at 110 ms
+    expect(failures(chained(110, 120))).toHaveLength(1);
+  });
+
   it("#617: a stale read across two processes — the old token Live after the newer grant completed — fails", () => {
     const history = new Recorded()
       .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 1)
