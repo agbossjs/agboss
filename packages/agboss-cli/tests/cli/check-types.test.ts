@@ -43,7 +43,8 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
-      `${NOTE}\ntypes: .agboss/types.d.ts\n${PARTS_APPLICATION_REPORT}${ledgerWarning(PARTS)}${piiKeyWarning(PARTS)}ok: ${PARTS} — ${CHECKS_RUN}\n`,
+      // nothing of it makes a PII token (no text start, no sensitive field): no instance-key warning (#644)
+      `${NOTE}\ntypes: .agboss/types.d.ts\n${PARTS_APPLICATION_REPORT}${ledgerWarning(PARTS)}ok: ${PARTS} — ${CHECKS_RUN}\n`,
     );
     expect(readFileSync(typesOf(cwd), "utf8")).toContain('"six-parts-agent": SummaryDto;');
   });
