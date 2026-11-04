@@ -49,7 +49,9 @@ describe("#728 AC1: eight $0.10 calls exhaust $0.80", () => {
     meter.tally(EIGHT_DIMES);
 
     expect(meter.exhausted.aborted).toBe(true);
-    expect(() => { meter.check(0, []); }).toThrow(BudgetExceededError);
+    expect(() => {
+      meter.check(0, []);
+    }).toThrow(BudgetExceededError);
   });
 
   it("the application's spend outside an execution, held to the last known limit", async () => {
@@ -93,7 +95,9 @@ describe("#728 AC2: a micro-dollar under the limit passes", () => {
     meter.tally([recordToolCost("search-tool", 0.799999)]);
 
     expect(meter.exhausted.aborted).toBe(false);
-    expect(() => { meter.check(0, []); }).not.toThrow();
+    expect(() => {
+      meter.check(0, []);
+    }).not.toThrow();
   });
 });
 
