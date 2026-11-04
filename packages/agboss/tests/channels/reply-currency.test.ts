@@ -76,6 +76,43 @@ describe("#688: the reply's currency against the call's", () => {
     expect(currencyMismatchOf(reply, OrderInDollarsDto)).toMatch(/converting it would be a guess/u);
   });
 
+  it.each([
+    "yes, up to 900 cad",
+    "ok, 900 Cad",
+    "fine, sek 900",
+    "approved, 900 try",
+    "up to R$900",
+    "max XY$900",
+    "yes, Z$ 900",
+  ])(
+    "%j on a call in US dollars: a code in any case, any <letters>$ but US$ — another currency",
+    (reply) => {
+      expect(currencyMismatchOf(reply, OrderInDollarsDto)).toMatch(
+        /converting it would be a guess/u,
+      );
+    },
+  );
+
+  it.each([
+    "up to 900 pesos",
+    "900 francs is fine",
+    "₩900",
+    "฿ 900",
+    "900 kronor",
+    "yes, 900 pounds",
+  ])(
+    "%j on a call in US dollars: an amount in a currency the guard cannot tell — not understood",
+    (reply) => {
+      expect(currencyMismatchOf(reply, OrderInDollarsDto)).toMatch(/cannot tell/u);
+    },
+  );
+
+  it("a code that is also a word, with no amount beside it, names no currency", () => {
+    expect(
+      currencyMismatchOf("yes, all good — try the top one, $900 max", OrderInDollarsDto),
+    ).toBeUndefined();
+  });
+
   it("US$ is US dollars", () => {
     expect(currencyMismatchOf("yes, up to US$900", OrderInDollarsDto)).toBeUndefined();
   });

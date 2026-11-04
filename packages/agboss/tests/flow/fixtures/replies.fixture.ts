@@ -52,7 +52,7 @@ export class ExpenseRequestDto {
 }
 
 export class DepositReturnDto {
-  @Text({ prompt: "the lease whose deposit is returned" })
+  @Text({ prompt: "the lease whose deposit, in US dollars, is returned" })
   leaseId!: string;
 }
 

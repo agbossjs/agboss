@@ -49,7 +49,7 @@ const CURRENCIES: readonly Currency[] = [
   { code: "CHF", names: /\bchf\b|\bswiss francs?\b|франк/iu },
 ];
 
-/** The codes of ISO 4217's current currencies: any of them in a reply, in capitals, names one. */
+/** The codes of ISO 4217's current currencies: any of them in a reply names one (`codesIn`). */
 const ISO_4217: ReadonlySet<string> = new Set(
   `AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BRL BSD BTN BWP BYN BZD
 CAD CDF CHF CLP CNY COP CRC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF
@@ -61,23 +61,105 @@ THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND VUV WST XAF XCD 
   ),
 );
 
-/** A code in capitals, as a word of its own (`900 CAD`, `SEK 900`). */
-const CODE_WORD = /\b[A-Z]{3}\b/gu;
+/** A code as a word of its own, in any case (`900 CAD`, `sek 900`, `Cad`). */
+const CODE_WORD = /\b[A-Za-z]{3}\b/gu;
 
-/** A field named for its currency, `amountUsd` or `amount_usd`: the code as its last word. */
-const CODE_SUFFIX = /(?:[a-z0-9]([A-Z][a-z]{2})|_([a-z]{3}))$/u;
+/**
+ * Codes that are also everyday words ("all good", "try it", "the top one", "Ron agrees"): in
+ * lower or mixed case they name their currency only beside an amount (`900 try`); in capitals always.
+ */
+const CODES_THAT_ARE_WORDS: ReadonlySet<string> = new Set([
+  "ALL",
+  "BAM",
+  "BOB",
+  "COP",
+  "CUP",
+  "GEL",
+  "MAD",
+  "MOP",
+  "PEN",
+  "RON",
+  "SOS",
+  "TOP",
+  "TRY",
+]);
 
-/** The currencies a text names: other dollars first, their signs then taken out, codes in capitals. */
-function currenciesIn(text: string): ReadonlySet<string> {
-  const found = new Set<string>();
+/** Any `<letters>$` but `US$`: a dollar of somewhere else (`R$` the real, `Z$`, `XY$`). */
+const PREFIXED_DOLLAR = /\b([A-Za-z]{1,3})\$/gu;
+
+/** The currency of a known `<letters>$` prefix; any other is a currency of its own, unnamed. */
+const DOLLAR_PREFIXES: Readonly<Record<string, string>> = { R: "BRL", NT: "TWD", Z: "ZWL" };
+
+/** The signs and words this guard resolves to a currency, taken out before the unresolved are looked for. */
+const RESOLVED_SIGNS = /[$€£¥₪₹₽]/u;
+
+/**
+ * Currency words the guard cannot pin to one currency (a peso, a franc, a crown, a pound, a dinar…,
+ * or a currency it has no table for): beside an amount they make the reply not understood.
+ */
+const UNRESOLVED_WORD =
+  /^(?:pesos?|francs?|kron(?:a|or|e|er|ur)|crowns?|dinars?|rand|won|baht|z[lł]oty|z[lł]|lir[ae]|liras|riyals?|rials?|dirhams?|rupiah|yuan|renminbi|rmb|forint|koruna|lei|leu|lev|leva|reais|real|ringgit|dong|shillings?|pounds?|bucks?|quetzal(?:es)?|col[oó]n(?:es)?|soles|sol|lempiras?|cedis?|naira|kwacha|taka|tenge|manat|lari|som|sum|kip|riel|kyat|birr|kuna|hryvnias?|гривн\p{L}*|юан\p{L}*|злот\p{L}*|крон\p{L}*|песо|динар\p{L}*|лир\p{L}*|реал\p{L}*)$/iu;
+
+/** An amount right before or right after `at … at + length` in `text`. */
+const besideAmount = (text: string, at: number, length: number): boolean =>
+  /\d\s*$/u.test(text.slice(0, at)) || /^\s*\d/u.test(text.slice(at + length));
+
+/** The other countries' dollars a text names, each match taken out of what is returned. */
+function otherDollarsIn(text: string, found: Set<string>): string {
   let rest = text;
   for (const { code, names } of OTHER_DOLLARS)
     rest = rest.replace(names, () => {
       found.add(code);
       return " ";
     });
-  for (const { code, names } of CURRENCIES) if (names.test(rest)) found.add(code);
-  for (const [word] of text.matchAll(CODE_WORD)) if (ISO_4217.has(word)) found.add(word);
+  return rest.replace(PREFIXED_DOLLAR, (match, prefix: string) => {
+    const upper = prefix.toUpperCase();
+    if (upper === "US") return match;
+    found.add(DOLLAR_PREFIXES[upper] ?? `${upper}$`);
+    return " ";
+  });
+}
+
+/** The ISO 4217 codes a text names: in capitals, or in any case unless an everyday word far from an amount. */
+function codesIn(text: string, found: Set<string>): void {
+  for (const match of text.matchAll(CODE_WORD)) {
+    const [word] = match;
+    const code = word.toUpperCase();
+    if (!ISO_4217.has(code)) continue;
+    const isWord = word !== code && CODES_THAT_ARE_WORDS.has(code);
+    if (!isWord || besideAmount(text, match.index, word.length)) found.add(code);
+  }
+}
+
+/** An amount beside a currency sign or word the guard cannot resolve: `₩900`, `900 pesos`. */
+function hasUnresolvedAmount(text: string): boolean {
+  for (const match of text.matchAll(/\p{Sc}|\p{L}+/gu)) {
+    const [token] = match;
+    const isSign = /^\p{Sc}$/u.test(token);
+    const unresolved = isSign ? !RESOLVED_SIGNS.test(token) : UNRESOLVED_WORD.test(token);
+    if (unresolved && besideAmount(text, match.index, token.length)) return true;
+  }
+  return false;
+}
+
+/** The mark of an amount in a currency the guard cannot tell. */
+const UNRESOLVED_CURRENCY = "an unresolved currency";
+
+/** A field named for its currency, `amountUsd` or `amount_usd`: the code as its last word. */
+const CODE_SUFFIX = /(?:[a-z0-9]([A-Z][a-z]{2})|_([a-z]{3}))$/u;
+
+/** The currencies a text names: other dollars first (then taken out), signs and words, codes in any case. */
+function currenciesIn(text: string): ReadonlySet<string> {
+  const found = new Set<string>();
+  const rest = otherDollarsIn(text, found);
+  let unnamed = rest;
+  for (const { code, names } of CURRENCIES)
+    unnamed = unnamed.replace(new RegExp(names.source, `${names.flags}g`), () => {
+      found.add(code);
+      return " ";
+    });
+  codesIn(text, found);
+  if (hasUnresolvedAmount(unnamed)) found.add(UNRESOLVED_CURRENCY);
   return found;
 }
 
@@ -107,6 +189,8 @@ export function currencyMismatchOf(reply: string, approves: DtoClass): string | 
   if (ofCall.size === 0) return undefined;
   const foreign = [...inReply].filter((code) => !ofCall.has(code));
   if (foreign.length === 0) return undefined;
+  if (foreign.includes(UNRESOLVED_CURRENCY))
+    return `the reply names an amount in a currency the framework cannot tell, and the call is in ${[...ofCall].join(", ")}: converting it would be a guess`;
   return `the reply names ${foreign.join(", ")} and the call is in ${[...ofCall].join(", ")}: converting it would be a guess`;
 }
 

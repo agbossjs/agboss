@@ -23,8 +23,8 @@ import {
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
-import { correctionRefusalOf, replyToolsOf, withCorrectedCall } from "./reply-tools.js";
-import { withinCurrency } from "./reply-currency.js";
+import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
+import { guardedReading } from "./reply-guards.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
 /**
@@ -120,8 +120,11 @@ export async function readByModel(
   }
   // a question role's answer (#659) is the role's own DTO: nothing laid over a call
   const ask = interpreter.approves === undefined ? undefined : input.ask;
-  const reading = readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
-  return withinCurrency(reading, interpreter, input.reply);
+  return guardedReading(
+    readingOf(revealed.move.tool_calls ?? [], tools, ask, usage),
+    interpreter,
+    input,
+  );
 }
 
 /** One tool call of the interpreter's move, as LangChain gives it. */
@@ -154,13 +157,7 @@ function readingOf(
   const read = withCorrectedCall(answer.args, ask);
   if (read.kind === "invalid")
     return { kind: "declined", reason: `the model gave no answer it may: ${read.reason}`, usage };
-  const corrected = read.answer;
-  const refusal = correctionRefusalOf(corrected, ask);
-  if (refusal !== undefined) {
-    const reason = `the reply does not answer the question: ${refusal} — a raise or a new field is decided, never read from a reply`;
-    return { kind: "declined", reason, usage };
-  }
-  return { kind: "answered", answer: corrected, usage };
+  return { kind: "answered", answer: read.answer, usage };
 }
 
 /** One reply to read: its pause, the text, and what the caller does around the model call. */
@@ -212,7 +209,7 @@ async function byModel(
   if (isDecisionModel(model)) {
     const caller = replyInterpreterCaller(interpreter.name);
     const site = { gateway: parts.gateway, model, caller, pii: call.pii };
-    return readByDecision(interpreter, input, site);
+    return guardedReading(await readByDecision(interpreter, input, site), interpreter, input);
   }
   const settings = resolveSettings(
     { ...parts.chatModelSettings(model), model },

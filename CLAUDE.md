@@ -1543,7 +1543,9 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   language; fail closed, a correction changes only fields the call has, nested ones too, each to a value of
   its kind no greater than the call's own (`correctionRefusalOf`: a new field, a number as text, a flag turned on
   or a raise is not understood), and an approval — with a correction or without — while the reply names a currency
-  its fields do not (C$, "Canadian dollars", any other ISO 4217 code: `reply-currency.ts`) is not understood, never read), one
+  its fields do not (any `<letters>$` but `US$`, "Canadian dollars", any other ISO 4217 code in any case, an amount
+  beside a sign or word it cannot tell: `reply-currency.ts`) is not understood, never read — after a chat model's answer and a
+  decision model's yes alike, `reply-guards.ts`), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
