@@ -132,9 +132,9 @@ describe("#659 AC6: a question role's ask and answer type its channel and its in
 
 describe("#712: a question role an agent asks is typed by its role", () => {
   it("callTool(Role, args) takes the role's ask; another shape does not compile", () => {
-    expectTypeOf(
-      callTool(ApproverQuestion, { item: "laptop", priceUsd: 900 }),
-    ).toEqualTypeOf<ToolCallTurn<"approver-question">>();
+    expectTypeOf(callTool(ApproverQuestion, { item: "laptop", priceUsd: 900 })).toEqualTypeOf<
+      ToolCallTurn<"approver-question">
+    >();
     // @ts-expect-error — the ask's priceUsd is a number
     callTool(ApproverQuestion, { item: "laptop", priceUsd: "900" });
     expectTypeOf<ChannelAsk<ApproverQuestion>["value"]>().toEqualTypeOf<PurchaseQuestionDto>();
