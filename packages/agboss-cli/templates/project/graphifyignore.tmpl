@@ -1,0 +1,25 @@
+# graphify (https://github.com/safishamsi/graphify): what the code graph leaves out — read after
+# .gitignore, gitignore syntax. The graph is this project's code; the rest is generated, installed,
+# recorded or secret.
+
+# generated
+.agboss/
+dist/
+coverage/
+graphify-out/
+*.tsbuildinfo
+
+# installed: packages and the framework's guide (replaced on every agboss upgrade)
+node_modules/
+package-lock.json
+.claude/skills/agboss/
+
+# recorded: VCR cassettes, test snapshots, eval labels
+*.cassette.json
+__snapshots__/
+eval/labels/
+
+# secrets
+.env
+.env.*
+!.env.example

@@ -226,6 +226,14 @@ export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDt
 }
 ```
 
+## Code graph (optional)
+
+When the project has `graphify-out/graph.json` ([graphify](https://github.com/safishamsi/graphify)),
+ask the graph before reading many files — `graphify affected "BillingAgent"` lists what imports a
+class (its workflows, routers, tests), `graphify query "<question>"` and `graphify path "<A>" "<B>"`
+answer the rest — then read only the files it names; after changing code, `graphify update .`
+(offline, no key). Without `graphify-out/`, skip this: read and search as usual.
+
 ## Where to read next
 
 | Task                                                                                                                                                                                                                                  | Read                                              |

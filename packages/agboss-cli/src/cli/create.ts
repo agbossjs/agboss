@@ -9,6 +9,7 @@ import { planProject } from "../scaffold/project.js";
 import { askMissing } from "../scaffold/questions.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./context.js";
 import { CliError, usageError } from "./errors.js";
+import { graphifyHint } from "./graphify-hint.js";
 import { dryRun, write } from "./scaffold-outcome.js";
 
 async function projectName(context: CommandContext): Promise<string> {
@@ -65,5 +66,7 @@ export const handle: CommandHandler = async (context) => {
   context.say(
     `\nNext:\n  cd ${folder}\n  npm run types    # .agboss/types.d.ts, the flow's types (npm install runs it)\n  cp .env.example .env    # your OPENROUTER_API_KEY\n  npm run chat`,
   );
+  // #480: the optional code graph — one line, whether or not graphify is installed
+  context.say(graphifyHint(context.io.env));
   return outcome;
 };

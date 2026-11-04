@@ -26,4 +26,19 @@ The loop after every change: `npx agboss generate …` → `npx agboss check` �
 `.claude/skills/agboss/` is managed by `agboss check` and replaced on every `agboss` upgrade —
 put this project's own rules below, never there.
 
+## Code graph (graphify, optional)
+
+When `graphify-out/graph.json` exists, ask the graph before reading many files, then read only the
+files it names:
+
+- `graphify affected "BillingAgent"` — what uses a class: the workflows, routers and tests that
+  import an agent, a tool or a service;
+- `graphify query "<question>"`, `graphify path "<A>" "<B>"`, `graphify explain "<Class>"`.
+
+After changing code, `graphify update .` rebuilds it (code only, offline, no API key). Without
+`graphify-out/` nothing changes: read and search as usual. To enable it: install
+[graphify](https://github.com/safishamsi/graphify) (`pipx install graphifyy`), then
+`graphify install --project` (Claude Code; other assistants: `graphify <platform> install`) and
+`graphify update .`. What the graph leaves out: `.graphifyignore`.
+
 ## Project rules
