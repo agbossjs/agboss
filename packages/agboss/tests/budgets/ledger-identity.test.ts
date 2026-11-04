@@ -2,7 +2,8 @@
  * #727 — a ledger identity is the pass's own, never derived from where the spend was made: a later
  * pass that makes spend again in the same step (after a crash, a takeover) was billed again and
  * counts again; a record an earlier pass kept — reaching this pass from a durable state — carries
- * the id the ledger has and counts once; and a write retried after its answer was lost counts once.
+ * the id the ledger has and counts once; and a write retried after its answer was lost counts once
+ * — in the ledger, and in the pass's own checks before it is retried (#770).
  */
 import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
@@ -70,5 +71,24 @@ describe("#727: a ledger identity is the pass's own", () => {
     await meter.settled();
 
     expect(await spentIn(ledger)).toBe(1);
+  });
+
+  it("#770: a write whose answer was lost is counted once by the pass's next read, before it is retried", async () => {
+    const ledger = new LostAnswerLedger();
+    const meter = meterOf({ ledger, clock: systemClock }, [budget], 0);
+
+    // $40 kept by the ledger, its answer lost; then $25, written with a read that holds both
+    const kept = [...meter.tally([recordToolCost("pay-tool", 40)])];
+    kept.push(...meter.tally([recordToolCost("pay-tool", 25)]));
+    await meter.refresh();
+
+    // $65 of $100: the check passes, $35 left — not $105 with the lost answer's $40 counted twice
+    expect(() => {
+      meter.check(kept, []);
+    }).not.toThrow();
+    expect(meter.remaining()).toBe(35);
+    await meter.settled();
+    expect(meter.remaining()).toBe(35);
+    expect(await spentIn(ledger)).toBe(65);
   });
 });

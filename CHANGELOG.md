@@ -331,6 +331,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A ledger write whose answer was lost is counted once by the pass's own checks too** (#770) —
+  the write of a tallied spend (#727) that landed while its caller heard an error was held by the
+  pass's next read of the counters while its tally still counted it: a check or a tally before the
+  write was retried counted it twice, and a launch beside a step that paid $60 stopped with
+  `BudgetExceededError` at "$146" for $86 spent of $100. A read now writes such spend again first,
+  and fails when that write fails again.
 - **A worker claims children on any instance up to its free step slots** (#767) — an instance with
   `maxConcurrentSteps` counted each `AnyInstance` child it ran twice while the child's step ran (its
   slot and its claim), so under a backlog it kept fewer children at work than it had slots. A claimed
