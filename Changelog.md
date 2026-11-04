@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: agboss studio loads a project under a symlink (#666)
+
+- **Fixed (#666, #671)**: the generated `.agboss/studio.ts` imported the application by a path
+  computed between the paths as given. The loader resolves from the importer's real path, so a project
+  or `.agboss/` under a symlinked folder (macOS's `/var` → `/private/var`) loaded nothing. The
+  specifier is now computed between real paths. [CLI](CLI).
+
 ## Unreleased — 0.1.1: an agent asks a question role as a tool (#712)
 
 - **Added**: a question role listed in `@Agent({ tools })` is a tool its model calls (input = the
