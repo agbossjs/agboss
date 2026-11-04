@@ -104,6 +104,11 @@ safe is the stop (#265, #367), not the choice:
    the step run again — idempotency of external effects is the fenced effect's and the outbound
    call's ([Guarantees](Guarantees)), not the autoscaler's.
 
+The full operator's guide — every failure and who handles it, the production settings, and the
+checklists for ECS, Cloud Run, Container Apps and Nomad: [Deploying on Kubernetes](Deploying-on-Kubernetes).
+Try the whole cycle on kind: agbossjs/agboss-examples `14-kubernetes-postgres-scaling`
+(its `cluster:up` and `cluster:scenario` scripts, #487).
+
 ## Other platforms: the OpenTelemetry Collector
 
 The same metrics, scraped by a Collector sidecar from `localhost:9464` and written to the platform's

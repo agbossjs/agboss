@@ -29,6 +29,7 @@
 - [Health checks](Health-checks)
 - [Metrics](Metrics)
 - [Autoscaling](Autoscaling)
+- [Deploying on Kubernetes](Deploying-on-Kubernetes)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [The test split](Test-split)

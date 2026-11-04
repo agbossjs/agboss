@@ -5,7 +5,9 @@ databases and call other systems — each guarantee, the exact assumptions it re
 when an assumption does not hold, and the test or checker that proves it (#533). The mechanisms
 are on [Several-instances](Several-instances), the store contracts on
 [Your-own-store](Your-own-store), the provider's side on [Payment-gateways](Payment-gateways), the payment races on
-[Payment-scenarios](Payment-scenarios), the fault scenarios on [Guarantees-across-processes](Guarantees-across-processes).
+[Payment-scenarios](Payment-scenarios), the fault scenarios on [Guarantees-across-processes](Guarantees-across-processes), and what the
+platform must provide for them to hold (grace, probes, clocks, one database) on
+[Deploying-on-Kubernetes](Deploying-on-Kubernetes).
 
 ## The guarantees
 

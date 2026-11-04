@@ -101,6 +101,9 @@ class without the decorator), `[name.kind-suffix]` (a name without `-health-chec
 
 ## Exposing the probes
 
+In Kubernetes and the platforms like it — the periods, the thresholds and why liveness must outlast a
+frozen pod's takeover: [Deploying on Kubernetes](Deploying-on-Kubernetes).
+
 The project's server maps the reports to its probe endpoints — here with `node:http`: `Unhealthy`
 is `503`, anything else `200` (a `Degraded` instance still serves: its fallback provider answers,
 or its calls fail fast while the breaker is open).

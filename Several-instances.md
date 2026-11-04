@@ -215,6 +215,11 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
 
 ## PostgreSQL — several instances on several machines
 
+What a platform must provide for this — the grace, the probes, the clocks, a shared database — and
+the settings on Kubernetes, ECS, Cloud Run, Container Apps and Nomad: [Deploying on Kubernetes](Deploying-on-Kubernetes).
+The whole cycle on kind — backlog, scale-out, a killed and a frozen pod, scale-in — verified from
+state: agbossjs/agboss-examples `14-kubernetes-postgres-scaling` (#487).
+
 [`@agboss/postgres`](https://github.com/agbossjs/postgres) (#482, #483) implements every store on
 one PostgreSQL database, for pods on different machines with no shared disk. With all of them
 listed, a whole application runs on PostgreSQL alone: nothing of it is per pod. Each store is

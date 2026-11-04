@@ -150,6 +150,8 @@ back, so roll the application forward, or run the newer image.
 
 ## Connections and their limits
 
+(The platform's side — pods, grace, probes, the autoscaler's maximum: [Deploying on Kubernetes](Deploying-on-Kubernetes).)
+
 - **Count them.** Each instance opens at most `postgresPoolSize` connections (default 10); the
   migration command two (the lock's session and LangGraph's setup). Pods × `postgresPoolSize`, plus a
   migration Job during a rollout, plus everything else on the server, must stay under its
