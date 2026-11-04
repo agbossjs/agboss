@@ -21,9 +21,6 @@ Breaking changes and notable additions, newest first. The API reports
   `DtoValidationError`, never dropped (before, the input check stripped it and the raw value ran).
 - **Added**: `PauseAnswerRecord.asked` — the call as asked (its own arguments before a correction)
   or a question's ask, masked, beside `decision`: a change a reply made is auditable.
-- **Fixed**, found on the way: `mockLlm(X).thenReturn(…)` of an agent or a reply interpreter whose
-  types are generated refused `callTools(…)` — a move of several tool calls (#508) — at compile time;
-  it takes one now.
 
 ## Unreleased — 0.1.1: Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice (#749)
 
