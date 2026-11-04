@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   HoldPhase,
   HoldPoints,
+  StoreAnswerLostError,
   type HeldOperation,
 } from "../../../src/testing/faults/hold-points.js";
 import {
@@ -98,6 +99,36 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
     void points.reach("p", HoldPhase.Before, undefined);
     expect(heard).toEqual([]);
     points.releaseAll();
+  });
+});
+
+describe("#720: a lost answer — the operation took effect, its caller hears an error", () => {
+  it("loses the next keyed answers after the store, as many as armed, holds none and announces none", async () => {
+    const points = new HoldPoints();
+    const heard: HeldOperation[] = [];
+    points.onHeld((operation) => heard.push(operation));
+    points.arm({ point: "childQueue.claim", phase: HoldPhase.After, times: 2, loseAnswer: true });
+    // an answer with no key (a claim of nothing) and another phase: through
+    await expect(
+      points.reach("childQueue.claim", HoldPhase.After, undefined),
+    ).resolves.toBeUndefined();
+    await expect(
+      points.reach("childQueue.claim", HoldPhase.Before, "c-1"),
+    ).resolves.toBeUndefined();
+    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-1")).rejects.toThrow(
+      StoreAnswerLostError,
+    );
+    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-2")).rejects.toThrow(
+      "the answer of childQueue.claim was lost",
+    );
+    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-3")).resolves.toBeUndefined();
+    expect(heard).toEqual([]);
+    expect(points.held).toEqual([]);
+  });
+
+  it("only an answer can be lost: a lose before the store is refused when armed", () => {
+    const points = new HoldPoints();
+    expect(() => points.arm({ point: "childQueue.claim", loseAnswer: true })).toThrow(RangeError);
   });
 });
 

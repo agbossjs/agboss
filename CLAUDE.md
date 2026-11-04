@@ -622,7 +622,9 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   answered or failed, it finishes the lease (#520: `finish`, never taken again, so a stale instance
   that resumes takes no lease of finished work; a paused one releases it);
   a crash or a graceful stop past `shutdownTimeout` (S7) leaves the row `Running` so a live worker
-  reclaims only that child once its lease is free and continues it from its last checkpoint;
+  reclaims only that child once its lease is free and continues it from its last checkpoint (the
+  lease a reclaim takes is kept only for its own look's claim of the child, else given back, #720:
+  a claim whose answer was lost never leaves a lease renewed with no pass behind it);
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
   checked where it runs, and each superstep's spend is written to the root's counters at once
   (`isRecordedElsewhere`, #333 PR 3) — its parent's pass takes that spend in with a read of the
@@ -1359,7 +1361,10 @@ path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/test
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 25 scenarios (#657, #658:
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 26 scenarios (#720:
+  `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —
+  the lease its reclaim kept goes back, the child runs once; `HoldRequest.loseAnswer` at
+  `HoldPhase.After`, `StoreAnswerLostError`; #657, #658:
   `s14-ambiguous-answer-reconciled`, the gateway's answer lost after it charged, the key forgotten,
   the order paid again — reconciled, not resent; `s15-key-expired-not-resent`, a replay-only gateway
   whose declared key retention passed before the takeover — nothing sent; #607:

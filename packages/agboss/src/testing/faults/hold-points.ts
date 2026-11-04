@@ -23,6 +23,18 @@ export interface HoldRequest {
   readonly key?: string;
   /** How many arrivals it holds, each its own hold; default 1. */
   readonly times?: number;
+  /**
+   * After the store answered (`HoldPhase.After` only, #720): the answer is lost on its way back —
+   * the operation took effect in the store and is in the history, its caller gets
+   * `StoreAnswerLostError` at once (no hold, nothing to release), as when the connection drops
+   * after the database committed. Only an answer with a key is lost (a claim of nothing is not).
+   */
+  readonly loseAnswer?: boolean;
+}
+
+/** A store's answer lost on its way back to the caller (#720): the operation took effect. */
+export class StoreAnswerLostError extends Error {
+  override name = "StoreAnswerLostError";
 }
 
 /** An operation waiting at a hold point. */
@@ -52,6 +64,7 @@ interface Waiting {
 /** Whether `armed` holds an arrival at `point` / `phase` with `key`. */
 const matches = (armed: Armed, point: string, phase: HoldPhase, key: string | undefined): boolean =>
   armed.request.point === point &&
+  (armed.request.loseAnswer !== true || key !== undefined) &&
   (armed.request.phase ?? HoldPhase.Before) === phase &&
   (armed.request.key === undefined || armed.request.key === key);
 
@@ -71,6 +84,8 @@ export class HoldPoints {
     const times = request.times ?? 1;
     if (!Number.isInteger(times) || times < 1)
       throw new RangeError(`a hold holds a whole number of arrivals from 1, got ${String(times)}`);
+    if (request.loseAnswer === true && request.phase !== HoldPhase.After)
+      throw new RangeError("only an answer can be lost: loseAnswer needs HoldPhase.After");
     this.#count += 1;
     const armId = `arm-${String(this.#count)}`;
     this.#armed.push({ armId, request, left: times });
@@ -126,6 +141,8 @@ export class HoldPoints {
     if (signal?.aborted === true) return Promise.reject(reasonOf(signal));
     armed.left -= 1;
     if (armed.left === 0) this.disarm(armed.armId);
+    if (armed.request.loseAnswer === true)
+      return Promise.reject(new StoreAnswerLostError(`the answer of ${point} was lost`));
     this.#count += 1;
     const operation = {
       holdId: `hold-${String(this.#count)}`,

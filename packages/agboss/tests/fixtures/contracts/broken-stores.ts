@@ -38,6 +38,20 @@ export class TwiceClaimingQueueRepository extends InMemoryChildExecutionQueueRep
   }
 }
 
+/**
+ * One claim marks the next queued child too and answers only the first (#720: PostgreSQL's claim
+ * statement that updated several rows): the second is left `Running` for this instance, unheard.
+ */
+export class RowsSweepingQueueRepository extends InMemoryChildExecutionQueueRepository {
+  override async claimFirstByStatusQueuedOrderByDepthDesc(): Promise<
+    QueuedChildExecution | undefined
+  > {
+    const claimed = await super.claimFirstByStatusQueuedOrderByDepthDesc();
+    await super.claimFirstByStatusQueuedOrderByDepthDesc();
+    return claimed;
+  }
+}
+
 /** `complete` answers as if it wrote, and loses the update. */
 export class UpdateLosingRecordRepository extends InMemoryExecutionRecordRepository {
   override complete(_id: string, _outcome: TernOutcome): Promise<void> {

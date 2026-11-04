@@ -226,6 +226,8 @@ class Workers implements ChildWorkers {
       }
       this.#preHeld.set(key, lease);
       await this.#look();
+      // #720: kept for this look's own claim only — a child it did not start gets its lease back
+      if (this.#preHeld.get(key) === lease && this.#preHeld.delete(key)) await lease.release();
     } finally {
       this.#reclaiming.delete(key);
     }
