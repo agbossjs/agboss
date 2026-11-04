@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { componentOfStored, StoredLoopProgress } from "../stored-step.js";
+import { ComponentKind, type ComponentRecord } from "../../flow/runtime/records.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import {
   PauseResolution,
@@ -50,13 +51,24 @@ const StoredPause = z.object({
   // a pause stored before #337 has none: its own step's key is its only branch key
   branchKeys: z.array(z.string()).optional(),
   answeredBy: z.enum(PauseAnswerer),
-  ask: z.object({
-    callId: z.string(),
-    tool: z.string(),
-    arguments: z.record(z.string(), z.unknown()),
-    summary: z.string(),
-  }),
+  // an approval's tool call, or a question role's own ask (#659, #712): told apart by the component
+  ask: z.record(z.string(), z.unknown()),
 });
+
+/** The tool call an approval's pause asks about. */
+const StoredApprovalAsk = z.object({
+  callId: z.string(),
+  tool: z.string(),
+  arguments: z.record(z.string(), z.unknown()),
+  summary: z.string(),
+});
+
+/** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
+const askOf = (
+  ask: Readonly<Record<string, unknown>>,
+  component: ComponentRecord | undefined,
+): PauseRecord["ask"] =>
+  component?.kind === ComponentKind.Question ? ask : StoredApprovalAsk.parse(ask);
 
 const PauseRow = z.object({
   tenant_id: z.string(),
@@ -103,10 +115,14 @@ function answerOf(text: string): PauseAnswer {
 /** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const { itemIndex, component, branchKeys, ...stored } = StoredPause.parse(JSON.parse(r.pause));
+  const { itemIndex, component, branchKeys, ask, ...stored } = StoredPause.parse(
+    JSON.parse(r.pause),
+  );
+  const record = component === undefined ? undefined : componentOfStored(component);
   const pause: PauseRecord = {
     ...stored,
-    ...(component === undefined ? {} : { component: componentOfStored(component) }),
+    ask: askOf(ask, record),
+    ...(record === undefined ? {} : { component: record }),
     ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
     tenantId: r.tenant_id,
