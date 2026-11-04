@@ -696,8 +696,6 @@ export interface ReplyInterpreterRunner<TRole> extends UnitClock {
 
 // @public
 export interface ReplyInterpreterRunnerInput<TRole> {
-    // Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly ask: ChannelQuestionOf<TRole>;
     // (undocumented)
@@ -1427,10 +1425,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:23:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-reply-interpreter.ts:32:36 - (ae-forgotten-export) The symbol "ChannelAnswerOf" needs to be exported by the entry point index.d.ts
-// src/testing/units/test-reply-interpreter.ts:37:3 - (ae-undocumented) Missing documentation for "ask".
-// src/testing/units/test-reply-interpreter.ts:38:3 - (ae-undocumented) Missing documentation for "reply".
-// src/testing/units/test-reply-interpreter.ts:43:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-reply-interpreter.ts:33:36 - (ae-forgotten-export) The symbol "ChannelAnswerOf" needs to be exported by the entry point index.d.ts
+// src/testing/units/test-reply-interpreter.ts:38:3 - (ae-undocumented) Missing documentation for "ask".
+// src/testing/units/test-reply-interpreter.ts:39:3 - (ae-undocumented) Missing documentation for "reply".
+// src/testing/units/test-reply-interpreter.ts:44:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/testing/units/test-tool-interceptor.ts:62:3 - (ae-undocumented) Missing documentation for "afterToolCall".

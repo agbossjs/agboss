@@ -6,7 +6,8 @@ import {
   type FoundChannelRole,
 } from "../../channels/channel-role.decorator.js";
 import { validDecisionOf } from "../../channels/decision.js";
-import { roleInterpreterOf, type AssembledReplyInterpreter } from "../../channels/discovery.js";
+import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
+import { roleInterpreterOf } from "../../channels/role-interpreter.js";
 import { readReplyBy } from "../../channels/reply-reader.js";
 import { schemaOf, validate } from "../../dto/schema.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
