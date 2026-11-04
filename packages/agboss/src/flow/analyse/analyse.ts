@@ -39,7 +39,7 @@ import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
 import { judgeReplyRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
-import { worstCaseStepsWarnings } from "./bounded-steps.js";
+import { worstCaseStepsWarnings } from "./strongly-connected.js";
 import { walkFlow } from "./walk.js";
 import { worstCasesOf, type WorstCase } from "./worst-case.js";
 

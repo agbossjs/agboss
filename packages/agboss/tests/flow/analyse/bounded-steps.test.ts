@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
-import { boundedStepsFrom } from "../../../src/flow/analyse/bounded-steps.js";
+import { boundedStepsFrom } from "../../../src/flow/analyse/strongly-connected.js";
 import { walkFlow } from "../../../src/flow/analyse/walk.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
