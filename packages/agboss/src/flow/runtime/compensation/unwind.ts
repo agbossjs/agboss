@@ -1,6 +1,7 @@
 import { errorRecordOf } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
+import { SILENT_LOG } from "../../../infrastructure/logger.js";
 import { timeoutError, timeoutOn } from "../../../infrastructure/clock.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import type { Milliseconds } from "../../../units/index.js";
@@ -106,18 +107,19 @@ async function lateUndo(
   entry: CompensationEntry,
 ): Promise<void> {
   const subject = { executionId: entry.executionId, tenantId: site.tree.tenantId };
+  // the report is made outside the try: a report that throws is never taken for the undo's own failure
+  let text: string | undefined;
   try {
     const ran = await undone(entry, site.undoSiteOf(entry));
     await site.record(ran.usage);
     const { error } = ran.record;
-    if (error !== undefined) {
-      const text = `the late undo of ${entry.action} by ${entry.compensator} failed: ${error.message}`;
-      parts.log?.warn("compensation.late-undo-failed", text, subject);
-    }
+    if (error !== undefined)
+      text = `the late undo of ${entry.action} by ${entry.compensator} failed: ${error.message}`;
   } catch (thrown) {
-    const text = `the late undo of ${entry.action} did not run: ${errorRecordOf(thrown).message}`;
-    parts.log?.warn("compensation.late-undo-failed", text, subject);
+    text = `the late undo of ${entry.action} did not run: ${errorRecordOf(thrown).message}`;
   }
+  if (text !== undefined)
+    (parts.log ?? SILENT_LOG).warn("compensation.late-undo-failed", text, subject);
 }
 
 /** Seals what the unwind covers until its executions' last running body returned. */

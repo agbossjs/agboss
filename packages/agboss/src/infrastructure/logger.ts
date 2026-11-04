@@ -83,6 +83,13 @@ export interface FrameworkLog {
   error(code: string, message: string, subject?: LogSubject): void;
 }
 
+/** A framework log that writes nothing: where a part without a log of its own reports (#633). */
+export const SILENT_LOG: FrameworkLog = {
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
+
 /** The ids of an entry, only those it has. */
 const idsOf = (subject: LogSubject): Pick<LogEntry, "executionId" | "tenantId"> => ({
   ...(subject.executionId === undefined ? {} : { executionId: subject.executionId }),
