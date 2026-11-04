@@ -2168,7 +2168,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
 status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one transaction — the
   key's lease (not its epoch, released, expired → `ExecutionFencedError`, a hand-over), the scope's
   high-water mark (a lower token refused before any key is read), the key (written → the stored
-  result, `work` not run), then `work(transaction)` and its result (`JsonResult<T>`, JSON within
+  result, `work` not run), then `work(transaction)` (#730: possibly more than once per call — an aborted attempt run again, as on MongoDB — so it writes only through `transaction`) and its result (`JsonResult<T>`, JSON within
   `@Application({ fencedEffects: { maxResultSize } })`, default `kilobytes(64)`, else
   `FencedEffectResultTooLargeError`); a throw rolls everything back; concurrent calls on one key of
   one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
