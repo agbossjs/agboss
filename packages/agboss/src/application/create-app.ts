@@ -143,6 +143,15 @@ const instancePartsOf = async (
 ): Promise<InstanceSteps.SharedInstanceParts> =>
   (await lazyLoad(import("./instance-steps.js"))).instancePartsOf(...args);
 
+/**
+ * `onInit` → `onStart` of every component, then each workflow's config snapshot (#747): the stores
+ * are ready only now — a PostgreSQL schema is checked or migrated at its connection's `onInit`.
+ */
+async function startAll(created: unknown[], workflows: readonly BuiltApp[]): Promise<void> {
+  await startComponents(created);
+  for (const workflow of workflows) await workflow.deps.rememberConfig();
+}
+
 /** Closes what the workflows already built opened (a later workflow or a start hook failed). */
 async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
   for (const workflow of built) await workflow.app.close();
@@ -197,7 +206,7 @@ export async function buildApplication(
     const parts = { ...common, contexts, budgets, observer, piiKey };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
-    await startComponents(created);
+    await startAll(created, workflows);
   } catch (error) {
     await releaseAll(workflows);
     throw error;
