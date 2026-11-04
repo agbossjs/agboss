@@ -26,7 +26,8 @@ export function toolKeysOf(tool: AnyTool): ToolKeys {
   const output = inputJsonSchema(tool.output);
   const record: ComponentRecord = {
     name: tool.name,
-    kind: ComponentKind.Tool,
+    // a question role an agent asks (#712) is recorded as the role: the #659 discriminator
+    kind: tool.question === undefined ? ComponentKind.Tool : ComponentKind.Question,
     promptHash: versionOf(tool.description),
     schemaHash: versionOf({ input, output }),
   };

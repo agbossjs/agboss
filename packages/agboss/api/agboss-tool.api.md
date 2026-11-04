@@ -47,14 +47,14 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 // Warnings were encountered during analysis:
 //
 // src/components/decorators.ts:17:3 - (ae-undocumented) Missing documentation for "run".
-// src/components/decorators.ts:29:1 - (ae-undocumented) Missing documentation for "ToolOptions".
-// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "name".
-// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/components/decorators.ts:38:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:53:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:54:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:38:1 - (ae-undocumented) Missing documentation for "ToolOptions".
+// src/components/decorators.ts:43:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts:44:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/decorators.ts:47:3 - (ae-undocumented) Missing documentation for "channel".
+// src/components/decorators.ts:62:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:63:3 - (ae-undocumented) Missing documentation for "output".
 
 // (No @packageDocumentation comment for this package)
 

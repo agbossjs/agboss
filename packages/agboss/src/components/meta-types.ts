@@ -1,7 +1,7 @@
 import type { AgentsConfig } from "../config/types.js";
 import type { RagMode } from "../rag/types.js";
 import type { JudgeHandlerClass } from "./judge-decorators.js";
-import type { ToolHandlerClass } from "./decorators.js";
+import type { AgentToolClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { Class, Provider } from "./injection.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
@@ -78,8 +78,8 @@ export interface AgentMeta
   readonly cache?: AgentSettings["cache"];
   /** Tool calls per call of the agent (`agents.<name>.limits.toolCalls`); default 20. */
   readonly maxToolCalls?: number;
-  /** `@Tool` or `@McpTool` classes. */
-  readonly tools?: readonly ToolHandlerClass[];
+  /** `@Tool` or `@McpTool` classes, and question roles (#712). */
+  readonly tools?: readonly AgentToolClass[];
   /** `@Judge` classes. */
   readonly judges?: readonly JudgeHandlerClass[];
   readonly maxRetries?: number;

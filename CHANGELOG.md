@@ -26,8 +26,13 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   another instance continues it, a cancel withdraws it. `ChannelRoles` types `ask` / `answer`,
   `agboss describe` prints where each question is asked. A failed `send` is `QuestionFailedError`
   (`step.question`). `PendingPause` is now a union on `kind` (`PendingApproval` |
-  `PendingQuestion`); a pause record's `ask` is a `PauseAsk`. An agent asking one as a tool is
-  #712.
+  `PendingQuestion`); a pause record's `ask` is a `PauseAsk`.
+- **An agent asks a question role as a tool** (#712) — `@Agent({ tools: [SpendingLimitQuestion] })`:
+  the model calls the role (input = its `ask`), the loop pauses on the role's channel before the
+  move's other tools run, and the typed `answer` (a decision, an interpreted reply or the channel's
+  `decided(…)`) is the call's result, PII-masked; every guarantee of a question step holds, the
+  role's `maxVisits` bounds one visit's calls, budgets and the fence are checked before each ask.
+  `callTool(Role, ask)` scripts it; an approval role in `tools` is `[channel.approval-role-as-tool]`.
 - **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
   fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
   context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default

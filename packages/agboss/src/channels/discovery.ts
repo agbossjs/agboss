@@ -14,6 +14,7 @@ import {
   channelRoleOptionsOf,
   isCodeReplyInterpreter,
   isQuestionRole,
+  type ChannelQuestionRoleOptions,
   replyInterpreterOf,
   type FoundChannelRole,
   type ReplyInterpreterDeclaration,
@@ -36,8 +37,10 @@ export interface ChannelUse {
   readonly channel: Class;
   /** The workflow whose agent has the tool, or whose flow asks the question. */
   readonly workflow: string;
-  /** A question step (`.toQuestion(Role)`, #659), not a tool. */
+  /** A question step (`.toQuestion(Role)`, #659), not a tool — or an agent's question call (#712). */
   readonly isQuestion?: true;
+  /** The agent that asks it through its tool loop (#712); absent for a question step. */
+  readonly askedBy?: string;
 }
 
 interface ToolChannel {
@@ -78,6 +81,23 @@ function questionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
   });
 }
 
+/** The question roles the agents of a workflow's flow ask through their tools (#712), per agent. */
+function agentQuestionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
+  const declaration = declarationOf(workflow);
+  if (declaration?.kind !== NodeKind.Workflow) return [];
+  return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
+    const agent = declarationOf(node);
+    if (agent?.kind !== NodeKind.Agent) return [];
+    return [...new Set(agent.options.tools ?? [])].flatMap((cls): readonly ChannelUse[] => {
+      const options = channelRoleOptionsOf(cls);
+      if (options === undefined || !isQuestionRole(options)) return [];
+      const { name: tool, ask } = options;
+      const askedBy = agent.options.name;
+      return [{ tool, toolInput: ask, channel: cls, workflow: name, isQuestion: true, askedBy }];
+    });
+  });
+}
+
 /**
  * Every tool with a channel in the workflows and their children, each tool once per workflow, and
  * every question step (#659).
@@ -90,8 +110,14 @@ export function channelUsesOf(workflows: readonly Class[]): readonly ChannelUse[
       if (tool?.channel === undefined) return [];
       return [{ tool: tool.name, toolInput: tool.input, channel: tool.channel, workflow: name }];
     });
-    return [...tools, ...questionUsesOf(workflow, name)];
+    return [...tools, ...questionUsesOf(workflow, name), ...agentQuestionUsesOf(workflow, name)];
   });
+}
+
+/** The question role options of a class an agent lists in its tools (#712); `undefined` for any other. */
+export function questionRoleOf(cls: Class): ChannelQuestionRoleOptions | undefined {
+  const options = channelRoleOptionsOf(cls);
+  return options !== undefined && isQuestionRole(options) ? options : undefined;
 }
 
 /** Whether the class is a `@ChannelRole` itself (abstract: its implementation is looked up). */

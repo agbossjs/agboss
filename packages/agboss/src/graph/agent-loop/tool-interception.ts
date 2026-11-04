@@ -9,7 +9,12 @@ import {
   ToolCallOutcome,
   type ToolCallContext,
 } from "../../tool-interceptors/decision.js";
-import type { RuntimeToolInterceptor } from "../../tool-interceptors/runtime.js";
+import type {
+  RuntimeToolInterceptor,
+  ToolInterceptorChains,
+} from "../../tool-interceptors/runtime.js";
+import type { AgentLoopDeps } from "./deps.js";
+import type { ToolTask } from "./state.js";
 import type { AnyTool, ToolOutput } from "../../tools/index.js";
 import { ToolCallStopKind, type ToolCallStop } from "./tool-stops.js";
 
@@ -137,4 +142,26 @@ export async function interceptedCall(
     const stop = { kind: ToolCallStopKind.Failed, interceptor: error.interceptor };
     return { kind: "stopped", stop: { ...stop, reason: messageOf(error.error) } };
   }
+}
+
+/** A call's tool interceptors: a question call (#712) runs no tool, its answer was asked already. */
+export const interceptorsOf = (
+  deps: Pick<AgentLoopDeps, "interceptors">,
+  tool: AnyTool,
+): ReturnType<ToolInterceptorChains> =>
+  tool.question === undefined ? (deps.interceptors?.(tool.name) ?? []) : [];
+
+/**
+ * A question call's result (#712): its answer — asked before the move's tools ran, validated —, or
+ * why its arguments asked nobody; any other call (or a question with no pause seam) is `run`.
+ */
+export function questionResultOf(
+  tool: AnyTool,
+  task: ToolTask,
+  run: () => Promise<ToolOutput<unknown>>,
+): Promise<ToolOutput<unknown>> {
+  if (tool.question === undefined) return run();
+  if (task.invalidAsk !== undefined)
+    return Promise.resolve({ kind: "error", message: task.invalidAsk });
+  return "answer" in task ? Promise.resolve({ kind: "ok", value: task.answer }) : run();
 }

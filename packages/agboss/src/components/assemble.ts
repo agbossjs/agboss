@@ -23,6 +23,7 @@ import {
 } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { channelPartsOf, questionRolesOf } from "./channel-parts.js";
+import type { ToolClasses } from "./assemble-checks.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
@@ -93,6 +94,20 @@ const toolDependenciesOf = (
       return tree === "" ? [] : [[names.get(cls) ?? cls.name, tree] as const];
     }),
   );
+
+/**
+ * The agents' tool classes, and the question roles asked — by the flow's steps (#659) and by the
+ * agents' tool loops (#712).
+ */
+function toolClassesOf(
+  bundle: WorkflowMeta,
+  agents: readonly AgentMeta[],
+  graph: RuntimeGraph,
+): ToolClasses {
+  const tools = toolsOf(bundle, agents);
+  const questions = [...new Set([...questionRolesOf(graph), ...(tools.asked ?? [])])];
+  return { ...tools, questions };
+}
 
 /** Steps per execution: `maxSteps`, else (agents + routers) × 3. */
 const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number =>
@@ -180,7 +195,7 @@ export async function workflowOf(
   const agents = agentMetasOf(graph);
   const loader = new PromptLoader(bundle.promptVariables ?? {});
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model);
-  const tools = { ...toolsOf(bundle, agents), questions: questionRolesOf(graph) };
+  const tools = toolClassesOf(bundle, agents, graph);
   const mcp = mcpOf(bundle, tools.mcp);
   const rags = await checkedRagClassesOf(bundle, agents);
   checkClasses(bundle, agents);
@@ -210,7 +225,7 @@ export async function workflowOf(
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
     prompts,
-    tools: toolBuilder(bundle, agents, tools.local, tools.mcp, mcp.names),
+    tools: toolBuilder(bundle, agents, tools, mcp.names),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...memoryPartsOf(bundle, agents),
     ...judgePartsOf(bundle, judges),

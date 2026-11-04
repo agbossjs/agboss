@@ -17,8 +17,17 @@ export interface ToolHandler<TInput, TOutput> {
   run: (input: TInput) => Promise<TOutput>;
 }
 
-/** What `tools: [...]` takes: `@Tool` / `@McpTool` classes, the ones implementing `ToolHandler`. */
+/** `@Tool` / `@McpTool` classes, the ones implementing `ToolHandler`. */
 export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
+
+/**
+ * A question role an agent asks through its tool loop (#712): a `@ChannelRole({ ask, answer })`
+ * class — what its channels `send`; an approval role there fails assembly.
+ */
+export type QuestionRoleClass = Class<{ send(ask: never): Promise<unknown> }>;
+
+/** What an agent's `tools: [...]` takes: `@Tool` / `@McpTool` classes and question roles (#712). */
+export type AgentToolClass = ToolHandlerClass | QuestionRoleClass;
 
 /** A decorator's options as recorded: `deps` always present. */
 const withDeps = <O extends { readonly deps?: readonly Token[] }>(options: O) => ({

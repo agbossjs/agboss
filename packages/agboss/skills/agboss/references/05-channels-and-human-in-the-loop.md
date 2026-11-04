@@ -443,7 +443,31 @@ question, `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `Pa
 `agent` the step, `ask` the masked question. Exactly one answer wins (`NotPausedError` for the
 second), another instance continues it, a cancel withdraws it — as any pause. The step is no model
 call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
-names a question role is `[channel.wrong-tool]`; an agent cannot ask one as a tool yet (#712).
+names a question role is `[channel.wrong-tool]`.
+
+### An agent asks a question role as a tool (#712)
+
+When the model should decide **whether** and **when** to ask, list the role in the agent's tools —
+`@Agent({ …, tools: [SpendingLimitQuestion, PlaceOrderTool] })`. Its model sees a tool named the
+role's name (`spending-limit-question`), described by the role's description, whose input is the
+role's `ask` — validated strictly before anything is asked: arguments that are no valid ask (a
+field the ask does not declare too) pause nothing and send nothing, the model reads a tool error
+and may try again, and the call counts against the role's `maxVisits`; a valid call pauses on the role's channel at the loop's approval step, before the move's
+other tools run (several question calls of one move are asked one after the other), and the role's
+`answer` — a `decision`, a reply its interpreter read, or the channel's `decided(…)`, validated as
+the `answer` DTO — is the call's result the model reads next (through the tool-result path: PII
+masking of the answer's `sensitive` fields, `maxResultSize`, `onToolStart` / `onToolEnd`,
+`result.toolCalls` with `step.component.kind` `question`; tool interceptors do not apply — the call
+runs no tool). `result.pending[i]` is `kind: PauseKind.Question`, `agent` the asking agent,
+`channel` the role; every guarantee of a question step holds (one answer wins, another instance
+resumes it without asking again, a cancel withdraws it, tenant and owner checks). The role's
+`maxVisits` bounds how many times one visit of the agent asks it (the next call fails the step with
+`VisitsLimitExceededError` before it is asked); the budgets and the holder's fence are checked
+before every ask. A `send` that throws, or an invalid `decided(…)`, fails the agent's step
+(`AgentFailedError`, the cause kept). An approval role in `tools` is
+`[channel.approval-role-as-tool]`. Tests script the call as `callTool(SpendingLimitQuestion, { item,
+priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agent>'s tool loop
+(<workflow>)`.
 
 ## The pause's life and its records
 

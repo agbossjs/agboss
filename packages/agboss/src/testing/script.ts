@@ -6,6 +6,9 @@ import { ModelFailure } from "../models/model-failure.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { millisecondsOf, type ClockDuration } from "./clock.js";
 import { TestSetupError } from "./errors.js";
+import { questionRoleOf } from "../channels/discovery.js";
+import type { QuestionRoleClass } from "../components/decorators.js";
+import type { ChannelQuestionOf } from "../flow/generated-types.js";
 import type {
   AnswerDetails,
   AnswerTurn,
@@ -60,12 +63,17 @@ export type ToolClass<TInput extends object> = Class<{
   run(input: TInput): Promise<unknown>;
 }>;
 
-/** The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too (#703). */
+/**
+ * The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too
+ * (#703), a question role's name (#712).
+ */
 export function toolNameOf(tool: Class): string {
+  const role = questionRoleOf(tool);
+  if (role !== undefined) return role.name;
   const meta = componentOf(tool);
   if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
   if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
-    throw new TestSetupError(`${tool.name} is not a @Tool, @McpTool or @Rag`);
+    throw new TestSetupError(`${tool.name} is not a @Tool, @McpTool, @Rag or question role`);
   }
   return meta.meta.name;
 }
@@ -80,6 +88,14 @@ export function callTool<TInput extends object>(
 ): ToolCallTurn;
 /** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
 export function callTool(rag: Class<RagConnector>, args: { readonly query: string }): ToolCallTurn;
+/**
+ * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
+ * the arguments typed by the role's `ask` (the generated `ChannelRoles`).
+ */
+export function callTool<TRole extends QuestionRoleClass>(
+  role: TRole,
+  args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>,
+): ToolCallTurn;
 export function callTool(tool: Class, args: object): ToolCallTurn {
   return {
     kind: "tool-call",

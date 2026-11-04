@@ -52,6 +52,7 @@ export function loopInputOf(
     move: null,
     results: {},
     decisions: {},
+    questionAnswers: {},
     callRecords: {},
     trajectory: [],
     judgeVerdicts: [],

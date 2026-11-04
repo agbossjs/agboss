@@ -49,11 +49,17 @@ export interface DescribedChannel {
   readonly reason?: ChannelImplementationReason;
   /** The tools that name it: `pay-out-tool (treasury-workflow)`. */
   readonly tools: readonly string[];
-  /** The question steps that ask it (#659): `spending-limit-question (purchase-workflow)`. */
+  /**
+   * The question steps that ask it (#659): `spending-limit-question (purchase-workflow)` — and the
+   * agents that ask it through their tool loop (#712): `buyer-agent's tool loop (buyer-workflow)`.
+   */
   readonly askedBy?: readonly string[];
 }
 
-const toolLabel = (use: ChannelUse): string => `${use.tool} (${use.workflow})`;
+const toolLabel = (use: ChannelUse): string =>
+  use.askedBy === undefined
+    ? `${use.tool} (${use.workflow})`
+    : `${use.askedBy}'s tool loop (${use.workflow})`;
 
 const inputsLabel = (uses: readonly ChannelUse[]): string =>
   [...new Set(uses.map((use) => dtoLabel(use.toolInput)))].join(" | ");
