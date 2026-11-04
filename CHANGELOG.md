@@ -299,6 +299,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A spend that reaches a budget exactly exhausts it** (#728) — a float sum of costs lands a hair
+  off its decimal value (eight $0.10 calls make 0.7999999999999999), so a $0.80 budget let a ninth
+  step through. Spend and limit are compared in whole micro-dollars (rounded, no epsilon) before
+  each step and model call, in the live tally, at a new execution's admission and for the
+  application's spend outside an execution.
 - **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
   `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
   the module loader resolves a relative import from the importer's real path, so a project or

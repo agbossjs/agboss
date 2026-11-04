@@ -14,6 +14,7 @@ import {
 import type { Class } from "../components/injection.js";
 import { usd } from "../units/index.js";
 import { BudgetScope } from "../budgets/budget.js";
+import { isSpendExhausted } from "../budgets/budget-check.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
@@ -139,7 +140,8 @@ async function openBudgets(
   const now = application.clock.now();
   for (const record of records) {
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
-    if (spent >= record.maxSpend) throw budgetExceededErrorOf(record, spent, [], 0, []);
+    if (isSpendExhausted(spent, record.maxSpend))
+      throw budgetExceededErrorOf(record, spent, [], 0, []);
   }
   // kept only once the execution is admitted: a refused request leaves no trace
   for (const record of records)
