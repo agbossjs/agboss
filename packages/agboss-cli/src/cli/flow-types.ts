@@ -91,7 +91,6 @@ const scopedOutFile = (project: string, file: string): { readonly outFile?: stri
 async function generate(
   context: CommandContext,
   file: string,
-  strict = false,
 ): Promise<FlowTypesResult | undefined> {
   try {
     const result = await writeFlowTypes({
@@ -99,7 +98,6 @@ async function generate(
       project: context.io.cwd,
       ...scopedOutFile(context.io.cwd, file),
       ...loadOptions(context),
-      ...(strict ? { strict } : {}),
     });
     return result;
   } catch (error) {
@@ -108,13 +106,6 @@ async function generate(
     throw error;
   }
 }
-
-/** The analyser's warnings (#272, #263): errors only under `--strict`. */
-const WARNING_CODES: ReadonlySet<string> = new Set([
-  "flow.path-too-deep",
-  "graph.child-without-failure-finish",
-  "judge.same-model-family",
-]);
 
 const problemsOf = (file: string, result: FlowTypesResult): readonly CheckProblem[] =>
   result.errors.map((found) => ({ file, code: found.code, message: found.message }));
@@ -172,7 +163,7 @@ export async function writeCheckedTypes(
   strict = false,
 ): Promise<TypesOutcome> {
   const file = application.shown;
-  const result = await generate(context, application.file, strict).catch((error: unknown) => {
+  const result = await generate(context, application.file).catch((error: unknown) => {
     if (isFileSystemError(error)) return notWritten(file, error);
     throw error;
   });
@@ -180,16 +171,14 @@ export async function writeCheckedTypes(
   if (!("status" in result)) return { problems: [result], unwritten: [], warnings: [] };
   if (result.status === FlowTypesStatus.NoFlow)
     return { problems: [noFlow(file)], unwritten: [], warnings: [] };
-  // a rule violation is the assembly's to report; generation's own codes are `types.*` — and,
-  // under --strict, the warnings the assembly does not see as errors
+  // a rule violation is the assembly's to report; generation's own codes are `types.*`. The
+  // analyser's warnings are its own to report: printed, or under --strict every one of them an
+  // error (#769: the analyser's list, never a copy of its codes here)
   const found = problemsOf(file, result);
-  const isOwn = (problem: CheckProblem): boolean =>
-    problem.code.startsWith("types.") || (strict && WARNING_CODES.has(problem.code));
-  const problems = found.filter(isOwn);
-  const warnings = [
-    ...result.warnings.map((problem) => problemText({ file, ...problem })),
-    ...result.notes,
-  ];
+  const isOwn = (problem: CheckProblem): boolean => problem.code.startsWith("types.");
+  const analysed = result.warnings.map((problem) => ({ file, ...problem }));
+  const problems = [...found.filter(isOwn), ...(strict ? analysed : [])];
+  const warnings = [...(strict ? [] : analysed.map(problemText)), ...result.notes];
   warnings.forEach((line) => {
     context.say(line);
   });

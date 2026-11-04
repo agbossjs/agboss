@@ -149,6 +149,25 @@ describe("#263 AC11: agboss check --strict — the analyser's warnings are error
   });
 });
 
+describe("#769: every analyser warning is an error under --strict, none dropped", () => {
+  const BELOW = fixture("cli/steps-below.workflow.ts");
+
+  it("[limits.max-steps-below-worst-case] (#643): printed and the check passes; with --strict it fails", async () => {
+    const warned = await agboss(["check", "--application", BELOW], project());
+    const strict = await agboss(["check", "--strict", "--application", BELOW], project());
+
+    expect(warned.code).toBe(0);
+    expect(warned.stdout).toContain(
+      `${BELOW} limits.max-steps-below-worst-case steps-below-workflow: the worst case from second-kit-workflow-start takes 5 steps`,
+    );
+    expect(strict.code).toBe(3);
+    expect(strict.stdout).toContain(
+      `${BELOW} limits.max-steps-below-worst-case steps-below-workflow: the worst case from second-kit-workflow-start takes 5 steps`,
+    );
+    expect(strict.stdout).not.toContain("ok: ");
+  });
+});
+
 describe("#396 PR 5: [judge.same-model-family] — a warning, an error under --strict", () => {
   const FAMILY = fixture("cli/judge-family.workflow.ts");
 
