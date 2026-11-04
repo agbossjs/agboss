@@ -10,7 +10,8 @@ import { UNKNOWN, type CheckedOperation } from "./operations.js";
  * slack and not before the last one taken — never after its own end (#617): an operation that
  * completed took effect by then. The instants tried, earliest first, are where the model's answers
  * can change: the span's start, just before and at each lease expiry of the state inside the span,
- * where the expiry the operation sets meets another span's end (#660), and its end. An operation whose answer nobody saw may never have taken effect, or may have at
+ * where the expiry the operation sets meets another span's end, directly (#660) or through a chain
+ * of expiries (#750), and its end. An operation whose answer nobody saw may never have taken effect, or may have at
  * any instant after its invoke (its span has no end: a store can apply a request whose caller is
  * gone). A state already reached with the same operations taken and the same last instant is not
  * searched again.
@@ -61,13 +62,13 @@ interface SearchState {
 /** The search of one part. */
 class PartSearch {
   readonly #seen = new Set<string>();
-  /** Every finite span end of the part: where a later answer can flip (#660). */
+  /** Every finite span end of the part and the instants chained back from them, sorted (#660, #750). */
   readonly #ends: readonly number[];
   longest: readonly CheckedOperation[] = [];
   stuck: readonly CheckedOperation[] = [];
 
   constructor(readonly operations: readonly CheckedOperation[]) {
-    this.#ends = operations.flatMap(({ from, to }) => [from, to]).filter(Number.isFinite);
+    this.#ends = chainedEndsOf(operations);
   }
 
   /** Whether every operation with a seen answer can be taken, from `at`. */
@@ -109,20 +110,67 @@ class PartSearch {
 const JUST_BEFORE = 0.001;
 
 /**
- * Where a later answer can flip between live and expired because of the instant `operation` takes
- * effect at (#660): one that sets an expiry `d` after it, taken at `end − d` or just after, ends its
- * lease at or just past `end`, for each span end of the part. The rest set no expiry: none.
+ * The part's finite span ends, and the instants an answer can be pinned at through a chain of
+ * expiries (#750): an operation that sets an expiry `d` pinned to `end − d` (or just after) pins an
+ * earlier one that sets `d′` to `end − d − d′`, and so on — one hop fewer than the part's
+ * expiry-setting operations (`flipsOf` takes the last), none before the part's first instant.
+ * Sorted, without repeats.
  */
-function flipsOf(operation: CheckedOperation, ends: readonly number[]): readonly number[] {
+function chainedEndsOf(operations: readonly CheckedOperation[]): readonly number[] {
+  const ends = operations.flatMap(({ from, to }) => [from, to]).filter(Number.isFinite);
+  const lengths = [...new Set(operations.flatMap((operation) => leaseSetBy(operation) ?? []))];
+  const hops = operations.filter((operation) => leaseSetBy(operation) !== undefined).length - 1;
+  const first = Math.min(...ends);
+  const all = new Set(ends);
+  let frontier = ends;
+  for (let hop = 0; hop < hops && frontier.length > 0; hop += 1) {
+    frontier = frontier
+      .flatMap((end) => lengths.flatMap((length) => [end - length, end - length + JUST_BEFORE]))
+      .filter((instant) => instant >= first && !all.has(instant));
+    for (const instant of frontier) all.add(instant);
+  }
+  return [...all].sort((left, right) => left - right);
+}
+
+/** The index of the first of the sorted `values` above `bound`. */
+function firstAbove(values: readonly number[], bound: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if ((values[middle] ?? Number.POSITIVE_INFINITY) > bound) high = middle;
+    else low = middle + 1;
+  }
+  return low;
+}
+
+/**
+ * Where a later answer can flip between live and expired because of the instant `operation` takes
+ * effect at, inside `(from, to]` (#660): one that sets an expiry `d` after it, taken at `end − d` or
+ * just after, ends its lease at or just past `end`, for each of the sorted `ends` (#750: chained
+ * ones too). The rest set no expiry: none.
+ */
+function flipsOf(
+  operation: CheckedOperation,
+  ends: readonly number[],
+  from: number,
+  to: number,
+): readonly number[] {
   const length = leaseSetBy(operation);
   if (length === undefined) return [];
-  return ends.flatMap((end) => [end - length, end - length + JUST_BEFORE]);
+  // `end − d` or `end − d + ε` inside (from, to] needs `end` in (from + d − ε, to + d]
+  const near = ends.slice(
+    firstAbove(ends, from + length - JUST_BEFORE),
+    firstAbove(ends, to + length),
+  );
+  return near.flatMap((end) => [end - length, end - length + JUST_BEFORE]);
 }
 
 /**
  * The instants `operation` may take effect at after `last`, earliest first (#617): its span's start,
  * just before and at each lease expiry of `state` inside the span, where the expiry it sets makes a
- * later answer flip (#660: `ends`, the part's span ends), and its end — none when the span ended
+ * later answer flip (#660: `ends`, the part's span ends and, #750, the instants chained from them),
+ * and its end — none when the span ended
  * before `last`.
  */
 function instantsOf(
@@ -138,7 +186,7 @@ function instantsOf(
     expiresAt - JUST_BEFORE,
     expiresAt,
   ]);
-  const inside = [...expiries, ...flipsOf(operation, ends)].filter(
+  const inside = [...expiries, ...flipsOf(operation, ends, from, to)].filter(
     (instant) => instant > from && instant <= to,
   );
   const end = Number.isFinite(to) && to > from ? [to] : [];
