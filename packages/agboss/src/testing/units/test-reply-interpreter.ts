@@ -8,7 +8,7 @@ import {
 import { validDecisionOf } from "../../channels/decision.js";
 import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
 import { roleInterpreterOf } from "../../channels/role-interpreter.js";
-import { readReplyBy } from "../../channels/reply-reader.js";
+import { readReplyBy } from "../../channels/reply-reading.js";
 import { schemaOf, validate } from "../../dto/schema.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import { currentFrame } from "../../flow/context/frame.js";

@@ -4,7 +4,8 @@ import {
   type BudgetMeter,
 } from "../budgets/execution-budgets.js";
 import type { ExecutionTracing } from "../tracing/index.js";
-import { replyReaderOf, type ReplyPii, type ReplyReader } from "../channels/reply-reader.js";
+import type { ReplyPii, ReplyReader } from "../channels/reply-reader.js";
+import { replyReaderOf } from "../channels/reply-reading.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { DEFAULT_TENANT } from "../flow/context/context-values.js";
