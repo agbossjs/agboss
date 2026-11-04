@@ -308,7 +308,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 ### Fixed
 
 - **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
-  (#749) — *Wire the stores* imported `days` from `@agboss/core/units`, which exports `seconds`,
+  (#749) — _Wire the stores_ imported `days` from `@agboss/core/units`, which exports `seconds`,
   `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
   README the same); Several-instances names Adyen and Stripe (`keyRetention`, #658) and now links
   the notice, as #686 asked of every page naming a gateway.
