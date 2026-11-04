@@ -307,6 +307,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
+  (#749) — *Wire the stores* imported `days` from `@agboss/core/units`, which exports `seconds`,
+  `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
+  README the same); Several-instances names Adyen and Stripe (`keyRetention`, #658) and now links
+  the notice, as #686 asked of every page naming a gateway.
 - **A question role's pause is stored and read back on SQLite** (#746) — `SqlitePausedExecutionRepository`
   read every pause's `ask` as an approval's tool call (`callId`, `tool`, `arguments`, `summary`),
   so a question asked by a flow step (#659) or by an agent's tool (#712) on the SQLite stores failed
