@@ -10,7 +10,7 @@ Breaking changes and notable additions, newest first. The API reports
   subclass without `requestFields` (assembly and `agboss check`, never a `TypeError` at its first
   call).
 - **Changed**: `[application.pii-instance-key]` only when something makes a PII token
-  ([Environments](Environments)); `[application.in-memory-pauses]` names the store left in memory
+  (a policy, a `sensitive` field — a text start's `sender` is one; [Environments](Environments)); `[application.in-memory-pauses]` names the store left in memory
   ([Observability](Observability)); a unit runner's `environment` is a `Partial` of the contract —
   the fields the unit reads —, and the SQLite error says how to pass `sqlitePath`; a cancelled launch
   branch's record keeps no raw `AbortError`.
