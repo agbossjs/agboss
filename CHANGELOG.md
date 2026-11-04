@@ -329,6 +329,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `relation "agboss_config_versions" does not exist` instead of `PostgresSchemaMissingError`, and
   `postgresMigrateOnStart` could never migrate. The snapshot is now written after every `onInit` →
   `onStart`; its warning is still in `app.warnings` and the start log.
+- **The linearizability checker follows a chain of expiries** (#750) — an acquire pinned by a
+  renewal that the later answers pin inside its span was reported in a sound history (#660 tried one
+  hop). Seeded histories the lease model answers itself (`linearizability-generated.test.ts`) are
+  never reported.
 - **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
   two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
   `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
