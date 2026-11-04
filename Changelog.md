@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a budget's spend is compared in whole micro-dollars (#728)
+
+- **Fixed**: eight $0.10 calls summed to 0.7999999999999999, under a $0.80 budget, so one more
+  step passed its check. Spend and limit are now compared in whole micro-dollars (rounded, no
+  epsilon) in the check before each step and model call, in the live tally, at a new execution's
+  admission and for the application's spend outside an execution. [FinOps](FinOps).
+
 ## Unreleased — 0.1.1: the business-key identity and the outbound call's runtime are mutated (#626)
 
 - **Added**: the `keys-and-calls` mutation shard (the business-key identity, `keyTextRuleOf` and its
