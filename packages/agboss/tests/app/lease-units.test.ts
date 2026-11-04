@@ -119,7 +119,7 @@ function storeOf(lease?: object) {
   return {
     acquire,
     release,
-    repository: { acquire, release } as unknown as ExecutionLeaseRepository,
+    repository: { acquire, release } as never,
   };
 }
 

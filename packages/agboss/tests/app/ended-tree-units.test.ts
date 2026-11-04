@@ -27,17 +27,17 @@ const STATE = { runId: "root-1", threadId: "thread-1", tenantId: "acme", started
 
 function partsOf(isFailedHere: boolean) {
   const onExecutionError = vi.fn(() => Promise.resolve());
-  const deps = {
+  const deps: AppDeps = {
     terns: {
       lastTerns: () => Promise.resolve([{ id: "tern-1", runId: "root-1", route: [], costUsd: 0 }]),
       completeIfStatus: vi.fn(() => Promise.resolve(isFailedHere)),
     },
     observer: { onExecutionError },
-  } as unknown as AppDeps;
-  const parts = {
+  } as never;
+  const parts: EndedTreeParts = {
     deps,
     paused: { find: () => Promise.resolve(undefined), drop: vi.fn() },
-  } as unknown as EndedTreeParts;
+  } as never;
   return { parts, onExecutionError };
 }
 

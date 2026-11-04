@@ -18,9 +18,9 @@ vi.mock("../../src/app/paused-runs.js", async (importOriginal) => ({
 }));
 
 const yieldWhile = vi.fn(<T>(wait: () => Promise<T>) => wait());
-const lease = { yieldWhile } as unknown as HeldExecutionLease;
+const lease = { yieldWhile } as never;
 
-const graphDeps = (parts: Record<string, unknown>) => parts as unknown as GraphDeps<string>;
+const graphDeps = (parts: Record<string, unknown>) => parts as never;
 
 const STATE = { runId: "root-1", threadId: "thread-1", tenantId: "acme", startedVersion: "1" };
 

@@ -83,7 +83,7 @@ const INTERRUPTED: InterruptedRun = {
 };
 
 const output = (status: ExecutionStatus): ExecutionOutput =>
-  ({ status, executionId: ROOT }) as unknown as ExecutionOutput;
+  ({ status, executionId: ROOT }) as never;
 
 const resumeOf = (...pauseIds: string[]): TreeResume => ({
   values: {},
@@ -103,7 +103,7 @@ function leaseOf(): HeldExecutionLease & { readonly released: () => number } {
     },
     afterEachRenewal: () => undefined,
     released: () => released,
-  } as unknown as HeldExecutionLease & { readonly released: () => number };
+  } as never;
 }
 
 function partsOf(lease = leaseOf()) {
@@ -113,7 +113,7 @@ function partsOf(lease = leaseOf()) {
     tryHold: vi.fn(() => Promise.resolve(lease)),
   };
   const paused = { find: vi.fn(() => Promise.resolve(undefined)), drop: vi.fn() };
-  const parts = {
+  const parts: TreeMoveParts = {
     deps: {
       config: { version: "2.0.0", name: "desk-workflow" },
       terns: { completeIfStatus: vi.fn(() => Promise.resolve(true)) },
@@ -125,7 +125,7 @@ function partsOf(lease = leaseOf()) {
     leases,
     trees: {},
     clock: {},
-  } as unknown as TreeMoveParts;
+  } as never;
   return { parts, lease, leases, paused, warn, moves: treeMovesOf(parts) };
 }
 
@@ -138,7 +138,7 @@ const answerOf = (startedVersion?: string): RecordedAnswer =>
       startedVersion === undefined
         ? undefined
         : { startedVersion, ternId: "tern-1", path: [], cost: { totalUsd: 0 } },
-  }) as unknown as RecordedAnswer;
+  }) as never;
 
 beforeEach(() => {
   vi.clearAllMocks();

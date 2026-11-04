@@ -37,12 +37,12 @@ function partsOf(owner?: string) {
     endIfEnding: vi.fn((_interrupted: InterruptedRun) => Promise.resolve(false)),
     recovered: vi.fn((_interrupted: InterruptedRun, _call: unknown) => Promise.resolve(undefined)),
   };
-  const deps = {
+  const deps: AppDeps = {
     config: { name: "desk-workflow", version: "2.0.0" },
     terns: {
       threadOwner: vi.fn(() => Promise.resolve(owner === undefined ? undefined : { owner })),
     },
-  } as unknown as AppDeps;
+  } as never;
   return { moves, deps };
 }
 
@@ -53,7 +53,7 @@ describe("#633: recoverRootOf", () => {
     const { moves, deps } = partsOf();
     const recover = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current: { workflowVersion: "1.0.0", configHash: "hash-1" },
       policy: undefined,
     });
@@ -67,7 +67,7 @@ describe("#633: recoverRootOf", () => {
     const { moves, deps } = partsOf();
     const recover = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current: { workflowVersion: "", configHash: "" },
       policy: () => "resume",
     });
@@ -98,7 +98,7 @@ describe("#633: recoverRootOf", () => {
     moves.endIfEnding.mockResolvedValue(true);
     const recover = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current: { workflowVersion: "2.0.0", configHash: "another-hash" },
       policy: undefined,
     });
@@ -112,7 +112,7 @@ describe("#633: recoverRootOf", () => {
     const { moves, deps } = partsOf();
     const recover = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current: { workflowVersion: "", configHash: "" },
       policy: undefined,
     });
@@ -128,7 +128,7 @@ describe("#633: recoverRootOf", () => {
     const current = { workflowVersion: "2.0.0", configHash: "hash-2" };
     const resuming = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current,
       policy: (resume) => {
         seen.push(resume);
@@ -137,7 +137,7 @@ describe("#633: recoverRootOf", () => {
     });
     const leaving = recoverRootOf({
       deps,
-      moves: moves as unknown as TreeMoves,
+      moves: moves as never,
       current,
       policy: undefined,
     });
@@ -160,7 +160,7 @@ describe("#633: recoverRootOf", () => {
     for (const { moves, deps } of [owned, unowned])
       await recoverRootOf({
         deps,
-        moves: moves as unknown as TreeMoves,
+        moves: moves as never,
         current,
         policy: undefined,
       })(recordOf(), signal);
@@ -215,9 +215,9 @@ describe("#633: recoveryPassOf", () => {
 
   function passParts(status: string, stored: unknown) {
     const find = vi.fn(() => Promise.resolve(stored));
-    const deps = {
+    const deps: AppDeps = {
       terns: { byIds: () => Promise.resolve([{ status }]) },
-    } as unknown as AppDeps;
+    } as never;
     return { find, parts: { deps, paused: { find } } as never };
   }
 
