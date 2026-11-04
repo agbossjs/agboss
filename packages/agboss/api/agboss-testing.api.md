@@ -125,6 +125,12 @@ export function callTool<TRag extends Class<RagConnector>>(rag: TRag, args: {
     readonly query: string;
 }): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 
+// Warning: (ae-forgotten-export) The symbol "QuestionRoleClass" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function callTool<TRole extends QuestionRoleClass>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
+
 // @public
 export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(...calls: TCalls): ToolCallsTurn<TCalls[number]["tool"]>;
 
@@ -1333,11 +1339,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:36:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:41:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:128:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:164:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:165:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:43:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:143:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:179:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:180:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".

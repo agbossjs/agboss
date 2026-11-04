@@ -1,3 +1,4 @@
+import { questionRoleOf } from "../../channels/discovery.js";
 import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
 import { RagMode } from "../../rag/types.js";
@@ -8,14 +9,19 @@ import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
 /**
  * The `AgentTools` table (#679): per agent, the names its model may call — each `@Tool` /
- * `@McpTool` it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
+ * `@McpTool` and question role (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
  * `callTool(…)` / `callTools(…)` turn of another tool does not compile. Each tool and knowledge-base
  * class is branded with its name (`readonly [agbossComponent]?: "order-status-tool"`), what
  * `callTool(Tool, …)` reads.
  */
 
-/** The name a tool, MCP tool or knowledge base class is known by; `undefined` for any other class. */
+/**
+ * The name a tool, MCP tool, knowledge base or question role (#712) class is known by; `undefined`
+ * for any other class.
+ */
 export function toolComponentNameOf(cls: Class): string | undefined {
+  const role = questionRoleOf(cls);
+  if (role !== undefined) return role.name;
   const component = componentOf(cls);
   switch (component?.kind) {
     case "tool":

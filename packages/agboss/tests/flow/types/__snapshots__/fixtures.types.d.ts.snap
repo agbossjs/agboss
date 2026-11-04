@@ -24,7 +24,7 @@ import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, Re
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
 import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
 import type { ChartMergerAgent, MarkUnitFailedAction, OrgChartFailedDto, OrgChartFailedWorkflowFinish, OrgChartWorkflow, OrgChartWorkflowStart, OrgDepthRouter, OrgDrillWorkflow, OrgDrillWorkflowStart, OrgMapperAgent, OrgRetryWorkflow, OrgRetryWorkflowStart, OrgSplitDto, OrgUnitDto, SplitUnitAction, TeamChartDto, TeamChartWorkflowFinish, UnitCharterAgent, UnitPickerAgent } from "../tests/flow/fixtures/org-chart.fixture.js";
-import type { ApproverAnswerDto, ApproverQuestion, ApproverReplyInterpreter, BuyerAgent, BuyerWorkflow, BuyerWorkflowFinish, BuyerWorkflowStart, OwnerBuyerAgent, OwnerBuyerWorkflow, OwnerBuyerWorkflowFinish, OwnerBuyerWorkflowStart } from "../tests/flow/fixtures/question-tools.fixture.js";
+import type { ApproverAnswerDto, ApproverQuestion, ApproverReplyInterpreter, BuyerAgent, BuyerWorkflow, BuyerWorkflowFinish, BuyerWorkflowStart, OrderTool, OwnerBuyerAgent, OwnerBuyerWorkflow, OwnerBuyerWorkflowFinish, OwnerBuyerWorkflowStart } from "../tests/flow/fixtures/question-tools.fixture.js";
 import type { BudgetOwnerQuestion, BudgetOwnerReplyInterpreter, CheckLimitAction, DraftQuestionAction, OwnerPurchaseWorkflow, OwnerPurchaseWorkflowFinish, OwnerPurchaseWorkflowStart, PlacePurchaseAction, PurchasePlacedDto, PurchaseQuestionDto, PurchaseUnaskedWorkflowFinish, PurchaseWorkflow, PurchaseWorkflowFinish, PurchaseWorkflowStart, SpendingLimitAnswerDto, SpendingLimitQuestion, SpendingLimitReplyInterpreter } from "../tests/flow/fixtures/questions.fixture.js";
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
@@ -755,6 +755,7 @@ declare module "../src/flow/generated-types.js" {
     "bed-agent": "book-bed-tool" | "free-beds-tool";
     "board-search-agent": never;
     "broken-agent": never;
+    "buyer-agent": "approver-question" | "order-tool";
     "chart-merger-agent": never;
     "company-audit-agent": never;
     "company-check-agent": never;
@@ -800,6 +801,7 @@ declare module "../src/flow/generated-types.js" {
     "order-topic-agent": never;
     "org-mapper-agent": never;
     "outline-agent": never;
+    "owner-buyer-agent": "budget-owner-question";
     "panel-summary-agent": never;
     "plan-researcher-agent": never;
     "planner-agent": never;
@@ -1682,6 +1684,9 @@ declare module "../tests/flow/fixtures/question-tools.fixture.js" {
   }
   interface BuyerWorkflowStart {
     readonly [agbossComponent]?: "buyer-workflow-start";
+  }
+  interface OrderTool {
+    readonly [agbossComponent]?: "order-tool";
   }
   interface OwnerBuyerAgent {
     readonly [agbossComponent]?: "owner-buyer-agent";
