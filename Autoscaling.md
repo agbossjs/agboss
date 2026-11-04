@@ -38,11 +38,19 @@ proven by the example's `tests/telemetry/prometheus-scrape.test.ts`.
 | --- | --- | --- |
 | **Scale out — slot demand** | `max(agboss_cluster_children_queued) + sum(agboss_instance_steps_waiting) + sum(agboss_instance_step_slots_busy)` | every step that wants a step slot now: children queued for any worker, steps waiting for a slot on their pod, steps at work. Target per pod = its `maxConcurrentSteps` → replicas = ⌈demand / slots⌉ |
 | **Scale in** | the same demand falling, held for a stabilization window (300 s), one pod a minute | queued work arrives in waves; a short lull must not remove pods about to be needed |
-| **Idle — the floor** | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running or held anywhere — only then is scaling to the minimum (or to zero) free of work |
+| **Idle — the floor** | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running or held anywhere — but not work waiting for recovery: see below (#751) |
 
 `agboss_cluster_*` comes from the shared store and every pod reports the same value: **`max`,
 never `sum`**. The pod-level series sum. Roots arrive through your own endpoint (a Service balances
 them), not through a queue: they count once they run, through their slots and leases.
+
+**What idle does not see (#751).** A root handed over by a stop (a scale-in's SIGTERM past
+`shutdownTimeout`), or left by a crash, is on no gauge until another pod's recovery sweep takes it:
+its record is `running`, but its lease is released (or expired) and none of its steps is at work.
+Idle reads true in that window, for up to one sweep (30 s) after a hand-over and the lease (30 s)
+plus a sweep after a crash. It is only the live pods' sweeps that continue such a root, so keep
+`minReplicaCount ≥ 1`. Scale to zero only if a root stranded until the next pod starts is
+acceptable.
 
 ## KEDA (recommended)
 
@@ -74,8 +82,9 @@ spec:
 ```
 
 With `minReplicaCount: 0`, KEDA wakes the Deployment when the demand passes `activationThreshold`
-— a root arriving through your Service then needs a pod first: keep 1 unless your roots are queued
-too. [KEDA Prometheus scaler](https://keda.sh/docs/latest/scalers/prometheus/) ·
+— but the demand is reported by the pods, so with none running nothing wakes it; a root arriving
+through your Service needs a pod first, and a root handed over or left by a crash waits for one
+(#751): keep 1. [KEDA Prometheus scaler](https://keda.sh/docs/latest/scalers/prometheus/) ·
 [ScaledObject spec](https://keda.sh/docs/latest/reference/scaledobject-spec/).
 
 ## An HPA through prometheus-adapter

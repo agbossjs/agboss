@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: what the idle signal does not see (#751)
+
+- **Fixed (docs)**: Autoscaling called idle "free of work" for scaling to zero, and the KEDA recipe
+  said `minReplicaCount: 0` was possible. A root handed over by a stop, or left by a crash, is on no
+  gauge until another pod's recovery sweep takes it, so idle can read true meanwhile. Keep
+  `minReplicaCount ≥ 1`. [Metrics](Metrics), [Autoscaling](Autoscaling).
+
 ## Unreleased — 0.1.1: `testWith` gives the application's PII key field the test key (#778)
 
 - **Fixed**: under `testWith` a fixed test key covered a PII policy's own `pseudonymKey` but not

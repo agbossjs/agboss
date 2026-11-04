@@ -99,7 +99,7 @@ interval is cheap.
 | Signal | Expression | Meaning |
 | --- | --- | --- |
 | **Demand** (scale out) | `max(agboss_cluster_children_queued) + sum(agboss_instance_steps_waiting) + sum(agboss_instance_step_slots_busy)` | the steps that want a slot now; target per pod = its `maxConcurrentSteps` |
-| **Idle** (safe to scale in to the minimum) | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running, held or at work anywhere |
+| **Idle** (safe to scale in to a minimum of one or more) | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running, held or at work anywhere |
 
 A parent waiting for its children holds its lease, and a claimed child between two steps holds its
 lease: neither reads idle (`tests/metrics/scale-signals.test.ts` looks at every turn of a tree and
@@ -108,6 +108,10 @@ through their slots and leases once they run. A scale-in still removes a pod tha
 its graceful stop (`app.close({ timeout })` within the pod's termination grace) and the
 [recovery](Several-instances#recovery) of what it hands over are what make that safe —
 [Autoscaling → Graceful termination](Autoscaling#graceful-termination).
+That recovery is a live pod's sweep: a root handed over, or left by a crash, is on no gauge until a
+sweep takes it, so idle may read true in that window (#751,
+[`hand-over-window.test.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/tests/metrics/hand-over-window.test.ts)) —
+never scale to zero on it.
 
 ## Testing
 
