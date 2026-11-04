@@ -6,7 +6,7 @@
  * When that claim is lost too, the kept lease had no pass behind it and was renewed for ever: every
  * other claimer was refused, the parent waited for ever (the 14-kubernetes-postgres-scaling run on
  * kind). A lease a reclaim keeps lives only through the reclaim's own look: a child that look did
- * not start gets its lease back, and the next reclaim or claim takes it as any other.
+ * not start gets its lease back, and the next reclaim or claim takes it like any other.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ChildExecutionQueueRepository, type QueuedChildExecution } from "../../src/index.js";
