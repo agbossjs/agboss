@@ -20,7 +20,7 @@ import {
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalDecisionDto,
 } from "../../src/dto/standard/framework.js";
-import { PauseStatus, UninterpretableReplyError } from "../../src/index.js";
+import { PauseStatus, ToolBlockedError, UninterpretableReplyError } from "../../src/index.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import {
@@ -76,12 +76,13 @@ describe("#688: the framework's texts say what a capped approval is", () => {
     expect(system).toContain('"yes, up to $900"');
     expect(system).toContain("approve with the amount set to 900 — a limit is never a refusal");
     expect(system).toContain("never raise an amount up to a limit");
-    expect(system).toContain("a no is never unclear");
+    expect(system).toContain("a no is never unclear, even when it says nothing about the details of the call");
     expect(system).toContain("would need converting");
     expect(system).toContain(`call ${NOT_UNDERSTOOD_TOOL} with why; that is not a refusal`);
     const byName = new Map(request.tools.map((tool) => [tool.function.name, tool.function]));
     expect(byName.get(NOT_UNDERSTOOD_TOOL)?.description).toBe(NOT_UNDERSTOOD_DESCRIPTION);
-    expect(NOT_UNDERSTOOD_DESCRIPTION).toContain("A yes with a limit is an approval, never this.");
+    expect(NOT_UNDERSTOOD_DESCRIPTION).toContain("A yes with a limit is an approval, never this;");
+    expect(NOT_UNDERSTOOD_DESCRIPTION).toContain("a no is a refusal, never this");
     // three named decisions in place of a boolean a cheap model reads "a limit below" into
     const parameters = byName.get(ANSWER_TOOL)?.parameters as {
       readonly properties: Readonly<
@@ -89,9 +90,7 @@ describe("#688: the framework's texts say what a capped approval is", () => {
       >;
       readonly required: readonly string[];
     };
-    expect(parameters.required).toEqual(["currency", "decision"]);
-    expect(parameters.properties.currency?.enum).toContain("USD");
-    expect(parameters.properties.currency?.enum).toContain("unspecified");
+    expect(parameters.required).toEqual(["decision"]);
     expect(parameters.properties.approved).toBeUndefined();
     expect(parameters.properties.decision?.enum).toEqual([
       ReplyDecision.Approve,
@@ -192,16 +191,12 @@ describe("#688: the model's named decision is the role's answer", () => {
   for (const [what, args, paid] of [
     [
       "approve-with-changes: the call capped, the payee kept",
-      {
-        decision: "approve-with-changes",
-        currency: "USD",
-        overrideArguments: { amountCents: 90_000 },
-      },
+      { decision: "approve-with-changes", overrideArguments: { amountCents: 90_000 } },
       [{ payee: "ann", amountCents: 90_000 }],
     ],
     [
       "approve: the call as asked — a correction beside it dropped, never a raise",
-      { decision: "approve", currency: "USD", overrideArguments: { amountCents: 200_000 } },
+      { decision: "approve", overrideArguments: { amountCents: 200_000 } },
       [{ payee: "ann", amountCents: 120_000 }],
     ],
   ] as const)
@@ -230,36 +225,26 @@ describe("#688: the model's named decision is the role's answer", () => {
   });
 
   for (const [what, args] of [
+    ["approve-with-changes that changes nothing", { decision: "approve-with-changes" }],
+    ["a decision no role has", { decision: "maybe" }],
     [
-      "approve-with-changes that changes nothing",
-      { decision: "approve-with-changes", currency: "USD" },
-    ],
-    ["a decision no role has", { decision: "maybe", currency: "USD" }],
-    [
-      "a raise read from the reply",
-      {
-        decision: "approve-with-changes",
-        currency: "USD",
-        overrideArguments: { amountCents: 200_000 },
-      },
+      "a correction naming a field the call does not have",
+      { decision: "approve-with-changes", overrideArguments: { amountCents: 90_000, tip: 1 } },
     ],
     // fail closed (security review): a decision present takes nothing else of the model's answer
-    [
-      "an unknown decision beside approved: true",
-      { decision: "bogus", currency: "USD", approved: true },
-    ],
+    ["an unknown decision beside approved: true", { decision: "bogus", approved: true }],
     [
       "approve-with-changes beside approved: true, no correction",
-      { decision: "approve-with-changes", currency: "USD", approved: true },
+      { decision: "approve-with-changes", approved: true },
     ],
     [
       "approve-with-changes beside approved: true, an empty correction",
-      { decision: "approve-with-changes", currency: "USD", approved: true, overrideArguments: {} },
+      { decision: "approve-with-changes", approved: true, overrideArguments: {} },
     ],
-    ["refuse beside approved: true", { decision: "refuse", currency: "USD", approved: true }],
+    ["refuse beside approved: true", { decision: "refuse", approved: true }],
     [
       "approve-with-changes with an empty correction",
-      { decision: "approve-with-changes", currency: "USD", overrideArguments: {} },
+      { decision: "approve-with-changes", overrideArguments: {} },
     ],
     ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
@@ -280,4 +265,25 @@ describe("#688: the model's named decision is the role's answer", () => {
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(replyDesk.payouts).toEqual([]);
     });
+});
+
+describe("#688: a reply interpreter reads intent; the tool's own rule stops what it must never do", () => {
+  test("a raise read from a reply passes the interpreter, and the payout's interceptor blocks it: nothing paid", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockLlm(PayoutReplyInterpreter).thenReturn(
+      answered({ decision: "approve-with-changes", overrideArguments: { amountCents: 200_000 } }),
+    );
+    await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
+
+    const failed = await app
+      .resume({ pauseId: payoutPauseId(), reply: "approved, up to $2000 is fine" }, manager)
+      .catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(ToolBlockedError);
+    expect(failed).toHaveProperty("interceptor", "payout-limit-tool-interceptor");
+    expect(replyDesk.payouts).toEqual([]);
+  });
 });

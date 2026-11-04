@@ -1540,14 +1540,11 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: for an approval role
   the tool's decision is named — `approve` / `approve-with-changes` / `refuse` (`ReplyDecision`), mapped onto
   the DTO, a script's DTO-shaped answer as is — a yes with a limit below the call's value is a change in any
-  language; fail closed, a correction changes only fields the call has, nested ones too, each to a value of
-  its kind no greater than the call's own (`reply-correction.ts`: a new field, a number as text, a flag turned on
-  or a raise is not understood); the answer tool's required `currency` (an ISO 4217 code or `unspecified`) must be
-  the call's own, or `unspecified` with no currency in the reply, and any currency signal of the reply that is not the
-  call's — a `\p{Sc}` symbol, a `<letters>$` but `US$`, an ISO 4217 code in any case, a currency word of several
-  languages, wherever it stands (`currency-signals.ts`, an allowlist: letters, digits and symbols are tokens apart) —
-  makes an approval, with a correction or without, not understood, never read — after a chat model's answer and a
-  decision model's yes alike (`reply-guards.ts`; a call whose fields name no currency has nothing to compare)), one
+  language; an unknown decision, `approve-with-changes` without a correction, `approved` beside a decision or a
+  correction naming a field the call does not have is not understood, and the corrected call passes the tool's own
+  input validation — the interpreter reads intent, it is no guardrail: a limit such as "never above the call's
+  amount" or "only its currency" is a tool interceptor's `beforeToolCall` on the call as it runs, or the tool's own
+  check), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their

@@ -132,25 +132,6 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
   });
 });
 
-describe("#688 (security review): a decision model's approval goes through the same guards", () => {
-  test("'yes, in CAD' on a deposit in US dollars, P(yes) 0.9: not understood, nothing returned", async ({
-    app,
-    mockLlm,
-  }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(ReturnDepositTool, { leaseId: "L-9" }));
-    mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }));
-    await execute(app, TreasuryWorkflowStart, { text: "return the deposit of L-9" });
-
-    const failed = await app
-      .resume({ pauseId: depositPauseId(), reply: "yes, in CAD" }, clerk)
-      .catch((error: unknown) => error);
-
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
-    expect(failed).toHaveProperty("reason", expect.stringContaining("CAD"));
-    expect(replyDesk.deposits).toEqual([]);
-  });
-});
-
 describe("#267 S124 b: a code interpreter returns its outcome", () => {
   test("notUnderstood({ reason }): UninterpretableReplyError with that reason, the pause pending", async ({
     app,

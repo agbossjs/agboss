@@ -8,7 +8,6 @@ import type { DtoClass } from "../dto/types.js";
 import { answerToolsOf } from "../flow/runtime/answer-tools.js";
 import { withSortedKeys } from "../flow/runtime/json.js";
 import { NOT_UNDERSTOOD_TOOL } from "../prompts/reply-interpreter.js";
-import { CURRENCY_CHOICES } from "./reply-currency.js";
 
 export { NOT_UNDERSTOOD_TOOL };
 
@@ -40,19 +39,9 @@ const DECISION_SCHEMA: JsonSchema = {
   description: DECISION_DESCRIPTION,
 };
 
-/** What the model reads about its currency (#688, security review: the guard compares it with the call's). */
-export const CURRENCY_DESCRIPTION =
-  "The currency of the amount or limit the reply names, as its ISO 4217 code (USD for dollars, $ or US$; EUR for euros or €); unspecified when the reply names no currency, and for every refuse. Never a guess: name what the reply says.";
-
-const CURRENCY_SCHEMA: JsonSchema = {
-  type: "string",
-  enum: [...CURRENCY_CHOICES],
-  description: CURRENCY_DESCRIPTION,
-};
-
 /** What the model reads about the not-understood tool. */
 export const NOT_UNDERSTOOD_DESCRIPTION =
-  "The reply neither approves nor refuses — unclear, off topic, a shrug, a maybe — or names a limit that would need converting: say why. Not a refusal: the question stays open. A yes with a limit is an approval, never this.";
+  "The reply neither approves nor refuses — unclear, off topic, a shrug, a maybe — or names a limit that would need converting: say why. Not a refusal: the question stays open. A yes with a limit is an approval, never this; a no is a refusal, never this — answer it with refuse.";
 
 /** An interpreter's tools: what its answer is, and the names of each. */
 export interface ReplyTools {
@@ -80,14 +69,13 @@ function answerDefinitionOf(answer: DtoClass, approves: DtoClass | undefined): T
   const properties = {
     ...Object.fromEntries(rest),
     decision: DECISION_SCHEMA,
-    currency: CURRENCY_SCHEMA,
     overrideArguments: correctionOf(approves),
   };
   return {
     ...tool.definition,
     function: {
       ...tool.definition.function,
-      parameters: withSortedKeys({ ...parameters, properties, required: ["currency", "decision"] }),
+      parameters: withSortedKeys({ ...parameters, properties, required: ["decision"] }),
     },
   };
 }
@@ -121,29 +109,34 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
  */
 export function withCorrectedCall(answer: unknown, ask: unknown): ReplyAnswer {
   const approval = approvalOf(answer);
-  return approval.kind === "answer"
-    ? { ...approval, answer: correctedCallOf(approval.answer, ask) }
-    : approval;
+  if (approval.kind !== "answer") return approval;
+  const unknown = fieldsTheCallLacks(approval.answer, ask);
+  if (unknown.length > 0)
+    return invalid(`its correction names ${unknown.join(", ")}: the call has no such field`);
+  return { kind: "answer", answer: correctedCallOf(approval.answer, ask) };
+}
+
+/**
+ * The fields a correction names that the call's own arguments do not have (#688, structural): a
+ * correction changes the call's fields, never adds one. What the values may be is the call's own
+ * DTO validation, once the correction is laid over the call; what they should be — never above
+ * the call's amount, in its currency — is a guardrail's or the tool's own rule, not the reply
+ * interpreter's.
+ */
+function fieldsTheCallLacks(answer: unknown, ask: unknown): readonly string[] {
+  if (!isRecord(answer) || !isRecord(answer.overrideArguments)) return [];
+  const asked = isRecord(ask) && isRecord(ask.arguments) ? ask.arguments : {};
+  return Object.keys(answer.overrideArguments).filter((field) => !Object.hasOwn(asked, field));
 }
 
 /** The model's answer as the role's, or why it is none: never a guess (#688). */
 export type ReplyAnswer =
-  | {
-      readonly kind: "answer";
-      readonly answer: unknown;
-      /** The model's currency of the reply (#688): set with a decision, none in the DTO's shape. */
-      readonly currency?: string;
-    }
+  | { readonly kind: "answer"; readonly answer: unknown }
   | { readonly kind: "invalid"; readonly reason: string };
 
 /** The keys an approval may carry: in the DTO's own shape (a script's), or beside a decision. */
 const DTO_KEYS: ReadonlySet<string> = new Set(["approved", "reason", "overrideArguments"]);
-const DECISION_KEYS: ReadonlySet<string> = new Set([
-  "decision",
-  "currency",
-  "reason",
-  "overrideArguments",
-]);
+const DECISION_KEYS: ReadonlySet<string> = new Set(["decision", "reason", "overrideArguments"]);
 
 const invalid = (reason: string): ReplyAnswer => ({ kind: "invalid", reason });
 
@@ -175,17 +168,6 @@ function approvalOf(answer: unknown): ReplyAnswer {
   if (!("decision" in answer)) return dtoShaped(answer);
   const extra = unknownKeysOf(answer, DECISION_KEYS);
   if (extra.length > 0) return invalid(`it has ${extra.join(", ")} beside its decision`);
-  const decided = decidedOf(answer);
-  if (decided.kind !== "answer" || answer.decision === ReplyDecision.Refuse) return decided;
-  // an approval names its currency (#688, security review): the guard holds it to the call's
-  const { currency } = answer;
-  if (typeof currency !== "string" || !CURRENCY_CHOICES.includes(currency))
-    return invalid("it names no currency of ISO 4217, nor unspecified");
-  return { ...decided, currency };
-}
-
-/** A named decision as the DTO's answer: approve, approve with a correction, refuse — or none. */
-function decidedOf(answer: Readonly<Record<string, unknown>>): ReplyAnswer {
   const { decision, overrideArguments } = answer;
   const reason = reasonOf(answer);
   if (decision === ReplyDecision.Refuse)

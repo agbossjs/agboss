@@ -24,7 +24,6 @@ import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
-import { guardedReading } from "./reply-guards.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
 /**
@@ -51,12 +50,7 @@ export interface ReplyInterpreterInput {
 
 /** What one reading gave: the answer, or why there is none — and what the call cost. */
 export type ModelReading =
-  | {
-      readonly kind: "answered";
-      readonly answer: unknown;
-      readonly usage: readonly UsageRecord[];
-      readonly currency?: string | undefined; // #688: the answer tool's; none — unspecified
-    }
+  | { readonly kind: "answered"; readonly answer: unknown; readonly usage: readonly UsageRecord[] }
   | { readonly kind: "declined"; readonly reason: string; readonly usage: readonly UsageRecord[] };
 
 /** The policies a reply interpreter's model reads through, and the tokens its execution has. */
@@ -125,8 +119,7 @@ export async function readByModel(
   }
   // a question role's answer (#659) is the role's own DTO: nothing laid over a call
   const ask = interpreter.approves === undefined ? undefined : input.ask;
-  const reading = readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
-  return guardedReading(reading, interpreter, input);
+  return readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
 }
 
 /** One tool call of the interpreter's move, as LangChain gives it. */
@@ -159,7 +152,7 @@ function readingOf(
   const read = withCorrectedCall(answer.args, ask);
   if (read.kind === "invalid")
     return { kind: "declined", reason: `the model gave no answer it may: ${read.reason}`, usage };
-  return { kind: "answered", answer: read.answer, usage, currency: read.currency };
+  return { kind: "answered", answer: read.answer, usage };
 }
 
 /** One reply to read: its pause, the text, and what the caller does around the model call. */
@@ -211,7 +204,7 @@ async function byModel(
   if (isDecisionModel(model)) {
     const caller = replyInterpreterCaller(interpreter.name);
     const site = { gateway: parts.gateway, model, caller, pii: call.pii };
-    return guardedReading(await readByDecision(interpreter, input, site), interpreter, input);
+    return readByDecision(interpreter, input, site);
   }
   const settings = resolveSettings(
     { ...parts.chatModelSettings(model), model },
