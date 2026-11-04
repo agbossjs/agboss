@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a lost ledger answer is counted once by the pass's checks (#770)
+
+- **Fixed**: a tallied spend's ledger write (#727) that landed while its caller heard an error was
+  held by the pass's next read of the counters while its tally still counted it, so the checks and
+  tallies before the write was retried counted it twice: a launch beside a step that paid $60
+  stopped with `BudgetExceededError` naming $146 for $86 spent of $100. Every read of the counters
+  now writes such spend again first, and fails when that write fails again; the ledger counted it
+  once already. [FinOps](FinOps).
 ## Unreleased — 0.1.1: a worker claims children up to its free slots (#767)
 
 - **Fixed**: an instance with `maxConcurrentSteps` counted each child on any instance

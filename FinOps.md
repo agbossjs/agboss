@@ -252,7 +252,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   with a read of the counters before the parent's state shows it: every dollar counts once,
   whatever the placement (#685). Each such spend is an **entry** of the ledger under its
   `ledgerId` — an id of the pass that made it, never derived from where it was made —, and the
-  ledger adds an entry once: a write retried after its answer was lost counts once, and so does a
+  ledger adds an entry once: a write retried after its answer was lost counts once — in the pass's
+  own checks too, which read the counters only once such a write is retried (#770) —, and so does a
   record an earlier pass kept that reaches a later one from a durable state (a takeover's restored
   writes, an agent's loop continued from its checkpoint). A step **run again** after a crash or a
   takeover makes its spend again — its model calls are billed again, its services paid again — and
