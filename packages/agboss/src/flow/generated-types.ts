@@ -206,6 +206,25 @@ export type GeneratedEntry<TTable, TInstance> =
       : TTable[TName]
     : MissingGeneratedTypes;
 
+/**
+ * The tools an agent's model may call, by the agent's `name` (#679): the names its scripted
+ * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` / `@McpTool` classes and
+ * its tool-mode knowledge bases' `search-<rag>-tool`.
+ */
+export interface AgentTools {
+  readonly [notGenerated]?: never;
+}
+
+/**
+ * The tool names an agent's scripted calls may name (#679): its `AgentTools` entry, `string` for a
+ * component without generated types (then nothing is checked).
+ */
+export type AgentToolNamesOf<TSelf> =
+  GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
+
+/** The name an agent's model calls a tool class by (#679): its brand, `string` before `agboss check`. */
+export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
+
 /** A node's input as its handler takes it (`execute(input: InputOf<Self>)`). */
 export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
 

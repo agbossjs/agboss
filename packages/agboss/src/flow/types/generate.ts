@@ -15,6 +15,7 @@ import { ImportTable } from "./imports.js";
 import { ClassLocator } from "./locate.js";
 import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow } from "./tables.js";
+import { agentToolsTableOf } from "./agent-tools.js";
 import { contextTypesOf } from "./contexts.js";
 import { channelTablesOf } from "./channel-roles.js";
 
@@ -130,15 +131,19 @@ function checkedWorkflows(
   return { all, owners, checks };
 }
 
+/** The options of the request's `@Application` classes. */
+const applicationOptionsOf = (request: FlowTypesRequest): readonly ApplicationOptions[] =>
+  (request.applications ?? []).flatMap((application) => {
+    const declaration = applicationDeclarationOf(application);
+    return declaration === undefined ? [] : [declaration.options];
+  });
+
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const options: AnalyseOptions = {
     modules: request.modules,
     ...(request.strict === undefined ? {} : { strict: request.strict }),
   };
-  const applications = (request.applications ?? []).flatMap((application) => {
-    const declaration = applicationDeclarationOf(application);
-    return declaration === undefined ? [] : [declaration.options];
-  });
+  const applications = applicationOptionsOf(request);
   const { all, owners, checks } = checkedWorkflows(request, applications, options);
   const errors = checks.flatMap((check) => check.errors);
   const warnings = checks.flatMap((check) => check.warnings);
@@ -149,6 +154,8 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const tables = tablesOf(workflows, names);
   // a reply interpreter (#267 PR 3) is typed like a handler: `InputOf` / `OutputOf` by its name
   const channels = channelTablesOf(all, names, tables);
+  // each agent's tools (#679): what its scripted tool calls may name
+  const agentTools = agentToolsTableOf(workflows, names);
   // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
   all.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
@@ -167,7 +174,13 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   );
   const tablesModule = names.specifier(request.tablesModule ?? "@agboss/core");
   const text = printTypes(
-    { ...tables, ...channels, workflowStarts: contexts.workflowStarts, environments: contracts },
+    {
+      ...tables,
+      ...channels,
+      agentTools,
+      workflowStarts: contexts.workflowStarts,
+      environments: contracts,
+    },
     names,
     tablesModule,
     contexts.augmentations,

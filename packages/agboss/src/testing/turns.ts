@@ -64,9 +64,10 @@ export interface AnswerTurn<TValue = unknown, TIsList extends boolean = boolean>
 }
 
 /** A call of one of the agent's tools: `callTool(SaveShortlist, { jobs: ["Acme"] })`. */
-export interface ToolCallTurn {
+export interface ToolCallTurn<TName extends string = string> {
   readonly kind: "tool-call";
-  readonly tool: string;
+  /** The tool's name — typed by its class once `agboss check` branded it (#679). */
+  readonly tool: TName;
   readonly args: Readonly<Record<string, unknown>>;
 }
 
@@ -74,9 +75,9 @@ export interface ToolCallTurn {
  * One move that calls several of the agent's tools at once (#508), each run as its own task:
  * `callTools(callTool(ChargeTool, { … }), callTool(ChargeTool, { … }))`.
  */
-export interface ToolCallsTurn {
+export interface ToolCallsTurn<TName extends string = string> {
   readonly kind: "tool-calls";
-  readonly calls: readonly ToolCallTurn[];
+  readonly calls: readonly ToolCallTurn<TName>[];
 }
 
 /**

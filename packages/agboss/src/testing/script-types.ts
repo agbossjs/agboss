@@ -6,6 +6,7 @@ import type { DtoClass } from "../dto/types.js";
 import type { NodeKind } from "../flow/ast.js";
 import type { HistoryOf, ProducedValue } from "../flow/dto-wrappers.js";
 import type {
+  AgentToolNamesOf,
   GeneratedTypeError,
   InputOf,
   KindOf,
@@ -27,6 +28,7 @@ import type {
   RouteTurn,
   ScriptedTurn,
   ToolCallTurn,
+  ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
 
@@ -102,12 +104,14 @@ type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
       : InvalidAnswerTurn<TOutput, false>;
 
 /**
- * An agent's turns: text, tool calls (valid, invalid or truncated), failures, waits — and answers
+ * An agent's turns: text, tool calls (valid, invalid or truncated; one or several in a move, #679 —
+ * of the tools it lists only), failures, waits — and answers
  * (valid or invalid) of its output's classes only.
  */
 type AgentTurnFor<TSelf> =
   | ReplyTurn
-  | ToolCallTurn
+  | ToolCallTurn<AgentToolNamesOf<TSelf>>
+  | ToolCallsTurn<AgentToolNamesOf<TSelf>>
   | InvalidToolCallTurn
   | TruncatedToolCallTurn
   | FailureTurn

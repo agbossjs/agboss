@@ -1,10 +1,8 @@
 /**
- * The workflow's graph (part of the root entry, #272): the path builder (`start`, `agent`,
- * `router`, `action`, `workflow` — a child's own path, #263 —, `question` — a question role's own
- * path, #659 — `route`, `caseOf`, the side-path starters;
- * `ThisWorkflow`, the workflow launching itself, #264), the flow's decorators with their
- * `<Kind>Options`, the handler contracts, the DTO wrappers, the tables `.agboss/types.d.ts` fills
- * (`agboss check`) and their lookups, and the workflow settings and limits.
+ * The workflow's graph (the root entry, #272): the path builder (`start`, `agent`, `router`, `action`,
+ * `workflow`, `question`, `route`, `caseOf`, the side-path starters, `ThisWorkflow`), the decorators
+ * with their `<Kind>Options`, the handler contracts, the DTO wrappers, the tables
+ * `.agboss/types.d.ts` fills and their lookups, and the workflow settings and limits.
  */
 export {
   action,
