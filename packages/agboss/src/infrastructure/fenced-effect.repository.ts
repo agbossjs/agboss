@@ -104,7 +104,12 @@ export interface FencedEffectOutcome<TResult> {
   readonly replayedFrom?: FencedEffectOrigin;
 }
 
-/** The protected write: business rows in `transaction`, then its result (plain JSON). */
+/**
+ * The protected write: business rows in `transaction`, then its result (plain JSON). A store may
+ * run it more than once within one call (#730: MongoDB's driver runs an aborted attempt again on a
+ * transient transaction error), keeping only the last attempt's writes: it writes only through
+ * `transaction` and does nothing else — no call to another system, nothing sent or counted outside.
+ */
 export type FencedEffectWork<TTransaction, TResult> = (
   transaction: TTransaction,
 ) => (TResult & JsonResult<TResult>) | Promise<TResult & JsonResult<TResult>>;
@@ -178,7 +183,8 @@ export abstract class FencedEffectRepository<TTransaction> {
    * The write and its result in one transaction with the fencing checks; the stored result on a
    * repeat. A refused lease or a lower token → `ExecutionFencedError` (a hand-over: nothing
    * written, no result); `work` throws → everything rolled back and the error rethrown as it is —
-   * the next call runs it again. Concurrent calls on one key of this instance share the first's
+   * the next call runs it again. `work` may run more than once within one call (an aborted attempt
+   * run again, as on MongoDB, #730): only the last attempt's writes are kept. Concurrent calls on one key of this instance share the first's
    * outcome (`Joined`); across instances the transaction serializes them (`Replayed`).
    */
   saveResultIfAbsent<TResult>(
