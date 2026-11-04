@@ -141,6 +141,26 @@ Breaking changes and notable additions, newest first. The API reports
   agbossjs/postgres: the times by the database's clock, no migration (an intent of before has none:
   its age is unknown, so `keyRetention` refuses its replay).
 
+## Unreleased — 0.1.1: a child on any instance is never held by a lease with nothing running (#720)
+
+- **Fixed**: a child launched with `ChildPlacement.AnyInstance` could stay `running` for ever under
+  a live, renewed lease that no pass used. A claim the store made but whose answer never reached
+  the worker left the child `Running` with no lease. The parent's watch then had the worker reclaim
+  it: take the lease, queue the child again and keep the lease for its own next claim. When that
+  claim's answer was lost too, the lease stayed held with nothing behind it, every other instance
+  was refused, and the tree never ended (only a restart of that pod helped). A lease a reclaim
+  keeps now goes back when its look did not start the child. Nothing to migrate.
+  [Several instances](Several-instances).
+- **Fixed in `@agboss/postgres`**: the child queue's claim could mark many children `running` in
+  one statement and answer one. On statistics taken while the queue held about one row, PostgreSQL
+  rescanned the claim's `LIMIT 1 … SKIP LOCKED` subquery once per row. That is the queue right after
+  a batch of one, such as the Kubernetes blueprint's frozen-pod step. The choice is now a
+  `MATERIALIZED` CTE, run once.
+- **Added** (testing): `HoldRequest.loseAnswer` and `StoreAnswerLostError` in
+  `@agboss/core/testing/faults`, the fault scenario `s16-claim-answer-lost`, and the child queue
+  contract case "a claim marks exactly the child it answers: every other stays queued".
+  [Guarantees across processes](Guarantees-across-processes).
+
 ## Unreleased — 0.1.1: no key for an application that calls no model (#716)
 
 - **Fixed**: `createApp` of an application whose workflows call no model (no agent, router,

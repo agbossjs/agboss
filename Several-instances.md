@@ -1590,7 +1590,11 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    waiting marker so the pause appears in `result.pending`, and on `app.resume` forwards the child's
    resume map through the queue so any instance continues it (#333 PR 4). On a worker crash or a
    graceful stop past `shutdownTimeout` (S7), the row stays `Running`, and once the child's lease is
-   free a live worker reclaims only that child and continues it from its last checkpoint. An
+   free a live worker reclaims only that child and continues it from its last checkpoint. The
+   reclaiming worker takes the lease, queues the child again and keeps the lease only for its own
+   next claim of it, in the same look; a child that look does not start (claimed elsewhere, or a
+   claim whose answer was lost) gets its lease back (#720), so a lease is never renewed with no pass
+   behind it — `s16-claim-answer-lost` ([Guarantees across processes](Guarantees-across-processes)). An
    `Answered` or `Failed` child's lease is **finished**, not released
    ([below](#finished-work-is-never-taken-over-520)); a `Paused` one's is released, for its resume.
 4. While it runs, the worker looks every 10 s whether the tree still waits for it: a cancel request

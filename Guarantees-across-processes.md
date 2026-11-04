@@ -30,6 +30,9 @@ assumptions it rests on and the checker that proves it are on [Guarantees](Guara
   - a step's point (`step.charge.before`, `step.charge.after`: committed but not checkpointed);
   - a store operation, before the store is asked or after it answered (`lease.acquire`,
     `lease.renew`, `lease.finish`, `fencedEffect.write`, `outboundCall.leaseStateOf`, …);
+  - a store's answer **lost** on its way back (`loseAnswer` at `HoldPhase.After`, #720): the
+    operation took effect and is in the history, and its caller gets `StoreAnswerLostError`, as when
+    the connection drops after the database committed;
   - the gateway's answer.
 
   Every wait is bounded and fails with what it waited for and what came instead.
@@ -123,6 +126,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 13 | A pod whose clock is ten leases behind, the holder frozen (#533) | It takes the tree over on time, from the holder's last checkpoint | `s13-clock-behind` (`s13-clock-skew.test.ts`) |
 | 14 | The gateway charges and its answer is lost (a 502, an error of unknown outcome, #657); the pod killed in the failed tree's undo; the gateway forgets the key; the order paid again | The intent stays pending, not `Failed`; the next pod finishes the undo (`Unwinding`), the second tree reconciles the first charge by the order's reference (`Reconciled`): one request, one payment | `s14-ambiguous-answer-reconciled` (`s14-s15-key-expiry.test.ts`) |
 | 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's `reconcile` is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`notSent()`); the framework refuses the resend past `keyRetention` (`OutboundCallUnreconciledError`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
+| 16 | The pod that hosts a batch hears no answer to two of its claims of a child: the store claimed the child for it, `Running`, and the answer was lost (#720; on PostgreSQL a claim statement that marked several rows and returned one) | The parent's watch has the pod reclaim the child; the lease it keeps for its own next claim goes back when that claim is lost too, and the next reclaim and claim run the child: once, and the batch ends. Before #720 the kept lease was renewed for ever with nothing running, and the batch never ended (with the fix reverted, 16 fails on `trees-finish`) | `s16-claim-answer-lost` |
 
 **The scenarios bite.** A broken store must fail the scenario that targets it. These permanent
 negative tests prove it (`tests/faults/sabotage.test.ts`):
