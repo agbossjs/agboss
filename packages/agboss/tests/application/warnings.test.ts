@@ -20,6 +20,7 @@ import { logged, resetLogged } from "../helpers/log.js";
 import { HistoryDeskApplication } from "../flow/fixtures/execution-history.fixture.js";
 import { SqliteExecutionHistoryRepository } from "../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import { SqlitePausedExecutionRepository } from "../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
+import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { QuestionsApplication } from "../flow/fixtures/questions.fixture.js";
 import { OrderApplication } from "../testing/fixtures/order.application.js";
 import {
@@ -79,6 +80,19 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
 
     expect(pauses.map((warning) => warning.message)).toEqual([
       "in-memory pauses: the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart",
+    ]);
+  });
+
+  it("#644: only the checkpoints listed — the warning names the pause records, the one left in memory", async () => {
+    const assembled = await applicationOf(LoggedApplication);
+    const providers = [...assembled.providers, SqliteCheckpointSaver];
+
+    const pauses = assemblyWarningsOf({ ...assembled, providers }).filter(
+      (warning) => warning.code === "application.in-memory-pauses",
+    );
+
+    expect(pauses.map((warning) => warning.message)).toEqual([
+      "in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) are kept in memory — another application instance cannot resume a pause and it is lost on restart",
     ]);
   });
 });
