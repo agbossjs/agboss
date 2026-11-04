@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice (#749)
+
+- **Fixed (docs)**: Running-on-PostgreSQL's *Wire the stores* imported `days` from
+  `@agboss/core/units`, which exports `seconds`, `minutes` and `hours` only — a project following it
+  failed `agboss check`. It reads `executionRecordRetention: hours(24 * 30)`.
+- **Fixed (docs)**: Several-instances (`keyRetention`, #658) names Adyen and Stripe; it now links
+  [the notice](Payments#the-notice), as every page naming a gateway does (#686 AC3).
 ## Unreleased — 0.1.1: the linearizability checker follows a chain of expiries (#750)
 
 - **Fixed**: the fault suite's `linearizable` check reported a sound history when one lease

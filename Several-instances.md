@@ -619,8 +619,9 @@ same on every attempt, replay and holder.
   is never less than the other system's age of the key (up to the store's millisecond and the drift
   bound A4). An intent recorded before 0.1.1 has neither: both `undefined`.
 - **`keyRetention` (#658).** A call whose `notSent()` relies on the other system **replaying the
-  key** — a gateway with no lookup (Adyen), a search that lags (Stripe) — declares how long that
-  system keeps a key, its documented minimum: `keyRetention: hours(24)`. A `notSent()` is then sent
+  key** — a gateway with no lookup (Adyen), a search that lags (Stripe; named only to identify their
+  APIs, not affiliated with or endorsed by them: [the notice](Payments#the-notice)) — declares how
+  long that system keeps a key, its documented minimum: `keyRetention: hours(24)`. A `notSent()` is then sent
   again only while `keyAge + outboundCalls.attemptTimeout` (how long the resend may take to arrive,
   A6) is below it, measured again after `reconcile` answers; past it, or with the age unknown or a
   `keyRetention` that is not a positive number, nothing is sent: `OutboundCallUnreconciledError`

@@ -27,7 +27,7 @@ in-memory default or the SQLite store — nothing else of the application change
 
 ```ts no-check: @agboss/postgres is a package of agbossjs/postgres, not installed in this repository
 import { Application, secret, type Secret } from "@agboss/core";
-import { days } from "@agboss/core/units";
+import { hours } from "@agboss/core/units";
 import {
   PostgresCheckpointSaver,
   PostgresChildExecutionQueueRepository,
@@ -63,7 +63,7 @@ export const environment: AppEnvironment = {
   environment: AppEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  executionRecordRetention: days(30),
+  executionRecordRetention: hours(24 * 30), // 30 days
   providers: [
     PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
     PostgresChildExecutionQueueRepository, // ChildPlacement.AnyInstance children
