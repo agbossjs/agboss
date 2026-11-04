@@ -415,6 +415,10 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   renewal that the later answers pin inside its span was reported in a sound history (#660 tried one
   hop). Seeded histories the lease model answers itself (`linearizability-generated.test.ts`) are
   never reported.
+- **The idle scale-in signal does not see a root that waits for the recovery sweep** (#751): a
+  root handed over by a graceful stop (or left by a crash) is on no gauge until another instance's
+  sweep takes it, so idle can read true for up to one sweep. Wiki → Metrics and Autoscaling say so,
+  and keep `minReplicaCount ≥ 1` (`tests/metrics/hand-over-window.test.ts`).
 - **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
   two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
   `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
