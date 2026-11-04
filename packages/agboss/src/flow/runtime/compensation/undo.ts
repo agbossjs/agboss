@@ -8,7 +8,7 @@ import type { Clock } from "../../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
 import type { ResolvedField } from "../../analyse/fields.js";
-import { actionDeclarationOf } from "../../analyse/compensation.js";
+import { undoOf } from "../../analyse/compensation.js";
 import { slotOfField } from "../../analyse/scope.js";
 import {
   CompensationEntryStatus,
@@ -54,6 +54,8 @@ export interface UndoSite {
 /** An undo that ran: its entry, closed, and what its services cost. */
 export interface Undone {
   readonly entry: CompensationEntry;
+  /** The undo's record, as the closed entry keeps it. */
+  readonly record: CompensationRecord;
   readonly usage: readonly UsageRecord[];
 }
 
@@ -65,16 +67,17 @@ interface ExecutableAction {
 const isExecutable = (value: unknown): value is ExecutableAction =>
   typeof value === "object" &&
   value !== null &&
-  "execute" in value &&
-  typeof value.execute === "function";
+  typeof Reflect.get(value, "execute") === "function";
 
 /** The undo action's fields, resolved like a node's (it need not be a node of the graph). */
 const fieldsOf = (undo: ActionDeclaration): readonly ResolvedField[] =>
   Object.entries(undo.options.input ?? {}).map(([name, shape]) => ({
     name,
+    // Stryker disable next-line StringLiteral: `readInput` reads a field by its name and slot; the label only names it in an assembly error
     label: `${undo.options.name}.${name}`,
     shape,
     ...slotOfField(shape),
+    // Stryker disable next-line BooleanLiteral: `readInput` never reads `isPassThrough` (the assembly's checks do)
     isPassThrough: false,
   }));
 
@@ -88,7 +91,7 @@ function cleanUpSignalOf(site: UndoSite): { readonly signal: AbortSignal; releas
     if (reason !== undefined) handedOver.abort(reason);
   };
   if (run.aborted) watch();
-  else run.addEventListener("abort", watch, { once: true });
+  else run.addEventListener("abort", watch);
   return {
     signal: AbortSignal.any([timeout.signal, handedOver.signal]),
     release: (): void => {
@@ -100,12 +103,10 @@ function cleanUpSignalOf(site: UndoSite): { readonly signal: AbortSignal; releas
 
 /** The undo action's class and declaration, named by the compensated action's own. */
 function undoActionOf(site: UndoSite, entry: CompensationEntry): [Class, ActionDeclaration] {
-  const undo = actionDeclarationOf(site.graph.nodes.get(entry.action)?.component)?.options
-    .compensateWith;
-  const declaration = actionDeclarationOf(undo);
-  if (undo === undefined || declaration === undefined)
+  const found = undoOf(site.graph.nodes.get(entry.action)?.component);
+  if (found === undefined)
     throw new TypeError(`${entry.action} has no compensateWith action to undo it`);
-  return [undo, declaration];
+  return [found.undo, found.compensator];
 }
 
 /** The undo's frame: the execution's facts on the clean-up signal, the undo action's step. */
@@ -136,6 +137,7 @@ async function ranUndo(
   const [type, declaration] = undoActionOf(site, entry);
   const instance: unknown = site.container.get(type);
   if (!isExecutable(instance)) throw new TypeError(`${entry.compensator} has no execute(input)`);
+  // Stryker disable next-line ArrayDeclaration: only a history field reads outdated values, by slot, and a stray string has none
   const view = { scope: entry.input, outdatedValues: [] };
   const input = readInput(site.graph, { fields: fieldsOf(declaration) }, view).fields;
   const name = entry.compensator;
@@ -218,7 +220,11 @@ export async function undone(entry: CompensationEntry, site: UndoSite): Promise<
       startedAt: startedAt.toISOString(),
       endedAt: site.clock.now().toISOString(),
     };
-    return { entry: { ...entry, status: CompensationEntryStatus.Closed, undo: record }, usage };
+    return {
+      entry: { ...entry, status: CompensationEntryStatus.Closed, undo: record },
+      record,
+      usage,
+    };
   } finally {
     cleanUp.release();
   }

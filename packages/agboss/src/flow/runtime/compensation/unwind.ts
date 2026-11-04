@@ -1,6 +1,7 @@
 import { errorRecordOf } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
+import { SILENT_LOG } from "../../../infrastructure/logger.js";
 import { timeoutError, timeoutOn } from "../../../infrastructure/clock.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import type { Milliseconds } from "../../../units/index.js";
@@ -73,6 +74,7 @@ export function mergedEntries(
 
 /** The open entries of the unwind not undone yet, newest first. */
 function openNow(site: UnwindSite, done: ReadonlySet<string>): readonly CompensationEntry[] {
+  // Stryker disable next-line ArrayDeclaration: a stray string is no open entry, so the filter below drops it
   const mirrored = site.parts?.registry.entriesOf(site.tree, site.covers) ?? [];
   return mergedEntries(site.known, mirrored)
     .filter(
@@ -99,20 +101,25 @@ export async function bodiesSettled(site: UnwindSite): Promise<void> {
 }
 
 /** A late undo (Q-B): run at once, its spend recorded; a failure is reported, there is no one to fail. */
-async function lateUndo(site: UnwindSite, entry: CompensationEntry): Promise<void> {
+async function lateUndo(
+  site: UnwindSite,
+  parts: CompensationParts,
+  entry: CompensationEntry,
+): Promise<void> {
   const subject = { executionId: entry.executionId, tenantId: site.tree.tenantId };
+  // the report is made outside the try: a report that throws is never taken for the undo's own failure
+  let text: string | undefined;
   try {
     const ran = await undone(entry, site.undoSiteOf(entry));
     await site.record(ran.usage);
-    const error = ran.entry.undo?.error;
-    if (error !== undefined) {
-      const text = `the late undo of ${entry.action} by ${entry.compensator} failed: ${error.message}`;
-      site.parts?.log?.warn("compensation.late-undo-failed", text, subject);
-    }
+    const { error } = ran.record;
+    if (error !== undefined)
+      text = `the late undo of ${entry.action} by ${entry.compensator} failed: ${error.message}`;
   } catch (thrown) {
-    const text = `the late undo of ${entry.action} did not run: ${errorRecordOf(thrown).message}`;
-    site.parts?.log?.warn("compensation.late-undo-failed", text, subject);
+    text = `the late undo of ${entry.action} did not run: ${errorRecordOf(thrown).message}`;
   }
+  if (text !== undefined)
+    (parts.log ?? SILENT_LOG).warn("compensation.late-undo-failed", text, subject);
 }
 
 /** Seals what the unwind covers until its executions' last running body returned. */
@@ -120,7 +127,7 @@ function seal(site: UnwindSite): void {
   const { parts, stepEntries } = site;
   if (!site.isSealing || parts === undefined || stepEntries === undefined) return;
   const lift = parts.registry.seal(site.tree, site.covers, (entry) => {
-    void lateUndo(site, entry);
+    void lateUndo(site, parts, entry);
   });
   const never = new AbortController().signal;
   // a body's entry closes when it returns, its visit writes its entry a little later: one bound more
@@ -136,6 +143,7 @@ export async function unwound(site: UnwindSite): Promise<Unwound> {
   const done = new Set<string>();
   const closed: CompensationEntry[] = [];
   const usage: UsageRecord[] = [];
+  const failures: CompensationRecord[] = [];
   for (let open = openNow(site, done); open.length > 0; open = openNow(site, done)) {
     for (const entry of open) {
       done.add(entry.key);
@@ -144,11 +152,9 @@ export async function unwound(site: UnwindSite): Promise<Unwound> {
       await site.onUndone?.(ran.entry);
       closed.push(ran.entry);
       usage.push(...ran.usage);
+      if (ran.record.status === CompensationStatus.Failed) failures.push(ran.record);
     }
   }
   seal(site);
-  const failures = closed.flatMap((entry) =>
-    entry.undo?.status === CompensationStatus.Failed ? [entry.undo] : [],
-  );
   return { closed, usage, failures };
 }

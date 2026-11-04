@@ -118,6 +118,7 @@ export class LeaseAttempts {
 
   /** Whether every attempt kept settled before a bound — `lost`, `stopping`, the timeouts — ended the wait. */
   async settled(lost: AbortSignal, stopping?: AbortSignal): Promise<boolean> {
+    // Stryker disable next-line ConditionalExpression: with no attempt the wait below ends at once as well — `Promise.all([])` settles first and its timer is ended in `finally`
     if (this.#attempts.size === 0) return true;
     const done = new AbortController();
     const ended = AbortSignal.any([

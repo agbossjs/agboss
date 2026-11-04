@@ -125,6 +125,7 @@ export class BudgetMeter implements BudgetCheck {
   /** The pass's spend tallied as it was made and not written to the ledger yet. */
   #tallied: UsageRecord[] = [];
   /** Spend recorded elsewhere, taken in before its records reached `record` (as a multiset). */
+  // Stryker disable next-line ArrayDeclaration: a stray string's multiset key is all nulls, which no usage record has, so it takes nothing out
   #takenIn: UsageRecord[] = [];
   /** The meter's reads and writes, one at a time. */
   #turns: Promise<unknown> = Promise.resolve();
@@ -212,7 +213,6 @@ export class BudgetMeter implements BudgetCheck {
     const own = records.filter(isRecordedHere);
     if (own.length === 0 || this.records.length === 0) return;
     this.#tallied.push(...own);
-    if (this.#exhausted.signal.aborted) return;
     // the records are in the tally (and soon in the state): the error carries none of them
     const breach = this.#breachOf(this.#executionSpent(), path, []);
     if (breach !== undefined) this.#exhausted.abort(breach);
@@ -267,7 +267,7 @@ export class BudgetMeter implements BudgetCheck {
 
   /** Adds the calls' cost to every counter (their period); one recorded elsewhere only counts (#333). */
   record(records: readonly UsageRecord[]): Promise<void> {
-    if (records.length === 0 || this.records.length === 0) return Promise.resolve();
+    if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       const own = records.filter(isRecordedHere);
       const elsewhere = records.filter((record) => !isRecordedHere(record));

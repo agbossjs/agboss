@@ -55,7 +55,9 @@ function executionOf(namespace: string, values: Readonly<Record<string, unknown>
 /** The channel's value with the tuple's pending writes to it applied, in order. */
 function entriesOf(tuple: CheckpointTuple): readonly CompensationEntry[] {
   const kept: unknown = tuple.checkpoint.channel_values[COMPENSATIONS];
+  // Stryker disable next-line ArrayDeclaration: a stray string has no execution, so the caller's filter drops it
   let entries: readonly CompensationEntry[] = isEntryList(kept) ? kept : [];
+  // Stryker disable next-line ArrayDeclaration: a stray string's second character is no channel's name
   for (const [, channel, value] of tuple.pendingWrites ?? []) {
     if (channel === COMPENSATIONS && isEntryList(value))
       entries = mergeCompensations(entries, value);

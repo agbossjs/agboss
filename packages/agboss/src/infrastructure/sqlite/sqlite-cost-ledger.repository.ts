@@ -65,7 +65,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
 
   saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
     const spent = totalCost(records);
-    if (counters.length === 0 || records.length === 0) return Promise.resolve();
+    if (records.length === 0) return Promise.resolve();
     this.connection.transaction(() => {
       const statement = this.connection.database.prepare(
         `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)

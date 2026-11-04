@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../../../src/budgets/budget.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { SqliteCostLedgerRepository } from "../../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
+import { isSqliteImplementation } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
 const counter = {
@@ -42,5 +43,33 @@ describe("#261: the SQLite cost ledger of a file written before budgets", () => 
     const reopened = new SqliteCostLedgerRepository(connectionTo(path));
 
     expect(await reopened.findSpentByCounter(counter)).toBe(0.5);
+  });
+});
+
+describe("#633: the SQLite cost ledger beyond its contract", () => {
+  it("a SQLite implementation that answers its ping", async () => {
+    const ledger = new SqliteCostLedgerRepository(connectionTo(temporarySqlitePath()));
+
+    expect(isSqliteImplementation(ledger)).toBe(true);
+    await expect(ledger.ping()).resolves.toBeUndefined();
+  });
+
+  it("registers its DDL under cost_ledger: the file never runs it again", () => {
+    const connection = connectionTo(temporarySqlitePath());
+    new SqliteCostLedgerRepository(connection);
+
+    expect(() => {
+      connection.ensureSchema("cost_ledger", "NOT A STATEMENT");
+    }).not.toThrow();
+  });
+
+  it("no calls to count: no row is written", async () => {
+    const path = temporarySqlitePath();
+    const ledger = new SqliteCostLedgerRepository(connectionTo(path));
+
+    await ledger.saveAll([counter], []);
+
+    const rows = connectionTo(path).database.prepare("SELECT COUNT(*) AS n FROM cost_ledger").get();
+    expect(rows).toEqual({ n: 0 });
   });
 });

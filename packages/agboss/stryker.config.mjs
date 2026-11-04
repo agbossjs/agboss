@@ -70,6 +70,64 @@ const SHARDS = {
       "src/infrastructure/outbound-call-record.ts",
     ],
   },
+  // the holder's side of a takeover (#633): a lease yielded only while every caller waits and no
+  // step runs (#471), a release that waits for its attempts (#508), the takes and their reports
+  // (#501, #520), a hand-over that is not a failure (P5)
+  takeover: {
+    configFile: "vitest.mutation-takeover.config.ts",
+    mutate: ["src/app/lease-yields.ts", "src/app/execution-leases.ts", "src/app/handed-over.ts"],
+  },
+  // recovery (#633): the sweep, a root taken over, finished work (#520), an end heard once (#562,
+  // #596, #597), a tree's moves
+  recovery: {
+    configFile: "vitest.mutation-takeover.config.ts",
+    mutate: [
+      "src/app/recover-root.ts",
+      "src/app/recovery-pass.ts",
+      "src/app/ended-tree.ts",
+      "src/app/tree-ends.ts",
+      "src/app/tree-moves.ts",
+    ],
+  },
+  // undo (#633): each undoable action's entry, its undo once and newest first, the marks a
+  // takeover reads (#607, #640, #675)
+  undo: {
+    configFile: "vitest.mutation-undo.config.ts",
+    mutate: [
+      "src/flow/runtime/compensation/undo.ts",
+      "src/flow/runtime/compensation/held-undo.ts",
+      "src/flow/runtime/compensation/registry.ts",
+      "src/flow/runtime/compensation/unwinding-marks.ts",
+      "src/flow/runtime/compensation/visit-entries.ts",
+      "src/flow/runtime/compensation/checkpoint-entries.ts",
+    ],
+  },
+  // the unwinds (#633): a step's, a child's, a failed join's (#607) and the root's; never on a
+  // hand-over (P5), finished by a takeover
+  unwind: {
+    configFile: "vitest.mutation-undo.config.ts",
+    mutate: [
+      "src/flow/runtime/compensation/unwind.ts",
+      "src/flow/runtime/compensation/child-unwind.ts",
+      "src/flow/runtime/compensation/join-unwind.ts",
+      "src/app/compensation/root-unwind.ts",
+      "src/app/compensation/tree-undo-sites.ts",
+      "src/app/tree-unwind.ts",
+      "src/app/unwinding-takeover.ts",
+    ],
+  },
+  // money (#633): the budget meter — every dollar of a tree counted once (#685), in whole
+  // micro-dollars (#728) — and the cost ledger, in memory and SQLite
+  money: {
+    configFile: "vitest.mutation-money.config.ts",
+    mutate: [
+      "src/budgets/execution-budgets.ts",
+      "src/budgets/budget-check.ts",
+      "src/budgets/application-spend.ts",
+      "src/infrastructure/cost-ledger.repository.ts",
+      "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
+    ],
+  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

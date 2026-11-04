@@ -145,6 +145,7 @@ async function takeLease(
 
 /** Whether the work `take` would move is already over (#520); a read that fails is not. */
 const isOver = async (take: LeaseTake | undefined): Promise<boolean> =>
+  // Stryker disable next-line ArrowFunction: a failed read's `undefined` is not `true` either, so it is not over as with `false`
   (await take?.isOver?.().catch((): boolean => false)) === true;
 
 /**

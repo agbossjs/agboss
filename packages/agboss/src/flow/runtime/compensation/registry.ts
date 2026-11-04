@@ -46,11 +46,9 @@ export class CompensationRegistry {
       if (seal === undefined) kept.push(entry);
       else late.push([seal, entry]);
     }
-    if (kept.length > 0) {
-      const known = this.#trees.get(key) ?? new Map<string, CompensationEntry>();
-      for (const entry of kept) known.set(entry.key, entry);
-      this.#trees.set(key, known);
-    }
+    const known = this.#trees.get(key) ?? new Map<string, CompensationEntry>();
+    for (const entry of kept) known.set(entry.key, entry);
+    this.#trees.set(key, known);
     for (const [seal, entry] of late) seal.undo(entry);
   }
 
@@ -84,6 +82,11 @@ export class CompensationRegistry {
       seals.delete(seal);
       if (seals.size === 0 && this.#seals.get(key) === seals) this.#seals.delete(key);
     };
+  }
+
+  /** How many trees hold a seal now: a lift of a tree's last one leaves nothing behind (#633). */
+  get sealedTrees(): number {
+    return this.#seals.size;
   }
 
   /** The tree's pass ended: its entries live on in its checkpoint only (its seals stay). */

@@ -31,6 +31,12 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
   `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
   100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
   271 mutants; every one killed, timed out or justified where it stands).
+- **Takeover, recovery, undo and the budgets' money are mutation-tested** (#633) — five Stryker
+  shards join the three: `takeover` (the lease's yields, attempts and takes, the hand-over),
+  `recovery` (the sweep, a root taken over, a tree's end and moves), `undo` and `unwind` (each
+  automatic undo, its entries, marks and registry; a step's, a child's, a failed join's and the
+  root's unwind) and `money` (the budget meter, the application's spend, the cost ledgers), cold
+  every night, failing below 100 %. Wiki → Guarantees states each shard's counts.
 - **`PauseAnswerRecord.asked`** (#688) — the call as asked (an approval's tool and its own arguments,
   before any correction a reply made) or a question's ask, masked like `decision`: beside the call as
   it ran, every change a reply made is auditable. Absent on a record kept before.
