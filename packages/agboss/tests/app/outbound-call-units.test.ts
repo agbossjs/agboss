@@ -5,7 +5,7 @@
  * joined, left and aborted.
  */
 import { getEventListeners } from "node:events";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   checkedCall,
   replayedFromOf,
@@ -20,7 +20,10 @@ import {
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
 import { OutboundCallOutcomeStatus } from "../../src/app/outbound-calls.js";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
-import { OutboundCallEventOutcome } from "../../src/infrastructure/execution-lease-event.repository.js";
+import {
+  OutboundCallEventOutcome,
+  OutboundCallLeaseState,
+} from "../../src/infrastructure/execution-lease-event.repository.js";
 import { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
 import { testFrame } from "../helpers/frame.js";
 import { recordingLog } from "../helpers/log.js";
@@ -65,6 +68,25 @@ describe("#626: how an error names a call's key", () => {
     const found = { fingerprint: "left-by-a-store", status: OutboundCallStatus.Completed } as never;
 
     await expect(checkedCall(run, found)).resolves.toBeUndefined();
+  });
+
+  it("a step's pending attempt no one sends here is reconciled: the lease that wrote it is never asked", async () => {
+    const leaseStateOf = vi.fn(() => Promise.resolve(OutboundCallLeaseState.Live));
+    const run = {
+      key: { name: "charge", leaseExecutionId: "execution-1" },
+      options: {},
+      parts: { owners: new Set(), repository: { leaseStateOf } },
+    } as never;
+    const found = {
+      status: OutboundCallStatus.Pending,
+      attemptOwner: "owner-on-another-instance",
+      leaseExecutionId: "execution-0",
+      tenantId: "default",
+      token: 1,
+    } as never;
+
+    await expect(checkedCall(run, found)).resolves.toBeUndefined();
+    expect(leaseStateOf).not.toHaveBeenCalled();
   });
 });
 
