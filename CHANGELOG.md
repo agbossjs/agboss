@@ -331,6 +331,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **`agboss check --strict` reports every analyser warning as an error** (#769) — it kept only
+  three codes of a hand-written list, so `[limits.max-steps-below-worst-case]` (#643),
+  `[limits.child-concurrency-above-parent]` and `[flow.committer-unreachable]` printed under a plain
+  `agboss check` and vanished under `--strict`, which exited 0. The analyser's own warnings are now
+  the errors `--strict` reports; there is no list to fall behind.
 - **The e-mail PII detector no longer takes a file extension into the address** (#729) —
   `anna@acme.com.pdf` was found as the address `anna@acme.com.pdf`, so its token, or the domain
   `replacePart({ keepDomain: true })` keeps, held the extension; `.mp4` cut the match inside the
