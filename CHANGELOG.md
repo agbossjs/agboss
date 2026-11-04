@@ -14,6 +14,15 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **`testReplyInterpreter(Role, { model })`** (#644) — a role's `@ReplyInterpreter` on its own:
+  `{ ask, reply }` in, `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }` out, as
+  `app.resume({ pauseId, reply })` reads it; a code one through its container, a model one on its
+  script.
+- **DX papercuts** (#644): `[application.pii-instance-key]` only when something makes a PII token (a
+  policy, a `sensitive` field — a text start's optional `sender` is one); `[application.in-memory-pauses]` names the store left in memory; an
+  OpenAI-compatible provider without `requestFields` is `[model-provider.request-fields-missing]` at
+  assembly; a unit runner's `environment` takes only the fields the unit reads, and the SQLite
+  error says how to pass `sqlitePath`; a cancelled launch branch keeps no raw `AbortError`.
 - **`[limits.max-steps-below-worst-case]`** (#643) — `agboss check` warns (an error under `--strict`)
   when a hand-set `maxSteps` is below the worst case of a flow whose every loop `maxVisits` bounds:
   the run would fail with `StepsLimitExceededError` before the loop's own

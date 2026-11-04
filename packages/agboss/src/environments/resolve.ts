@@ -159,6 +159,13 @@ function environmentOf(values: unknown): Environment {
 /** No values: what tools see while they are only described (`agboss describe` without an environment). */
 export const NO_ENVIRONMENT_VALUES: Environment = environmentOf(Object.freeze({}));
 
+/**
+ * A unit test's values (#644): only the fields the unit reads, as the application's environment —
+ * a field it does not read is absent, as it would be unread.
+ */
+export const unitEnvironmentOf = (values: Partial<Environment>): Environment =>
+  environmentOf(values);
+
 /** Every process variable an environment file reads, by field. */
 export const environmentVariablesOf = (loaded: LoadedEnvironment): readonly ProcessVariable[] =>
   leavesOf(loaded.values).flatMap(([field, value]): ProcessVariable[] => {

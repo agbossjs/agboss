@@ -19,6 +19,9 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import { HistoryDeskApplication } from "../flow/fixtures/execution-history.fixture.js";
 import { SqliteExecutionHistoryRepository } from "../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
+import { SqlitePausedExecutionRepository } from "../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
+import { QuestionsApplication } from "../flow/fixtures/questions.fixture.js";
+import { OrderApplication } from "../testing/fixtures/order.application.js";
 import {
   DurableLoggedApplication,
   LoggedApplication,
@@ -28,7 +31,7 @@ import {
 const LEDGER =
   "[application.in-memory-cost-ledger] in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart";
 const PAUSES =
-  "[application.in-memory-pauses] in-memory pauses: another application instance cannot resume them and they are lost on restart";
+  "[application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart";
 const PII_KEY =
   "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey";
 
@@ -41,6 +44,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     const app = await createApp(LoggedApplication, offline);
     await app.close();
 
+    // its text start's `sender` is sensitive (a token): the instance key's warning too (#644)
     expect(app.warnings).toEqual([LEDGER, PAUSES, PII_KEY]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
@@ -63,6 +67,19 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
     ).toEqual([PII_KEY]);
+  });
+
+  it("#644: only the pause records listed — the warning names the checkpoints, the one left in memory", async () => {
+    const assembled = await applicationOf(LoggedApplication);
+    const providers = [...assembled.providers, SqlitePausedExecutionRepository];
+
+    const pauses = assemblyWarningsOf({ ...assembled, providers }).filter(
+      (warning) => warning.code === "application.in-memory-pauses",
+    );
+
+    expect(pauses.map((warning) => warning.message)).toEqual([
+      "in-memory pauses: the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart",
+    ]);
   });
 });
 
@@ -97,6 +114,24 @@ describe("#120 S94: no application key → a key of the instance, and a warning"
     expect(logged.map((entry) => entry.message)).toContain(PII_KEY);
   });
 
+  it("#644: nothing makes a PII token — no policy, no sensitive field, no text start — no warning", async () => {
+    const assembled = await applicationOf(OrderApplication);
+
+    expect(applicationWarningsOf(assembled).map((warning) => warning.code)).toEqual([
+      "application.in-memory-cost-ledger",
+    ]);
+  });
+
+  it("#644: a sensitive field of a path's DTO, or a PII policy, makes tokens: the warning", async () => {
+    const sensitive = await applicationOf(QuestionsApplication); // PurchaseQuestionDto.requester
+    const policies = await applicationOf(ClinicApplication);
+
+    for (const assembled of [sensitive, policies])
+      expect(applicationWarningsOf(assembled).map((warning) => warning.code)).toContain(
+        "application.pii-instance-key",
+      );
+  });
+
   it("pseudonymKey set: no warning", async () => {
     const processEnv = { PII_APP_KEY: "k", PII_TEST_PSEUDONYM_KEY: "own" };
     const app = await createApp(KeyedApplication, { ...offline, processEnv });
@@ -124,7 +159,7 @@ describe("#261 AC14, #120 S94: silent in tests", () => {
   });
 
   it("an instance built as testWith builds it (its test key, #334) makes tokens with a fixed key: no PII key warning", async () => {
-    const assembled = await applicationOf(NoteLoggedApplication);
+    const assembled = await applicationOf(QuestionsApplication);
     const seams = { quiet: true, piiTestKey: TEST_PSEUDONYM_KEY };
     const { app } = await buildApplication(assembled, offline, seams);
     await app.close();

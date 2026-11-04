@@ -5,7 +5,7 @@
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
  * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
- * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`) and the matchers
+ * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`, `testReplyInterpreter`) and the matchers
  * (register them with `setupFiles: ["@agboss/core/testing/setup"]`). Vitest is an optional peer
  * dependency.
  * Wiki → Testing.
@@ -124,6 +124,12 @@ export {
   type ActionRunner,
 } from "./units/test-action.js";
 export { testJudge, type JudgeRunner } from "./units/test-judge.js";
+export {
+  testReplyInterpreter,
+  type ReplyInterpreterReading,
+  type ReplyInterpreterRunner,
+  type ReplyInterpreterRunnerInput,
+} from "./units/test-reply-interpreter.js";
 export { testPii, type PiiRunner } from "./units/test-pii.js";
 export { testRouter, type RouterRunner } from "./units/test-router.js";
 export { testArbiter, type ArbiterRunner } from "./units/test-arbiter.js";

@@ -23,7 +23,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
   place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
   `[model-provider.both-modes]`; no `circuitBreakerPolicy` — a JS project or a cast — is
-  `[model-provider.circuit-breaker-required]`, #521): `ModelProviderRequest` (`model`, `messages:
+  `[model-provider.circuit-breaker-required]`, #521; an OpenAI-compatible subclass without `requestFields` is `[model-provider.request-fields-missing]`, #644): `ModelProviderRequest` (`model`, `messages:
 ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
   `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
@@ -2535,7 +2535,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testToolInterceptor(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
+  `testReplyInterpreter(Role, { model })` (#644: the role's `@ReplyInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testToolInterceptor(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
   `.afterToolCall(Tool, input, output)`), `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);

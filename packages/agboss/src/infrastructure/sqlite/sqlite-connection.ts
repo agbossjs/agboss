@@ -83,7 +83,7 @@ export class SqliteConnection implements OnDestroy {
     const parsed = SqliteEnvironment.safeParse(applicationContext.environment);
     if (!parsed.success) {
       throw new Error(
-        `the SQLite implementations need sqlitePath: string in the environment — ${parsed.error.issues.map((issue) => issue.message).join("; ")}`,
+        `the SQLite implementations need sqlitePath: string in the environment — ${parsed.error.issues.map((issue) => issue.message).join("; ")}; set it in the environment's file, or in a unit test pass it: testAction(X, { environment: { sqlitePath: ":memory:" } })`,
       );
     }
     this.path = parsed.data.sqlitePath;

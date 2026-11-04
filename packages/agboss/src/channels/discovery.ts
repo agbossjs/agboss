@@ -187,7 +187,7 @@ const answerOf = (role: FoundChannelRole): DtoClass =>
   isQuestionRole(role.options) ? role.options.answer : ToolCallApprovalDecisionDto;
 
 /** The roles of the uses that name an interpreter, each with it (an undecorated one has none). */
-function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRole[] {
+export function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRole[] {
   return rolesOf(uses).flatMap((role) => {
     const interpreter = role.options.replyInterpreter;
     const declaration = interpreter === undefined ? undefined : replyInterpreterOf(interpreter);
@@ -231,28 +231,32 @@ export function replyInterpreterViolations(uses: readonly ChannelUse[]): RuleVio
   return [...undecorated, ...interpretedRolesOf(uses).flatMap(declarationViolations)];
 }
 
+/** One role's interpreter as the tree's reader runs it, a model one's instructions loaded by `loader`. */
+export async function assembledOf(
+  { role, interpreter, declaration }: InterpretedRole,
+  loader: PromptLoader,
+): Promise<AssembledReplyInterpreter> {
+  const { options, source } = declaration;
+  const isCode = isCodeReplyInterpreter(options);
+  const label = `@ReplyInterpreter "${options.name}"`;
+  return {
+    channel: role.options.name,
+    interpreter,
+    name: options.name,
+    answer: answerOf(role),
+    approves: role.options.approves,
+    model: isCode ? undefined : options.model,
+    instructions: isCode ? "" : await loader.load({ label, options, source }),
+  };
+}
+
 /** The interpreters of a workflow's tree, model ones with their instructions loaded by `loader`. */
 export async function replyInterpretersOf(
   workflow: Class,
   loader: PromptLoader,
 ): Promise<readonly AssembledReplyInterpreter[]> {
   const roles = interpretedRolesOf(channelUsesOf([workflow]));
-  return Promise.all(
-    roles.map(async ({ role, interpreter, declaration }) => {
-      const { options, source } = declaration;
-      const isCode = isCodeReplyInterpreter(options);
-      const label = `@ReplyInterpreter "${options.name}"`;
-      return {
-        channel: role.options.name,
-        interpreter,
-        name: options.name,
-        answer: answerOf(role),
-        approves: role.options.approves,
-        model: isCode ? undefined : options.model,
-        instructions: isCode ? "" : await loader.load({ label, options, source }),
-      };
-    }),
-  );
+  return Promise.all(roles.map((role) => assembledOf(role, loader)));
 }
 
 /** The code interpreters among them: the classes the container creates. */

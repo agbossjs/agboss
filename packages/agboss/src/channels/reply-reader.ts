@@ -3,10 +3,9 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import type { ChatDefaults, ModelSettings, ResolvedModelSettings } from "../config/types.js";
 import type { Class } from "../components/injection.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
-import { runInFrame, type FrameSpec } from "../flow/context/frame.js";
+import type { FrameSpec } from "../flow/context/frame.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ModelGateway } from "../llm/gateway.js";
-import { resolveSettings } from "../llm/registry.js";
 import { maskForModel, revealFromModel } from "../pii/model-boundary.js";
 import type { PiiPolicySet } from "../pii/policy-set.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
@@ -15,14 +14,8 @@ import {
   REPLY_INTERPRETER_SYSTEM,
   replyInputMessage,
 } from "../prompts/reply-interpreter.js";
-import { isDecisionModel } from "../models/decision-models.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "./channel-role.decorator.js";
+import { UninterpretableReplyError } from "./channel-role.decorator.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
-import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
-import { readByDecision } from "./reply-decision.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
@@ -192,60 +185,3 @@ export interface ReplyReaderParts {
 
 /** Reads one reply. */
 export type ReplyReader = (call: ReplyCall) => Promise<ReplyReading>;
-
-async function byModel(
-  interpreter: AssembledReplyInterpreter,
-  model: string,
-  input: ReplyInterpreterInput,
-  call: ReplyCall,
-  parts: ReplyReaderParts,
-): Promise<Interpreted> {
-  await call.beforeModelCall();
-  if (isDecisionModel(model)) {
-    const caller = replyInterpreterCaller(interpreter.name);
-    const site = { gateway: parts.gateway, model, caller, pii: call.pii };
-    return readByDecision(interpreter, input, site);
-  }
-  const settings = resolveSettings(
-    { ...parts.chatModelSettings(model), model },
-    parts.chatDefaults,
-  );
-  const site = { gateway: parts.gateway, settings, callbacks: call.callbacks, pii: call.pii };
-  return readByModel(interpreter, input, site);
-}
-
-/** The reader of a workflow's tree. */
-export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
-  return async (call) => {
-    const { pause, reply } = call;
-    const interpreter = parts.interpreters.find((found) => found.channel === pause.channel);
-    if (interpreter === undefined) {
-      throw new ReplyInterpreterMissingError(
-        `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
-      );
-    }
-    const input = { ask: pause.ask, reply };
-    const { model } = interpreter;
-    const interpreted = await runInFrame(call.frame, () =>
-      model === undefined
-        ? readByCode(interpreter, input, parts.instanceOf(interpreter.interpreter))
-        : byModel(interpreter, model, input, call, parts),
-    );
-    const unreadable = (declined: Declined): ReplyReading => {
-      const message = `pause ${pause.pauseId}: ${interpreter.name} could not read the reply — ${declined.reason}`;
-      const { reason, cause } = declined;
-      const error = new UninterpretableReplyError(message, { reason, cause });
-      return { kind: "unreadable", error, usage: interpreted.usage };
-    };
-    if (interpreted.kind === "declined") return unreadable(interpreted);
-    try {
-      return {
-        kind: "read",
-        decision: call.validate(interpreted.answer),
-        usage: interpreted.usage,
-      };
-    } catch (invalid) {
-      return unreadable(crashed(invalid, interpreted.usage));
-    }
-  };
-}

@@ -1,3 +1,4 @@
+import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import {
@@ -40,5 +41,19 @@ export const produced = <TProducer, TValue>(
 export class OffRouteRouter {
   route(): unknown {
     return ManualQuoteWorkflowFinish;
+  }
+}
+
+/** A price list in SQLite (#644): its connection reads `sqlitePath` from the environment. */
+@Injectable({ deps: [SqliteConnection] })
+export class SqlitePriceListService extends PriceListService {
+  constructor(private readonly sqliteConnection: SqliteConnection) {
+    super();
+  }
+
+  override priceOf(product: string): Promise<number | undefined> {
+    const row = this.sqliteConnection.database.prepare("SELECT 250 AS cents").get() as
+      { readonly cents: number } | undefined;
+    return Promise.resolve(product === "pen" ? row?.cents : undefined);
   }
 }

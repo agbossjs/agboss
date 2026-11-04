@@ -22,8 +22,12 @@ export interface UnitOptions<
 > extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
   /** Classes replaced by classes: `[override(SearchClient, FakeSearchClient)]`. */
   readonly overrides?: readonly Override[];
-  /** The application's environment values (`applicationContext.environment`); default: none. */
-  readonly environment?: Environment;
+  /**
+   * The application's environment values (`applicationContext.environment`) the unit reads — only
+   * those (#644): `{ sqlitePath: ":memory:" }` for a SQLite store, never a `Secret` it does not read;
+   * default: none.
+   */
+  readonly environment?: Partial<Environment>;
 }
 
 /**
