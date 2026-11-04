@@ -144,7 +144,7 @@ function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool:
   const spent = totalCost(state.usage);
   if (maxVisits !== undefined && askedOf(state, tool) >= maxVisits)
     throw new VisitsLimitExceededError(toolRecordOf(tool), maxVisits, state.flowPath, spent);
-  deps.budgets.check(spent, state.flowPath, loopUsage(state));
+  deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
   currentFrame()?.execution.lease?.assertHeld();
 }
 

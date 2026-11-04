@@ -3,7 +3,6 @@ import { isHandedOver } from "../handed-over.js";
 import type { HeldExecutionLease } from "../execution-leases.js";
 import { leasedDeps, leasedGraphDeps } from "../tree-ends.js";
 import { runIdOf, type RunContext } from "../../core/run-context.js";
-import { totalCost } from "../../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../../flow/runtime/build.js";
 import {
   WRITTEN_MODES,
@@ -162,18 +161,13 @@ async function streamed(
   const { initial, resume } = run;
   const config = childStreamConfig(childDeps, rootDeps, run, context);
   const reading = executionGraphOf(childDeps, {
-    budgets: (await continuedExecutionBudgets(rootDeps, initial.budgets, totalCost(initial.usage)))
-      .meter,
+    budgets: (await continuedExecutionBudgets(rootDeps, initial.budgets, initial.usage)).meter,
   });
   // a re-entered child as an earlier pass left it: its thread's leaf (#661)
   const at = await atLeafCheckpoint(reading.checkpointer, config);
   const before = await asRootRun(() => reading.getState(at));
   if (!isExecutionState(before.values)) {
-    const budgets = await continuedExecutionBudgets(
-      rootDeps,
-      initial.budgets,
-      totalCost(initial.usage),
-    );
+    const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, initial.usage);
     const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
     const record = recorder(budgets.meter, []);
     return passRunOf(graph, config, initial, (states) => drainRun(states, record, initial.usage));
@@ -192,7 +186,7 @@ async function streamed(
   const spent = isResuming
     ? await resumedSpendOf(reading, rootDeps, row, run.thread, before.values.usage, resume)
     : before.values.usage;
-  const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, totalCost(spent));
+  const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, spent);
   const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
   const record = recorder(budgets.meter, []);
   const input = isResuming ? new Command({ resume }) : null;

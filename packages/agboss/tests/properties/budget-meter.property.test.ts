@@ -1,19 +1,22 @@
 /**
- * #685 — the budget meter counts every dollar once, whatever order its ledger round trips finish
- * in. fast-check's scheduler interleaves every read and write of the shared ledger; a tree's pass
- * spends on its own (tallied as made, written at its superstep's end), a child on another instance
- * writes its spend at once and the parent takes it in before its state shows it, another tree of
- * the tenant writes beside them, and the parent reads its counters at any moment. At every check
- * the meter's count of each counter lies between what the tree's state holds and what was really
- * spent (never twice, the false stop; never less than the state, the bypass), and once everything
- * is written a fresh read gives exactly the sum of the spend.
+ * #685, #727 — the budget meter counts every dollar once, whatever order its ledger round trips
+ * finish in. fast-check's scheduler interleaves every read and write of the shared ledger; a tree's
+ * pass spends on its own (tallied as made and written to the ledger at once, the record its state
+ * keeps marked with its id), spends what it writes only at its step's end (a router's decision), a
+ * child on another instance writes its spend at once and the parent takes it in before its state
+ * shows it, a record an earlier pass of the tree wrote reaches this pass's state (a takeover's
+ * restored writes, carried twice), another tree of the tenant writes beside them, and the parent
+ * reads its counters at any moment. At every check the meter's count of each counter lies between
+ * what the tree's state holds and what was really spent (never twice, the false stop; never less
+ * than the state, the bypass), and once everything is written a fresh read gives exactly the sum of
+ * the spend.
  */
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, meterOf, type BudgetMeter } from "../../src/budgets/execution-budgets.js";
 import type { ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
-import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
+import { recordToolCost, totalCost, type UsageRecord } from "../../src/finops/usage.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
@@ -56,10 +59,10 @@ const budgetOf = (scope: BudgetScope): ExecutionBudgetRecord =>
     ? { budget: { name: "execution" }, scope, key: "execution-1", maxSpend: 0 }
     : { budget: { name: "tenant" }, scope, period: BudgetPeriod.Day, key: "acme", maxSpend: 0 };
 
-/** What the meter counts for its one budget when the tree's state holds `stateSpent`. */
-function countedBy(meter: BudgetMeter, stateSpent: number): number {
+/** What the meter counts for its one budget when the tree's state holds `state`. */
+function countedBy(meter: BudgetMeter, state: readonly UsageRecord[]): number {
   try {
-    meter.check(stateSpent, []);
+    meter.check(state, []);
   } catch (error) {
     if (error instanceof BudgetExceededError) return error.spent;
     throw error;
@@ -69,14 +72,18 @@ function countedBy(meter: BudgetMeter, stateSpent: number): number {
 
 type Move =
   | { readonly kind: "own"; readonly cents: number }
+  | { readonly kind: "at-step-end"; readonly cents: number }
   | { readonly kind: "remote"; readonly cents: number }
+  | { readonly kind: "restored"; readonly cents: number }
   | { readonly kind: "other"; readonly cents: number }
   | { readonly kind: "refresh" };
 
 const cents = fc.integer({ min: 1, max: 5000 });
 const moveArbitrary: fc.Arbitrary<Move> = fc.oneof(
   fc.record({ kind: fc.constant("own" as const), cents }),
+  fc.record({ kind: fc.constant("at-step-end" as const), cents }),
   fc.record({ kind: fc.constant("remote" as const), cents }),
+  fc.record({ kind: fc.constant("restored" as const), cents }),
   fc.record({ kind: fc.constant("other" as const), cents }),
   fc.constant({ kind: "refresh" as const }),
 );
@@ -86,7 +93,9 @@ class World {
   readonly ledger: ScheduledLedger;
   readonly parent: BudgetMeter;
   spent = 0;
-  stateSpent = 0;
+  readonly state: UsageRecord[] = [];
+  /** What an earlier pass of the tree wrote as it was made, its step's writes restored here. */
+  readonly #restored: UsageRecord[] = [];
   readonly counts: {
     readonly counted: number;
     readonly floor: number;
@@ -105,17 +114,43 @@ class World {
     return meterOf({ ledger: this.ledger, clock: systemClock }, [record], 0);
   }
 
-  /** A check now: the count between the state's spend and the real spend. */
-  look(): void {
-    const counted = countedBy(this.parent, this.stateSpent);
-    this.counts.push({ counted, floor: this.stateSpent, ceiling: this.spent });
+  /**
+   * Before the pass: the earlier pass, which crashed, wrote these as it made them; then the pass
+   * reads its counters (a pass reads them before its first step).
+   */
+  async start(moves: readonly Move[]): Promise<void> {
+    const earlier = this.meter({ ...budgetOf(this.scope), maxSpend: Number.POSITIVE_INFINITY });
+    for (const move of moves) {
+      if (move.kind !== "restored") continue;
+      this.#restored.push(...earlier.tally([recordToolCost("paid-api", move.cents / 100)]));
+      this.spent += move.cents / 100;
+    }
+    await earlier.settled();
+    await this.parent.refresh();
   }
 
-  /** The pass's own call: tallied as made, written at its superstep's end. */
+  /** A check now: the count between the state's spend and the real spend. */
+  look(): void {
+    const counted = countedBy(this.parent, this.state);
+    this.counts.push({ counted, floor: totalCost(this.state), ceiling: this.spent });
+  }
+
+  /** The pass's own call: tallied as made and written at once; its state keeps the marked record. */
   async own(record: UsageRecord): Promise<void> {
     this.spent += record.costUsd;
-    this.parent.tally([record]);
-    this.stateSpent += record.costUsd;
+    const kept = this.parent.tally([record]);
+    this.state.push(...kept);
+    this.look();
+    await this.parent.settled();
+    this.look();
+    await this.parent.record(kept);
+    this.look();
+  }
+
+  /** A call written only when its step ends (a router's decision): in the state, then recorded. */
+  async atStepEnd(record: UsageRecord): Promise<void> {
+    this.spent += record.costUsd;
+    this.state.push(record);
     this.look();
     await this.parent.record([record]);
     this.look();
@@ -124,14 +159,28 @@ class World {
   /** A child's call on another instance: written there at once, taken in by the parent, recorded. */
   async remote(record: UsageRecord): Promise<void> {
     const worker = this.meter({ ...budgetOf(this.scope), maxSpend: Number.POSITIVE_INFINITY });
-    await worker.record([record]);
     this.spent += record.costUsd;
+    const kept = worker.tally([record]);
+    await worker.settled();
     this.look();
-    const elsewhere = { ...record, isRecordedElsewhere: true };
-    await this.parent.takeRecordedElsewhere([elsewhere]);
-    this.stateSpent += record.costUsd;
+    await this.parent.takeRecordedElsewhere(kept);
+    this.state.push(...kept);
     this.look();
-    await this.parent.record([elsewhere]);
+    await this.parent.record(kept);
+    this.look();
+  }
+
+  /**
+   * A call the earlier pass tallied and wrote, its step's writes restored by this pass (a
+   * takeover): in the ledger and every read of it, not in what this pass spent before; it reaches
+   * the state, and is recorded twice (the state's and an error's copy).
+   */
+  async restored(): Promise<void> {
+    const kept = this.#restored.shift();
+    if (kept === undefined) throw new Error("every restored move has its record");
+    this.state.push(kept);
+    this.look();
+    await this.parent.record([kept, kept]);
     this.look();
   }
 
@@ -139,8 +188,9 @@ class World {
   async other(record: UsageRecord): Promise<void> {
     const tenant = { ...budgetOf(BudgetScope.Tenant), maxSpend: Number.POSITIVE_INFINITY };
     const elsewhere = meterOf({ ledger: this.ledger, clock: systemClock }, [tenant], 0);
-    await elsewhere.record([record]);
     if (this.scope === BudgetScope.Tenant) this.spent += record.costUsd;
+    elsewhere.tally([record]);
+    await elsewhere.settled();
     this.look();
   }
 
@@ -151,8 +201,10 @@ class World {
 
   play(move: Move): Promise<void> {
     if (move.kind === "refresh") return this.refresh();
+    if (move.kind === "restored") return this.restored();
     const record = recordToolCost("paid-api", move.cents / 100);
     if (move.kind === "own") return this.own(record);
+    if (move.kind === "at-step-end") return this.atStepEnd(record);
     if (move.kind === "remote") return this.remote(record);
     return this.other(record);
   }
@@ -165,7 +217,10 @@ const countsOnce = (scope: BudgetScope) =>
     async (scheduler, moves) => {
       const world = new World(scheduler, scope);
       // the moves at once, then a read once all is written: every round trip in the scheduler's order
-      const played = Promise.all(moves.map((move) => world.play(move))).then(() => world.refresh());
+      const played = world
+        .start(moves)
+        .then(() => Promise.all(moves.map((move) => world.play(move))))
+        .then(() => world.refresh());
       await scheduler.waitFor(played);
       for (const { counted, floor, ceiling } of world.counts) {
         // a dollar counted twice is a false stop; one below the state's spend a bypass
@@ -178,7 +233,7 @@ const countsOnce = (scope: BudgetScope) =>
     },
   );
 
-describe(`#685: the meter counts every dollar once (seed ${String(seed)})`, () => {
+describe(`#685, #727: the meter counts every dollar once (seed ${String(seed)})`, () => {
   it("the execution's counter, in any order of the ledger's round trips", async () => {
     await fc.assert(countsOnce(BudgetScope.Execution), { numRuns: 300 });
   });

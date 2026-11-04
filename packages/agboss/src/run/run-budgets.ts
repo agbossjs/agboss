@@ -21,7 +21,7 @@ import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-contexts.js";
-import type { UsageRecord } from "../finops/usage.js";
+import { totalCost, type UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../infrastructure/clock.js";
@@ -215,18 +215,19 @@ export async function openExecutionBudgets<TName extends string>(
 
 /**
  * The budgets of a later pass of an execution (a resume, a recovery): the records it keeps in its
- * state (the amounts read at its start), `spentBefore` — what it spent before, already counted.
+ * state (the amounts read at its start), and what it spent before — already counted; its spend
+ * written as it was made (`ledgerId`, #727) the pass never takes in again.
  */
 export async function continuedExecutionBudgets<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   records: readonly ExecutionBudgetRecord[] | undefined,
-  spentBefore: number,
+  spentBefore: readonly UsageRecord[],
   deadline?: ExecutionDeadline,
 ): Promise<PassBudgets> {
   const application = deps.budgets;
   if (application === undefined) return unbudgeted();
   const kept = records ?? [];
-  const meter = meterOf(application, kept, spentBefore, deadline);
+  const meter = meterOf(application, kept, totalCost(spentBefore), deadline, spentBefore);
   await meter.refresh();
   return { meter, records: kept };
 }

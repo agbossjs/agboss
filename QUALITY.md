@@ -196,10 +196,11 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     `TokenLimit.MODEL_MAX` one call is bounded only by the model), plus (#664) the spend of the
     steps it never holds back — the undos, automatic or a side path's, and the actions of the side
     path that took a limit, step by step (no check bounds what they cost) —, plus, across
-    instances, what other trees' steps spend that start before that spend is in the ledger: at the
-    end of the superstep that spent it. Within one tree (#338) every call
-    is counted the moment it is made — a live tally of the pass (`BudgetMeter.tally`), the ledger
-    still written once per superstep, nothing twice (#685: the meter's reads and writes never overlap, and
+    instances, what the steps spend — other trees' and the tree's own on another instance — that
+    read the counters before that spend was in the ledger: one write after it was made (#727,
+    #732). Within one tree (#338) every call
+    is counted the moment it is made — a live tally of the pass (`BudgetMeter.tally`), written to
+    the ledger at once and checkpointed only after, nothing twice (#685: the meter's reads and writes never overlap, and
     a remote child's spend, in the ledger before its parent's state, is taken in with a read) — so a branch of a parallel launch sees its
     siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and
     tool calls of every branch through `executionContext.signal` (an aborted call's partial cost is

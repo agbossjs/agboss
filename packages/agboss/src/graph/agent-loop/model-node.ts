@@ -1,7 +1,7 @@
 import { AIMessage, type AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { recordUsage, totalCost, type UsageRecord } from "../../finops/usage.js";
+import { recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
@@ -102,7 +102,7 @@ export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMe
  * `BudgetExceededError` (the loop's spend so far travels with it to the ledger).
  */
 function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
-  deps.budgets.check(totalCost(state.usage), state.flowPath, loopUsage(state));
+  deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
 }
 
 /** The budgets right after a call, with what it cost: the error carries the loop's spend. */
@@ -112,7 +112,7 @@ function checkSpent(
   spent: readonly UsageRecord[],
 ): void {
   const usage = [...loopUsage(state), ...spent];
-  deps.budgets.check(totalCost(state.usage) + totalCost(spent), state.flowPath, usage);
+  deps.budgets.check([...state.usage, ...spent], state.flowPath, usage);
 }
 
 /** The model call between its observer events; a failed call fails the agent with the loop's spend. */
@@ -172,13 +172,13 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     }
     const request = await maskedRequest(state, deps);
     const { response, usageRecord } = await observedCall(state, deps, request, config);
-    const spent = [...request.usage, usageRecord];
-    // counted at once (#338): the branches running beside this one see it at their next check
-    deps.budgets.tally(spent, state.flowPath);
+    // counted at once (#338) and in the ledger (#727): the branches running beside this one, and
+    // the tree's steps on other instances, see it at their next check
+    const spent = deps.budgets.tally([...request.usage, usageRecord], state.flowPath);
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
-    deps.budgets.tally(outgoing.kind === "invalid" ? [] : outgoing.usage, state.flowPath);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
     if (outgoing.kind === "invalid") return { ...outgoing.update, modelCalls: 1, ...pii };
+    const checked = deps.budgets.tally(outgoing.usage, state.flowPath);
     const move = outgoing.move;
     // answer tools are not tool calls: an invalid answer costs a retry, not `maxToolCalls` (S9)
     const calls =
@@ -192,13 +192,13 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
         max: limits.toolCalls,
         actual: toolCalls,
       } as const;
-      throw agentLimitError(state, { ...breach, spent: [...spent, ...outgoing.usage] });
+      throw agentLimitError(state, { ...breach, spent: [...spent, ...checked] });
     }
     // the call exhausted a budget: no tool runs on it (an answer is kept — the next step stops)
-    if (calls > 0) checkSpent(state, deps, [...spent, ...outgoing.usage]);
+    if (calls > 0) checkSpent(state, deps, [...spent, ...checked]);
     return {
       move,
-      usage: [...spent, ...outgoing.usage],
+      usage: [...spent, ...checked],
       modelCalls: 1,
       toolCalls: calls,
       ...pii,

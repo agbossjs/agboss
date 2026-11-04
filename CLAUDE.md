@@ -626,9 +626,11 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   lease a reclaim takes is kept only for its own look's claim of the child, else given back, #720:
   a claim whose answer was lost never leaves a lease renewed with no pass behind it);
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
-  checked where it runs, and each superstep's spend is written to the root's counters at once
-  (`isRecordedElsewhere`, #333 PR 3) — its parent's pass takes that spend in with a read of the
-  counters before its state shows it, so it counts once (#685). A remote child that pauses completes its pass at `Paused` and
+  checked where it runs, and each spend is written to the root's counters the moment it is made
+  (`isRecordedElsewhere`, #333 PR 3; #727: every tallied spend, its siblings' and its parent's too,
+  the state's record marked with its `ledgerId` and checkpointed only once written; the child
+  queued only once its parent's spend is in the ledger, #732) — its parent's pass takes that spend
+  in with a read of the counters before its state shows it, so it counts once (#685). A remote child that pauses completes its pass at `Paused` and
   interrupts the parent's node with `{ waitingForChild: { …, remote: true } }`, forwarding the
   child's resume map through the queue on `app.resume` (#333 PR 4); its failure is kept as its
   durable record and rebuilt as a `RecordedError` that `.onError` routes as the original (#598:
@@ -2395,8 +2397,8 @@ const readiness: HealthReport = await app.checkReadiness();
   (`[budget.*-required]`, `[budget.duplicate-…]`). `maxSpend()` is read once per execution, at its
   start (its `ExecutionContext` readable), and kept for the whole execution; an exhausted budget
   rejects the execution before the first step (`onExecutionRejected`), and every model call's cost is
-  counted in all of them the moment it is made (#338: a live tally of the tree's pass, the ledger
-  still written once per superstep) — the first exhausted stops it before the next step or call (#634:
+  counted in all of them the moment it is made (#338: a live tally of the tree's pass; #727: written to
+  the ledger at once, a checkpoint only after) — the first exhausted stops it before the next step or call (#634:
   every step that can spend or reach out — an agent, a router, an action, a child workflow, a level of
   a recursion, a launch's branch, an action of a side path; never a start, a finish, an undo (a side
   path's undo action of an entry open when the side path was entered too), nor an
@@ -2411,9 +2413,11 @@ const readiness: HealthReport = await app.checkReadiness();
   accepted, and a budget is exceeded by at most (#664) the calls in flight when it was exhausted, plus
   the spend of the steps it never holds back — the undos (automatic or a side path's) and the actions
   of the side path that took a limit, step by step: a paid notice there overruns by what it costs —,
-  plus, across instances, what other trees' steps spend that start before that spend is in the
-  ledger (at the end of the superstep that spent it: a long action that records a large spend and
-  works on keeps other instances' checks passing meanwhile). Hitting a limit **fails the
+  plus, across instances, what the steps spend — other trees' and the tree's own on another instance
+  — that read the counters before that spend was in the ledger (one write after it was made, #727,
+  #732; each entry under its `ledgerId` — the pass's own, so a step run again after a crash bills
+  and counts again, while a record kept in a durable state counts once —, added once by
+  `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once). Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05

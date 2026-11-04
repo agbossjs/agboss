@@ -1,6 +1,6 @@
 import type { ExecutionBudgetRecord } from "../budgets/execution-budgets.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
-import { totalCost, type UsageRecord } from "../finops/usage.js";
+import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
@@ -54,8 +54,7 @@ export async function continueRun<TName extends string>(
   pass: ContinuedPass,
 ): Promise<AgentExecutionOutput> {
   const spent: UsageRecord[] = [];
-  const spentBefore = totalCost(run.spent);
-  const budgets = await continuedExecutionBudgets(deps, run.budgets, spentBefore, run.deadline);
+  const budgets = await continuedExecutionBudgets(deps, run.budgets, run.spent, run.deadline);
   const graph = executionGraphOf(deps, { budgets: budgets.meter });
   const record = recorder(budgets.meter, spent);
   const base: TernBase = {

@@ -38,7 +38,12 @@ export abstract class CostLedgerRepository {
   /** What the counter holds: the spend of its account in its period, `usd(0)` for a new one. */
   abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
 
-  /** Adds the cost of these model (and service) calls to every counter, atomically per counter. */
+  /**
+   * Adds the cost of these model (and service) calls to every counter, atomically per counter. A
+   * record with a `ledgerId` (#727) is an entry of its own: its cost is added once — a later save
+   * of the same id, on any instance and also one that races it, adds nothing — and the entry is kept
+   * with the counters it was added to, in one atomic write. A record without one is always added.
+   */
   abstract saveAll(
     counters: readonly CostCounter[],
     records: readonly UsageRecord[],
@@ -58,6 +63,17 @@ export abstract class CostLedgerRepository {
 export const accountKeyOf = (account: BudgetAccount): string =>
   [account.budget, account.scope, account.key].join("\u0000");
 
+/**
+ * Of `records`, what a save adds (#727): every record without a `ledgerId`, and each one whose id
+ * `isNew` keeps now — `isNew` inserts the id if absent and answers whether it did, so an id asked
+ * twice, in one save too, counts once. A store asks inside the transaction that adds the cost.
+ */
+export const newEntriesOf = (
+  records: readonly UsageRecord[],
+  isNew: (ledgerId: string) => boolean,
+): readonly UsageRecord[] =>
+  records.filter(({ ledgerId }) => ledgerId === undefined || isNew(ledgerId));
+
 /** The row key of a counter. */
 export const counterKeyOf = (counter: CostCounter): string =>
   `${accountKeyOf(counter)}\u0000${counter.period}`;
@@ -70,6 +86,7 @@ export const counterKeyOf = (counter: CostCounter): string =>
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
   readonly #maxSpend = new Map<string, Usd>();
+  readonly #entries = new Set<string>();
 
   ping(): Promise<void> {
     return Promise.resolve();
@@ -80,12 +97,21 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
-    const spent = totalCost(records);
+    // nothing to add it to: no entry kept, so a later save of it counts (#727)
+    if (counters.length === 0) return Promise.resolve();
+    const spent = totalCost(newEntriesOf(records, (id) => this.#isNewEntry(id)));
     for (const counter of counters) {
       const key = counterKeyOf(counter);
       this.#spent.set(key, (this.#spent.get(key) ?? 0) + spent);
     }
     return Promise.resolve();
+  }
+
+  /** Whether `ledgerId` is new: kept from now on. */
+  #isNewEntry(ledgerId: string): boolean {
+    if (this.#entries.has(ledgerId)) return false;
+    this.#entries.add(ledgerId);
+    return true;
   }
 
   findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {

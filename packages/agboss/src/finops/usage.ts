@@ -1,6 +1,6 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import { servedByOf } from "./served-by.js";
+import { servedByOf, withoutLedgerMarks } from "./served-by.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {
@@ -47,6 +47,12 @@ export interface UsageRecord extends TokenUsage {
    * never writes it again. Absent for every other call.
    */
   readonly isRecordedElsewhere?: boolean;
+  /**
+   * The spend's identity in the ledger (#727, #732): a call tallied by a pass is written to the
+   * ledger the moment it is made, marked `isRecordedElsewhere` with this id — so no later pass, its
+   * parent's or a takeover's, writes or counts it again. Absent for spend written at its step's end.
+   */
+  readonly ledgerId?: string;
 }
 
 /** What a call was for — the cost categories of a turn. */
@@ -234,7 +240,7 @@ function sumBy(
 
 export function buildCostReport(records: readonly UsageRecord[]): CostReport {
   const trace = records.map((record): CostLine => ({
-    ...record,
+    ...withoutLedgerMarks(record),
     category: costCategoryOf(record.caller),
   }));
   const byCategory: Record<CostCategory, number> = {
