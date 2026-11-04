@@ -96,3 +96,15 @@ export interface CounterSnapshot {
 
 /** A record this pass writes to the ledger; one recorded elsewhere is there already (#333 PR 3). */
 export const isRecordedHere = (record: UsageRecord): boolean => record.isRecordedElsewhere !== true;
+
+/** Micro-dollars in a dollar: the unit a budget's spend is compared in (#728). */
+const MICRO_USD_PER_USD = 1_000_000;
+
+/**
+ * Whether `spent` has reached `maxSpend`, compared in whole micro-dollars (#728): a float sum of
+ * costs lands a hair off its decimal value (eight $0.10 make 0.7999999999999999), and a plain
+ * `>=` would let one more step through a limit the spend reached exactly. No epsilon: both sides
+ * are rounded to the same grid, so a spend a micro-dollar under the limit still passes.
+ */
+export const isSpendExhausted = (spent: number, maxSpend: number): boolean =>
+  Math.round(spent * MICRO_USD_PER_USD) >= Math.round(maxSpend * MICRO_USD_PER_USD);

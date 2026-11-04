@@ -1,5 +1,6 @@
 import type { UsageRecord } from "../finops/usage.js";
 import { budgetOf, BudgetScope } from "./budget.js";
+import { isSpendExhausted } from "./budget-check.js";
 import {
   counterOf,
   type ApplicationBudgets,
@@ -46,7 +47,7 @@ export async function isApplicationSpendExhausted(
   const now = application.clock.now();
   for (const record of await applicationRecords(application)) {
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
-    if (spent >= record.maxSpend) return true;
+    if (isSpendExhausted(spent, record.maxSpend)) return true;
   }
   return false;
 }

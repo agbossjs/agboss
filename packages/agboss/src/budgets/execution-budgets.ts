@@ -6,7 +6,12 @@ import type { BudgetExceededError } from "../graph/limits.js";
 import type { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
 import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
-import { budgetExceededErrorOf, counterOf, isRecordedHere } from "./budget-check.js";
+import {
+  budgetExceededErrorOf,
+  counterOf,
+  isRecordedHere,
+  isSpendExhausted,
+} from "./budget-check.js";
 import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
 import { budgetOf, BudgetScope, type BudgetHandler, type BudgetMeta } from "./budget.js";
 
@@ -189,7 +194,7 @@ export class BudgetMeter implements BudgetCheck {
     const now = this.clock.now();
     for (const record of this.records) {
       const spent = this.#spentOf(record, executionSpent, now);
-      if (spent >= record.maxSpend)
+      if (isSpendExhausted(spent, record.maxSpend))
         return budgetExceededErrorOf(record, spent, path, executionSpent, usage);
     }
     return undefined;
