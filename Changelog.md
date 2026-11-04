@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: takeover, recovery, undo and the budgets' money are mutated (#633)
+
+- **Added**: five mutation shards join `fencing`, `sqlite-stores` and `keys-and-calls`: `takeover`
+  (the lease's yields, attempts and takes, the hand-over), `recovery` (the sweep, a root taken over,
+  a tree's end and moves), `undo` and `unwind` (each automatic undo, its entries, marks and registry;
+  a step's, a child's, a failed join's and the root's unwind) and `money` (the budget meter, the
+  application's spend, the cost ledgers). All eight are cold every night and fail below 100 %.
+  [Guarantees](Guarantees) states each shard's counts.
+
 ## Unreleased — 0.1.1: the e-mail PII detector stops at the address (#729)
 
 - **Fixed**: `anna@acme.com.pdf` was found as the address `anna@acme.com.pdf`, so its token, or the
