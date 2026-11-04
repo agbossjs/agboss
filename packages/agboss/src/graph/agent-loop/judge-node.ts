@@ -14,6 +14,8 @@ import type { AsyncNode } from "../types.js";
 import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
+import { loopPoliciesOf } from "./model-pii.js";
+import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
@@ -110,6 +112,12 @@ const verdictRecordOf = (
   ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
 });
 
+/** A judge's model reads as the agent's model does (#708): its policies, values and tokens. */
+const judgeReadingOf = (
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+): ModelReadingMask | undefined => modelReadingMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
+
 /** The judges that rejected the reply, in the agent's order; every judge runs, its verdict kept. */
 async function rejectionsOf(
   state: AgentLoopStateType,
@@ -125,11 +133,12 @@ async function rejectionsOf(
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
-    const verdict: JudgeVerdict = await runJudgeCall(meteredModel(judge, spent.usage), () =>
-      judge.handler.judge(input),
-    ).catch((error: unknown) => {
-      throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
-    });
+    const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps));
+    const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
+      (error: unknown) => {
+        throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
+      },
+    );
     spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),

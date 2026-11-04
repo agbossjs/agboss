@@ -3,7 +3,7 @@ import { HandOverSite } from "../../infrastructure/execution-lease-event.reposit
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
-import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
+import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
@@ -181,7 +181,10 @@ function runTask(
     const guarded = await inToolCallFrame(
       task.callId,
       { reportUsage, meshCall: mesh.services },
-      () => guardedCall(deps, tool, task, () => runTool(tool, task.args, context)),
+      () =>
+        guardedCall(deps, tool, task, () =>
+          readingAgent(deps, task, () => runTool(tool, task.args, context)),
+        ),
       call.signal,
     ).finally(call.release);
     const { closed } = guarded;

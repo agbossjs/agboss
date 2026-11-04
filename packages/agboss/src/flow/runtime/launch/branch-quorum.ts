@@ -1,3 +1,4 @@
+import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Class } from "../../../components/injection.js";
@@ -26,6 +27,8 @@ import { launchPausesOf, withdrawBranchPauses, type PauseStores } from "./withdr
 export interface BranchArbiters {
   readonly instanceOf: (arbiter: Class) => unknown;
   readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+  /** How a model arbiter reads an agent's answer (#708): as that agent's own model reads it. */
+  readonly readingOf?: (agent: string, state: ExecutionStateType) => ModelReadingMask | undefined;
 }
 
 /** A branch's part of the launch deps: the registry, the arbiters, the checkpointer. */
@@ -57,6 +60,7 @@ export function arbiterDepsFor(site: ArbiterSite): ArbiterDeps {
   return {
     instanceOf: parts?.instanceOf ?? ((): undefined => undefined),
     ...(parts?.modelOf === undefined ? {} : { modelOf: parts.modelOf }),
+    reading: parts?.readingOf?.(site.nodeId, site.view),
     signal: site.live.controller.signal,
     beforeModelCall: async (spent) => {
       await budgets.refresh();

@@ -1,6 +1,7 @@
 import type { UsageRecord } from "../../finops/usage.js";
 import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
+import { PiiRefusedError } from "../../pii/errors.js";
 import type { PiiFinding } from "../../pii/masking.js";
 import { maskCacheKey } from "../../pii/model-boundary.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
@@ -11,6 +12,9 @@ import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/ind
 import type { Bytes } from "../../units/index.js";
 import type { BoundedText } from "./tool-result-size.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.js";
+import type { AgentLoopDeps } from "./deps.js";
+import type { ToolTask } from "./state.js";
 
 /**
  * PII in the tool task (#120 AC9): the arguments the model gave were revealed when its move was
@@ -92,6 +96,12 @@ export async function closedResult(
   maxResultSize: Bytes,
 ): Promise<ClosedResult> {
   const none = { piiTokens: {}, piiMasked: {}, usage: [] };
+  // a block rule in what a model the call made on the agent's behalf would read (#708): refused
+  if (output.kind === "error" && output.cause instanceof PiiRefusedError) {
+    const { cause } = output;
+    const content = refusedCall(cause.refusal);
+    return { ...none, content, usage: cause.usage, isTruncated: false, refusal: cause };
+  }
   if (set === undefined || output.kind === "error") {
     const { kept, marker, isTruncated } = await bounded(renderToolResult(output), maxResultSize);
     return { content: `${kept}${marker}`, ...none, isTruncated };
@@ -124,3 +134,16 @@ export async function closedResult(
     isTruncated,
   };
 }
+
+/**
+ * The call with the agent's reading (#708): a model the call makes on the agent's behalf (its
+ * knowledge base's reranker) reads through the agent's policies, its sensitive values and key.
+ */
+export const readingAgent = <TResult>(
+  deps: Pick<AgentLoopDeps, "pii">,
+  task: ToolTask,
+  work: () => Promise<TResult>,
+): Promise<TResult> => {
+  const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);
+  return withModelReading(modelReadingMaskOf(set), work);
+};

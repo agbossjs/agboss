@@ -68,7 +68,12 @@ export interface FingerprintDeps {
 function piiMetasOf(pii: FingerprintDeps["pii"], element: string): readonly PiiPolicyMeta[] {
   if (pii === undefined) return [];
   if ("policiesOf" in pii) return pii.policiesOf(element).policies.map((policy) => policy.meta);
-  return (pii.byElement.get(element) ?? []).flatMap((cls) => piiPolicyMetaOf(cls) ?? []);
+  // as `policiesOf` reads it (#708): a copy's node, else the workflow's policies — never none
+  const classes =
+    pii.byElement.get(element) ??
+    pii.byElement.get(element.split("#")[0] ?? element) ??
+    pii.observability;
+  return classes.flatMap((cls) => piiPolicyMetaOf(cls) ?? []);
 }
 
 /** An action as plain data: a `replacePart({ pattern })` regular expression as its text. */

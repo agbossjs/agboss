@@ -1,3 +1,4 @@
+import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";
@@ -36,6 +37,8 @@ export interface ArbiterDeps {
   readonly beforeModelCall: (spent: readonly UsageRecord[]) => Promise<void>;
   /** The launch's signal: aborted once the quorum is decided. */
   readonly signal: AbortSignal;
+  /** How a model arbiter's model reads the answer (#708): the answering agent's PII policies. */
+  readonly reading?: ModelReadingMask | undefined;
 }
 
 /** The answer judged: the branch's node and its value. */
@@ -104,10 +107,10 @@ async function byModel(
   // inline texts, sent normalised like every loaded prompt (#120)
   const criterionText = normalisePromptText(criterion.prompt);
   const question = { agent: site.node, answer: site.answer, criterion: criterionText };
-  const verdict = await model.judge({
-    ...question,
-    instructions: normalisePromptText(options.prompt),
-  });
+  const verdict = await model.judge(
+    { ...question, instructions: normalisePromptText(options.prompt) },
+    deps.reading,
+  );
   if (verdict.kind === "failed")
     throw new ArbiterError(options.name, verdict.cause ?? verdict.reason, [
       ...spent,
