@@ -295,11 +295,16 @@ class DefaultExecutionBudget implements BudgetHandler {
   }
 }
 
-class NotABudget {}
+/** A class listed among the budgets without `@Budget`. */
+class NotABudget {
+  readonly name = "not-a-budget";
+}
 
 describe("#633: an execution's budgets", () => {
   it("another workflow's execution budget is not the default; a class without @Budget is none", () => {
-    class ThisWorkflow {}
+    const ThisWorkflow = class {
+      readonly name = "this-workflow";
+    };
 
     const chosen = budgetsOfExecution(
       [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget],
