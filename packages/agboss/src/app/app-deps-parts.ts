@@ -144,6 +144,18 @@ export async function versionWarnings(deps: AgentExecutionDeps<string>): Promise
     : [];
 }
 
+/** The config snapshot's write and the warnings it adds (#747): written once the stores started. */
+export function configKeeperOf(deps: AgentExecutionDeps<string>): {
+  readonly warnings: readonly string[];
+  readonly rememberConfig: () => Promise<void>;
+} {
+  const warnings: string[] = [];
+  const rememberConfig = async (): Promise<void> => {
+    warnings.push(...(await versionWarnings(deps)));
+  };
+  return { warnings, rememberConfig };
+}
+
 /** What a workflow saves its roots' history with: the store and what a record is made of. */
 export interface ExecutionHistoryKeeper {
   readonly repository: ExecutionHistoryRepository;

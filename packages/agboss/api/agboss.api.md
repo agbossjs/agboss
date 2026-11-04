@@ -349,6 +349,7 @@ export interface AppDeps extends AgentExecutionDeps<string> {
     readonly log: FrameworkLog;
     readonly models: readonly string[];
     readonly observer: ExecutionObserverManager;
+    readonly rememberConfig: () => Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "ReplyReaderParts" needs to be exported by the entry point index.d.ts
     readonly replies: ReplyReaderParts;
     readonly warnings: readonly string[];
@@ -6907,7 +6908,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // Warnings were encountered during analysis:
 //
 // src/app/app-deps.ts:59:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:105:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:111:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/create-app.ts:59:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:13:12 - (ae-undocumented) Missing documentation for "name".

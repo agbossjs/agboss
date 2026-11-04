@@ -33,7 +33,7 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, observedBy, treeDepsOf, releaseOf, versionWarnings } from "./app-deps-parts.js";
+import { closeOf, configKeeperOf, observedBy, treeDepsOf, releaseOf } from "./app-deps-parts.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
@@ -59,6 +59,12 @@ export interface AppDeps extends AgentExecutionDeps<string> {
   readonly evaluation: EvalDeps;
   /** Startup warnings, e.g. a config changed without a version bump. */
   readonly warnings: readonly string[];
+  /**
+   * Writes the config snapshot and adds its drift warning to `warnings` (#747): run by the
+   * application once every component started — no store is called before its `onInit` —, already
+   * run for a workflow that starts its own components.
+   */
+  readonly rememberConfig: () => Promise<void>;
   /** One line per model use: its provider, reasoning and caching (the startup log). */
   readonly models: readonly string[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
@@ -272,8 +278,11 @@ export async function createWorkflowDeps(
     ...historyKeeperOf(parts, { clock, contexts, pii, answers: terns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
+  const snapshot = configKeeperOf(deps);
+  // with an application its stores start later: it writes the snapshot then (#747)
   if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);
-  return { ...deps, models: models.summary, warnings: await versionWarnings(deps) };
+  if (parts.created === undefined) await snapshot.rememberConfig();
+  return { ...deps, models: models.summary, ...snapshot };
 }
 
 export { createAppDeps } from "./standalone-deps.js";

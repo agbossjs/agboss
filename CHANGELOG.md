@@ -307,6 +307,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **No store is called before the components started** (#747) — `createApp` wrote each workflow's
+  config snapshot (the config-drift warning) through the record store before any component's
+  `onInit`, so a store readied there failed first: on a fresh PostgreSQL `createApp` died on
+  `relation "agboss_config_versions" does not exist` instead of `PostgresSchemaMissingError`, and
+  `postgresMigrateOnStart` could never migrate. The snapshot is now written after every `onInit` →
+  `onStart`; its warning is still in `app.warnings` and the start log.
 - **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
   two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
   `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
