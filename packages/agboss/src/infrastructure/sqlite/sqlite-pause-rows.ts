@@ -1,7 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { componentOfStored, StoredLoopProgress } from "../stored-step.js";
-import { askOfStored } from "./sqlite-pause-ask.js";
+import { askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import {
   PauseResolution,
