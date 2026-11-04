@@ -5,7 +5,7 @@
  * raise or a new field is decided, never read from a reply.
  */
 import { describe, expect, it } from "vitest";
-import { correctionRefusalOf } from "../../src/channels/reply-tools.js";
+import { correctionRefusalOf } from "../../src/channels/reply-correction.js";
 
 const ask = {
   tool: "pay-out-tool",

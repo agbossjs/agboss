@@ -1,7 +1,7 @@
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { withinCurrency } from "./reply-currency.js";
 import type { ModelReading, ReplyInterpreterInput } from "./reply-reader.js";
-import { correctionRefusalOf } from "./reply-tools.js";
+import { correctionRefusalOf } from "./reply-correction.js";
 
 /**
  * What no model's reading of an approval may give, whichever model read it — a chat model's answer

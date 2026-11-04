@@ -29,7 +29,8 @@ export const REPLY_INTERPRETER_SYSTEM = [
   "Answer only with what the reply says; never decide what it does not say. Call exactly one tool, once.",
   'A yes with a limit below what the call asks agrees to the call with a change: approve-with-changes, overrideArguments holding only the fields the reply changes, in the units of the call\'s own arguments. On a call asking 1200 US dollars, "yes, up to $900", "ok but max 900", "approved, no more than 900 dollars", "fine if it stays under $900", "da, ma non più di 900 dollari" and "да, но максимум 900 долларов" all approve with the amount set to 900 — a limit is never a refusal. Dollars in any language are the same currency.',
   'A plain yes, or a limit at or above what the call asks, agrees to the call as it is: approve, with no overrideArguments — never raise an amount up to a limit ("approved, up to $2000" on a call asking 1200 approves 1200).',
-  'A reply that says no refuses the call, with or without a reason ("no", "not now", "no, we have no budget", "нет", "לא"): refuse, with the reason — a no is never unclear.',
+  "Always fill currency. With approve or approve-with-changes it is the currency the reply's amount or limit is in: its ISO 4217 code (USD for $, US$ or dollars in any language; EUR for € or euros), or unspecified when the reply names no currency at all.",
+  'A reply that says no refuses the call, with or without a reason ("no", "not now", "no, not this quarter", "no, we have no budget", "нет", "לא"): refuse, with the reason and currency unspecified — a no is never unclear, even when it says nothing about the details of the call.',
   `When the reply neither agrees nor refuses — unclear, off topic, a shrug, a question back, a maybe, contradictory — or its limit is in another currency than the call's own and would need converting (euros or shekels on a call in US dollars), call ${NOT_UNDERSTOOD_TOOL} with why; that is not a refusal.`,
 ].join("\n");
 

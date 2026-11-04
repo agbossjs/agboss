@@ -89,7 +89,9 @@ describe("#688: the framework's texts say what a capped approval is", () => {
       >;
       readonly required: readonly string[];
     };
-    expect(parameters.required).toEqual(["decision"]);
+    expect(parameters.required).toEqual(["currency", "decision"]);
+    expect(parameters.properties.currency?.enum).toContain("USD");
+    expect(parameters.properties.currency?.enum).toContain("unspecified");
     expect(parameters.properties.approved).toBeUndefined();
     expect(parameters.properties.decision?.enum).toEqual([
       ReplyDecision.Approve,
@@ -190,12 +192,16 @@ describe("#688: the model's named decision is the role's answer", () => {
   for (const [what, args, paid] of [
     [
       "approve-with-changes: the call capped, the payee kept",
-      { decision: "approve-with-changes", overrideArguments: { amountCents: 90_000 } },
+      {
+        decision: "approve-with-changes",
+        currency: "USD",
+        overrideArguments: { amountCents: 90_000 },
+      },
       [{ payee: "ann", amountCents: 90_000 }],
     ],
     [
       "approve: the call as asked — a correction beside it dropped, never a raise",
-      { decision: "approve", overrideArguments: { amountCents: 200_000 } },
+      { decision: "approve", currency: "USD", overrideArguments: { amountCents: 200_000 } },
       [{ payee: "ann", amountCents: 120_000 }],
     ],
   ] as const)
@@ -224,26 +230,36 @@ describe("#688: the model's named decision is the role's answer", () => {
   });
 
   for (const [what, args] of [
-    ["approve-with-changes that changes nothing", { decision: "approve-with-changes" }],
-    ["a decision no role has", { decision: "maybe" }],
+    [
+      "approve-with-changes that changes nothing",
+      { decision: "approve-with-changes", currency: "USD" },
+    ],
+    ["a decision no role has", { decision: "maybe", currency: "USD" }],
     [
       "a raise read from the reply",
-      { decision: "approve-with-changes", overrideArguments: { amountCents: 200_000 } },
+      {
+        decision: "approve-with-changes",
+        currency: "USD",
+        overrideArguments: { amountCents: 200_000 },
+      },
     ],
     // fail closed (security review): a decision present takes nothing else of the model's answer
-    ["an unknown decision beside approved: true", { decision: "bogus", approved: true }],
+    [
+      "an unknown decision beside approved: true",
+      { decision: "bogus", currency: "USD", approved: true },
+    ],
     [
       "approve-with-changes beside approved: true, no correction",
-      { decision: "approve-with-changes", approved: true },
+      { decision: "approve-with-changes", currency: "USD", approved: true },
     ],
     [
       "approve-with-changes beside approved: true, an empty correction",
-      { decision: "approve-with-changes", approved: true, overrideArguments: {} },
+      { decision: "approve-with-changes", currency: "USD", approved: true, overrideArguments: {} },
     ],
-    ["refuse beside approved: true", { decision: "refuse", approved: true }],
+    ["refuse beside approved: true", { decision: "refuse", currency: "USD", approved: true }],
     [
       "approve-with-changes with an empty correction",
-      { decision: "approve-with-changes", overrideArguments: {} },
+      { decision: "approve-with-changes", currency: "USD", overrideArguments: {} },
     ],
     ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
