@@ -20,6 +20,7 @@ export {
   HoldPhase,
   HoldPoints,
   processHoldPoints,
+  StoreAnswerLostError,
   type HeldOperation,
   type HoldRequest,
 } from "./hold-points.js";

@@ -65,12 +65,17 @@ export const holdStore = (
   pod: FaultPod,
   point: StoreHoldPoint,
   key: string | undefined,
-  options: { readonly phase?: HoldPhase; readonly times?: number } = {},
+  options: {
+    readonly phase?: HoldPhase;
+    readonly times?: number;
+    readonly loseAnswer?: boolean;
+  } = {},
 ): Promise<unknown> => {
   const request: HoldRequest = {
     point,
     phase: options.phase ?? HoldPhase.Before,
     times: options.times ?? 1,
+    ...(options.loseAnswer === true ? { loseAnswer: true } : {}),
     ...(key === undefined ? {} : { key }),
   };
   return pod.command({ op: "arm", request });

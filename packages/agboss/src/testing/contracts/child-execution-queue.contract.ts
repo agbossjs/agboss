@@ -54,6 +54,26 @@ const QUEUE_CASES: readonly ContractCase<ChildExecutionQueueRepository>[] = [
     },
   },
   {
+    // #720: a claim that marked a row it did not answer leaves that child `Running` for an
+    // instance that never heard of it — no pass runs it, and only a reclaim can save it
+    name: "a claim marks exactly the child it answers: every other stays queued",
+    run: async ({ first, second }) => {
+      const ids = ["c-1", "c-2", "c-3", "c-4", "c-5", "c-6"];
+      for (const id of ids) await first.saveIfAbsent(child(id));
+
+      const claims = await Promise.all([first, second, first, second].map(claimNext));
+
+      const answered = claims.flatMap((found) => (found === undefined ? [] : [found.executionId]));
+      expect(answered).toHaveLength(4);
+      const rows = await Promise.all(
+        ids.map((id) => second.findByTenantIdAndExecutionId("default", id)),
+      );
+      const running = rows.filter((row) => row?.status === ExecutionRecordStatus.Running);
+      expect(running.map((row) => row?.executionId).sort()).toEqual([...answered].sort());
+      expect(rows.filter((row) => row?.status === ExecutionRecordStatus.Queued)).toHaveLength(2);
+    },
+  },
+  {
     name: "the deepest first, then the longest waiting",
     run: async ({ first }) => {
       await first.saveIfAbsent(child("late", { queuedAt: new Date("2026-01-05T09:00:02Z") }));

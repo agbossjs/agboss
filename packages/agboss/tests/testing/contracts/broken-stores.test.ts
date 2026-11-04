@@ -11,6 +11,7 @@ import { namesOf, runContractFixtures, type FixtureRun } from "./fixture-runs.js
 
 const LEASE = "lease-ignoring-holder.contract-fixture.ts";
 const QUEUE = "queue-claiming-twice.contract-fixture.ts";
+const QUEUE_ROWS = "queue-claiming-two-rows.contract-fixture.ts";
 const RECORD = "record-losing-update.contract-fixture.ts";
 const TREE = "tree-keeping-deleted-rows.contract-fixture.ts";
 const WALL_CLOCK = "lease-on-wall-clock.contract-fixture.ts";
@@ -19,14 +20,22 @@ const CALLER_CLOCK = "lease-on-caller-clock.contract-fixture.ts";
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]);
+  run = await runContractFixtures([
+    LEASE,
+    QUEUE,
+    QUEUE_ROWS,
+    RECORD,
+    TREE,
+    WALL_CLOCK,
+    CALLER_CLOCK,
+  ]);
 }, 120_000);
 
 describe("#481 AC2: a broken store fails the published suite of its contract", () => {
   it("the run of the broken stores fails", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(
-      new Set([LEASE, QUEUE, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
+      new Set([LEASE, QUEUE, QUEUE_ROWS, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
     );
   });
 
@@ -44,6 +53,15 @@ describe("#481 AC2: a broken store fails the published suite of its contract", (
   it("a queue that claims a row twice fails the child execution queue contract", () => {
     expect(namesOf(run, QUEUE, "fail")).toContain("the deepest first, then the longest waiting");
     expect(namesOf(run, QUEUE, "pass")).toEqual(
+      expect.arrayContaining(["a child is queued once", PING_CASE]),
+    );
+  });
+
+  it("a queue whose claim marks a row it does not answer fails the child execution queue contract (#720)", () => {
+    expect(namesOf(run, QUEUE_ROWS, "fail")).toContain(
+      "a claim marks exactly the child it answers: every other stays queued",
+    );
+    expect(namesOf(run, QUEUE_ROWS, "pass")).toEqual(
       expect.arrayContaining(["a child is queued once", PING_CASE]),
     );
   });
