@@ -559,6 +559,16 @@ framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev
 `result.skills`. `"agboss": { "skills": false }` in `package.json` turns the sync off. More:
 [Wiki → CLI](https://github.com/agbossjs/agboss/wiki/CLI).
 
+**A code graph, optional (#480).** The project also comes ready for
+[graphify](https://github.com/safishamsi/graphify), a queryable graph of the code built locally
+with tree-sitter: `.graphifyignore` leaves out what is generated, installed, recorded or secret
+(`.agboss/`, `node_modules/`, the skills folder, cassettes, `.env`), `.graphifyrc` holds graphify's
+settings (none needed: its defaults), `graphify-out/` is git-ignored, and `AGENTS.md` and `SKILL.md`
+tell the agent to ask the graph (`graphify affected "BillingAgent"`, `graphify query "…"`) before
+reading many files — when there is one. Nothing depends on it: `agboss create` only says in one line
+how to enable it (`graphify install --project && graphify update .`, offline, no key), and never
+runs graphify.
+
 ## The examples
 
 ### Standalone Verified Showcase ([`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples))

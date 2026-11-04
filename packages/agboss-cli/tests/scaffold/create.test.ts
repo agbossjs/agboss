@@ -114,6 +114,49 @@ describe("#268 AC8: agboss create", () => {
   });
 });
 
+describe("#480: the project comes ready for graphify", () => {
+  it("#480 AC1, AC4: .graphifyignore leaves out what is generated, installed, recorded or secret; .graphifyrc; graphify-out/ git-ignored; AGENTS.md says to query the graph first", () => {
+    const ignore = content(".graphifyignore").split("\n");
+    expect(ignore).toEqual(
+      expect.arrayContaining([
+        ".agboss/",
+        "dist/",
+        "coverage/",
+        "graphify-out/",
+        "node_modules/",
+        "package-lock.json",
+        ".claude/skills/agboss/",
+        "*.cassette.json",
+        "__snapshots__/",
+        ".env",
+        "!.env.example",
+      ]),
+    );
+    // graphify's rule (hooks.py): every line not blank or "#" is key=value — here none is set
+    const settings = content(".graphifyrc").split("\n");
+    expect(settings.length).toBeGreaterThan(1);
+    expect(settings.every((line) => line.trim() === "" || line.startsWith("#"))).toBe(true);
+    expect(content(".graphifyrc")).toContain("# viz_node_limit=");
+    expect(content(".gitignore").split("\n")).toContain("graphify-out/");
+
+    const agents = content("AGENTS.md");
+    expect(agents).toContain("## Code graph (graphify, optional)");
+    expect(agents).toContain("When `graphify-out/graph.json` exists, ask the graph before reading");
+    expect(agents).toContain('`graphify affected "BillingAgent"`');
+    expect(agents).toContain("`graphify install --project`");
+    expect(agents).toContain("`graphify update .`");
+    expect(agents.indexOf("## Code graph")).toBeLessThan(agents.indexOf("## Project rules"));
+    expect(agents).toMatch(/## Project rules\n$/);
+  });
+
+  it("#480: the shipped SKILL.md queries the graph when there is one, and skips it when there is none", () => {
+    const skill = content(".claude/skills/agboss/SKILL.md");
+    expect(skill).toContain("## Code graph (optional)");
+    expect(skill).toContain("When the project has `graphify-out/graph.json`");
+    expect(skill).toContain("Without `graphify-out/`, skip this");
+  });
+});
+
 describe("#497 AC1: the project's vitest config uses the AGBoss preset", () => {
   it("AC1: vitest.config.ts wraps its test options in agbossTest(), no raw setupFiles", () => {
     const config = content("vitest.config.ts");

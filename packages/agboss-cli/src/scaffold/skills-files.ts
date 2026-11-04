@@ -11,7 +11,8 @@ import type { FileToWrite } from "./write.js";
  * What `agboss create` writes for coding agents (#305): `AGENTS.md` (Cursor, Codex, …) and a
  * one-line `CLAUDE.md` importing it (Claude Code) — both the project's, written once and never
  * rewritten — and the skills of the CLI's own `agboss` in `.claude/skills/agboss/` with their
- * manifest, written as they ship (never formatted: `agboss check` compares their hashes).
+ * manifest, written as they ship (never formatted: `agboss check` compares their hashes) — and
+ * graphify's two project files (#480): `.graphifyignore`, `.graphifyrc`, for the optional code graph.
  */
 export function codingAgentFiles(project: Names): FileToWrite[] {
   const source = cliSkillsSource();
@@ -24,6 +25,8 @@ export function codingAgentFiles(project: Names): FileToWrite[] {
   return [
     { path: "AGENTS.md", content: render("project/AGENTS.md.tmpl", variables) },
     { path: "CLAUDE.md", content: render("project/CLAUDE.md.tmpl", {}) },
+    { path: ".graphifyignore", content: render("project/graphifyignore.tmpl", {}) },
+    { path: ".graphifyrc", content: render("project/graphifyrc.tmpl", {}) },
     ...skills.map((file) => ({
       path: `${SKILLS_FOLDER}/${file.path}`,
       content: file.content,
