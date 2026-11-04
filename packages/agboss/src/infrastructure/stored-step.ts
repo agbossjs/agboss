@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
+import type { PauseAsk } from "./pause-record.js";
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -31,3 +32,17 @@ export const StoredLoopProgress = {
   toolLoopIteration: z.number().optional(),
   validationAttempts: z.number().optional(),
 };
+
+/** The tool call an approval's pause asks about. */
+const StoredApprovalAsk = z.object({
+  callId: z.string(),
+  tool: z.string(),
+  arguments: z.record(z.string(), z.unknown()),
+  summary: z.string(),
+});
+
+/** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
+export const askOfStored = (
+  ask: Readonly<Record<string, unknown>>,
+  component: ComponentRecord | undefined,
+): PauseAsk => (component?.kind === ComponentKind.Question ? ask : StoredApprovalAsk.parse(ask));

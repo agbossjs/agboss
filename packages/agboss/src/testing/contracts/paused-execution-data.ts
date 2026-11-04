@@ -7,6 +7,7 @@ import {
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 
 /** The data of the paused-execution contract: paused runs, pauses and answers. */
 
@@ -64,3 +65,25 @@ export const APPROVED_BY_MANAGER: PauseAnswer = {
 /** The moments the cases resolve pauses at. */
 export const NINE = new Date("2026-01-05T09:00:00.000Z");
 export const TEN = new Date("2026-01-05T10:00:00.000Z");
+
+/**
+ * #746: a question role's pause (#659, #712) — its step's component is the role (`kind:
+ * "question"`) and its ask is the role's own DTO, no tool call: a store keeps both as written.
+ */
+export const questionPauseOf = (
+  pauseId: string,
+  stepKey = "run-1:spending-limit-question:1",
+): PauseRecord => ({
+  ...pauseOf(pauseId, stepKey),
+  nodeId: "spending-limit-question",
+  agent: "spending-limit-question",
+  channel: "spending-limit-question",
+  component: bareRecordOf("spending-limit-question", ComponentKind.Question),
+  ask: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
+});
+
+/** A question's answer: the role's answer DTO, not an approval. */
+export const QUESTION_ANSWER: PauseAnswer = {
+  decision: { approved: true, limitUsd: 900 },
+  answerer: "manager-17",
+};

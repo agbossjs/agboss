@@ -307,6 +307,13 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A question role's pause is stored and read back on SQLite** (#746) — `SqlitePausedExecutionRepository`
+  read every pause's `ask` as an approval's tool call (`callId`, `tool`, `arguments`, `summary`),
+  so a question asked by a flow step (#659) or by an agent's tool (#712) on the SQLite stores failed
+  its execution reading its own pause back. A question's ask is kept as written, told apart by the
+  pause's `component.kind`. `pausedExecutionContract` gains the case (a question's pause found,
+  sent, answered and taken on the other instance as written), which a store that reads only an
+  approval's ask fails — as `@agboss/postgres` and `@agboss/mongodb` did.
 - **No store is called before the components started** (#747) — `createApp` wrote each workflow's
   config snapshot (the config-drift warning) through the record store before any component's
   `onInit`, so a store readied there failed first: on a fresh PostgreSQL `createApp` died on

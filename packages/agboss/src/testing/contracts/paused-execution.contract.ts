@@ -6,6 +6,7 @@ import {
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
+import { QUESTION_PAUSE_CASES } from "./paused-execution-question.cases.js";
 import { PAUSE_RECORD_CASES, PAUSE_TRANSITION_CASES } from "./paused-execution-resolution.cases.js";
 import type { ContractTarget } from "./seam.js";
 
@@ -150,6 +151,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       { title: "a pause goes from Pending to Resolved once", cases: PAUSE_TRANSITION_CASES },
       { title: "how each pause was resolved, and how long it is kept", cases: PAUSE_RECORD_CASES },
       { title: "texts as they were handed over", cases: NUL_CASES },
+      { title: "a question role's pause, as an approval's", cases: QUESTION_PAUSE_CASES },
     ],
     pingOf,
   );
