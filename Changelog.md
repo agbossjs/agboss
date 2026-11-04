@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the e-mail PII detector stops at the address (#729)
+
+- **Fixed**: `anna@acme.com.pdf` was found as the address `anna@acme.com.pdf`, so its token, or the
+  domain `replacePart({ keepDomain: true })` keeps, held the file extension. The match now drops its last
+  label only when that label, with any letters or digits glued to it, is a common file extension
+  that is not a top-level domain, and only if what is left is a whole address. Anything else is
+  masked as before, so an address is never left unmasked.
+
 ## Unreleased — 0.1.1: a model reply interpreter reads capped approvals (#688)
 
 - **Fixed**: on a cheap model with a one-line prompt, "yes, up to $900" on a $1,200 call was read as
