@@ -436,6 +436,7 @@ export class HoldPoints {
 // @public
 export interface HoldRequest {
     readonly key?: string;
+    readonly loseAnswer?: boolean;
     readonly phase?: HoldPhase;
     readonly point: string;
     readonly times?: number;
@@ -629,6 +630,12 @@ export class ScaledClock extends Clock {
 export function selectedScenarios(ids: readonly string[] | undefined): readonly FaultScenario[];
 
 // @public
+export class StoreAnswerLostError extends Error {
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export enum StoreHoldPoint {
     // (undocumented)
     ChildClaim = "childQueue.claim",
@@ -734,9 +741,10 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/held-stores.ts:45:3 - (ae-undocumented) Missing documentation for "outage".
 // src/testing/faults/hold-points.ts:12:3 - (ae-undocumented) Missing documentation for "Before".
 // src/testing/faults/hold-points.ts:13:3 - (ae-undocumented) Missing documentation for "After".
-// src/testing/faults/hold-points.ts:34:3 - (ae-undocumented) Missing documentation for "point".
-// src/testing/faults/hold-points.ts:35:3 - (ae-undocumented) Missing documentation for "phase".
-// src/testing/faults/hold-points.ts:36:3 - (ae-undocumented) Missing documentation for "key".
+// src/testing/faults/hold-points.ts:37:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/hold-points.ts:46:3 - (ae-undocumented) Missing documentation for "point".
+// src/testing/faults/hold-points.ts:47:3 - (ae-undocumented) Missing documentation for "phase".
+// src/testing/faults/hold-points.ts:48:3 - (ae-undocumented) Missing documentation for "key".
 // src/testing/faults/invariants/violations.ts:24:3 - (ae-undocumented) Missing documentation for "invariant".
 // src/testing/faults/invariants/violations.ts:25:3 - (ae-undocumented) Missing documentation for "message".
 // src/testing/faults/invariants/violations.ts:30:12 - (ae-undocumented) Missing documentation for "name".
