@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `agboss check --strict` reports every analyser warning (#769)
+
+- **Fixed**: under `--strict` the CLI kept, of the analyser's warnings, only the three codes of a
+  list it held itself (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`,
+  `[judge.same-model-family]`). `[limits.max-steps-below-worst-case]` (#643),
+  `[limits.child-concurrency-above-parent]` and `[flow.committer-unreachable]` were printed by a plain
+  `agboss check` and vanished under `--strict`, which then exited 0. Every warning the analyser gives
+  is now an error under `--strict` (exit 3); the list is gone. [CLI](CLI).
+
 ## Unreleased — 0.1.1: a tree's spend is in the ledger the moment it is made (#727, #732)
 
 - **Fixed**: a child on any instance (`ChildPlacement.AnyInstance`) saw its sibling's spend, and its
