@@ -182,3 +182,5 @@ export {
   type EnvironmentValueReader,
   type EnvironmentVariableReader,
 } from "../environments/index.js";
+// the tools an agent's scripted calls may name (#679), filled by `.agboss/types.d.ts`
+export type { AgentToolNamesOf, AgentTools, ToolNameOf } from "../flow/generated-types.js";

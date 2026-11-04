@@ -131,15 +131,19 @@ function checkedWorkflows(
   return { all, owners, checks };
 }
 
+/** The options of the request's `@Application` classes. */
+const applicationOptionsOf = (request: FlowTypesRequest): readonly ApplicationOptions[] =>
+  (request.applications ?? []).flatMap((application) => {
+    const declaration = applicationDeclarationOf(application);
+    return declaration === undefined ? [] : [declaration.options];
+  });
+
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const options: AnalyseOptions = {
     modules: request.modules,
     ...(request.strict === undefined ? {} : { strict: request.strict }),
   };
-  const applications = (request.applications ?? []).flatMap((application) => {
-    const declaration = applicationDeclarationOf(application);
-    return declaration === undefined ? [] : [declaration.options];
-  });
+  const applications = applicationOptionsOf(request);
   const { all, owners, checks } = checkedWorkflows(request, applications, options);
   const errors = checks.flatMap((check) => check.errors);
   const warnings = checks.flatMap((check) => check.warnings);

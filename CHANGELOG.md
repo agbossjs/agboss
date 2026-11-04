@@ -303,6 +303,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **`callTools(…)` is an agent's typed turn; a scripted call names a tool the agent lists** (#679) —
+  two calls in one move needed a cast with generated types. `.agboss/types.d.ts` now has
+  `AgentTools`, the tools each agent may call, and brands each tool class with its name, so a
+  `callTool` / `callTools` turn of a tool the agent does not list does not compile.
+  `ToolCallTurn` / `ToolCallsTurn` take the tool's name as a type parameter.
 - **A spend that reaches a budget exactly exhausts it** (#728) — a float sum of costs lands a hair
   off its decimal value (eight $0.10 calls make 0.7999999999999999), so a $0.80 budget let a ninth
   step through. Spend and limit are compared in whole micro-dollars (rounded, no epsilon) before

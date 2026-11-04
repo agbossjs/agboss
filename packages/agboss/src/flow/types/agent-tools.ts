@@ -57,7 +57,10 @@ export function agentToolsTableOf(
       const { declaration } = node;
       if (declaration.kind !== NodeKind.Agent || table.has(node.name)) continue;
       const tools = toolNamesOf(declaration.options, names);
-      table.set(node.name, tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "));
+      table.set(
+        node.name,
+        tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "),
+      );
     }
   return table;
 }

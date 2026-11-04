@@ -63,6 +63,13 @@ export type ToolClass<TInput extends object> = Class<{
   run(input: TInput): Promise<unknown>;
 }>;
 
+/** The input a tool's `run` takes: what `callTool(Tool, args)` checks `args` by. */
+type ToolInputOf<TInstance> = TInstance extends {
+  run(input: infer TInput extends object): Promise<unknown>;
+}
+  ? TInput
+  : never;
+
 /**
  * The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too
  * (#703), a question role's name (#712).
@@ -83,9 +90,9 @@ export function toolNameOf(tool: Class): string {
  * typed by the tool's input DTO (compile time) and validated by the tool when it runs; the turn
  * carries the tool's name, so a tool the agent does not list does not compile (#679).
  */
-export function callTool<TInput extends object, TTool extends ToolClass<TInput>>(
+export function callTool<TTool extends ToolClass<never>>(
   tool: TTool,
-  args: NoInfer<TInput>,
+  args: NoInfer<ToolInputOf<InstanceType<TTool>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 /** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
 export function callTool<TRag extends Class<RagConnector>>(

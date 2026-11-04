@@ -278,6 +278,17 @@ export type AgentsLaunched<TKey extends string, THead extends PathHead, TCount e
 // @public
 export type AgentStartEvent = StartEvent<string>;
 
+// Warning: (ae-forgotten-export) The symbol "GeneratedEntry" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type AgentToolNamesOf<TSelf> = GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
+
+// @public
+export interface AgentTools {
+    // (undocumented)
+    readonly [notGenerated]?: never;
+}
+
 // @public
 export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: ArbiterAnswerOf<TAgent>) => boolean | Promise<boolean>;
 
@@ -729,8 +740,6 @@ export function Channel<const D extends readonly Token[] = []>(options: ChannelM
     send(ask: never): Promise<unknown>;
 }>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "GeneratedEntry" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ChannelAnswerOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
     readonly answer: infer TAnswer;
@@ -6494,6 +6503,9 @@ export function ToolInterceptor<const D extends readonly Token[] = []>(options: 
     readonly deps?: D;
 }): <C extends new (...args: ResolvedAll<D>) => BeforeToolCall | AfterToolCall>(value: C) => C;
 
+// @public
+export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
+
 // @public (undocumented)
 export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
     // (undocumented)
@@ -7478,6 +7490,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/generated-types.ts:133:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts:137:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
 // src/flow/generated-types.ts:169:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:215:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/handlers.ts:19:3 - (ae-undocumented) Missing documentation for "execute".
 // src/flow/handlers.ts:24:3 - (ae-undocumented) Missing documentation for "finish".
 // src/flow/handlers.ts:33:3 - (ae-undocumented) Missing documentation for "route".

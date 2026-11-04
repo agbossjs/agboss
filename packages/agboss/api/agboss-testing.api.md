@@ -111,24 +111,22 @@ export interface CallMatchers<TSelf> {
     toHaveReturned<TDto extends DtoClass>(dto: TDto & ReturnedCheckOf<TSelf, TDto>, partial?: DeepPartial<InstanceType<TDto>> | readonly DeepPartial<InstanceType<TDto>>[]): void;
 }
 
+// Warning: (ae-forgotten-export) The symbol "ToolInputOf_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ToolNameOf" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function callTool<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<TInput>): ToolCallTurn;
+export function callTool<TTool extends ToolClass<never>>(tool: TTool, args: NoInfer<ToolInputOf_2<InstanceType<TTool>>>): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 
 // Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "SearchToolNameOf" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function callTool(rag: Class<RagConnector>, args: {
+export function callTool<TRag extends Class<RagConnector>>(rag: TRag, args: {
     readonly query: string;
-}): ToolCallTurn;
-
-// Warning: (ae-forgotten-export) The symbol "QuestionRoleClass" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
-//
-// @public
-export function callTool<TRole extends QuestionRoleClass>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn;
+}): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 
 // @public
-export function callTools(...calls: readonly [ToolCallTurn, ...ToolCallTurn[]]): ToolCallsTurn;
+export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(...calls: TCalls): ToolCallsTurn<TCalls[number]["tool"]>;
 
 // @public
 export function callToolWithInvalidArguments<TInput extends object>(tool: ToolClass<TInput>, args: InvalidFields): InvalidToolCallTurn;
@@ -1010,21 +1008,20 @@ export const toolCallMatchers: {
 };
 
 // @public
-export interface ToolCallsTurn {
+export interface ToolCallsTurn<TName extends string = string> {
     // (undocumented)
-    readonly calls: readonly ToolCallTurn[];
+    readonly calls: readonly ToolCallTurn<TName>[];
     // (undocumented)
     readonly kind: "tool-calls";
 }
 
 // @public
-export interface ToolCallTurn {
+export interface ToolCallTurn<TName extends string = string> {
     // (undocumented)
     readonly args: Readonly<Record<string, unknown>>;
     // (undocumented)
     readonly kind: "tool-call";
-    // (undocumented)
-    readonly tool: string;
+    readonly tool: TName;
 }
 
 // @public
@@ -1336,11 +1333,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:43:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:125:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:161:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:162:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:36:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:41:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:128:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:164:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:165:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
@@ -1362,30 +1359,29 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:62:3 - (ae-undocumented) Missing documentation for "details".
 // src/testing/turns.ts:63:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
 // src/testing/turns.ts:68:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:69:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/turns.ts:70:3 - (ae-undocumented) Missing documentation for "args".
-// src/testing/turns.ts:78:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:79:3 - (ae-undocumented) Missing documentation for "calls".
-// src/testing/turns.ts:87:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:88:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/turns.ts:89:3 - (ae-undocumented) Missing documentation for "args".
-// src/testing/turns.ts:97:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:98:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/turns.ts:108:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:109:3 - (ae-undocumented) Missing documentation for "dto".
-// src/testing/turns.ts:112:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:113:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
-// src/testing/turns.ts:118:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:119:3 - (ae-undocumented) Missing documentation for "targets".
-// src/testing/turns.ts:120:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:121:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
-// src/testing/turns.ts:126:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:127:3 - (ae-undocumented) Missing documentation for "answers".
-// src/testing/turns.ts:128:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:133:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:134:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/turns.ts:144:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:145:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/turns.ts:71:3 - (ae-undocumented) Missing documentation for "args".
+// src/testing/turns.ts:79:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:80:3 - (ae-undocumented) Missing documentation for "calls".
+// src/testing/turns.ts:88:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:89:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:90:3 - (ae-undocumented) Missing documentation for "args".
+// src/testing/turns.ts:98:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:99:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:109:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:110:3 - (ae-undocumented) Missing documentation for "dto".
+// src/testing/turns.ts:113:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:114:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
+// src/testing/turns.ts:119:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:120:3 - (ae-undocumented) Missing documentation for "targets".
+// src/testing/turns.ts:121:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:122:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
+// src/testing/turns.ts:127:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:128:3 - (ae-undocumented) Missing documentation for "answers".
+// src/testing/turns.ts:129:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:134:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:135:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/turns.ts:145:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:146:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".

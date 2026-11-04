@@ -10,13 +10,13 @@ import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.
 import type { AskResumeWorkflowFinish, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
 import type { CompanyGradeDto, CompanyLinkDto, CompanyRejectedDto, CompanyReviewFailedDto, DeepDiveDto, GradedShortlistDto, JobOfferDto, PromisingCompanyDto } from "../tests/flow/fixtures/child-dtos.js";
 import type { CompanyFinderAgent, CompanyGradedWorkflowFinish, CompanyLinkReviewWorkflowStart, CompanyPickerAgent, CompanyRejectedWorkflowFinish, CompanyReviewFailedWorkflowFinish, CompanyReviewWorkflow, CompanyReviewWorkflowStart, CompanyReviewerAgent, CompanyScreeningWorkflow, CompanyScreeningWorkflowStart, DeepDiveAgent, GradedShortlistWorkflowFinish, GraderAgent, JobOfferAgent, JobOfferWorkflow, JobOfferWorkflowFinish, JobOfferWorkflowStart, LinkOfferWorkflow, LinkOfferWorkflowStart, MarkReviewFailedAction, NoOfferFailedWorkflowFinish, NoOfferRejectedWorkflowFinish, NotifyReviewStoppedAction, PickedOfferWorkflowStart, ReviewErrorWorkflowFinish, ReviewRankerAgent, ScreeningStoppedWorkflowFinish } from "../tests/flow/fixtures/children.fixture.js";
-import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, ClinicExecutionContext, ClinicTenantContext } from "../tests/flow/fixtures/clinic.fixture.js";
+import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
 import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentDto, TopicAnswerDto } from "../tests/flow/fixtures/credit-dtos.js";
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
 import type { ArticleDto, ArticleRequestDto, ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, OfferSentDto, OpeningsDto, OrderRequestDto, OrderShippedDto, ProfileDto, ResumeMissingDto, ReviewDto, ShortlistDto, StockReservationDto, WorkflowStartTextDto } from "../tests/flow/fixtures/dtos.js";
-import type { DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, HandOverDto, HandOverWorkflowFinish } from "../tests/flow/fixtures/eval-desk.fixture.js";
-import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
+import type { DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, GetOrderTool, HandOverDto, HandOverWorkflowFinish, RefundTool } from "../tests/flow/fixtures/eval-desk.fixture.js";
+import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupTool, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
 import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
@@ -28,12 +28,12 @@ import type { ApproverAnswerDto, ApproverQuestion, ApproverReplyInterpreter, Buy
 import type { BudgetOwnerQuestion, BudgetOwnerReplyInterpreter, CheckLimitAction, DraftQuestionAction, OwnerPurchaseWorkflow, OwnerPurchaseWorkflowFinish, OwnerPurchaseWorkflowStart, PlacePurchaseAction, PurchasePlacedDto, PurchaseQuestionDto, PurchaseUnaskedWorkflowFinish, PurchaseWorkflow, PurchaseWorkflowFinish, PurchaseWorkflowStart, SpendingLimitAnswerDto, SpendingLimitQuestion, SpendingLimitReplyInterpreter } from "../tests/flow/fixtures/questions.fixture.js";
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
-import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
+import type { ConfirmScoreTool, CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent, WaitTool } from "../tests/flow/fixtures/quorum-runtime-parts.js";
 import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
-import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
-import type { BatchSummaryAgent, DepositApprovalChannel, DepositReplyInterpreter, DepositReturnDto, ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, SplitRequestsAction, TransferApprovalChannel, TransferRequestDto, TreasurerAgent, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
+import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
+import type { BatchSummaryAgent, BookExpenseTool, DepositApprovalChannel, DepositReplyInterpreter, DepositReturnDto, ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayOutTool, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, ReturnDepositTool, SplitRequestsAction, TransferApprovalChannel, TransferRequestDto, TransferTool, TreasurerAgent, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
@@ -744,6 +744,95 @@ declare module "../src/flow/generated-types.js" {
     "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "transfer-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: TransferRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: TransferRequestDto } };
   }
+  interface AgentTools {
+    "answer-agent": never;
+    "approval-agent": never;
+    "article-draft-agent": never;
+    "article-writer-agent": never;
+    "auditor-agent": never;
+    "batch-rank-agent": never;
+    "batch-summary-agent": never;
+    "bed-agent": "book-bed-tool" | "free-beds-tool";
+    "board-search-agent": never;
+    "broken-agent": never;
+    "chart-merger-agent": never;
+    "company-audit-agent": never;
+    "company-check-agent": never;
+    "company-finder-agent": never;
+    "company-grader-agent": never;
+    "company-picker-agent": never;
+    "company-reviewer-agent": never;
+    "company-shortlist-agent": never;
+    "company-vet-agent": never;
+    "critic-agent": never;
+    "critic-panel-agent": "wait-tool";
+    "culture-score-agent": never;
+    "deal-critic-agent": never;
+    "deal-report-panel-agent": never;
+    "deep-dive-agent": never;
+    "delivery-topic-agent": never;
+    "desk-agent": "delete-order-tool" | "get-order-tool" | "refund-tool";
+    "draft-agent": never;
+    "draft-editor-agent": never;
+    "draft-reviewer-agent": never;
+    "editor-agent": never;
+    "expert-answer-agent": never;
+    "fast-answer-agent": never;
+    "fast-panel-agent": "wait-tool";
+    "fast-screen-agent": never;
+    "final-reviewer-agent": never;
+    "first-draft-agent": never;
+    "fit-summary-agent": never;
+    "full-review-agent": never;
+    "grader-agent": never;
+    "hire-panel-agent": "confirm-score-tool" | "wait-tool";
+    "item-blind-agent": never;
+    "job-offer-agent": never;
+    "legal-agent": never;
+    "legal-panel-agent": "wait-tool";
+    "lookup-agent": "lookup-tool";
+    "loyalty-agent": never;
+    "loyalty-offer-agent": never;
+    "offers-answer-agent": never;
+    "order-agent": never;
+    "order-intake-agent": never;
+    "order-lookup-agent": never;
+    "order-topic-agent": never;
+    "org-mapper-agent": never;
+    "outline-agent": never;
+    "panel-summary-agent": never;
+    "plan-researcher-agent": never;
+    "planner-agent": never;
+    "polish-agent": never;
+    "profiler-agent": never;
+    "publisher-agent": never;
+    "ranker-agent": never;
+    "refund-clerk-agent": "refund-card-tool";
+    "refund-policy-agent": never;
+    "refund-topic-agent": never;
+    "report-merger-agent": never;
+    "researcher-agent": never;
+    "review-ranker-agent": never;
+    "reviewer-agent": never;
+    "risks-panel-agent": "confirm-score-tool" | "wait-tool";
+    "salary-fit-agent": never;
+    "score-a-agent": never;
+    "score-b-agent": never;
+    "score-c-agent": never;
+    "score-summary-agent": never;
+    "scout-agent": never;
+    "screening-agent": never;
+    "skills-panel-agent": "confirm-score-tool" | "wait-tool";
+    "skills-score-agent": never;
+    "story-reviewer-agent": never;
+    "story-writer-agent": never;
+    "topic-researcher-agent": never;
+    "treasurer-agent": "book-expense-tool" | "pay-out-tool" | "return-deposit-tool" | "transfer-tool";
+    "unit-charter-agent": never;
+    "unit-picker-agent": never;
+    "verdict-agent": never;
+    "writer-agent": never;
+  }
   interface DtoBrands {
     "ApprovalDto": ApprovalDto;
     "ApprovedVerdictDto": ApprovedVerdictDto;
@@ -1078,6 +1167,12 @@ declare module "../tests/flow/fixtures/clinic.fixture.js" {
   interface BedsWorkflowFinish {
     readonly [agbossComponent]?: "beds-workflow-finish";
   }
+  interface BookBedTool {
+    readonly [agbossComponent]?: "book-bed-tool";
+  }
+  interface FreeBedsTool {
+    readonly [agbossComponent]?: "free-beds-tool";
+  }
 }
 
 declare module "../tests/flow/fixtures/credit-dtos.js" {
@@ -1216,6 +1311,9 @@ declare module "../tests/flow/fixtures/dtos.js" {
 }
 
 declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
+  interface DeleteOrderTool {
+    readonly [agbossComponent]?: "delete-order-tool";
+  }
   interface DeskAgent {
     readonly [agbossComponent]?: "desk-agent";
   }
@@ -1231,11 +1329,17 @@ declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
   interface EvalDeskWorkflow {
     readonly [agbossComponent]?: "eval-desk-workflow";
   }
+  interface GetOrderTool {
+    readonly [agbossComponent]?: "get-order-tool";
+  }
   interface HandOverDto {
     readonly [agbossDto]?: "HandOverDto";
   }
   interface HandOverWorkflowFinish {
     readonly [agbossComponent]?: "hand-over-workflow-finish";
+  }
+  interface RefundTool {
+    readonly [agbossComponent]?: "refund-tool";
   }
 }
 
@@ -1251,6 +1355,9 @@ declare module "../tests/flow/fixtures/evals.fixture.js" {
   }
   interface LookupAgent {
     readonly [agbossComponent]?: "lookup-agent";
+  }
+  interface LookupTool {
+    readonly [agbossComponent]?: "lookup-tool";
   }
   interface LookupWorkflow {
     readonly [agbossComponent]?: "lookup-workflow";
@@ -1786,6 +1893,9 @@ declare module "../tests/flow/fixtures/quorum-dtos.js" {
 }
 
 declare module "../tests/flow/fixtures/quorum-runtime-parts.js" {
+  interface ConfirmScoreTool {
+    readonly [agbossComponent]?: "confirm-score-tool";
+  }
   interface CriticPanelAgent {
     readonly [agbossComponent]?: "critic-panel-agent";
   }
@@ -1839,6 +1949,9 @@ declare module "../tests/flow/fixtures/quorum-runtime-parts.js" {
   }
   interface SkillsPanelAgent {
     readonly [agbossComponent]?: "skills-panel-agent";
+  }
+  interface WaitTool {
+    readonly [agbossComponent]?: "wait-tool";
   }
 }
 
@@ -1957,6 +2070,9 @@ declare module "../tests/flow/fixtures/refunds.fixture.js" {
   interface RefundCardOutputDto {
     readonly [agbossDto]?: "RefundCardOutputDto";
   }
+  interface RefundCardTool {
+    readonly [agbossComponent]?: "refund-card-tool";
+  }
   interface RefundClerkAgent {
     readonly [agbossComponent]?: "refund-clerk-agent";
   }
@@ -1971,6 +2087,9 @@ declare module "../tests/flow/fixtures/refunds.fixture.js" {
 declare module "../tests/flow/fixtures/replies.fixture.js" {
   interface BatchSummaryAgent {
     readonly [agbossComponent]?: "batch-summary-agent";
+  }
+  interface BookExpenseTool {
+    readonly [agbossComponent]?: "book-expense-tool";
   }
   interface DepositApprovalChannel {
     readonly [agbossComponent]?: "deposit-approval-channel";
@@ -1999,6 +2118,12 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   interface PayoutRequestDto {
     readonly [agbossDto]?: "PayoutRequestDto";
   }
+  interface PayOutTool {
+    readonly [agbossComponent]?: "pay-out-tool";
+  }
+  interface ReturnDepositTool {
+    readonly [agbossComponent]?: "return-deposit-tool";
+  }
   interface SplitRequestsAction {
     readonly [agbossComponent]?: "split-requests-action";
   }
@@ -2007,6 +2132,9 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   }
   interface TransferRequestDto {
     readonly [agbossDto]?: "TransferRequestDto";
+  }
+  interface TransferTool {
+    readonly [agbossComponent]?: "transfer-tool";
   }
   interface TreasurerAgent {
     readonly [agbossComponent]?: "treasurer-agent";

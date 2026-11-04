@@ -30,8 +30,8 @@ describe("#679 AC1: an agent's tool calls are typed by the tools it lists", () =
   });
 
   it("a tool the agent does not list does not compile, alone or among its own", () => {
-    const other = callTool(FreeBedsTool, { unit: "icu" });
-    const mixed = callTools(callTool(RefundCardTool, card), callTool(BookBedTool, { unit: "icu" }));
+    const other = callTool(FreeBedsTool, { ward: "icu" });
+    const mixed = callTools(callTool(RefundCardTool, card), callTool(BookBedTool, { ward: "icu" }));
 
     expectTypeOf(other).not.toExtend<ClerkTurn>();
     expectTypeOf(mixed).not.toExtend<ClerkTurn>();
