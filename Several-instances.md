@@ -1557,6 +1557,10 @@ export class DeskApplication {}
 - **Recovery** on a full instance: its sweep starts at most as many recoveries per look as it has
   free step slots — none when it is full — so the orphans go to an idle instance. A look cut short
   that way goes on where it stopped the next time, so every `running` root is reached in turn.
+- **Children on any instance** are claimed while the instance has room: its free slots, less one
+  for each child it claimed that holds no slot at the moment (before its first step, between two)
+  — a child at work is counted once, by the slot it holds (#767). An instance of 32 free slots
+  keeps 32 children at work while the queue has more, and never claims more children than its slots.
 - **Readiness**: a full instance reports the component `step-slots`
   ([`HealthComponentKind.StepSlots`](Health-checks#the-report)) as `Degraded` —
   `"32 of 32 step slots busy, 7 steps waiting"` — and `Healthy` again once a slot frees; liveness is

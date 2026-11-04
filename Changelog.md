@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a worker claims children up to its free slots (#767)
+
+- **Fixed**: an instance with `maxConcurrentSteps` counted each child on any instance
+  (`ChildPlacement.AnyInstance`) it was running twice while the child's step ran — once by the
+  step's slot, once as a claim — so it claimed fewer children than it had slots: with three slots
+  and three children at work, the end of one left two at work until a second ended too. A claimed
+  child is now counted once — by the slot it holds, or as a claim while it holds none —, so the
+  instance keeps its slots full under a backlog and still never claims more children than its
+  slots. [Several instances](Several-instances#an-instances-cap-on-steps-332).
+
 ## Unreleased — 0.1.1: `agboss check --strict` reports every analyser warning (#769)
 
 - **Fixed**: under `--strict` the CLI kept, of the analyser's warnings, only the three codes of a
