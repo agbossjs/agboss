@@ -14,6 +14,10 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **The business-key identity and the outbound call's runtime are mutation-tested** (#626) — the
+  `keys-and-calls` Stryker shard joins `fencing` and `sqlite-stores`, cold every night, failing below
+  100 %. Wiki → Guarantees states each shard's counts from the cold run of `0ed7fb7e` (406, 857 and
+  271 mutants; every one killed, timed out or justified where it stands).
 - **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
   `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
   `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
