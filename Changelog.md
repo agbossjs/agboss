@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the business-key identity and the outbound call's runtime are mutated (#626)
+
+- **Added**: the `keys-and-calls` mutation shard (the business-key identity, `keyTextRuleOf` and its
+  rules, the outbound call's runtime) joins `fencing` and `sqlite-stores`. All three are cold every
+  night and fail below 100 %. [Guarantees](Guarantees) states each shard's counts from the cold run
+  of `0ed7fb7e`.
+
 ## Unreleased — 0.1.1: a fenced effect's work may run more than once per call (#730)
 
 - **Docs**: `FencedEffectWork`, `saveResultIfAbsent` and [Several instances](Several-instances#the-fenced-effect-500)
