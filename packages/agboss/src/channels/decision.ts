@@ -45,7 +45,19 @@ export function validDecisionOf(decision: unknown, tool: AnyTool): ToolCallAppro
   const valid = validate(ToolCallApprovalDecisionDto, decision);
   if (valid.overrideArguments === undefined) return valid;
   const checked = tool.input.safeParse(valid.overrideArguments);
-  if (checked.success) return valid;
+  if (checked.success) {
+    // strict (#688): a key the tool's input does not have, at any depth, is refused — never dropped
+    const dropped = droppedKeysOf(valid.overrideArguments, checked.data, []);
+    if (dropped.length > 0)
+      throw new DtoValidationError(
+        ToolCallApprovalDecisionDto.name,
+        dropped.map((path) => ({
+          path: pathOf(["overrideArguments", ...path]),
+          reason: "is no field of the tool's input",
+        })),
+      );
+    return valid;
+  }
   throw new DtoValidationError(
     ToolCallApprovalDecisionDto.name,
     checked.error.issues.map((issue) => ({
@@ -53,6 +65,24 @@ export function validDecisionOf(decision: unknown, tool: AnyTool): ToolCallAppro
       reason: issue.message,
     })),
   );
+}
+
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The paths of `raw` the validated `parsed` does not have: keys a schema dropped, at any depth. */
+function droppedKeysOf(raw: unknown, parsed: unknown, at: readonly (string | number)[]) {
+  const dropped: (readonly (string | number)[])[] = [];
+  if (Array.isArray(raw) && Array.isArray(parsed))
+    raw.forEach((item, index) =>
+      dropped.push(...droppedKeysOf(item, parsed[index], [...at, index])),
+    );
+  else if (isPlainObject(raw) && isPlainObject(parsed))
+    for (const [key, item] of Object.entries(raw))
+      if (Object.hasOwn(parsed, key))
+        dropped.push(...droppedKeysOf(item, parsed[key], [...at, key]));
+      else dropped.push([...at, key]);
+  return dropped;
 }
 
 /** Where a pause's answer is checked: its tool, or its question's answer DTO (#659). */

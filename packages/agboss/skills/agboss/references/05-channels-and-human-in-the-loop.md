@@ -493,7 +493,21 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   only up to $500" is `{ approved: true, overrideArguments: { amountUsd: 500 } }`, laid over the
   call's own arguments — and `answer-reply-interpreter-not-understood-dto` for a reply that does not
   answer ("🤷"), which is never a refusal (#648). Tests:
-  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
+  `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`. For an approval role (#688) its decision
+  is named — `approve` / `approve-with-changes` / `refuse`; an unknown one, `approve-with-changes`
+  without a correction, `approved` beside a decision or a correction that changes the call's shape
+  (a new key at any depth, another kind of value, a list of another length) is not understood, and
+  the corrected call passes the tool's own input strictly (an unknown key is refused). The kept
+  record's `PauseAnswerRecord.asked` is the call as asked, beside its `decision`.
+- **A reply interpreter may change approved arguments within the call's DTO; put money limits in a
+  guardrail or the action.** A reply interpreter reads intent; it is not a guardrail (#688). It does not decide whether a
+  correction is allowed — "never above the call's amount", "only in the call's currency", "never
+  below 0". Put such a limit where it holds whoever approved the call: a tool interceptor's
+  `beforeToolCall` on the call as it runs (after the approval, with any correction —
+  `ToolCallDecision.block({ reason })` fails the step with `ToolBlockedError`), or a check in the
+  tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
+  payment guarantees — fenced effects, outbound calls, one charge per business key — hold whatever
+  the interpreter reads.
 - **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a role without `replyInterpreter` →
   `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else

@@ -1,4 +1,10 @@
 import { Channel, Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import {
+  ToolCallDecision,
+  ToolInterceptor,
+  type BeforeToolCall,
+  type ToolCallContext,
+} from "../../../src/index.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
@@ -252,12 +258,35 @@ export class DeskTransferApprovalChannel extends TransferApprovalChannel {
   }
 }
 
+/** The treasury's own limit on a payout (#688): no approval — read from a reply or not — pays more. */
+export const PAYOUT_LIMIT_CENTS = 150_000;
+
+/**
+ * The semantic rule a reply interpreter does not enforce (#688): a tool interceptor on the call as
+ * it runs — after the approval, with any correction a reply made — blocks a payout above the limit.
+ */
+@ToolInterceptor({
+  name: "payout-limit-tool-interceptor",
+  description: "Blocks a payout above the treasury's limit, whoever approved it",
+})
+export class PayoutLimitToolInterceptor implements BeforeToolCall {
+  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+    const { input } = call;
+    const amount =
+      typeof input === "object" && input !== null && "amountCents" in input ? input.amountCents : 0;
+    return typeof amount === "number" && amount > PAYOUT_LIMIT_CENTS
+      ? ToolCallDecision.block({ reason: `a payout above ${String(PAYOUT_LIMIT_CENTS)} cents` })
+      : ToolCallDecision.allow();
+  }
+}
+
 @Tool({
   name: "pay-out-tool",
   description: "Pays a payee",
   input: PayoutRequestDto,
   output: ReplyDeskDoneDto,
   channel: PayoutApprovalChannel,
+  toolInterceptors: [PayoutLimitToolInterceptor],
 })
 export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDto> {
   run(input: PayoutRequestDto): Promise<ReplyDeskDoneDto> {

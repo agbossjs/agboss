@@ -71,4 +71,11 @@ export interface PauseAnswerRecord {
   readonly resolvedAt: string | undefined;
   /** What was decided, PII-masked; `undefined` when it was withdrawn or cancelled. */
   readonly decision: unknown;
+  /**
+   * What was asked, PII-masked (#688): an approval's call as the agent made it — its tool and its
+   * own arguments, before any correction — or a question's ask. Beside `decision` (the call as it
+   * ran, a correction laid over it) it makes every change a reply made auditable. Absent on a
+   * record kept before #688.
+   */
+  readonly asked?: unknown;
 }

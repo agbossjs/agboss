@@ -1341,7 +1341,8 @@ anything else (Wiki → Pauses has the whole class).
 `result.record.pauses`: every resolved pause of the tree in the order asked —
 `PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
 execution it waited in: the root's or a child's), step, role, answeredBy, responder, resolution,
-askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
+askedAt, resolvedAt, decision, asked }` (`asked`, #688: the call as asked, before a reply's
+correction), `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
 the PII policies like the rest of the record, none when withdrawn or cancelled. Each child's record —

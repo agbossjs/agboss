@@ -146,9 +146,13 @@ function readingOf(
     return { kind: "declined", reason: `the reply does not answer the question: ${why}`, usage };
   }
   const answer = calls.find((call) => call.name === tools.answer);
-  return answer === undefined
-    ? { kind: "declined", reason: "the model gave no answer", usage }
-    : { kind: "answered", answer: withCorrectedCall(answer.args, ask), usage };
+  if (answer === undefined) return { kind: "declined", reason: "the model gave no answer", usage };
+  // a question role's answer (#659) is its own DTO, validated as it is: no decision, no call
+  if (ask === undefined) return { kind: "answered", answer: answer.args, usage };
+  const read = withCorrectedCall(answer.args, ask);
+  if (read.kind === "invalid")
+    return { kind: "declined", reason: `the model gave no answer it may: ${read.reason}`, usage };
+  return { kind: "answered", answer: read.answer, usage };
 }
 
 /** One reply to read: its pause, the text, and what the caller does around the model call. */

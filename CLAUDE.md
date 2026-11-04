@@ -1537,7 +1537,15 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideArguments`
   described by the approved tool's input, every field optional: the fields the reply changes, laid
   over the call's own arguments before validation, #648 — and `answer-reply-interpreter-not-understood-dto`
-  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal), one
+  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: for an approval role
+  the tool's decision is named — `approve` / `approve-with-changes` / `refuse` (`ReplyDecision`), mapped onto
+  the DTO, a script's DTO-shaped answer as is — a yes with a limit below the call's value is a change in any
+  language; an unknown decision, `approve-with-changes` without a correction, `approved` beside a decision or a
+  correction that changes the call's shape (a new key at any depth, another kind of value, a list of another length)
+  is not understood; every decision's `overrideArguments` pass the tool's input strictly (an unknown key at any depth is
+  refused, never dropped) — a reply interpreter may change approved arguments within the call's DTO; put money limits
+  in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected call before the tool runs);
+  `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
@@ -2027,7 +2035,8 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
 answeredBy, responder, resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled,
-askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn or cancelled; each
+askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when withdrawn or cancelled, `asked` (#688) the call as
+  asked — its own arguments before a reply's correction — or a question's ask, masked; each
   child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is
   resolved into the execution records (`ExecutionRecordRepository.savePauseAnswer` /
   `findPauseAnswersByTenantIdAndRootExecutionId`; once per pause of a tree — tenant,
