@@ -5,7 +5,11 @@ import {
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
+import type { ContractInstances } from "./seam.js";
 import { NINE, QUESTION_ANSWER, questionPauseOf } from "./paused-execution-data.js";
+
+/** What each case below gets. */
+type Instances = ContractInstances<PausedExecutionRepository>;
 
 /**
  * #746: a question role's pause (#659 a flow step, #712 an agent's tool) — no tool call in its ask,
@@ -14,7 +18,7 @@ import { NINE, QUESTION_ANSWER, questionPauseOf } from "./paused-execution-data.
 export const QUESTION_PAUSE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
     name: "#746: a question's pause is found on the other instance as written — by id and by its tree",
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       const asked = questionPauseOf("pause-q");
 
       expect(await first.findOrCreateByStepKey(asked)).toEqual(asked);
@@ -28,7 +32,7 @@ export const QUESTION_PAUSE_CASES: readonly ContractCase<PausedExecutionReposito
   },
   {
     name: "#746: a question's pause is sent, answered with the role's answer and taken like any pause",
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(questionPauseOf("pause-q"));
 
       expect(await second.markSentByTenantIdAndPauseId("default", "pause-q")).toBe(true);

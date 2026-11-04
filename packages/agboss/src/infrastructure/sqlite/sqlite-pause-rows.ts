@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { componentOfStored, StoredLoopProgress } from "../stored-step.js";
-import { ComponentKind, type ComponentRecord } from "../../flow/runtime/records.js";
+import { askOfStored } from "./sqlite-pause-ask.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import {
   PauseResolution,
@@ -55,21 +55,6 @@ const StoredPause = z.object({
   ask: z.record(z.string(), z.unknown()),
 });
 
-/** The tool call an approval's pause asks about. */
-const StoredApprovalAsk = z.object({
-  callId: z.string(),
-  tool: z.string(),
-  arguments: z.record(z.string(), z.unknown()),
-  summary: z.string(),
-});
-
-/** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
-const askOf = (
-  ask: Readonly<Record<string, unknown>>,
-  component: ComponentRecord | undefined,
-): PauseRecord["ask"] =>
-  component?.kind === ComponentKind.Question ? ask : StoredApprovalAsk.parse(ask);
-
 const PauseRow = z.object({
   tenant_id: z.string(),
   pause_id: z.string(),
@@ -121,7 +106,7 @@ function toPauseRecord(row: unknown): PauseRecord {
   const record = component === undefined ? undefined : componentOfStored(component);
   const pause: PauseRecord = {
     ...stored,
-    ask: askOf(ask, record),
+    ask: askOfStored(ask, record),
     ...(record === undefined ? {} : { component: record }),
     ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
