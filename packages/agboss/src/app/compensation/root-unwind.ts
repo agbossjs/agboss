@@ -87,7 +87,7 @@ async function recordAtOnce(
   checkpoint: CheckpointState,
   usage: readonly UsageRecord[],
 ): Promise<void> {
-  if (deps.budgets === undefined || usage.length === 0) return;
+  if (deps.budgets === undefined) return;
   await meterOf(deps.budgets, checkpoint.budgets ?? [], 0).record(usage);
 }
 
@@ -134,6 +134,7 @@ export async function unwoundTree<TCause>(
   const checkpoint = await treeStateOf(deps, state.runId);
   const stored = await checkpointOf(deps, state);
   const known = await withUndoneMarks(marks, stored.entries);
+  // Stryker disable next-line ArrayDeclaration: the records list the root's own entries only, and a stray string names no execution
   const mirrored = deps.compensation?.registry.entriesOf(tree, () => true) ?? [];
   const owner = await deps.terns.threadOwner(deps.config.name, state.tenantId, state.threadId);
   const sites: TreeUndoSites = {

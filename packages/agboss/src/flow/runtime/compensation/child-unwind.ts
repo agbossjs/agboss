@@ -80,6 +80,7 @@ function factsOf(site: ChildUnwindSite): ExecutionFacts {
 
 /** The child's entries as its checkpoint holds them (none without a checkpointer). */
 async function checkpointed(site: ChildUnwindSite, root: string) {
+  // Stryker disable next-line ArrayDeclaration: a stray string is no entry of the child's: its filter drops it
   if (site.checkpointer === undefined) return [];
   const found = await entriesInCheckpoint(site.checkpointer, site.config, root);
   return found.flatMap((each) => each.entries);

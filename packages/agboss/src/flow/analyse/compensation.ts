@@ -25,6 +25,26 @@ export function actionDeclarationOf(component: Class | undefined): ActionDeclara
   return declaration?.kind === NodeKind.Action ? declaration : undefined;
 }
 
+/** An undoable action: its own declaration, and its undo action's class and declaration. */
+export interface UndoOf {
+  readonly action: ActionDeclaration;
+  readonly undo: Class;
+  readonly compensator: ActionDeclaration;
+}
+
+/**
+ * The undo of an undoable action's class (#340, #633: one place, so a caller has one case — an
+ * action and its undo action, or not undoable); `undefined` for anything else.
+ */
+export function undoOf(component: Class | undefined): UndoOf | undefined {
+  const action = actionDeclarationOf(component);
+  const undo = action?.options.compensateWith;
+  const compensator = actionDeclarationOf(undo);
+  return action === undefined || undo === undefined || compensator === undefined
+    ? undefined
+    : { action, undo, compensator };
+}
+
 /** A class as a message names it: its component name, else its class name. */
 export const componentLabel = (component: Class | undefined): string =>
   component === undefined

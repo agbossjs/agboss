@@ -1,7 +1,7 @@
 import { errorRecordOf } from "../../../core/error-record.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import { slotOfDto, slotOfField } from "../../analyse/scope.js";
-import { actionDeclarationOf } from "../../analyse/compensation.js";
+import { actionDeclarationOf, undoOf } from "../../analyse/compensation.js";
 import { NodeKind } from "../../ast.js";
 import {
   CompensationEntryStatus,
@@ -44,10 +44,10 @@ const factsOf = ({ frame }: VisitCompensationSite): VisitFacts => ({
 });
 
 /** The scope the undo reads from: a branch's own value added under its class's slot. */
-function scopeAfter(site: VisitCompensationSite): ScopeRecords {
+function scopeAfter(site: VisitCompensationSite, action: ActionDeclaration): ScopeRecords {
   const { branch, node } = site;
-  if (branch?.value === undefined || node.declaration.kind !== NodeKind.Action) return site.scope;
-  const { output } = node.declaration.options;
+  if (branch?.value === undefined) return site.scope;
+  const { output } = action.options;
   const { variant, value } = branch.value;
   const dto = variant === undefined ? output : branch.dtos.get(variant);
   if (typeof dto !== "function") return site.scope;
@@ -75,9 +75,9 @@ function snapshotFor(compensator: ActionDeclaration, scope: ScopeRecords): Scope
 
 /** The entry an undoable action's success opens; none for an action without `compensateWith`. */
 function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEntry | undefined {
-  const declaration = actionDeclarationOf(site.node.component);
-  const compensator = actionDeclarationOf(declaration?.options.compensateWith);
-  if (declaration === undefined || compensator === undefined) return undefined;
+  const undoable = undoOf(site.node.component);
+  if (undoable === undefined) return undefined;
+  const { action: declaration, compensator } = undoable;
   const floor = Math.max(0, ...site.entries.map((entry) => entry.sequence));
   const sequence = site.parts?.registry.nextSequence(facts.tree, floor) ?? floor + 1;
   const committer = actionDeclarationOf(declaration.options.committedBy)?.options.name;
@@ -90,7 +90,7 @@ function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEnt
     compensator: compensator.options.name,
     ...(committer === undefined ? {} : { committer }),
     ...(site.branch === undefined ? {} : { launchId: site.branch.launchId }),
-    input: snapshotFor(compensator, scopeAfter(site)),
+    input: snapshotFor(compensator, scopeAfter(site, declaration)),
     status: CompensationEntryStatus.Open,
   };
 }

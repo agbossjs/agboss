@@ -37,8 +37,11 @@ export interface TreeUndoSites {
 /** The graph deps of the execution under `namespace`: down the tree by its child nodes' names. */
 export function depsOfNamespace(deps: GraphDeps<string>, namespace: string): GraphDeps<string> {
   let current = deps;
-  for (const segment of namespace === "" ? [] : namespace.split("|")) {
-    const node = current.graph.nodes.get(segment.split(":")[0] ?? "");
+  // the root's "" is one segment that names no node
+  for (const segment of namespace.split("|")) {
+    const parts = segment.split(":");
+    // Stryker disable next-line StringLiteral: `split` always gives a first part, so the fallback is never read
+    const node = current.graph.nodes.get(parts[0] ?? "");
     if (node?.kind !== NodeKind.Workflow) break;
     if (!isThisWorkflow(node.component)) current = current.childDepsOf?.(node.component) ?? current;
   }
@@ -72,6 +75,7 @@ function factsOf(
 /** The undo site of one entry: its execution's frame, its workflow's graph and container. */
 export function undoSiteOf(sites: TreeUndoSites, entry: CompensationEntry): UndoSite {
   const { deps } = sites;
+  // Stryker disable next-line StringLiteral: a namespace that names no node is the root's, as "" is
   const namespace = sites.namespaces.get(entry.executionId) ?? "";
   const own = depsOfNamespace(deps, namespace);
   return {
