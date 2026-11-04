@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the linearizability checker follows a chain of expiries (#750)
+
+- **Fixed**: the fault suite's `linearizable` check reported a sound history when one lease
+  operation's instant was pinned by another's, itself pinned inside its span. An example is an
+  acquire pinned by a renewal that a later read pins. #660 tried only one hop. An acquire, renewal
+  or reclaim is now also tried where a chain of expiries leads back from a span end. Histories the
+  model answers itself (`linearizability-generated.test.ts`, seeded) find no false positive.
+  [Guarantees](Guarantees).
+
 ## Unreleased — 0.1.1: DX papercuts (#644)
 
 - **Added**: `testReplyInterpreter(Role, { model })` — a role's reply interpreter on its own
