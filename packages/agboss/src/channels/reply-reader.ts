@@ -23,7 +23,7 @@ import {
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
-import { raisedFieldsOf, replyToolsOf, withCorrectedCall } from "./reply-tools.js";
+import { correctionRefusalOf, replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import { withinCurrency } from "./reply-currency.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
 
@@ -155,9 +155,9 @@ function readingOf(
   if (read.kind === "invalid")
     return { kind: "declined", reason: `the model gave no answer it may: ${read.reason}`, usage };
   const corrected = read.answer;
-  const raised = raisedFieldsOf(corrected, ask);
-  if (raised.length > 0) {
-    const reason = `the reply would raise ${raised.join(", ")} above the call's own: a raise is decided, never read from a reply`;
+  const refusal = correctionRefusalOf(corrected, ask);
+  if (refusal !== undefined) {
+    const reason = `the reply does not answer the question: ${refusal} — a raise or a new field is decided, never read from a reply`;
     return { kind: "declined", reason, usage };
   }
   return { kind: "answered", answer: corrected, usage };

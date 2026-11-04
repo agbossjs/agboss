@@ -2,9 +2,11 @@
  * #688 — a change of the call in a currency the call is not in is no answer, whatever the model
  * made of it: "yes, up to €900" on a call in US dollars would need converting, a guess. The call's
  * currency comes from its fields (a name like `amountUsd` or `amount_usd`, a description saying "US
- * dollars"); the reply's from its signs and words, in any language. Dollars written any way are
- * dollars; a reply naming no currency, a call naming none, a refusal and an approval as asked are
- * left as the model read them.
+ * dollars"); the reply's from its signs and words, in any language. US dollars written any way are
+ * dollars; another country's dollars (C$, A$, "Canadian dollars") and any other ISO 4217 code are
+ * their own currencies. Every approval is checked — "yes, in CAD" on a call in US dollars is not
+ * understood even with no correction; a reply naming no currency, a call naming none and a refusal
+ * are left as the model read them.
  */
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
@@ -58,6 +60,26 @@ describe("#688: the reply's currency against the call's", () => {
     expect(currencyMismatchOf(reply, OrderInDollarsDto)).toBeUndefined();
   });
 
+  it.each([
+    "yes, up to C$900",
+    "ok, max CA$900",
+    "fine, A$900 at most",
+    "up to NZ$900",
+    "HK$900 is the limit",
+    "yes, up to 900 Canadian dollars",
+    "ok, 900 Australian dollars",
+    "yes, in CAD",
+    "fine, 900 SEK",
+    "approved up to 900 MXN",
+    "ok, 900 CNY",
+  ])("%j on a call in US dollars: another currency, converting would be a guess", (reply) => {
+    expect(currencyMismatchOf(reply, OrderInDollarsDto)).toMatch(/converting it would be a guess/u);
+  });
+
+  it("US$ is US dollars", () => {
+    expect(currencyMismatchOf("yes, up to US$900", OrderInDollarsDto)).toBeUndefined();
+  });
+
   it("the call's currency from a field's name alone: `amount_eur`", () => {
     expect(currencyMismatchOf("yes, up to $900", OrderBySuffixDto)).toMatch(/USD.*EUR/u);
     expect(currencyMismatchOf("yes, up to €900", OrderBySuffixDto)).toBeUndefined();
@@ -103,16 +125,30 @@ describe("#688: what the guard does to a reading", () => {
     );
   });
 
-  it("a refusal and an approval as asked stay as read, whatever currency the reply names", () => {
+  it("a refusal stays as read, whatever currency the reply names", () => {
     const refused: ModelReading = {
       kind: "answered",
       answer: { approved: false, reason: "no" },
       usage: [],
     };
-    const asAsked: ModelReading = { kind: "answered", answer: { approved: true }, usage: [] };
 
     expect(withinCurrency(refused, interpreter, "no, not even 900 euros")).toBe(refused);
-    expect(withinCurrency(asAsked, interpreter, "yes, fine in €")).toBe(asAsked);
+  });
+
+  it.each(["yes, fine in €", "yes, in CAD", "ok, pay it in Canadian dollars"])(
+    "an approval as asked, no correction, %j: not understood",
+    (reply) => {
+      const asAsked: ModelReading = { kind: "answered", answer: { approved: true }, usage: [] };
+
+      expect(withinCurrency(asAsked, interpreter, reply)).toMatchObject({ kind: "declined" });
+    },
+  );
+
+  it("an approval as asked naming the call's currency or none stays as read", () => {
+    const asAsked: ModelReading = { kind: "answered", answer: { approved: true }, usage: [] };
+
+    expect(withinCurrency(asAsked, interpreter, "yes")).toBe(asAsked);
+    expect(withinCurrency(asAsked, interpreter, "yes, the $1200 is fine")).toBe(asAsked);
   });
 
   it("a capped approval in dollars stays as read", () => {
@@ -168,6 +204,17 @@ describe("#688: the guard on a model interpreter's reading", () => {
 
     expect(reading).toMatchObject({ kind: "declined" });
     expect(reading).toHaveProperty("reason", expect.stringContaining("EUR"));
+  });
+
+  it("a plain approve on 'yes, in CAD' is not understood, the call not approved", async () => {
+    const reading = await readByModel(
+      interpreter,
+      { ask, reply: "yes, in CAD" },
+      siteOf({ decision: "approve" }),
+    );
+
+    expect(reading).toMatchObject({ kind: "declined" });
+    expect(reading).toHaveProperty("reason", expect.stringContaining("CAD"));
   });
 
   it("the same in dollars is the capped approval", async () => {
