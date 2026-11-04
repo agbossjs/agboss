@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: projects come ready for graphify (#480)
+
+- **Added**: `agboss create` writes `.graphifyignore` and `.graphifyrc`, git-ignores `graphify-out/`,
+  and its `AGENTS.md` (with the shipped `SKILL.md`) tells the agent to ask the code graph of
+  [graphify](https://github.com/safishamsi/graphify) before reading many files when the project has
+  one. graphify stays optional: `create` says in one line how to enable it and never runs it.
+  [CLI](CLI#project-skills-for-coding-agents-305).
+
 ## Unreleased — 0.1.1: the store's-time authority cases are timed, not guessed (#762)
 
 - **Fixed**: the lease contract's "store's time is the authority" cases (#533) ran on real time,

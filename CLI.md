@@ -162,6 +162,39 @@ its AGBoss application, both compiled by the gate) and the move from live-model 
 project's own rules. `.claude/skills/agboss/` is in the generated `.gitignore`; it appears on
 `npm install` (the `postinstall` runs `agboss check`) or on the first `agboss check`.
 
+**Ready for a code graph (#480).** `agboss create` also writes what
+[graphify](https://github.com/safishamsi/graphify) (PyPI `graphifyy`) reads — a queryable graph of
+the project's code, built locally with tree-sitter, no embeddings, no key — and nothing that needs
+it:
+
+```text
+support-desk/
+  .graphifyignore                   what the graph leaves out (gitignore syntax, read after .gitignore)
+  .graphifyrc                       graphify's settings: comments only, its defaults apply
+  .gitignore                        … and graphify-out/
+  AGENTS.md                         … and "## Code graph (graphify, optional)" before "## Project rules"
+```
+
+- `.graphifyignore` groups what is generated (`.agboss/`, `dist/`, `coverage/`, `graphify-out/`,
+  `*.tsbuildinfo`), installed (`node_modules/`, `package-lock.json`, `.claude/skills/agboss/` — the
+  framework's guide, read through `SKILL.md`, not the graph), recorded (`*.cassette.json`,
+  `__snapshots__/`, `eval/labels/`) and secret (`.env`, `.env.*` but `.env.example`).
+- `AGENTS.md` and the shipped `SKILL.md` say: when `graphify-out/graph.json` exists, ask the graph
+  first — `graphify affected "BillingAgent"` lists the workflows, routers and tests that import it,
+  `graphify query "<question>"`, `graphify path "<A>" "<B>"`, `graphify explain "<Class>"` — then read
+  only the files it names, and run `graphify update .` after changing code. Without it, nothing
+  changes.
+- `create` ends with one line, chosen by whether an executable `graphify` is on the `PATH` (looked
+  up, never run): `Code graph for agents (optional): install graphify (pipx install graphifyy), then
+  graphify install --project && graphify update .`, or `Code graph for agents: graphify install
+  --project && graphify update .` when it is there. `graphify install --project` is graphify's own
+  (its skill in `.claude/skills/graphify/`, a `## graphify` section in `CLAUDE.md`, its hooks in
+  `.claude/settings.json`; other assistants: `graphify <platform> install`); `graphify update .`
+  builds the code graph offline. Its semantic pass over docs (`/graphify .` in the assistant) uses a
+  model and is never required.
+- An existing project opts in by copying the two files and the `AGENTS.md` section; there is no
+  migration command.
+
 **The sync.** `agboss check` (before the assembly — so also every `agboss dev` pass) and
 `agboss generate …` (before writing; `--dry-run` writes nothing) make the folder match the skills of
 the `agboss` the project resolves — the nearest `node_modules/agboss` from the project up, else the
