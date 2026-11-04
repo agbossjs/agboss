@@ -2,10 +2,11 @@
  * #484 AC4 — the fault suite is published: `@agboss/core/testing/faults`, an entry of its own with
  * its API report, never loaded by `@agboss/core` or `@agboss/core/testing` (the root's module
  * budget is untouched), and importable outside vitest — a pod imports it for `withHoldPoints` and
- * its store set's types; there only `faultSuite` is missing.
+ * its store set's types; there only `faultSuite` is missing. Outside vitest it is imported as a pod
+ * imports it, from the build (#721): through tsx a cold child transpiled the entry's 585 source
+ * modules first, past the test's timeout on a loaded machine.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
@@ -72,12 +73,13 @@ describe("#484 AC4: the published entry", () => {
   });
 
   it("imports outside vitest: the hold points work there, faultSuite says where it belongs", async () => {
-    const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
-    const entry = pathToFileURL(join(SOURCE, "testing", "faults", "index.ts")).href;
+    const built = join(PACKAGE_ROOT, "dist", "testing", "faults", "index.js");
+    expect(existsSync(built), "build the package first: npm run build").toBe(true);
+    const entry = pathToFileURL(built).href;
     const script = `const f = await import(${JSON.stringify(entry)});
       console.log(typeof f.withHoldPoints, typeof f.processHoldPoints.arm);
       try { f.faultSuite({ name: "x", stores: "", database: { url: "" } }); } catch (e) { console.log(e.message); }`;
-    const run = await runNode(["--import", loader, "--input-type=module", "-e", script], {
+    const run = await runNode(["--input-type=module", "-e", script], {
       env: { ...process.env, VITEST: "", VITEST_WORKER_ID: "", VITEST_POOL_ID: "" },
     });
     expect(run.stdout.split("\n")).toEqual([
