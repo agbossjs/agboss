@@ -101,6 +101,15 @@ describe("#633: recordApplicationSpend counts in the application budgets only", 
 });
 
 describe("#633: isApplicationSpendExhausted holds the spend to the last known limit", () => {
+  it("a class without @Budget among the budgets is none", async () => {
+    class NotABudget {}
+    const { ledger, application } = applicationOf([NotABudget, TestApplicationDailyBudget]);
+    await ledger.saveMaxSpend(DAILY, usd(1));
+    await ledger.saveAll([DAILY], [recordToolCost("judge", 1)]);
+
+    await expect(isApplicationSpendExhausted(application)).resolves.toBe(true);
+  });
+
   it("no application: never exhausted", async () => {
     await expect(isApplicationSpendExhausted(undefined)).resolves.toBe(false);
   });

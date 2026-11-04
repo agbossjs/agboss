@@ -85,8 +85,7 @@ export class PaidItemsWorkflowStart {}
 export class PaidItemsWorkflowFinish {
   finish(input: { readonly notes: readonly Produced<OrderNoteDto, unknown>[] }): OrderNoteDto {
     return {
-      note: input.notes.map((note) => note.value.note)
-        .join("; "),
+      note: input.notes.map((note) => note.value.note).join("; "),
     };
   }
 }
@@ -127,8 +126,7 @@ export class PaidLevelWorkflowFinish {}
           .toWorkflow(ThisWorkflow)
           .returns(OrderNoteDto)
           .toFinish(PaidLevelWorkflowFinish),
-        caseOf(OrderNoteDto)
-          .toFinish(PaidLevelWorkflowFinish),
+        caseOf(OrderNoteDto).toFinish(PaidLevelWorkflowFinish),
       ),
   ],
   maxDepth: 2,

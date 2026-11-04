@@ -14,7 +14,7 @@ export default defineConfig({
       "tests/ledger.test.ts",
       "tests/properties/budget-meter.property.test.ts",
       "tests/isolation/concurrent-budgets.test.ts",
-      "tests/infrastructure/{cost-ledger-stores,sqlite/sqlite-cost-ledger}.test.ts",
+      "tests/infrastructure/{cost-ledger-stores,cost-ledger-keys,sqlite/sqlite-cost-ledger}.test.ts",
       "tests/channels/paused-spend.test.ts",
       "tests/flow/runtime/{child-limits,remote-limits}.test.ts",
       "tests/flow/context/spend.test.ts",

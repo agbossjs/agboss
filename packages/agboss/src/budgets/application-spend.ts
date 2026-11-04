@@ -31,7 +31,7 @@ async function applicationRecords(
     records.push({
       budget: { name: meta.name },
       scope: meta.scope,
-      ...(meta.period === undefined ? {} : { period: meta.period }),
+      period: meta.period,
       key: application.applicationName,
       maxSpend: known ?? Number.POSITIVE_INFINITY,
     });
