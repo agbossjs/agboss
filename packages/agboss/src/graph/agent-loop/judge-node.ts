@@ -164,10 +164,11 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
   const { name: agent, judges = [], maxRetries = 0 } = deps.agent;
   return async (state) => {
     if (judges.length === 0 || state.reply === null) return {};
-    const usage: UsageRecord[] = [];
+    const judged: UsageRecord[] = [];
     const verdicts: JudgeVerdictRecord[] = [];
-    const rejected = await rejectionsOf(state, deps, state.reply, { usage, verdicts });
-    deps.budgets.tally(usage, state.flowPath); // counted at once (#338)
+    const rejected = await rejectionsOf(state, deps, state.reply, { usage: judged, verdicts });
+    // counted at once (#338), in the ledger at once (#727)
+    const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     if (state.retries >= maxRetries) {
       const error = new QualityGateError(

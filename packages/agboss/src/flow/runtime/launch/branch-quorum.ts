@@ -3,7 +3,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Class } from "../../../components/injection.js";
 import { extractRunContext } from "../../../core/run-context.js";
-import { totalCost, type UsageRecord } from "../../../finops/usage.js";
+import type { UsageRecord } from "../../../finops/usage.js";
 import type { ArbiterClass } from "../../ast.js";
 import type { ExecutionLimits } from "../limits.js";
 import type { ExecutionStateType } from "../state.js";
@@ -65,7 +65,7 @@ export function arbiterDepsFor(site: ArbiterSite): ArbiterDeps {
     beforeModelCall: async (spent) => {
       await budgets.refresh();
       const path = [...site.view.path, site.nodeId];
-      budgets.check(totalCost([...site.view.usage, ...site.services, ...spent]), path);
+      budgets.check([...site.view.usage, ...site.services, ...spent], path);
     },
   };
 }

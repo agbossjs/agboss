@@ -261,12 +261,16 @@ describe("the live tally (BudgetMeter)", () => {
     }).toThrow(BudgetExceededError);
   });
 
-  it("what the ledger records leaves the tally: a call counted once", async () => {
-    const budgets = meter();
-    const first = call(0.03);
+  it("a tally is written to the ledger at once; its kept record reaching the state counts once", async () => {
+    const ledger = new InMemoryCostLedgerRepository();
+    const budgets = meterOf({ ledger, clock: systemClock }, [record], 0);
 
-    budgets.tally([first]);
-    await budgets.record([first]);
+    const [kept] = budgets.tally([call(0.03)]);
+    expect(kept).toMatchObject({ isRecordedElsewhere: true, ledgerId: expect.any(String) });
+    await budgets.settled();
+    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
+    await budgets.record(kept === undefined ? [] : [kept]);
+    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
     budgets.check(0.03, []);
     budgets.tally([call(0.01)]);
 

@@ -167,8 +167,7 @@ function runTask(
     const call = callSignalOf(tool, config, runCtx, deps.budgets.exhausted);
     // a service's spend counted the moment it is reported (#338), and kept for the loop's usage
     const keep = (record: UsageRecord): void => {
-      usage.push(record);
-      deps.budgets.tally([record]);
+      usage.push(...deps.budgets.tally([record]));
     };
     const context: ToolInvocationContext = {
       signal: call.signal,
@@ -195,11 +194,11 @@ function runTask(
         ),
       call.signal,
     ).finally(call.release);
-    const { closed } = guarded;
-    const record = recordOf(tool, task, guarded, { startedAt, endedAt: runCtx.clock.now() }, mesh);
-    deps.budgets.tally(closed.usage);
+    const closed = { ...guarded.closed, usage: deps.budgets.tally(guarded.closed.usage) };
+    const ended = { ...guarded, closed };
+    const record = recordOf(tool, task, ended, { startedAt, endedAt: runCtx.clock.now() }, mesh);
     await reportToolEnd(deps, event, closed);
-    return endedTaskOf(tool, task, guarded, { record, usage });
+    return endedTaskOf(tool, task, ended, { record, usage });
   };
 }
 

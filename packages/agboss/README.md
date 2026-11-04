@@ -1412,8 +1412,8 @@ takes it. Nothing is reserved: a budget protects from draining money, so paralle
 tenant may overrun it a little, and a budget is exceeded by at most (#664) the calls in flight when it
 was exhausted (a cost is known after its call), plus the spend of the steps it never holds back — the
 undos, automatic or a side path's, and the actions of the side path that took a limit, step by step
-—, plus, across instances, what other trees' steps spend that start before that spend is in the
-ledger (at the end of the superstep that spent it). A decision a
+—, plus, across instances, what the steps spend — other trees' and the tree's own on another instance
+— that read the counters before that spend was in the ledger (one write after it was made, #727). A decision a
 tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A paid service
 that is **not** a model is recorded with `SpendRecorder` (`deps: [SpendRecorder]`, in a `@Tool` or
 an `@Action`): the record joins the spend of the current tool call or step and counts in the same

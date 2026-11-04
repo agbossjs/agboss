@@ -14,7 +14,7 @@ import { lastLevelAnswerTools, recursiveBranchOf } from "./soft-stop.js";
 import { agentRunner, type AgentLoops } from "./runners/agent.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { Class } from "../../components/injection.js";
-import type { BudgetMeter } from "../../budgets/execution-budgets.js";
+import { settledSaverOf, type BudgetMeter } from "../../budgets/execution-budgets.js";
 import { NodeKind } from "../ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
 import { lazyQuestionRunner, type NodeRunner } from "./node-runner.js";
@@ -88,7 +88,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
         ...loopPoliciesOf(deps, name),
         observer: deps.observer,
       },
-      deps.pause?.checkpointer,
+      settledSaverOf(deps.pause?.checkpointer, run.budgets),
     );
   const { recursion } = deps.graph.analysis;
   return new Map(
@@ -236,5 +236,5 @@ export type ExecutionGraph = ReturnType<typeof compile>;
 /** Builds the workflow's graph for one pass of an execution (its budgets, its tree's slots). */
 export function executionGraphOf(deps: GraphDeps<string>, run: RunLimits): ExecutionGraph {
   const slots = new TreeSlotRegistry(deps.stepSlots, deps.stepEntries, deps.remoteChildren);
-  return compile(deps, { ...run, slots }, deps.pause?.checkpointer);
+  return compile(deps, { ...run, slots }, settledSaverOf(deps.pause?.checkpointer, run.budgets));
 }

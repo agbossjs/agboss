@@ -248,18 +248,19 @@ describe("#685: a child's spend recorded elsewhere counts once", () => {
 });
 
 describe("#633: the meter's round trips", () => {
-  it("record: what this pass spent written once to every counter, a tally of it taken out", async () => {
+  it("tally: what this pass spent written at once to every counter, then read; its kept records recorded write nothing more (#727)", async () => {
     const { meter, ledger } = meterOn([budget("one-budget", 1), budget("two-budget", 1)]);
-    const [first, second] = [here(0.25, "first-agent"), here(0.25, "second-agent")];
-    meter.tally([first, second]);
+    const kept = meter.tally([here(0.25, "first-agent"), here(0.25, "second-agent")]);
 
-    await meter.record([first]);
+    await meter.settled();
+    const readAfterWrite = ledger.reads;
+    await meter.record(kept);
 
     expect(ledger.writes.map((counters) => counters.map((each) => each.budget))).toEqual([
       ["one-budget", "two-budget"],
     ]);
-    expect(ledger.reads).toBe(0);
-    // the second is still tallied, not in the ledger yet
+    expect(readAfterWrite).toBe(2);
+    expect(ledger.reads).toBe(2);
     expect(meter.remaining()).toBeCloseTo(0.5);
   });
 

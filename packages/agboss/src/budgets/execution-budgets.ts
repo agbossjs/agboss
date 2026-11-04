@@ -1,5 +1,4 @@
 import type { Clock } from "../infrastructure/clock.js";
-import type { Class } from "../components/injection.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { BudgetExceededError } from "../graph/limits.js";
@@ -11,18 +10,12 @@ import {
   counterOf,
   isRecordedHere,
   isSpendExhausted,
+  LedgerIds,
 } from "./budget-check.js";
 import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
-import { budgetOf, BudgetScope, type BudgetHandler, type BudgetMeta } from "./budget.js";
 
-export {
-  accountOf,
-  budgetExceededErrorOf,
-  counterOf,
-  NO_BUDGET_CHECK,
-  type BudgetCheck,
-  type ExecutionBudgetRecord,
-} from "./budget-check.js";
+export * from "./budget-check.js";
+export { settledSaverOf } from "../app/leased-checkpointer.js";
 
 /**
  * Budgets at run time (#261 PR 5): which budgets an execution has — its own workflow's execution
@@ -34,64 +27,10 @@ export {
  * tenant may overrun a little on a race, and a budget may be exceeded by at most the calls in flight
  * when it was exhausted (#338: the pass's live tally aborts them), plus (#664) the spend of the steps
  * it never holds back (the undos, automatic or a side path's; the actions of the side path that took
- * a limit, step by step) and, across instances, what other trees' steps spend that start before
- * that spend is in the ledger — at the end of the superstep that spent it.
+ * a limit, step by step) and, across instances (#727, #732), what the steps spend that passed their
+ * check before that spend was in the ledger — one write after it was made, a step that read the
+ * counters before then being one in flight.
  */
-
-/** A budget class with what `@Budget` says of it. */
-interface ListedBudget {
-  readonly type: Class;
-  readonly meta: BudgetMeta;
-}
-
-/** An application's budgets, as one workflow of it runs them. */
-export interface ApplicationBudgets {
-  /** Every `@Budget` the application lists. */
-  readonly budgets: readonly Class[];
-  /** The application's name: the key of its application budgets. */
-  readonly applicationName: string;
-  /** The budget instance (the container's, or a test's mock). */
-  readonly resolve: (budget: Class) => BudgetHandler;
-  readonly ledger: CostLedgerRepository;
-  /** The application's `Clock` (#262): the period a call is counted in. */
-  readonly clock: Clock;
-}
-
-const listed = (budgets: readonly Class[]): readonly ListedBudget[] =>
-  budgets.flatMap((type) => {
-    const meta = budgetOf(type);
-    return meta === undefined ? [] : [{ type, meta }];
-  });
-
-/**
- * The budgets of an execution of `workflow` started directly: its own execution budget (else the
- * default one), every tenant budget, every application budget — in the order listed.
- */
-export function budgetsOfExecution(
-  budgets: readonly Class[],
-  workflow: Class,
-): readonly ListedBudget[] {
-  const all = listed(budgets);
-  const execution = all.filter((budget) => budget.meta.scope === BudgetScope.Execution);
-  const own = execution.find((budget) => budget.meta.workflow === workflow);
-  const chosen = own ?? execution.find((budget) => budget.meta.workflow === undefined);
-  return all.filter((budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen);
-}
-
-/** Whose spend an execution's budget counts. */
-export interface ExecutionKeys {
-  readonly applicationName: string;
-  readonly tenantId: string;
-  readonly executionId: string;
-}
-
-/** The key of a budget of `scope`: the application's name, the `tenantId` or the execution's id. */
-export const budgetKeyOf = (scope: BudgetScope, keys: ExecutionKeys): string =>
-  scope === BudgetScope.Application
-    ? keys.applicationName
-    : scope === BudgetScope.Tenant
-      ? keys.tenantId
-      : keys.executionId;
 
 /**
  * The budgets of one pass of an execution (its run, a resume, a recovery): their counters read
@@ -102,38 +41,44 @@ export const budgetKeyOf = (scope: BudgetScope, keys: ExecutionKeys): string =>
  *
  * The live tally (#338): the pass's spend is also counted as it is made (`tally` — an agent's
  * model calls, guardrails and judges, a tool's or a step's service spend, an arbiter's decision),
- * before it reaches the state; what is not tallied (a router's decision) counts when its step
+ * before it reaches the state; what is not tallied (a router's decision) is written when its step
  * ends. A check takes the larger of the caller's view (its state's spend) and the meter's (what it
  * recorded plus the tally not in the ledger yet), so a branch of a parallel launch sees its
- * siblings' spend while they run; the ledger is still written once per superstep (`record` takes
- * the matching records out of the tally, so nothing is counted twice). A tally that exhausts a budget aborts `exhausted`
+ * siblings' spend while they run. A tally that exhausts a budget aborts `exhausted`
  * with that `BudgetExceededError`: every branch of the pass's launches watches it, so their
  * in-flight calls stop at once. One meter per pass and tree on this instance (the lease gives one
  * mover); other instances see the spend through the ledger only.
  *
- * Counted once (#685): the meter's reads and writes run one at a time, so a read holds a write
- * whole or not at all — never the ledger's value with the write and `recorded` without it. A
- * child's spend recorded on another instance (`isRecordedElsewhere`, #333 PR 3) is in the ledger
- * before its parent's state holds it: the parent takes it in (`takeRecordedElsewhere`) with a read
- * of the counters, in one turn, before its state shows it — so no read holds it uncounted, and no
- * check counts it from the ledger and the state both.
+ * Written as it is made (#727, #732): a tally is written to the ledger at once — so the tree's
+ * steps on other instances (its children on any instance, their siblings, the parent of one) see it
+ * at their next read of the counters — and the state keeps the record marked as in the ledger
+ * (`isRecordedElsewhere`) with its `ledgerId`. The pass writes a checkpoint only once every tally
+ * before it is written (`settled`, `SettledSpendCheckpointSaver`), and queues a child on any
+ * instance only then, so a durable state never holds a mark its ledger lacks. A record with a
+ * `ledgerId` counts once by that id: this pass's own, or taken in once — a child's from another
+ * instance, a takeover's restored writes —, never written again; a check does not count one that an
+ * earlier pass wrote twice (it is in every read of this pass). The id is the pass's own
+ * (`LedgerIds`): spend a step makes again after a crash or a takeover was billed again and counts
+ * again; the ledger adds an entry once (`CostLedgerRepository.saveAll`), so a write retried after its
+ * answer was lost counts once.
  */
 export class BudgetMeter implements BudgetCheck {
   /** What this pass wrote to the ledger, and what it took in as written there elsewhere. */
   #recorded = 0;
   #snapshot: CounterSnapshot = { values: new Map(), recorded: 0 };
-  /** The pass's spend tallied as it was made and not written to the ledger yet. */
+  /** The pass's spend tallied as it was made and not in the ledger yet (its write pending). */
   #tallied: UsageRecord[] = [];
-  /** Spend recorded elsewhere, taken in before its records reached `record` (as a multiset). */
-  // Stryker disable next-line ArrayDeclaration: a stray string's multiset key is all nulls, which no usage record has, so it takes nothing out
-  #takenIn: UsageRecord[] = [];
+  /** The `ledgerId`s this pass gave, took in, or found counted before it (#727). */
+  readonly #ids: LedgerIds;
+  /** Tallied spend whose write failed: written again before the next write or checkpoint. */
+  #unwritten: UsageRecord[] = [];
   /** The meter's reads and writes, one at a time. */
   #turns: Promise<unknown> = Promise.resolve();
   readonly #exhausted = new AbortController();
 
   /**
    * `spentBefore` is what the execution spent before this pass — already in the ledger (0 for a new
-   * execution).
+   * execution); `counted` its records, when the pass has them: their `ledgerId`s are never taken in.
    */
   constructor(
     readonly records: readonly ExecutionBudgetRecord[],
@@ -142,7 +87,11 @@ export class BudgetMeter implements BudgetCheck {
     private readonly spentBefore: number,
     /** The execution's deadline (#398 PR 2): checked with the budgets. */
     readonly deadline?: ExecutionDeadline,
-  ) {}
+    // Stryker disable next-line ArrayDeclaration: a stray string has no ledgerId, so it counts no id
+    counted: readonly UsageRecord[] = [],
+  ) {
+    this.#ids = new LedgerIds(counted);
+  }
 
   /** Aborted, with its `BudgetExceededError` as the reason, when a tally exhausts a budget. */
   get exhausted(): AbortSignal {
@@ -186,36 +135,106 @@ export class BudgetMeter implements BudgetCheck {
     return this.spentBefore + this.#recorded + totalCost(this.#tallied);
   }
 
-  /** The first budget exhausted at `executionSpent`, as its error. */
+  /**
+   * The first budget exhausted at `executionSpent`, as its error; `counted` is the part of it the
+   * counters do not hold through an earlier pass's writes (`executionSpent` when none).
+   */
   #breachOf(
     executionSpent: number,
     path: readonly string[],
     usage: readonly UsageRecord[],
+    counted = executionSpent,
   ): BudgetExceededError | undefined {
     const now = this.clock.now();
     for (const record of this.records) {
-      const spent = this.#spentOf(record, executionSpent, now);
+      const spent = this.#spentOf(record, counted, now);
       if (isSpendExhausted(spent, record.maxSpend))
         return budgetExceededErrorOf(record, spent, path, executionSpent, usage);
     }
     return undefined;
   }
 
-  check(executionSpent: number, path: readonly string[], usage: readonly UsageRecord[] = []): void {
-    const spent = Math.max(executionSpent, this.#executionSpent());
+  /**
+   * Throws the first exhausted budget's error. `state` is what the execution's state holds — its
+   * records, or their total (a state without spend written by an earlier pass).
+   */
+  check(
+    state: number | readonly UsageRecord[],
+    path: readonly string[],
+    usage: readonly UsageRecord[] = [],
+  ): void {
+    const stateSpent = typeof state === "number" ? state : totalCost(state);
+    const written = typeof state === "number" ? 0 : this.#ids.writtenBefore(state);
+    const meterSpent = this.#executionSpent();
+    const spent = Math.max(stateSpent, meterSpent);
     checkDeadline(this.deadline, this.clock.now(), { path, spentUsd: spent, usage });
-    const breach = this.#breachOf(spent, path, usage);
+    const breach = this.#breachOf(spent, path, usage, Math.max(stateSpent - written, meterSpent));
     if (breach !== undefined) throw breach;
   }
 
-  tally(records: readonly UsageRecord[], path: readonly string[] = []): void {
+  /** Adds `records` to every counter (their period). */
+  #save(records: readonly UsageRecord[]): Promise<void> {
+    const now = this.clock.now();
+    const counters = this.records.map((record) => counterOf(record, now));
+    return this.ledger.saveAll(counters, records);
+  }
+
+  /**
+   * Writes tallied spend: in the ledger, out of the tally, with a read after it — an entry an
+   * earlier run of its step wrote is not added again (#727), so only a read says what it holds.
+   */
+  async #write(records: readonly UsageRecord[]): Promise<void> {
+    await this.#save(records);
+    const values = await this.#read();
+    this.#recorded += totalCost(records);
+    this.#tallied = [...unrecordedOf(this.#tallied, records)];
+    this.#snapshot = { values, recorded: this.#recorded };
+  }
+
+  /** Writes the tallied spend whose write failed; throws when it fails again. */
+  async #writeUnwritten(): Promise<void> {
+    const records = this.#unwritten;
+    if (records.length === 0) return;
+    this.#unwritten = [];
+    await this.#write(records).catch((error: unknown) => {
+      this.#unwritten.push(...records);
+      throw error;
+    });
+  }
+
+  tally(records: readonly UsageRecord[], path: readonly string[] = []): readonly UsageRecord[] {
     // spend recorded elsewhere is in the ledger already: counted when it is taken in (#685)
-    const own = records.filter(isRecordedHere);
-    if (own.length === 0 || this.records.length === 0) return;
+    if (this.records.length === 0 || !records.some(isRecordedHere)) return records;
+    // written at once (#727, #732): another instance's check sees it at its next read of the
+    // counters; marked with its id, so no pass writes or counts it again
+    const own: UsageRecord[] = [];
+    const kept = records.map((record) => {
+      if (!isRecordedHere(record)) return record;
+      const marked = { ...record, isRecordedElsewhere: true, ledgerId: this.#ids.mint() };
+      own.push(marked);
+      return marked;
+    });
     this.#tallied.push(...own);
+    // a failed write is kept, still counted in the tally: the next write or checkpoint writes it
+    void this.#inTurn(() =>
+      this.#write(own).catch(() => {
+        this.#unwritten.push(...own);
+      }),
+    );
     // the records are in the tally (and soon in the state): the error carries none of them
     const breach = this.#breachOf(this.#executionSpent(), path, []);
     if (breach !== undefined) this.#exhausted.abort(breach);
+    return kept;
+  }
+
+  /**
+   * Resolves once every spend tallied so far is in the ledger (#727, #732): awaited before a
+   * checkpoint write, so a state that holds a record marked as in the ledger is never durable
+   * before its write, and before a child is queued for any instance. Rejects when a write failed
+   * twice.
+   */
+  settled(): Promise<void> {
+    return this.#inTurn(() => this.#writeUnwritten());
   }
 
   /** What the execution may still spend now: the least any of its budgets has left. */
@@ -244,11 +263,16 @@ export class BudgetMeter implements BudgetCheck {
     );
   }
 
-  /** Counts spend already in the ledger, with a read that holds it: in one turn, nothing between. */
+  /**
+   * Counts spend already in the ledger, with a read that holds it: in one turn, nothing between.
+   * Its `ledgerId`s count as this pass's from then on — with `recorded`, never before it.
+   */
   async #takeIn(records: readonly UsageRecord[]): Promise<void> {
+    if (records.length === 0) return;
     const values = await this.#read();
     this.#recorded += totalCost(records);
     this.#snapshot = { values, recorded: this.#recorded };
+    this.#ids.count(records);
   }
 
   /**
@@ -257,33 +281,27 @@ export class BudgetMeter implements BudgetCheck {
    * reach `record` later.
    */
   takeRecordedElsewhere(records: readonly UsageRecord[]): Promise<void> {
-    const elsewhere = records.filter((record) => !isRecordedHere(record));
-    if (elsewhere.length === 0 || this.records.length === 0) return Promise.resolve();
+    // Stryker disable next-line ConditionalExpression: without budgets a take-in reads no counter and nothing reads what it counts
+    if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
-      this.#takenIn.push(...elsewhere);
-      await this.#takeIn(elsewhere);
+      await this.#takeIn(this.#ids.uncounted(records, true));
     });
   }
 
-  /** Adds the calls' cost to every counter (their period); one recorded elsewhere only counts (#333). */
+  /**
+   * Adds the calls' cost to every counter (their period); one in the ledger already (recorded
+   * elsewhere, or written by a tally) only counts, once (#333, #685, #727). Resolves once every
+   * spend tallied before it is in the ledger too.
+   */
   record(records: readonly UsageRecord[]): Promise<void> {
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
+      await this.#writeUnwritten();
       const own = records.filter(isRecordedHere);
-      const elsewhere = records.filter((record) => !isRecordedHere(record));
-      const notTakenIn = unrecordedOf(elsewhere, this.#takenIn);
-      this.#takenIn = [...unrecordedOf(this.#takenIn, elsewhere)];
+      const elsewhere = this.#ids.uncounted(records, false);
       this.#recorded += totalCost(own);
-      // what was tallied as it was made is in the ledger now: out of the tally (as multisets)
-      this.#tallied = [...unrecordedOf(this.#tallied, own)];
-      if (own.length > 0) {
-        const now = this.clock.now();
-        await this.ledger.saveAll(
-          this.records.map((record) => counterOf(record, now)),
-          own,
-        );
-      }
-      if (notTakenIn.length > 0) await this.#takeIn(notTakenIn);
+      if (own.length > 0) await this.#save(own);
+      await this.#takeIn(elsewhere);
     });
   }
 }
@@ -294,5 +312,7 @@ export const meterOf = (
   records: readonly ExecutionBudgetRecord[],
   spentBefore: number,
   deadline?: ExecutionDeadline,
+  // Stryker disable next-line ArrayDeclaration: a stray string has no ledgerId, so it counts no id
+  counted: readonly UsageRecord[] = [],
 ): BudgetMeter =>
-  new BudgetMeter(records, application.ledger, application.clock, spentBefore, deadline);
+  new BudgetMeter(records, application.ledger, application.clock, spentBefore, deadline, counted);

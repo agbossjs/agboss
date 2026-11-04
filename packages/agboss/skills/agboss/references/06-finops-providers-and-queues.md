@@ -123,8 +123,9 @@ export class InvoiceExecutionBudget implements BudgetHandler {
 - **Nothing is reserved**: a budget is exceeded by at most the calls in flight when it was exhausted,
   plus the spend of the steps it never holds back (the undos, automatic or a side path's; the
   actions of the side path that took a limit, step by step — a paid notice there overruns by what it
-  costs), plus, across instances, what other trees' steps spend that start before that spend is in
-  the ledger (at the end of the superstep that spent it, #664); parallel executions of one tenant
+  costs), plus, across instances, what the steps spend — other trees' and the tree's own on another
+  instance — that read the counters before that spend was in the ledger (one write after it was
+  made, #664, #727); parallel executions of one tenant
   may overrun it a little. An automatic undo is never refused
   by a budget (reference 02, section 8).
 - Assembly: `[budget.execution-budget-required]`, `[budget.duplicate-execution-budget]`,

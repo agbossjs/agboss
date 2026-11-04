@@ -101,10 +101,10 @@ function answeredEnd(
   compensations: ExecutionStateUpdate,
   site: VisitSite,
 ): BranchEnd {
-  const arbiters = marked?.usage ?? [];
+  // its arbiters' decisions counted as they end (#338), in the ledger (#727); its node counted
+  // its own calls
+  const arbiters = run.deps.limits.budgets.tally(marked?.usage ?? []);
   const usage = [...(outcome.usage ?? []), ...arbiters, ...run.services];
-  // its arbiters' decisions counted as they end (#338); its node counted its own calls
-  run.deps.limits.budgets.tally(arbiters);
   run.live.spent.push(...usage);
   const stepRecords = visitStepsOf(site, { outcome, usage }); // #395 C3
   const visited = { ...branchVisitOf(run), ...recordsOf(outcome) };

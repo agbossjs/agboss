@@ -5,6 +5,7 @@ import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { usd, type Usd } from "../../units/index.js";
 import {
   CostLedgerRepository,
+  newEntriesOf,
   type BudgetAccount,
   type CostCounter,
 } from "../cost-ledger.repository.js";
@@ -16,7 +17,8 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS cost_ledger (
   spent_usd REAL NOT NULL, PRIMARY KEY (budget, scope, scope_key, period));
 CREATE TABLE IF NOT EXISTS cost_ledger_max_spend (
   budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL NOT NULL,
-  PRIMARY KEY (budget, scope, scope_key));`;
+  PRIMARY KEY (budget, scope, scope_key));
+CREATE TABLE IF NOT EXISTS cost_ledger_entries (ledger_id TEXT NOT NULL PRIMARY KEY);`;
 
 /**
  * The migration of a file written before budgets (#261 PR 5, #265 S69 e): the old table counted
@@ -33,7 +35,8 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
 
 /**
  * `CostLedgerRepository` on the application's SQLite file (#265, S32; counters by budget, #261 PR
- * 5): each call's cost added to every counter in one `BEGIN IMMEDIATE` transaction, so the
+ * 5): each call's cost added to every counter in one `BEGIN IMMEDIATE` transaction — an entry
+ * with a `ledgerId` once, its id kept in `cost_ledger_entries` in that transaction (#727) —, so the
  * instances on one file share the counters and survive a restart. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
@@ -64,9 +67,14 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
-    const spent = totalCost(records);
-    if (records.length === 0) return Promise.resolve();
+    if (counters.length === 0 || records.length === 0) return Promise.resolve();
     this.connection.transaction(() => {
+      // each entry once (#727): its id kept in the transaction that adds its cost
+      const entry = this.connection.database.prepare(
+        "INSERT INTO cost_ledger_entries VALUES (?) ON CONFLICT (ledger_id) DO NOTHING",
+      );
+      const added = newEntriesOf(records, (id) => entry.run(id).changes === 1);
+      const spent = totalCost(added);
       const statement = this.connection.database.prepare(
         `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)
          ON CONFLICT (budget, scope, scope_key, period)

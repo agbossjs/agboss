@@ -164,7 +164,7 @@ export async function checkVisit(
     checkSteps(state, node, limits, { workflow, component }, isStep);
   if (!isBudgeted(state, node)) return isStep;
   await limits.budgets.refresh();
-  limits.budgets.check(totalCost(state.usage), [...state.path, node.id]);
+  limits.budgets.check(state.usage, [...state.path, node.id]);
   return isStep;
 }
 
@@ -179,6 +179,6 @@ export function countedServiceSpend(
   record: UsageRecord,
 ): UsageRecord {
   const named = { ...record, caller: `${node.kind}:${node.id}` };
-  limits.budgets.tally([named], [...path, node.id]);
-  return named;
+  const [kept = named] = limits.budgets.tally([named], [...path, node.id]);
+  return kept;
 }

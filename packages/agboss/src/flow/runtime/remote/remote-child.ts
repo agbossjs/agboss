@@ -236,8 +236,10 @@ export async function remoteChildEndOf(
   graph: ExecutionGraph,
   config: RunnableConfig,
   site: RemoteChildSite,
-  budgets: Pick<BudgetMeter, "takeRecordedElsewhere"> | undefined,
+  budgets: Pick<BudgetMeter, "takeRecordedElsewhere" | "settled"> | undefined,
 ): Promise<RemoteChildEnd> {
+  // queued only once the tree's spend so far is in the ledger: the child's worker reads it (#732)
+  await budgets?.settled();
   const { row, isSeen } = await settledRow(graph, config, site);
   const last = await lastStateOf(graph, config, site.run.thread);
   const inherited = site.run.initial.child.inheritedUsage;

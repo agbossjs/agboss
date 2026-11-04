@@ -3817,6 +3817,9 @@ export interface ModelUsage {
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
 
+// @public
+export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string) => boolean) => readonly UsageRecord[];
+
 // @public (undocumented)
 export type NewSummary = Omit<Summary, "id" | "createdAt">;
 
@@ -6654,6 +6657,7 @@ export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly costUsd: number;
     readonly isRecordedElsewhere?: boolean;
+    readonly ledgerId?: string;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -7284,17 +7288,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:62:1 - (ae-undocumented) Missing documentation for "CostCategory".
-// src/finops/usage.ts:78:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:79:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:82:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:92:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:93:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:94:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:95:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:98:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:68:1 - (ae-undocumented) Missing documentation for "CostCategory".
+// src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:98:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:104:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -7798,11 +7802,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:146:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:175:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:52:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:66:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:81:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:93:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:55:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:59:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:69:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:89:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:101:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".

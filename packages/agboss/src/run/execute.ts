@@ -122,8 +122,8 @@ export function drainRun(
 ): Promise<ExecutionStateType> {
   return drainRecordingUsage(statesOnly(states), record, alreadyRecorded).catch(
     async (error: unknown) => {
-      const unrecorded = unrecordedSpendOf(error);
-      if (unrecorded.length > 0) await record(unrecorded);
+      // also awaits the spend tallied before the failure: in the ledger before the failure is
+      await record(unrecordedSpendOf(error));
       throw error;
     },
   );
