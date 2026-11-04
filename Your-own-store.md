@@ -142,7 +142,11 @@ trusts its lease for `remaining − 1 s` from the moment it **sent** the request
 clock, so neither the database's clock nor its own wall clock is ever compared with another's. A
 renewal never shortens a live lease. Build the contract target from `seam.storeClock`: the
 suites' "store's time is the authority" cases run on real time with the other instance's own clock
-(`seam.clock`) off by ± lease/2, ± lease and ± 10 × lease, and a store that reads it fails them.
+(`seam.clock`) off by ± lease/2, ± lease and ± 10 × lease, and a store that reads it fails them —
+on every run (#762): each call's real start and end are measured, an attempt is judged only when
+they prove the lease surely live and then surely over by the store's time and the other way round
+by the skewed caller's, a stalled attempt runs again on a fresh tree (up to 10), and a case with no
+timed attempt fails, never passes.
 
 ```sql
 -- $now: clock_timestamp() in production, the test's clock (a parameter) when one is injected

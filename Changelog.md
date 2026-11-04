@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the store's-time authority cases are timed, not guessed (#762)
+
+- **Fixed**: the lease contract's "store's time is the authority" cases (#533) ran on real time,
+  so a stalled runner decided them — a store on the caller's clock passed "½ or 1 × lease behind"
+  when its second try came 250 / 650 ms late, a correct store failed all six when its first try
+  came 350 ms late. Each attempt is now judged only on a measured schedule that proves both
+  outcomes, a stalled one runs again on a fresh tree, and a case with no timed attempt fails.
+  [Your own store](Your-own-store).
+
 ## Unreleased — 0.1.1: takeover, recovery, undo and the budgets' money are mutated (#633)
 
 - **Added**: five mutation shards join `fencing`, `sqlite-stores` and `keys-and-calls`: `takeover`
