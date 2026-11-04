@@ -138,8 +138,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   or no, a maybe, a question back is not understood. The model's answer is checked for its shape,
   failing closed: the tool's schema is strict, an unknown decision or `approve-with-changes` without
   a correction is not understood, an `approved` beside a decision is no answer (the decision alone
-  sets it), a correction may name only fields the call already has, and the corrected call passes
-  the tool's own input validation. Tests:
+  sets it), a correction keeps the call's shape — no new key at any depth, no other kind of value,
+  no list of another length; nested objects are laid over the call's —, and every decision's
+  `overrideArguments` pass the tool's own input strictly (an unknown key at any depth is refused,
+  never dropped). The kept record keeps the call as asked (`asked`) beside the decision. Tests:
   `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For an approval role the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
@@ -315,6 +317,9 @@ export class OfficeWorkflow {}
 
 ### A reply interpreter reads intent — it is not a guardrail
 
+**A reply interpreter may change approved arguments within the call's DTO; put money limits in a
+guardrail or the action.**
+
 A reply interpreter turns a person's words into a decision on the call: approve, approve with a
 change, refuse, or not understood. It does not judge whether that decision is allowed. "Never above
 the amount the agent asked", "only in the call's currency", "never below 0" are rules of the call,
@@ -323,7 +328,11 @@ script, a model reading free text. Put them there: a tool interceptor's `beforeT
 call as it runs, after the approval and with any correction laid over it, and
 `ToolCallDecision.block({ reason })` fails the step with `ToolBlockedError` before the tool runs; or
 the tool's (or action's) own check, and `min` / `max` on the input DTO's field for a plain bound,
-which the corrected call is validated against.
+which the corrected call is validated against. This is deliberate, not a gap the framework leaves to fill later: "a raise",
+"another currency" or "too much" is a rule of the business, and only a check every approval passes
+holds it — one inside the interpreter would hold for free text and miss a button, a script or a
+channel's `decided(…)`. A raise a reply made is auditable: the execution record's pause keeps the
+call as asked (`asked`) beside the call as it ran (`decision`).
 
 <!-- snippet-context
 import { ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
@@ -489,6 +498,7 @@ resolved pause of the tree, in the order they were asked:
 | `resolution`             | `PauseResolution`                                                              |
 | `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
 | `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |
+| `asked`                  | what was asked, masked (#688): an approval's call as the agent made it — its tool and own arguments, before any correction a reply made — or a question's ask; beside `decision` it makes every change auditable |
 
 The list is the permanent history: each entry is written when its pause is resolved — answered,
 decided at once, withdrawn or cancelled — into the execution records

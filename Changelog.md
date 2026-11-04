@@ -10,11 +10,17 @@ Breaking changes and notable additions, newest first. The API reports
   interpreter's answer tool now names its decisions — `approve`, `approve-with-changes`, `refuse` —
   and its instructions say what a capped approval is in any language. The answer's shape is
   checked, failing closed: an unknown decision, `approve-with-changes` without a correction,
-  `approved` beside a decision or a correction naming a field the call does not have is not
-  understood; the corrected call passes the tool's own input validation. Scripts in the DTO's shape
-  (`replyWith(ToolCallApprovalDecisionDto, …)`) are unchanged. A reply interpreter reads intent, it
-  is not a guardrail: a limit such as "never above the call's amount" belongs in a tool
-  interceptor's `beforeToolCall` or the tool's own check. [Pauses](Pauses#a-reply-interpreter-reads-intent--it-is-not-a-guardrail).
+  `approved` beside a decision or a correction that changes the call's shape (a new key at any
+  depth, another kind of value, a list of another length) is not understood. Scripts in the DTO's
+  shape (`replyWith(ToolCallApprovalDecisionDto, …)`) are unchanged. A reply interpreter may change
+  approved arguments within the call's DTO; put money limits in a guardrail or the action (a tool
+  interceptor's `beforeToolCall`, the tool's own check).
+  [Pauses](Pauses#a-reply-interpreter-reads-intent--it-is-not-a-guardrail).
+- **Changed**: every decision's `overrideArguments` — from a reply, `app.resume` or a channel's
+  `decided(…)` — pass the tool's input strictly: a key the input does not have, at any depth, is a
+  `DtoValidationError`, never dropped (before, the input check stripped it and the raw value ran).
+- **Added**: `PauseAnswerRecord.asked` — the call as asked (its own arguments before a correction)
+  or a question's ask, masked, beside `decision`: a change a reply made is auditable.
 - **Fixed**, found on the way: `mockLlm(X).thenReturn(…)` of an agent or a reply interpreter whose
   types are generated refused `callTools(…)` — a move of several tool calls (#508) — at compile time;
   it takes one now.
