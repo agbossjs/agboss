@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a tree's spend is in the ledger the moment it is made (#727, #732)
+
+- **Fixed**: a child on any instance (`ChildPlacement.AnyInstance`) saw its sibling's spend, and its
+  parent's last spend, only at the end of the superstep that spent it: a sibling that paid $60 and
+  worked on let the other child's paid steps pass their checks ($150 of a $100 budget; $120 on the
+  parent's instance), and a child launched right after its parent paid $90 ran both its $30 steps
+  and finished at $150. Every tallied spend (model calls, guardrails, judges, tools, `SpendRecorder`,
+  arbiters) is now written to the ledger at once; the state keeps it marked as in the ledger
+  (`UsageRecord.ledgerId`) and is checkpointed only once that write landed, and a child on any
+  instance is queued only once its parent's spend is in the ledger. Both stop at $120, as on the
+  parent's instance.
+- **Changed (store contract)**: `CostLedgerRepository.saveAll` adds a record with a `ledgerId` once —
+  a later save of the same id, on any instance and also one that races it, adds nothing, in the same
+  atomic write as the counters; a record without one is added as before. The SQLite ledger keeps the
+  ids in `cost_ledger_entries` (created on start); `newEntriesOf(records, isNew)` is the rule a
+  store of your own applies inside its transaction, and `costLedgerContract` checks it (a repeated
+  entry counts once, concurrent saves count one entry once and lose none, a save with no counters
+  keeps no entry). An id is the pass's own: a step run again after a crash or a takeover bills again
+  and counts again (record a deduplicated call's cost only when it was sent); a record kept in a
+  durable state counts once. [FinOps](FinOps), [Your own store](Your-own-store).
+
 ## Unreleased — 0.1.1: projects come ready for graphify (#480)
 
 - **Added**: `agboss create` writes `.graphifyignore` and `.graphifyrc`, git-ignores `graphify-out/`,

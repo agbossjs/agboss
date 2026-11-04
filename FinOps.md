@@ -240,12 +240,25 @@ on its cost, its tenant's and the application's. All violations at once, before 
   thread throws `ExecutionContextUnavailableError`), no record, no checkpoint, no model call, and
   the amounts it read are not kept as the last known limit.
 - **During the execution** every model call's (and paid service's) real cost is counted the moment
-  it is made — a live tally of the tree's pass on this instance (#338) — and added to all of its
-  counters as the execution streams (the ledger is written once per superstep; what it records
-  leaves the tally, so nothing is counted twice). A read of the counters never overlaps a write of
-  the same pass, and a child on any instance — whose instance writes its spend to the ledger as it
-  is made — has its spend taken in by its parent's pass with a read of the counters before the
-  parent's state shows it: every dollar counts once, whatever the placement (#685). Before every step that can spend or reach out
+  it is made — a live tally of the tree's pass on this instance (#338) — and **written to all of its
+  counters at once** (#727, #732): a step of the same tree on another instance — a child on any
+  instance, its sibling, the parent of one — sees it at its next read of the counters, not at the
+  end of the superstep that spent it. The execution's state keeps the record marked as in the
+  ledger, with its id (`ledgerId`), so no later pass writes it again: the pass writes a checkpoint
+  only once every spend it tallied before is in the ledger, and queues a child on any instance only
+  then, so a takeover or a recovery that finds a marked record finds it counted. What is not tallied
+  (a router's decision) is written when its step ends. A read of the counters never overlaps a
+  write of the same pass, and a child on any instance has its spend taken in by its parent's pass
+  with a read of the counters before the parent's state shows it: every dollar counts once,
+  whatever the placement (#685). Each such spend is an **entry** of the ledger under its
+  `ledgerId` — an id of the pass that made it, never derived from where it was made —, and the
+  ledger adds an entry once: a write retried after its answer was lost counts once, and so does a
+  record an earlier pass kept that reaches a later one from a durable state (a takeover's restored
+  writes, an agent's loop continued from its checkpoint). A step **run again** after a crash or a
+  takeover makes its spend again — its model calls are billed again, its services paid again — and
+  that counts again, under the later pass's ids: the budget errs high, never low. A service you pay
+  through a deduplicated call (`OutboundCalls` replaying an earlier answer) should record its cost
+  with `SpendRecorder` only when the call was sent. Before every step that can spend or reach out
   the counters are read again — the tenant's other executions count, on any instance, through the
   ledger — and every budget (and the execution's deadline) is checked; before every model call of
   an agent's loop too. The first exhausted **stops** the execution with `BudgetExceededError`
@@ -314,14 +327,14 @@ start(ReviewWorkflowStart)
 
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
   parallel executions of one tenant may overrun it a little (each sees the others' calls once they
-  are recorded — the live tally is one instance's, one tree's; another instance's at its next
-  superstep's write to the ledger). A budget is exceeded by at most (#664):
+  are in the ledger — one write after they were made — and its counters read). A budget is
+  exceeded by at most (#664, #727):
 
   | What | How much | Why no check bounds it |
   | --- | --- | --- |
   | the calls in flight when it was exhausted | what they cost | a step that passed its check before the spend that exhausted it runs to its end; a step that checks after it never runs |
   | the steps it never holds back (above, "Which steps are held back") | everything they spend | an undo gives money back, automatic or a side path's (a held-back undo's too, #675); the actions of the side path that took a limit are the application's reaction, step by step — `.onError(BudgetExceededError, toAction(NotifyAction).toAction(ArchiveAction)…)` overruns by what `NotifyAction` and `ArchiveAction` cost, however much that is |
-  | across instances, the steps other trees start before that spend is in the ledger | what those steps spend | a tree's spend is in its own pass's live tally at once, but in the ledger only at the end of the superstep that spent it: an action that records a large spend and then works on leaves other instances' trees passing their checks, and starting paid steps, all that time |
+  | across instances, per step and instance: the steps that read the counters before that spend was in the ledger | what those steps spend | a spend is in the ledger one write after it was made (#727, #732) — for another trees' steps and for the tree's own steps on another instance alike; a step on another instance that read the counters before that write landed, or checks only before its next step, runs as a call in flight does. An action that records a large spend and then works on no longer leaves the other steps passing their checks while it works: the one in flight at that moment is the bound, never the steps started after it |
 
   Nothing is reserved because a step's cost is known
   only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call
@@ -354,7 +367,8 @@ BudgetExceededError {
 
 The application's `CostLedgerRepository` (#261 S28) keeps one counter per budget, scope key and
 period — `findSpentByCounter({ budget, scope, key, period })`, `saveAll(counters, records)` (each
-call's cost added to every counter, atomically per counter) — and the last `maxSpend()` read per
+call's cost added to every counter, atomically per counter; a record with a `ledgerId` is an entry
+added once, #727 — a repeated or racing save of the id adds nothing) — and the last `maxSpend()` read per
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
 `2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's

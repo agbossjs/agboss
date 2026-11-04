@@ -552,8 +552,11 @@ export const anyInstancePaths = [
 - **Tree-wide limits hold where it runs (#333 PR 3)**: its depth (`maxDepth`), the root's budgets
   and the tree's `maxConcurrentExecutions` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
   on the worker — the tree's slots are held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>`
-  and `:subtree:<executionId>`), and each superstep's spend is written to the root's counters in
-  `CostLedgerRepository` at once (never counted twice when the parent folds the child's state in).
+  and `:subtree:<executionId>`), and each spend is written to the root's counters in
+  `CostLedgerRepository` the moment it is made (#727: its siblings and its parent see it at their
+  next check; never counted twice when the parent folds the child's state in). A child on any
+  instance is queued only once its parent's spend so far is in the ledger (#732), so its first
+  check reads it.
 
 ## Recursion (#264)
 

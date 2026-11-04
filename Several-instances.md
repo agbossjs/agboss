@@ -1378,7 +1378,9 @@ What `@agboss/postgres` needed and the core now gives every store outside it:
   `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`, `ExecutionData`, `CostReport`, `Usd`,
   `Milliseconds`, … — never derived with `Parameters` / `ReturnType`; a test of the core fails when a
   contract's member names one that is not. A ledger sums the records `saveAll` hands it with the
-  core's own **`totalCost(records)`** (#521), never a copy of it.
+  core's own **`totalCost(records)`** (#521), never a copy of it, over **`newEntriesOf(records,
+  isNew)`** (#727): every record without a `ledgerId`, and each one whose id it inserts in the same
+  transaction (`isNew` answers whether the insert added it) — an entry counts once.
 - **Any text comes back as it was handed over (#521)** — a NUL character (U+0000) included, which a
   model's or a tool's answer may hold: each suite of a contract that keeps text or JSON (records and
   summaries, history, paused executions, the tree, the child queue, the lease log, mesh requests,
@@ -1608,7 +1610,8 @@ ledger, the leases, the paused executions and `RateLimitRepository` must be shar
 run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions`
 is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
 `:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
-are checked where the child runs, and each superstep's spend reaches the root's counters at once.
+are checked where the child runs, and each spend reaches the root's counters the moment it is made
+(#727), the child queued only once its parent's spend is there (#732).
 
 ### Finished work is never taken over (#520)
 
