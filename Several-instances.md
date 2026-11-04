@@ -466,6 +466,12 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
 
 - **A throwing `work`** rolls back everything — its rows, the mark, the key — and its error is
   rethrown as it is; the next call runs it again.
+- **`work` may run more than once within one call** (#730): a store may abort an attempt and run
+  it again — MongoDB's driver does on a `TransientTransactionError` (a write conflict, a step-down),
+  for up to 120 s ([MongoDB](MongoDB)). Only the last attempt's writes through the transaction are
+  kept, so `work` writes **only** through `transaction` and does nothing else: no call to another
+  system (that is [`OutboundCalls`](#calls-that-leave-the-system-505)), nothing sent, logged or
+  counted outside it. On SQLite, in memory and on PostgreSQL it runs once per call.
 - **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
   its result or its error) — a map of the calls in flight, never component state. Across instances
   the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.

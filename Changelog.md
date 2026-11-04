@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a fenced effect's work may run more than once per call (#730)
+
+- **Docs**: `FencedEffectWork`, `saveResultIfAbsent` and [Several instances](Several-instances#the-fenced-effect-500)
+  say what [MongoDB](MongoDB) already did: a store may run `work` again within one call (an aborted
+  attempt), keeping only the last attempt's writes — `work` writes only through its transaction and
+  calls no other system. No behaviour change.
+
 ## Unreleased — 0.1.1: agboss studio loads a project under a symlink (#666)
 
 - **Fixed (#666, #671)**: the generated `.agboss/studio.ts` imported the application by a path
