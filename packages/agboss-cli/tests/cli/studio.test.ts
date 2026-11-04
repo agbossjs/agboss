@@ -1,6 +1,15 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommandContext, OptionValues } from "../../src/cli/context.js";
@@ -107,6 +116,27 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
     expect(one).toEqual(expect.arrayContaining(["studio-item-workflow:check-item-action"]));
     expect(recursive).toContain("this-workflow");
     expect(recursive.filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
+  });
+
+  it("#666 / #671: a project reached through a symlink still loads its application in the module", async () => {
+    const root = project();
+    const real = join(root, "deep", "er", "project");
+    mkdirSync(real, { recursive: true });
+    const linked = join(root, "linked");
+    symlinkSync(real, linked, "dir");
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-placeholder");
+
+    const studio = await prepareStudio(contextOf(linked, {}));
+
+    // Node resolves a relative import from the importer's real path (no --preserve-symlinks)
+    const [, specifier] = /from "(\.\.\/[^"]*studio\.workflow\.js)"/.exec(
+      readFileSync(studio.entry, "utf8"),
+    ) ?? ["", ""];
+    const resolved = resolve(dirname(realpathSync(studio.entry)), specifier);
+    expect(realpathSync(resolved.replace(/\.js$/, ".ts"))).toBe(realpathSync(STUDIO));
+    expect(await drawn(studio.entry, "studioOneWorkflow")).toEqual(
+      expect.arrayContaining(["studio-item-workflow:check-item-action"]),
+    );
   });
 
   it("--env <name> is written into the module; the project's .env into langgraph.json", async () => {

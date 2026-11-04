@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Class } from "@agboss/core";
 import { CliError } from "./errors.js";
@@ -45,9 +45,24 @@ export const exportNameOf = (workflow: string): string => {
   return /^[A-Za-z_$]/.test(camel) ? camel : `_${camel}`;
 };
 
-/** The import specifier of the application module from `.agboss/` (ESM: `.js` for a `.ts` file). */
+/**
+ * A path with every symlink resolved, also for a folder not written yet (its nearest existing
+ * parent's real path, the rest as given) — what the module loader resolves an importer from.
+ */
+function realPathOf(path: string): string {
+  if (existsSync(path)) return realpathSync(path);
+  const parent = dirname(path);
+  return parent === path ? path : join(realPathOf(parent), basename(path));
+}
+
+/**
+ * The import specifier of the application module from `.agboss/` (ESM: `.js` for a `.ts` file),
+ * between the real paths of both (#666, #671): the loader resolves a relative import from the
+ * importer's real path, so one computed across a symlink (macOS's `/var` → `/private/var`, a
+ * symlinked project) would land elsewhere.
+ */
 function importSpecifierOf(folder: string, file: string): string {
-  const path = relative(folder, file)
+  const path = relative(realPathOf(folder), realPathOf(file))
     .split(sep)
     .join("/")
     .replace(/\.([cm]?)ts$/, ".$1js");

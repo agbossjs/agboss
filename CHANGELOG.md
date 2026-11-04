@@ -299,6 +299,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **`agboss studio` loads a project under a symlink** (#666, #671) — the generated
+  `.agboss/studio.ts` imported the application by a path computed between the paths as given, and
+  the module loader resolves a relative import from the importer's real path, so a project or
+  `.agboss/` under a symlinked folder (macOS's `/var` → `/private/var`, a linked checkout) loaded
+  nothing. The specifier is now computed between the real paths of both.
 - **An application that calls no model no longer needs the OpenRouter key** (#716) — `createApp`
   read the key of every model provider at start, so an application of actions only failed without
   `openRouterApiKey`. A provider is now connected at start only when a model of the workflow
