@@ -29,6 +29,7 @@ import {
 import {
   BrokenHistoryDeskApplication,
   EndOrderDeskApplication,
+  EndOrderTreasuryApplication,
   endOrder,
   HistoryDeskApplication,
   HistorySensitiveApplication,
@@ -244,5 +245,18 @@ testWith(EndOrderDeskApplication)(
     await execute(app, DeskWorkflowStart, { text: REFUND }, contexts).catch(() => undefined);
 
     expect(endOrder).toEqual(["history finished", "forgotten", "history failed", "forgotten"]);
+  },
+);
+
+testWith(EndOrderTreasuryApplication)(
+  "#699: a tree ended without a pass (a paused tree cancelled) keeps its record before it is forgotten",
+  async ({ app, mockLlm }) => {
+    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1000 }));
+    const paused = await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
+    endOrder.length = 0;
+
+    await app.cancel(paused.threadId, {});
+
+    expect(endOrder).toEqual(["history cancelled", "forgotten"]);
   },
 );

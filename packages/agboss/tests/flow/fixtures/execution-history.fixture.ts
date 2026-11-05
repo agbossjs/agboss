@@ -119,3 +119,15 @@ export class NotingExecutionTreeRepository extends InMemoryExecutionTreeReposito
   executionRecordRetention: hours(24),
 })
 export class EndOrderDeskApplication {}
+
+/** The treasury whose history and tree stores note the order of a tree's end without a pass (#699). */
+@Application({
+  name: "end-order-treasury-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [TreasuryWorkflow],
+  budgets: TEST_BUDGETS,
+  providers: [...treasuryChannels, NotingExecutionHistoryRepository, NotingExecutionTreeRepository],
+  executionRecordRetention: hours(24),
+})
+export class EndOrderTreasuryApplication {}
