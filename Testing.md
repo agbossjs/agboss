@@ -1254,12 +1254,12 @@ import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobSco
 
 ```ts
 import { expect } from "vitest";
-import { VCRMode, testWith } from "@agboss/core/testing";
+import { VcrMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(JobScoutApplication, {
   vcr: {
     cassetteName: "onboarding", // __snapshots__/onboarding.cassette.json
-    mode: process.env.CI ? VCRMode.REPLAY : VCRMode.AUTO, // the default already
+    mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO, // the default already
   },
 });
 
@@ -1281,9 +1281,9 @@ test("the scout answers a first message", async ({ app }) => {
    tool — fails with `CassetteMissingError` (`test.cassette-missing`): re-record it. A replay never
    creates a provider, a transport one included.
 
-Modes: `VCRMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
-`VCRMode.RECORD` always calls the models and rewrites the file; `VCRMode.REPLAY` (default under `CI`)
-only replays and fails without a cassette; `VCRMode.RECORD_STALE` replays and records anew only the
+Modes: `VcrMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
+`VcrMode.RECORD` always calls the models and rewrites the file; `VcrMode.REPLAY` (default under `CI`)
+only replays and fails without a cassette; `VcrMode.RECORD_STALE` replays and records anew only the
 stale components (below). The process variable `AGBOSS_VCR_MODE` — a member's value — overrides
 every test's own `mode` for one run: `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
 

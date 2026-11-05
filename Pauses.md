@@ -388,7 +388,8 @@ value for the steps after it. Everything else is a pause like an approval's:
   `.onError(E, …)` right after `.toQuestion(Role)` takes it.
 - `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
   `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
-  its `OutputOf` `AnswerDto`. `agboss describe` prints the role with `asked at <step> (<workflow>)`.
+  its `OutputOf` `AnswerDto`. The step's own `InputOf<Role>` is `{ ask: … }` (#802), the role's
+  `ask` read from the path. `agboss describe` prints the role with `asked at <step> (<workflow>)`.
 - A tool that names a question role is `[channel.wrong-tool]` — an agent asks one by listing the
   role itself in its tools ([below](#an-agent-asks-a-question-role-as-a-tool-712)).
 
