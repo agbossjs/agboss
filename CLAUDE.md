@@ -1743,7 +1743,8 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
   (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
   file migrates in place to the `default` tenant, a later version is `rag.index-version`), each
-  document replaced in one transaction; `agboss rag index --tenant <id>` (default `default`). A
+  document replaced in one transaction; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
+  context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`). A
   connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
   (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
   the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, keep, onFailure? } })` in place of `topK`

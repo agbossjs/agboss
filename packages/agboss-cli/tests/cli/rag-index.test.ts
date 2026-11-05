@@ -4,6 +4,7 @@ import { agboss, envelope, fixture } from "./agboss.js";
 /** #268 AC12: `agboss rag index` covers every knowledge base of the application. */
 
 const NOTES = fixture("cli/rag.workflow.ts");
+const TENANT_NOTES = fixture("cli/rag-tenants.application.ts");
 
 describe("#268 AC12: agboss rag index over the application", () => {
   it("every knowledge base once — one shared by two agents too; one without an index says so", async () => {
@@ -59,6 +60,29 @@ describe("#268 AC12: agboss rag index over the application", () => {
     expect(call.stdout).toBe("");
     expect(call.stderr).toContain("this one breaks format-character");
     expect(call.stderr).not.toContain(tenant);
+  });
+
+  it("#797: an application with a tenant context and no --tenant: exit 2, rag.tenant-required; nothing is indexed", async () => {
+    const call = await agboss(["rag", "index", "--application", TENANT_NOTES]);
+    const json = await agboss(["rag", "index", "--application", TENANT_NOTES, "--json"]);
+
+    expect(call.code).toBe(2);
+    expect(call.stdout).toBe("");
+    expect(call.stderr).toContain(
+      'name the tenant whose knowledge bases to build with --tenant <id>: "tenant-notes-application" declares a tenant context (NotesTenantContext), so "default" is nobody\'s',
+    );
+    expect(envelope(json)).toMatchObject({ ok: false, error: { code: "rag.tenant-required" } });
+  });
+
+  it("#797: an application with a tenant context and --tenant <id>: that tenant is built", async () => {
+    const call = await agboss([
+      ...["rag", "index", "--application", TENANT_NOTES, "--tenant", "acme", "--json"],
+    ]);
+
+    expect(envelope(call)).toMatchObject({
+      ok: true,
+      result: { tenantId: "acme", indexed: [{ name: "notes-rag", tenantId: "acme" }] },
+    });
   });
 
   it("an unknown --rag: exit 2, a hint and the list; nothing is indexed", async () => {
