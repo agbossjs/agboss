@@ -92,7 +92,7 @@ describe("#777 AC1: a child queued elsewhere is claimed on the store's wake-up",
     await untilQueued(app, 1);
     wakeLog.isHidden = false; // visible, but its notification never arrives
 
-    await clock.advance(SWEEP_EVERY - seconds(1));
+    await clock.advance(seconds(29)); // a second before the sweep (SWEEP_EVERY, 30 s)
     await settle();
     expect(roomLog.atWork.size).toBe(0);
     await clock.advance(seconds(1));
