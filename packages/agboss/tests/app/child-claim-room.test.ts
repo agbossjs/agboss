@@ -5,7 +5,9 @@
  * never more than its slots — a step of a root holding one leaves room for two children only.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { ChildExecutionQueueRepository } from "../../src/index.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
+import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { collect, instanceMeter, valueOf } from "../metrics/support/metric-reader.js";
@@ -40,6 +42,12 @@ async function slotsNow(): Promise<{ busy: number | undefined; free: number | un
   };
 }
 
+/** The queue's rows now: claimed (`Running`) and still `Queued` — a worker never holds more than its slots. */
+async function rowsNow(app: TestApp): Promise<{ running: number; queued: number }> {
+  const { running, queued } = await app.resolve(ChildExecutionQueueRepository).findQueueDepth();
+  return { running, queued };
+}
+
 /** The first item whose step waits at its gate now. */
 function anyAtWork(): string {
   const [item] = [...roomLog.gates.keys()];
@@ -58,13 +66,16 @@ describe("#767 AC1/AC2: a worker with N free slots keeps N children at work", ()
       expect(roomLog.atWork.size).toBe(3);
     });
     expect(await slotsNow()).toEqual({ busy: 3, free: 0 });
+    // never claims beyond its slots: the other five stay in the queue for any instance
+    expect(await rowsNow(app)).toEqual({ running: 3, queued: 5 });
 
     // five more in the queue: every end frees a slot that the next child takes
     for (let ended = 1; ended <= 5; ended += 1) {
       releaseItem(anyAtWork());
-      await vi.waitFor(() => {
+      await vi.waitFor(async () => {
         expect(roomLog.atWork.size).toBe(3);
         expect(roomLog.gates.size).toBe(3);
+        expect(await rowsNow(app)).toEqual({ running: 3, queued: 5 - ended });
       });
       expect(await slotsNow()).toEqual({ busy: 3, free: 0 });
     }
