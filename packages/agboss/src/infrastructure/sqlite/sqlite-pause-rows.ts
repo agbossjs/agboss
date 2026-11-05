@@ -45,16 +45,14 @@ const StoredPause = z.object({
   // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
   copyNumber: z.number().default(1),
   askedAt: z.string().default(""),
-  // 0.1.1: stored, never inferred — a row written before is migrated at open (`PAUSE_KIND_MIGRATION`)
-  kind: z.enum(PauseKind),
+  kind: z.enum(PauseKind), // 0.1.1: stored, never inferred (older rows migrated at open)
   step: z.string(),
   ...StoredLoopProgress,
   channel: z.string(),
   // a pause stored before #337 has none: its own step's key is its only branch key
   branchKeys: z.array(z.string()).optional(),
   answeredBy: z.enum(PauseAnswerer),
-  // an approval's tool call, or a question role's own ask (#659, #712): told apart by `kind`
-  ask: z.record(z.string(), z.unknown()),
+  ask: z.record(z.string(), z.unknown()), // a tool call, or a role's ask (#659, #712): `kind` says
 });
 
 const PauseRow = z.object({
@@ -102,9 +100,10 @@ function answerOf(text: string): PauseAnswer {
 /** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const { itemIndex, component, branchKeys, ask, ...stored } = StoredPause.parse(
-    JSON.parse(r.pause),
-  );
+  const parsed = StoredPause.safeParse(JSON.parse(r.pause));
+  if (!parsed.success)
+    throw new Error(`pause ${r.pause_id} (${r.tenant_id}) unreadable: ${parsed.error.message}`);
+  const { itemIndex, component, branchKeys, ask, ...stored } = parsed.data;
   const record = component === undefined ? undefined : componentOfStored(component);
   const pause: PauseRecord = {
     ...stored,

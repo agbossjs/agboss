@@ -20,6 +20,13 @@ export type QuestionAsk = Readonly<{ [questionAsk]: true }>;
 
 /**
  * A question's ask as the framework made it — the role's DTO, masked — or as a store of your own
- * reads it back (a question pause's `ask`, kept as written): the one place it is branded, no check.
+ * reads it back (a question pause's `ask`, kept as written): the one place it is branded. Anything
+ * but an object (`null`, an array, a text) throws `TypeError`.
  */
-export const questionAskOf = (ask: unknown): QuestionAsk => ask as QuestionAsk;
+export function questionAskOf(ask: unknown): QuestionAsk {
+  if (typeof ask !== "object" || ask === null || Array.isArray(ask))
+    throw new TypeError(
+      `a question's ask is an object (the role's ask DTO), not ${JSON.stringify(ask)}`,
+    );
+  return ask as QuestionAsk;
+}

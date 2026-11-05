@@ -67,7 +67,7 @@ export async function waitingInterruptsOf(
 }
 
 /** A pause record as the execution's result lists it: an approval's, or a question's (#659). */
-function waitingPauseOf(pause: PauseRecord): WaitingPause {
+export function waitingPauseOf(pause: PauseRecord): WaitingPause {
   const site = {
     pauseId: pause.pauseId,
     answeredBy: pause.answeredBy,

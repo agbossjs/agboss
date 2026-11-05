@@ -134,9 +134,22 @@ export interface PauseRecord extends PauseSite {
   readonly resolvedAt?: string;
 }
 
-/** A pause of a question role (#659, #712): its `kind` says, never its component. */
-export const isQuestionPause = (pause: Pick<PauseRecord, "kind">): boolean =>
-  pause.kind === PauseKind.Question;
+/**
+ * A pause of a question role (#659, #712): its `kind` says, never its component. Any other value
+ * than the two kinds — a store that does not keep `kind` — throws: never read as an approval.
+ */
+export function isQuestionPause(pause: Pick<PauseRecord, "kind" | "pauseId">): boolean {
+  switch (pause.kind) {
+    case PauseKind.Question:
+      return true;
+    case PauseKind.Approval:
+      return false;
+    default:
+      throw new TypeError(
+        `pause ${pause.pauseId}: kind ${String(pause.kind)} is no PauseKind — a pause store keeps PauseRecord.kind as written`,
+      );
+  }
+}
 
 /** A pause of an agent's tool call: its `ask` is the call (every pause before #659). */
 export type ApprovalPauseRecord = PauseRecord & { readonly ask: ToolCallApprovalAskDto };

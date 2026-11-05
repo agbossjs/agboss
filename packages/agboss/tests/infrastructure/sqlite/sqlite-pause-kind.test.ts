@@ -58,9 +58,23 @@ const ROWS = [
     pauseId: "bare-pause",
     pause: storedOf({ nodeId: "clerk-agent", agent: "clerk-agent", ask: APPROVAL_ASK }),
   },
+  {
+    // #712: an agent asks a question role through its tool — the role is its component
+    pauseId: "tool-question-pause",
+    pause: storedOf({
+      nodeId: "buyer-agent",
+      agent: "buyer-agent",
+      component: { name: "approver-question", kind: "question" },
+      ask: { item: "laptop" },
+    }),
+  },
 ] as const;
 
 const StoredJson = z.object({ pause: z.string() });
+
+/** A read as a promise, whether the store throws or rejects. */
+const readOf = (pauses: SqlitePausedExecutionRepository, pauseId: string): Promise<unknown> =>
+  Promise.resolve().then(() => pauses.findByTenantIdAndPauseId("default", pauseId));
 
 describe("0.1.1: a SQLite file whose pauses kept no kind", () => {
   it("is migrated at open: each row reads its kind and its step, its JSON rewritten", async () => {
@@ -100,7 +114,13 @@ describe("0.1.1: a SQLite file whose pauses kept no kind", () => {
       [PauseKind.Approval, "clerk-agent", false],
       [PauseKind.Question, "spending-limit-question", false],
       [PauseKind.Approval, "clerk-agent", false],
+      [PauseKind.Question, "buyer-agent", false],
     ]);
+    // a second open changes nothing
+    const before = connection.database.prepare("SELECT pause FROM pauses ORDER BY rowid").all();
+    const again = connectionTo(path);
+    new SqlitePausedExecutionRepository(again, clock);
+    expect(again.database.prepare("SELECT pause FROM pauses ORDER BY rowid").all()).toEqual(before);
   });
 
   it("reads a kind as stored: a question whose component is an agent's tool stays a question", async () => {
@@ -127,5 +147,40 @@ describe("0.1.1: a SQLite file whose pauses kept no kind", () => {
       kind: PauseKind.Question,
       ask: { item: "laptop" },
     });
+  });
+
+  it("a row that is not JSON does not stop the file opening; its own read fails, naming it", async () => {
+    const path = temporarySqlitePath();
+    const old = connectionTo(path);
+    old.database.exec(PAUSES_SCHEMA);
+    old.database
+      .prepare(
+        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause) VALUES ('default', 'broken', 's', 'run-1', 'pending', 1, '{not json'), ('default', 'old', 's2', 'run-1', 'pending', 1, ?)",
+      )
+      .run(ROWS[0].pause);
+
+    const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
+
+    expect(await pauses.findByTenantIdAndPauseId("default", "old")).toMatchObject({
+      kind: PauseKind.Approval,
+    });
+    await expect(readOf(pauses, "broken")).rejects.toThrow(SyntaxError);
+  });
+
+  it("a row the migration could not read (no agent, no kind) fails its read naming the pause", async () => {
+    const path = temporarySqlitePath();
+    const old = connectionTo(path);
+    old.database.exec(PAUSES_SCHEMA);
+    old.database
+      .prepare(
+        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause) VALUES ('default', 'kindless', 's', 'run-1', 'pending', 1, ?)",
+      )
+      .run(storedOf({ nodeId: "clerk-agent", ask: APPROVAL_ASK }));
+
+    const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
+
+    await expect(readOf(pauses, "kindless")).rejects.toThrow(
+      /pause kindless \(default\) unreadable/,
+    );
   });
 });

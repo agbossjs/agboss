@@ -165,7 +165,10 @@ claim stores.<key>`; the child queue's two watch cases are skipped, with the rea
   paused-execution contract checks it (`a pause's kind is kept as written — never inferred from its
 component`: a question with no component, an approval whose component reads as a question); a store
   that drops `kind` and infers it fails that case. The SQLite store rewrites a row written before at
-  open (`agent` → `step`; `kind` `question` for a question role's component, `approval` otherwise).
+  open (`agent` → `step`; `kind` `question` for a question role's component, `approval` otherwise) —
+  a file opened by 0.1.1 is not read by 0.1.0 again. A `kind` other than the two throws when read,
+  never taken for an approval; `questionAskOf` (a store's read-back of a question's ask) throws on
+  anything but an object.
   **Migration:** a pause store of your own persists both fields (agbossjs/postgres: migration
   `0024`; agbossjs/mongodb reads a record written before by the same rule).
 

@@ -29,12 +29,13 @@ CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at)
  * 0.1.1: a pause stores its `kind` and names its `step` (`agent` before). A row written before is
  * rewritten once, by the rule it was written under: a question role's component is a question,
  * every other pause an approval (an approval's row from before components, #268 S93, too). Rows
- * that have a `kind` are left as they are, so it runs at every open and changes a file once.
+ * that have a `kind` are left as they are, so it runs at every open and changes a file once; a row
+ * that is not JSON is left to fail its own read. A file opened by 0.1.1 is not read by 0.1.0 again.
  */
 const PAUSE_KIND_MIGRATION = `UPDATE pauses SET pause = json_set(json_remove(pause, '$.agent'),
     '$.step', json_extract(pause, '$.agent'),
     '$.kind', CASE json_extract(pause, '$.component.kind') WHEN 'question' THEN 'question' ELSE 'approval' END)
-  WHERE json_type(pause, '$.kind') IS NULL AND json_type(pause, '$.agent') = 'text';`;
+  WHERE json_valid(pause) AND json_type(pause, '$.kind') IS NULL AND json_type(pause, '$.agent') = 'text';`;
 
 /** Migrates a file's pauses written by an older version (inside a transaction): S107, #663, 0.1.1. */
 export function migratePauses(connection: SqliteConnection): void {
