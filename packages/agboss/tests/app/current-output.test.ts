@@ -20,15 +20,15 @@ import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 
 /** A stored run's `pending` as 0.1.0 wrote it: `agent`, no `kind`, no `step`. */
 const listedBefore = (pauseId: string, agent: string): WaitingPause =>
-  ({
-    pauseId,
-    agent,
-    answeredBy: "channel",
-    channel: "refund-approval-channel",
-    childExecutionId: undefined,
-    itemIndex: undefined,
-    ask: {},
-  }) as unknown as WaitingPause;
+  JSON.parse(
+    JSON.stringify({
+      pauseId,
+      agent,
+      answeredBy: "channel",
+      channel: "refund-approval-channel",
+      ask: {},
+    }),
+  ) as WaitingPause;
 
 describe("#801: the pauses still pending, as their records say", () => {
   it("a run stored before 0.1.1 lists each pending pause with its kind and step; an answered one is gone", async () => {

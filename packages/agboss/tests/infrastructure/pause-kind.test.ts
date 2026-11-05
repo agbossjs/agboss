@@ -4,7 +4,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { PauseKind, questionAskOf } from "../../src/infrastructure/pause-kind.js";
-import { isApprovalPause, isQuestionPause } from "../../src/infrastructure/pause-record.js";
+import {
+  isApprovalPause,
+  isQuestionPause,
+  type PauseRecord,
+} from "../../src/infrastructure/pause-record.js";
 import { pauseOf, questionPauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 
 describe("#801: a pause's kind", () => {
@@ -15,7 +19,10 @@ describe("#801: a pause's kind", () => {
   });
 
   it("a kind a store did not keep throws, naming the pause — never an approval", () => {
-    const lost = { ...questionPauseOf("q-lost"), kind: undefined as unknown as PauseKind };
+    // as a store that does not keep `kind` reads it back (JSON drops it)
+    const { kind, ...kept } = questionPauseOf("q-lost");
+    const lost = JSON.parse(JSON.stringify(kept)) as PauseRecord;
+    expect(kind).toBe(PauseKind.Question);
 
     expect(() => isApprovalPause(lost)).toThrow(/pause q-lost: kind undefined is no PauseKind/);
     expect(() => isQuestionPause({ kind: "approve" as PauseKind, pauseId: "x" })).toThrow(
