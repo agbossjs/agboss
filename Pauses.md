@@ -23,10 +23,25 @@ waiting pause, one `PendingPause` each:
 | `kind`             | `PauseKind.Approval` (a tool call) or `PauseKind.Question` (a question role's step, #659) |
 | `pauseId`          | what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause (below)         |
 | `answeredBy`       | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's) |
-| `agent`, `channel` | whose tool call waits — or the question step that asks —, and the channel asked (a role's name or a `@Channel`'s) |
+| `step`, `channel`  | the step that asks — the agent whose tool call waits, or the question step — and the channel asked (a role's name or a `@Channel`'s) |
 | `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
 | `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
-| `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), or a question role's ask DTO; `sensitive` fields masked |
+| `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), or a question role's ask (`QuestionAsk`, opaque); `sensitive` fields masked |
+
+The fields every kind has are `PendingPauseBase`; `PendingPause` is `PendingApproval |
+PendingQuestion`, told apart by `kind`. Narrow before reading `ask`: a question's ask is the
+project's own DTO, so it is opaque (`QuestionAsk`) and a field of a `PendingPause`'s ask does not
+compile until the kind is known —
+
+```ts
+import { PauseKind, type PendingPause } from "@agboss/core";
+
+export function describePause(pause: PendingPause): string {
+  if (pause.kind === PauseKind.Approval) return `${pause.step} calls ${pause.ask.tool}`; // typed
+  const fields: Readonly<Record<string, unknown>> = pause.ask; // the role's ask DTO, masked
+  return `${pause.step} asks ${JSON.stringify(fields)}`;
+}
+```
 
 A pause inside a child workflow is its root's: it is listed in the root's `pending` (with the
 child's `childExecutionId`, and for a per-item child its `itemIndex`), several children may wait at
@@ -371,7 +386,7 @@ path, a question asked again on a cycle; `maxVisits` its limit there). The role 
 value for the steps after it. Everything else is a pause like an approval's:
 
 - `ChannelOutcome.awaitReply()` pauses: `result.pending` lists it with `kind: PauseKind.Question`,
-  `agent` the step, `ask` the masked question; `ChannelOutcome.decided(answer)` goes on at once
+  `step` the question step, `ask` the masked question; `ChannelOutcome.decided(answer)` goes on at once
   (`PauseResolution.Decided`).
 - `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
   recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the role's
@@ -380,12 +395,13 @@ value for the steps after it. Everything else is a pause like an approval's:
 - Exactly one answer wins (`NotPausedError` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
   (its channel's `withdraw` told); `pauseRecordRetention` and `result.record.pauses` as for any
-  pause — the record's step is the question's (`component.kind: "question"`, no `callId`).
+  pause — the record's `kind` is `PauseKind.Question` (stored, never inferred), its step the
+  question's (`component.kind: "question"`, no `callId`).
 - The step is code, no model: no step slot, not one of `maxSteps`; the execution's budgets are
   checked before it asks (a question when the money is gone asks nobody), its holder's fence right
   before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
-  is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`) —
-  `.onError(E, …)` right after `.toQuestion(Role)` takes it.
+  is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`; `question`
+  the step, also in `details`) — `.onError(E, …)` right after `.toQuestion(Role)` takes it.
 - `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
   `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
   its `OutputOf` `AnswerDto`. The step's own `InputOf<Role>` is `{ ask: … }` (#802), the role's
@@ -409,9 +425,9 @@ it calls it like any tool, and:
   call, keyed by the call's step key, the calls of one move one after another (as approvals are).
   Nothing runs before the ask, so the loop's re-entry on resume repeats nothing and the channel is
   never asked twice.
-- `result.pending[i]`: `kind: PauseKind.Question`, `agent` the asking agent, `channel` the role,
-  `ask` the masked question; the record's `component` is the role (`kind: "question"`) — the same
-  discriminator as a question step's, no store change.
+- `result.pending[i]`: `kind: PauseKind.Question`, `step` the asking agent, `channel` the role,
+  `ask` the masked question; the record's `kind` is `PauseKind.Question` and its `component` the
+  role (`kind: "question"`).
 - The answer — a `decision` validated as the role's `answer` DTO, a reply its interpreter read into
   it, or the channel's `decided(answer)` — is the **call's result**: it goes through the tool-result
   path (the answer DTO's `sensitive` fields masked for the model, `maxResultSize`, `onToolStart` /

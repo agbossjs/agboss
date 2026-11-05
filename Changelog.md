@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the pause contract — an opaque question ask, a stored kind, `step` (#801)
+
+- **Changed — breaking**: a field of a `PendingPause`'s `ask` compiles only after narrowing on
+  `kind` — `QuestionAsk` is opaque (it was `Record<string, unknown>`, which made
+  `pending[0].ask.arguments` compile as `unknown`); an approval's ask keeps its typing. A question's
+  ask is read as `const fields: Readonly<Record<string, unknown>> = pause.ask`.
+  `PendingPauseSite` is `PendingPauseBase`, and its `agent` is `step` (the agent whose call waits,
+  or the question step). `QuestionFailedError({ question }, cause)` carries `question`; its `code`
+  is the literal `"step.question"`. [Pauses](Pauses).
+- **Changed — breaking for stores outside the core**: `PauseRecord.kind: PauseKind` is stored and
+  read as written (a store no longer tells a question by `component?.kind`), and
+  `PauseRecord.agent` is `step`. The paused-execution contract fails a store that drops `kind` or
+  infers it. The SQLite store migrates older rows at open, @agboss/postgres in migration `0024`,
+  @agboss/mongodb on read — a question role's component is a question, every other pause an
+  approval. [Your own store](Your-own-store).
 ## Unreleased — 0.1.1: `agboss rag index` names its tenant in a multi-tenant application (#797)
 
 - **Fixed**: without `--tenant`, `agboss rag index` built the `default` tenant's index and reported
