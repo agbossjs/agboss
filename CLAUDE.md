@@ -616,8 +616,10 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   (woken in-process, else every second on the `Clock`; the parent yields its lease in
   `ExecutionLeaseRepository` while waiting and reclaims it before continuing, #333 PR 4 — yielded,
   not released: still its own there and renewed, so no other instance's sweep takes it over, #516);
-  an instance with a free step slot (#332) claims it at once in-process, else at its sweep
-  (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
+  an instance with a free step slot (#332) claims it at once in-process or when the store's watch
+  wakes it (#777: `ChildExecutionQueueRepository.watchQueued`, optional — a hint, opened before the
+  sweep's first look, `app/remote/child-queue-watch.ts`; a wake-up lost costs at most a sweep), else
+  at its sweep, every 30 s (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
   `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row —
   answered or failed, it finishes the lease (#520: `finish`, never taken again, so a stale instance
   that resumes takes no lease of finished work; a paused one releases it);
@@ -1283,7 +1285,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   mesh requests by idempotency key, removed after `mesh.idempotencyRetention` by the recovery sweep,
   #398), `ChildExecutionQueueRepository` (#333 PR 2: children launched with
   `ChildPlacement.AnyInstance`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
-  `completeByTenantIdAndExecutionId`, rows removed with their tree; on the in-memory one
+  `completeByTenantIdAndExecutionId`, rows removed with their tree; #777: the optional
+  `watchQueued(onQueued)` → `ChildExecutionQueueWatch` wakes claimers when any instance queues a
+  child — none on the in-memory and SQLite ones; on the in-memory one
   `[application.in-memory-child-queue]`), `ExecutionHistoryRepository` (#401: each root execution's `ExecutionHistoryRecord` — its
   `ExecutionRecord` with `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`,
   `workflow`, `status` (`ExecutionHistoryStatus`), `startedAt` / `endedAt`, `start` + `input`,

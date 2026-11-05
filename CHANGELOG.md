@@ -14,6 +14,14 @@ entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced h
 
 ### Added
 
+- **A child queued in another process wakes the claimers at once** (#777) — the optional
+  `ChildExecutionQueueRepository.watchQueued(onQueued)` (`ChildExecutionQueueWatch`): a store that
+  can be woken (PostgreSQL `LISTEN` / `NOTIFY`, a MongoDB change stream) has every instance with a
+  free step slot claim a child another instance queued as soon as it is queued, instead of at its
+  next sweep (every 30 s). A hint only: a wake-up lost is claimed at the sweep; a watch that does not
+  open is warned (`child-queue.watch-failed`) and opened again at the next sweep. The contract suite
+  checks a store's watch when it has one.
+
 - **`testReplyInterpreter(Role, { model })`** (#644) — a role's `@ReplyInterpreter` on its own:
   `{ ask, reply }` in, `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }` out, as
   `app.resume({ pauseId, reply })` reads it; a code one through its container, a model one on its

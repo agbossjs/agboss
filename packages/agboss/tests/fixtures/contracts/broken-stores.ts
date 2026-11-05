@@ -2,7 +2,11 @@
  * Deliberately broken stores (#481 AC2): each breaks one rule of its contract, the way a real
  * store gets it wrong. The `*.contract-fixture.ts` files run a published suite against one of them.
  */
-import type { ExecutionLease, QueuedChildExecution } from "../../../src/index.js";
+import type {
+  ChildExecutionQueueWatch,
+  ExecutionLease,
+  QueuedChildExecution,
+} from "../../../src/index.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
@@ -96,5 +100,44 @@ export class CheckThenWriteLeaseRepository extends MapExecutionLeaseRepository {
     } finally {
       this.#isChecked = false;
     }
+  }
+}
+
+/** The watches of every queue of the fixture's process (#777): one database, so one channel. */
+const queueWatchers = new Set<() => void>();
+
+/**
+ * #777: a queue with a watch, as a networked store's `LISTEN` / `NOTIFY` is — every save that
+ * queues a child wakes every open watch (a correct store, the suite's positive branch).
+ */
+export class NotifyingQueueRepository extends InMemoryChildExecutionQueueRepository {
+  override async saveIfAbsent(child: QueuedChildExecution): Promise<boolean> {
+    const isNew =
+      (await this.findByTenantIdAndExecutionId(child.tenantId, child.executionId)) === undefined;
+    const saved = await super.saveIfAbsent(child);
+    if (saved && this.notifies(isNew)) for (const watcher of [...queueWatchers]) watcher();
+    return saved;
+  }
+
+  override watchQueued(onQueued: () => void): Promise<ChildExecutionQueueWatch> {
+    queueWatchers.add(onQueued);
+    return Promise.resolve({
+      close: () => {
+        queueWatchers.delete(onQueued);
+        return Promise.resolve();
+      },
+    });
+  }
+
+  /** Whether a save that queued a child notifies: every one. */
+  protected notifies(_isNew: boolean): boolean {
+    return true;
+  }
+}
+
+/** #777: notifies only a child queued for the first time — one queued again (a resume) never wakes. */
+export class InsertOnlyNotifyingQueueRepository extends NotifyingQueueRepository {
+  protected override notifies(isNew: boolean): boolean {
+    return isNew;
   }
 }

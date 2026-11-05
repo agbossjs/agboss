@@ -14,11 +14,13 @@ import { claimRoomOf, type StepCapacity } from "../step-slots.js";
 import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
 import { announcePass } from "./child-end-event.js";
+import { ChildQueueWatch } from "./child-queue-watch.js";
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
- * while it has a free step slot (#332) — at once when a child is queued in this process, and at
- * every sweep (`SWEEP_EVERY`) for the ones queued elsewhere. Each claimed child runs under a 30 s
+ * while it has a free step slot (#332) — at once when a child is queued in this process or the
+ * store's watch wakes it (#777: a child queued in another process), and at every sweep
+ * (`SWEEP_EVERY`), which claims whatever a lost wake-up left queued. Each claimed child runs under a 30 s
  * lease in `ExecutionLeaseRepository` (`(tenantId, childExecutionId)`) on its own thread; a crash
  * or a graceful stop past `shutdownTimeout` (S7) leaves the queue row `Running` so a live worker
  * reclaims it once its lease is free and continues it from its last checkpoint.
@@ -49,19 +51,17 @@ class Workers implements ChildWorkers {
   readonly #loop: Promise<void>;
   #looking: Promise<void> | undefined;
   #asked = 0;
+  readonly #watch: ChildQueueWatch;
 
   constructor(private readonly parts: ChildWorkerParts) {
-    this.#onQueued = () => {
-      void this.#look();
-    };
+    this.#onQueued = () => void this.#look();
     const unq = remoteChildSignals.onQueued(this.#onQueued);
-    const unr = remoteChildSignals.onRunning((row) => {
-      void this.#reclaim(row);
-    });
+    const unr = remoteChildSignals.onRunning((row) => void this.#reclaim(row));
     this.#unsubscribe = () => {
       unq();
       unr();
     };
+    this.#watch = new ChildQueueWatch(parts.queue, this.#onQueued, parts.log);
     this.#loop = this.#sweep();
   }
 
@@ -69,11 +69,13 @@ class Workers implements ChildWorkers {
     this.#stopped.abort();
     this.#unsubscribe();
     await this.#loop;
+    await this.#watch.close();
     await Promise.allSettled([...this.#running.values()].map((child) => child.done));
   }
 
   async #sweep(): Promise<void> {
     while (!this.#stopped.signal.aborted) {
+      await this.#watch.open();
       await this.#look();
       await this.parts.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
