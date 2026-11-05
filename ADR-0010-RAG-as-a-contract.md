@@ -25,6 +25,12 @@ differently, so a built-in embeddings model or vector store would be the wrong d
   `@Rag({ rerank })`; the core runs it, checks its result is a subset of the tenant's candidates,
   bills and traces it, and falls back or fails the step as declared. No reranker package in the
   core: dedicated rerank APIs stay examples (agboss-examples `13-rag-reranking`).
+- **Amended by #796:** whose content a knowledge base serves is declared, `@Rag({ tenancy:
+  RagTenancy.PerTenant | RagTenancy.Shared })`, required. The type system cannot tell a connector
+  that ignores the tenant on purpose (a public corpus) from one that forgot it, so the choice is
+  stated where it is reviewed — describe, `describe --json`, the `configHash` — and checked at
+  assembly (`[rag.tenancy-required]`). An enum rather than a flag leaves room for a third mode (a
+  shared corpus plus the tenant's own).
 
 ## Consequences
 

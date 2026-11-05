@@ -707,7 +707,9 @@ held operation. You write no seam of your own to force an order across processes
 - [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark
       with the insert and refuses an entry made before it that it does not hold; the prune raises
       the mark and deletes in one atomic step (#771). The SQL is in agbossjs/postgres's
-      `PostgresCostLedgerRepository` (a `FOR SHARE` of the mark row in the save's statement).
+      `PostgresCostLedgerRepository` (a `FOR SHARE` of the mark row in the save's statement). The
+      mark is seeded once and a missing one fails the save closed — never read as "never pruned",
+      which counts a pruned entry saved again twice (#798).
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.

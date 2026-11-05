@@ -410,7 +410,16 @@ entry's spend may be missing, which only a pass asleep longer than the retention
 | in memory | a map of `ledgerId` → `madeAt` | a number in the instance |
 | `SqliteCostLedgerRepository` | `cost_ledger_entries (ledger_id, made_at)`, indexed by `made_at`; a #727 file's entries dated "never" | `cost_ledger_entries_pruned`, read in the save's `BEGIN IMMEDIATE` |
 | agbossjs/postgres | `agboss_cost_entries (ledger_id, made_at)` (migration `0023`) | `agboss_cost_entries_pruned`, read `FOR SHARE` in the save's statement |
-| agbossjs/mongodb | `agboss_cost_entries` documents with `madeAt` | a document of `agboss_cost_entries`, read in the save's transaction |
+| agbossjs/mongodb | `agboss_cost_entries` documents with `madeAt` | a document of `agboss_cost_entries` (`_id` `"\u0000pruned-before"`, seeded with the collection, #798), read in the save's transaction |
+
+The mark must exist for the guarantee to hold: a store that read a missing mark as "never pruned"
+would accept a pruned entry saved again and count its spend twice. So the stores seed it once — in
+the schema (SQLite, PostgreSQL migration `0023`) or with the collection (MongoDB) — and a mark
+deleted by hand fails every save closed, nothing added: `PostgresLedgerMarkMissingError`
+(`postgres.ledger-mark-missing`), `MongoLedgerMarkMissingError` (`mongodb.ledger-mark-missing`, a
+prune deletes nothing either; a restart never seeds it again). Each message is the remedy: put the
+mark back no lower than any prune's cutoff (`now − ledgerEntryRetention`). Keep it when you prune
+or empty the entries by hand.
 
 ### Tests
 

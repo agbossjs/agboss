@@ -27,14 +27,15 @@ The reference connector, extended — its options come through the constructor a
 
 ```ts file=rag/company-docs.rag.ts
 import { InjectionToken } from "@agboss/core";
-import { Rag, SqliteFtsConnector, type FtsOptions } from "@agboss/core/rag";
+import { Rag, RagTenancy, SqliteFtsConnector, type FtsOptions } from "@agboss/core/rag";
 
 export const DOCS_INDEX = new InjectionToken<FtsOptions>("DOCS_INDEX");
 
-// `topK` (search results per retrieval) is required; there is no default
+// `topK` (search results per retrieval) and `tenancy` are required; there are no defaults
 @Rag({
   name: "company_docs",
   description: "Nimbus Labs docs: onboarding, product, team",
+  tenancy: RagTenancy.PerTenant, // each tenant indexes and reads its own copy
   topK: 4,
   deps: [DOCS_INDEX],
 })
@@ -45,9 +46,15 @@ Or your own implementation of the contract — every call carries the execution'
 returns that tenant's passages only ([Tenants](#tenants)):
 
 ```ts
-import { Rag, type RagConnector, type RagRetrieval, type RagRetrieveOptions } from "@agboss/core/rag";
+import {
+  Rag,
+  RagTenancy,
+  type RagConnector,
+  type RagRetrieval,
+  type RagRetrieveOptions,
+} from "@agboss/core/rag";
 
-@Rag({ name: "faq", description: "Answers to frequent questions", topK: 3 })
+@Rag({ name: "faq", description: "Answers to frequent questions", tenancy: RagTenancy.PerTenant, topK: 3 })
 export class Faq implements RagConnector {
   private readonly entriesByTenant = new Map([
     ["default", [{ text: "Refunds take 5 days.", source: "faq.md#refunds" }]],
@@ -90,7 +97,8 @@ export class OnboardingAgent {}
 | `RagMode.Tool`    | a read tool `search-<name>-tool` returning `{ results }`; the agent decides when and what to search  | returned to the model (any tool) |
 | `RagMode.Context` | before the agent's loop the core retrieves `topK` results for its input message, appended to it as `Knowledge (<name>):` | the turn goes on without them    |
 
-Both modes ask the model to cite `[source]`. Omitting `topK`, `mode` or `retrieve` is a compile error.
+Both modes ask the model to cite `[source]`. Omitting `topK`, `tenancy`, `mode` or `retrieve` is a
+compile error.
 
 ## Tenants
 
@@ -98,8 +106,37 @@ A knowledge base is tenant-scoped (#700), like every store of AGBoss. The core p
 execution's tenant on every retrieval — tool mode and context mode alike — and every index build:
 `options.tenantId`, read from the frame of the step or tool call that runs it. A connector returns
 only that tenant's passages and indexes into that tenant only, and compares the id **as given** —
-`acme`, `Acme`, `ａｃｍｅ`, `café` and `cafe` are five tenants. Content every tenant may read (a
-public help center) is the connector's choice: it returns the same passages whoever asks.
+`acme`, `Acme`, `ａｃｍｅ`, `café` and `cafe` are five tenants.
+
+**Whose content it serves is declared** (#796): `@Rag({ tenancy })` is required.
+
+| `tenancy`              | The connector                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `RagTenancy.PerTenant` | reads `options.tenantId` in `retrieve` and `index` and keeps each tenant's passages apart; `ragConnectorContract` proves it |
+| `RagTenancy.Shared`    | serves one corpus every tenant may read (a public help center): it may ignore `options.tenantId`     |
+
+TypeScript cannot see whether a connector reads the tenant: `retrieve(query, { topK, signal })`
+satisfies `RagConnector` too. So the choice is stated where a reviewer reads it, never left to a
+connector's silence. Without `tenancy` the decorator does not compile; a JS project or a cast is
+`[rag.tenancy-required]` at assembly. `agboss describe` prints it — `rag: faq (tool, k 3,
+per-tenant)` — and `describe --json` (each agent's `rag[].tenancy`) and the `configHash` carry it,
+so switching a knowledge base to `Shared` is a reviewed change. The core passes the tenant either
+way.
+
+<!-- snippet-context
+import { Rag, RagTenancy, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
+-->
+
+```ts
+// the public help center: every tenant reads the same articles, declared
+@Rag({ name: "help-center-rag", description: "Public help articles", tenancy: RagTenancy.Shared, topK: 3 })
+export class HelpCenterRag implements RagConnector {
+  retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
+    const articles = [{ text: `Orders ship in two days (${query}).`, source: "help/shipping.md" }];
+    return Promise.resolve({ results: articles.slice(0, options.topK) });
+  }
+}
+```
 
 - The id is a key's text ([Several instances](Several-instances), #552): one that breaks a rule is
   refused before the connector runs — `dto.invalid` naming `tenantId` and the rule, never the id.
@@ -159,7 +196,7 @@ export class DocsReranker {}
 ```
 
 <!-- snippet-context
-import { Rag, RerankFailurePolicy, SqliteFtsConnector } from "@agboss/core/rag";
+import { Rag, RagTenancy, RerankFailurePolicy, SqliteFtsConnector } from "@agboss/core/rag";
 import { DOCS_INDEX } from "./rag/company-docs.rag.js";
 import { DocsReranker } from "./rerankers/docs.reranker.js";
 -->
@@ -168,6 +205,7 @@ import { DocsReranker } from "./rerankers/docs.reranker.js";
 @Rag({
   name: "reranked-docs-rag",
   description: "Nimbus Labs docs, reranked",
+  tenancy: RagTenancy.PerTenant,
   rerank: { by: DocsReranker, candidates: 30, keep: 4, onFailure: RerankFailurePolicy.Fallback },
   deps: [DOCS_INDEX],
 })

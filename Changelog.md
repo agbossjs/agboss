@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a knowledge base declares whose content it serves (#796); MongoDB's ledger mark fails closed (#798)
+
+- **Changed — breaking**: `@Rag` requires `tenancy: RagTenancy.PerTenant | RagTenancy.Shared`. A
+  connector could ignore `options.tenantId` and still compile, and nothing told a shared corpus
+  from a forgotten tenant. Without it the decorator does not compile; a JS project or a cast is
+  `[rag.tenancy-required]` at assembly. `agboss describe` prints it, `describe --json` and the
+  `configHash` carry it. **Migration:** add `tenancy` to every `@Rag` — `PerTenant` for a connector
+  that reads the tenant (run `ragConnectorContract`), `Shared` for content every tenant may read.
+  [Knowledge bases → Tenants](Knowledge-bases#tenants).
+- **Fixed** (agbossjs/mongodb): the #771 pruning mark was created by the first prune, so a mark
+  deleted by hand read as "never pruned" and a pruned entry saved again counted twice. It is seeded
+  with `agboss_cost_entries`, and without it a save or a prune fails closed with
+  `MongoLedgerMarkMissingError`. [FinOps](FinOps).
+
 ## Unreleased — 0.1.1: the store author's suites no longer pass what they did not check (#799)
 
 - **Changed — breaking for stores outside the core**:
