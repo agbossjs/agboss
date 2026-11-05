@@ -53,6 +53,8 @@ export interface UsageRecord extends TokenUsage {
    * parent's or a takeover's, writes or counts it again. Absent for spend written at its step's end.
    */
   readonly ledgerId?: string;
+  /** When the spend under `ledgerId` was made (#771: ISO 8601, the `Clock`): its entry's date. */
+  readonly madeAt?: string;
 }
 
 /** What a call was for — the cost categories of a turn. */
@@ -167,11 +169,10 @@ export function recordUsage(
   const reported = reportedCostOf(message);
   const fallback = fallbackMarkOf(message.response_metadata);
   if (fallback !== undefined) {
-    if (reported === undefined) {
+    if (reported === undefined)
       throw new ModelCostError(
         `${caller}: fallback model ${fallback.model} — no cost and no price`,
       );
-    }
     const costSource = fallback.priced ? "price-table" : "api";
     return { caller, model: fallback.model, ...usage, costUsd: reported, costSource, ...served };
   }

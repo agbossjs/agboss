@@ -4,6 +4,7 @@
  * table dropped (no budget reads it) and the budgets' counters start from zero.
  */
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { BudgetScope } from "../../../src/budgets/budget.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { SqliteCostLedgerRepository } from "../../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
@@ -71,5 +72,70 @@ describe("#633: the SQLite cost ledger beyond its contract", () => {
 
     const rows = connectionTo(path).database.prepare("SELECT COUNT(*) AS n FROM cost_ledger").get();
     expect(rows).toEqual({ n: 0 });
+  });
+});
+
+describe("#771: the SQLite cost ledger of a file #727 wrote — its entries without a date", () => {
+  /** A file of #727: `cost_ledger_entries` with only the id, one entry held. */
+  const fileOf727 = (): string => {
+    const path = temporarySqlitePath();
+    connectionTo(path).database.exec(`CREATE TABLE cost_ledger_entries (
+      ledger_id TEXT NOT NULL PRIMARY KEY);
+      INSERT INTO cost_ledger_entries VALUES ('pass-a:0');`);
+    return path;
+  };
+  const entry = (ledgerId: string, madeAt: string): UsageRecord =>
+    ({ costUsd: 0.25, ledgerId, madeAt }) as UsageRecord;
+
+  it("dates the held entries never: no prune removes them, a save of one adds nothing", async () => {
+    const path = fileOf727();
+    const ledger = new SqliteCostLedgerRepository(connectionTo(path));
+
+    await ledger.deleteEntriesByMadeAtBefore(new Date("2030-01-01T00:00:00.000Z"));
+    await ledger.saveAll([counter], [entry("pass-a:0", "2026-10-18T08:00:00.000Z")]);
+
+    expect(await ledger.findSpentByCounter(counter)).toBe(0);
+    expect(connectionTo(path).columnsOf("cost_ledger_entries")).toEqual(["ledger_id", "made_at"]);
+    const held = connectionTo(path)
+      .database.prepare("SELECT made_at FROM cost_ledger_entries WHERE ledger_id = 'pass-a:0'")
+      .get();
+    expect(held).toEqual({ made_at: Number.MAX_SAFE_INTEGER });
+  });
+
+  it("indexes the entries by date, for the prune", () => {
+    const path = fileOf727();
+    new SqliteCostLedgerRepository(connectionTo(path));
+
+    const indexes = connectionTo(path)
+      .database.prepare("PRAGMA index_list(cost_ledger_entries)")
+      .all()
+      .map((row) => z.object({ name: z.string() }).parse(row).name);
+    expect(indexes).toContain("cost_ledger_entries_made_at");
+  });
+
+  it("an entry made before the mark that it still holds — a save that raced the prune — adds nothing and is not refused", async () => {
+    const path = fileOf727();
+    const ledger = new SqliteCostLedgerRepository(connectionTo(path));
+    await ledger.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+    connectionTo(path)
+      .database.prepare("INSERT INTO cost_ledger_entries VALUES ('pass-c:0', ?)")
+      .run(Date.parse("2026-10-18T08:00:00.000Z"));
+
+    await ledger.saveAll([counter], [entry("pass-c:0", "2026-10-18T08:00:00.000Z")]);
+
+    expect(await ledger.findSpentByCounter(counter)).toBe(0);
+  });
+
+  it("keeps each new entry with its date, so the sweep's prune reaches it", async () => {
+    const path = fileOf727();
+    const ledger = new SqliteCostLedgerRepository(connectionTo(path));
+    await ledger.saveAll([counter], [entry("pass-b:0", "2026-10-18T08:00:00.000Z")]);
+
+    await ledger.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+
+    const rows = connectionTo(path)
+      .database.prepare("SELECT ledger_id FROM cost_ledger_entries ORDER BY ledger_id")
+      .all();
+    expect(rows).toEqual([{ ledger_id: "pass-a:0" }]);
   });
 });

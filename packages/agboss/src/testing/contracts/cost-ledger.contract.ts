@@ -1,38 +1,12 @@
 import { expect } from "vitest";
 import { BudgetScope } from "../../budgets/budget.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import type {
-  CostCounter,
-  CostLedgerRepository,
-} from "../../infrastructure/cost-ledger.repository.js";
+import type { CostLedgerRepository } from "../../infrastructure/cost-ledger.repository.js";
 import { usd } from "../../units/index.js";
+import { applicationMonth, call, tenantDay } from "./cost-ledger-data.js";
+import { pruningCases } from "./cost-ledger-pruning.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./seam.js";
-
-/** A model call that cost `costUsd` (only the cost is counted). */
-const call = (costUsd: number): UsageRecord => ({
-  caller: "clerk-agent",
-  model: "test/clerk",
-  inputTokens: 0,
-  outputTokens: 0,
-  cacheReadTokens: 0,
-  cacheWriteTokens: 0,
-  costUsd,
-  costSource: "api",
-});
-
-const tenantDay: CostCounter = {
-  budget: "tenant-daily-budget",
-  scope: BudgetScope.Tenant,
-  key: "acme",
-  period: "2026-10-18",
-};
-const applicationMonth: CostCounter = {
-  budget: "application-monthly-budget",
-  scope: BudgetScope.Application,
-  key: "desk-application",
-  period: "2026-10-01",
-};
 
 const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
   {
@@ -143,9 +117,15 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
 /**
  * `CostLedgerRepository` (#265 AC8, #261 PR 5): one counter per budget, scope key and period, each
  * call's cost added to every counter it is given, nothing lost between instances, an entry with a
- * `ledgerId` added once (#727); the last
+ * `ledgerId` added once (#727), the entries pruned under a mark that refuses a later save of one
+ * pruned (#771); the last
  * `maxSpend()` per budget and scope key.
  */
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void {
-  registerContract("cost ledger contract", target, [{ cases: LEDGER_CASES }], pingOf);
+  registerContract(
+    "cost ledger contract",
+    target,
+    [{ cases: LEDGER_CASES }, { cases: pruningCases() }],
+    pingOf,
+  );
 }

@@ -19,17 +19,24 @@ export function servedByOf(
   return typeof host === "string" && host !== "" ? host : undefined;
 }
 
-/** Where the ledger holds a record (#333 PR 3, #727): the budgets' bookkeeping, not its cost. */
+/** Where the ledger holds a record (#333 PR 3, #727, #771): the budgets' bookkeeping, not its cost. */
 interface LedgerMarked {
   readonly isRecordedElsewhere?: boolean;
   readonly ledgerId?: string;
+  readonly madeAt?: string;
 }
 
 /** A record as a cost report shows it: without where the ledger holds it. */
 export function withoutLedgerMarks<T extends LedgerMarked>(record: T): T {
-  if (record.isRecordedElsewhere === undefined && record.ledgerId === undefined) return record;
+  if (
+    record.isRecordedElsewhere === undefined &&
+    record.ledgerId === undefined &&
+    record.madeAt === undefined
+  )
+    return record;
   const copy = { ...record };
   Reflect.deleteProperty(copy, "isRecordedElsewhere");
   Reflect.deleteProperty(copy, "ledgerId");
+  Reflect.deleteProperty(copy, "madeAt");
   return copy;
 }

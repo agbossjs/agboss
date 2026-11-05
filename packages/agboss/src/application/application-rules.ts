@@ -30,6 +30,7 @@ import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
 import {
   fencedEffectsViolations,
+  ledgerEntryRetentionViolations,
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
 import { storeBackendViolations } from "./implementations.js";
@@ -212,6 +213,7 @@ export function applicationRuleViolations(
     ...meshHopsViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
+    ...ledgerEntryRetentionViolations(options.name, options.ledgerEntryRetention),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
     ...storeBackendViolations(options.name, options.providers ?? []),
     ...meshRuleViolations(

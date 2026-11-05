@@ -100,6 +100,10 @@ export {
   type OutboundCallUnreconciledErrorOptions,
 } from "./app/outbound-calls.js";
 export {
+  CostLedgerEntryExpiredError,
+  type CostLedgerEntryExpiredErrorOptions,
+} from "./infrastructure/cost-ledger.repository.js";
+export {
   FencedEffectResultTooLargeError,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,

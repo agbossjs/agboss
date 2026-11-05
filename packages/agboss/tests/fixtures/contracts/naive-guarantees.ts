@@ -7,6 +7,7 @@ import {
   accountKeyOf,
   CostLedgerRepository,
   counterKeyOf,
+  newEntriesOf,
   type BudgetAccount,
   type CostCounter,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
@@ -104,12 +105,61 @@ export class ReadThenWriteCostLedgerRepository extends CostLedgerRepository {
     }
   }
 
+  deleteEntriesByMadeAtBefore(): Promise<void> {
+    return Promise.resolve();
+  }
+
   findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
     return Promise.resolve(this.#maxSpend.get(accountKeyOf(account)));
   }
 
   saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
     this.#maxSpend.set(accountKeyOf(account), maxSpend);
+    return Promise.resolve();
+  }
+}
+
+/**
+ * A ledger that prunes its entries without a mark (#771): a save of an entry it removed counts it
+ * again — a lost answer retried after the prune is counted twice.
+ */
+export class PrunedWithoutMarkCostLedgerRepository extends CostLedgerRepository {
+  readonly #spent = new Map<string, number>();
+  readonly #entries = new Map<string, number>();
+
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  findSpentByCounter(counter: CostCounter): Promise<Usd> {
+    return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
+  }
+
+  saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
+    if (counters.length === 0) return Promise.resolve();
+    const added = newEntriesOf(records, (id, madeAt) => {
+      if (this.#entries.has(id)) return false;
+      this.#entries.set(id, madeAt);
+      return true;
+    });
+    for (const counter of counters) {
+      const key = counterKeyOf(counter);
+      this.#spent.set(key, (this.#spent.get(key) ?? 0) + totalCost(added));
+    }
+    return Promise.resolve();
+  }
+
+  deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void> {
+    for (const [id, madeAt] of this.#entries)
+      if (madeAt < cutoff.getTime()) this.#entries.delete(id);
+    return Promise.resolve();
+  }
+
+  findMaxSpendByAccount(): Promise<Usd | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  saveMaxSpend(): Promise<void> {
     return Promise.resolve();
   }
 }

@@ -73,6 +73,8 @@ export interface AssembledApplication {
   readonly executionRecordRetention?: Milliseconds;
   /** How long a row of the lease log is kept (`@Application({ leaseEventRetention })`, #501). */
   readonly leaseEventRetention: Milliseconds;
+  /** How long an entry of the ledger is kept (`@Application({ ledgerEntryRetention })`, #771). */
+  readonly ledgerEntryRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
   /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
@@ -101,6 +103,12 @@ const PAUSE_RECORD_RETENTION: Milliseconds = hours(24);
 
 /** How long a row of the lease log is kept by default (#501): a day of takeovers and hand-overs. */
 const LEASE_EVENT_RETENTION: Milliseconds = hours(24);
+
+/**
+ * How long a ledger entry is kept by default (#771): a day — a pass retries a lost write at its
+ * next read of the counters, seconds later; only a pass asleep for a day meets the refusal.
+ */
+export const LEDGER_ENTRY_RETENTION: Milliseconds = hours(24);
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
 const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
@@ -203,13 +211,14 @@ export const declaredContextsOf = (
 const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
   contract === undefined ? {} : { environment: contract };
 
-/** How long the sweep keeps each kind of rows: the pause records, the history, the lease log. */
+/** How long the sweep keeps each kind of rows: pause records, history, lease log, ledger entries. */
 const retentionsOf = (options: ApplicationOptions) => ({
   pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
   ...(options.executionRecordRetention === undefined
     ? {}
     : { executionRecordRetention: options.executionRecordRetention }),
   leaseEventRetention: options.leaseEventRetention ?? LEASE_EVENT_RETENTION,
+  ledgerEntryRetention: options.ledgerEntryRetention ?? LEDGER_ENTRY_RETENTION,
 });
 
 /** Whether anything stored must be masked: the application or a workflow lists PII policies. */
