@@ -115,12 +115,12 @@ describe("#508 AC5: the checklist against the fake gateway, offline", () => {
     expect(evidenceOf(report, GatewayRequirement.ConflictOnMismatch)).toMatch(/was refused: key/);
   });
 
-  it("no clock to move: G3 is skipped, not failed — the run still passes", async () => {
+  it("#799 AC4: no clock to move — G3 is skipped, not failed, and the run does not pass: a requirement never probed is not passed", async () => {
     const report = await checklistOn({}, false);
 
     expect(statusesOf(report)).toEqual({ ...ALL_PASSED, G3: GatewayCheckStatus.Skipped });
     expect(evidenceOf(report, GatewayRequirement.KeyRetention)).toMatch(/no clock to move/);
-    expect(report.isPassed).toBe(true);
+    expect(report.isPassed).toBe(false);
   });
 
   it("a gateway that fails a probe fails that requirement with the error as evidence", async () => {

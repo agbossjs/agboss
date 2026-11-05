@@ -32,6 +32,23 @@ export interface FaultEnvironment {
   readonly values: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * What a store set's stores decide a lease's time by (#799): the run's history is read on that time
+ * — the linearizability checker maps it from the machine's clock by the rate it runs at.
+ */
+export enum FaultStoreTime {
+  /**
+   * The database's own clock, at the real rate, whatever the pods' `timeScale`: PostgreSQL's
+   * `clock_timestamp()`, MongoDB's `$$NOW`, Redis's `TIME`.
+   */
+  Database = "database",
+  /**
+   * The host's clock the pods run on, at the suite's `timeScale`: the in-memory and SQLite stores,
+   * which read `now()` in the process.
+   */
+  Host = "host",
+}
+
 /** What a store set's module exports as `faultStores`. */
 export interface FaultStores<TTransaction = unknown> {
   /**
@@ -43,6 +60,11 @@ export interface FaultStores<TTransaction = unknown> {
   readonly providers: readonly Class[];
   readonly environment: FaultEnvironment;
   readonly businessRows: FaultBusinessRows<TTransaction>;
+  /**
+   * The time the fencing stores (leases, fenced effects, outbound calls) decide by (#799): the
+   * history of a run is checked on it. A property of the stores, not of a run: required.
+   */
+  readonly storeTime: FaultStoreTime;
 }
 
 /** The business rows of the pod's store set, as the fixture's charge injects them. */
@@ -55,6 +77,31 @@ export const FAULT_STORES_EXPORT = "faultStores";
 export const defineFaultStores = <TTransaction>(
   stores: FaultStores<TTransaction>,
 ): FaultStores<TTransaction> => stores;
+
+/** A store set whose `storeTime` is missing or unknown (#799): its pods do not start. */
+export class FaultStoreTimeError extends Error {
+  override name = "FaultStoreTimeError";
+
+  constructor(given: unknown) {
+    super(
+      `[fault-suite.store-time] the store set's storeTime is ${given === undefined ? "missing" : JSON.stringify(given)}: declare what its fencing stores decide a lease's time by — FaultStoreTime.Database (the database's own clock, at the real rate) or FaultStoreTime.Host (the pods' clock, at the suite's timeScale)`,
+    );
+  }
+}
+
+/** The set's declared store time; `FaultStoreTimeError` for none or an unknown one. */
+export function storeTimeOf(stores: FaultStores): FaultStoreTime {
+  const given: unknown = Reflect.get(stores, "storeTime");
+  if (given === FaultStoreTime.Database || given === FaultStoreTime.Host) return given;
+  throw new FaultStoreTimeError(given);
+}
+
+/**
+ * How much faster than real time the history's store time ran (#799): 1 on a database's own
+ * clock, the pods' `timeScale` on the host's.
+ */
+export const storeTimeScaleOf = (storeTime: FaultStoreTime, timeScale: number): number =>
+  storeTime === FaultStoreTime.Database ? 1 : timeScale;
 
 /**
  * The store classes of `stores` that opt out of the atomic lease check (#584,

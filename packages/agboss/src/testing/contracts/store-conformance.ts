@@ -28,6 +28,7 @@ import { rateLimitContract } from "./rate-limit.contract.js";
 import type { ContractTarget, StoreSeam } from "./seam.js";
 import { checkStoreSet, type LeftOutContract } from "./store-conformance-check.js";
 import { registerInterleavings, type InterleavingOptions } from "./explorer/register.js";
+import { registerInterleavingsOff } from "./explorer/floor.js";
 import { registerStoreSet } from "./store-set.cases.js";
 
 /**
@@ -84,8 +85,13 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
   readonly acceptWithoutDoubleChargeProtection?: boolean;
   /**
    * The interleaving explorer's budget (#533): how deep it searches every schedule and how many
-   * seeded walks it takes over the set's fencing stores; `false` leaves it out (never for a store
-   * that claims payment-grade fencing). Default: 8 steps, 200 walks of 30 steps.
+   * seeded walks it takes over the set's fencing stores. Default: 8 steps, 200 walks of 30 steps.
+   * Each count is a whole number of at least 1, else the set is refused (#799,
+   * `[store-conformance.invalid-interleavings]`). A set with a fenced-effect or outbound-call store
+   * runs at least depth 4, 20 walks of 16 steps, else its `store set (<name>)` case
+   * `explores its fencing stores at least at the floor …` fails. `false` leaves the explorer out:
+   * `interleavings (<name>)` shows one skipped case, and a set with fencing stores fails that floor
+   * case — only a set of leases alone (`without` both) may turn it off.
    */
   readonly interleavings?: InterleavingOptions | false;
 }
@@ -127,11 +133,11 @@ export function storeConformance<TTransaction>(
 ): void {
   const set = options as StoreConformanceOptions;
   const { stores } = set;
-  checkStoreSet({
-    name: set.name,
-    claimed: Object.entries(stores).flatMap(([key, store]) => (store === undefined ? [] : [key])),
-    without: set.without ?? [],
-  });
+  const claimed = Object.entries(stores).flatMap(([key, store]) =>
+    store === undefined ? [] : [key],
+  );
+  const without = set.without ?? [];
+  checkStoreSet({ name: set.name, claimed, without, interleavings: set.interleavings });
   each(set, stores.checkpointSaver, checkpointSaverContract);
   each(set, stores.childExecutionQueue, childExecutionQueueContract);
   each(set, stores.costLedger, costLedgerContract);
@@ -151,12 +157,17 @@ export function storeConformance<TTransaction>(
   });
   each(set, stores.pausedExecution, pausedExecutionContract);
   each(set, stores.rateLimit, rateLimitContract);
+  const interleavings = executionLease === undefined ? undefined : (set.interleavings ?? {});
   registerStoreSet(
     set.name,
     { executionLease, fencedEffect, outboundCall },
     { isAccepted: set.acceptWithoutDoubleChargeProtection === true },
+    { claimed, without, interleavings },
   );
-  if (executionLease !== undefined && set.interleavings !== false)
+  // #799: an explorer turned off is a skipped case, never nothing
+  if (executionLease !== undefined && set.interleavings === false)
+    registerInterleavingsOff(set.name);
+  else if (executionLease !== undefined)
     registerInterleavings(
       set.name,
       { executionLease, fencedEffect, outboundCall },

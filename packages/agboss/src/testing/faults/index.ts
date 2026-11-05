@@ -12,6 +12,8 @@
 export {
   defineFaultStores,
   FAULT_BUSINESS_ROWS,
+  FaultStoreTime,
+  FaultStoreTimeError,
   type FaultBusinessRows,
   type FaultEnvironment,
   type FaultStores,

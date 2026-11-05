@@ -9,6 +9,9 @@ import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { isOptedOutStore, OPTED_OUT_REASON, optedOutRefusal } from "./fencing-gate.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { withTarget, type ContractTarget } from "./seam.js";
+import { CONTRACTS } from "./store-conformance-check.js";
+import { belowFloorOf, FLOOR_TEXT } from "./explorer/floor.js";
+import type { InterleavingOptions } from "./explorer/register.js";
 
 /**
  * The cases of `store set (<name>)` (#526): what assembly will check of the set's classes, checked
@@ -19,7 +22,10 @@ import { withTarget, type ContractTarget } from "./seam.js";
  * the lease store its own contract ran on is of its backend — the races are proven on the leases
  * the application will list. A store that opts out of the lease check is refused there unless the
  * set says `acceptWithoutDoubleChargeProtection` (#543), and then its case is skipped and the set
- * shows `gives NO double-charge protection for …` among its cases.
+ * shows `gives NO double-charge protection for …` among its cases. #799: a contract the set does
+ * not claim is a skipped case, `does not claim stores.<key>`, so a report shows what never ran; and a
+ * set with a fenced-effect or outbound-call store explored below the floor — or not at all — fails
+ * `explores its fencing stores at least at the floor`.
  */
 
 /** The fencing targets of a set, as `storeConformance` builds them. */
@@ -84,6 +90,47 @@ function expectSetBackend(store: object, leases: object, setLeases: Class): void
 /** How the set's cases treat a store that opts out of the lease check (#543). */
 interface OptOut {
   readonly isAccepted: boolean;
+}
+
+/** What else of the set its cases show (#799): what it claims and how it is explored. */
+export interface SetClaims {
+  /** The `stores` keys it gives. */
+  readonly claimed: readonly string[];
+  /** The fencing contracts it says it has none of (`without`). */
+  readonly without: readonly string[];
+  /** Its `interleavings`; `undefined` for a set without a lease store (nothing to explore). */
+  readonly interleavings: InterleavingOptions | false | undefined;
+}
+
+/** The case of a contract the set does not claim (#799): skipped, so the report shows it. */
+function registerUnclaimed({ claimed, without }: SetClaims): void {
+  for (const key of CONTRACTS.filter((one) => !claimed.includes(one)))
+    it(`does not claim stores.${key}`, (context) => {
+      context.skip(
+        without.includes(key)
+          ? `listed in without: the set has no ${key} store, so its contract did not run`
+          : `no stores.${key} given: its contract did not run`,
+      );
+    });
+}
+
+/** The floor case's name. */
+export const FLOOR_CASE = `explores its fencing stores at least at the floor (${FLOOR_TEXT})`;
+
+/**
+ * The case of a fencing set explored below the floor, or not at all (#799): failing, naming what is
+ * below — registered only then, so a set at or above it shows nothing more.
+ */
+function registerFloor(targets: FencingTargets, { interleavings }: SetClaims): void {
+  const isFencing = targets.fencedEffect !== undefined || targets.outboundCall !== undefined;
+  if (!isFencing || targets.executionLease === undefined || interleavings === undefined) return;
+  const below = belowFloorOf(interleavings);
+  if (below.length === 0) return;
+  it(FLOOR_CASE, () => {
+    throw new Error(
+      `[store-conformance.interleavings-below-floor] the set has fenced-effect or outbound-call stores, so its interleavings are explored at least at ${FLOOR_TEXT} — here ${below.join(", ")}: a search this small can pass without reaching the races of a double charge`,
+    );
+  });
 }
 
 /** The case of one fencing store: one backend with the lease store of its target and of the set. */
@@ -158,6 +205,7 @@ export function registerStoreSet(
   name: string,
   targets: FencingTargets,
   optOut: OptOut = { isAccepted: false },
+  claims?: SetClaims,
 ): void {
   describe(`store set (${name})`, () => {
     const { executionLease, fencedEffect, outboundCall } = targets;
@@ -190,5 +238,9 @@ export function registerStoreSet(
         ),
       );
     if (optOut.isAccepted) registerOptOutCases(targets);
+    if (claims !== undefined) {
+      registerFloor(targets, claims);
+      registerUnclaimed(claims);
+    }
   });
 }

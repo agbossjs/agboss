@@ -1362,12 +1362,21 @@ double-charge protection for …` — a fencing contract run on its own with the
   explored and left (#590), never a pass — and one stopped while it cuts a violation down fails with
   the schedule as found, no store call after (#618); and AC7's
   two-outcome races forced in both orders (broken stores fail it,
-  `tests/testing/contracts/explorer-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
+  `tests/testing/contracts/explorer-bites.test.ts`). #799: nothing unchecked reads as a pass —
+  `interleavings: false` is one skipped case, a budget that is no whole number ≥ 1 is
+  `[store-conformance.invalid-interleavings]`, a set with fenced-effect or outbound-call stores
+  below depth 4, 20 walks of 16 steps (or off) fails `store set`'s floor case
+  (`[store-conformance.interleavings-below-floor]`), every contract not claimed is a skipped `does
+not claim stores.<key>`, an optional method's cases (`watchQueued`) are skipped for a store
+  without it (`ContractCase.optional`), and `ragConnectorContract` reranks under `FailStep`
+  (`tests/testing/contracts/visible-gaps.test.ts`, `rag-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
 path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
   entry of its own, never loaded by the root) runs the fixture application (`src/testing/faults/
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
-  exports `faultStores`: providers, environment, business rows), with SIGTERM / SIGKILL / SIGSTOP /
+  exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
+  `FaultStoreTime.Database` for stores on the database's own clock, read at 1, `FaultStoreTime.Host`
+  for the pods' clock, read at `timeScale`; none refuses the pod, `[fault-suite.store-time]`), with SIGTERM / SIGKILL / SIGSTOP /
   SIGCONT and a TCP proxy per pod (a file database: a store outage), 26 scenarios (#720:
   `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —
   the lease its reclaim kept goes back, the child runs once; `HoldRequest.loseAnswer` at
@@ -2570,7 +2579,8 @@ capabilities })` — a gateway in memory with `idempotencyKeys` (G1), `lookupByK
   `injectFault(FakeGatewayFault.AnswerThenDrop | FailBeforeProcessing | Slow, { times, delay })`;
   `outboundGatewayChecklist({ send, lookup?, clock?, requiredRetention?, keyPrefix? })` probes G1–G5
   through a team's adapter → `{ results: [{ requirement, status: GatewayCheckStatus, evidence }],
-isPassed }` — offline against the fake, by hand against a sandbox.
+isPassed }` (#799: every requirement probed and passed — G3 skipped without a clock is not) —
+  offline against the fake, by hand against a sandbox.
 
 ### Imports
 

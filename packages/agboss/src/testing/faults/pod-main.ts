@@ -13,7 +13,12 @@ import { DatabaseStoreClock, lazyLoad, waitOf } from "../../infrastructure/clock
 import { hostClockOfPod } from "./fault-clock.js";
 import { closeOnStopSignals } from "../../application/stop-signals.js";
 import { resolveEnvironment } from "../../environments/resolve.js";
-import { FAULT_STORES_EXPORT, optedOutStoresOf, type FaultStores } from "./fault-stores.js";
+import {
+  FAULT_STORES_EXPORT,
+  optedOutStoresOf,
+  storeTimeOf,
+  type FaultStores,
+} from "./fault-stores.js";
 import { faultApplicationOf } from "./fixture/fault.application.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
 import { heldStoreSeam } from "./held-stores.js";
@@ -73,6 +78,8 @@ processHoldPoints.onHeld((held) => {
   sendToTest({ kind: "event", event: { ...held, type: "held" } });
 });
 const stores = await storesOf(process.env[POD_VARIABLES.stores] ?? "");
+// #799: the time the history is read on is the set's own declaration — none, and the pod does not start
+const storeTime = storeTimeOf(stores);
 const shutdownTimeout = numberOf(POD_VARIABLES.shutdownTimeout);
 const application = faultApplicationOf(stores, {
   shutdownTimeout: shutdownTimeout === undefined ? undefined : waitOf(shutdownTimeout),
@@ -109,4 +116,7 @@ process.on("message", (message: ToPod) => {
   void answer(parts, message);
 });
 const optedOut = optedOutStoresOf(stores);
-send({ kind: "event", event: { type: "ready", instanceId, pid: process.pid, optedOut } });
+send({
+  kind: "event",
+  event: { type: "ready", instanceId, pid: process.pid, optedOut, storeTime },
+});

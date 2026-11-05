@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, type TestContext } from "vitest";
 import {
   gatedBody,
   OPT_OUT_SHOWN_CASE,
@@ -26,7 +26,37 @@ export interface ContractCase<TStore> {
   readonly databaseTime?: DatabaseTime;
   /** A case only an atomic lease check passes (#543): behind the suite's fencing gate. */
   readonly isFencing?: boolean;
+  /** A case of an optional method (#799): skipped — never passed — for a store without it. */
+  readonly optional?: OptionalMethod<TStore>;
 }
+
+/** An optional method of a store contract a case checks (`watchQueued`, #777). */
+export interface OptionalMethod<TStore> {
+  /** Its name, as the skipped case's reason says it. */
+  readonly name: string;
+  /** Whether `store` has it. */
+  readonly isPresent: (store: TStore) => boolean;
+  /** What a store without it does instead, for the reason. */
+  readonly without: string;
+}
+
+/**
+ * The body of a case of an optional method (#799): skipped with the reason when neither instance's
+ * store has it, failed when only one has — a store either has the method or not —, else run.
+ */
+const optionalBody =
+  <TStore>(
+    optional: OptionalMethod<TStore>,
+    body: ContractCaseBody<TStore>,
+    context: TestContext,
+  ): ContractCaseBody<TStore> =>
+  async (instances) => {
+    const present = [instances.first, instances.second].map(optional.isPresent);
+    if (present.every((isPresent) => !isPresent))
+      context.skip(`the store has no ${optional.name} (optional): ${optional.without}`);
+    expect(present, `${optional.name} on one instance's store only`).toEqual([true, true]);
+    await body(instances);
+  };
 
 /** Cases registered together; with a `title`, inside a `describe` of their own. */
 export interface ContractGroup<TStore> {
@@ -58,12 +88,16 @@ const registerCases = <TStore>(
   for (const contractCase of group.cases) {
     const isGated =
       gate !== undefined && (group.isFencing === true || contractCase.isFencing === true);
-    const { run, databaseTime } = contractCase;
-    if (isGated)
-      it(contractCase.name, (context) =>
-        withTarget(target, gatedBody(gate, run, context), databaseTime)(),
-      );
-    else it(contractCase.name, withTarget(target, run, databaseTime));
+    const { run, databaseTime, optional } = contractCase;
+    if (!isGated && optional === undefined) {
+      it(contractCase.name, withTarget(target, run, databaseTime));
+      continue;
+    }
+    it(contractCase.name, (context) => {
+      const checked = optional === undefined ? run : optionalBody(optional, run, context);
+      const body = isGated ? gatedBody(gate, checked, context) : checked;
+      return withTarget(target, body, databaseTime)();
+    });
   }
 };
 

@@ -140,7 +140,16 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
         "interleavings (fixture-store)",
       ]),
     );
-    expect(run.cases.filter((found) => found.state !== "pass")).toEqual([]);
+    // #799: but the in-memory queue's watch cases — it has no watchQueued — skipped, never passed
+    expect(
+      run.cases.filter((found) => found.state !== "pass").map((found) => [found.name, found.state]),
+    ).toEqual([
+      [
+        "a child queued on another instance wakes the watch; it is claimed on the wake-up (#777)",
+        "skip",
+      ],
+      ["two watches of one instance are woken alike, and each closes on its own (#777)", "skip"],
+    ]);
   });
 
   it("every suite ends with the ping case", () => {

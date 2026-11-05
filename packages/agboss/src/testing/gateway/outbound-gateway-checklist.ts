@@ -25,7 +25,7 @@ export enum GatewayRequirement {
 export enum GatewayCheckStatus {
   Passed = "passed",
   Failed = "failed",
-  /** Not probed: what it needs was not given (a clock to move). */
+  /** Not probed: what it needs was not given (a clock to move) — the report does not pass (#799). */
   Skipped = "skipped",
 }
 
@@ -36,9 +36,10 @@ export interface GatewayCheckResult {
   readonly evidence: string;
 }
 
-/** Every requirement's result, in order, and whether none failed. */
+/** Every requirement's result, in order, and whether every one ran and passed. */
 export interface GatewayChecklistReport {
   readonly results: readonly GatewayCheckResult[];
+  /** Every requirement probed and passed (#799): a skipped one — never probed — is not passed. */
   readonly isPassed: boolean;
 }
 
@@ -64,7 +65,7 @@ export interface OutboundGatewayChecklistOptions {
   readonly send: (charge: GatewayProbeCharge) => Promise<GatewayProbeReceipt>;
   /** Finds a payment by the key it was made with; none → G2 fails. */
   readonly lookup?: (idempotencyKey: string) => Promise<GatewayProbeReceipt | undefined>;
-  /** Moves the gateway's time (a test's `VirtualClock`); none → G3 is skipped. */
+  /** Moves the gateway's time (a test's `VirtualClock`); none → G3 is skipped, and the run does not pass. */
   readonly clock?: GatewayChecklistClock;
   /** How long a key must be kept for G3 (default `hours(24)`). */
   readonly requiredRetention?: Milliseconds;
@@ -205,6 +206,6 @@ export async function outboundGatewayChecklist(
   for (const entry of PROBES) results.push(await checked(entry, options));
   return {
     results,
-    isPassed: results.every((result) => result.status !== GatewayCheckStatus.Failed),
+    isPassed: results.every((result) => result.status === GatewayCheckStatus.Passed),
   };
 }

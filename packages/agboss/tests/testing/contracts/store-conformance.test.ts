@@ -13,6 +13,7 @@ import {
   storeConformance,
   StoreConformanceError,
   type ConformanceStores,
+  type InterleavingOptions,
   type LeftOutContract,
 } from "../../../src/testing/contracts/index.js";
 import { checkStoreSet } from "../../../src/testing/contracts/store-conformance-check.js";
@@ -247,5 +248,58 @@ describe("#526 AC2: StoreConformanceError", () => {
 
   it("nothing was built: the refusal comes before any store's factory", () => {
     expect(() => refusalOf(setOf(["executionLease"]))).not.toThrow("never built");
+  });
+});
+
+describe("#799 AC3: an interleaving budget that is no budget is refused", () => {
+  /** What `storeConformance` threw for the four fencing contracts at `interleavings`. */
+  const budgetRefusalOf = (interleavings: unknown): StoreConformanceError => {
+    try {
+      storeConformance({
+        name: "PostgreSQL",
+        stores: setOf([...FENCING]),
+        interleavings: interleavings as InterleavingOptions,
+      });
+    } catch (error) {
+      if (error instanceof StoreConformanceError) return error;
+      throw error;
+    }
+    throw new Error("storeConformance registered the set: it should have refused it");
+  };
+
+  it.each([
+    ["walks: 0 — it would search nothing and pass", { walks: 0 }, ".walks = 0"],
+    ["a negative depth", { depth: -1 }, ".depth = -1"],
+    ["a fractional walkDepth", { walkDepth: 2.5 }, ".walkDepth = 2.5"],
+    ["walks: NaN", { walks: Number.NaN }, ".walks = NaN"],
+    ["a seed that is not whole", { seed: 1.5 }, ".seed = 1.5"],
+    ["a time limit of 0", { timeLimit: 0 }, ".timeLimit = 0"],
+    ["a key the explorer has no option for", { walk: 20 }, ".walk = 20"],
+    ["true", true, " = true"],
+    ["a number", 8, " = 8"],
+  ])("%s: invalid-interleavings, naming it", (_case, interleavings, named) => {
+    const error = budgetRefusalOf(interleavings);
+
+    expect(codesOf(error)).toEqual(["store-conformance.invalid-interleavings"]);
+    expect(error.problems[0]).toContain(`"PostgreSQL" gives interleavings${named}`);
+  });
+
+  it("every field that is wrong is its own problem, in one error", () => {
+    expect(codesOf(budgetRefusalOf({ depth: 0, walks: -3, walkDepth: 0 }))).toEqual([
+      "store-conformance.invalid-interleavings",
+      "store-conformance.invalid-interleavings",
+      "store-conformance.invalid-interleavings",
+    ]);
+  });
+
+  it.each([
+    ["none", undefined],
+    ["false", false],
+    ["a full budget", { depth: 4, walks: 20, walkDepth: 16, seed: 0, timeLimit: 60_000 }],
+    ["a seed of its own", { seed: 777 }],
+  ])("%s: accepted", (_case, interleavings) => {
+    expect(() => {
+      checkStoreSet({ name: "PostgreSQL", claimed: [...FENCING], without: [], interleavings });
+    }).not.toThrow();
   });
 });

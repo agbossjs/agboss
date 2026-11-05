@@ -24,3 +24,31 @@ ragConnectorContract({
     candidates: 10,
   },
 });
+// #799 AC2: the contract reranks under FailStep — a sound reranker passes every case, and one that
+// fails quietly (a throw, a passage that is no candidate) fails the cases that retrieve, never
+// falling back to the retrieval's own order
+const reranked = (name: string, by: Parameters<typeof ragConnectorContract>[0]["rerank"]): void => {
+  ragConnectorContract({ ...memoryTarget(name), rerank: by });
+};
+reranked("sound, reranked", {
+  by: {
+    rerank: (_q, candidates, { keep }) =>
+      Promise.resolve({ results: [...candidates].reverse().slice(0, keep) }),
+  },
+  candidates: 10,
+});
+reranked("a reranker that throws", {
+  by: { rerank: () => Promise.reject(new Error("reranker down")) },
+  candidates: 10,
+});
+reranked("a reranker that returns no candidate", {
+  by: {
+    rerank: (_q, candidates) =>
+      Promise.resolve({
+        results: candidates
+          .slice(0, 1)
+          .map((one) => ({ text: one.text, source: `${one.source}#forged`, score: one.score })),
+      }),
+  },
+  candidates: 10,
+});

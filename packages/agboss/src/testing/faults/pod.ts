@@ -10,6 +10,7 @@ import {
   CLOCK_DRIFT_VARIABLE,
   TIME_SCALE_VARIABLE,
 } from "./fault-clock.js";
+import { FaultStoreTime } from "./fault-stores.js";
 import type { OperationEvent } from "./operation-history.js";
 import {
   POD_VARIABLES,
@@ -85,6 +86,8 @@ export class FaultPod {
   instanceId = "";
   /** The pod's store classes that opt out of the atomic lease check (#584). */
   optedOut: readonly string[] = [];
+  /** What its store set decides a lease's time by (#799), as the pod read it from the set. */
+  storeTime: FaultStoreTime | undefined;
   #output = "";
   #commands = 0;
   readonly #watchers = new Set<() => void>();
@@ -246,5 +249,6 @@ export async function launchPod(launch: PodLaunch): Promise<FaultPod> {
   const ready = await pod.next("ready", (event) => event.type === "ready");
   pod.instanceId = String(ready.instanceId);
   pod.optedOut = Array.isArray(ready.optedOut) ? ready.optedOut.map(String) : [];
+  pod.storeTime = Object.values(FaultStoreTime).find((time) => time === ready.storeTime);
   return pod;
 }

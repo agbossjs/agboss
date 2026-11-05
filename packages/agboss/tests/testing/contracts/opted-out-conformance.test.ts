@@ -32,8 +32,11 @@ beforeAll(async () => {
 const casesOf = (file: string, suite: string): readonly FixtureCase[] =>
   run.cases.filter((found) => found.file === file && found.suites[0] === suite);
 
+/** The names of `cases` in `state` — but the contracts a set does not claim (#799: visible-gaps.test.ts). */
 const named = (cases: readonly FixtureCase[], state: FixtureCase["state"]): string[] =>
-  cases.filter((found) => found.state === state).map((found) => found.name);
+  cases
+    .filter((found) => found.state === state && !found.name.startsWith("does not claim "))
+    .map((found) => found.name);
 
 /** The cases of the outbound-call contract the opt-out takes out: skipped in the accepted set. */
 const outboundFencing = (): string[] =>
