@@ -12,6 +12,7 @@ import { namesOf, runContractFixtures, type FixtureRun } from "./fixture-runs.js
 const LEASE = "lease-ignoring-holder.contract-fixture.ts";
 const QUEUE = "queue-claiming-twice.contract-fixture.ts";
 const QUEUE_ROWS = "queue-claiming-two-rows.contract-fixture.ts";
+const QUEUE_WATCH = "queue-watch-insert-only.contract-fixture.ts";
 const RECORD = "record-losing-update.contract-fixture.ts";
 const TREE = "tree-keeping-deleted-rows.contract-fixture.ts";
 const WALL_CLOCK = "lease-on-wall-clock.contract-fixture.ts";
@@ -24,6 +25,7 @@ beforeAll(async () => {
     LEASE,
     QUEUE,
     QUEUE_ROWS,
+    QUEUE_WATCH,
     RECORD,
     TREE,
     WALL_CLOCK,
@@ -35,7 +37,7 @@ describe("#481 AC2: a broken store fails the published suite of its contract", (
   it("the run of the broken stores fails", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(
-      new Set([LEASE, QUEUE, QUEUE_ROWS, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
+      new Set([LEASE, QUEUE, QUEUE_ROWS, QUEUE_WATCH, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
     );
   });
 
@@ -63,6 +65,15 @@ describe("#481 AC2: a broken store fails the published suite of its contract", (
     );
     expect(namesOf(run, QUEUE_ROWS, "pass")).toEqual(
       expect.arrayContaining(["a child is queued once", PING_CASE]),
+    );
+  });
+
+  it("a queue whose watch misses a child queued again fails the child execution queue contract (#777)", () => {
+    expect(namesOf(run, QUEUE_WATCH, "fail")).toEqual([
+      "a child queued on another instance wakes the watch; it is claimed on the wake-up (#777)",
+    ]);
+    expect(namesOf(run, QUEUE_WATCH, "pass")).toContain(
+      "two watches of one instance are woken alike, and each closes on its own (#777)",
     );
   });
 

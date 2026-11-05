@@ -59,6 +59,12 @@ export interface ChildExecutionQueueDepth {
   readonly oldestQueuedAt?: Date | undefined;
 }
 
+/** What `watchQueued` opened (#777): closed once, when the instance stops. */
+export interface ChildExecutionQueueWatch {
+  /** Ends the wake-ups and frees what the watch holds (a connection, a cursor). */
+  close(): Promise<void>;
+}
+
 /**
  * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
  * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
@@ -107,6 +113,17 @@ export abstract class ChildExecutionQueueRepository {
    * tree); every instance reads the same.
    */
   abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
+  /**
+   * Wakes this instance's claimer soon after a child is queued by any instance, in any process
+   * (#777) — PostgreSQL's `LISTEN` / `NOTIFY`, a MongoDB change stream. `onQueued` is a hint: it
+   * names no child, the claimer still claims, and a wake-up lost (a dropped connection, a
+   * notification never delivered) costs at most one sweep (every 30 s), which claims every queued
+   * child anyway. A watch is idle while nothing is queued, and once its connection is back it calls
+   * `onQueued` once (a child may have been queued meanwhile). Called once per instance when it
+   * starts (again at the next sweep if it rejects). Optional: a store without it is never woken —
+   * a child queued in this process wakes the claimer at once, any other at the sweep.
+   */
+  watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
 }
 
 /** The depth of `children`: what `findQueueDepth()` answers for these rows. */

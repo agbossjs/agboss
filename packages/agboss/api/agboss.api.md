@@ -906,6 +906,12 @@ export abstract class ChildExecutionQueueRepository {
     abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(child: QueuedChildExecution): Promise<boolean>;
+    watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
+}
+
+// @public
+export interface ChildExecutionQueueWatch {
+    close(): Promise<void>;
 }
 
 // @public
