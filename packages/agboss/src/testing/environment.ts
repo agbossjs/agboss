@@ -2,17 +2,8 @@ import type { MeterProvider } from "@opentelemetry/api";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
-import {
-  buildApplication,
-  environmentOwnerOf,
-  type BuiltApplication,
-} from "../application/create-app.js";
-import {
-  namedEnvironmentFor,
-  TEST_DEFAULT_ENVIRONMENT,
-  type EnvironmentSelection,
-  type NamedEnvironment,
-} from "../environments/load.js";
+import { buildApplication, type BuiltApplication } from "../application/create-app.js";
+import type { EnvironmentSelection } from "../environments/load.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -33,7 +24,7 @@ import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
-import { testPiiKeyOf, testPseudonymKeys } from "./pii-parts.js";
+import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from "./pii-parts.js";
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
@@ -144,7 +135,7 @@ export class TestEnvironment {
   private constructor(
     readonly assembled: AssembledApplication,
     options: TestWithOptions,
-    environment: NamedEnvironment,
+    { named: environment, processEnv }: TestKeyedEnvironment,
   ) {
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
@@ -162,7 +153,7 @@ export class TestEnvironment {
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     this.#options = {
-      processEnv: { ...testEnv(), ...testPseudonymKeys(assembled, testEnv()) },
+      processEnv,
       ...environment,
       // a recording builds the providers' gateway as createApp does: its transports from this
       // app's container (#439)
@@ -185,16 +176,11 @@ export class TestEnvironment {
   /**
    * Assembles the application and resolves its environment once up front (`test` unless `env`
    * names another): every assembly error, a missing environment or variable fails the test before
-   * it runs.
+   * it runs — but a PII key's, which gets the test key (#778).
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(application, {}, "testWith");
-    const environment = await namedEnvironmentFor(
-      environmentOwnerOf(assembled),
-      options,
-      testEnv(),
-      TEST_DEFAULT_ENVIRONMENT,
-    );
+    const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());
     return new TestEnvironment(assembled, options, environment);
   }
 
