@@ -1363,7 +1363,7 @@ double-charge protection for …` — a fencing contract run on its own with the
   the schedule as found, no store call after (#618); and AC7's
   two-outcome races forced in both orders (broken stores fail it,
   `tests/testing/contracts/explorer-bites.test.ts`). #799: nothing unchecked reads as a pass —
-  `interleavings: false` is one skipped case, a budget that is no whole number ≥ 1 is
+  `interleavings: false` is one skipped case, a `depth`, `walks` or `walkDepth` that is no whole number ≥ 1 (or a seed not whole, a `timeLimit` not positive) is
   `[store-conformance.invalid-interleavings]`, a set with fenced-effect or outbound-call stores
   below depth 4, 20 walks of 16 steps (or off) fails `store set`'s floor case
   (`[store-conformance.interleavings-below-floor]`), every contract not claimed is a skipped `does

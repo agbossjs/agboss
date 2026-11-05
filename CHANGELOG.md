@@ -111,8 +111,8 @@ FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/
     returns a passage that is no candidate fails the cases, where the fallback to the retrieval's
     order passed them;
   - `storeConformance`'s explorer: `interleavings: false` shows `interleavings (<name>)` with one
-    skipped case; a budget that is not a whole number of at least 1 (`walks: 0`, a negative depth,
-    a fraction, an unknown key) is refused, `[store-conformance.invalid-interleavings]`; a set with
+    skipped case; a `depth`, `walks` or `walkDepth` that is not a whole number of at least 1 (`walks: 0`, a
+    negative depth, a fraction), a seed not whole, a `timeLimit` not positive or an unknown key is refused, `[store-conformance.invalid-interleavings]`; a set with
     a fenced-effect or outbound-call store explored below depth 4, 20 walks of 16 steps — or not at
     all — fails `store set (<name>)`'s case `explores its fencing stores at least at the floor …`
     (`[store-conformance.interleavings-below-floor]`);
@@ -120,7 +120,8 @@ FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/
 claim stores.<key>`; the child queue's two watch cases are skipped, with the reason, for a store
     without `watchQueued` — they passed — and fail for one with it on one instance only;
   - `outboundGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
-    skipped for lack of a clock is no longer a pass.
+    skipped for lack of a clock is no longer a pass, and G5 passes only when the same amount
+    under a fresh key goes through after the refusal — a gateway that is down refuses everything.
 
   **Migration:** add `storeTime` to your `faultStores` (`FaultStoreTime.Database` for a store that
   reads its database's clock — PostgreSQL, MongoDB —, `FaultStoreTime.Host` for one on the process's

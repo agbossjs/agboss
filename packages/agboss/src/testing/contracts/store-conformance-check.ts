@@ -126,7 +126,10 @@ function interleavingProblemsOf(set: ClaimedSet): string[] {
     `[store-conformance.invalid-interleavings] "${set.name}" gives interleavings${what}: give a budget ({ depth, walks, walkDepth, seed, timeLimit }) or false`;
   if (typeof given !== "object" || given === null || Array.isArray(given))
     return [invalid(` = ${valueText(given)}`)];
-  return Object.entries(given).flatMap(([key, value]) => {
+  // every field as the explorer reads it (an inherited one too), and every own key it has none for
+  const keys = new Set([...Object.keys(BUDGET_FIELDS), ...Object.keys(given)]);
+  return [...keys].flatMap((key) => {
+    const value: unknown = Reflect.get(given, key);
     const problem = budgetFieldProblem(key, value);
     return problem === undefined
       ? []

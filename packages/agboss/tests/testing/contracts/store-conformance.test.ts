@@ -303,3 +303,18 @@ describe("#799 AC3: an interleaving budget that is no budget is refused", () => 
     }).not.toThrow();
   });
 });
+
+describe("#799 AC3: the budget is validated as the explorer reads it", () => {
+  it("an inherited field (not an own key) is validated too: depth 0 from a prototype is refused", () => {
+    const inherited = Object.create({ depth: 0 }) as InterleavingOptions;
+
+    expect(() => {
+      checkStoreSet({
+        name: "PostgreSQL",
+        claimed: [...FENCING],
+        without: [],
+        interleavings: inherited,
+      });
+    }).toThrow(/invalid-interleavings\] "PostgreSQL" gives interleavings\.depth = 0/u);
+  });
+});

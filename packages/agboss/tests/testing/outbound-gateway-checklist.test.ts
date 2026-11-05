@@ -151,3 +151,29 @@ describe("#508 AC5: the checklist against the fake gateway, offline", () => {
     expect(evidenceOf(report, GatewayRequirement.IdempotencyKeys)).toContain("sandbox-run-3-g1");
   });
 });
+
+describe("#799 AC4: G5 passes only on a refusal of the changed request itself", () => {
+  it("a gateway that fails every call after the first under a key — down, not refusing — fails G5", async () => {
+    const clock = new VirtualClock();
+    const gateway = new FakeOutboundGateway({ clock });
+    const seen = new Set<string>();
+    const report = await outboundGatewayChecklist({
+      send: (charge) => {
+        if (charge.idempotencyKey.endsWith("-g5") && seen.has("g5"))
+          return Promise.reject(new Error("503 sandbox unavailable"));
+        if (charge.idempotencyKey.endsWith("-g5")) seen.add("g5");
+        if (charge.idempotencyKey.endsWith("-g5-fresh"))
+          return Promise.reject(new Error("503 sandbox unavailable"));
+        return gateway.charge(charge);
+      },
+      lookup: (key) => gateway.lookup(key),
+      clock,
+    });
+
+    expect(statusesOf(report).G5).toBe(GatewayCheckStatus.Failed);
+    expect(evidenceOf(report, GatewayRequirement.ConflictOnMismatch)).toMatch(
+      /a fresh key with the same amount failed too.*503 sandbox unavailable/u,
+    );
+    expect(report.isPassed).toBe(false);
+  });
+});

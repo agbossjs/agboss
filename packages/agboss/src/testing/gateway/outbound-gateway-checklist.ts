@@ -170,9 +170,20 @@ const probeConflict: Probe = async ({ send }, key) => {
       `key ${key} with another amount was accepted (${other.paymentId}): only AGBoss's fingerprint catches a changed request`,
     );
   } catch (error) {
+    const refusal = errorRecordOf(error).message;
+    // #799: a refusal is a conflict only when the same request under a fresh key goes through —
+    // a gateway that is down refuses everything
+    try {
+      await send({ amount: 200, idempotencyKey: `${key}-fresh` });
+    } catch (fresh) {
+      return failed(
+        GatewayRequirement.ConflictOnMismatch,
+        `key ${key} with another amount was refused (${refusal}), but a fresh key with the same amount failed too (${errorRecordOf(fresh).message}): the refusal shows no conflict check`,
+      );
+    }
     return passed(
       GatewayRequirement.ConflictOnMismatch,
-      `key ${key} with another amount was refused: ${errorRecordOf(error).message}`,
+      `key ${key} with another amount was refused: ${refusal}; the same amount under a fresh key was taken`,
     );
   }
 };

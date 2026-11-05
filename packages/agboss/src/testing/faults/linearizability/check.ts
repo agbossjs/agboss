@@ -14,7 +14,10 @@ import { notLinearizable, type NotLinearizable } from "./search.js";
 
 /** How the history's machine time maps to the store's. */
 export interface LinearizabilityOptions {
-  /** How much faster than real time the store's clock runs: the fault suite's `timeScale`. */
+  /**
+   * How much faster than real time the store's time runs: 1 for a set on its database's clock
+   * (`FaultStoreTime.Database`), the pods' `timeScale` for one on the host's (#799).
+   */
   readonly timeScale?: number;
   /** Store ms each span is widened by, for the two clocks' reading jitter; default 5 × the scale. */
   readonly slack?: number;
