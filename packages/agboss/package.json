@@ -1,6 +1,6 @@
 {
   "name": "@agboss/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Spring-style TypeScript framework for complex LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
   "type": "module",
   "license": "Apache-2.0",

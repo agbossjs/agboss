@@ -1,6 +1,6 @@
 {
   "name": "@agboss/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official CLI for the AGBoss TypeScript AI agent framework — project scaffolding (agboss create), code generators, static graph & saga verification (agboss check), describe --json, chat, and eval.",
   "type": "module",
   "license": "Apache-2.0",
@@ -56,7 +56,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@agboss/core": "0.1.0",
+    "@agboss/core": "0.1.1",
     "@apidevtools/swagger-parser": "^13.1.0",
     "@inquirer/prompts": "^8.7.2",
     "@langchain/langgraph-cli": "^1.0.0",
