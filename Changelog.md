@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `agboss rag index` names its tenant in a multi-tenant application (#797)
+
+- **Fixed**: without `--tenant`, `agboss rag index` built the `default` tenant's index and reported
+  success even when the application declares a tenant context, so the tenant meant stayed unbuilt.
+  There it is now exit 2, `rag.tenant-required`, nothing built — as `records export` refuses the
+  same omission. An application without a tenant context still builds `default`.
+  [CLI](CLI), [Knowledge bases → Tenants](Knowledge-bases#tenants).
+
 ## Unreleased — 0.1.1: `VcrMode`, a question step's `ask`, the entry aliases' end (#802)
 
 - **Changed — breaking**: a question step's input field is `ask` — the name `@ChannelRole({ ask })`

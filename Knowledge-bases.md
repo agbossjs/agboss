@@ -143,8 +143,11 @@ export class HelpCenterRag implements RagConnector {
 - A retrieval outside an execution (a search tool called by hand, no frame) is
   `context.unavailable` — never the `default` tenant's documents. `testRag(R)` searches as its
   unit's tenant (`tenant: { tenantId }`, else `default`).
-- `agboss rag index --tenant <id>` builds that tenant's knowledge bases (default `default`); a
-  `--tenant` that is no key's text is exit 2, `usage.option-value`.
+- `agboss rag index --tenant <id>` builds that tenant's knowledge bases; a `--tenant` that is no
+  key's text is exit 2, `usage.option-value`. In an application that declares a tenant context
+  (`@Application({ tenantContext })`) `--tenant` is required (#797): the bare command is exit 2,
+  `rag.tenant-required`, nothing built — `default` is nobody's there. Without a tenant context
+  `default` is the only tenant and the bare command builds it.
 
 ### Prove it — `ragConnectorContract`
 
