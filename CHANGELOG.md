@@ -354,6 +354,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **`testWith` gives the application's PII key field the test key** (#778) — a fixed test key
+  covered a PII policy's own `pseudonymKey`, but `@Application({ pseudonymKey: "piiPseudonymKey" })`
+  with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")` in the test environment failed as a missing
+  variable, so every project set `PII_PSEUDONYM_KEY` in its vitest `env`. The field's variable now
+  gets the test key when the test process does not set it (a test that sets it keeps its value);
+  `createApp` and the CLI still refuse to start without the real key.
 - **A child on any instance waits for its siblings' spend too — now pinned by a test, and the
   checkpoint write that waits for the pass's spend is mutation-tested** (#776) — the `settled()`
   before a child on any instance is queued (#732) covers spend a sibling branch tallies after the

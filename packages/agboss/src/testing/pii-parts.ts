@@ -1,6 +1,15 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
-import { variableOfSecret } from "../environments/secret.js";
+import { environmentOwnerOf } from "../application/create-app.js";
+import {
+  namedEnvironmentOf,
+  selectedEnvironment,
+  TEST_DEFAULT_ENVIRONMENT,
+  type EnvironmentSelection,
+  type NamedEnvironment,
+} from "../environments/load.js";
+import type { LoadedEnvironment } from "../environments/resolve.js";
+import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secret.js";
 import { isModelGuardrail, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
@@ -48,21 +57,59 @@ export function piiScriptKeyOf(target: Class, assembled: AssembledApplication): 
   return piiPolicyKeyOf(meta.name);
 }
 
-/** The process variables of the policies' keys the test process does not set, with the test key. */
+/** The variable of the application's key field (#778): its `secret("…")` in the loaded environment. */
+function applicationKeyVariablesOf(
+  assembled: AssembledApplication,
+  loaded: LoadedEnvironment | undefined,
+): readonly string[] {
+  const field = assembled.pseudonymKey;
+  const values = loaded?.values;
+  if (field === undefined || typeof values !== "object" || values === null) return [];
+  const value: unknown = Reflect.get(values, field);
+  return value instanceof Secret && !isResolvedSecret(value) ? [variableOfSecret(value)] : [];
+}
+
+/**
+ * The process variables of the PII keys the test process does not set, with the test key: the
+ * policies' own and the application's `pseudonymKey` field's (#778) — a test that sets one keeps it.
+ */
 export function testPseudonymKeys(
   assembled: AssembledApplication,
   processEnv: NodeJS.ProcessEnv,
+  loaded?: LoadedEnvironment,
 ): Record<string, string> {
-  const variables = policyClassesOf(assembled).flatMap((cls) => {
+  const policies = policyClassesOf(assembled).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
     if (meta === undefined || isCustomPolicy(meta) || meta.pseudonymKey === undefined) return [];
     return [variableOfSecret(meta.pseudonymKey)];
   });
   return Object.fromEntries(
-    variables
+    [...policies, ...applicationKeyVariablesOf(assembled, loaded)]
       .filter((variable) => (processEnv[variable] ?? "") === "")
       .map((variable) => [variable, TEST_PSEUDONYM_KEY]),
   );
+}
+
+/** A test's environment and process variables, the PII keys it does not set given the test key. */
+export interface TestKeyedEnvironment {
+  readonly named: NamedEnvironment;
+  readonly processEnv: NodeJS.ProcessEnv;
+}
+
+/**
+ * The environment a test runs on (`test` unless `env` names another), resolved with the test key
+ * in every PII key variable the test process does not set — the application's key field resolves
+ * like any other, never a missing variable (#778). `createApp` resolves the real process only.
+ */
+export async function testKeyedEnvironmentOf(
+  assembled: AssembledApplication,
+  selection: EnvironmentSelection,
+  processEnv: NodeJS.ProcessEnv,
+): Promise<TestKeyedEnvironment> {
+  const owner = environmentOwnerOf(assembled);
+  const loaded = await selectedEnvironment(owner, selection.env, TEST_DEFAULT_ENVIRONMENT);
+  const keyed = { ...processEnv, ...testPseudonymKeys(assembled, processEnv, loaded) };
+  return { named: namedEnvironmentOf(loaded, keyed), processEnv: keyed };
 }
 
 const guardrailOf = (target: Class, assembled: AssembledApplication): LoadedGuardrail | undefined =>
