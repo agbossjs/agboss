@@ -5,7 +5,7 @@
  * `settledSaverOf` wraps a checkpointer, and gives none without one.
  */
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
+import { BaseCheckpointSaver, MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { SettledSpendCheckpointSaver, settledSaverOf } from "../../src/app/leased-checkpointer.js";
 
@@ -41,7 +41,7 @@ function heldSpend(): {
   };
 }
 
-const put = (saver: MemorySaver | SettledSpendCheckpointSaver, id: string, config = thread()) =>
+const put = (saver: BaseCheckpointSaver, id: string, config = thread()) =>
   saver.put(
     config,
     { ...emptyCheckpoint(), id, channel_values: { step: 0 }, channel_versions: { step: 1 } },
