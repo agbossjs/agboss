@@ -74,7 +74,7 @@ function questionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
     const question = declarationOf(node);
     if (question?.kind !== NodeKind.Question) return [];
     const { options } = question;
-    const ask = options.input.question;
+    const { ask } = options.input;
     return [
       { tool: options.name, toolInput: ask, channel: node, workflow: name, isQuestion: true },
     ];

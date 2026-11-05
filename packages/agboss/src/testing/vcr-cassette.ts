@@ -102,7 +102,7 @@ export class Cassette {
   }
 
   /**
-   * Replays `file` but records the calls of its stale components anew (`VCRMode.RECORD_STALE`):
+   * Replays `file` but records the calls of its stale components anew (`VcrMode.RECORD_STALE`):
    * their old recordings are dropped, the others kept as they are. A version 1 cassette has no
    * hashes, so all of it is recorded again (as version 2).
    */

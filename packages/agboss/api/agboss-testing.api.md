@@ -1189,11 +1189,17 @@ export interface VcrConfig {
     // (undocumented)
     readonly cassetteName: string;
     readonly dir?: string;
-    readonly mode?: VCRMode;
+    readonly mode?: VcrMode;
 }
 
-// @public (undocumented)
-export enum VCRMode {
+// @public @deprecated
+export const VCRMode: typeof VcrMode;
+
+// @public @deprecated
+export type VCRMode = VcrMode;
+
+// @public
+export enum VcrMode {
     AUTO = "AUTO",
     RECORD = "RECORD",
     RECORD_STALE = "RECORD_STALE",
@@ -1433,8 +1439,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:60:3 - (ae-undocumented) Missing documentation for "output".
-// src/testing/vcr.ts:23:1 - (ae-undocumented) Missing documentation for "VCRMode".
-// src/testing/vcr.ts:57:3 - (ae-undocumented) Missing documentation for "cassetteName".
+// src/testing/vcr.ts:58:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
 // (No @packageDocumentation comment for this package)
 

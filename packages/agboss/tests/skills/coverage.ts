@@ -136,7 +136,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["testWith", "testTool", "testAction", "testRouter", "testArbiter", "testRag", "testJudge"],
     ...["testPii", "testGuardrail", "testExecutionContext", "override", "TestConcurrency", "step"],
     ...["replyWith", "callTool", "routeTo", "decideWith", "failWith", "waitFor", "ModelFailure"],
-    ...["ToolFailure", "VCRMode", "CassetteMissingError", "SequentialIdGenerator", "VirtualClock"],
+    ...["ToolFailure", "VcrMode", "CassetteMissingError", "SequentialIdGenerator", "VirtualClock"],
     ...["QuorumNotReachedError", "ToolTimeoutError", "JudgeVerdict", "HealthReport"],
     ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
     ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
@@ -158,7 +158,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
     ...["toolCallMatchers", "ToolCallMatchers", "ToolCallExpectation"],
     ...["callToolWithInvalidArguments", "callToolWithTruncatedArguments", "replyWithInvalidAnswer"],
-    ...["VCRMode", "CassetteMissingError", "StaleCassetteError", "CassetteChange"],
+    ...["VcrMode", "CassetteMissingError", "StaleCassetteError", "CassetteChange"],
     ...["testCompaction", "CompactionRunner", "CompactionResult", "CompactionInput"],
   ],
   "references/02-flow-dsl-all-combinations.md": [

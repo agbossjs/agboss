@@ -9,7 +9,7 @@
 //      exported by a public entry (packages/agboss/api/*.api.md);
 //   4. a skill file names project commands only — `npx agboss …` (its options checked like every
 //      doc's) and `npm test`, never the repo's `npm run …` or `make …`; `npm test` may be prefixed
-//      only by `AGBOSS_VCR_MODE=<mode>`, a value of `VCRMode` (#395 S5:
+//      only by `AGBOSS_VCR_MODE=<mode>`, a value of `VcrMode` (#395 S5:
 //      `AGBOSS_VCR_MODE=RECORD_STALE npm test` beside `npx agboss check --cassettes`).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -94,10 +94,10 @@ function headerProblems(doc, markdown, version) {
     : [`${doc}:${String(header + 1)}: skills version ${found}, agboss is ${version}`];
 }
 
-/** `VCRMode`'s values, from the source: what `AGBOSS_VCR_MODE` may be set to. */
+/** `VcrMode`'s values, from the source: what `AGBOSS_VCR_MODE` may be set to. */
 function vcrModesOf(repo) {
   const source = readFileSync(join(repo, "packages/agboss/src/testing/vcr.ts"), "utf8");
-  const body = /export enum VCRMode \{([^}]+)\}/.exec(source)?.[1] ?? "";
+  const body = /export enum VcrMode \{([^}]+)\}/.exec(source)?.[1] ?? "";
   return new Set([...body.matchAll(/^\s*\w+ = "([^"]+)",/gm)].map((match) => match[1]));
 }
 

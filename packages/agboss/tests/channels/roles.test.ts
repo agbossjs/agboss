@@ -149,7 +149,7 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
       kind: NodeKind.Question,
       options: {
         name: "clarification-question",
-        input: { question: ClarificationQuestionDto },
+        input: { ask: ClarificationQuestionDto },
         output: ClarificationAnswerDto,
         maxVisits: 2,
       },

@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { VCRMode, testWith } from "@agboss/core/testing";
+import { VcrMode, testWith } from "@agboss/core/testing";
 import { DeskAnswerWorkflowFinish } from "../../../../src/desk/workflows/desk/desk-answer.workflow-finish.js";
 import { DeskWorkflowStart } from "../../../../src/desk/workflows/desk/desk.workflow-start.js";
 import { DeskApplication } from "../../../../src/desk.application.js";
@@ -16,7 +16,7 @@ const test = testWith(DeskApplication, {
   vcr: {
     cassetteName: "desk-lookup",
     dir: "tests/desk/workflows/desk/__snapshots__",
-    mode: VCRMode.REPLAY,
+    mode: VcrMode.REPLAY,
   },
 });
 
