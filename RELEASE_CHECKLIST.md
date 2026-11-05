@@ -110,16 +110,26 @@ set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main && \
   export RELEASE_SHA="$(git rev-parse HEAD)" && echo "RELEASE_SHA=$RELEASE_SHA" && \
   npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && \
-  AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" npm run check:packed && \
-  npm audit --omit=dev -w @agboss/core && \
+  export AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" && npm run check:packed && \
+  npm pack -w @agboss/core --pack-destination "$SCRATCH" > /dev/null && \
+  rm -rf "$SCRATCH/audit-core" && mkdir -p "$SCRATCH/audit-core" && \
+  (cd "$SCRATCH/audit-core" && npm init -y > /dev/null && \
+    npm install --no-fund --before="$AGBOSS_NPM_BEFORE" "$SCRATCH/agboss-core-$RELEASE_VERSION.tgz" && \
+    npm audit --omit=dev) && \
   npm pack --dry-run -w @agboss/core 2>&1 | grep -c ' src/' && \
   gh run list -R agbossjs/agboss --workflow ci.yml --commit "$RELEASE_SHA" --event push
 ```
 
 - **Expected:** `make check` and `check:packed` pass (the packed packages in a project of their own,
   #497; every source map's sources shipped and a core stack frame that opens, #645 — the tarball
-  ships `src/`), `found 0 vulnerabilities`, a non-zero count of `src/` files, and main's `CI` run for
+  ships `src/`), `found 0 vulnerabilities` for the packed `@agboss/core` installed in a project of
+  its own — what a user installs —, a non-zero count of `src/` files, and main's `CI` run for
   `$RELEASE_SHA` is `completed success` (or in progress — the release job waits for it).
+- The audit is of that project, never of this repository's lockfile (#790):
+  `npm audit --omit=dev -w @agboss/core` also counts the core's optional peers (`vitest`,
+  `@typescript-eslint/utils` — npm installs them for no user, who picks their versions), the
+  private flow-patterns example's dependencies and the lockfile's own resolutions; those are the
+  repository's dev tooling, kept current by its own updates, not the release's gate.
 - Then run **[Examples against the release candidate](#examples-against-the-release-candidate-every-release-from-011-489)**
   below (steps 1 and 2) on `$WORKSPACE_ROOT/agboss` at `$RELEASE_SHA`. **Stop** on any failure.
 
