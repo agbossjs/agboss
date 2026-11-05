@@ -41,6 +41,8 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | `ChildExecutionQueueRepository` | `claim…` | pick the next queued row and mark it claimed | two workers run one child: **two owners** |
 | | `findQueueDepth` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
 | `ExecutionRecordRepository` | `complete`, status moves | a compare-and-set from the expected status | a lost update; two outcomes for one run |
+| `CostLedgerRepository` | `saveAll` (#727, #771) | insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
+| | `deleteEntriesByMadeAtBefore` (#771) | raise the pruning mark (never lower it) and delete the entries made before it, atomically against a save — a save that read the old mark finishes first, or sees the new one | a save that read the old mark inserts an id the prune just deleted: **counted twice** |
 | `ExecutionTreeRepository`, `MeshRequestRepository` | `saveIfAbsent` | insert if no row has the key (a unique key) | a request retried on another pod runs twice |
 | `RateLimitRepository` | slots, windows, pauses | count and take under one lock | the limit is exceeded under load |
 | `ExecutionLeaseEventRepository` | `save` | an append, read back as it was | an operator cannot tell a zombie from a takeover — no atomicity with the lease is needed |
@@ -675,6 +677,10 @@ held operation. You write no seam of your own to force an order across processes
       Keys, replays and records use `fencedKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
 - [ ] The lease, fenced-effect and outbound-call stores declare `static backend` (one text for one
       database). The fencing stores declare `static leaseRepository` for unit runners.
+- [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark
+      with the insert and refuses an entry made before it that it does not hold; the prune raises
+      the mark and deletes in one atomic step (#771). The SQL is in agbossjs/postgres's
+      `PostgresCostLedgerRepository` (a `FOR SHARE` of the mark row in the save's statement).
 - [ ] Every text and JSON value comes back as it was handed over, a NUL character included.
 - [ ] `ping()` is one fast round trip.
 - [ ] `storeConformance` passes with every store the set has; the ones it lacks are in `without`.

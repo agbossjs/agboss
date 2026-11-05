@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the ledger's entries are pruned; a late retry is refused, never counted twice (#771)
+
+- **Changed — breaking for stores outside the core**: `CostLedgerRepository` has a new abstract
+  `deleteEntriesByMadeAtBefore(cutoff)`, and `saveAll` dates each entry by its record's new `madeAt`
+  and refuses (`CostLedgerEntryExpiredError`, nothing added) an entry made before the store's pruning
+  mark that it no longer holds. The recovery sweep prunes entries made longer ago than
+  `@Application({ ledgerEntryRetention })` (default `hours(24)`,
+  `[application.ledger-entry-retention-invalid]` at or below the lease). Before, every paid call left
+  one row for ever. **Migration:** a ledger of your own keeps `madeAt` and a pruning mark read with
+  the insert ([Your own store](Your-own-store)); agbossjs/postgres migration `0023`, agbossjs/mongodb
+  `madeAt` on `agboss_cost_entries`. [FinOps](FinOps#pruning-the-entries-771).
+
 ## Unreleased — 0.1.1: a child queued in another process wakes the claimers (#777)
 
 - **Added**: `ChildExecutionQueueRepository.watchQueued(onQueued)` (optional,

@@ -256,7 +256,10 @@ on its cost, its tenant's and the application's. All violations at once, before 
   ledger adds an entry once: a write retried after its answer was lost counts once — in the pass's
   own checks too, which read the counters only once such a write is retried (#770) —, and so does a
   record an earlier pass kept that reaches a later one from a durable state (a takeover's restored
-  writes, an agent's loop continued from its checkpoint). A step **run again** after a crash or a
+  writes, an agent's loop continued from its checkpoint). Entries are not kept for ever (#771):
+  each is dated by its record's `madeAt`, and the recovery sweep prunes those made longer ago than
+  `@Application({ ledgerEntryRetention })` (default `hours(24)`) — see
+  [Pruning the entries](#pruning-the-entries-771). A step **run again** after a crash or a
   takeover makes its spend again — its model calls are billed again, its services paid again — and
   that counts again, under the later pass's ids: the budget errs high, never low. A service you pay
   through a deduplicated call (`OutboundCalls` replaying an earlier answer) should record its cost
@@ -370,7 +373,8 @@ BudgetExceededError {
 The application's `CostLedgerRepository` (#261 S28) keeps one counter per budget, scope key and
 period — `findSpentByCounter({ budget, scope, key, period })`, `saveAll(counters, records)` (each
 call's cost added to every counter, atomically per counter; a record with a `ledgerId` is an entry
-added once, #727 — a repeated or racing save of the id adds nothing) — and the last `maxSpend()` read per
+added once, #727 — a repeated or racing save of the id adds nothing; #771: one made before the
+store's pruning mark and not held is refused), `deleteEntriesByMadeAtBefore(cutoff)` (#771) — and the last `maxSpend()` read per
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
 `2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's
@@ -379,6 +383,34 @@ counter has no period. Listed in `@Application({ providers })` (a class that
 and the counters reset on restart; `SqliteCostLedgerRepository` (#265) shares them between the
 instances on one file and survives a restart (a file written before budgets has its old per-workflow
 day counters dropped).
+
+#### Pruning the entries (#771)
+
+An entry exists so that a write retried after its answer was lost counts once. Only the pass that
+made a spend ever writes its entry — its own write and its retries, at its next read of the counters
+or checkpoint; every other pass only counts a marked record, never writes it — so an entry is needed
+while that pass may still retry. The ledger keeps entries `@Application({ ledgerEntryRetention })`
+after they were made (default `hours(24)`, above the lease's 30 s —
+`[application.ledger-entry-retention-invalid]`); every look of the recovery sweep calls
+`deleteEntriesByMadeAtBefore(now − retention)` on the `Clock`. A prune never touches a counter.
+
+The prune raises the store's **pruning mark** to its cutoff (never lowers it) and removes the
+entries made before the mark, atomically against a save. A save of an entry made before the mark
+that the store does not hold — it may have been counted and pruned since — is refused:
+`CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of that save added, and the
+pass's reads fail with it from then on. So a retry is never counted twice, whatever the clocks say:
+the guarantee compares an entry's own `madeAt` with the mark, never two machines' times; the
+retention only decides how late a retry may come before it is refused. Within it a lost answer
+retried counts once; past it (a pass frozen for a day) the pass fails closed, and the ledger holds
+the spend once if its first write landed — or not at all if it never did, the one case where an
+entry's spend may be missing, which only a pass asleep longer than the retention reaches.
+
+| store | entries | pruning mark |
+| --- | --- | --- |
+| in memory | a map of `ledgerId` → `madeAt` | a number in the instance |
+| `SqliteCostLedgerRepository` | `cost_ledger_entries (ledger_id, made_at)`, indexed by `made_at`; a #727 file's entries dated "never" | `cost_ledger_entries_pruned`, read in the save's `BEGIN IMMEDIATE` |
+| agbossjs/postgres | `agboss_cost_entries (ledger_id, made_at)` (migration `0023`) | `agboss_cost_entries_pruned`, read `FOR SHARE` in the save's statement |
+| agbossjs/mongodb | `agboss_cost_entries` documents with `madeAt` | a document of `agboss_cost_entries`, read in the save's transaction |
 
 ### Tests
 
