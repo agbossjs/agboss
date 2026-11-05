@@ -60,7 +60,10 @@ export { settledSaverOf } from "../app/leased-checkpointer.js";
  * earlier pass wrote twice (it is in every read of this pass). The id is the pass's own
  * (`LedgerIds`): spend a step makes again after a crash or a takeover was billed again and counts
  * again; the ledger adds an entry once (`CostLedgerRepository.saveAll`), so a write retried after its
- * answer was lost counts once.
+ * answer was lost counts once. Each entry is dated by its `madeAt` (#771): the ledger prunes
+ * entries made longer ago than `@Application({ ledgerEntryRetention })` and refuses a write of one
+ * it may have pruned (`CostLedgerEntryExpiredError`, the pass's reads fail with it), so a retry that
+ * late is never counted twice — and one within it counts once.
  */
 export class BudgetMeter implements BudgetCheck {
   /** What this pass wrote to the ledger, and what it took in as written there elsewhere. */
@@ -216,7 +219,13 @@ export class BudgetMeter implements BudgetCheck {
     const own: UsageRecord[] = [];
     const kept = records.map((record) => {
       if (!isRecordedHere(record)) return record;
-      const marked = { ...record, isRecordedElsewhere: true, ledgerId: this.#ids.mint() };
+      const marked = {
+        ...record,
+        isRecordedElsewhere: true,
+        ledgerId: this.#ids.mint(),
+        // its entry's date (#771): a write of it retried after the ledger pruned it is refused
+        madeAt: this.clock.now().toISOString(),
+      };
       own.push(marked);
       return marked;
     });

@@ -75,6 +75,25 @@ function sizeAndRetentionProblems(
   return problems;
 }
 
+/**
+ * `@Application({ ledgerEntryRetention })` (#771): above the lease (30 s) — a pass retries a lost
+ * write of its spend at its next read of the counters, and a retry later than the retention is
+ * refused (never counted twice), so a shorter one would fail a live pass.
+ */
+export function ledgerEntryRetentionViolations(
+  application: string,
+  retention: Milliseconds | undefined,
+): RuleViolation[] {
+  if (retention === undefined || retention > EXECUTION_LEASE) return [];
+  return [
+    violation(
+      "application.ledger-entry-retention-invalid",
+      `its ledgerEntryRetention is ${String(retention)} ms, not above the lease's ${String(EXECUTION_LEASE)} ms — @Application({ ledgerEntryRetention: hours(24) })`,
+      [application],
+    ),
+  ];
+}
+
 /** `@Application({ outboundCalls })` (#505): the largest request and result, how long ended intents are kept. */
 export interface OutboundCallsOptions {
   /** The largest request and the largest result, each in UTF-8 bytes of its JSON (default `kilobytes(64)`). */

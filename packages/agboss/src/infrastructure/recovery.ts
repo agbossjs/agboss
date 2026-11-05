@@ -4,6 +4,7 @@ import type { FencedEffectRepository } from "./fenced-effect.repository.js";
 import type { ExecutionLeaseEventRepository } from "./execution-lease-event.repository.js";
 import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
+import type { CostLedgerRepository } from "./cost-ledger.repository.js";
 import type { Clock } from "./clock.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
@@ -24,8 +25,8 @@ import type { StepCapacity } from "../app/step-slots.js";
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
  * Each look also removes what the stores keep past its retention: the resolved
  * pause records (#267 S107), the mesh requests' answers (#398), the kept executions (#401), the
- * fenced effects' results and marks (#500) and the lease log's rows (#501).
- * An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
+ * fenced effects' results and marks (#500), the lease log's rows (#501) and the ledger's entries
+ * (#771). An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
  * many recoveries per look as it has free step slots, none when it is full — the orphans are left to
  * an idle instance; a look cut short by that goes on from where it stopped next time, so every
  * record is reached in turn.
@@ -183,8 +184,8 @@ export const startRecoverySweep = (sources: RecoverySources): RecoverySweep => n
 /**
  * What every look of the recovery sweep removes once its retention is over, on the `Clock`: the
  * resolved pause records (#267 S107), the trusted mesh requests' answers (#398 PR 2), the kept
- * executions that ended (#401 PR 1), the fenced effects' results and marks (#500) and the lease
- * log's rows (#501). A store that fails is reported
+ * executions that ended (#401 PR 1), the fenced effects' results and marks (#500), the lease
+ * log's rows (#501) and the ledger's entries (#771). A store that fails is reported
  * and asked again at the next look.
  */
 
@@ -214,6 +215,9 @@ export interface RetentionSources {
   /** The ended outbound calls (#505), removed after `outboundCalls.retention`; never a pending one. */
   readonly outboundCalls?: OutboundCallRepository | undefined;
   readonly outboundCallRetention?: Milliseconds | undefined;
+  /** The ledger (#771) and `@Application({ ledgerEntryRetention })`: older entries pruned. */
+  readonly ledger?: CostLedgerRepository | undefined;
+  readonly ledgerEntryRetention?: Milliseconds | undefined;
 }
 
 /** One kind of rows: what they are, how they are removed before a cutoff, and how long they stay. */
@@ -256,6 +260,11 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       what: "the ended outbound calls",
       remove: outboundCalls && ((cutoff) => outboundCalls.deleteByEndedAtBefore(cutoff)),
       retention: sources.outboundCallRetention,
+    },
+    {
+      what: "the ledger's old entries",
+      remove: sources.ledger?.deleteEntriesByMadeAtBefore.bind(sources.ledger),
+      retention: sources.ledgerEntryRetention,
     },
   ];
 };

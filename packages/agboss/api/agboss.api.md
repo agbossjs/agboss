@@ -410,6 +410,7 @@ export interface ApplicationOptions {
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly leaseEventRetention?: Milliseconds;
+    readonly ledgerEntryRetention?: Milliseconds;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops?: number;
     readonly mesh?: MeshOptions;
@@ -1320,8 +1321,28 @@ export interface CostCounter extends BudgetAccount {
     readonly period: string;
 }
 
+// @public
+export class CostLedgerEntryExpiredError extends AGBossError {
+    constructor(options: CostLedgerEntryExpiredErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly ledgerIds: readonly string[];
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly prunedBefore: Date;
+}
+
+// @public
+export interface CostLedgerEntryExpiredErrorOptions {
+    readonly ledgerIds: readonly string[];
+    readonly prunedBefore: Date;
+}
+
 // @public (undocumented)
 export abstract class CostLedgerRepository {
+    abstract deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
     abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
     abstract ping(): Promise<void>;
@@ -3824,7 +3845,7 @@ export interface ModelUsage {
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
 
 // @public
-export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string) => boolean) => readonly UsageRecord[];
+export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string, madeAt: number) => boolean) => readonly UsageRecord[];
 
 // @public (undocumented)
 export type NewSummary = Omit<Summary, "id" | "createdAt">;
@@ -5652,7 +5673,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.outbound-calls-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.outbound-calls-invalid" | "application.ledger-entry-retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "a2a.target-required" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -5839,6 +5860,8 @@ export class SqliteConnection implements OnDestroy {
 // @public
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
     constructor(connection: SqliteConnection);
+    // (undocumented)
+    deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
     findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     // (undocumented)
@@ -6664,6 +6687,7 @@ export interface UsageRecord extends TokenUsage {
     readonly costUsd: number;
     readonly isRecordedElsewhere?: boolean;
     readonly ledgerId?: string;
+    readonly madeAt?: string;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -7002,7 +7026,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:301:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:306:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:307:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/application/application.ts:211:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:220:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -7294,17 +7318,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:68:1 - (ae-undocumented) Missing documentation for "CostCategory".
-// src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:98:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:104:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:70:1 - (ae-undocumented) Missing documentation for "CostCategory".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:103:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:106:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -7642,11 +7666,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:197:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:198:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:199:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:210:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:211:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:199:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:200:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:201:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:212:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:213:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -7663,7 +7687,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
-// src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/cost-ledger.repository.ts:137:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:138:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:139:3 - (ae-undocumented) Missing documentation for "ledgerIds".
+// src/infrastructure/cost-ledger.repository.ts:140:3 - (ae-undocumented) Missing documentation for "prunedBefore".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -7733,13 +7761,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect-key.ts:203:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-key.ts:235:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-key.ts:236:3 - (ae-undocumented) Missing documentation for "origin".
-// src/infrastructure/fenced-effect-settings.ts:167:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:168:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-settings.ts:177:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts:178:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-settings.ts:179:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-settings.ts:180:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:181:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:186:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:187:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:196:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-settings.ts:197:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-settings.ts:198:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-settings.ts:199:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:200:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:47:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/fenced-effect.repository.ts:83:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -7808,11 +7836,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:146:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:175:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:55:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:59:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:69:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:89:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:101:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:91:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:101:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:136:3 - (ae-undocumented) Missing documentation for "deleteEntriesByMadeAtBefore".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:164:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".

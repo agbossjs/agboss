@@ -216,6 +216,21 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Changed — breaking for stores outside the core
 
+- **The ledger's entries are pruned, and a write of one it may have pruned is refused** (#771) —
+  every tallied spend is an entry under its `ledgerId` (#727), now dated by the record's new
+  `madeAt`. `CostLedgerRepository` has a new abstract `deleteEntriesByMadeAtBefore(cutoff)`: it
+  raises the store's pruning mark to `cutoff` (never lowers it) and removes the entries made before
+  it, atomically against a save; the recovery sweep calls it every look with `now −
+@Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
+  `[application.ledger-entry-retention-invalid]`). `saveAll` refuses an entry made before the mark
+  that it does not hold — `CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of
+  the save added — so a lost answer retried after its entry was pruned is never counted twice (the
+  pass's reads fail with it); one retried within the retention counts once, as before. The
+  `costLedgerContract` checks the prune, the refusal, the mark that never goes back and saves
+  racing a prune. **Migration:** a ledger of your own keeps each entry's `madeAt` and a pruning mark
+  read with the insert; the SQLite store dates the entries of a #727 file "never" (agbossjs/postgres:
+  migration `0023`; agbossjs/mongodb: `madeAt` on `agboss_cost_entries`).
+
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
   new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic
   insert-if-absent by the id alone (across tenants: a step's idempotency key and the key an

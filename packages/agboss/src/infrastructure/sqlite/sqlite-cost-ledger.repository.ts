@@ -4,7 +4,9 @@ import { Injectable } from "../../components/decorators.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { usd, type Usd } from "../../units/index.js";
 import {
+  CostLedgerEntryExpiredError,
   CostLedgerRepository,
+  expiredEntriesOf,
   newEntriesOf,
   type BudgetAccount,
   type CostCounter,
@@ -18,7 +20,22 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS cost_ledger (
 CREATE TABLE IF NOT EXISTS cost_ledger_max_spend (
   budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL NOT NULL,
   PRIMARY KEY (budget, scope, scope_key));
-CREATE TABLE IF NOT EXISTS cost_ledger_entries (ledger_id TEXT NOT NULL PRIMARY KEY);`;
+CREATE TABLE IF NOT EXISTS cost_ledger_entries (
+  ledger_id TEXT NOT NULL PRIMARY KEY, made_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS cost_ledger_entries_pruned (
+  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), pruned_before INTEGER NOT NULL);`;
+
+/**
+ * The entries' date (#771), on a file #727 wrote without it: an entry kept before it is dated
+ * "never" — never pruned, never refused (a retry of it made earlier than any cutoff it would get
+ * is held) — so pruning cannot reach one whose save may still come; delete those rows by hand once
+ * no pass from before the upgrade runs.
+ */
+const ENTRY_DATE = `INTEGER NOT NULL DEFAULT ${String(Number.MAX_SAFE_INTEGER)}`;
+
+/** The entries by date, for the sweep's prune (after the column exists). */
+const ENTRY_DATE_INDEX =
+  "CREATE INDEX IF NOT EXISTS cost_ledger_entries_made_at ON cost_ledger_entries (made_at)";
 
 /**
  * The migration of a file written before budgets (#261 PR 5, #265 S69 e): the old table counted
@@ -29,6 +46,7 @@ const BUDGETS_MIGRATION = "DROP TABLE cost_ledger;";
 
 const SpentRow = z.object({ spent_usd: z.number() });
 const MaxSpendRow = z.object({ max_spend_usd: z.number() });
+const PrunedRow = z.object({ pruned_before: z.number() });
 
 /** The scope as stored: one of `BudgetScope`'s values. */
 const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(account.scope);
@@ -36,7 +54,9 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
 /**
  * `CostLedgerRepository` on the application's SQLite file (#265, S32; counters by budget, #261 PR
  * 5): each call's cost added to every counter in one `BEGIN IMMEDIATE` transaction — an entry
- * with a `ledgerId` once, its id kept in `cost_ledger_entries` in that transaction (#727) —, so the
+ * with a `ledgerId` once, its id kept in `cost_ledger_entries` in that transaction (#727) with its
+ * date, pruned by `deleteEntriesByMadeAtBefore` under a mark a later save of it is refused by
+ * (#771) —, so the
  * instances on one file share the counters and survive a restart. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
@@ -50,6 +70,18 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         connection.database.exec(BUDGETS_MIGRATION);
     });
     connection.ensureSchema("cost_ledger", SCHEMA);
+    connection.addColumn("cost_ledger_entries", "made_at", ENTRY_DATE);
+    connection.transaction(() => {
+      connection.database.exec(ENTRY_DATE_INDEX);
+    });
+  }
+
+  /** The pruning mark (#771, ms): entries made before it may have been removed; none yet → −∞. */
+  #prunedBefore(): number {
+    const row = this.connection.database
+      .prepare("SELECT pruned_before FROM cost_ledger_entries_pruned WHERE id = 1")
+      .get();
+    return row === undefined ? Number.NEGATIVE_INFINITY : PrunedRow.parse(row).pruned_before;
   }
 
   ping(): Promise<void> {
@@ -68,12 +100,27 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
 
   saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
     if (counters.length === 0 || records.length === 0) return Promise.resolve();
+    let refused: CostLedgerEntryExpiredError | undefined;
     this.connection.transaction(() => {
-      // each entry once (#727): its id kept in the transaction that adds its cost
-      const entry = this.connection.database.prepare(
-        "INSERT INTO cost_ledger_entries VALUES (?) ON CONFLICT (ledger_id) DO NOTHING",
+      // an entry it may have pruned is refused, the whole save with it (#771): the mark is read
+      // in the transaction a prune's is written in, one writer at a time on the file
+      const prunedBefore = this.#prunedBefore();
+      const held = this.connection.database.prepare(
+        "SELECT 1 FROM cost_ledger_entries WHERE ledger_id = ?",
       );
-      const added = newEntriesOf(records, (id) => entry.run(id).changes === 1);
+      const expired = expiredEntriesOf(records, prunedBefore, (id) => held.get(id) !== undefined);
+      if (expired.length > 0) {
+        refused = new CostLedgerEntryExpiredError({
+          ledgerIds: expired,
+          prunedBefore: new Date(prunedBefore),
+        });
+        return;
+      }
+      // each entry once (#727): its id kept, with its date, in the transaction that adds its cost
+      const entry = this.connection.database.prepare(
+        "INSERT INTO cost_ledger_entries VALUES (?, ?) ON CONFLICT (ledger_id) DO NOTHING",
+      );
+      const added = newEntriesOf(records, (id, madeAt) => entry.run(id, madeAt).changes === 1);
       const spent = totalCost(added);
       const statement = this.connection.database.prepare(
         `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)
@@ -82,6 +129,22 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
       );
       for (const counter of counters)
         statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent);
+    });
+    return refused === undefined ? Promise.resolve() : Promise.reject(refused);
+  }
+
+  deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void> {
+    this.connection.transaction(() => {
+      const prunedBefore = Math.max(this.#prunedBefore(), cutoff.getTime());
+      this.connection.database
+        .prepare(
+          `INSERT INTO cost_ledger_entries_pruned VALUES (1, ?)
+           ON CONFLICT (id) DO UPDATE SET pruned_before = excluded.pruned_before`,
+        )
+        .run(prunedBefore);
+      this.connection.database
+        .prepare("DELETE FROM cost_ledger_entries WHERE made_at < ?")
+        .run(prunedBefore);
     });
     return Promise.resolve();
   }

@@ -87,6 +87,8 @@ export type RuleCode =
   | "application.store-backend-mismatch"
   | "application.store-backend-undeclared"
   | "application.outbound-calls-invalid"
+  // how long the ledger's entries are kept (#771)
+  | "application.ledger-entry-retention-invalid"
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"
   | "mesh.duplicate-peer"

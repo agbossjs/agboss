@@ -55,6 +55,10 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
+  deleteEntriesByMadeAtBefore(): Promise<void> {
+    return Promise.resolve();
+  }
+
   findMaxSpendByAccount(): Promise<Usd | undefined> {
     return Promise.resolve(undefined);
   }

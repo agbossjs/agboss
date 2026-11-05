@@ -2,7 +2,8 @@
  * Acceptance of #508, #505 and #483: the contract cases behind the payment-grade guarantees bite.
  * Each naive store (tests/fixtures/contracts/naive-guarantees.ts) breaks one guarantee as a
  * hand-written store would — a business key dropped, a stale token trusted, a slot never counted,
- * a check-then-act save, a read-then-write ledger — and the cases of that guarantee fail on it.
+ * a check-then-act save, a read-then-write ledger, a ledger pruned without a mark (#771) — and the
+ * cases of that guarantee fail on it.
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { namesOf, runContractFixtures, type FixtureRun } from "./fixture-runs.js";
@@ -69,6 +70,21 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
   it("#634: a read-then-write ledger loses a save in some of several counters", () => {
     expect(failedOf("a ledger that reads, then writes")).toContain(
       "concurrent saves of two instances to several counters lose nothing in any of them",
+    );
+  });
+
+  it("#771: a ledger that prunes without a mark counts a lost answer retried after the prune twice", () => {
+    expect(failedOf("a ledger that prunes without a mark")).toEqual(
+      expect.arrayContaining([
+        "#771: a prune removes the entries made before its cutoff, never a counter: a later save of one is refused and adds nothing",
+        "#771: a write retried after its answer was lost counts once before a prune, and is refused after it — with the whole save",
+        "#771: the pruning mark never goes back: an earlier cutoff after a later one still refuses what the later may have removed",
+        "#771: saves racing a prune on the other instance count each entry at most once, and only what they resolved",
+      ]),
+    );
+    // it keeps every rule it does not break: an entry counted once while it is held
+    expect(failedOf("a ledger that prunes without a mark")).not.toContain(
+      "an entry with a ledgerId counts once: a repeated save on either instance adds nothing",
     );
   });
 

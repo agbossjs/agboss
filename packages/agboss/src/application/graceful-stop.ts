@@ -224,6 +224,8 @@ export function stopOf(
     leaseEventRetention: assembled.leaseEventRetention,
     outboundCalls: parts.infrastructure.outboundCalls,
     outboundCallRetention: assembled.outboundCalls.retention,
+    ledger: parts.infrastructure.costLedger,
+    ledgerEntryRetention: assembled.ledgerEntryRetention,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

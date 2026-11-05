@@ -12,6 +12,7 @@ import { inMemoryTarget, sharedInMemory } from "../../infrastructure/contracts/s
 import {
   currentToken,
   LookThenWriteMeshRequestRepository,
+  PrunedWithoutMarkCostLedgerRepository,
   ReadThenWriteCostLedgerRepository,
   rewritingKeys,
   stepOnly,
@@ -51,4 +52,10 @@ costLedgerContract({
     sharedInMemory(seam, "naive-ledger", () => new ReadThenWriteCostLedgerRepository()),
   ),
   name: "a ledger that reads, then writes",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "unmarked-ledger", () => new PrunedWithoutMarkCostLedgerRepository()),
+  ),
+  name: "a ledger that prunes without a mark",
 });

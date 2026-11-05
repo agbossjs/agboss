@@ -80,6 +80,7 @@ export interface AssembledApplication {
     readonly fencedEffects: FencedEffectSettings;
     readonly healthChecks: readonly Class[];
     readonly leaseEventRetention: Milliseconds;
+    readonly ledgerEntryRetention: Milliseconds;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
     // Warning: (ae-forgotten-export) The symbol "MeshOptions" needs to be exported by the entry point internal.d.ts
@@ -1233,8 +1234,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:51:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/assemble.ts:52:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/assemble.ts:61:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:92:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:223:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:94:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:232:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
 // src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
 // src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".
@@ -1345,16 +1346,16 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
 // src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
 // src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
-// src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:98:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:104:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:103:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:106:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts:28:3 - (ae-undocumented) Missing documentation for "start".

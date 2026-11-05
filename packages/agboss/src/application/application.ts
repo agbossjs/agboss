@@ -113,6 +113,15 @@ export interface ApplicationOptions {
    */
   readonly leaseEventRetention?: Milliseconds;
   /**
+   * How long an entry of the ledger is kept after its spend was made (#771): every tallied spend is
+   * an entry under its `ledgerId` (#727) so that a write retried after a lost answer counts once;
+   * the recovery sweep prunes entries made longer ago than this on the `Clock` (the counters
+   * never), and a write retried later than that is refused (`CostLedgerEntryExpiredError`: the pass
+   * fails), never counted twice. Above the lease's 30 s —
+   * `[application.ledger-entry-retention-invalid]`. Default `hours(24)`.
+   */
+  readonly ledgerEntryRetention?: Milliseconds;
+  /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up
    * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not

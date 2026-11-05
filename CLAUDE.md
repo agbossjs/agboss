@@ -2421,7 +2421,13 @@ const readiness: HealthReport = await app.checkReadiness();
   — that read the counters before that spend was in the ledger (one write after it was made, #727,
   #732; each entry under its `ledgerId` — the pass's own, so a step run again after a crash bills
   and counts again, while a record kept in a durable state counts once —, added once by
-  `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once). Hitting a limit **fails the
+  `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once; #771: each
+  entry dated by its record's `madeAt`, pruned by the recovery sweep after
+  `@Application({ ledgerEntryRetention })` — default `hours(24)`, above the lease,
+  `[application.ledger-entry-retention-invalid]` — through `deleteEntriesByMadeAtBefore(cutoff)`,
+  which raises the store's pruning mark; a save of an entry made before the mark that the store does
+  not hold is refused, `CostLedgerEntryExpiredError`, nothing added and the pass's reads failing
+  with it, so a retry that late never counts twice). Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
