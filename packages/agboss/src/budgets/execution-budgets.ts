@@ -105,8 +105,14 @@ export class BudgetMeter implements BudgetCheck {
     return turn;
   }
 
-  /** Every counter of the execution's budgets in its current period, as the ledger holds it now. */
+  /**
+   * Every counter of the execution's budgets in its current period, as the ledger holds it now.
+   * Tallied spend whose write failed is written again first (#770): a write whose answer was lost
+   * may have landed, and a read that held it while the tally still counts it would count it twice
+   * — so a read never runs beside such spend; when it fails again, so does the read.
+   */
   async #read(): Promise<ReadonlyMap<string, number>> {
+    await this.#writeUnwritten();
     const now = this.clock.now();
     const values = new Map<string, number>();
     for (const record of this.records) {
