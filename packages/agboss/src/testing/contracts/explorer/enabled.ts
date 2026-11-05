@@ -47,7 +47,9 @@ function otherActions(run: ExplorerRun, instance: number, tree: string): Explore
   if (token === undefined) return [];
   switch (run.world.kind) {
     case ExplorerWorldKind.Lease:
-      return run.observer.beliefOf(instance, tree) === undefined
+      // #694: `leaseStateOf` only with the outbound-call store; the lease store alone has none
+      return run.observer.beliefOf(instance, tree) === undefined &&
+        run.storesOf(instance).calls !== undefined
         ? [{ kind: "check", instance, tree }]
         : [];
     case ExplorerWorldKind.FencedEffect:
