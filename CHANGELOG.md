@@ -331,6 +331,12 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed
 
+- **A child on any instance waits for its siblings' spend too — now pinned by a test, and the
+  checkpoint write that waits for the pass's spend is mutation-tested** (#776) — the `settled()`
+  before a child on any instance is queued (#732) covers spend a sibling branch tallies after the
+  launching step's checkpoint, which the checkpoint gating does not: a test now holds a sibling's
+  $60 write while a grandchild is about to be queued (without the wait it pays $50 twice beside it,
+  $160 of $100). `SettledSpendCheckpointSaver` joins the `money` mutation shard.
 - **A ledger write whose answer was lost is counted once by the pass's own checks too** (#770) —
   the write of a tallied spend (#727) that landed while its caller heard an error was held by the
   pass's next read of the counters while its tally still counted it: a check or a tally before the

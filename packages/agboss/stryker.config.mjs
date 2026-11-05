@@ -25,6 +25,21 @@ function keyTextRulesOf(file) {
   return `${file}:${String(from + 1)}-${String(end + 1)}`;
 }
 
+/**
+ * `SettledSpendCheckpointSaver` and `settledSaverOf` in `file` as a Stryker range (#776): from the
+ * class to the end of the file, found by name — the leased and ordered checkpointers above it are
+ * not money.
+ */
+function settledSpendSaverOf(file) {
+  const lines = readFileSync(new URL(file, import.meta.url), "utf8").split("\n");
+  const start = lines.findIndex((line) =>
+    line.startsWith("export class SettledSpendCheckpointSaver "),
+  );
+  const end = lines.findLastIndex((line) => line.trim() !== "");
+  if (start < 0 || end < start) throw new Error(`${file}: SettledSpendCheckpointSaver not found`);
+  return `${file}:${String(start + 1)}-${String(end + 1)}`;
+}
+
 const SHARDS = {
   // the leases, the holder's fence, the held lease, the fenced effect, the outbound call's
   // protocol and in-memory store, and the store's clock (#533)
@@ -117,7 +132,8 @@ const SHARDS = {
     ],
   },
   // money (#633): the budget meter — every dollar of a tree counted once (#685), in whole
-  // micro-dollars (#728) — and the cost ledger, in memory and SQLite
+  // micro-dollars (#728) —, the cost ledger, in memory and SQLite, and the checkpoint write that
+  // waits for the pass's spend to be in the ledger (#727, #732, #776)
   money: {
     configFile: "vitest.mutation-money.config.ts",
     mutate: [
@@ -126,6 +142,7 @@ const SHARDS = {
       "src/budgets/application-spend.ts",
       "src/infrastructure/cost-ledger.repository.ts",
       "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
+      settledSpendSaverOf("src/app/leased-checkpointer.ts"),
     ],
   },
 };
