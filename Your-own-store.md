@@ -418,7 +418,16 @@ storeConformance({
   - `[store-conformance.invalid-without]` is a `without` entry that may not be left out;
   - `[store-conformance.unknown-store]` is a key of `stores` that names no contract (a typo such as
     `rateLimits`): its store would never be tested (#542);
-  - `[store-conformance.empty]` is a set with no store.
+  - `[store-conformance.empty]` is a set with no store;
+  - `[store-conformance.invalid-interleavings]` is an explorer budget that is no budget (#799): a
+    `depth`, `walks` or `walkDepth` that is not a whole number of at least 1 (`walks: 0` would
+    search nothing and pass), a `seed` that is not whole, a `timeLimit` that is not positive, a key
+    the explorer has no option for.
+- **What the set does not check is shown, never passed** (#799). `store set (<name>)` lists every
+  contract the set does not claim as a skipped case, `does not claim stores.<key>`, with the reason
+  (left out in `without`, or not given). A case of an optional method — the child queue's
+  `watchQueued` (#777) — is skipped, with the reason, for a store without it, and fails for a store
+  that has it on one instance only.
 - **The races the suites run**, each round after round, in both orders:
   - a zombie's write racing its lease's release, the next take and the new holder's write of the
     same key: one business row;
@@ -497,8 +506,14 @@ for any store, a networked one included, with no free race.
   `faultSuite`, prove atomicity.
 - **The budget**: `storeConformance({ …, interleavings: { depth: 6, walks: 100 } })`. A schedule
   starts from `reset()`, so a networked store pays one reset and one connection per instance for
-  each schedule. The core runs 10 steps in memory and 5 on SQLite. `interleavings: false` leaves
-  the explorer out, which is never right for a store that claims payment-grade fencing.
+  each schedule. The core runs 10 steps in memory and 5 on SQLite.
+- **The floor** (#799): a set with a fenced-effect or outbound-call store — payment-grade fencing —
+  is explored at least at depth 4 and 20 walks of 16 steps. Below that, its `store set (<name>)`
+  case `explores its fencing stores at least at the floor (…)` fails, naming each field below it
+  (`[store-conformance.interleavings-below-floor]`). `interleavings: false` leaves the explorer out:
+  `interleavings (<name>)` then shows one skipped case, `not explored: the set gives interleavings:
+  false`, and a set with fencing stores fails the floor case too. Only a set of leases alone
+  (`without` both fencing stores) may turn it off.
 - **The time limit** (#590): each search case stops at `interleavings.timeLimit` (default 8 min;
   its case's timeout is 2 min more) or when its case is aborted, and then **fails** — "stopped
   after N schedules, M states because it reached its time limit; K left unexplored". It never
@@ -572,9 +587,15 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
 - the store classes, as `@Application({ providers })` lists them;
 - the environment they read: the pod's database is the process variable `AGBOSS_FAULT_DATABASE_URL`;
 - how the fixture's charge writes its business row in your fenced effect's transaction, and reads
-  the committed rows back.
+  the committed rows back;
+- `storeTime` (#799, required): what your fencing stores decide a lease's time by.
+  `FaultStoreTime.Database` for a store that reads its database's own clock in each statement
+  (PostgreSQL's `clock_timestamp()`, MongoDB's `$$NOW`, Redis's `TIME`), `FaultStoreTime.Host` for
+  one on the process's clock (the core's in-memory and SQLite stores). The suite reads the run's
+  history on it. A set without it does not start its pods (`[fault-suite.store-time]`).
 
-Import the types only (`import type`). A pod runs outside vitest.
+Import from `@agboss/core/testing/faults` the types and `FaultStoreTime` only. A pod runs outside
+vitest.
 
 <!-- snippet-context
 import type { App } from "@agboss/core";
@@ -597,10 +618,12 @@ declare function resolveConnection(app: App): PgConnection;
 
 ```ts
 // tests/faults/postgres.fault-stores.ts — imported by every pod
-import type { FaultStores } from "@agboss/core/testing/faults";
+import { FaultStoreTime, type FaultStores } from "@agboss/core/testing/faults";
 
 export const faultStores: FaultStores<PoolClient> = {
   providers: [PgLeases, PgLeaseLog, PgFencedEffects, PgCalls, PgRecords, PgTrees, PgHistory, PgChildQueue, PgPauses, PgCheckpoints],
+  // the leases expire by clock_timestamp(): the history is read at the real rate
+  storeTime: FaultStoreTime.Database,
   environment: {
     contract: PgFaultEnvironment,
     values: { postgresUrl: secret("AGBOSS_FAULT_DATABASE_URL") },
@@ -645,8 +668,10 @@ faultSuite({
   a proxy per pod, so a scenario can stall or drop one pod's connections. A file's path (SQLite)
   gets a store outage of the same two kinds, inside the pod.
 - **`timeScale`** (default 1, the real clock) runs every pod's clock that much faster, from one
-  origin, so a lease of 30 s lasts 30 s / `timeScale`. The core runs SQLite at 10. A real database
-  should also run at 1 at least nightly: its round trips are real time.
+  origin, so a lease of 30 s lasts 30 s / `timeScale`. The core runs SQLite at 10. A store on its
+  database's clock (`FaultStoreTime.Database`) keeps the real rate whatever the pods' scale, so run
+  it at 1: its leases would outlast the scenario's waits. A real database should run at 1 at least
+  nightly anyway: its round trips are real time.
 - **`scenarios`** selects scenarios by id. One test file per scenario makes a flake easy to
   probe (`node scripts/flaky-probe.mjs <file> 20`).
 - The scenarios run one after another. Each starts at most three pods and kills every pod it
@@ -689,7 +714,9 @@ held operation. You write no seam of your own to force an order across processes
       A store that opts out of the lease check passes only with
       `acceptWithoutDoubleChargeProtection: true`, its fencing cases skipped: it is not conformant
       for fencing and backs no payment (#543).
-- [ ] `storeConformance` passes with every store the set has, the explorer included (#533).
+- [ ] `storeConformance` passes with every store the set has, the explorer included (#533), at or
+      above the floor for a set with fencing stores (#799); its report's skipped cases are the
+      contracts it does not claim and the optional methods it lacks, nothing else.
 - [ ] `faultSuite` passes on the set, against a real database, in CI. An opted-out set fails its
-      `fences atomically …` case (#584).
+      `fences atomically …` case (#584). `faultStores.storeTime` says what the stores decide by (#799).
 - [ ] The README lists the stores together, links this page, and says which backend they declare.

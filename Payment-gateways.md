@@ -244,6 +244,9 @@ it("our gateway's capabilities, as the checklist sees them", async () => {
   timeout), `FailBeforeProcessing` (nothing processed), `Slow` (`{ delay }` on the clock);
   `{ times }` for several charges. `FakeGatewayError` with `kind: FakeGatewayErrorKind`.
 - **The report:** `results` in order G1–G5, each `{ requirement, status: GatewayCheckStatus.Passed |
-  Failed | Skipped, evidence }`, and `isPassed` (nothing failed). A probe the gateway fails is that
+  Failed | Skipped, evidence }`, and `isPassed`: every requirement probed and passed (#799). A
+  requirement skipped — G3 without a `clock` — is not a pass, so the report does not pass either;
+  compare the gateway's documented retention by hand and read `results`. G5 passes only when the changed request is refused and the same amount under a fresh key
+  is then taken: a sandbox that refuses everything (down, rate-limited) fails it. A probe the gateway fails is that
   requirement's failure, with the error as evidence. Against a sandbox, give `keyPrefix` a value of
   its own per run, and `requiredRetention` your longest recovery (default `hours(24)`).

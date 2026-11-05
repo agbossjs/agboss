@@ -226,7 +226,9 @@ example with Cohere Rerank, offline: agboss-examples
 `text`, none twice, at most `keep`. Anything else is a failure, so no reranker can put a passage
 the tenant's retrieval did not return before the agent ([Tenants](#tenants)); it sees only the
 current tenant's candidates (`options.tenantId`). `ragConnectorContract({ …, rerank: { by,
-candidates } })` runs the contract's cases through the reranking.
+candidates } })` runs the contract's cases through the reranking under
+`RerankFailurePolicy.FailStep` (#799): a reranker that throws or returns a passage that is no
+candidate fails the cases that retrieve, never falls back to the retrieval's own order.
 
 **When it fails** (it throws, times out, gives no ranking, or an invalid result):
 

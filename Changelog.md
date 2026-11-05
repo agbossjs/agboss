@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the store author's suites no longer pass what they did not check (#799)
+
+- **Changed — breaking for stores outside the core**:
+  - `FaultStores.storeTime: FaultStoreTime.Database | FaultStoreTime.Host` (required) says what the
+    fencing stores decide a lease's time by; the `linearizable` invariant reads the history on it.
+    `FaultScenarioOptions.storeTimeScale` is removed. A set without it does not start its pods
+    (`[fault-suite.store-time]`). **Migration:** add `storeTime` to `faultStores`, drop
+    `storeTimeScale`. [Your own store](Your-own-store), [Guarantees across processes](Guarantees-across-processes).
+  - `storeConformance`: `interleavings: false` is a skipped case of `interleavings (<name>)`; a
+    budget that is no whole number ≥ 1 is `[store-conformance.invalid-interleavings]`; a set with
+    fenced-effect or outbound-call stores explored below depth 4, 20 walks of 16 steps, or not at
+    all, fails `store set (<name>)`'s floor case. Every contract a set does not claim is a skipped
+    `does not claim stores.<key>`; the queue-watch cases are skipped for a store without
+    `watchQueued`. [Your own store](Your-own-store#prove-it-storeconformance).
+  - `ragConnectorContract` reranks under `RerankFailurePolicy.FailStep`: a failing reranker fails
+    the cases. [Knowledge bases](Knowledge-bases).
+  - `outboundGatewayChecklist`'s `isPassed` is false while a requirement was skipped (G3 without a
+    clock). [Payment gateways](Payment-gateways).
 ## Unreleased — 0.1.1: `agboss studio` without `@langchain/langgraph-cli` (#791)
 
 - **Security**: `@agboss/cli` installed `extract-zip` 2.0.1 through `@langchain/langgraph-cli` (and its

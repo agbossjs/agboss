@@ -79,9 +79,10 @@ against the same model.
 - **Parts.** Operations that share no tree, scope or call are checked apart.
 - **Unknown answers.** An operation that never completed (its pod was killed) or failed with
   anything but the fence's refusal may have taken effect or not.
-- **Time.** The instants are read on the store's time: the machine's monotonic time times
-  `storeTimeScale` (default the pods' `timeScale`; 1 for a database that decides by its own clock,
-  as PostgreSQL's `clock_timestamp()` does). So an early take of a live lease is no order either.
+- **Time.** The instants are read on the store's time: the machine's monotonic time times the rate
+  the store set declares (`faultStores.storeTime`, #799): 1 for `FaultStoreTime.Database`, a store
+  that decides by its database's own clock (PostgreSQL's `clock_timestamp()`), the pods'
+  `timeScale` for `FaultStoreTime.Host`. So an early take of a live lease is no order either.
 - **Order.** An operation that completed before another was invoked took effect first: every pod
   records on the host's one monotonic clock, so this order is exact. A slack (5 ms × the scale)
   widens only the instant the store's own clock decides at, never this order.
