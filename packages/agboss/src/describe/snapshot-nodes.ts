@@ -3,7 +3,7 @@ import { memoryPlanOf, readerOf } from "../compaction/plan.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
-import type { RagMode, RagTenancy } from "../rag/types.js";
+import { ragSnapshotsOf, type RagSnapshot } from "./snapshot-rag.js";
 import { NodeKind } from "../flow/ast.js";
 import {
   DecidedBy,
@@ -49,14 +49,7 @@ export interface ElementGuardrailsSnapshot {
   readonly output: readonly string[];
 }
 
-/** One knowledge base of an agent. */
-export interface RagSnapshot {
-  readonly name: string;
-  readonly mode: RagMode;
-  readonly topK: number;
-  /** Whose content it serves (#796). */
-  readonly tenancy: RagTenancy;
-}
+export type { RagSnapshot } from "./snapshot-rag.js";
 
 /** An agent's internals. */
 export interface AgentSnapshot {
@@ -167,12 +160,7 @@ function agentOf(
     uncompactedTurns: reader.window,
     ...(reader.compaction === undefined ? {} : { compaction: reader.compaction.name }),
     tools: agent.tools ?? [],
-    rag: (agent.rag ?? []).map(({ name: rag, mode, topK, tenancy }) => ({
-      name: rag,
-      mode,
-      topK,
-      tenancy,
-    })),
+    rag: ragSnapshotsOf(agent.rag),
     guardrails: guardrailsAt(bundle, name),
     ...toolInterceptorsAt(bundle, name),
     piiPolicies: piiPoliciesAt(bundle, name),
