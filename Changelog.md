@@ -8,9 +8,11 @@ Breaking changes and notable additions, newest first. The API reports
 - **Changed — breaking**: a question step's input field is `ask` — the name `@ChannelRole({ ask })`
   and `PendingQuestion.ask` give the same value (`InputOf<Role>["question"]` →
   `InputOf<Role>["ask"]`; rerun `agboss check`). `QuestionNodeOptions`, the node record
-  `@ChannelRole` builds, is no longer exported from the root. [Pauses](Pauses).
+  `@ChannelRole` builds, is no longer exported from the root; a question step's `schemaHash` changes
+  with its field's name. [Pauses](Pauses).
 - **Deprecated**: `VCRMode` → `VcrMode`, cased as `VcrConfig` is; `VCRMode` stays an alias of the
-  same enum until 0.2. [Testing](Testing).
+  same enum until 0.2 (its value, its type, a member as a type); `npx agboss migrate imports`
+  rewrites the import. [Testing](Testing).
 - **Deprecated**: the entry aliases `@agboss/core/channels`, `/core`, `/graph`, `/router` and
   `/tool` are removed in 0.2 — import from `@agboss/core` (`npx agboss migrate imports`).
 ## Unreleased — 0.1.1: a knowledge base declares whose content it serves (#796); MongoDB's ledger mark fails closed (#798)
