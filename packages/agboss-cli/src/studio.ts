@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { CommandHandler, CommandContext } from "./cli/context.js";
 import { CliError } from "./cli/errors.js";
-import { langGraphDevOf, portOf, prepareStudio, type CommandLine } from "./cli/studio.js";
+import { studioServerOf, portOf, prepareStudio, type CommandLine } from "./cli/studio.js";
 
 /**
  * Runs the LangGraph dev server until it exits: a SIGINT / SIGTERM of this process is passed on to
@@ -41,7 +41,7 @@ function serve(context: CommandContext, line: CommandLine): Promise<number> {
 export const handle: CommandHandler = async (context) => {
   const port = portOf(context);
   const studio = await prepareStudio(context);
-  const code = await serve(context, langGraphDevOf(studio, port));
+  const code = await serve(context, studioServerOf(studio, port));
   const result = { application: studio.application, config: studio.config, graphs: studio.graphs };
   if (code === 0) return { result };
   const failure = new CliError(

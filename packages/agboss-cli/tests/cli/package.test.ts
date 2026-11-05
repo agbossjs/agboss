@@ -93,3 +93,58 @@ describe("the command ships apart from the framework (#101, #205)", () => {
     }
   }, 120_000);
 });
+
+interface Forbidden {
+  readonly FORBIDDEN_PACKAGES: readonly string[];
+  readonly lockfileForbiddenOf: (
+    lock: unknown,
+    workspace: string,
+    names?: readonly string[],
+  ) => readonly string[];
+}
+const repoDir = new URL("../../../../", import.meta.url).pathname;
+const forbidden = (await import(join(repoDir, "scripts/packed/forbidden.mjs"))) as Forbidden;
+
+describe("#791: the CLI installs no package with unfixed advisories", () => {
+  it("extract-zip is forbidden (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3: no fixed release)", () => {
+    expect(forbidden.FORBIDDEN_PACKAGES).toContain("extract-zip");
+  });
+
+  it("the lockfile's production tree of @agboss/cli has no forbidden package", () => {
+    const lock: unknown = JSON.parse(readFileSync(join(repoDir, "package-lock.json"), "utf8"));
+
+    expect(forbidden.lockfileForbiddenOf(lock, "packages/agboss-cli")).toEqual([]);
+  });
+
+  it("agboss studio runs on @langchain/langgraph-api, pinned; @langchain/langgraph-cli is gone", () => {
+    expect(cli.dependencies["@langchain/langgraph-api"]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(cli.dependencies["@langchain/langgraph-cli"]).toBeUndefined();
+  });
+
+  it("the check bites: langgraph-cli's extract-zip, its own and create-langgraph's, is found", () => {
+    const lock = {
+      packages: {
+        "packages/agboss-cli": {
+          name: "@agboss/cli",
+          dependencies: { "@agboss/core": "0.1.1", lgc: "1" },
+        },
+        "node_modules/@agboss/core": { link: true, resolved: "packages/agboss" },
+        "packages/agboss": { name: "@agboss/core", devDependencies: { "extract-zip": "2" } },
+        "packages/agboss-cli/node_modules/lgc": {
+          dependencies: { "create-langgraph": "1", "extract-zip": "2" },
+          peerDependencies: { "optional-peer": "1" },
+          peerDependenciesMeta: { "optional-peer": { optional: true } },
+        },
+        "node_modules/create-langgraph": { dependencies: { "extract-zip": "2" } },
+        "node_modules/extract-zip": {},
+        "node_modules/optional-peer": { dependencies: { "extract-zip": "2" } },
+      },
+    };
+
+    // a dev dependency and an optional peer are never a user's install
+    expect(forbidden.lockfileForbiddenOf(lock, "packages/agboss-cli")).toEqual([
+      "@agboss/cli > lgc > extract-zip",
+      "@agboss/cli > lgc > create-langgraph > extract-zip",
+    ]);
+  });
+});

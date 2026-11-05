@@ -116,6 +116,12 @@ cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main
   (cd "$SCRATCH/audit-core" && npm init -y > /dev/null && \
     npm install --no-fund --before="$AGBOSS_NPM_BEFORE" "$SCRATCH/agboss-core-$RELEASE_VERSION.tgz" && \
     npm audit --omit=dev) && \
+  npm pack -w @agboss/cli --pack-destination "$SCRATCH" > /dev/null && \
+  rm -rf "$SCRATCH/audit-cli" && mkdir -p "$SCRATCH/audit-cli" && \
+  (cd "$SCRATCH/audit-cli" && npm init -y > /dev/null && \
+    npm install --no-fund --before="$AGBOSS_NPM_BEFORE" "$SCRATCH/agboss-core-$RELEASE_VERSION.tgz" \
+      "$SCRATCH/agboss-cli-$RELEASE_VERSION.tgz" && \
+    npm audit --omit=dev --audit-level=high) && \
   npm pack --dry-run -w @agboss/core 2>&1 | grep -c ' src/' && \
   gh run list -R agbossjs/agboss --workflow ci.yml --commit "$RELEASE_SHA" --event push
 ```
@@ -123,7 +129,9 @@ cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main
 - **Expected:** `make check` and `check:packed` pass (the packed packages in a project of their own,
   #497; every source map's sources shipped and a core stack frame that opens, #645 — the tarball
   ships `src/`), `found 0 vulnerabilities` for the packed `@agboss/core` installed in a project of
-  its own — what a user installs —, a non-zero count of `src/` files, and main's `CI` run for
+  its own — what a user installs —, no high or critical finding for the packed `@agboss/cli` with it
+  (#791: `--audit-level=high` fails the step on one; the moderate `@hono/node-server` 1.x under
+  `@langchain/langgraph-api`'s `@hono/node-ws` has no fixed 1.x release), a non-zero count of `src/` files, and main's `CI` run for
   `$RELEASE_SHA` is `completed success` (or in progress — the release job waits for it).
 - The audit is of that project, never of this repository's lockfile (#790):
   `npm audit --omit=dev -w @agboss/core` also counts the core's optional peers (`vitest`,

@@ -6,14 +6,18 @@
 //   - positive: the project's tests (`npm test`) plus a `workflowOf` test with no setup file loading
 //     the application (AC1, AC5), `agboss describe` and `agboss check` (AC2);
 //   - negative: the same test under a plain vitest config, without agbossTest() — it must fail with
-//     workflowOf's TestSetupError (AC4: the error, and proof that this job catches a regression).
+//     workflowOf's TestSetupError (AC4: the error, and proof that this job catches a regression);
+//   - #791: neither install holds a package of FORBIDDEN_PACKAGES (`extract-zip`), and `agboss
+//     studio` from the packed CLI serves the project's graphs on the LangGraph server, then stops.
 // `npm run check:packed` (builds first); CI's packed-project job. Not part of `make check`.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { USAGE, UsageError, parseArguments } from "./packed/args.mjs";
+import { FORBIDDEN_PACKAGES, installedForbiddenOf } from "./packed/forbidden.mjs";
 import { installedCoreProblem } from "./packed/installed.mjs";
+import { studioProblem } from "./packed/studio.mjs";
 import { NpmBeforeError, rangeInstallArguments } from "./packed/npm-before.mjs";
 import { coreFramesOf, missingMapSources, missingSourceWarnings } from "./packed/source-maps.mjs";
 import {
@@ -71,6 +75,7 @@ function createProject(work, tarballs) {
   mkdirSync(tools, { recursive: true });
   writeFileSync(join(tools, "package.json"), '{ "name": "packed-tools", "private": true }\n');
   run("install the packed CLI", "npm", tarballInstallArguments(tarballs), tools);
+  assertNothingForbidden("the packed CLI's production tree", tools);
   run(
     `agboss create ${PROJECT}`,
     binOf(tools, "agboss"),
@@ -94,6 +99,7 @@ const binOf = (project, name) => join(project, "node_modules", ".bin", name);
 function install(project, tarballs) {
   run("install the tarballs into the project", "npm", tarballInstallArguments(tarballs), project);
   run("npm ls @agboss/core", "npm", ["ls", "@agboss/core"], project);
+  assertNothingForbidden("the project's install", project);
   const problem = installedCoreProblem(project);
   if (problem !== undefined) throw new CheckFailed(problem);
   for (const name of ["core", "cli"]) {
@@ -103,6 +109,14 @@ function install(project, tarballs) {
         `@agboss/${name}'s source maps name ${missing.length} sources it does not ship, e.g. ${missing[0]}`,
       );
   }
+}
+
+/** #791: no package of FORBIDDEN_PACKAGES anywhere in the install's node_modules. */
+function assertNothingForbidden(what, project) {
+  console.log(`check:packed › ${what} has no ${FORBIDDEN_PACKAGES.join(", ")}`);
+  const found = installedForbiddenOf(project);
+  if (found.length > 0)
+    throw new CheckFailed(`${what} installs ${found.join(", ")} (#791: forbidden packages)`);
 }
 
 /** #645 AC1: no "points to missing source files" from vite in a test run of the project. */
@@ -155,7 +169,7 @@ function negative(project) {
     );
 }
 
-function check(options) {
+async function check(options) {
   const work =
     options.dir === undefined
       ? mkdtempSync(join(tmpdir(), "agboss-packed-"))
@@ -165,16 +179,19 @@ function check(options) {
   const project = createProject(work, tarballs);
   install(project, tarballs);
   positive(project);
+  console.log("check:packed › positive: agboss studio serves the project's graphs");
+  const problem = await studioProblem(binOf(project, "agboss"), project);
+  if (problem !== undefined) throw new CheckFailed(`agboss studio: ${problem}`);
   negative(project);
   if (options.keep) console.log(`check:packed › kept ${work}`);
   else rmSync(work, { recursive: true, force: true });
   console.log("check:packed › the packed package works in a project of its own");
 }
 
-function main(argv) {
+async function main(argv) {
   const options = parseArguments(argv);
   if (options.help) return void console.log(USAGE);
-  if (options.verifyInstall === undefined) return check(options);
+  if (options.verifyInstall === undefined) return await check(options);
   const problem = installedCoreProblem(resolve(options.verifyInstall));
   if (problem !== undefined) throw new CheckFailed(problem);
   console.log(`${options.verifyInstall}: @agboss/core is installed, not linked`);
@@ -185,7 +202,7 @@ if (
   resolve(process.argv[1]) === new URL(import.meta.url).pathname
 ) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     if (!(
       error instanceof UsageError ||

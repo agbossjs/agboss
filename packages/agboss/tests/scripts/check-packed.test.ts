@@ -158,3 +158,40 @@ describe("AC4: check:packed's @agboss/core is installed, not linked", () => {
     expect(ran.out).toContain("a second @agboss/core is installed at");
   });
 });
+
+interface ForbiddenModule {
+  readonly installedForbiddenOf: (project: string, names?: readonly string[]) => readonly string[];
+}
+const { installedForbiddenOf } = (await import(
+  join(repo, "scripts/packed/forbidden.mjs")
+)) as ForbiddenModule;
+
+describe("#791: check:packed finds a forbidden package wherever the install put it", () => {
+  it("none installed: nothing found", () => {
+    const dir = project("clean");
+    packageAt(join(dir, "node_modules", "zod"), "zod");
+
+    expect(installedForbiddenOf(dir)).toEqual([]);
+  });
+
+  it("extract-zip at the top, nested under a scoped package and under another: each found", () => {
+    const dir = project("forbidden");
+    packageAt(join(dir, "node_modules", "extract-zip"), "extract-zip");
+    const cliModules = join(dir, "node_modules", "@langchain", "langgraph-cli", "node_modules");
+    packageAt(join(dir, "node_modules", "@langchain", "langgraph-cli"), "@langchain/langgraph-cli");
+    packageAt(join(cliModules, "extract-zip"), "extract-zip");
+    packageAt(join(dir, "node_modules", "create-langgraph"), "create-langgraph");
+    packageAt(
+      join(dir, "node_modules", "create-langgraph", "node_modules", "extract-zip"),
+      "extract-zip",
+    );
+
+    expect([...installedForbiddenOf(dir)].sort()).toEqual(
+      [
+        join("node_modules", "@langchain", "langgraph-cli", "node_modules", "extract-zip"),
+        join("node_modules", "create-langgraph", "node_modules", "extract-zip"),
+        join("node_modules", "extract-zip"),
+      ].sort(),
+    );
+  });
+});

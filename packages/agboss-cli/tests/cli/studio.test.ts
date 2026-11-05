@@ -8,13 +8,21 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommandContext, OptionValues } from "../../src/cli/context.js";
 import { exportNameOf } from "../../src/cli/studio-config.js";
-import { langGraphDevOf, portOf, prepareStudio } from "../../src/cli/studio.js";
+import { listenForServer, pipePathOf } from "../../src/cli/studio-ipc.js";
+import {
+  DEFAULT_STUDIO_URL,
+  serverEnvOf,
+  studioServerOptionsOf,
+  watchedFilesOf,
+} from "../../src/cli/studio-server.js";
+import { portOf, prepareStudio, studioServerOf, studioServerScript } from "../../src/cli/studio.js";
 import { agboss, fixture } from "./agboss.js";
 
 /**
@@ -23,6 +31,7 @@ import { agboss, fixture } from "./agboss.js";
  */
 
 const STUDIO = fixture("cli/studio/studio.workflow.ts");
+const cliRoot = fileURLToPath(new URL("../..", import.meta.url));
 const KEY = { OPENROUTER_API_KEY: "sk-placeholder" };
 
 const projects: string[] = [];
@@ -171,25 +180,103 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
   });
 });
 
-describe("#268 AC7: the LangGraph dev server on the written config", () => {
-  it("runs this Node on the langgraphjs script of @langchain/langgraph-cli, with --config and --port", async () => {
+describe("#268 AC7, #791: the LangGraph dev server on the written config", () => {
+  it("runs this Node on studio-server (on @langchain/langgraph-api), with --config and --port", async () => {
     const cwd = project();
     const context = contextOf(cwd, { port: "2077" });
     const studio = await prepareStudio(context);
 
-    const line = langGraphDevOf(studio, portOf(context));
+    const line = studioServerOf(studio, portOf(context));
 
     expect(line.command).toBe(process.execPath);
-    const [script, ...args] = line.args;
-    expect(script).toMatch(/@langchain\/langgraph-cli\/dist\/cli\/cli\.mjs$/);
+    // from source: tsx registered for the .ts script
+    const [flag, loader, script, ...args] = line.args;
+    expect([flag, loader]).toEqual(["--import", "tsx"]);
+    expect(script).toBe(fileURLToPath(new URL("../../src/cli/studio-server.ts", import.meta.url)));
     expect(existsSync(script ?? "")).toBe(true);
-    expect(args).toEqual([
-      "dev",
-      "--config",
-      join(cwd, ".agboss/langgraph.json"),
-      "--port",
-      "2077",
+    expect(args).toEqual(["--config", join(cwd, ".agboss/langgraph.json"), "--port", "2077"]);
+  });
+
+  it("the built package runs the built script, with no loader", () => {
+    const built = pathToFileURL(join(cliRoot, "dist/cli/studio.js")).href;
+
+    expect(studioServerScript(built)).toBe(join(cliRoot, "dist/cli/studio-server.js"));
+  });
+
+  it("studio-server reads --config (made absolute) and --port (2024 by default)", () => {
+    expect(studioServerOptionsOf(["--config", "x/langgraph.json", "--port", "2077"])).toEqual({
+      config: resolve("x/langgraph.json"),
+      port: "2077",
+    });
+    expect(studioServerOptionsOf(["--config", "/p/langgraph.json"]).port).toBe("2024");
+    expect(() => studioServerOptionsOf(["--port", "1"])).toThrow("--config <file> is required");
+  });
+
+  it("the config's env file is read under the process's variables, which win", () => {
+    const folder = project();
+    writeFileSync(join(folder, ".env"), "FROM_FILE=file\nBOTH=file\n");
+    const config = { graphs: {}, env: "./.env" };
+
+    const env = serverEnvOf(config, folder, { BOTH: "process" });
+
+    expect(env).toEqual({ FROM_FILE: "file", BOTH: "process" });
+    expect(watchedFilesOf(join(folder, "langgraph.json"), config)).toEqual([
+      join(folder, "langgraph.json"),
+      join(folder, ".env"),
     ]);
+  });
+
+  it("a missing env file and an env object: the server starts on what there is", () => {
+    const folder = project();
+
+    expect(serverEnvOf({ graphs: {}, env: "./.env" }, folder, { A: "1" })).toEqual({ A: "1" });
+    expect(serverEnvOf({ graphs: {}, env: { B: "2" } }, folder, { A: "1" })).toEqual({
+      A: "1",
+      B: "2",
+    });
+    expect(serverEnvOf({ graphs: {} }, folder, { A: "1" })).toEqual({ A: "1" });
+    expect(watchedFilesOf("/p/langgraph.json", { graphs: {} })).toEqual(["/p/langgraph.json"]);
+  });
+
+  it("the pipe the server reports on is langgraph-api's: <tmp>/tsx-<uid>/<pid>.pipe", () => {
+    const path = pipePathOf(1234);
+
+    expect(path).toBe(join(tmpdir(), `tsx-${String(process.geteuid?.())}`, "1234.pipe"));
+    expect(DEFAULT_STUDIO_URL).toBe("https://smith.langchain.com");
+  });
+
+  it("a message on that pipe reaches the listener, one per length-prefixed frame", async () => {
+    const messages: unknown[] = [];
+    const server = await listenForServer((message) => messages.push(message));
+    const frame = (value: unknown): Buffer => {
+      const body = Buffer.from(JSON.stringify(value));
+      const length = Buffer.alloc(4);
+      length.writeInt32BE(body.length, 0);
+      return Buffer.concat([length, body]);
+    };
+    const socket = createConnection(pipePathOf(process.pid));
+    await new Promise<void>((resolve) => socket.once("connect", resolve));
+    // a message split across writes, a frame that is no JSON (ignored), then a second message
+    const first = frame({ queryParams: "baseUrl=http://localhost:2024" });
+    socket.write(first.subarray(0, 6));
+    socket.write(
+      Buffer.concat([
+        first.subarray(6),
+        frame("x").subarray(0, 4),
+        Buffer.from("{{{"),
+        frame({ n: 2 }),
+      ]),
+    );
+    try {
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(2);
+      });
+    } finally {
+      socket.destroy();
+      server.close();
+    }
+
+    expect(messages).toEqual([{ queryParams: "baseUrl=http://localhost:2024" }, { n: 2 }]);
   });
 
   it.each([

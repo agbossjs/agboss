@@ -16,7 +16,7 @@ import { CliError } from "./errors.js";
 export const STUDIO_FOLDER = ".agboss";
 /** The module LangGraph loads the graphs from. */
 export const STUDIO_ENTRY = "studio.ts";
-/** The LangGraph CLI's config (`langgraphjs dev --config …`). */
+/** The LangGraph dev server's config (`studio-server --config …`, as `langgraphjs dev` read it). */
 export const STUDIO_CONFIG = "langgraph.json";
 
 /** What the generated module imports and builds. */
