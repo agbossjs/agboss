@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a child on any instance waits for its siblings' spend, pinned (#776)
+
+- **Tests**: a child on any instance (`ChildPlacement.AnyInstance`) is queued only once the tree's
+  spend so far is in the ledger (#732) — also spend a sibling branch tallies after the launching
+  step's own checkpoint, which the checkpoint write's wait does not cover. A test now holds a
+  sibling's $60 write while a grandchild is about to be queued: the grandchild waits for it and its
+  second $50 is held back at $110 (without the wait it paid $50 twice beside the pending $60, $160
+  of $100). The checkpoint write that waits for the pass's spend (`SettledSpendCheckpointSaver`)
+  joins the `money` mutation shard. [FinOps](FinOps).
+
 ## Unreleased — 0.1.1: a lost ledger answer is counted once by the pass's checks (#770)
 
 - **Fixed**: a tallied spend's ledger write (#727) that landed while its caller heard an error was

@@ -246,7 +246,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   end of the superstep that spent it. The execution's state keeps the record marked as in the
   ledger, with its id (`ledgerId`), so no later pass writes it again: the pass writes a checkpoint
   only once every spend it tallied before is in the ledger, and queues a child on any instance only
-  then, so a takeover or a recovery that finds a marked record finds it counted. What is not tallied
+  then — also once the spend a sibling branch tallied after the launching step's own checkpoint is
+  written (#776) —, so a takeover or a recovery that finds a marked record finds it counted. What is not tallied
   (a router's decision) is written when its step ends. A read of the counters never overlaps a
   write of the same pass, and a child on any instance has its spend taken in by its parent's pass
   with a read of the counters before the parent's state shows it: every dollar counts once,
