@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `testWith` gives the application's PII key field the test key (#778)
+
+- **Fixed**: under `testWith` a fixed test key covered a PII policy's own `pseudonymKey` but not
+  `@Application({ pseudonymKey: "piiPseudonymKey" })`: the test environment's
+  `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")` failed resolution as a missing variable before the
+  key was read, so every project set `PII_PSEUDONYM_KEY` in its vitest `env`. The field's variable
+  now gets the test key when the test process does not set it (a test that sets it keeps its value);
+  `createApp` and the CLI still refuse to start without it.
+  [Environments → The PII key](Environments#the-pii-key).
+
 ## Unreleased — 0.1.1: the ledger's entries are pruned; a late retry is refused, never counted twice (#771)
 
 - **Changed — breaking for stores outside the core**: `CostLedgerRepository` has a new abstract

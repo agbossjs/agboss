@@ -241,9 +241,14 @@ The application's PII key (#120) is a `Secret` field of the environment, named b
     error under `agboss check --strict`, silent in tests. Only one value gets another token in each
     execution, and logs and traces mask with a key of the instance, so tokens compare across
     executions (and the logs of several instances) only with the application's key.
-  - `testWith` uses a fixed test key when the variable is unset (no warning).
-- **Tests and the optional field:** declare it optional (`piiPseudonymKey?: Secret`) and leave it out
-  of `test.environment.ts`, as a model provider's key; `flow-patterns` does so.
+  - `testWith` uses a fixed test key when the variable is unset (no warning, #778): the field's
+    `secret("PII_PSEUDONYM_KEY")` resolves to it, so a project's tests need no variable in their
+    vitest `env`; a test that sets the variable keeps its own value. `createApp` and the CLI never
+    do: without the variable the start fails (`PII_PSEUDONYM_KEY is not set
+    (AppEnvironment.piiPseudonymKey, dev)`).
+- **Tests and the optional field:** a test environment may also declare it optional
+  (`piiPseudonymKey?: Secret`) and leave it out of `test.environment.ts`, as a model provider's
+  key; `flow-patterns` does so.
 
 See [Guards → PII policies](Guards#pii-policies).
 
