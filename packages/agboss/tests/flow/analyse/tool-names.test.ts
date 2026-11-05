@@ -12,6 +12,7 @@ import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 import { workflowOf } from "../../../src/testing/index.js";
 import { workflowWith } from "../../components/fixture/deps-contract.workflow.js";
+import { RagTenancy } from "../../../src/rag/types.js";
 
 class Topic {
   @Text({ prompt: "the topic" })
@@ -35,14 +36,14 @@ class LongTool implements ToolHandler<Topic, Topic> {
   }
 }
 
-@Rag({ name: "jobs-rag", description: "Jobs", topK: 1 })
+@Rag({ name: "jobs-rag", description: "Jobs", tenancy: RagTenancy.PerTenant, topK: 1 })
 class JobsRag {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({ results: [] });
   }
 }
 
-@Rag({ name: "notes.v2", description: "Notes", topK: 1 })
+@Rag({ name: "notes.v2", description: "Notes", tenancy: RagTenancy.PerTenant, topK: 1 })
 class DottedRag {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({ results: [] });

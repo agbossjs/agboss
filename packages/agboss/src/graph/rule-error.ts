@@ -143,6 +143,8 @@ export type RuleCode =
   | "guardrail.no-model-call"
   // knowledge bases' reranking (#703)
   | "rag.rerank-invalid"
+  // a knowledge base's declared tenancy (#796)
+  | "rag.tenancy-required"
   | "rag.not-a-reranker"
   | "reranker.missing-handler"
   | "reranker.decision-model"

@@ -10,6 +10,7 @@ import { createApp } from "../../src/application/create-app.js";
 import {
   Rag,
   RagMode,
+  RagTenancy,
   Reranker,
   type RagConnector,
   type RagRetrieval,
@@ -51,7 +52,12 @@ class NotAReranker {
 }
 
 function workflowReading(by: Class, counts = { candidates: 10, keep: 3 }): Class {
-  @Rag({ name: "docs-rag", description: "Docs", rerank: { by, ...counts } })
+  @Rag({
+    name: "docs-rag",
+    description: "Docs",
+    tenancy: RagTenancy.PerTenant,
+    rerank: { by, ...counts },
+  })
   class DocsRag extends Empty {}
   @Agent({
     name: "reader-agent",
@@ -99,7 +105,7 @@ describe("#703: reranking at assembly", () => {
     const bundle = await workflowOf(workflowReading(DefaultModelReranker));
 
     expect(describeWorkflow(bundle)).toContain(
-      "    rag: docs-rag (tool, k 3, reranked by docs-reranker from 10, on failure fallback)",
+      "    rag: docs-rag (tool, k 3, per-tenant, reranked by docs-reranker from 10, on failure fallback)",
     );
     expect(bundle.rerankers).toEqual([{ name: "docs-reranker", model: "openai/gpt-4.1-nano" }]);
   });

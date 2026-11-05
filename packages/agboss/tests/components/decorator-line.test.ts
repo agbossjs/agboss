@@ -18,7 +18,7 @@ import {
 import type { ModelCapabilities } from "../../src/models/capabilities.js";
 import type { ProviderConnection } from "../../src/models/handler.js";
 import { PiiAction, PiiKind, PiiPolicy, Tool, pii, type PiiMatch } from "../../src/index.js";
-import { Rag } from "../../src/rag/index.js";
+import { Rag, RagTenancy } from "../../src/rag/index.js";
 import { Text } from "../../src/dto/index.js";
 import type { RagRetrieval } from "../../src/rag/types.js";
 import { minutes, seconds } from "../../src/units/index.js";
@@ -33,7 +33,7 @@ interface NarrowQuery {
   readonly query: "order" | "refund";
 }
 
-@Rag({ name: "docs", description: "Docs", topK: 3 })
+@Rag({ name: "docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 3 })
 export class DocsRag {
   retrieve(query: string): Promise<RagRetrieval> {
     return Promise.resolve({ results: [], costUsd: query.length * 0 });
@@ -41,7 +41,7 @@ export class DocsRag {
 }
 
 // @ts-expect-error -- retrieve takes any query text, not only "faq": strict on the decorator line
-@Rag({ name: "narrow-docs", description: "Docs", topK: 3 })
+@Rag({ name: "narrow-docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 3 })
 export class NarrowDocsRag {
   retrieve(query: "faq"): Promise<RagRetrieval> {
     return Promise.resolve({ results: [], costUsd: query.length * 0 });

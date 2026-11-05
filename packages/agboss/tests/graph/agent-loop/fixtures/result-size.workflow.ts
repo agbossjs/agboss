@@ -24,6 +24,7 @@ import type { RagRetrieval } from "../../../../src/rag/types.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { start } from "../../../helpers/flow.js";
+import { RagTenancy } from "../../../../src/rag/types.js";
 
 /** What the observer saw of each tool call, and every text the PII detector read (tests reset both). */
 export const toolEnds: ToolEndEvent[] = [];
@@ -97,7 +98,7 @@ export class BrokenPageTool implements ToolHandler<PageQuery, PageContent> {
 }
 
 /** A knowledge base in context mode: its block is bounded by the agent's `maxResultSize`. */
-@Rag({ name: "pages-rag", description: "Pages", topK: 1, deps: [PageReader] })
+@Rag({ name: "pages-rag", description: "Pages", tenancy: RagTenancy.PerTenant, topK: 1, deps: [PageReader] })
 export class PagesRag {
   constructor(private readonly pageReader: PageReader) {}
 

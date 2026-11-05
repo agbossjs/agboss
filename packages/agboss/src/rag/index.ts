@@ -2,7 +2,7 @@ import "../polyfills/symbol-metadata.js";
 
 /** Knowledge bases (RAG): the connector contract and the reference implementation (Wiki → Knowledge bases). */
 export { Rag } from "../components/decorators.js";
-export { DEFAULT_RERANKER_MODEL, RagMode, RerankFailurePolicy } from "./types.js";
+export { DEFAULT_RERANKER_MODEL, RagMode, RagTenancy, RerankFailurePolicy } from "./types.js";
 export type {
   IndexReport,
   KnowledgeRetrieve,

@@ -805,6 +805,10 @@
                   "exclusiveMinimum": 0,
                   "maximum": 9007199254740991
                 },
+                "tenancy": {
+                  "type": "string",
+                  "enum": ["per-tenant", "shared"]
+                },
                 "rerank": {
                   "type": "object",
                   "properties": {
@@ -824,7 +828,7 @@
                   "required": ["reranker", "candidates", "onFailure"]
                 }
               },
-              "required": ["name", "mode", "topK"]
+              "required": ["name", "mode", "topK", "tenancy"]
             }
           }
         },

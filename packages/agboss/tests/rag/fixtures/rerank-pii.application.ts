@@ -5,6 +5,7 @@ import { Application } from "../../../src/application/application.js";
 import {
   Rag,
   RagMode,
+  RagTenancy,
   Reranker,
   type RagConnector,
   type RagRetrieval,
@@ -49,6 +50,7 @@ export class PeopleReranker {}
 @Rag({
   name: "people-rag",
   description: "Who to ask",
+  tenancy: RagTenancy.PerTenant,
   rerank: { by: PeopleReranker, candidates: 3, keep: 3 },
 })
 export class PeopleRag extends Passages {
@@ -60,6 +62,7 @@ export class PeopleRag extends Passages {
 @Rag({
   name: "cards-rag",
   description: "Payment notes",
+  tenancy: RagTenancy.PerTenant,
   rerank: { by: PeopleReranker, candidates: 2, keep: 2 },
 })
 export class CardsRag extends Passages {

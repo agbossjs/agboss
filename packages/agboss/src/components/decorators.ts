@@ -1,5 +1,5 @@
 import type { McpServerConfig } from "../config/types.js";
-import type { RagConnector, RagRerank } from "../rag/types.js";
+import type { RagConnector, RagRerank, RagTenancy } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ChannelMeta } from "./meta-types.js";
@@ -149,12 +149,16 @@ type RagResultCount =
 /**
  * A knowledge base: a class implementing `RagConnector`. `topK` (passages per retrieval) is required —
  * there is no default — or `rerank` in its place (#703: fetch `candidates`, a `@Reranker` keeps
- * `keep`). Agents bind it with a required `mode`: `rag: [{ use: CompanyDocs, mode: "tool" }]`.
+ * `keep`); `tenancy` is required too (#796: `RagTenancy.PerTenant` or `Shared`, else
+ * `[rag.tenancy-required]` at assembly). Agents bind it with a required `mode`:
+ * `rag: [{ use: CompanyDocs, mode: "tool" }]`.
  */
 export function Rag<const D extends readonly Token[] = []>(
   options: {
     readonly name: string;
     readonly description: string;
+    /** Whose content it serves (#796): each tenant's own, or one corpus every tenant may read. */
+    readonly tenancy: RagTenancy;
     readonly prompt?: string;
     readonly promptUrls?: readonly string[];
     readonly deps?: D;

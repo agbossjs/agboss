@@ -24,6 +24,7 @@ import {
 import { Injectable, InjectionToken, Tool, type ToolHandler } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
+import { RagTenancy } from "../../../src/rag/types.js";
 
 /** One component of every kind that takes `deps`, each depending on `Vault` (which depends on SECRET). */
 export const SECRET = new InjectionToken<string>("SECRET");
@@ -121,7 +122,7 @@ export class StrictJudge implements JudgeHandler<KeptDto> {
   }
 }
 
-@Rag({ name: "docs", description: "Docs", topK: 1, deps: [Vault] })
+@Rag({ name: "docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 1, deps: [Vault] })
 export class VaultDocs {
   constructor(private readonly vault: Vault) {}
   retrieve(): Promise<RagRetrieval> {

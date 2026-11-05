@@ -5,7 +5,13 @@ import { Agent, EmptyEnvironment, InjectionToken, provide, Workflow } from "../.
 import { WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { Rag, RagMode, SqliteFtsConnector, type FtsOptions } from "../../../src/rag/index.js";
+import {
+  Rag,
+  RagTenancy,
+  RagMode,
+  SqliteFtsConnector,
+  type FtsOptions,
+} from "../../../src/rag/index.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
@@ -31,6 +37,7 @@ export const TENANT_DOCS = new InjectionToken<FtsOptions>("TENANT_DOCS");
 @Rag({
   name: "tenant-docs-rag",
   description: "The tenant's own documents",
+  tenancy: RagTenancy.PerTenant,
   topK: 3,
   deps: [TENANT_DOCS],
 })

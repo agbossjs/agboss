@@ -118,6 +118,18 @@ export interface RagRerank {
   readonly onFailure?: RerankFailurePolicy;
 }
 
+/**
+ * Whose content a knowledge base serves (#796): declared on every `@Rag`, so that content every
+ * tenant reads is a reviewed choice — never a connector that forgot the tenant. The core passes the
+ * execution's tenant either way (#700); `describe` prints the choice and `configHash` covers it.
+ */
+export enum RagTenancy {
+  /** Each tenant's own passages: `retrieve` and `index` read `tenantId` (`ragConnectorContract` proves it). */
+  PerTenant = "per-tenant",
+  /** One corpus every tenant may read (a public help center): the connector may ignore `tenantId`. */
+  Shared = "shared",
+}
+
 /** A knowledge base as the core runs it in context mode (retrieved before the agent's loop). */
 export interface KnowledgeSource {
   readonly name: string;

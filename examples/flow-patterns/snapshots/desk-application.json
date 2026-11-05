@@ -69,6 +69,26 @@
           "contract": "ExecutionHistoryRepository",
           "implementation": "SqliteExecutionHistoryRepository",
           "reason": "listed"
+        },
+        {
+          "contract": "ChildExecutionQueueRepository",
+          "implementation": "InMemoryChildExecutionQueueRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "FencedEffectRepository",
+          "implementation": "InMemoryFencedEffectRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "ExecutionLeaseEventRepository",
+          "implementation": "InMemoryExecutionLeaseEventRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "OutboundCallRepository",
+          "implementation": "InMemoryOutboundCallRepository",
+          "reason": "default"
         }
       ],
       "modelProviders": [
@@ -196,7 +216,7 @@
         "name": "desk-workflow",
         "version": "1.0.0",
         "profile": "base",
-        "config": "3cabfc93",
+        "config": "05162c07",
         "piiPolicies": [
           {
             "name": "customer-id-pii-policy",
@@ -293,7 +313,7 @@
           "least": 1,
           "most": 1
         },
-        "configHash": "3cabfc9327581f5ab807e2eb12b7e7783ffae0a4ebfa4219a1f2de720185520f",
+        "configHash": "05162c07c0b7413794fecc3fc1788e95a23a5c750ff1484bd1f24a14e51bf1c6",
         "starts": [
           "desk-workflow-start"
         ],
@@ -334,7 +354,8 @@
                 {
                   "name": "shipping-policy-rag",
                   "mode": "tool",
-                  "topK": 2
+                  "topK": 2,
+                  "tenancy": "shared"
                 }
               ],
               "guardrails": {

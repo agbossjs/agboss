@@ -1,12 +1,12 @@
 import { RagMode } from "../../src/rag/types.js";
 import { Agent, Workflow, type Class } from "../../src/index.js";
-import { Rag } from "../../src/rag/index.js";
+import { Rag, RagTenancy } from "../../src/rag/index.js";
 import type { RagConnector, RagRetrieval } from "../../src/rag/index.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 
 /** A connector with fixed results — any class implementing the contract is a knowledge base. */
-@Rag({ name: "handbook", description: "The team handbook", topK: 2 })
+@Rag({ name: "handbook", description: "The team handbook", tenancy: RagTenancy.PerTenant, topK: 2 })
 export class Handbook implements RagConnector {
   readonly queries: string[] = [];
   retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
@@ -21,7 +21,7 @@ export class Handbook implements RagConnector {
 }
 
 /** Another implementation of the same knowledge base — swapping needs no change elsewhere. */
-@Rag({ name: "handbook", description: "The team handbook", topK: 2 })
+@Rag({ name: "handbook", description: "The team handbook", tenancy: RagTenancy.PerTenant, topK: 2 })
 export class HandbookFromApi implements RagConnector {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({

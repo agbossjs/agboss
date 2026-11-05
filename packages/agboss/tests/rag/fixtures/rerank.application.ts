@@ -5,6 +5,7 @@ import { Application } from "../../../src/application/application.js";
 import {
   Rag,
   RagMode,
+  RagTenancy,
   Reranker,
   RerankFailurePolicy,
   type RagConnector,
@@ -99,6 +100,7 @@ const rerankOf = (by: Class, onFailure?: RerankFailurePolicy) => ({
 @Rag({
   name: "model-ranked-rag",
   description: "Docs, model-reranked",
+  tenancy: RagTenancy.PerTenant,
   rerank: rerankOf(DocsReranker),
 })
 export class ModelRankedRag extends Candidates {}
@@ -106,6 +108,7 @@ export class ModelRankedRag extends Candidates {}
 @Rag({
   name: "keyword-ranked-rag",
   description: "Docs, keyword-reranked",
+  tenancy: RagTenancy.PerTenant,
   rerank: rerankOf(KeywordReranker),
 })
 export class KeywordRankedRag extends Candidates {}
@@ -113,6 +116,7 @@ export class KeywordRankedRag extends Candidates {}
 @Rag({
   name: "fallback-ranked-rag",
   description: "Docs, failing reranker",
+  tenancy: RagTenancy.PerTenant,
   rerank: rerankOf(FailingReranker),
 })
 export class FallbackRankedRag extends Candidates {}
@@ -120,6 +124,7 @@ export class FallbackRankedRag extends Candidates {}
 @Rag({
   name: "strict-ranked-rag",
   description: "Docs, failing reranker, strict",
+  tenancy: RagTenancy.PerTenant,
   rerank: rerankOf(FailingReranker, RerankFailurePolicy.FailStep),
 })
 export class StrictRankedRag extends Candidates {}
@@ -127,6 +132,7 @@ export class StrictRankedRag extends Candidates {}
 @Rag({
   name: "inventing-ranked-rag",
   description: "Docs, inventing reranker",
+  tenancy: RagTenancy.PerTenant,
   rerank: rerankOf(InventingReranker),
 })
 export class InventingRankedRag extends Candidates {}

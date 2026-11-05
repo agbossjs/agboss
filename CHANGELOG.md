@@ -66,13 +66,23 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   `options.tenantId` in `retrieve` and `index`, key every stored chunk by it, and run
   `ragConnectorContract` (`@agboss/core/testing/contracts`) in your tests — it fails a connector that
   ignores or folds the tenant, appends on re-index, ignores `topK` or the signal, or reports a cost
-  that is not a number from 0. Content every tenant may read (a public help center) stays a
-  connector's choice. `SqliteFtsConnector`: nothing to change — its index file migrates itself on
+  that is not a number from 0. Content every tenant may read (a public help center) is declared
+  `RagTenancy.Shared` (#796, below). `SqliteFtsConnector`: nothing to change — its index file migrates itself on
   first open (the old chunks become the `default` tenant's; another tenant indexes its own copy on
   its first retrieval); `folder` may now be a function `tenantId → folder | undefined` for each
   tenant's own documents. `agboss rag index` takes `--tenant <id>` (default `default`); a retrieval
   outside an execution is `context.unavailable`. `KnowledgeSource.retrieve` is `KnowledgeRetrieve`
   (the core supplies the tenant).
+
+- **A knowledge base declares whose content it serves** (#796) — a connector could ignore
+  `tenantId` and still compile, and example 03's did: every tenant read one index. Nothing told a
+  shared corpus from a forgotten tenant. `@Rag` now requires `tenancy: RagTenancy.PerTenant` (each
+  tenant's own passages, read by `options.tenantId`; `ragConnectorContract` proves it) or
+  `RagTenancy.Shared` (one corpus every tenant may read). Without it the decorator does not compile,
+  and a JS project or a cast is `[rag.tenancy-required]` at assembly. `agboss describe` prints it
+  (`rag: docs-rag (tool, k 3, per-tenant)`), and `describe --json` (each agent's `rag[].tenancy`),
+  the profile schema and the `configHash` carry it. The core still passes the tenant either way.
+  `agboss generate rag` writes `PerTenant`. **Migration:** add `tenancy` to every `@Rag`.
 
 - **Ids and keys must be a key's text** (#538, #547, #552, #556, #578, #589, #591) — a business key,
   a thread id, a tenant id, an `ownerId` and every id a project's own `IdGenerator` mints are now
@@ -293,6 +303,14 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `data:` URL is exempt from a judge's masking.
 
 ### Fixed — guarantees and safety
+
+- **MongoDB: a missing ledger pruning mark counted spend twice** (#798, agbossjs/mongodb) — the
+  #771 mark was created by the first prune, so a mark deleted by hand read as "never pruned", and a
+  pruned entry saved again by a late pass was counted a second time. The mark is now seeded once,
+  with `agboss_cost_entries`, and a save or a prune without it fails closed with
+  `MongoLedgerMarkMissingError` (`mongodb.ledger-mark-missing`), adding and deleting nothing, as
+  `PostgresLedgerMarkMissingError` does. A restart never seeds it again. The message is the remedy.
+  `@agboss/redis` keeps no ledger.
 
 - **Another tree's approval was dropped from the history** (#676, after #663) — the pause answer
   log kept one answer per tenant and step key, and a step key names no tree: a pause of another

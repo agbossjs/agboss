@@ -67,7 +67,7 @@ agents
   desk-agent  harness/desk · reasoning the provider's · max 8192 tokens · uncompactedTurns 2 · compaction case-notes-compaction (desk-workflow)
     Answers questions about orders
     limits: modelCalls 12 (default) · toolCalls 3
-    rag: shipping-policy-rag (tool, k 2)
+    rag: shipping-policy-rag (tool, k 2, shared)
     defaults: temperature 0 (built-in) · maxTokens 8192 (built-in) · uncompactedTurns 2 (desk-workflow)
     · order-status-tool (local) ← OrderDeskService — Where an order is · maxResultSize 128 KB (built-in)
     · close-account-tool (local) — Closes a customer's account · maxResultSize 128 KB (built-in)

@@ -1736,7 +1736,11 @@ export class ArchiveAgent {}
   execution's tenant on every `retrieve(query, { topK, signal, tenantId })` and `index({ tenantId,
 signal })` (read from the step's frame, checked as a key's text — `dto.invalid` naming the rule,
   never the id; none → `context.unavailable`, never `"default"`); a connector returns and indexes
-  that tenant's passages only, compared as given. `SqliteFtsConnector` keys every chunk by tenant
+  that tenant's passages only, compared as given. Whose content it serves is declared (#796):
+  `@Rag({ tenancy: RagTenancy.PerTenant | RagTenancy.Shared })` is required — `PerTenant` reads
+  `options.tenantId`, `Shared` is one corpus every tenant may read, a reviewed choice; none is a
+  compile error, and a JS project or a cast is `[rag.tenancy-required]` at assembly; describe prints
+  it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
   (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
   file migrates in place to the `default` tenant, a later version is `rag.index-version`), each
   document replaced in one transaction; `agboss rag index --tenant <id>` (default `default`). A
@@ -1761,7 +1765,7 @@ tenantId })` → `RagReranking { results, costUsd? }`, `deps`; a dedicated API s
   `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`) failing the agent's step in both
   modes. The LLM reranker's model reads the query and the candidates (texts and sources) as the reading agent's own model does (#708: that agent's PII policies, its execution's sensitive values and key — in context mode the agent's, in tool mode the searching agent's; a block rule in them refuses as at the agent's boundary: the search call refused, the execution refused in context mode, and no model reads them); a code reranker's call is the project's own. The same holds for a model judge's calls in an agent's quality gate (`judgeModel.invoke` / `decide` masked, its chat reply revealed before the judge reads it) and a model arbiter's (the answering agent's policies). The reranking is the span `rerank:<rag>` (its model call inside, both masked); its spend a `UsageRecord`
   under `rag:<rag>` (category `retrieval`, the reranker's model; a code one's `costUsd` cost source
-  `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, reranked by
+  `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, per-tenant, reranked by
 docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`
   runs the suite through the core's reranking; a scripted agent searches with `callTool(HandbookRag, { query })` (the `@Rag`'s search tool), `testRag(R, { model })` scripts its model reranker. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.

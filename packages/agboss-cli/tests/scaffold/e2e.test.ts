@@ -179,7 +179,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(
       readFileSync(join(project, "src/routers/escalation/escalation.router.ts"), "utf8"),
     ).toContain("maxVisits: 1,");
-    expect(out).toContain("rag: policies-rag (tool, k 3)");
+    expect(out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
     expect(out).toContain("· refund-tool (local)");
     expect(out).toContain("· tickets-search-tool (MCP tickets)");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto
