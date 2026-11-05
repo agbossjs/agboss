@@ -1589,7 +1589,8 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    released: other instances see the tree held ([#516](#a-parent-waiting-for-remote-children-516)).
 2. Every instance whose workflows launch such a child claims queued rows while it has a free step
    slot ([#332](#an-instances-cap-on-steps-332); no cap → always): at once when a child is queued in
-   its own process, and at every sweep (30 s) for the ones queued elsewhere.
+   its own process or when the store's watch wakes it (#777, [below](#woken-by-the-store-777)), and
+   at every sweep (30 s), which claims whatever a lost wake-up left queued.
    `claimFirstByStatusQueuedOrderByDepthDesc` takes the deepest child first, then the longest
    waiting, and marks it `Running` with its `instanceId` — atomically (`BEGIN IMMEDIATE` on SQLite),
    so of two instances exactly one gets it.
@@ -1621,6 +1622,34 @@ is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` 
 `:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
 are checked where the child runs, and each spend reaches the root's counters the moment it is made
 (#727), the child queued only once its parent's spend is there (#732).
+
+### Woken by the store (#777)
+
+Without a wake-up from the store, an instance sees a child queued in another process only at its
+next sweep: a pod that has just scaled out, or one whose last look found the queue empty, idles up
+to 30 s while children wait. A store that can be woken implements the optional
+`watchQueued(onQueued)` of `ChildExecutionQueueRepository`, which answers a
+`ChildExecutionQueueWatch` (`close()`):
+
+- Each instance opens one watch when its claimers start, before the sweep's first look; one that
+  rejects is warned (`child-queue.watch-failed`) and opened again at the next sweep. It is closed at
+  `app.close()`.
+- `onQueued` is a **hint**: it names no child. The woken instance claims as usual — only when it has
+  room (a wake-up with every slot busy asks the store nothing), atomically, the deepest first — and
+  of several instances woken by one child, one gets it.
+- **A lost wake-up never loses work.** A dropped connection, a notification never delivered, a watch
+  that did not open: the child stays `Queued` and the next sweep (every 30 s) claims it. A watch
+  whose connection comes back calls `onQueued` once, for a child queued while it was down.
+- **No load on an empty queue**: a watch waits on the store's own push; nothing is polled.
+
+| Store | Wake-up |
+| --- | --- |
+| in-memory, SQLite | none: a child queued in the same process wakes its claimers at once (an in-process hint), any other at the sweep |
+| PostgreSQL ([Running on PostgreSQL](Running-on-PostgreSQL)) | `LISTEN` / `NOTIFY`: the save that queues a child notifies in its own statement, delivered at commit; one listening connection per instance |
+| MongoDB ([MongoDB](MongoDB)) | a change stream on the queue's collection (the replica set the stores require anyway): a document that becomes `queued` |
+
+The contract suite (`childExecutionQueueContract`) checks a store's watch when it has one: a child
+queued — or queued again — on another instance wakes it, and it is claimed on the wake-up.
 
 ### Finished work is never taken over (#520)
 

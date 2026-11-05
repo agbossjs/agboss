@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a child queued in another process wakes the claimers (#777)
+
+- **Added**: `ChildExecutionQueueRepository.watchQueued(onQueued)` (optional,
+  `ChildExecutionQueueWatch`). A store that can be woken — PostgreSQL `LISTEN` / `NOTIFY`, a MongoDB
+  change stream — has every instance with a free step slot claim a child another instance queued as
+  soon as it is queued, instead of at its next sweep (every 30 s): a freshly scaled-out pod no longer
+  idles up to 30 s while a backlog waits. A hint only — a lost wake-up is claimed at the sweep — and
+  idle on an empty queue. A store without it works as before. [Several
+  instances](Several-instances#woken-by-the-store-777).
+
 ## Unreleased — 0.1.1: a child on any instance waits for its siblings' spend, pinned (#776)
 
 - **Tests**: a child on any instance (`ChildPlacement.AnyInstance`) is queued only once the tree's
