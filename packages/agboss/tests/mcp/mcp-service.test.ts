@@ -259,7 +259,7 @@ describe("McpService over an in-memory MCP transport", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ agent: "clerk-agent", ask: { tool: "save-note-tool" } }],
+      pending: [{ step: "clerk-agent", ask: { tool: "save-note-tool" } }],
     });
     expect(resumed.isError).toBeFalsy();
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });

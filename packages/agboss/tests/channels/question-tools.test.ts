@@ -55,7 +55,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
         kind: PauseKind.Question,
         pauseId: expect.any(String),
         answeredBy: "thread-owner",
-        agent: "buyer-agent",
+        step: "buyer-agent",
         channel: "approver-question",
         childExecutionId: undefined,
         itemIndex: undefined,
@@ -73,7 +73,8 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     expect(pause).toMatchObject({
       status: PauseStatus.Pending,
       isSent: true,
-      agent: "buyer-agent",
+      kind: PauseKind.Question,
+      step: "buyer-agent",
       component: { name: "approver-question", kind: "question" },
     });
   });

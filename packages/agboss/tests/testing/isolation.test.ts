@@ -134,7 +134,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
         answeredBy: PauseAnswerer.ThreadOwner,
         kind: PauseKind.Approval,
-        agent: "support-agent",
+        step: "support-agent",
         channel: "terminal-user-channel",
         childExecutionId: undefined,
         itemIndex: undefined,

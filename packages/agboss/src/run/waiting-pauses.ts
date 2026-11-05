@@ -71,7 +71,7 @@ function waitingPauseOf(pause: PauseRecord): WaitingPause {
   const site = {
     pauseId: pause.pauseId,
     answeredBy: pause.answeredBy,
-    agent: pause.agent,
+    step: pause.step,
     channel: pause.channel,
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
     itemIndex: pause.itemIndex,

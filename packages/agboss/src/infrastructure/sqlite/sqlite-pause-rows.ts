@@ -3,6 +3,7 @@ import { z } from "zod";
 import { askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import {
+  PauseKind,
   PauseResolution,
   PauseStatus,
   type PauseAnswer,
@@ -44,13 +45,15 @@ const StoredPause = z.object({
   // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
   copyNumber: z.number().default(1),
   askedAt: z.string().default(""),
-  agent: z.string(),
+  // 0.1.1: stored, never inferred — a row written before is migrated at open (`PAUSE_KIND_MIGRATION`)
+  kind: z.enum(PauseKind),
+  step: z.string(),
   ...StoredLoopProgress,
   channel: z.string(),
   // a pause stored before #337 has none: its own step's key is its only branch key
   branchKeys: z.array(z.string()).optional(),
   answeredBy: z.enum(PauseAnswerer),
-  // an approval's tool call, or a question role's own ask (#659, #712): told apart by the component
+  // an approval's tool call, or a question role's own ask (#659, #712): told apart by `kind`
   ask: z.record(z.string(), z.unknown()),
 });
 
@@ -105,7 +108,7 @@ function toPauseRecord(row: unknown): PauseRecord {
   const record = component === undefined ? undefined : componentOfStored(component);
   const pause: PauseRecord = {
     ...stored,
-    ask: askOfStored(ask, record),
+    ask: askOfStored(ask, stored.kind),
     ...(record === undefined ? {} : { component: record }),
     ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
@@ -136,7 +139,8 @@ const storedOf = (pause: PauseRecord): string =>
     itemIndex: pause.itemIndex,
     copyNumber: pause.copyNumber,
     askedAt: pause.askedAt,
-    agent: pause.agent,
+    kind: pause.kind,
+    step: pause.step,
     component: pause.component,
     toolLoopIteration: pause.toolLoopIteration,
     validationAttempts: pause.validationAttempts,

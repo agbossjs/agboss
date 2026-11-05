@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, vi } from "vitest";
-import { ExecutionStatus, NotPausedError, type ExecutionOutput } from "@agboss/core";
+import { ExecutionStatus, NotPausedError, PauseKind, type ExecutionOutput } from "@agboss/core";
 import { callTool, replyWith, TestConcurrency, testWith } from "@agboss/core/testing";
 import { FlightBuyerAgent } from "../../../../src/approvals/agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../../../src/approvals/agents/venue-buyer/venue-buyer.agent.js";
@@ -26,7 +26,7 @@ const DECLINE = { approved: false, reason: "too expensive" };
 
 /** The id of the pause the agent's purchase waits in (a thread owner's pause lists it). */
 function pauseIdOf(result: ExecutionOutput, agent: string): string {
-  const pauseId = result.pending.find((pause) => pause.agent === agent)?.pauseId;
+  const pauseId = result.pending.find((pause) => pause.step === agent)?.pauseId;
   if (pauseId === undefined) throw new Error(`no pause of ${agent} is pending`);
   return pauseId;
 }
@@ -44,7 +44,12 @@ describe("two purchases wait for the thread's owner at once", () => {
     const paused = await app.execute(OffsiteBookingWorkflowStart, REQUEST, OWNER);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    expect(paused.pending.map((pause) => [pause.agent, pause.ask.arguments])).toEqual([
+    expect(
+      paused.pending.map((pause) => [
+        pause.step,
+        pause.kind === PauseKind.Approval ? pause.ask.arguments : pause.kind,
+      ]),
+    ).toEqual([
       ["venue-buyer-agent", VENUE],
       ["flight-buyer-agent", FLIGHTS],
     ]);
@@ -94,7 +99,7 @@ describe("two purchases wait for the thread's owner at once", () => {
     const first = await app.resume(answer, OWNER);
 
     await expect(app.resume(answer, OWNER)).rejects.toBeInstanceOf(NotPausedError);
-    expect(first.pending.map((pause) => pause.agent)).toEqual(["flight-buyer-agent"]);
+    expect(first.pending.map((pause) => pause.step)).toEqual(["flight-buyer-agent"]);
   });
 
   test("the terminal channel prints the purchase with its pause's id", async ({ app, mockLlm }) => {

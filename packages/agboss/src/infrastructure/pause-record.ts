@@ -7,6 +7,9 @@ import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import { componentOfStored, StoredComponent } from "./stored-step.js";
+import { PauseKind, type QuestionAsk } from "./pause-kind.js";
+
+export { PauseKind, questionAskOf, type QuestionAsk } from "./pause-kind.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -92,12 +95,6 @@ export interface PauseSite {
   readonly branchKeys?: readonly string[];
 }
 
-/**
- * What a question role's step asks (#659): the role's `ask` value, `sensitive` fields masked — the
- * project's own DTO, so any object.
- */
-export type QuestionAsk = Readonly<Record<string, unknown>>;
-
 /** What a pause asks: a tool call to approve, or a question role's ask (#659). */
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
@@ -105,15 +102,23 @@ export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 export interface PauseRecord extends PauseSite {
   /** A random 128-bit token (hex), made once per pause: the right to answer it (AC3). */
   readonly pauseId: string;
-  /** The agent whose tool call waits, or the question role's step that asks (#659). */
-  readonly agent: string;
+  /**
+   * What it waits for (0.1.1: stored, written by the step that pauses): a tool call's approval or
+   * a question role's answer — what `ask` is. A store keeps it as written, never infers it.
+   */
+  readonly kind: PauseKind;
+  /**
+   * The step that asks: the agent whose tool call waits (an agent asking a question role through
+   * its tool, #712, too), or a question role's step (#659).
+   */
+  readonly step: string;
   /** The channel asked: a role's name or a concrete `@Channel`'s. */
   readonly channel: string;
   /** Who may answer it (its channel role's `answeredBy`). */
   readonly answeredBy: PauseAnswerer;
   /**
    * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
-   * role's ask (#659) — told apart by the waiting step's `component.kind` (`isQuestionPause`).
+   * role's ask (#659) — told apart by `kind`.
    */
   readonly ask: PauseAsk;
   readonly status: PauseStatus;
@@ -129,9 +134,9 @@ export interface PauseRecord extends PauseSite {
   readonly resolvedAt?: string;
 }
 
-/** A pause of a question role's step (#659): its step's component is a question, not an agent. */
-export const isQuestionPause = (pause: Pick<PauseRecord, "component">): boolean =>
-  pause.component?.kind === ComponentKind.Question;
+/** A pause of a question role (#659, #712): its `kind` says, never its component. */
+export const isQuestionPause = (pause: Pick<PauseRecord, "kind">): boolean =>
+  pause.kind === PauseKind.Question;
 
 /** A pause of an agent's tool call: its `ask` is the call (every pause before #659). */
 export type ApprovalPauseRecord = PauseRecord & { readonly ask: ToolCallApprovalAskDto };
@@ -203,7 +208,7 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
     pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
     executionId: pause.executionId,
     step: {
-      component: pause.component ?? bareRecordOf(pause.agent, ComponentKind.Agent),
+      component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
       nodeId: pause.nodeId,
       visitNumber: pause.visitNumber,
       idempotencyKey: pause.stepKey,

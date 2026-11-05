@@ -139,6 +139,7 @@ describe("#659 AC2: a send that throws is the step's failure", () => {
         error: expect.objectContaining({
           code: "step.question",
           message: expect.stringContaining("inbox unreachable"),
+          details: expect.objectContaining({ question: "spending-limit-question" }),
         }),
       }),
     ]);

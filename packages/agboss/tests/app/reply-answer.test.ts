@@ -4,6 +4,7 @@
  */
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { describe, expect, it } from "vitest";
+import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
 import { UninterpretableReplyError } from "../../src/channels/channel-role.decorator.js";
@@ -28,7 +29,8 @@ const pause: PauseRecord = {
   visitNumber: 1,
   itemIndex: undefined,
   copyNumber: 1,
-  agent: "clerk-agent",
+  kind: PauseKind.Approval,
+  step: "clerk-agent",
   channel: "refund-approval-channel",
   answeredBy: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },

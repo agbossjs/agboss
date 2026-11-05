@@ -68,7 +68,7 @@ describe("#188: approval through a @Channel", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ agent: "clerk-agent", ask: { tool: "refund-tool" } }],
+      pending: [{ step: "clerk-agent", ask: { tool: "refund-tool" } }],
     });
     expect(desk.posted).toEqual([
       {

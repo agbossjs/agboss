@@ -56,7 +56,7 @@ const endOf = (run: ExecutionOutput): string => {
   if (run.finish !== undefined)
     return `it finished at "${run.finish.name}" with ${JSON.stringify(run.output)}`;
   const [waiting] = run.pending;
-  if (waiting !== undefined) return `it paused at "${waiting.agent}"`;
+  if (waiting !== undefined) return `it paused at "${waiting.step}"`;
   return `it ended ${run.status} without a finish`;
 };
 
@@ -101,7 +101,7 @@ export const workflowMatchers = {
 
   toHavePausedAt(this: MatcherContext, received: unknown, agent: Class): Verdict {
     if (!isExecutionOutput(received)) return wrongReceived("toHavePausedAt", RUN);
-    const pass = received.pending.some((pause) => pause.agent === nodeNameOf(agent));
+    const pass = received.pending.some((pause) => pause.step === nodeNameOf(agent));
     return verdict(this, pass, `the run to pause at ${nodeNameOf(agent)}`, endOf(received));
   },
 

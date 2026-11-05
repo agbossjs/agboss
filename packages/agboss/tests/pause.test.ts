@@ -78,7 +78,7 @@ describe("pause seam", () => {
       status: ExecutionStatus.Paused,
       pending: [
         {
-          agent: "alpha-agent",
+          step: "alpha-agent",
           ask: { tool: "send-email-tool", arguments: { to: "boss@example.com" } },
         },
       ],

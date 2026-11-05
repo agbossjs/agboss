@@ -139,7 +139,7 @@ export {
   type ChannelRoleBaseOptions,
   type ChannelRoleOptions,
 } from "../channels/channel-role.decorator.js";
-export { PauseKind, type PendingPauseSite } from "../pause/index.js";
+export { PauseKind, questionAskOf, type PendingPauseBase } from "../pause/index.js";
 export {
   ChannelOf,
   type ChannelAsk,

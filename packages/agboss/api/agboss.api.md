@@ -4829,18 +4829,19 @@ export enum PauseKind {
 
 // @public
 export interface PauseRecord extends PauseSite {
-    readonly agent: string;
     readonly answer?: PauseAnswer;
     readonly answeredBy: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
     readonly channel: string;
     readonly isSent: boolean;
+    readonly kind: PauseKind;
     readonly pauseId: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
     // (undocumented)
     readonly status: PauseStatus;
+    readonly step: string;
 }
 
 // @public
@@ -4882,7 +4883,7 @@ export enum PauseStatus {
 }
 
 // @public
-export interface PendingApproval extends PendingPauseSite {
+export interface PendingApproval extends PendingPauseBase {
     readonly ask: ToolCallApprovalAskDto;
     // (undocumented)
     readonly kind: PauseKind.Approval;
@@ -4895,17 +4896,17 @@ export const pendingOutboundCallOf: (key: FencedEffectKey, intent: OutboundCallI
 export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
-export interface PendingPauseSite {
-    readonly agent: string;
+export interface PendingPauseBase {
     readonly answeredBy: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
+    readonly step: string;
 }
 
 // @public
-export interface PendingQuestion extends PendingPauseSite {
+export interface PendingQuestion extends PendingPauseBase {
     readonly ask: QuestionAsk;
     // (undocumented)
     readonly kind: PauseKind.Question;
@@ -5211,15 +5212,26 @@ export class QualityGateError extends AgentFailedError {
 export function question<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
-export type QuestionAsk = Readonly<Record<string, unknown>>;
+export type QuestionAsk = {
+    readonly [questionAsk]: true;
+};
+
+// @public
+export const questionAskOf: (ask: unknown) => QuestionAsk;
 
 // @public
 export class QuestionFailedError extends StepFailedError {
-    constructor(question: string, cause: unknown);
+    constructor(options: QuestionFailedErrorOptions, cause: unknown);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "step.question";
     // (undocumented)
     name: string;
+    readonly question: string;
+}
+
+// @public
+export interface QuestionFailedErrorOptions {
+    readonly question: string;
 }
 
 // @public
@@ -7563,12 +7575,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/errors.ts:67:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/errors.ts:86:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:87:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:121:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:122:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:129:3 - (ae-undocumented) Missing documentation for "probability".
-// src/flow/runtime/errors.ts:130:3 - (ae-undocumented) Missing documentation for "threshold".
-// src/flow/runtime/errors.ts:152:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:153:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:132:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:133:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:140:3 - (ae-undocumented) Missing documentation for "probability".
+// src/flow/runtime/errors.ts:141:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/flow/runtime/errors.ts:163:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:164:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/execution-record.ts:23:3 - (ae-undocumented) Missing documentation for "scope".
 // src/flow/runtime/execution-record.ts:24:3 - (ae-undocumented) Missing documentation for "outdatedValues".
@@ -7797,12 +7809,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/outbound-call.repository.ts:256:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
 // src/infrastructure/outbound-call.repository.ts:263:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/outbound-call.repository.ts:268:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:77:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:78:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:119:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:52:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:68:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:69:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:80:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:81:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:124:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
@@ -7871,19 +7883,19 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:168:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:180:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:185:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:152:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:156:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:166:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:182:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:189:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:199:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:203:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:210:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:214:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:226:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:238:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:250:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:255:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:155:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:159:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:169:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:185:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:192:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:202:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:206:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:213:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:217:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:229:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:241:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:253:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:258:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -7951,8 +7963,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
-// src/pause/types.ts:81:3 - (ae-undocumented) Missing documentation for "kind".
-// src/pause/types.ts:88:3 - (ae-undocumented) Missing documentation for "kind".
+// src/pause/types.ts:79:3 - (ae-undocumented) Missing documentation for "kind".
+// src/pause/types.ts:86:3 - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts:10:3 - (ae-undocumented) Missing documentation for "ReplaceWithKind".
 // src/pii/actions.ts:11:3 - (ae-undocumented) Missing documentation for "ReplacePart".
 // src/pii/actions.ts:12:3 - (ae-undocumented) Missing documentation for "ReplaceWithToken".

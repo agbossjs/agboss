@@ -8,6 +8,7 @@
  * `tests/channels/concurrent-resume.test.ts`.
  */
 import { describe, expect, it } from "vitest";
+import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
@@ -26,7 +27,8 @@ import { withdrawPauses } from "../../src/app/paused-runs.js";
 import type { WithdrawnPause } from "../../src/pause/index.js";
 
 const question = {
-  agent: "desk-clerk-agent",
+  kind: PauseKind.Approval,
+  step: "desk-clerk-agent",
   ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
 };
 
@@ -159,7 +161,8 @@ describe("#267 S35: the pause step", () => {
       visitNumber: frame.step.visitNumber,
       itemIndex: undefined,
       copyNumber: 1,
-      agent: question.agent,
+      kind: question.kind,
+      step: question.step,
       channel: channel.name,
       answeredBy: PauseAnswerer.Channel,
       ask: question.ask,

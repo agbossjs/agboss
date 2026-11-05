@@ -2,11 +2,13 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import type {
-  PauseAnswerLog,
-  PauseCancellation,
-  PauseRecord,
-  QuestionAsk,
+import {
+  PauseKind,
+  questionAskOf,
+  type PauseAnswerLog,
+  type PauseCancellation,
+  type PauseRecord,
+  type QuestionAsk,
 } from "../infrastructure/pause-record.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { FrameSpec } from "../flow/context/frame.js";
@@ -49,16 +51,10 @@ export interface WithdrawnPause {
  */
 export type PauseWithdrawn = (withdrawn: WithdrawnPause) => Promise<void>;
 
-/** What a pause waits for (#659): a tool call's approval, or a question role's answer. */
-export enum PauseKind {
-  /** An agent's tool call through its channel: `ask` is the call, the answer a `ToolCallApprovalDecisionDto`. */
-  Approval = "approval",
-  /** A question role's step (`.toQuestion(Role)`): `ask` is the role's ask, the answer its `answer` DTO. */
-  Question = "question",
-}
+export { PauseKind, questionAskOf };
 
-/** Where a pause waits and who answers it, whatever it asks. */
-export interface PendingPauseSite {
+/** What every pending pause has, whatever it asks: where it waits and who answers it. */
+export interface PendingPauseBase {
   /**
    * The pause's id, what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause. A
    * `PauseAnswerer.Channel` pause's id is the right to answer it: only its channel has it (AC3).
@@ -66,8 +62,11 @@ export interface PendingPauseSite {
   readonly pauseId?: string;
   /** Who may answer it: the thread's owner, or whoever the channel's side authenticates. */
   readonly answeredBy: PauseAnswerer;
-  /** The agent whose tool call waits, or the question role's step that asks (#659). */
-  readonly agent: string;
+  /**
+   * The step that asks: the agent whose tool call waits (or that asks a question role through its
+   * tool, #712), or a question role's step (#659).
+   */
+  readonly step: string;
   /** The channel asked (a role's name, or a concrete `@Channel`'s). */
   readonly channel: string;
   /** The child execution it waits in (#263); `undefined` in the root. */
@@ -77,16 +76,19 @@ export interface PendingPauseSite {
 }
 
 /** A tool call waiting for its approval. */
-export interface PendingApproval extends PendingPauseSite {
+export interface PendingApproval extends PendingPauseBase {
   readonly kind: PauseKind.Approval;
   /** The question: the tool call waiting for an approval, `sensitive` fields masked. */
   readonly ask: ToolCallApprovalAskDto;
 }
 
 /** A question role's step waiting for its answer (#659). */
-export interface PendingQuestion extends PendingPauseSite {
+export interface PendingQuestion extends PendingPauseBase {
   readonly kind: PauseKind.Question;
-  /** The question role's ask, `sensitive` fields masked. */
+  /**
+   * The question role's ask, `sensitive` fields masked — opaque: read it as
+   * `const fields: Readonly<Record<string, unknown>> = pending.ask` (the role's ask DTO).
+   */
   readonly ask: QuestionAsk;
 }
 

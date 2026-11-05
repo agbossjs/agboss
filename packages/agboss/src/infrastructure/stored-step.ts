@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
+import { PauseKind, questionAskOf } from "./pause-kind.js";
 import type { PauseAsk } from "./pause-record.js";
 
 /**
@@ -42,7 +43,5 @@ const StoredApprovalAsk = z.object({
 });
 
 /** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
-export const askOfStored = (
-  ask: Readonly<Record<string, unknown>>,
-  component: ComponentRecord | undefined,
-): PauseAsk => (component?.kind === ComponentKind.Question ? ask : StoredApprovalAsk.parse(ask));
+export const askOfStored = (ask: Readonly<Record<string, unknown>>, kind: PauseKind): PauseAsk =>
+  kind === PauseKind.Question ? questionAskOf(ask) : StoredApprovalAsk.parse(ask);

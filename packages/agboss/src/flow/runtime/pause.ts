@@ -13,6 +13,7 @@ import {
   PauseResolution,
   PauseStatus,
   type PauseAnswerLog,
+  type PauseKind,
   type PauseAsk,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
@@ -44,11 +45,14 @@ export interface PauseChannel {
  * (`sensitive` fields masked).
  */
 export interface PauseQuestion {
-  readonly agent: string;
+  /** What it waits for: the record's `kind`, written as is (0.1.1). */
+  readonly kind: PauseKind;
+  /** The step that asks: the agent of the tool call (or of a question tool, #712), or the question step. */
+  readonly step: string;
   readonly ask: PauseAsk;
   /**
    * What asks, when it is not the step's own component: the question role an agent asks through
-   * its tool loop (#712) — the record's `component`, the #659 discriminator of a question.
+   * its tool loop (#712) — the record's `component`.
    */
   readonly component?: ComponentRecord;
 }
@@ -156,7 +160,8 @@ function newRecordOf(
     component: plainRecordOf(question.component ?? step.component),
     ...(step.toolLoopIteration === undefined ? {} : { toolLoopIteration: step.toolLoopIteration }),
     validationAttempts: step.validationAttempts,
-    agent: question.agent,
+    kind: question.kind,
+    step: question.step,
     channel: channel.name,
     branchKeys: branchKeysAt(frame),
     answeredBy: channel.answeredBy,

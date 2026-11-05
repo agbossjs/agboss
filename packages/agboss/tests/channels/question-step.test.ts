@@ -40,7 +40,7 @@ describe("#659 AC2: a question pauses like any pause", () => {
         kind: PauseKind.Question,
         pauseId: expect.any(String),
         answeredBy: "thread-owner",
-        agent: "spending-limit-question",
+        step: "spending-limit-question",
         channel: "spending-limit-question",
         childExecutionId: undefined,
         itemIndex: undefined,
@@ -61,6 +61,8 @@ describe("#659 AC2: a question pauses like any pause", () => {
     expect(pause).toMatchObject({
       status: PauseStatus.Pending,
       isSent: true,
+      kind: PauseKind.Question,
+      step: "spending-limit-question",
       component: { name: "spending-limit-question", kind: "question" },
     });
   });
