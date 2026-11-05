@@ -403,8 +403,14 @@ launch, on the chosen environment — as the server will, so an assembly problem
 stops it with exit 3 before any server starts; then it writes the git-ignored `.agboss/studio.ts` (one
 export per workflow, built by `studioOf` from `@agboss/core/internal`) and `.agboss/langgraph.json` (one graph
 per workflow, named by the workflow's full name; the project's `.env` when it has one) and runs
-LangGraph's dev server on them (`langgraphjs dev --config .agboss/langgraph.json --port N`, from
-`@langchain/langgraph-cli`, a dependency of `agboss-cli`). Both files are rewritten on every run.
+LangGraph's dev server on them: a child process of `agboss studio` that does what `langgraphjs dev
+--config .agboss/langgraph.json --port N` did, on `@langchain/langgraph-api` (a pinned dependency of
+`agboss-cli`) — the config's `env` file read into the server's environment, the server restarted when
+the config or that file changes, the sources reloaded by tsx, LangGraph Studio opened in the browser
+once the server is up (not with `BROWSER=none`), and no usage analytics sent. Both files are rewritten
+on every run. Since #791 the CLI does not install `@langchain/langgraph-cli`: its template download
+(`langgraphjs new`) brought `extract-zip`, which has advisories with no fixed release; Studio never
+needed it.
 
 What Studio shows (S37): a child workflow is a **subgraph inside its parent** — entered by an edge
 (`.toWorkflow(W)`, `route(W)`) or one per item (`.toParallelWorkflows(W, …)`), its steps drawn as

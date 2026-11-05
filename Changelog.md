@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `agboss studio` without `@langchain/langgraph-cli` (#791)
+
+- **Security**: `@agboss/cli` installed `extract-zip` 2.0.1 through `@langchain/langgraph-cli` (and its
+  `create-langgraph`) — two high advisories, GHSA-jmr9-qjv8-65gv and GHSA-7pqw-9j4j-h8q3, with no fixed
+  release — though `agboss studio` only ever ran `langgraphjs dev`, which extracts no archive. The CLI
+  now depends on `@langchain/langgraph-api` (pinned) and starts the dev server itself, the same way:
+  the same command and options, server, Studio URL and browser tab; no usage analytics are sent. A
+  fresh install's `npm audit --omit=dev` has no high or critical finding; the two moderate ones left
+  are `@hono/node-server` 1.x, which `@hono/node-ws` under `@langchain/langgraph-api` requires and no
+  1.x release fixes. Nothing changes for a project. [CLI](CLI).
+
 ## Unreleased — 0.1.1: what the idle signal does not see (#751)
 
 - **Fixed (docs)**: Autoscaling called idle "free of work" for scaling to zero, and the KEDA recipe
