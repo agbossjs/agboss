@@ -1541,7 +1541,7 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   workflow question asked by a flow step — `.returns(AskDto).toQuestion(Role).returns(AnswerDto)`
   (`question(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
   `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
-  from the path (its field `question`), asks the role's channel through the pause seam like an
+  from the path (its field `ask`, #802), asks the role's channel through the pause seam like an
   approval (`result.pending[i].kind === PauseKind.Question`, `ask` the masked question, `agent` the
   step; the record's `component.kind` is `question`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter

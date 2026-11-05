@@ -1192,19 +1192,15 @@ export interface VcrConfig {
     readonly mode?: VcrMode;
 }
 
-// @public @deprecated
-export const VCRMode: typeof VcrMode;
-
-// @public @deprecated
-export type VCRMode = VcrMode;
-
 // @public
-export enum VcrMode {
+enum VcrMode {
     AUTO = "AUTO",
     RECORD = "RECORD",
     RECORD_STALE = "RECORD_STALE",
     REPLAY = "REPLAY"
 }
+export { VcrMode as VCRMode }
+export { VcrMode }
 
 // @public
 export class VirtualClock extends Clock {

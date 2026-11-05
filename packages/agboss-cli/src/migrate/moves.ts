@@ -48,6 +48,7 @@ const RENAMED: ImportMoves["names"] = {
   "@agboss/core/testing": {
     Duration: { entry: "@agboss/core/testing", name: "ClockDuration" },
     TestClock: { entry: "@agboss/core/testing", name: "VirtualClock" }, // #262: the public test clock
+    VCRMode: { entry: "@agboss/core/testing", name: "VcrMode" }, // #802: cased as VcrConfig
   },
 };
 

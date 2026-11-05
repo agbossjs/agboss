@@ -61,6 +61,12 @@ describe("migrateImports (#195)", () => {
     );
   });
 
+  it("#802: VCRMode is imported as VcrMode, the local name kept", () => {
+    const after = migrate('import { VCRMode, testWith } from "@agboss/core/testing";');
+
+    expect(after.text).toBe('import { VcrMode as VCRMode, testWith } from "@agboss/core/testing";');
+  });
+
   it("#261: the observer and cancel names follow executions; the local name is kept", () => {
     const after = migrate(
       [
