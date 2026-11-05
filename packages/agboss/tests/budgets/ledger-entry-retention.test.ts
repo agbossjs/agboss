@@ -98,6 +98,7 @@ describe("#771: a lost answer retried around the sweep's prune", () => {
 
     await expect(meter.settled()).rejects.toBeInstanceOf(CostLedgerEntryExpiredError);
     await expect(meter.refresh()).rejects.toMatchObject({
+      name: "CostLedgerEntryExpiredError",
       code: "cost-ledger.entry-expired",
       ledgerIds: [kept?.ledgerId],
       prunedBefore: new Date(clock.now().getTime() - hours(24)),
