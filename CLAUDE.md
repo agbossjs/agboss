@@ -2315,7 +2315,9 @@ running, oldestQueuedAt? }`, one read per collection, a batch callback; a failed
   (the held leases' tally, `HeldLeases` on the lease log), counters `agboss.instance.lease.takeovers{reason}`,
   `.steps.handed_over{reason}`, `.executions.ended{workflow,outcome}`, `.compensations{workflow,status}`
   from a built-in observer the manager calls unmasked before the project's. Names, kinds, units and
-  labels: `src/metrics/metric-catalog.ts`, Wiki → Metrics; the callbacks end at `onDestroy`.
+  labels: `src/metrics/metric-catalog.ts`, Wiki → Metrics; the callbacks end at `onDestroy`. No gauge
+  sees a root handed over by a stop or left by a crash until another instance's sweep takes it (#751:
+  idle may read true meanwhile, `tests/metrics/hand-over-window.test.ts`).
 - **Health checks (#300):** `app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status,
 components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`; each
   `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Store |
