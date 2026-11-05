@@ -13,9 +13,10 @@ Breaking changes and notable additions, newest first. The API reports
   that reads the tenant (run `ragConnectorContract`), `Shared` for content every tenant may read.
   [Knowledge bases → Tenants](Knowledge-bases#tenants).
 - **Fixed** (agbossjs/mongodb): the #771 pruning mark was created by the first prune, so a mark
-  deleted by hand read as "never pruned" and a pruned entry saved again counted twice. It is seeded
-  with `agboss_cost_entries`, and without it a save or a prune fails closed with
-  `MongoLedgerMarkMissingError`. [FinOps](FinOps).
+  deleted by hand read as "never pruned" and a pruned entry saved again counted twice. It is made
+  in the transaction that creates `agboss_cost_entries`, and without it (or with a `prunedBefore`
+  that is no date) a save or a prune fails closed with `MongoLedgerMarkMissingError`.
+  [FinOps](FinOps).
 
 ## Unreleased — 0.1.1: the store author's suites no longer pass what they did not check (#799)
 
