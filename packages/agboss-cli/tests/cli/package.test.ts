@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { usage } from "../../src/cli/usage.js";
 
@@ -16,6 +17,10 @@ interface PackageJson {
 const cliDir = new URL("../..", import.meta.url).pathname;
 const frameworkDir = new URL("../../../agboss", import.meta.url).pathname;
 const cli = JSON.parse(readFileSync(join(cliDir, "package.json"), "utf8")) as PackageJson;
+// A child that runs for long is awaited, never run synchronously: execFileSync blocks the worker's
+// event loop, and past vitest's 60 s RPC timeout the run fails with "Timeout calling onTaskUpdate"
+// whatever the test asserts (#792).
+const run = promisify(execFile);
 const framework = JSON.parse(
   readFileSync(join(frameworkDir, "package.json"), "utf8"),
 ) as PackageJson;
@@ -49,7 +54,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
     expect(out).toContain("Usage: agboss <command>");
   });
 
-  it("empty directory: unpacked agboss-core-*.tgz bin delegates via AGBOSS_CLI_PACKAGE_SPEC to create a project", () => {
+  it("empty directory: unpacked agboss-core-*.tgz bin delegates via AGBOSS_CLI_PACKAGE_SPEC to create a project", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "agboss-empty-dir-test-"));
     try {
       const packDir = join(tmp, "packed");
@@ -60,19 +65,13 @@ describe("the command ships apart from the framework (#101, #205)", () => {
         mkdirSync(dir, { recursive: true });
       }
 
-      execFileSync("npm", ["pack", "--pack-destination", packDir], {
-        cwd: frameworkDir,
-        stdio: "pipe",
-      });
-      execFileSync("npm", ["pack", "--pack-destination", packDir], {
-        cwd: cliDir,
-        stdio: "pipe",
-      });
+      await run("npm", ["pack", "--pack-destination", packDir], { cwd: frameworkDir });
+      await run("npm", ["pack", "--pack-destination", packDir], { cwd: cliDir });
       const agbossTarball = join(packDir, `agboss-core-${framework.version}.tgz`);
       const cliTarball = join(packDir, `agboss-cli-${cli.version}.tgz`);
-      execFileSync("tar", ["-xzf", agbossTarball, "-C", unpackDir], { stdio: "pipe" });
+      await run("tar", ["-xzf", agbossTarball, "-C", unpackDir]);
 
-      execFileSync(
+      await run(
         process.execPath,
         [join(unpackDir, "package/bin/agboss.js"), "create", "my-app", "--yes", "--skip-install"],
         {
@@ -83,7 +82,6 @@ describe("the command ships apart from the framework (#101, #205)", () => {
             AGBOSS_NO_STAR: "1",
             npm_config_cache: cacheDir,
           },
-          stdio: "pipe",
         },
       );
 
