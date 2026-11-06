@@ -270,7 +270,7 @@ describe("#824: a follow-up sent again", () => {
   });
 
   it("its first outcome lost and its pause gone since: the task as it is, nothing kept or thrown", async () => {
-    const lostWith = async (state: DurableExecutionState, runError?: unknown) => {
+    const lostWith = async (state: DurableExecutionState, runError?: Error) => {
       const script = scriptOf({ state, ...(runError === undefined ? {} : { runError }) });
       const { tasks } = await setUp(script);
       const message = decide("f-1");

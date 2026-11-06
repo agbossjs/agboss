@@ -43,14 +43,10 @@ describe("#824: a new message's task", () => {
   it("saved submitted under a minted id, with the caller's peer; started with exactly the caller's options", async () => {
     const script = scriptOf();
     const parts = unitParts(script, newTasks(), { maxTaskDuration: seconds(90) });
-    const caller = callerOf({
-      caller: {
-        ownerId: "dana",
-        peer: "orders-application",
-        tenant: { tenantId: "acme" },
-        execution: { userId: "u-1" },
-      },
-    });
+    const resolved = { ownerId: "dana", peer: "orders-application", tenant: { tenantId: "acme" } };
+    // execution values of a start that declares them: this unit app's types declare none
+    Reflect.set(resolved, "execution", { userId: "u-1" });
+    const caller = callerOf({ caller: resolved });
 
     const task = await acceptedTask(parts, caller, hello("ctx-7"));
     await settle();
