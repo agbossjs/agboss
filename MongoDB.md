@@ -10,7 +10,7 @@ transactions — so it is also the proof that the store contracts are not shaped
 
 ## The stores
 
-The lease, fenced-effect and outbound-call stores declare `static backend = "mongodb"`: list the
+The lease, fenced-effect and outbound-call stores declare `static store = { backend: "mongodb" }`: list the
 three together ([Your own store → One transactional backend](Your-own-store#one-transactional-backend-526)).
 
 ```ts no-check: needs @agboss/mongodb — the providers of an application on MongoDB alone

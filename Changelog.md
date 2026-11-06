@@ -3,6 +3,41 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: business keys say what they do, under an idempotency secret of their own (#825)
+
+From the 0.1.1 API review (G1b, G5); the surface is not published yet, so no aliases.
+
+- **Changed — breaking**: under a business key a fenced effect names its `fingerprint`, or
+  `fingerprintPolicy: FingerprintPolicy.None` on purpose; `effectKeyOf(…, { businessKey })` alone
+  is an `OutboundCallKey`, which only `OutboundCalls.send` takes. Without either a fenced effect does
+  not compile, and a JavaScript caller is refused before any transaction (`FingerprintRequiredError`,
+  `fenced-effect.fingerprint-required`) — two effects with one business key and other work replayed
+  each other silently before. `EffectKey` is branded (`effectKeyForTesting` in
+  `@agboss/core/testing/contracts` for a store's tests). **Migration:** add the fingerprint of what
+  the work does. [Several instances](Several-instances#business-idempotency-keys-508).
+- **Changed — breaking**: `@Application({ idempotencyKeyField, previousIdempotencyKeyField? })` —
+  business-key fingerprints are keyed by a `Secret` of their own, required where business keys can
+  be made (`[application.idempotency-key-required]`), no unkeyed fallback
+  (`IdempotencyKeyMissingError`); rotation compares under both keys and stores under the current
+  one. `pseudonymKey` is `piiKeyField`; both are typed as `Secret` fields of the contract, and a key
+  shared with a provider's `apiKey` or another key is `[application.pii-key-shared]` /
+  `[application.idempotency-key-shared]`. **Migration:** `idempotencyKey!: Secret` in the contract,
+  `secret("IDEMPOTENCY_KEY")` in each environment, `idempotencyKeyField: "idempotencyKey"`.
+- **Changed — breaking**: `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` →
+  `{ calls, next? }` (was `pendingOutboundCalls`), and the store's
+  `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` keyset-paged;
+  `OutboundCalls(repository, settings, logger, clock)` all required; `OutboundCallReconciliation` a
+  union by `verdict`.
+- **Changed — breaking for stores**: one `static store: StoreDescriptor = { backend, leaseCheck? }`
+  replaces `static backend` / `leaseCheck` / `leaseRepository`; the fencing stores' clocks are
+  `Pick<StoreClock, "now">`; `markCompleted`'s parameter is `attemptOwner`.
+  [Your own store](Your-own-store).
+- **Renamed**: `JsonResult` → `JsonValue`; `checkedEffectName` / `checkedBusinessKey` →
+  `assertEffectName` / `assertBusinessKey`; `OutboundCallOutcomeStatus` → `OutboundCallSendStatus`;
+  `OutboundCallLeaseState.Superseded` → `LeaseClosed`; the lease log's `Superseded` /
+  `LeaseSuperseded` → `AttemptSuperseded` / `LeaseClosed` with `closedLease` (rows written before
+  read under the new names).
+
 ## Unreleased — 0.1.1: the A2A client speaks A2A v1.0 (#809)
 
 - **Changed — breaking**: `A2AClient` / `@A2AAgent` call any A2A v1.0 agent on the official

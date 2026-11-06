@@ -64,18 +64,19 @@ So every fencing store declares where its rows live, and assembly compares the d
 
 ```ts no-check: a fragment of a store class — the stores of agbossjs/postgres declare it so
 export class PostgresExecutionLeaseRepository extends ExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
   // …
 }
 
 export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolClient> {
-  static override readonly backend: string | undefined = "postgres";
-  static override readonly leaseRepository = PostgresExecutionLeaseRepository; // unit runners
+  // a unit runner finds its lease store by this backend too (#825)
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
   // …
 }
 ```
 
-- **`static backend`** is `"<kind>"` or `"<kind>:<database>"`. The built-in stores declare
+- **`static store`** (#825: one `StoreDescriptor = { backend, leaseCheck? }`, in place of the
+  separate `backend`, `leaseCheck` and `leaseRepository` statics): `backend` is `"<kind>"` or `"<kind>:<database>"`. The built-in stores declare
   `"in-memory"` and `"sqlite"`. Stores on a second PostgreSQL database declare
   `"postgres:billing"`. Two stores share a transactional backend exactly when they declare the same
   text.
@@ -92,7 +93,7 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
     first call (#539).
 
   Every violation of the layout is reported at once.
-- **The opt-out** is `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection`, and its name
+- **The opt-out** is `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection` in `static store`, and its name
   says what it gives up: the lease is read outside the write's transaction, so a holder whose lease
   was just taken over can still write. Such a store is not checked. Every start warns
   `[application.lease-check-not-atomic]`, which is an error under `agboss check --strict`. Such a
@@ -119,16 +120,18 @@ infrastructure implementation as its own registration (#526). A dependency of yo
 ## The key's rules: use the core's helpers
 
 A fenced effect's or an outbound call's key comes from `effectKeyOf(executionContext, name,
-{ businessKey?, fingerprint? })`. A store keeps a few rules about it, and `@agboss/core` exports each
-one (#526 AC5). Don't copy them:
+{ businessKey, fingerprint })` — an `EffectKey`, branded (#825): your store's own tests make one with
+`effectKeyForTesting(fields)` of `@agboss/core/testing/contracts`. A store keeps a few rules about it,
+and `@agboss/core` exports each one (#526 AC5). Don't copy them:
 
 | Helper | Use |
 | --- | --- |
-| `checkedEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
-| `checkedBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
+| `assertEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
+| `assertBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
+| `fingerprintErrorOf(key)` | beside them for a fenced effect (#825): `FingerprintRequiredError` for a business key with neither a `fingerprint` nor `FingerprintPolicy.None` (the base class's `saveResultIfAbsent` checks it before `runInTransaction`) |
 | `effectKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
 | `storedKeyFactsOf(key)` | what the row keeps of the key: its fingerprint and its step |
-| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyKeyConflictError` (never a replay); a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
+| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyKeyConflictError` (never a replay) — during a rotation the previous idempotency key's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
 | `pendingOutboundCallOf(key, intent, recordedAt)` | the record `saveIfAbsent` writes: the intent, `Pending` under the key's lease and token, its business identity |
 
 ## Recipes: SQL
@@ -360,7 +363,7 @@ return {'ran'}
 
 One call runs every contract the store set claims, with the same cases the core's own stores run
 (their suites are named `<contract> (<name>)`), and the `store set (<name>)` cases. Those check that
-each fencing store's class declares `static backend`, the same as the set's lease store
+each fencing store's class declares its backend (`static store`), the same as the set's lease store
 (`stores.executionLease`) — unless it opts out —, and that the lease store its own contract ran on
 is of that backend too (#542), so the set will assemble beside its own leases and its races were
 proven on them.
@@ -479,7 +482,7 @@ for any store, a networked one included, with no free race.
   - `one-live-holder`: at most one instance trusts the lease at any moment (from when it sent the
     request, for the `remaining` the store answered), and no epoch is granted twice;
   - `no-stale-write`: no write, fenced read, renewal, yield or reclaim is accepted at a superseded,
-    released, finished, closed (`Superseded`) or expired token;
+    released, finished, closed (`LeaseClosed`) or expired token;
   - `one-effect-per-key`: the step's fenced effect writes one business row, whoever runs it;
   - `one-send-per-business-key`: the other system is charged once per business key (a send is made
     only while its sender trusts its lease, and lands only before that trust ends);
@@ -532,7 +535,7 @@ for any store, a networked one included, with no free race.
 
 ### An opted-out store and `storeConformance` (#543)
 
-A fencing store that declares `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` says it
+A fencing store that declares `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection` in `static store` says it
 reads the lease outside its write's transaction. That is the author's statement, and no case result
 overrides it: such a store passes **no** fencing case, even when it would pass them all.
 
@@ -701,12 +704,14 @@ held operation. You write no seam of your own to force an order across processes
       work gets that transaction. A throw rolls everything back.
 - [ ] Every outbound-call method is fenced. `markPending` / `markCompleted` / `markFailed` are
       compare-and-sets. `leaseStateOf` reads and closes in one step.
-- [ ] `checkedEffectName` and `checkedBusinessKey` (#538: a business key's text — no control or
+- [ ] `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` (#538, #825: a business key's text — no control or
       format character, no lone surrogate, NFC; #547: no space but U+0020, single and inside; #556: nothing default-ignorable, private, a noncharacter, unassigned or U+2800) run at every fenced method's entry; a business key is
       stored and compared byte for byte — no case-insensitive collation, no trim, no normalization.
       Keys, replays and records use `effectKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
-- [ ] The lease, fenced-effect and outbound-call stores declare `static backend` (one text for one
-      database). The fencing stores declare `static leaseRepository` for unit runners.
+- [ ] The lease, fenced-effect and outbound-call stores declare `static store = { backend }` (one
+      text for one database); a unit runner finds the lease store by it.
+- [ ] `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` pages on an immutable order
+      of your own (a sequence, a row id) with an opaque cursor — never an offset (#825).
 - [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark
       with the insert and refuses an entry made before it that it does not hold; the prune raises
       the mark and deletes in one atomic step (#771). The SQL is in agbossjs/postgres's

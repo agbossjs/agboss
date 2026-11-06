@@ -217,7 +217,7 @@ The values are frozen.
 ## The PII key
 
 The application's PII key (#120) is a `Secret` field of the environment, named by
-`@Application({ pseudonymKey: "piiPseudonymKey" })`, the same pattern as a model provider's
+`@Application({ piiKeyField: "piiPseudonymKey" })`, the same pattern as a model provider's
 `apiKey`. Each environment sets it, for example `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`.
 
 - **What uses it:** the `replaceWithToken()` HMAC of `sensitive` fields, of a project's own

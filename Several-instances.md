@@ -487,7 +487,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
 - **The key** is `effectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
   `leaseExecutionId`, `token` and the step's `idempotencyKey`; several effects of one step differ by
   `name`. Where no lease is held it throws `ExecutionContextUnavailableError`, as `fence` does.
-- **The result** is `JsonResult<T>` (an interface or a DTO class is fine; a function, `undefined`
+- **The result** is `JsonValue<T>` (an interface or a DTO class is fine; a function, `undefined`
   or a `Date` does not compile), at most `@Application({ fencedEffects: { maxResultSize } })`
   (default `kilobytes(64)`) — else `FencedEffectResultTooLargeError`
   (`fenced-effect.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
@@ -496,14 +496,14 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   `fencedEffects.retention` (default `hours(24)`; above the lease's 30 s, else
   `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
 - **One transactional backend (#526):** the store checks the lease in its own transaction, so it
-  and the application's lease store are on one backend — each declares it, `static backend`
-  (`"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
+  and the application's lease store are on one backend — each declares it in `static store:
+  StoreDescriptor = { backend, leaseCheck? }` (#825; `"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
   kind). A listed store of another backend than the lease store's fails assembly with
   `[application.store-backend-mismatch]`, naming both classes and both backends and a lease store on
   its backend to list instead (#539); one that declares none (it or its lease store) fails
   `[application.store-backend-undeclared]`; two listed stores of one fencing contract, or two lease
   stores, fail `[di.ambiguous-implementation]` at assembly (#539). The explicit opt-out
-  `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` names what it gives up — the lease
+  `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection` in it names what it gives up — the lease
   is read outside the write's transaction, so a holder whose lease was taken over can still write —
   and is not checked; it passes no fencing case of `storeConformance` and must never back payments
   ([Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543), #543); the start warns `[application.lease-check-not-atomic]` (an error under
@@ -511,8 +511,8 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
   effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
   leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
-  not at assembly — an application that never uses an effect is not refused. `static
-  leaseRepository` tells a unit runner which lease store to hold its lease in.
+  not at assembly — an application that never uses an effect is not refused. A unit runner holds its
+  lease in the lease store of the store's backend: its own, a listed one, or the core's SQLite one.
 - **The connection is not listed (#526):** a component that injects a store's own class, or
   `OutboundCalls`, reaches `SqliteConnection` (`PostgresConnection`) through the store — the
   workflow's graph check takes an unlisted class under an infrastructure implementation as its own
@@ -523,10 +523,10 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
   results are not logged; what reaches a record or a trace is the step's output, masked as always.
 
-A store of another database (PostgreSQL, #482) extends the contract, declares its `static backend`,
+A store of another database (PostgreSQL, #482) extends the contract, declares its backend in `static store`,
 implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
 `FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers
-(#526: `checkedEffectName` at its entry, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
+(#526: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `saveResultIfAbsent` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
 `effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
@@ -556,7 +556,7 @@ const outcome = await this.outboundCalls.send(effectKeyOf(this.executionContext,
   // #795, required: the lookup reads the provider's own payments, so its notSent() holds at any age
   notSent: { trust: NotSentTrust.Lookup },
 });
-// outcome.status: OutboundCallOutcomeStatus.Sent | Replayed | Reconciled | Joined
+// outcome.status: OutboundCallSendStatus.Sent | Replayed | Reconciled | Joined
 ```
 
 `OutboundCalls` is a core service (`deps: [ExecutionContext, OutboundCalls]`, nothing to list); the
@@ -590,7 +590,7 @@ same on every attempt, replay and holder.
   instance from before the intent is recorded or claimed, and nothing is sent once the step aborted
   (checked after the lease's renewal). A call this instance is making now — two tool calls or two branches with
   one key — is **joined**, never reconciled or resent: the second gets the first's outcome
-  (`OutboundCallOutcomeStatus.Joined`) or its error. Two instances recording one key at the same
+  (`OutboundCallSendStatus.Joined`) or its error. Two instances recording one key at the same
   moment: the second is in flight, nothing sent.
 - **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
   a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason`) — also when
@@ -638,7 +638,7 @@ same on every attempt, replay and holder.
     outboundCalls.attemptTimeout` (how long the resend may take to arrive, A6) is below it, measured
     again after `reconcile` answers; past it, or with the age unknown, nothing is sent:
     `OutboundCallUnreconciledError` naming the age and the retention, the intent `Pending` for an
-    operator (`app.pendingOutboundCalls`). The framework never resends such a call by itself.
+    operator (`app.pendingOutboundCallsOf`). The framework never resends such a call by itself.
 
   No `notSent` (a JavaScript caller), an unknown `trust`, a `KeyReplay` without a positive, finite
   `keyRetention` or a `Lookup` with one: `InvalidNotSentTrustError`
@@ -647,7 +647,7 @@ same on every attempt, replay and holder.
 - **Masked when written.** Everything an intent stores — its request, its result, its failure's text
   — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
   also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
-  stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCalls`, a kept record, an export.
+  stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCallsOf`, a kept record, an export.
   `send` and the step get the real values in memory; a **replay** gives the result as stored —
   masked — so a result should carry receipts and ids, not personal data. `reconcile` gets the
   **stored, masked** request (`lookup.storedRequest`) and the key: look the call up by
@@ -661,7 +661,7 @@ same on every attempt, replay and holder.
   the recovery sweep once they ended longer ago than `retention` (default `hours(168)`, above the
   lease, else `[application.outbound-calls-invalid]`); a `Pending` one never is.
 - **For operators:** `app.outboundCallsOf({ tenantId, rootExecutionId })` (every call of a tree, in
-  the order recorded) and `app.pendingOutboundCalls({ tenantId })` (what waits for reconciliation) —
+  the order recorded) and `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (what waits for reconciliation, a page at a time — #825: `{ calls, next? }`, default 100, at most 1000; a call pending for the whole read listed exactly once) —
   `OutboundCallRecord`: the step, the workflow, `target`, `operation`, `idempotencyKey`, `status`,
   `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`,
   `attemptStartedAt?`, `firstAttemptStartedAt?` (#658, the store's time).
@@ -692,9 +692,11 @@ with `readAt`, the store's time of the read —, `saveIfAbsent` — `attemptStar
 store's time, the first kept; a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
 attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
 on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
-the two listings; `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
+the two listings — #825: `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` paged
+on an immutable order of its own (`{ calls, next? }`, a call in the status for the whole read listed
+exactly once); `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
 renewal and the check never both win —;
-`deleteByEndedAtBefore`; `ping`; `static backend`, `static leaseRepository`) and proves itself with
+`deleteByEndedAtBefore`; `ping`; `static store`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
 
@@ -758,7 +760,14 @@ export class ChargeOrderAction {
 - **One row per tenant, name and business key**, whatever step, execution or thread writes it.
   Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
   refused before any lookup — even where the business key already has a result.
-- **The key:** `effectKeyOf(executionContext, name, { businessKey, fingerprint? })`. A
+- **The key:** `effectKeyOf(executionContext, name, { businessKey, fingerprint })` — #825: a fenced
+  effect says what it does, `fingerprint` or `fingerprintPolicy: FingerprintPolicy.None` (on purpose:
+  work the business key fixes by itself, an event applied by its id); `{ businessKey }` alone is an
+  `OutboundCallKey`, which only `OutboundCalls.send` takes, its request the fingerprint. A fenced
+  effect under one does not compile, and a JavaScript caller's or a cast's key is refused before any
+  transaction, `FingerprintRequiredError` (`fenced-effect.fingerprint-required`): before #825 two
+  effects with one business key and other work — a charge and a refund of `order:42` — replayed
+  each other silently. The key is branded: `effectKeyOf` is an application's only maker of one. A
   business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
   `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);
@@ -806,12 +815,12 @@ export class ChargeOrderAction {
   `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
   `effectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
-  (`checkedBusinessKey`, for a store of your own), before anything runs; a thread id at
+  (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
   (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
   the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
   database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
-  operator's reads (#568): `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCalls`
+  operator's reads (#568): `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
   refuse such a tenant id before the store is asked (on SQLite `t\uD800` would read `t\uFFFD`'s
   pending charges and lease log); a trusted A2A request or MCP call under one is never deduplicated
   (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
@@ -831,19 +840,26 @@ export class ChargeOrderAction {
   `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
   the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is an
   HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the
-  request's — under `HMAC(pseudonymKey, "agboss/fingerprint/v1")`: the application's own key, so it
-  is the same in every execution and on every instance and gives no guessable request away. Without
-  a `pseudonymKey` the instances share no key, and it is a SHA-256 under that label
-  (`[application.pii-instance-key]` warns). The handle below is keyed the same way when a
-  `pseudonymKey` is set — stable across executions; with per-execution keys (#334) it is stable
-  within one tree only. The fingerprint stays in the store's row: no read, kept record, export,
-  event or lease-log row shows it. **Rotating `pseudonymKey` changes every fingerprint:** an intent
-  recorded before the rotation is an `IdempotencyKeyConflictError` for the same request after it —
-  rotate once the business keys in flight have settled, or name each call's `fingerprint` yourself.
+  request's — under `HMAC(idempotencyKey, "agboss/fingerprint/v1")`: the **application's idempotency
+  key** (#825), `@Application({ idempotencyKeyField })`, a `Secret` field used for nothing else — so
+  it is the same in every execution and on every instance and gives no guessable request away, and
+  rotating the PII key or a provider's key changes no fingerprint. It is required once a component
+  reaches `OutboundCalls` or a fenced-effect store (`[application.idempotency-key-required]`), never
+  another key (`[application.idempotency-key-shared]`), and a key made without it is
+  `IdempotencyKeyMissingError` — never an unkeyed SHA-256. The handle below is keyed by the PII
+  key — stable across executions with `piiKeyField`; with per-execution keys (#334) within one tree
+  only. The fingerprint stays in the store's row: no read, kept record, export, event or lease-log
+  row shows it. **Rotating the idempotency key** (#825): name the new field `idempotencyKeyField` and
+  the old one `previousIdempotencyKeyField` — a fingerprint is then compared under both
+  (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
+  recorded before the rotation and retried during it replays or is reconciled: no
+  `IdempotencyKeyConflictError`, no second call. Remove the previous field once nothing recorded
+  under it can be retried; what is left of it then fails closed — a conflict, nothing sent — never a
+  second charge (`tests/app/idempotency-key-rotation.test.ts`).
 - **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
   `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
-  own (#334), else the application's `pseudonymKey` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
+  own (#334), else the application's `piiKeyField` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
   Never a plain hash, which `order:42` would give away, and never the PII key itself: a handle must
   not equal the PII token of the same text, or errors would tie business keys to pseudonyms. Every
   other use of the PII key than its tokens derives a subkey under a label of its own. A key made
@@ -868,10 +884,11 @@ export class ChargeOrderAction {
   timeout): past it the holder stops renewing without releasing, so the call stays in flight for
   `attemptTimeout` plus up to the lease's 30 s; a hung attempt no longer holds a yield back either,
   and a reclaim moves its token on. `leaseStateOf` then closes the expired lease in the same atomic
-  step (`Superseded`: released at the token it was held at), so its holder can neither renew it nor
+  step (`LeaseClosed`: released at the token it was held at), so its holder can neither renew it nor
   write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
-  caller's lease log, `LeaseSuperseded` with `supersededLease` (the tree, the execution, the token),
-  and a warning `outbound-call.lease-superseded`. The tree itself is then taken over as after any
+  caller's lease log, `LeaseClosed` with `closedLease` (the tree, the execution, the token), and a
+  warning `outbound-call.lease-closed` (#825: rows written before, `lease-superseded` with
+  `supersededLease`, are read under these names). The tree itself is then taken over as after any
   expiry — the next token, a `Takeover` row naming the holder and the token it held (the lease row
   is marked closed by a check, not by its holder: renewals, yields, reclaims and writes at that
   token all refused). An answer that comes back after that is
@@ -885,7 +902,7 @@ export class ChargeOrderAction {
   of this instance joined to it shares the error — fails the step with `OutboundCallSupersededError` (#795,
   `outbound-call.superseded`, a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`,
   `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The lease log's row
-  (`Superseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
+  (`AttemptSuperseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
   the instance's log are written first, lease log or none (a unit runner); when the intent can no
   longer be read the newer attempt is "unknown" (`supersededBy: undefined`), never guessed. A step
   that must go on says so: `.onError(OutboundCallSupersededError, …)` — check the other system first.
@@ -901,7 +918,7 @@ export class ChargeOrderAction {
   the other system as its idempotency key. Everything else names it by its handle only,
   `business-key:<handle>:<name>`: `OutboundCallUnreconciledError.idempotencyKey`,
   `OutboundCallOutcome.idempotencyKey` (what a tool might hand a model), `app.outboundCallsOf`,
-  `app.pendingOutboundCalls`, a kept record and its export — none shows `businessKey`.
+  `app.pendingOutboundCallsOf`, a kept record and its export — none shows `businessKey`.
 - **Stores:** the in-memory default; SQLite keeps business results in
   `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
   `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the
@@ -1204,7 +1221,7 @@ export class ClaimSubtopicTool implements ToolHandler<SubtopicDto, SubtopicClaim
 ## PII tokens across instances
 
 A `replaceWithToken()` token is an HMAC of the value, so one value is one token only under one key
-([Guards → PII policies](Guards#pii-policies)). With `@Application({ pseudonymKey })` every instance
+([Guards → PII policies](Guards#pii-policies)). With `@Application({ piiKeyField })` every instance
 has the same key: one value is one token everywhere. Without it (S94, #334) the key is the
 **execution's**: each root execution makes a random one when it starts and keeps it in its
 checkpoint (the state's `piiKey`, next to its token map `piiTokens`); its child workflows get it

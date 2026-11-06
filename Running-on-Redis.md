@@ -12,7 +12,7 @@ guarantee with its assumptions is on [Guarantees](Guarantees).
 
 | Contract | Store | On Redis |
 | --- | --- | --- |
-| `ExecutionLeaseRepository` | `RedisExecutionLeaseRepository` (abstract, `static backend = "redis"`) | one hash per tree; each operation one Lua script; expiry by the server's `TIME` inside the script; the epoch only grows |
+| `ExecutionLeaseRepository` | `RedisExecutionLeaseRepository` (abstract, `static store = { backend: "redis" }`) | one hash per tree; each operation one Lua script; expiry by the server's `TIME` inside the script; the epoch only grows |
 | `ChildExecutionQueueRepository` | `RedisChildExecutionQueueRepository` | a hash per child and one sorted set of the queued — the deepest first, then the longest waiting; save, claim and complete each one script |
 | `RateLimitRepository` | `RedisRateLimitRepository` | slots, sliding windows and pauses, each operation one script, on the framework's `Clock` (A10) |
 

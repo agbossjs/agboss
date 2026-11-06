@@ -139,7 +139,7 @@ customer was charged.
   - `completed(result)`: the payment exists, nothing is sent (`Reconciled`);
   - `notSent()`: it never arrived, so it is sent once more under the same key;
   - `unknown({ reason })`: `OutboundCallUnreconciledError`, nothing sent, the intent left for an
-    operator (`app.pendingOutboundCalls`).
+    operator (`app.pendingOutboundCallsOf`).
 - **Guarantee:** P3. Assumption: A7 (G2, or G6).
 - **Boundary:** without a lookup (G2), `reconcile` can only say `unknown`, and a person decides.
 - **Proof:** `s09-crash-after-send`, `s10-one-order-two-executions`. Full example: `ps5`.

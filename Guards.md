@@ -345,7 +345,7 @@ one token everywhere (longer when a prefix is taken in the execution). The key c
 places:
 
 - the policy's own `pseudonymKey`;
-- the application's key, `@Application({ pseudonymKey: "piiPseudonymKey" })` — a `Secret` field of
+- the application's key, `@Application({ piiKeyField: "piiPseudonymKey" })` — a `Secret` field of
   the environment ([Environments → The PII key](Environments#the-pii-key)). It is shared by every
   instance, so tokens match across machines. Sensitive fields and project detectors always use it.
   Not set and not needed, each root execution makes a key of its own — kept in its checkpoint,

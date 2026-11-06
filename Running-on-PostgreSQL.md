@@ -111,7 +111,7 @@ export class DeskApplication {}
 A fenced effect and an outbound call check the tree's lease **in their own transaction** (Wiki →
 ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction), so the lease row and the effect's
 rows must be in one database. `PostgresExecutionLeaseRepository`, `PostgresFencedEffectRepository`
-and `PostgresOutboundCallRepository` declare `static backend = "postgres"` (#526), and assembly
+and `PostgresOutboundCallRepository` declare `static store = { backend: "postgres" }` (#526, #825), and assembly
 compares each listed fencing store's backend with the lease store's:
 
 | Listed                                                              | At assembly                                                     |
