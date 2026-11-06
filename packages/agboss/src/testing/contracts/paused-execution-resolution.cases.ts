@@ -4,7 +4,7 @@ import {
   PauseStatus,
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
-import type { UsageRecord } from "../../finops/usage.js";
+import { CostSource, type UsageRecord } from "../../finops/usage.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./seam.js";
 
@@ -103,7 +103,7 @@ const INTERPRETER_CALL: UsageRecord = {
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
   costUsd: 0.01,
-  costSource: "api",
+  costSource: CostSource.Api,
 };
 
 /** #267 S107: how each pause was resolved, and how long it is kept. */

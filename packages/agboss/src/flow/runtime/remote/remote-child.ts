@@ -1,3 +1,4 @@
+import { LedgerState, ledgerMarkOf } from "../../../finops/ledger-mark.js";
 import { interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionRecordStatus } from "../../../infrastructure/execution-record.repository.js";
@@ -215,7 +216,9 @@ async function lastStateOf(
 
 /**
  * The child's state with its own calls marked as in the ledger (#333 PR 3): the worker recorded
- * them as they were made, so its parent's pass counts them and never writes them again.
+ * them as they were made, so its parent's pass counts them and never writes them again — one its
+ * pass wrote under an id keeps its mark (counted by that id, #727), the others are recorded
+ * elsewhere (counted by what they are, #685).
  */
 const recordedElsewhere = (
   state: ExecutionStateType,
@@ -223,7 +226,9 @@ const recordedElsewhere = (
 ): ExecutionStateType => ({
   ...state,
   usage: state.usage.map((record, index) =>
-    index < inheritedUsage ? record : { ...record, isRecordedElsewhere: true },
+    index < inheritedUsage || ledgerMarkOf(record) !== undefined
+      ? record
+      : { ...record, ledger: { state: LedgerState.RecordedElsewhere } },
   ),
 });
 

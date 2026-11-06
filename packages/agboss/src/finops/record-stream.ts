@@ -30,10 +30,10 @@ const keyOf = (record: UsageRecord): string =>
  * already recorded. Order does not matter — the branches of a parallel launch (and the loops paused
  * in them, #267) add theirs in any order, so a position says nothing about what is in the ledger.
  */
-export function unrecordedOf(
-  usage: readonly UsageRecord[],
+export function unrecordedOf<TRecord extends UsageRecord>(
+  usage: readonly TRecord[],
   recorded: readonly UsageRecord[],
-): readonly UsageRecord[] {
+): readonly TRecord[] {
   const left = new Map<string, number>();
   for (const record of recorded) left.set(keyOf(record), (left.get(keyOf(record)) ?? 0) + 1);
   return usage.filter((record) => {

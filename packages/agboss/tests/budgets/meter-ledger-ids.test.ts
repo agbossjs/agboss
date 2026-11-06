@@ -17,9 +17,11 @@ import { BudgetExceededError } from "../../src/graph/limits.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import type { Usd } from "../../src/units/index.js";
+import { LedgerState } from "../../src/finops/ledger-mark.js";
 
 const NOW = new Date("2026-11-04T12:00:00.000Z");
 
@@ -48,7 +50,7 @@ class ScriptedLedger extends InMemoryCostLedgerRepository {
     return super.findSpentByCounter(counter);
   }
 
-  override async saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]) {
+  override async saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
     if (this.held !== undefined) await this.held;
     const hold = this.holds.shift();
     if (hold !== undefined) await hold;
@@ -103,7 +105,10 @@ describe("#727: the meter's ledger identities", () => {
     const again = meter.tally(kept === undefined ? [] : [kept]);
     await meter.settled();
 
-    expect(kept).toMatchObject({ isRecordedElsewhere: true, ledgerId: expect.any(String) });
+    expect(kept?.ledger).toMatchObject({
+      state: LedgerState.Written,
+      ledgerId: expect.any(String),
+    });
     expect(again).toEqual([kept]);
     expect(await counted(ledger)).toBe(1);
     expect(NO_BUDGET_CHECK.tally([paid(1)])).toEqual([paid(1)]);

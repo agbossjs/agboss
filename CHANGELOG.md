@@ -34,6 +34,22 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   the public surface; `[a2a.target-required]` is gone. A v0.3-only agent is `A2AProtocolError`
   naming its version. The 0.1.0 client wire (`POST <url>/execute`, the `agboss-mesh` header) is gone:
   a 0.1.1 client and a 0.1.0 server do not interoperate (the server follows in #808).
+
+- **A usage record has one ledger state; cost sources and categories are enums** (#817) —
+  `UsageRecord.ledger?: LedgerMark` — `{ state: LedgerState.Written, ledgerId, madeAt: Date }` once
+  a pass wrote it to the ledger as it was made, `{ state: LedgerState.RecordedElsewhere }` for a
+  call of a child recorded on another instance, absent while it is not in the ledger yet — replaces
+  `isRecordedElsewhere`, `ledgerId` and `madeAt` (ISO text); `ledgerMarkOf(record)` reads it, and
+  reads a record kept before (a 0.1.0 checkpoint's `isRecordedElsewhere`) as the same state, so a
+  state kept across the upgrade is never written or counted again. `CostSource` (`Api`,
+  `PriceTable`, `Tool`) and `CostCategory` (`Agents`, `Routing`, `Guards`, `Review`, `Tools`,
+  `Compaction`, `Retrieval`) are enums of the same strings — a `CostReport`'s JSON is unchanged, its
+  amounts still `…Usd: number`. Every amount that crosses a store boundary is `Usd`
+  (`LedgerEntry.costUsd`, `findSpentByCounter`, what `totalCost` sums of entries). The terms: cost —
+  what one call cost; spend — what was consumed against a budget; usage — tokens only (CLAUDE.md,
+  Wiki → FinOps). **Migration:** compare a record's source with `CostSource.Api` (not `"api"`), read
+  `ledgerMarkOf(record)` instead of the three fields; nothing stored changes.
+
 - **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
   passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
   no flow step pauses on one. The form is gone from `@ChannelRole`'s types
@@ -357,19 +373,36 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   page: what each contract must make atomic, recipes for SQL, MongoDB, Redis, DynamoDB and Cassandra.
 
 - **The ledger's entries are pruned, and a write of one it may have pruned is refused** (#771) —
-  every tallied spend is an entry under its `ledgerId` (#727), now dated by the record's new
-  `madeAt`. `CostLedgerRepository` has a new abstract `deleteEntriesByMadeAtBefore(cutoff)`: it
-  raises the store's pruning mark to `cutoff` (never lowers it) and removes the entries made before
-  it, atomically against a save; the recovery sweep calls it every look with `now −
-@Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
+  every tallied spend is an entry under its `ledgerId` (#727), dated by its `madeAt`.
+  `CostLedgerRepository` has a new abstract `deleteByMadeAtBefore(cutoff: Date)` (#817: the house
+  verb `deleteBy<Field>Before`): it raises the store's pruning mark to `cutoff` (never lowers it) and
+  removes the entries made before it, atomically against a save; the recovery sweep calls it every
+  look with `now − @Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
   `[application.ledger-entry-retention-invalid]`). `saveAll` refuses an entry made before the mark
   that it does not hold — `CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of
   the save added — so a lost answer retried after its entry was pruned is never counted twice (the
   pass's reads fail with it); one retried within the retention counts once, as before. The
-  `costLedgerContract` checks the prune, the refusal, the mark that never goes back and saves
-  racing a prune. **Migration:** a ledger of your own keeps each entry's `madeAt` and a pruning mark
-  read with the insert; the SQLite store dates the entries of a #727 file "never" (agbossjs/postgres:
-  migration `0023`; agbossjs/mongodb: `madeAt` on `agboss_cost_entries`).
+  `costLedgerContract` checks the prune, the refusal, the mark that never goes back (to the
+  millisecond, #817) and saves racing a prune. **Migration:** a ledger of your own keeps each
+  entry's `madeAt` and a pruning mark read with the insert; the SQLite store dates the entries of a
+  #727 file "never" (agbossjs/postgres: migration `0023`; agbossjs/mongodb: `madeAt` on
+  `agboss_cost_entries`).
+
+- **A ledger saves ledger entries only** (#817) — `CostLedgerRepository.saveAll(counters, entries:
+readonly LedgerEntry[])`: a `LedgerEntry` is a `UsageRecord` with its `ledgerId`, its `madeAt:
+Date` and its `costUsd: Usd`, so a record without an identity — which the contract before added on
+  every save, a retry counted again — does not compile, and a JS caller's (or a cast's) is refused
+  at run time: `CostLedgerEntryInvalidError` (`cost-ledger.entry-invalid`: `index`, `reason`),
+  nothing added, by `assertLedgerEntries(entries)` — what every store calls first. The core saves
+  every spend as an entry, a step's end and an evaluation's judge calls too. The store helpers take
+  and give `Date`: `unrecordedEntriesOf(entries, isNew: (ledgerId, madeAt: Date) => boolean)` (was
+  `newEntriesOf`, its callback given ms) and `expiredEntriesOf(entries, prunedBefore: Date |
+undefined, isHeld)`, now exported (the half that refuses); both in the root for now. New contract
+  cases: anything but an entry refused before anything is added, the mark kept to the millisecond
+  (each with a naive store that fails it). **Migration:** a ledger of your own takes
+  `readonly LedgerEntry[]`, calls `assertLedgerEntries` first, renames `deleteEntriesByMadeAtBefore`
+  to `deleteByMadeAtBefore` and `newEntriesOf` to `unrecordedEntriesOf` (its callback's `madeAt` a
+  `Date`); the stored tables are unchanged.
 
 - **`ChildExecutionQueueRepository.findQueueDepth()`** (#485) — a new abstract method: one read of
   the queue's `ChildExecutionQueueDepth { queued, running, oldestQueuedAt? }`, which the cluster

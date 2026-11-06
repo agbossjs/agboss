@@ -1,3 +1,4 @@
+import { isDate } from "node:util/types";
 import type { BudgetScope } from "../budgets/budget.js";
 import { Injectable } from "../components/decorators.js";
 import { AGBossError } from "../core/errors.js";
@@ -29,6 +30,21 @@ export interface CostCounter extends BudgetAccount {
   readonly period: string;
 }
 
+/**
+ * One call's spend as the ledger keeps it (#727, #771, #817): its usage record with its identity in
+ * the ledger — `ledgerId`, an id of the pass that made it — and the date it was made, `madeAt` (the
+ * `Clock`), its cost in `Usd`. What `CostLedgerRepository.saveAll` takes: a record without an id
+ * does not compile.
+ */
+export type LedgerEntry = UsageRecord & {
+  /** The entry's identity: a save of an id the ledger holds adds nothing. */
+  readonly ledgerId: string;
+  /** When its spend was made: what the ledger prunes by (#771). */
+  readonly madeAt: Date;
+  /** What the call cost. */
+  readonly costUsd: Usd;
+};
+
 export abstract class CostLedgerRepository {
   /**
    * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
@@ -40,20 +56,21 @@ export abstract class CostLedgerRepository {
   abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
 
   /**
-   * Adds the cost of these model (and service) calls to every counter, atomically per counter. A
-   * record with a `ledgerId` (#727) is an entry of its own: its cost is added once — a later save
-   * of the same id, on any instance and also one that races it, adds nothing — and the entry is kept,
-   * dated by its `madeAt` (#771), with the counters it was added to, in one atomic write. A record
-   * without one is always added.
+   * Adds the cost of these entries to every counter, atomically per counter (#727, #817): each
+   * entry is the spend of one call under its `ledgerId`, added once — a later save of the same id,
+   * on any instance and also one that races it, adds nothing — and kept, dated by its `madeAt`
+   * (#771), with the counters it was added to, in one atomic write. Only a `LedgerEntry` is taken:
+   * a record without an id does not compile, and a JS caller's is refused
+   * (`CostLedgerEntryInvalidError`, `assertLedgerEntries`) before anything is added.
    *
-   * An entry dated before the store's pruning mark (the latest cutoff of
-   * `deleteEntriesByMadeAtBefore`) that the store does not hold may have been pruned after it was
-   * counted: the save rejects with `CostLedgerEntryExpiredError` and adds nothing — never counted
-   * again. The mark is read with the insert, atomically against a prune (#771).
+   * An entry dated before the store's pruning mark (the latest cutoff of `deleteByMadeAtBefore`)
+   * that the store does not hold may have been pruned after it was counted: the save rejects with
+   * `CostLedgerEntryExpiredError` and adds nothing — never counted again. The mark is read with the
+   * insert, atomically against a prune (#771).
    */
   abstract saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    entries: readonly LedgerEntry[],
   ): Promise<void>;
 
   /**
@@ -62,7 +79,7 @@ export abstract class CostLedgerRepository {
    * a save of an id dated before the mark that the store does not hold rejects. The counters are
    * never touched. Called by the recovery sweep with `now − @Application({ ledgerEntryRetention })`.
    */
-  abstract deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
+  abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
 
   /**
    * The `maxSpend()` an execution last read for the account — the last known limit, for a report
@@ -78,43 +95,98 @@ export abstract class CostLedgerRepository {
 export const accountKeyOf = (account: BudgetAccount): string =>
   [account.budget, account.scope, account.key].join("\u0000");
 
-/**
- * When an entry was made, in ms since the epoch (#771): its record's `madeAt`; an entry without one
- * is dated at the epoch — the oldest, refused once anything was pruned.
- */
-export const entryMadeAtOf = (record: UsageRecord): number =>
-  record.madeAt === undefined ? 0 : Date.parse(record.madeAt);
+/** Why `assertLedgerEntries` refused a save (#817): the entry's place in the save and what is wrong. */
+export interface CostLedgerEntryInvalidErrorOptions {
+  /** The entry's index in the save. */
+  readonly index: number;
+  /** What it lacks: `ledgerId`, `madeAt` or `costUsd`, and why. */
+  readonly reason: string;
+}
 
 /**
- * Of `records`, what a save adds (#727): every record without a `ledgerId`, and each one whose id
- * `isNew` keeps now — `isNew` inserts the id (made at `madeAt`, ms, #771) if absent and answers
- * whether it did, so an id asked twice, in one save too, counts once. A store asks inside the
- * transaction that adds the cost.
+ * A save handed something that is no `LedgerEntry` (#817): a record without a `ledgerId`, a valid
+ * `madeAt` `Date` or a finite, non-negative `costUsd` — what a JS caller (or a cast) can pass. The
+ * save adds nothing: spend without an identity could be counted on every retry.
  */
-export const newEntriesOf = (
-  records: readonly UsageRecord[],
-  isNew: (ledgerId: string, madeAt: number) => boolean,
-): readonly UsageRecord[] =>
-  records.filter(
-    (record) => record.ledgerId === undefined || isNew(record.ledgerId, entryMadeAtOf(record)),
-  );
+export class CostLedgerEntryInvalidError extends AGBossError {
+  static override readonly code: string = "cost-ledger.entry-invalid";
+  override name = "CostLedgerEntryInvalidError";
+  readonly index: number;
+  readonly reason: string;
+
+  constructor(options: CostLedgerEntryInvalidErrorOptions) {
+    super(
+      `the ledger was handed no ledger entry at index ${String(options.index)}: ${options.reason} — the save added nothing; save only LedgerEntry values (an id, a madeAt Date, a costUsd in Usd)`,
+    );
+    this.index = options.index;
+    this.reason = options.reason;
+  }
+}
+
+/** What is wrong with `entry` as a `LedgerEntry`, or `undefined` when nothing is. */
+function invalidityOf(entry: unknown): string | undefined {
+  if (typeof entry !== "object" || entry === null) return "it is not an object";
+  const ledgerId: unknown = Reflect.get(entry, "ledgerId");
+  const madeAt: unknown = Reflect.get(entry, "madeAt");
+  const costUsd: unknown = Reflect.get(entry, "costUsd");
+  if (typeof ledgerId !== "string" || ledgerId === "") return "it has no ledgerId";
+  // a Date of any realm (a driver's, a test's vm), never a string or a number of ms
+  if (!isDate(madeAt) || Number.isNaN(madeAt.getTime()))
+    return `its madeAt is no valid Date: ${String(madeAt)}`;
+  if (typeof costUsd !== "number" || !Number.isFinite(costUsd) || costUsd < 0)
+    return `its costUsd is no finite amount ≥ 0: ${String(costUsd)}`;
+  return undefined;
+}
+
+/** The refusal of a save of `entries` (#817): of the first that is no `LedgerEntry`, if any. */
+export function invalidLedgerEntryErrorOf(
+  entries: readonly unknown[],
+): CostLedgerEntryInvalidError | undefined {
+  for (const [index, entry] of entries.entries()) {
+    const reason = invalidityOf(entry);
+    if (reason !== undefined) return new CostLedgerEntryInvalidError({ index, reason });
+  }
+  return undefined;
+}
 
 /**
- * Of `records`, the ids a save must refuse (#771): entries made before the store's pruning mark
- * `prunedBefore` (ms) that it does not hold (`isHeld`) — each once. A store asks inside the
- * transaction that adds the cost, after reading the mark there.
+ * Refuses a save of anything but `LedgerEntry` values (#817) — what a store calls first in
+ * `saveAll`, before it reads or writes anything: throws `CostLedgerEntryInvalidError` for the
+ * first that lacks an id, a valid `madeAt` or a valid `costUsd`. The core only saves entries; a
+ * JS caller (or a cast) is the one this stops.
+ */
+export function assertLedgerEntries(
+  entries: readonly unknown[],
+): asserts entries is readonly LedgerEntry[] {
+  const refused = invalidLedgerEntryErrorOf(entries);
+  if (refused !== undefined) throw refused;
+}
+
+/**
+ * Of `entries`, what a save adds (#727): each one whose id `isNew` keeps now — `isNew` inserts the
+ * id (made at `madeAt`, #771) if absent and answers whether it did, so an id asked twice, in one
+ * save too, counts once. A store asks inside the transaction that adds the cost, after
+ * `assertLedgerEntries` and `expiredEntriesOf`.
+ */
+export const unrecordedEntriesOf = (
+  entries: readonly LedgerEntry[],
+  isNew: (ledgerId: string, madeAt: Date) => boolean,
+): readonly LedgerEntry[] => entries.filter((entry) => isNew(entry.ledgerId, entry.madeAt));
+
+/**
+ * Of `entries`, the ids a save must refuse (#771): entries made before the store's pruning mark
+ * `prunedBefore` (`undefined`: nothing pruned yet) that it does not hold (`isHeld`) — each once. A
+ * store asks inside the transaction that adds the cost, after reading the mark there.
  */
 export function expiredEntriesOf(
-  records: readonly UsageRecord[],
-  prunedBefore: number,
+  entries: readonly LedgerEntry[],
+  prunedBefore: Date | undefined,
   isHeld: (ledgerId: string) => boolean,
 ): readonly string[] {
+  if (prunedBefore === undefined) return [];
   const expired = new Set<string>();
-  for (const record of records) {
-    const { ledgerId } = record;
-    if (ledgerId !== undefined && entryMadeAtOf(record) < prunedBefore && !isHeld(ledgerId))
-      expired.add(ledgerId);
-  }
+  for (const { ledgerId, madeAt } of entries)
+    if (madeAt.getTime() < prunedBefore.getTime() && !isHeld(ledgerId)) expired.add(ledgerId);
   return [...expired];
 }
 
@@ -160,10 +232,10 @@ export const counterKeyOf = (counter: CostCounter): string =>
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
   readonly #maxSpend = new Map<string, Usd>();
-  /** Each entry's `ledgerId` and when it was made (ms). */
-  readonly #entries = new Map<string, number>();
-  /** The pruning mark (#771, ms): entries made before it were, or may have been, removed. */
-  readonly #mark = { prunedBefore: Number.NEGATIVE_INFINITY };
+  /** Each entry's `ledgerId` and when it was made. */
+  readonly #entries = new Map<string, Date>();
+  /** The pruning mark (#771): entries made before it were, or may have been, removed. */
+  readonly #mark: { prunedBefore?: Date } = {};
 
   ping(): Promise<void> {
     return Promise.resolve();
@@ -173,18 +245,22 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
   }
 
-  saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
+  saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
+    // a JS caller's record without an identity is refused before anything (#817)
+    const invalid = invalidLedgerEntryErrorOf(entries);
+    if (invalid !== undefined) return Promise.reject(invalid);
     // nothing to add it to: no entry kept, so a later save of it counts (#727)
     if (counters.length === 0) return Promise.resolve();
     // an entry it may have pruned is refused, the whole save with it (#771)
     // Stryker disable next-line ArrowFunction: in memory no entry made before the mark is held — the prune that set it removed them, and no save keeps one — so "held" is never asked true
     const isHeld = (id: string): boolean => this.#entries.has(id);
-    const expired = expiredEntriesOf(records, this.#mark.prunedBefore, isHeld);
-    if (expired.length > 0) {
-      const prunedBefore = new Date(this.#mark.prunedBefore);
+    const { prunedBefore } = this.#mark;
+    const expired = expiredEntriesOf(entries, prunedBefore, isHeld);
+    if (expired.length > 0 && prunedBefore !== undefined)
       return Promise.reject(new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore }));
-    }
-    const spent = totalCost(newEntriesOf(records, (id, madeAt) => this.#isNewEntry(id, madeAt)));
+    const spent = totalCost(
+      unrecordedEntriesOf(entries, (id, madeAt) => this.#isNewEntry(id, madeAt)),
+    );
     for (const counter of counters) {
       const key = counterKeyOf(counter);
       this.#spent.set(key, (this.#spent.get(key) ?? 0) + spent);
@@ -193,16 +269,18 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   }
 
   /** Whether `ledgerId` is new: kept from now on, made at `madeAt`. */
-  #isNewEntry(ledgerId: string, madeAt: number): boolean {
+  #isNewEntry(ledgerId: string, madeAt: Date): boolean {
     if (this.#entries.has(ledgerId)) return false;
     this.#entries.set(ledgerId, madeAt);
     return true;
   }
 
-  deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void> {
-    this.#mark.prunedBefore = Math.max(this.#mark.prunedBefore, cutoff.getTime());
+  deleteByMadeAtBefore(cutoff: Date): Promise<void> {
+    const kept = this.#mark.prunedBefore;
+    const prunedBefore = kept !== undefined && kept.getTime() > cutoff.getTime() ? kept : cutoff;
+    this.#mark.prunedBefore = prunedBefore;
     for (const [ledgerId, madeAt] of this.#entries)
-      if (madeAt < this.#mark.prunedBefore) this.#entries.delete(ledgerId);
+      if (madeAt.getTime() < prunedBefore.getTime()) this.#entries.delete(ledgerId);
     return Promise.resolve();
   }
 

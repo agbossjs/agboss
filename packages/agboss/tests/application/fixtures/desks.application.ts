@@ -5,6 +5,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/in
 import {
   CostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
@@ -50,12 +51,12 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve(usd(0));
   }
 
-  saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
+  saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
     this.saved.push({ budgets: counters.map((counter) => counter.budget), records });
     return Promise.resolve();
   }
 
-  deleteEntriesByMadeAtBefore(): Promise<void> {
+  deleteByMadeAtBefore(): Promise<void> {
     return Promise.resolve();
   }
 

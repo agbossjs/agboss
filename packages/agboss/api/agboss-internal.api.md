@@ -314,7 +314,22 @@ export interface ContractsSnapshot {
 }
 
 // @public
-export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review", "tools", "compaction", "retrieval"];
+export enum CostCategory {
+    // (undocumented)
+    Agents = "agents",
+    // (undocumented)
+    Compaction = "compaction",
+    // (undocumented)
+    Guards = "guards",
+    // (undocumented)
+    Retrieval = "retrieval",
+    // (undocumented)
+    Review = "review",
+    // (undocumented)
+    Routing = "routing",
+    // (undocumented)
+    Tools = "tools"
+}
 
 // Warning: (ae-forgotten-export) The symbol "TokenUsage" needs to be exported by the entry point internal.d.ts
 //
@@ -322,8 +337,6 @@ export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review",
 export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly caller: string;
-    // Warning: (ae-forgotten-export) The symbol "CostCategory" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly category: CostCategory;
     // (undocumented)
@@ -352,7 +365,11 @@ export interface CostReport {
 }
 
 // @public
-export type CostSource = "api" | "price-table" | "tool";
+export enum CostSource {
+    Api = "api",
+    PriceTable = "price-table",
+    Tool = "tool"
+}
 
 // Warning: (ae-forgotten-export) The symbol "WorkflowServices" needs to be exported by the entry point internal.d.ts
 //
@@ -1474,16 +1491,23 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
 // src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
 // src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:103:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:106:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/cost-category.ts:3:3 - (ae-undocumented) Missing documentation for "Agents".
+// src/finops/cost-category.ts:4:3 - (ae-undocumented) Missing documentation for "Routing".
+// src/finops/cost-category.ts:5:3 - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts:6:3 - (ae-undocumented) Missing documentation for "Review".
+// src/finops/cost-category.ts:7:3 - (ae-undocumented) Missing documentation for "Tools".
+// src/finops/cost-category.ts:8:3 - (ae-undocumented) Missing documentation for "Compaction".
+// src/finops/cost-category.ts:9:3 - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/usage.ts:65:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:66:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:67:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:68:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:69:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:79:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:82:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts:28:3 - (ae-undocumented) Missing documentation for "start".

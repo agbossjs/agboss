@@ -15,6 +15,7 @@ import { Clock } from "../../../src/infrastructure/clock.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -49,7 +50,7 @@ export function resetLostAnswer(isLosing: boolean): void {
 export class LostAnswerLedger extends InMemoryCostLedgerRepository {
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     await super.saveAll(counters, records);
     const isLost =
@@ -103,7 +104,9 @@ export class WorkAction {
         "abort",
         () => {
           lostAnswer.log.push("stopped");
-          reject(signal.reason instanceof Error ? signal.reason : new Error("the step was stopped"));
+          reject(
+            signal.reason instanceof Error ? signal.reason : new Error("the step was stopped"),
+          );
         },
         { once: true },
       );

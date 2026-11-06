@@ -14,11 +14,14 @@ import {
   NO_BUDGET_CHECK,
   type ExecutionBudgetRecord,
 } from "../../src/budgets/execution-budgets.js";
+import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
+import { ledgerEntryOf } from "../helpers.js";
 import { BudgetExceededError } from "../../src/graph/limits.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds, usd, type Usd } from "../../src/units/index.js";
@@ -40,7 +43,7 @@ const here = (costUsd: number, caller = "clerk-agent"): UsageRecord => ({
 /** A remote child's spend, written to the ledger by its own instance (#333 PR 3). */
 const elsewhere = (costUsd: number, caller = "child-agent"): UsageRecord => ({
   ...recordToolCost(caller, costUsd),
-  isRecordedElsewhere: true,
+  ledger: { state: LedgerState.RecordedElsewhere },
 });
 
 /** A ledger that counts its round trips. */
@@ -53,7 +56,7 @@ class CountedLedger extends InMemoryCostLedgerRepository {
     return super.findSpentByCounter(counter);
   }
 
-  override saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]) {
+  override saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
     this.writes.push(counters);
     return super.saveAll(counters, records);
   }
@@ -95,7 +98,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
 
   it("a tally of nothing new never stops a pass already over its budget", async () => {
     const { meter, ledger } = meterOn([budget("execution-budget", 1)]);
-    await ledger.saveAll([counterOf(budget("execution-budget", 1), NOW)], [here(1)]);
+    await ledger.saveAll([counterOf(budget("execution-budget", 1), NOW)], [ledgerEntryOf(here(1))]);
     await meter.refresh();
 
     meter.tally([]);
@@ -156,7 +159,7 @@ describe("#633: what the execution may still spend", () => {
   it("budgetUsd: the least left at the last read, plus what was spent before the pass", async () => {
     const { meter, ledger } = meterOn([budget("execution-budget", 3)], 1);
     const counter = counterOf(budget("execution-budget", 3), NOW);
-    await ledger.saveAll([counter], [here(1)]);
+    await ledger.saveAll([counter], [ledgerEntryOf(here(1))]);
     await meter.refresh();
 
     expect(meter.budgetUsd()).toBeCloseTo(3);
@@ -174,7 +177,10 @@ describe("#685: a child's spend recorded elsewhere counts once", () => {
   async function withChildSpend(maxSpend: number, child: readonly UsageRecord[]) {
     const parts = meterOn([budget("execution-budget", maxSpend)]);
     const counter = counterOf(budget("execution-budget", maxSpend), NOW);
-    await parts.ledger.saveAll([counter], child);
+    await parts.ledger.saveAll(
+      [counter],
+      child.map((record) => ledgerEntryOf(record)),
+    );
     return parts;
   }
 

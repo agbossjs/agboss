@@ -7,7 +7,7 @@
  */
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { totalCost, type UsageRecord } from "../../src/index.js";
+import { CostSource, totalCost, type UsageRecord } from "../../src/index.js";
 import { INFRASTRUCTURE_DEFAULTS } from "../../src/infrastructure/contracts.js";
 
 const src = new URL("../../src/", import.meta.url).pathname;
@@ -136,7 +136,7 @@ const costing = (costUsd: number): UsageRecord => ({
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
   costUsd,
-  costSource: "api",
+  costSource: CostSource.Api,
 });
 
 describe("#521 AC3: what a ledger store needs beside the contract's types is a root export", () => {

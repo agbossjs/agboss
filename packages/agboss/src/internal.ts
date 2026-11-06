@@ -112,12 +112,7 @@ export {
 } from "./eval/run/divergence.js";
 export { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "./eval/golden.js";
 export { replay } from "./eval/replay.js";
-export {
-  COST_CATEGORIES,
-  type CostLine,
-  type CostReport,
-  type CostSource,
-} from "./finops/usage.js";
+export { CostCategory, CostSource, type CostLine, type CostReport } from "./finops/usage.js";
 export { flowLines } from "./flow/print.js";
 export { childLines, inputLines } from "./describe/inputs.js";
 export {

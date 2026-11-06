@@ -7,11 +7,14 @@
 import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, meterOf, type BudgetMeter } from "../../src/budgets/execution-budgets.js";
-import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
+import { LedgerState, writtenLedgerIdOf } from "../../src/finops/ledger-mark.js";
+import { recordToolCost } from "../../src/finops/usage.js";
+import { ledgerEntryOf } from "../helpers.js";
 import {
   CostLedgerEntryExpiredError,
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
@@ -29,7 +32,7 @@ const budget = {
 class LostAnswerLedger extends InMemoryCostLedgerRepository {
   isAnswerLost = true;
 
-  override async saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]) {
+  override async saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
     await super.saveAll(counters, records);
     if (!this.isAnswerLost) return;
     this.isAnswerLost = false;
@@ -81,9 +84,10 @@ describe("#771: a lost answer retried around the sweep's prune", () => {
 
     expect(await spentIn(ledger, clock)).toBe(40);
     expect(meter.remaining()).toBe(60);
-    expect(kept).toMatchObject({
+    expect(kept?.ledger).toEqual({
+      state: LedgerState.Written,
       ledgerId: expect.any(String),
-      madeAt: "2026-01-05T09:00:00.000Z",
+      madeAt: new Date("2026-01-05T09:00:00.000Z"),
     });
   });
 
@@ -100,7 +104,7 @@ describe("#771: a lost answer retried around the sweep's prune", () => {
     await expect(meter.refresh()).rejects.toMatchObject({
       name: "CostLedgerEntryExpiredError",
       code: "cost-ledger.entry-expired",
-      ledgerIds: [kept?.ledgerId],
+      ledgerIds: [kept === undefined ? undefined : writtenLedgerIdOf(kept)],
       prunedBefore: new Date(clock.now().getTime() - hours(24)),
     });
     expect(await spentIn(ledger, clock)).toBe(40);
@@ -127,12 +131,9 @@ describe("#771: the in-memory ledger's refusal", () => {
   it("names every refused entry once and the mark, and adds nothing", async () => {
     const ledger = new InMemoryCostLedgerRepository();
     const counter = counterOf(budget, new Date("2026-10-18T10:00:00.000Z"));
-    const made = (ledgerId: string): UsageRecord => ({
-      ...recordToolCost("pay-tool", 1),
-      ledgerId,
-      madeAt: "2026-10-18T08:00:00.000Z",
-    });
-    await ledger.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+    const made = (ledgerId: string): LedgerEntry =>
+      ledgerEntryOf(recordToolCost("pay-tool", 1), ledgerId, new Date("2026-10-18T08:00:00.000Z"));
+    await ledger.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
 
     await expect(
       ledger.saveAll([counter], [made("a:0"), made("a:1"), made("a:0")]),

@@ -2,8 +2,13 @@ import type { Clock } from "../infrastructure/clock.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { BudgetExceededError } from "../graph/limits.js";
-import type { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
+import { LedgerState } from "../finops/ledger-mark.js";
+import type {
+  CostLedgerRepository,
+  LedgerEntry,
+} from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
+import { usd } from "../units/index.js";
 import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
 import {
   budgetExceededErrorOf,
@@ -52,7 +57,7 @@ export { settledSaverOf } from "../app/leased-checkpointer.js";
  * Written as it is made (#727, #732): a tally is written to the ledger at once — so the tree's
  * steps on other instances (its children on any instance, their siblings, the parent of one) see it
  * at their next read of the counters — and the state keeps the record marked as in the ledger
- * (`isRecordedElsewhere`) with its `ledgerId`. The pass writes a checkpoint only once every tally
+ * (`ledger: { state: LedgerState.Written, ledgerId, madeAt }`, #817). The pass writes a checkpoint only once every tally
  * before it is written (`settled`, `SettledSpendCheckpointSaver`), and queues a child on any
  * instance only then, so a durable state never holds a mark its ledger lacks. A record with a
  * `ledgerId` counts once by that id: this pass's own, or taken in once — a child's from another
@@ -70,11 +75,11 @@ export class BudgetMeter implements BudgetCheck {
   #recorded = 0;
   #snapshot: CounterSnapshot = { values: new Map(), recorded: 0 };
   /** The pass's spend tallied as it was made and not in the ledger yet (its write pending). */
-  #tallied: UsageRecord[] = [];
+  #tallied: LedgerEntry[] = [];
   /** The `ledgerId`s this pass gave, took in, or found counted before it (#727). */
   readonly #ids: LedgerIds;
   /** Tallied spend whose write failed: written again before the next write or checkpoint. */
-  #unwritten: UsageRecord[] = [];
+  #unwritten: LedgerEntry[] = [];
   /** The meter's reads and writes, one at a time. */
   #turns: Promise<unknown> = Promise.resolve();
   readonly #exhausted = new AbortController();
@@ -181,18 +186,28 @@ export class BudgetMeter implements BudgetCheck {
     if (breach !== undefined) throw breach;
   }
 
-  /** Adds `records` to every counter (their period). */
-  #save(records: readonly UsageRecord[]): Promise<void> {
+  /** Adds `entries` to every counter (their period). */
+  #save(entries: readonly LedgerEntry[]): Promise<void> {
     const now = this.clock.now();
     const counters = this.records.map((record) => counterOf(record, now));
-    return this.ledger.saveAll(counters, records);
+    return this.ledger.saveAll(counters, entries);
+  }
+
+  /** `record` as an entry of the ledger under a new id of this pass, made now (#727, #771, #817). */
+  #entryOf(record: UsageRecord): LedgerEntry {
+    return {
+      ...record,
+      costUsd: usd(record.costUsd),
+      ledgerId: this.#ids.mint(),
+      madeAt: this.clock.now(),
+    };
   }
 
   /**
    * Writes tallied spend: in the ledger, out of the tally, with a read after it — an entry an
    * earlier run of its step wrote is not added again (#727), so only a read says what it holds.
    */
-  async #write(records: readonly UsageRecord[]): Promise<void> {
+  async #write(records: readonly LedgerEntry[]): Promise<void> {
     await this.#save(records);
     const values = await this.#read();
     this.#recorded += totalCost(records);
@@ -216,18 +231,14 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0 || !records.some(isRecordedHere)) return records;
     // written at once (#727, #732): another instance's check sees it at its next read of the
     // counters; marked with its id, so no pass writes or counts it again
-    const own: UsageRecord[] = [];
-    const kept = records.map((record) => {
+    const own: LedgerEntry[] = [];
+    const kept = records.map((record): UsageRecord => {
       if (!isRecordedHere(record)) return record;
-      const marked = {
-        ...record,
-        isRecordedElsewhere: true,
-        ledgerId: this.#ids.mint(),
-        // its entry's date (#771): a write of it retried after the ledger pruned it is refused
-        madeAt: this.clock.now().toISOString(),
-      };
-      own.push(marked);
-      return marked;
+      // its entry's date (#771): a write of it retried after the ledger pruned it is refused
+      const entry = this.#entryOf(record);
+      own.push(entry);
+      const { ledgerId, madeAt } = entry;
+      return { ...record, ledger: { state: LedgerState.Written, ledgerId, madeAt } };
     });
     this.#tallied.push(...own);
     // a failed write is kept, still counted in the tally: the next write or checkpoint writes it
@@ -312,7 +323,9 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       await this.#writeUnwritten();
-      const own = records.filter(isRecordedHere);
+      // written at its step's end: an entry of its own under a new id, so a save retried after a
+      // lost answer counts once (#817 — no record is saved without an identity)
+      const own = records.filter(isRecordedHere).map((record) => this.#entryOf(record));
       const elsewhere = this.#ids.uncounted(records, false);
       this.#recorded += totalCost(own);
       if (own.length > 0) await this.#save(own);
