@@ -24,3 +24,6 @@ export const internalImportRules = {
   plugins: { agboss: agbossPlugin },
   rules: { "agboss/no-internal-import": "error" },
 };
+
+/** Every block of the AGBoss rules, in the order the repository's config lists them. */
+export const agbossRules = [componentStateRules, directTimeRules, internalImportRules];

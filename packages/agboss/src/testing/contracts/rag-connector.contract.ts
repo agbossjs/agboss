@@ -38,7 +38,7 @@ export function ragConnectorContract<TConnector extends RagConnector>(
   // a JS caller's or a cast's other value would select no case: an empty suite reads as a pass
   if (!Object.values(RagTenancy).includes(tenancy))
     throw new TypeError(
-      `ragConnectorContract(${target.name}): tenancy is RagTenancy.PerTenant or RagTenancy.Shared, not ${String(tenancy)}`,
+      `ragConnectorContract(${target.name}): tenancy is RagTenancy.PerTenant or RagTenancy.Shared, not ${tenancy}`,
     );
   describe(`RAG connector contract (${target.name})`, () => {
     if (target.reset !== undefined) afterEach(target.reset);

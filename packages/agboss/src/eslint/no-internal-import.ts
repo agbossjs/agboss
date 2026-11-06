@@ -6,7 +6,12 @@
 // `/// <reference types="…" />` — by a string or a template without placeholders, of the entry
 // itself or a path under it. On for every file of a project (the config `agboss create` writes, the
 // examples).
-import { AST_NODE_TYPES, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
+import {
+  AST_NODE_TYPES,
+  AST_TOKEN_TYPES,
+  type TSESLint,
+  type TSESTree,
+} from "@typescript-eslint/utils";
 
 /** The entry only the CLI imports. */
 export const INTERNAL_ENTRY = "@agboss/core/internal";
@@ -86,10 +91,7 @@ export const noInternalImport: TSESLint.RuleModule<InternalImportMessageId> = {
         check(node.expression, literalOf(node.expression));
       },
       TSImportType: (node) => {
-        const { argument } = node;
-        const literal =
-          argument.type === AST_NODE_TYPES.TSLiteralType ? literalOf(argument.literal) : undefined;
-        check(argument, literal);
+        check(node.source, node.source.value);
       },
       CallExpression: (node) => {
         if (node.callee.type === AST_NODE_TYPES.Super || !namesModule(node.callee)) return;
@@ -98,7 +100,7 @@ export const noInternalImport: TSESLint.RuleModule<InternalImportMessageId> = {
       Program: () => {
         for (const comment of context.sourceCode.getAllComments()) {
           const named = REFERENCE_TYPES.exec(comment.value)?.[1];
-          if (comment.type === "Line" && isInternal(named))
+          if (comment.type === AST_TOKEN_TYPES.Line && isInternal(named))
             context.report({
               loc: comment.loc,
               messageId: "internal",

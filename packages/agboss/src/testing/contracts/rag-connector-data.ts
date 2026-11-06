@@ -113,3 +113,16 @@ export const textsOf = (results: readonly RagSearchResultDto[]): readonly string
 /** Whether a cost is one the ledger can add: absent (free) or a finite number from 0. */
 export const isLedgerCost = (cost: number | undefined): boolean =>
   cost === undefined || (Number.isFinite(cost) && cost >= 0);
+
+/** The two plain tenants of the cases. */
+export const TENANT_A = "tenant-a";
+export const TENANT_B = "tenant-b";
+
+/** A `topK` above every case's corpus: everything that matches. */
+export const WIDE = 50;
+
+/** Two documents about leave, the re-index cases' corpus. */
+export const DOCS = [
+  { source: "leave.md", text: "Leave is twenty five days a year. Leave requests go to the lead." },
+  { source: "oncall.md", text: "On-call leave starts after the third month." },
+];

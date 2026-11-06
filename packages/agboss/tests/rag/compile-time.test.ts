@@ -70,7 +70,8 @@ class Plain {
   readonly label = "plain";
 }
 
-class Empty {}
+// no members: `extends Object` keeps it a class of no decorator, as empty as one can be
+class Empty extends Object {}
 
 /** A knowledge base reranked by `by`. */
 const rerankedBy = (by: RerankerClass) => {

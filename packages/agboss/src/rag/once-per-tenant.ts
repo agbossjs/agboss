@@ -44,21 +44,17 @@ interface Run {
 }
 
 /** `work`'s outcome, or the signal's reason as soon as it aborts — the work itself goes on. */
-function untilAborted(work: Promise<void>, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const onAbort = (): void => {
+async function untilAborted(work: Promise<void>, signal: AbortSignal): Promise<void> {
+  const abort: { listener?: () => void } = {};
+  const aborted = new Promise<never>((_, reject) => {
+    abort.listener = () => {
       reject(signal.reason as Error);
     };
-    signal.addEventListener("abort", onAbort, { once: true });
-    work.then(
-      () => {
-        signal.removeEventListener("abort", onAbort);
-        resolve();
-      },
-      (error: unknown) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error as Error);
-      },
-    );
+    signal.addEventListener("abort", abort.listener, { once: true });
   });
+  try {
+    await Promise.race([work, aborted]);
+  } finally {
+    if (abort.listener !== undefined) signal.removeEventListener("abort", abort.listener);
+  }
 }
