@@ -225,8 +225,10 @@ The application's PII key (#120) is a `Secret` field of the environment, named b
 - **Why it is shared:** every instance uses the same key, so one value gets one token on every
   machine, and logs and traces from different machines match.
 - **Precedence:** a policy's own `pseudonymKey` wins.
-- **Assembly check:** a `pseudonymKey` field the contract does not declare fails assembly with
-  `[environment.missing-field]`.
+- **Assembly check:** `piiKeyField` (#825, was `pseudonymKey`) is typed as a `Secret` field of the
+  contract — a typo or a text field does not compile; a field the contract does not declare (a
+  JavaScript caller) fails assembly with `[environment.missing-field]`, one that is also a provider's
+  `apiKey` or another key `[application.pii-key-shared]`.
 - **At start:**
   - A policy that needs the key when it is not set fails the start, naming the field and the
     policies.

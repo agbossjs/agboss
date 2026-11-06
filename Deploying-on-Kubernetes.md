@@ -69,7 +69,7 @@ connections (R6). The stores' contracts and fault suite on PostgreSQL are agboss
 **The application**: every write that must happen once inside a fenced effect, in the store's own
 database ([Several instances → The fenced effect](Several-instances#the-fenced-effect-500)); every
 call to another system through `OutboundCalls`, keyed by a business key, with a `reconcile`
-([Payments](Payments)); the other system deduplicating on the key; one `pseudonymKey` shared by every
+([Payments](Payments)); the other system deduplicating on the key; one idempotency key (`idempotencyKeyField`, #825) shared by every
 pod ([Guarantees](Guarantees) A8).
 
 ## Kubernetes
@@ -159,7 +159,7 @@ the run step by step.
 | Liveness | every 10 s, timeout 2 s, ≥ 7 failures (≥ 70 s) | R4: longer than a takeover |
 | `maxConcurrentSteps` | the pod's capacity; the autoscaler's target per pod | [Autoscaling](Autoscaling) |
 | `postgresPoolSize` | 5–10; pods × it < `max_connections` | R6 |
-| `pseudonymKey` | one `Secret` for every pod | [Guarantees](Guarantees) A8 |
+| `piiKeyField`, `idempotencyKeyField` | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
 | `fencedEffects.retention` | 24 h (the default); longer than any retry of a step | [Guarantees](Guarantees) A12 |
 | `outboundCalls.attemptTimeout` | 2 min (the default); above the other system's own timeout | [Guarantees](Guarantees) A6 |
 | `leaseEventRetention` | 24 h (the default) | the lease log an operator and a verification read |

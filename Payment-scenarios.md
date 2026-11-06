@@ -232,7 +232,7 @@ tool calls with two step keys.
   \`order:${orderId}\` })`. The second call gets the first's receipt (`Replayed`; `Joined` while the
   first is still sending on this instance). A call for the same order with another amount is
   `IdempotencyKeyConflictError`, and nothing is sent.
-- **Guarantee:** P2, P3. Assumption: A8 (one `pseudonymKey` on every instance).
+- **Guarantee:** P2, P3. Assumption: A8 (one idempotency key on every instance, #825).
 - **Boundary:** make the business key from the order the execution works on, never from text the
   model wrote. An approval (a pause) or a tool interceptor can stop a charge the model should not
   make; the key only makes it once.
