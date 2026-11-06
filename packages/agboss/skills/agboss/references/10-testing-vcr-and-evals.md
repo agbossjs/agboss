@@ -643,11 +643,12 @@ The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` th
 `a2aHttpListener` (its `@A2AExpose`, listed in `@Application({ exposes })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
 url, headers })`. The app is built first and the caller resolver taken from its container (so
 `override(…)` and `mockOf` reach its services); the loopback is open for the test without
-`allowNetwork`, and the server closes when the test ends. A refused caller is
-`A2ACallerRejectedError` on the client (reference 04):
+`allowNetwork`, and the server closes when the test ends. It serves the 0.1.0 wire
+(`POST <url>/execute`) until A2A v1.0 (#808); a refused caller is `401 a2a.caller-unauthenticated`,
+`A2ACallerRejectedError` on an AGBoss client (reference 04):
 
 <!-- snippet-context
-import { A2ACallerRejectedError, A2AClient, A2AStatus, type A2ACallerResolver } from "@agboss/core/a2a";
+import { A2AStatus, type A2ACallerResolver } from "@agboss/core/a2a";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
@@ -662,15 +663,21 @@ const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
 ```ts
 const screening = { expose: ScreeningA2AExpose, callerResolver: ScreeningA2aCallerResolver };
 
+/** `POST <url>/execute` of the 0.1.0 wire the listener serves until #808. */
+const post = (url: string, input: object, headers: Record<string, string> = {}, threadId?: string) =>
+  fetch(`${url}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify({ input, ...(threadId === undefined ? {} : { threadId }) }),
+  });
+
 test("a caller without a key is refused with 401, and nothing runs", async ({ a2aServer, mockLlm }) => {
   const { url } = await a2aServer(screening); // listed in the application's providers
 
-  const sent = new A2AClient({ url }).send(candidate);
+  const sent = await post(url, candidate);
 
-  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
-    httpStatus: 401,
-    wireCode: "a2a.caller-unauthenticated",
-  });
+  expect(sent.status).toBe(401);
+  expect(await sent.json()).toMatchObject({ code: "a2a.caller-unauthenticated" });
   expect(mockLlm(SkillsAgent)).toHaveBeenCalledTimes(0);
 });
 
@@ -678,9 +685,8 @@ test("a known key runs for its tenant", async ({ a2aServer, mockLlm }) => {
   mockLlm(SkillsAgent).thenReturn(replyWith("…")); // and the rest of the path's scripts
   const { url } = await a2aServer(screening);
 
-  const response = await new A2AClient({ url, headers: { authorization: "Bearer key-acme" } }).send(candidate, {
-    threadId: "dana-1", // the caller's tenant's thread
-  });
+  const sent = await post(url, candidate, { authorization: "Bearer key-acme" }, "dana-1"); // the tenant's thread
+  const response = (await sent.json()) as { readonly status: A2AStatus };
 
   expect(response.status).toBe(A2AStatus.Finished);
 });

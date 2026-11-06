@@ -42,7 +42,7 @@ export class InvoiceAnswerDto {
 @A2AAgent({
   name: "billing-desk-a2a-agent",
   url: "http://billing.invalid",
-  target: { application: "billing-application", start: "billing-workflow-start" },
+  target: { application: "billing-application", skill: "billing-workflow-start" },
   input: InvoiceQuestionDto,
   output: InvoiceAnswerDto,
   price: usd(0.05),

@@ -4,10 +4,17 @@
 
 ```ts
 
+import { AgentCard } from '@a2a-js/sdk';
+import { AgentSkill } from '@a2a-js/sdk';
+import { Artifact } from '@a2a-js/sdk';
 import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
+import { Message } from '@a2a-js/sdk';
+import { Part } from '@a2a-js/sdk';
 import type { ServerResponse } from 'node:http';
-import { z } from 'zod';
+import type { StreamResponse } from '@a2a-js/sdk';
+import { Task } from '@a2a-js/sdk';
+import { TaskState } from '@a2a-js/sdk';
 
 // @public
 export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
@@ -22,32 +29,33 @@ export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 // @public
 export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = []>(config: A2AAgentConfig<TIn, TOut, D>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>>(value: C) => C;
 
+// Warning: (ae-forgotten-export) The symbol "A2AAgentBase" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "A2AAgentTyped" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "A2AAgentUntyped" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export interface A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> {
-    readonly deps?: D;
-    readonly input: TIn;
-    readonly name: string;
-    readonly output: TOut;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
-    readonly price?: Usd;
-    readonly target: A2ATarget;
-    readonly url: string;
-}
+export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = A2AAgentBase<D> & (A2AAgentTyped<TIn, TOut> | A2AAgentUntyped);
 
 // @public
 export interface A2AAgentMeta {
     // (undocumented)
+    readonly allowedOrigins?: readonly string[];
+    // (undocumented)
     readonly deps: readonly Token[];
     // (undocumented)
-    readonly input: DtoClass;
+    readonly input?: DtoClass;
+    // (undocumented)
+    readonly mesh?: A2AMesh;
     // (undocumented)
     readonly name: string;
     // (undocumented)
-    readonly output: DtoClass;
+    readonly output?: DtoClass;
+    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     readonly price?: Usd;
     // (undocumented)
-    readonly target: A2ATarget;
+    readonly target?: A2ATarget;
     // (undocumented)
     readonly url: string;
 }
@@ -56,6 +64,35 @@ export interface A2AAgentMeta {
 //
 // @public
 export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
+
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class A2ACallDeadlineError extends AGBossError {
+    constructor(options: A2ACallDeadlineErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly cancel: A2ACancelOutcome;
+    // (undocumented)
+    static readonly code: "a2a.deadline";
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly deadlineAt: string;
+    readonly isCanceled: boolean;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
+    // (undocumented)
+    readonly cancel: A2ACancelOutcome;
+    readonly deadlineAt: string;
+}
 
 // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptionsOf" needs to be exported by the entry point index.d.ts
@@ -68,8 +105,6 @@ export interface A2ACallerForbiddenOptions {
     readonly reason: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class A2ACallerRejectedError extends AGBossError {
     constructor(
@@ -117,45 +152,109 @@ export interface A2ACallerUnauthenticatedOptions {
 }
 
 // @public
+export enum A2ACancelOutcome {
+    Canceled = "canceled",
+    NoAnswer = "no-answer",
+    NotCanceled = "not-canceled",
+    Refused = "refused"
+}
+
+// @public
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
     constructor(options?: A2AClientOptions);
-    cancel(threadId: string, call?: Pick<A2AClientCall, "signal">): Promise<void>;
-    readonly contract: A2AContract | undefined;
+    agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
+    cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
+    readonly contract: A2AClientContract | undefined;
     execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
     protected getHeaders(): Promise<Record<string, string>>;
-    send(input: unknown, call?: A2AClientCall): Promise<A2AExecutionResponse>;
+    getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
+    reply(taskId: string, answer: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
+    send(message: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
     // (undocumented)
     readonly url: string;
 }
 
 // @public
 export interface A2AClientCall {
-    // (undocumented)
-    readonly onEvent?: (event: A2AEvent) => void;
-    // (undocumented)
+    readonly contextId?: string;
+    readonly key?: string;
+    readonly onEvent?: (event: A2AStreamEvent) => void;
     readonly signal?: AbortSignal;
-    readonly threadId?: string;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly timeout?: Milliseconds;
+}
+
+// @public
+export interface A2AClientContract {
+    readonly application?: string;
+    // (undocumented)
+    readonly input?: DtoClass;
+    readonly mesh?: A2AMesh;
+    // (undocumented)
+    readonly output?: DtoClass;
+    readonly price?: Usd;
+    readonly skill?: string;
+}
+
+// @public
+export enum A2AClientOperation {
+    // (undocumented)
+    AgentCard = "agent-card",
+    // (undocumented)
+    CancelTask = "CancelTask",
+    // (undocumented)
+    GetTask = "GetTask",
+    // (undocumented)
+    SendMessage = "SendMessage",
+    // (undocumented)
+    SendStreamingMessage = "SendStreamingMessage",
+    // (undocumented)
+    SubscribeToTask = "SubscribeToTask"
 }
 
 // @public (undocumented)
 export interface A2AClientOptions {
-    readonly contract?: A2AContract;
+    readonly allowedOrigins?: readonly string[];
+    readonly cardTtl?: Milliseconds;
+    readonly contract?: A2AClientContract;
     readonly fetcher?: typeof fetch;
-    // (undocumented)
-    readonly headers?: Record<string, string>;
+    readonly headers?: Readonly<Record<string, string>>;
     readonly url?: string;
 }
 
 // @public
-export interface A2AContract {
+export class A2AContractError extends AGBossError {
+    constructor(options: A2AContractErrorOptions);
     // (undocumented)
-    readonly input: DtoClass;
+    readonly agent: string;
     // (undocumented)
-    readonly output: DtoClass;
+    static readonly code: "a2a.contract";
     // (undocumented)
-    readonly price?: Usd;
+    readonly differences: readonly string[];
     // (undocumented)
-    readonly target: A2ATarget;
+    name: string;
+    // (undocumented)
+    readonly rule: A2AContractRule;
+    // (undocumented)
+    readonly skill: string;
+}
+
+// @public
+export interface A2AContractErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    readonly differences?: readonly string[];
+    // (undocumented)
+    readonly rule: A2AContractRule;
+    // (undocumented)
+    readonly skill: string;
+}
+
+// @public
+export enum A2AContractRule {
+    RepeatedCall = "a2a.repeated-call",
+    SchemaMismatch = "a2a.schema-mismatch",
+    UnknownSkill = "a2a.unknown-skill"
 }
 
 // @public
@@ -171,38 +270,6 @@ export type A2AEvent = {
         readonly result: A2AExecutionResponse;
     };
 };
-
-// @public
-export const A2AEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
-    type: z.ZodLiteral<"progress">;
-    payload: z.ZodObject<{
-        step: z.ZodEnum<{
-            text: "text";
-            tool: "tool";
-        }>;
-        content: z.ZodString;
-    }, z.core.$strip>;
-}, z.core.$strip>, z.ZodObject<{
-    type: z.ZodLiteral<"finish">;
-    payload: z.ZodObject<{
-        result: z.ZodObject<{
-            threadId: z.ZodOptional<z.ZodString>;
-            status: z.ZodEnum<typeof A2AStatus>;
-            finish: z.ZodOptional<z.ZodString>;
-            output: z.ZodOptional<z.ZodUnknown>;
-            error: z.ZodOptional<z.ZodString>;
-            code: z.ZodOptional<z.ZodString>;
-            details: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-            pauseIds: z.ZodOptional<z.ZodArray<z.ZodString>>;
-            executionId: z.ZodOptional<z.ZodString>;
-            spend: z.ZodOptional<z.ZodObject<{
-                total: z.ZodString;
-                currency: z.ZodLiteral<"USD">;
-            }, z.core.$strip>>;
-            report: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>;
-    }, z.core.$strip>;
-}, z.core.$strip>], "type">;
 
 // @public
 export interface A2AExecutionRequest<TInput = unknown> {
@@ -266,10 +333,41 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
     readonly expose: Class;
     // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxBodySize?: Bytes;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly maxTaskDuration?: Milliseconds;
     readonly publicUrl: string;
 }
+
+// @public
+export enum A2AMesh {
+    IfSupported = "if-supported",
+    Required = "required"
+}
+
+// @public
+export class A2AMeshUnsupportedError extends AGBossError {
+    constructor(options: A2AMeshUnsupportedErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly application: string | undefined;
+    // (undocumented)
+    static readonly code: "a2a.mesh-unsupported";
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export interface A2AMeshUnsupportedErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly application: string | undefined;
+}
+
+// @public
+export type A2AMessageInput = string | {
+    readonly data: unknown;
+} | readonly Part[];
 
 // @public
 export enum A2AOperation {
@@ -282,37 +380,123 @@ export enum A2AOperation {
 }
 
 // @public
+export class A2AOriginError extends AGBossError {
+    constructor(options: A2AOriginErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly allowedOrigins: readonly string[];
+    // (undocumented)
+    static readonly code: "a2a.origin-refused";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly origin: string;
+    // (undocumented)
+    readonly site: A2AOriginSite;
+}
+
+// @public
+export interface A2AOriginErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly allowedOrigins: readonly string[];
+    // (undocumented)
+    readonly origin: string;
+    // (undocumented)
+    readonly site: A2AOriginSite;
+}
+
+// @public
+export enum A2AOriginSite {
+    CardInterface = "card-interface",
+    Redirect = "redirect",
+    Request = "request"
+}
+
+// @public
 export interface A2APeer {
     // (undocumented)
     readonly peer?: string;
 }
 
 // @public
-export class A2ARemoteError extends Error {
-    constructor(response: A2AExecutionResponse);
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly response: A2AExecutionResponse;
+export enum A2APeerKind {
+    AGBoss = "agboss",
+    Foreign = "foreign"
 }
 
 // @public
-export const A2AResponseSchema: z.ZodObject<{
-    threadId: z.ZodOptional<z.ZodString>;
-    status: z.ZodEnum<typeof A2AStatus>;
-    finish: z.ZodOptional<z.ZodString>;
-    output: z.ZodOptional<z.ZodUnknown>;
-    error: z.ZodOptional<z.ZodString>;
-    code: z.ZodOptional<z.ZodString>;
-    details: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-    pauseIds: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    executionId: z.ZodOptional<z.ZodString>;
-    spend: z.ZodOptional<z.ZodObject<{
-        total: z.ZodString;
-        currency: z.ZodLiteral<"USD">;
-    }, z.core.$strip>>;
-    report: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+export class A2AProtocolError extends AGBossError {
+    constructor(options: A2AProtocolErrorOptions, cause?: unknown);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.protocol";
+    // (undocumented)
+    readonly httpStatus: number | undefined;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: A2AClientOperation;
+    // (undocumented)
+    readonly protocolVersions: readonly string[] | undefined;
+    // (undocumented)
+    readonly rpcCode: number | undefined;
+}
+
+// @public
+export interface A2AProtocolErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    readonly httpStatus?: number | undefined;
+    // (undocumented)
+    readonly operation: A2AClientOperation;
+    readonly protocolVersions?: readonly string[];
+    readonly rpcCode?: number | undefined;
+}
+
+// @public
+export class A2ARemoteCallError extends AGBossError {
+    constructor(options: A2ARemoteCallErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.remote";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly reason: A2ARemoteCallReason;
+    // (undocumented)
+    readonly taskId: string | undefined;
+}
+
+// @public
+export interface A2ARemoteCallErrorOptions {
+    readonly agent: string;
+    // (undocumented)
+    readonly reason: A2ARemoteCallReason;
+    readonly taskId?: string | undefined;
+}
+
+// @public
+export enum A2ARemoteCallReason {
+    MalformedAnswer = "malformed-answer",
+    NoOutput = "no-output",
+    NoTask = "no-task"
+}
+
+// @public
+export type A2ARemotePeer = {
+    readonly kind: A2APeerKind.AGBoss;
+    readonly idempotencyRetention: Milliseconds;
+    readonly mesh: boolean;
+} | {
+    readonly kind: A2APeerKind.Foreign;
+    readonly idempotencyRetention: undefined;
+    readonly mesh: boolean;
+};
 
 // @public
 export const A2ASecurity: {
@@ -376,10 +560,133 @@ export enum A2AStatus {
 }
 
 // @public
+export type A2AStreamEvent = StreamResponse;
+
+// @public
 export interface A2ATarget {
-    readonly application: string;
-    readonly start: string;
+    readonly application?: string;
+    readonly skill?: string;
 }
+
+// @public
+export class A2ATaskCanceledError extends AGBossError {
+    constructor(options: A2ATaskErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.task-canceled";
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export enum A2ATaskEnd {
+    // (undocumented)
+    Failed = "failed",
+    // (undocumented)
+    Rejected = "rejected"
+}
+
+// @public
+export interface A2ATaskErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export class A2ATaskFailedError extends AGBossError {
+    constructor(options: A2ATaskFailedErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.task-failed";
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly end: A2ATaskEnd;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly remoteCode: string | undefined;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export interface A2ATaskFailedErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly end: A2ATaskEnd;
+    readonly remoteCode: string | undefined;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export class A2ATaskInterruptedError extends AGBossError {
+    constructor(options: A2ATaskInterruptedErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.task-interrupted";
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly interruption: A2ATaskInterruption;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export interface A2ATaskInterruptedErrorOptions extends A2ATaskErrorOptions {
+    // (undocumented)
+    readonly interruption: A2ATaskInterruption;
+}
+
+// @public
+export enum A2ATaskInterruption {
+    // (undocumented)
+    AuthRequired = "auth-required",
+    // (undocumented)
+    InputRequired = "input-required"
+}
+
+// @public
+export interface A2ATaskResult {
+    // (undocumented)
+    readonly data: unknown;
+    // (undocumented)
+    readonly message: Message | undefined;
+    // (undocumented)
+    readonly peer: A2ARemotePeer;
+    // (undocumented)
+    readonly task: Task | undefined;
+    // (undocumented)
+    readonly text: string | undefined;
+}
+
+export { AgentCard }
+
+export { AgentSkill }
+
+export { Artifact }
+
+export { Message }
+
+export { Part }
 
 // Warning: (ae-forgotten-export) The symbol "BuiltA2ACallerResolution" needs to be exported by the entry point index.d.ts
 //
@@ -441,30 +748,118 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
 }
 
+export { Task }
+
+export { TaskState }
+
 // Warnings were encountered during analysis:
 //
 // src/a2a/a2a-caller.ts:69:3 - (ae-undocumented) Missing documentation for "peer".
 // src/a2a/a2a-caller.ts:93:3 - (ae-undocumented) Missing documentation for "kind".
 // src/a2a/a2a-caller.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-client.ts:25:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
-// src/a2a/a2a-client.ts:28:3 - (ae-undocumented) Missing documentation for "headers".
-// src/a2a/a2a-client.ts:40:3 - (ae-undocumented) Missing documentation for "onEvent".
-// src/a2a/a2a-client.ts:41:3 - (ae-undocumented) Missing documentation for "signal".
-// src/a2a/a2a-client.ts:63:12 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/a2a-client.ts:64:15 - (ae-undocumented) Missing documentation for "response".
-// src/a2a/a2a-client.ts:107:3 - (ae-undocumented) Missing documentation for "url".
-// src/a2a/a2a-contract.ts:11:3 - (ae-undocumented) Missing documentation for "target".
-// src/a2a/a2a-contract.ts:12:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/a2a-contract.ts:13:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-contract.ts:14:3 - (ae-undocumented) Missing documentation for "price".
-// src/a2a/a2a-decorator.ts:15:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
-// src/a2a/a2a-decorator.ts:41:3 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/a2a-decorator.ts:42:3 - (ae-undocumented) Missing documentation for "url".
-// src/a2a/a2a-decorator.ts:43:3 - (ae-undocumented) Missing documentation for "target".
-// src/a2a/a2a-decorator.ts:44:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/a2a-decorator.ts:45:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-decorator.ts:46:3 - (ae-undocumented) Missing documentation for "price".
-// src/a2a/a2a-decorator.ts:47:3 - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/a2a-decorator.ts:63:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
+// src/a2a/a2a-decorator.ts:71:3 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-decorator.ts:72:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-decorator.ts:73:3 - (ae-undocumented) Missing documentation for "target".
+// src/a2a/a2a-decorator.ts:74:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/a2a-decorator.ts:75:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/a2a-decorator.ts:76:3 - (ae-undocumented) Missing documentation for "price".
+// src/a2a/a2a-decorator.ts:77:3 - (ae-undocumented) Missing documentation for "mesh".
+// src/a2a/a2a-decorator.ts:78:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
+// src/a2a/a2a-decorator.ts:79:3 - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/client/a2a-client-errors.ts:32:3 - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/client/a2a-client-errors.ts:43:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-client-errors.ts:44:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-client-errors.ts:45:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:46:3 - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/client/a2a-client-errors.ts:47:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-client-errors.ts:62:3 - (ae-undocumented) Missing documentation for "AgentCard".
+// src/a2a/client/a2a-client-errors.ts:63:3 - (ae-undocumented) Missing documentation for "SendMessage".
+// src/a2a/client/a2a-client-errors.ts:64:3 - (ae-undocumented) Missing documentation for "SendStreamingMessage".
+// src/a2a/client/a2a-client-errors.ts:65:3 - (ae-undocumented) Missing documentation for "GetTask".
+// src/a2a/client/a2a-client-errors.ts:66:3 - (ae-undocumented) Missing documentation for "CancelTask".
+// src/a2a/client/a2a-client-errors.ts:67:3 - (ae-undocumented) Missing documentation for "SubscribeToTask".
+// src/a2a/client/a2a-client-errors.ts:72:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:73:3 - (ae-undocumented) Missing documentation for "operation".
+// src/a2a/client/a2a-client-errors.ts:107:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-client-errors.ts:108:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-client-errors.ts:109:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:110:3 - (ae-undocumented) Missing documentation for "operation".
+// src/a2a/client/a2a-client-errors.ts:111:3 - (ae-undocumented) Missing documentation for "rpcCode".
+// src/a2a/client/a2a-client-errors.ts:112:3 - (ae-undocumented) Missing documentation for "httpStatus".
+// src/a2a/client/a2a-client-errors.ts:113:3 - (ae-undocumented) Missing documentation for "protocolVersions".
+// src/a2a/client/a2a-client-errors.ts:151:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:152:3 - (ae-undocumented) Missing documentation for "rule".
+// src/a2a/client/a2a-client-errors.ts:153:3 - (ae-undocumented) Missing documentation for "skill".
+// src/a2a/client/a2a-client-errors.ts:165:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-client-errors.ts:166:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-client-errors.ts:167:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:168:3 - (ae-undocumented) Missing documentation for "rule".
+// src/a2a/client/a2a-client-errors.ts:169:3 - (ae-undocumented) Missing documentation for "skill".
+// src/a2a/client/a2a-client-errors.ts:170:3 - (ae-undocumented) Missing documentation for "differences".
+// src/a2a/client/a2a-client-options.ts:25:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/client/a2a-client-options.ts:26:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/client/a2a-client-options.ts:33:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
+// src/a2a/client/a2a-client-options.ts:80:3 - (ae-undocumented) Missing documentation for "task".
+// src/a2a/client/a2a-client-options.ts:81:3 - (ae-undocumented) Missing documentation for "message".
+// src/a2a/client/a2a-client-options.ts:82:3 - (ae-undocumented) Missing documentation for "text".
+// src/a2a/client/a2a-client-options.ts:83:3 - (ae-undocumented) Missing documentation for "data".
+// src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "peer".
+// src/a2a/client/a2a-client.ts:56:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-guard-errors.ts:20:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-guard-errors.ts:21:3 - (ae-undocumented) Missing documentation for "origin".
+// src/a2a/client/a2a-guard-errors.ts:22:3 - (ae-undocumented) Missing documentation for "site".
+// src/a2a/client/a2a-guard-errors.ts:23:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
+// src/a2a/client/a2a-guard-errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-guard-errors.ts:33:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-guard-errors.ts:34:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-guard-errors.ts:35:3 - (ae-undocumented) Missing documentation for "origin".
+// src/a2a/client/a2a-guard-errors.ts:36:3 - (ae-undocumented) Missing documentation for "site".
+// src/a2a/client/a2a-guard-errors.ts:37:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
+// src/a2a/client/a2a-guard-errors.ts:65:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-guard-errors.ts:66:3 - (ae-undocumented) Missing documentation for "application".
+// src/a2a/client/a2a-guard-errors.ts:75:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-guard-errors.ts:76:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-guard-errors.ts:77:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-guard-errors.ts:78:3 - (ae-undocumented) Missing documentation for "application".
+// src/a2a/client/a2a-task-errors.ts:18:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/a2a/client/a2a-task-errors.ts:19:3 - (ae-undocumented) Missing documentation for "Rejected".
+// src/a2a/client/a2a-task-errors.ts:24:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:25:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:26:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:27:3 - (ae-undocumented) Missing documentation for "end".
+// src/a2a/client/a2a-task-errors.ts:38:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-task-errors.ts:39:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-task-errors.ts:40:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:41:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:42:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:43:3 - (ae-undocumented) Missing documentation for "end".
+// src/a2a/client/a2a-task-errors.ts:44:3 - (ae-undocumented) Missing documentation for "remoteCode".
+// src/a2a/client/a2a-task-errors.ts:66:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:67:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:68:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:73:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-task-errors.ts:74:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-task-errors.ts:75:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:76:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:77:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:91:3 - (ae-undocumented) Missing documentation for "InputRequired".
+// src/a2a/client/a2a-task-errors.ts:92:3 - (ae-undocumented) Missing documentation for "AuthRequired".
+// src/a2a/client/a2a-task-errors.ts:97:3 - (ae-undocumented) Missing documentation for "interruption".
+// src/a2a/client/a2a-task-errors.ts:106:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-task-errors.ts:107:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-task-errors.ts:108:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:109:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:110:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:111:3 - (ae-undocumented) Missing documentation for "interruption".
+// src/a2a/client/a2a-task-errors.ts:147:3 - (ae-undocumented) Missing documentation for "cancel".
+// src/a2a/client/a2a-task-errors.ts:156:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-task-errors.ts:157:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-task-errors.ts:158:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-task-errors.ts:159:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-task-errors.ts:160:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/client/a2a-task-errors.ts:161:3 - (ae-undocumented) Missing documentation for "deadlineAt".
+// src/a2a/client/a2a-task-errors.ts:162:3 - (ae-undocumented) Missing documentation for "cancel".
 // src/a2a/types.ts:11:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/a2a/types.ts:12:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/a2a/types.ts:13:3 - (ae-undocumented) Missing documentation for "Failed".

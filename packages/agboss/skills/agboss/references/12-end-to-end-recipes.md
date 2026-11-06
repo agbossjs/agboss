@@ -1085,11 +1085,11 @@ import { usd } from "@agboss/core/units";
 import { BillingAnswerDto } from "../dto/billing-answer.dto.js";
 import { BillingQuestionDto } from "../dto/billing-question.dto.js";
 
-// the billing desk's export, declared (#398 PR 3): what it takes, gives back and costs a call
+// the billing desk's export, declared (#398 PR 3, #809): what it takes, gives back and costs a call
 @A2AAgent({
   name: "billing-desk-a2a-agent",
   url: "https://billing.example/a2a",
-  target: { application: "billing-application", start: "billing-workflow-start" },
+  target: { application: "billing-application", skill: "billing-workflow-start" },
   input: BillingQuestionDto,
   output: BillingAnswerDto,
   price: usd(0.002),

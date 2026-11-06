@@ -2,56 +2,89 @@ import { recordComponent } from "../components/metadata.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Usd } from "../units/index.js";
-import type { A2AClient } from "./a2a-client.js";
+import type { A2AClient } from "./client/a2a-client.js";
+import type { A2AMesh } from "./client/a2a-guard-errors.js";
 
-/** The export an `@A2AAgent` calls (#398 PR 3): the receiving application and its start. */
+/**
+ * Whom an `@A2AAgent` calls (#809, design §4.4): an AGBoss application, named for `describe`,
+ * federation and the mesh's audience, and the skill — the receiver's exported start — that a
+ * message names. Both optional: a foreign agent has no application, an agent with one skill needs
+ * no name for it.
+ */
 export interface A2ATarget {
-  /** The receiver's `@Application({ name })` — the envelope's `audience`. */
-  readonly application: string;
-  /** The receiver's exported `@WorkflowStart` name (`POST <url>/execute { start, … }`). */
-  readonly start: string;
+  /** The receiver's `@Application({ name })`, when it is an AGBoss application. */
+  readonly application?: string;
+  /** The agent's skill id (an AGBoss application's exported `@WorkflowStart` name; was `start`). */
+  readonly skill?: string;
 }
 
-export interface A2AAgentConfig<
-  TIn extends DtoClass = DtoClass,
-  TOut extends DtoClass = DtoClass,
-  D extends readonly Token[] = [],
-> {
+/** The parts of an `@A2AAgent` beside its DTOs. */
+interface A2AAgentBase<D extends readonly Token[]> {
   /** `billing-desk-a2a-agent` — kebab-case, ending with `-a2a-agent` (`[name.kind-suffix]`). */
   readonly name: string;
-  /** The remote agent's base URL (`<url>/execute`); the client gets it at construction. */
+  /** The agent's base URL; its card is read from `<url>/.well-known/agent-card.json`. */
   readonly url: string;
-  /** What it calls: the receiving application and its exported start (`[a2a.target-required]`). */
-  readonly target: A2ATarget;
-  /** What `execute(input)` takes: the target start's input, validated before it is sent. */
-  readonly input: TIn;
-  /** What `execute` gives back: the target's finish output, validated when it comes. */
-  readonly output: TOut;
+  /** Whom it calls: an AGBoss application and its skill (both optional). */
+  readonly target?: A2ATarget;
   /**
-   * What one call costs by contract (Q6 c): the caller records the larger of it and the spend a
-   * trusted peer's signed report gives — the price alone when there is no verified report.
+   * What one call costs by contract, charged to the calling step's budgets — the only spend known
+   * of a foreign agent; an AGBoss peer's verified report may raise it (the mesh extension).
    */
   readonly price?: Usd;
+  /**
+   * Whether the agent must declare the AGBoss mesh extension (the call chain's loop and hop limits,
+   * the caller's budget and deadline, the signed spend): default `A2AMesh.Required` with a
+   * `target.application`, `A2AMesh.IfSupported` without — a foreign agent is called without it.
+   */
+  readonly mesh?: A2AMesh;
+  /**
+   * Origins besides the `url`'s that the agent's card may name for its interfaces
+   * (`["https://rpc.billing.example"]`); any other is refused and gets no request (#809).
+   */
+  readonly allowedOrigins?: readonly string[];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
 }
+
+/** A typed agent: `execute(input)` sends `input` and gives `output`, both validated. */
+interface A2AAgentTyped<TIn extends DtoClass, TOut extends DtoClass> {
+  /** What `execute(input)` takes: the skill's input, validated before it is sent. */
+  readonly input: TIn;
+  /** What `execute` gives back: the task's output, validated when it comes. */
+  readonly output: TOut;
+}
+
+/** An untyped agent: `send(message)` only. */
+interface A2AAgentUntyped {
+  readonly input?: undefined;
+  readonly output?: undefined;
+}
+
+export type A2AAgentConfig<
+  TIn extends DtoClass = DtoClass,
+  TOut extends DtoClass = DtoClass,
+  D extends readonly Token[] = [],
+> = A2AAgentBase<D> & (A2AAgentTyped<TIn, TOut> | A2AAgentUntyped);
 
 /** What `@A2AAgent` records of its class. */
 export interface A2AAgentMeta {
   readonly name: string;
   readonly url: string;
-  readonly target: A2ATarget;
-  readonly input: DtoClass;
-  readonly output: DtoClass;
+  readonly target?: A2ATarget;
+  readonly input?: DtoClass;
+  readonly output?: DtoClass;
   readonly price?: Usd;
+  readonly mesh?: A2AMesh;
+  readonly allowedOrigins?: readonly string[];
   readonly deps: readonly Token[];
 }
 
 /**
- * A remote workflow exposed over A2A, as a declared contract (#398 PR 3): `@A2AAgent({ name, url,
- * target, input, output, price?, deps })` on a class that `extends A2AClient<In, Out>`; list it in
- * `providers` and inject it into tools — `execute(input)` is typed by the contract, its input and
- * output validated, and `agboss describe --json` lists it among the application's consumed contracts.
+ * An A2A v1.0 agent as a declared contract (#809): `@A2AAgent({ name, url, target?, input?, output?,
+ * price?, deps })` on a class that `extends A2AClient<In, Out>` (`A2AClient` untyped); list it in
+ * `providers` and inject it into tools — `execute(input)` is typed by the contract, `send(message)`
+ * takes anything. A typed agent of an AGBoss application is listed by `agboss describe --json`
+ * among the application's consumed contracts.
  */
 export function A2AAgent<
   TIn extends DtoClass,
@@ -66,10 +99,13 @@ export function A2AAgent<
     const meta: A2AAgentMeta = {
       name: config.name,
       url: config.url,
-      target: config.target,
-      input: config.input,
-      output: config.output,
+      ...(config.target === undefined ? {} : { target: config.target }),
+      ...(config.input === undefined ? {} : { input: config.input, output: config.output }),
       ...(config.price === undefined ? {} : { price: config.price }),
+      ...(config.mesh === undefined ? {} : { mesh: config.mesh }),
+      ...(config.allowedOrigins === undefined
+        ? {}
+        : { allowedOrigins: [...config.allowedOrigins] }),
       deps: config.deps ?? [],
     };
     recordComponent(value, { kind: "a2a-agent", meta });

@@ -40,6 +40,18 @@ function settledSpendSaverOf(file) {
   return `${file}:${String(start + 1)}-${String(end + 1)}`;
 }
 
+/**
+ * `audienceRefusalOf` in `file` as a Stryker range (#809): from its comment to its end, found by
+ * name — the signature checks below it are the fencing shard's tests', not the client's.
+ */
+function audienceRefusalOf(file) {
+  const lines = readFileSync(new URL(file, import.meta.url), "utf8").split("\n");
+  const start = lines.findIndex((line) => line.startsWith("export const audienceRefusalOf"));
+  const end = start + lines.slice(start).indexOf("};");
+  if (start < 0 || end < start) throw new Error(`${file}: audienceRefusalOf not found`);
+  return `${file}:${String(start + 1)}-${String(end + 1)}`;
+}
+
 const SHARDS = {
   // the leases, the holder's fence, the held lease, the fenced effect, the outbound call's
   // protocol and in-memory store, and the store's clock (#533)
@@ -185,6 +197,24 @@ const SHARDS = {
       "src/a2a/server/a2a-stream.ts",
       "src/a2a/server/a2a-list-tasks.ts",
       "src/a2a/a2a-task-store-rule.ts",
+    ],
+  },
+  // the A2A client (#809): the accept round trip's messageId and reconciliation by peer, which
+  // failures are definite, the error translation (codes only), the origins it talks to, each task
+  // state's outcome, the mesh envelope's body hash and its audience
+  "a2a-client": {
+    configFile: "vitest.mutation-a2a-client.config.ts",
+    mutate: [
+      "src/a2a/client/a2a-accept.ts",
+      "src/a2a/client/a2a-message.ts",
+      "src/a2a/client/a2a-reconcile.ts",
+      "src/a2a/client/a2a-transport.ts",
+      "src/a2a/client/a2a-wire-errors.ts",
+      "src/a2a/client/a2a-origins.ts",
+      "src/a2a/client/a2a-task-view.ts",
+      "src/a2a/client/a2a-outcome.ts",
+      "src/a2a/a2a-mesh-message.ts",
+      audienceRefusalOf("src/mesh/mesh-verification.ts"),
     ],
   },
 };

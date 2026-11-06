@@ -1,10 +1,8 @@
-import { createServer, type IncomingMessage, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
@@ -20,16 +18,13 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { testFrame } from "../helpers/frame.js";
 import { offline } from "../a2a/fixtures/remote.workflow.js";
 import { meshAppOf, PeerQuestion, PeerReply } from "../a2a/fixtures/mesh.workflow.js";
+import { AGENT_URL, scripts, SdkAgent } from "../a2a/client/support/sdk-agent.js";
 
 const apps: App[] = [];
-const servers: Server[] = [];
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await Promise.all(apps.splice(0).map((app) => app.close()));
-  servers.splice(0).forEach((server) => {
-    server.closeAllConnections();
-    server.close();
-  });
 });
 
 const claimed = (callChain: readonly MeshHop[]): string =>
@@ -50,23 +45,6 @@ const elsewhere: MeshHop = {
   start: "elsewhere-workflow-start",
   executionId: "root-1",
 };
-
-/** A peer that answers every A2A call and keeps each request's headers. */
-async function peer(): Promise<{
-  readonly url: string;
-  readonly headers: IncomingMessage["headers"][];
-}> {
-  const headers: IncomingMessage["headers"][] = [];
-  const server = createServer((req, res) => {
-    headers.push(req.headers);
-    req.resume();
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ status: "finished", output: { text: "peer says hi" } }));
-  });
-  servers.push(server);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return { url: `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`, headers };
-}
 
 /** The orders application served over MCP (its start and its tool), and a client connected to it. */
 async function served(book: ScriptBook, peerUrl: string, maxMeshHops?: number) {
@@ -126,9 +104,15 @@ describe('#398 PR 1: an MCP server reads _meta["agboss.dev/mesh"]', () => {
   });
 
   it("an admitted start runs with the chain: its own calls carry it on, the trace continued", async () => {
+    // the peer is an A2A v1.0 agent (#809): the chain rides its message's metadata, the trace a header
+    const remote = new SdkAgent({
+      script: scripts.completeWith({ data: { text: "peer says hi" } }),
+      agboss: { idempotencyRetention: 86_400_000 },
+      skills: ["peer-workflow-start"],
+    });
+    vi.stubGlobal("fetch", remote.fetcher);
     const book = new ScriptBook();
-    const remote = await peer();
-    const { client, parts } = await served(book, remote.url);
+    const { client, parts } = await served(book, AGENT_URL);
     book
       .scriptOf("agent:orders-desk-agent")
       .thenReturn(callTool(parts.CallPeer, { question: "q" }), replyWith("done"));
@@ -143,15 +127,12 @@ describe('#398 PR 1: an MCP server reads _meta["agboss.dev/mesh"]', () => {
       },
     });
 
-    const [sent] = remote.headers;
-    const envelope: unknown = JSON.parse(
-      Buffer.from(String(sent?.["agboss-mesh"]).split(".")[1] ?? "", "base64url").toString("utf8"),
-    );
     expect(result.isError).toBeFalsy();
-    expect(envelope).toMatchObject({
+    expect(remote.envelopes[0]?.envelope).toMatchObject({
       callChain: [elsewhere, { application: "orders-application", start: "orders-workflow-start" }],
     });
-    expect(sent?.traceparent).toMatch(new RegExp(`^00-${trace}-`));
+    const sent = remote.received.find((request) => request.method === "SendMessage");
+    expect(sent?.headers.traceparent).toMatch(new RegExp(`^00-${trace}-`));
   });
 
   it("a malformed envelope is ignored: the call runs", async () => {

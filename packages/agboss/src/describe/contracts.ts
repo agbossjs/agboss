@@ -116,11 +116,14 @@ function a2aImportsOf(
     const meta = componentOf(client);
     if (meta?.kind !== "a2a-agent") return [];
     const { name, target, input, output, price } = meta.meta;
+    // #809: a typed agent of an AGBoss application is a contract federation compares; a foreign
+    // or untyped agent is not listed (P5: listed as foreign)
+    if (target?.application === undefined || input === undefined || output === undefined) return [];
     return [
       {
         kind: "a2a",
         client: name,
-        target: { application: target.application, start: target.start },
+        target: { application: target.application, start: target.skill ?? "" },
         usedBy: usesOf(client, parts),
         input: dtos.of(input),
         output: dtos.of(output),

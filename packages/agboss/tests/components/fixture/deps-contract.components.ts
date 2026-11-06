@@ -5,7 +5,7 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
 } from "../../../src/pii/index.js";
-import { A2AClient } from "../../../src/a2a/a2a-client.js";
+import { A2AClient } from "../../../src/a2a/index.js";
 import {
   Channel,
   InputGuardrail,
@@ -134,7 +134,7 @@ export class VaultDocs {
 @A2AAgent({
   name: "remote-a2a-agent",
   url: "http://remote.invalid",
-  target: { application: "remote-application", start: "remote-workflow-start" },
+  target: { application: "remote-application", skill: "remote-workflow-start" },
   input: WorkflowStartTextDto,
   output: WorkflowFinishTextDto,
   deps: [Vault],

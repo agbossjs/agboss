@@ -4,14 +4,14 @@ import { usd } from "@agboss/core/units";
 import { DeskCallDto, DeskReplyDto } from "../dto/desk-call.dto.js";
 
 /**
- * The help desk of `desk-application`, a declared contract (#398 PR 3): its start, what it is sent
+ * The help desk of `desk-application`, a declared contract (#398 PR 3, #809): its skill, what it is sent
  * and gives back, its price. `agboss describe --json` lists it under `contracts.imports`, and
  * `check --federation` checks it against the desk's own snapshot — no network.
  */
 @A2AAgent({
   name: "desk-a2a-agent",
-  url: "http://127.0.0.1:4100/a2a", // the desk's listener, on this host
-  target: { application: "desk-application", start: "desk-workflow-start" },
+  url: "http://127.0.0.1:4100/a2a", // the desk's listener, on this host (its Agent Card under it)
+  target: { application: "desk-application", skill: "desk-workflow-start" },
   input: DeskCallDto,
   output: DeskReplyDto,
   price: usd(0.001), // per call: counted in the calling tool's spend

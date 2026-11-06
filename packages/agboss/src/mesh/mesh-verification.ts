@@ -23,6 +23,11 @@ export enum MeshRefusalCode {
   RequestInProgress = "mesh.request-in-progress",
   /** Its `audience` is another application (#398 PR 3): it was meant for someone else. */
   AudienceMismatch = "mesh.audience-mismatch",
+  /**
+   * A signed envelope that names no `audience` (#809 security): it could be replayed to any
+   * application as its issuer's signed word — refused, whoever holds its key.
+   */
+  AudienceMissing = "mesh.audience-missing",
 }
 
 /** What the caller reads of each refusal. */
@@ -32,20 +37,24 @@ export const MESH_REFUSAL_TEXT: Readonly<Record<MeshRefusalCode, string>> = {
   [MeshRefusalCode.BodyMismatch]: "the mesh envelope was signed for another request body",
   [MeshRefusalCode.RequestInProgress]: "a request with this idempotency key is still running",
   [MeshRefusalCode.AudienceMismatch]: "the mesh envelope is addressed to another application",
+  [MeshRefusalCode.AudienceMissing]: "the signed mesh envelope is addressed to no application",
 };
 
 /**
  * Whether an envelope is meant for `application` (#398 PR 3): its `audience`, when it names one,
- * must be the receiver's name — signed or not (a claim that only restricts).
+ * must be the receiver's name — signed or not (a claim that only restricts). A signed envelope
+ * must name one (#809 security, fail closed): without it, it is `mesh.audience-missing`.
  */
 export const audienceRefusalOf = (
   read: ReadEnvelope | undefined,
   application: string,
 ): MeshRefusalCode | undefined => {
-  const audience = read?.envelope.audience;
-  return audience === undefined || audience === application
-    ? undefined
-    : MeshRefusalCode.AudienceMismatch;
+  if (read === undefined) return undefined;
+  const audience = read.envelope.audience;
+  if (audience === undefined) {
+    return read.signed === undefined ? undefined : MeshRefusalCode.AudienceMissing;
+  }
+  return audience === application ? undefined : MeshRefusalCode.AudienceMismatch;
 };
 
 /** Why a signed envelope is refused at `now`; `undefined` when it holds. */

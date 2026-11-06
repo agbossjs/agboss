@@ -30,6 +30,7 @@ jobs:
             money,
             a2a-tasks,
             a2a-server,
+            a2a-client,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}

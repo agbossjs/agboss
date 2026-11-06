@@ -94,7 +94,6 @@ export type RuleCode =
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"
   | "mesh.duplicate-peer"
-  | "a2a.target-required"
   | "application.not-an-expose"
   | "application.duplicate-expose"
   | "application.expose-unknown-start"

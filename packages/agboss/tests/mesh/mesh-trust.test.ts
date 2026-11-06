@@ -1,6 +1,5 @@
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AClient, A2AStatus } from "../../src/a2a/index.js";
 import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { DeadlineExceededError, GraphRuleError } from "../../src/index.js";

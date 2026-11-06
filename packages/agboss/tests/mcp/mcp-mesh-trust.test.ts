@@ -27,6 +27,7 @@ const signed = (key: MeshKeyPair, body: unknown = args): string =>
     {
       schema: 1,
       issuer: "orders-application",
+      audience: "billing-application",
       origin: {
         rootExecutionId: "root-1",
         executionId: "root-1",
@@ -213,5 +214,61 @@ describe("#398 PR 3: an MCP call meant for another application", () => {
 
     expect(result._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.audience-mismatch" });
     expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+});
+
+describe("#809 security: an MCP call with a signed envelope that names no audience", () => {
+  /** `funded`'s claims without an audience, signed by `key` (or unsigned). */
+  const unaddressed = (key: MeshKeyPair | undefined): string => {
+    const { audience: _audience, ...claims } = readJws(funded(meshKeyPair()))
+      ?.payload as Parameters<typeof encodeMeshEnvelope>[0];
+    return encodeMeshEnvelope(claims, key?.privateKey);
+  };
+
+  it("is refused before anything runs: mesh.audience-missing, even from a known peer", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": unaddressed(ordersKeys) },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.audience-missing" });
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+
+  it("is refused before its signature is checked: a forged one is audience-missing too", async () => {
+    const [ordersKeys, billingKeys, forger] = [meshKeyPair(), meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": unaddressed(forger) },
+    });
+
+    expect(result._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.audience-missing" });
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+
+  it("unsigned, it stays a claim that only restricts: the call runs, untrusted", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid"));
+    const { client } = await billing(book, ordersKeys, billingKeys);
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": unaddressed(undefined) },
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(1);
   });
 });
