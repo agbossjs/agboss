@@ -203,41 +203,42 @@ const sharedCorpus: RagContractCase = {
 
 const sharedReindex: RagContractCase = {
   tenancies: SHARED,
-  name: "#818 shared: re-index replaces the corpus — the same documents twice leave one set; a changed document's old text and a removed one are gone, for every tenant",
+  name: "#818 shared: re-index replaces the corpus — the same documents twice leave one set; a changed document's old text and a removed one are gone for every tenant that read them before",
   run: async ({ fill, retrieve }) => {
     const ask = (tenantId: string) =>
       retrieve("leave", { topK: WIDE, tenantId, signal: liveSignal() });
+    const readers = [TENANT_A, TENANT_B, ...NEAR_IDENTICAL_TENANTS.slice(0, 2)];
     await fill(TENANT_A, DOCS);
     const once = (await ask(TENANT_A)).results;
     await fill(TENANT_A, DOCS);
     const twice = keysOf((await ask(TENANT_A)).results);
 
+    expect(once.length, "the corpus answers").toBeGreaterThan(0);
     expect(new Set(twice).size, "a chunk returned twice").toBe(twice.length);
     expect(twice.length).toBe(once.length);
+    // every reader has read the corpus before it changes: a copy kept per tenant is caught
+    for (const tenantId of readers)
+      expect((await ask(tenantId)).results.length, tenantId).toBeGreaterThan(0);
     await fill(TENANT_A, [{ source: "leave.md", text: "Leave is thirty days a year now." }]);
-    for (const tenantId of [TENANT_A, TENANT_B]) {
-      const changed = (await ask(tenantId)).results;
-      expect(textsOf(changed), tenantId).toEqual(["Leave is thirty days a year now."]);
-    }
+    for (const tenantId of readers)
+      expect(textsOf((await ask(tenantId)).results), tenantId).toEqual([
+        "Leave is thirty days a year now.",
+      ]);
   },
 };
 
-const tenantPassed: RagContractCase = {
+const everyTenantServed: RagContractCase = {
   tenancies: SHARED,
-  name: "#818 shared: every call still carries its tenant — each index, retrieval and reranking reaches the connector with the tenant it is made for",
+  name: "#818 shared: a tenant it never saw — a 200-character id, `/` in it — is served the corpus, and the calls it gets carry that tenant (through the core's reranking too)",
   run: async ({ calls, fill, retrieve }) => {
-    const odd = "tenant/a";
-    const filled = calls.length;
-    await fill(odd, DOCS);
-    for (const seen of calls.slice(filled))
-      expect(seen).toEqual({ call: seen.call, tenantId: odd });
+    await fill(TENANT_A, DOCS);
 
-    for (const tenantId of [TENANT_A, TENANT_B, odd, "k".repeat(200)]) {
+    for (const tenantId of [TENANT_B, "tenant/a", "k".repeat(200)]) {
       const from = calls.length;
       const { results } = await retrieve("leave", { topK: 2, tenantId, signal: liveSignal() });
       const seen = calls.slice(from);
 
-      expect(results.length, "the corpus answers").toBeGreaterThan(0);
+      expect(results.length, `${tenantId}: the corpus answers`).toBeGreaterThan(0);
       expect(seen.map((one) => one.call)).toContain("retrieve");
       expect(
         seen.filter((one) => one.tenantId !== tenantId),
@@ -258,5 +259,5 @@ export const RAG_CONNECTOR_CASES: readonly RagContractCase[] = [
   shape,
   sharedCorpus,
   sharedReindex,
-  tenantPassed,
+  everyTenantServed,
 ];

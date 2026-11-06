@@ -25,8 +25,9 @@ import {
  *
  * `tenancy: RagTenancy.Shared` (#818) is a connector of one corpus every tenant reads: in place of
  * the isolation cases, every tenant — near-identical ids too — gets the same results, a re-index
- * replaces the corpus, and every call still reaches the connector (and the reranker) with the tenant
- * it is made for, as the core passes it; the other cases run for both.
+ * replaces the corpus for every tenant that read it, and a tenant it never saw is served, its calls
+ * carrying it (through the core's reranking too); the other cases run for both. The core passing
+ * the execution's tenant to a shared connector is the core's own test (`tests/rag/tenancy.test.ts`).
  *
  * `ragConnectorContract({ name: "pgvector", connector: () => new MyConnector(pool), documents: (c, tenantId, docs) => seed(tenantId, docs), reset: truncate })`
  */
@@ -34,6 +35,11 @@ export function ragConnectorContract<TConnector extends RagConnector>(
   target: RagConnectorContractTarget<TConnector>,
 ): void {
   const tenancy = target.tenancy ?? RagTenancy.PerTenant;
+  // a JS caller's or a cast's other value would select no case: an empty suite reads as a pass
+  if (!Object.values(RagTenancy).includes(tenancy))
+    throw new TypeError(
+      `ragConnectorContract(${target.name}): tenancy is RagTenancy.PerTenant or RagTenancy.Shared, not ${String(tenancy)}`,
+    );
   describe(`RAG connector contract (${target.name})`, () => {
     if (target.reset !== undefined) afterEach(target.reset);
     for (const contractCase of RAG_CONNECTOR_CASES) {

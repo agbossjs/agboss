@@ -20,8 +20,8 @@ export interface RagConnectorContractTarget<TConnector extends RagConnector = Ra
   /**
    * Whose content the connector serves, as its `@Rag({ tenancy })` says (#818); default
    * `RagTenancy.PerTenant`: each tenant's own passages, never another's. `RagTenancy.Shared`: one
-   * corpus every tenant reads — the suite checks that every tenant gets the same results and that
-   * every call still carries the tenant it is made for, in place of the isolation cases.
+   * corpus every tenant reads — the suite checks, in place of the isolation cases, that every tenant
+   * gets the same results, a re-index replaces the corpus for all, and an unseen tenant is served.
    */
   readonly tenancy?: RagTenancy;
   /** A connector over an empty knowledge base — a new one for every case. */

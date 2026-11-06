@@ -85,14 +85,16 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   `agboss generate rag` writes `PerTenant`. **Migration:** add `tenancy` to every `@Rag`.
   `ragConnectorContract({ …, tenancy: RagTenancy.Shared })` (#818) runs the suite on a shared
   connector: in place of the isolation cases, every tenant — near-identical ids too — gets the same
-  results, a re-index replaces the corpus for all, and every call still carries its tenant.
+  results, a re-index replaces the corpus for every tenant that read it, and a tenant the connector
+  never saw is served, its calls carrying it. An unknown `tenancy` is refused, never an empty suite.
 
 - **RAG names: one family, one word per quantity** (#818, the 0.1.1 API review) — `IndexReport` is
   `RagIndexReport`, `FtsOptions` is `SqliteFtsOptions`, its `dbFile` is `sqlitePath` (as the core's
   SQLite stores call it) and its `maxChunkChars` is `maxChunkLength` (characters); `KnowledgeSource`,
   `KnowledgeRetrieve` and `KnowledgeRetrieval` left `@agboss/core/rag` (the core's runtime view, the
   only RAG types without a tenant). `SqliteFtsConnector.retrieve` no longer writes on every read: a
-  tenant never indexed is indexed by its first retrieval on the instance, once (a tenant without
+  tenant never indexed is indexed by its first retrieval on the instance, once and whole, in one
+  transaction — a failure midway leaves nothing for the next retrieval to mistake for an index (a tenant without
   documents used to re-run its index on every retrieval). **Migration:** rename the three names and
   the two options (`new SqliteFtsConnector({ folder, sqlitePath })`); a project that built on
   `KnowledgeSource` implements `RagConnector` instead. After the documents change, run `agboss rag

@@ -5,6 +5,7 @@ import { dirname, extname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { checkedTenantId } from "../flow/context/context-values.js";
+import { OncePerTenant } from "./once-per-tenant.js";
 import { inTransaction, openSchema } from "./sqlite-fts-schema.js";
 import type {
   RagConnector,
@@ -62,6 +63,15 @@ export function ftsQuery(query: string): string | undefined {
   return terms.length === 0 ? undefined : terms.map((term) => `"${term}"`).join(" OR ");
 }
 
+/** One document of one tenant as the index keeps it; no hash: the document is gone. */
+interface StoredFile {
+  readonly tenantId: string;
+  readonly source: string;
+  readonly hash: string | undefined;
+}
+
+const hashOf = (text: string): string => createHash("sha256").update(text).digest("hex");
+
 const Hit = z.object({ source: z.string(), text: z.string(), rank: z.number() });
 const Count = z.object({ n: z.number() });
 const FileRow = z.object({ source: z.string(), hash: z.string() });
@@ -80,14 +90,16 @@ async function documentsIn(folder: string | undefined): Promise<readonly string[
  * same contract (e.g. sqlite-vec + an embeddings model). Every chunk is its tenant's (#700): a
  * retrieval reads, and an index writes, the tenant it is given only — compared as given.
  *
- * A tenant never indexed is indexed by its first retrieval on this instance (#818), once: later
- * retrievals only read, even when its folder has no documents. `agboss rag index` (or `index()`)
- * updates the index after the documents change.
+ * A tenant never indexed is indexed by its first retrieval on this instance (#818), once and whole
+ * (one transaction): later retrievals only read, even when its folder has no documents. `agboss rag
+ * index` (or `index()`) updates the index after the documents change.
  */
 export class SqliteFtsConnector implements RagConnector {
   private db: DatabaseSync | undefined;
-  /** Per tenant, its first retrieval's look at the index on this instance (and the index it built). */
-  private readonly opened = new Map<string, Promise<void>>();
+  /** Per tenant, its first retrieval's look at the index on this instance — once (#818). */
+  private readonly firstLook = new OncePerTenant((tenantId, signal) =>
+    this.buildIfEmpty(tenantId, signal),
+  );
 
   constructor(private readonly options: SqliteFtsOptions) {}
 
@@ -110,13 +122,12 @@ export class SqliteFtsConnector implements RagConnector {
     for (const source of files) {
       const text = await readFile(join(folder ?? "", source), "utf8");
       signal.throwIfAborted();
-      const hash = createHash("sha256").update(text).digest("hex");
+      const hash = hashOf(text);
       if (known.get(source) === hash) {
         skipped += 1;
         continue;
       }
-      const chunks = chunkMarkdown(text, this.options.maxChunkLength ?? DEFAULT_CHUNK_LENGTH);
-      this.replace(db, { tenantId, source, hash }, chunks);
+      this.replace(db, { tenantId, source, hash }, this.chunksOf(text));
     }
     for (const gone of [...known.keys()].filter((source) => !files.includes(source)))
       this.replace(db, { tenantId, source: gone, hash: undefined }, []);
@@ -130,7 +141,8 @@ export class SqliteFtsConnector implements RagConnector {
     const { tenantId, signal } = options;
     checkedTenantId(tenantId);
     signal.throwIfAborted();
-    await this.openTenant(tenantId, signal);
+    await this.firstLook.run(tenantId, signal);
+    signal.throwIfAborted();
     const db = this.open();
     const match = ftsQuery(query);
     if (match === undefined) return { results: [], costUsd: 0 };
@@ -147,39 +159,36 @@ export class SqliteFtsConnector implements RagConnector {
   }
 
   /**
-   * A tenant's first retrieval on this instance: its index built when it has none — once, however
-   * many retrievals come at once. A look that failed (an abort, an unreadable folder) is no look:
-   * the next retrieval tries again, and one that was only waiting on another's (aborted by its own
-   * caller) tries its own, unless its own signal is aborted too.
+   * A tenant's first retrieval on this instance, when its index has nothing yet: every document read
+   * first, then all written in one transaction — an abort, an unreadable file or a crash midway
+   * leaves nothing, so the next look builds it whole (a partial index would read as built).
    */
-  private async openTenant(tenantId: string, signal: AbortSignal): Promise<void> {
-    const pending = this.opened.get(tenantId);
-    if (pending !== undefined) {
-      try {
-        await pending;
-        return;
-      } catch {
-        signal.throwIfAborted();
-        // whoever made it drops it too; never wait on a failed look twice
-        if (this.opened.get(tenantId) === pending) this.opened.delete(tenantId);
-        return this.openTenant(tenantId, signal);
-      }
+  private async buildIfEmpty(tenantId: string, signal: AbortSignal): Promise<void> {
+    if (this.fileCount(tenantId) > 0) return;
+    const folder = this.folderOf(tenantId);
+    const documents: { readonly source: string; readonly text: string }[] = [];
+    for (const source of await documentsIn(folder)) {
+      const text = await readFile(join(folder ?? "", source), "utf8");
+      signal.throwIfAborted();
+      documents.push({ source, text });
     }
-    const look = this.indexIfEmpty(tenantId, signal);
-    this.opened.set(tenantId, look);
-    try {
-      await look;
-    } catch (error) {
-      if (this.opened.get(tenantId) === look) this.opened.delete(tenantId);
-      throw error;
-    }
+    const db = this.open();
+    inTransaction(db, () => {
+      // another connection may have built it meanwhile: its index stands
+      if (this.fileCount(tenantId) > 0) return;
+      for (const { source, text } of documents)
+        this.write(db, { tenantId, source, hash: hashOf(text) }, this.chunksOf(text));
+    });
   }
 
-  private async indexIfEmpty(tenantId: string, signal: AbortSignal): Promise<void> {
-    const files = this.open()
-      .prepare("SELECT COUNT(*) AS n FROM files WHERE tenant_id = ?")
-      .get(tenantId);
-    if (Count.parse(files).n === 0) await this.index({ tenantId, signal });
+  private fileCount(tenantId: string): number {
+    return Count.parse(
+      this.open().prepare("SELECT COUNT(*) AS n FROM files WHERE tenant_id = ?").get(tenantId),
+    ).n;
+  }
+
+  private chunksOf(text: string): string[] {
+    return chunkMarkdown(text, this.options.maxChunkLength ?? DEFAULT_CHUNK_LENGTH);
   }
 
   private folderOf(tenantId: string): string | undefined {
@@ -188,20 +197,21 @@ export class SqliteFtsConnector implements RagConnector {
   }
 
   /** One document's chunks of one tenant replaced at once (#700: never two sets, never half). */
-  private replace(
-    db: DatabaseSync,
-    file: { readonly tenantId: string; readonly source: string; readonly hash: string | undefined },
-    chunks: readonly string[],
-  ): void {
-    const { tenantId, source, hash } = file;
+  private replace(db: DatabaseSync, file: StoredFile, chunks: readonly string[]): void {
     inTransaction(db, () => {
-      db.prepare("DELETE FROM chunks WHERE tenant_id = ? AND source = ?").run(tenantId, source);
-      db.prepare("DELETE FROM files WHERE tenant_id = ? AND source = ?").run(tenantId, source);
-      if (hash === undefined) return;
-      const insert = db.prepare("INSERT INTO chunks (tenant_id, source, text) VALUES (?, ?, ?)");
-      for (const chunk of chunks) insert.run(tenantId, source, chunk);
-      db.prepare("INSERT INTO files VALUES (?, ?, ?)").run(tenantId, source, hash);
+      this.write(db, file, chunks);
     });
+  }
+
+  /** One document's chunks of one tenant written in place of its old ones, inside a transaction. */
+  private write(db: DatabaseSync, file: StoredFile, chunks: readonly string[]): void {
+    const { tenantId, source, hash } = file;
+    db.prepare("DELETE FROM chunks WHERE tenant_id = ? AND source = ?").run(tenantId, source);
+    db.prepare("DELETE FROM files WHERE tenant_id = ? AND source = ?").run(tenantId, source);
+    if (hash === undefined) return;
+    const insert = db.prepare("INSERT INTO chunks (tenant_id, source, text) VALUES (?, ?, ?)");
+    for (const chunk of chunks) insert.run(tenantId, source, chunk);
+    db.prepare("INSERT INTO files VALUES (?, ?, ?)").run(tenantId, source, hash);
   }
 
   private open(): DatabaseSync {

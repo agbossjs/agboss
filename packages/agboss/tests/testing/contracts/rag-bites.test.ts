@@ -4,6 +4,8 @@
  * appending on re-index, ignoring topK, ignoring the signal, reporting NaN.
  */
 import { beforeAll, describe, expect, it } from "vitest";
+import { ragConnectorContract } from "../../../src/testing/contracts/index.js";
+import { memoryTarget } from "../../fixtures/contracts/rag-connectors.js";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
 const FIXTURE = "rag-bites.contract-fixture.ts";
@@ -30,7 +32,7 @@ const COST = "#700: cost";
 const WELL_FORMED = "#700: every result has a non-empty text and source; a score is finite";
 const SHARED_CORPUS = "#818 shared: one corpus";
 const SHARED_REINDEX = "#818 shared: re-index replaces the corpus";
-const TENANT_PASSED = "#818 shared: every call still carries its tenant";
+const EVERY_TENANT_SERVED = "#818 shared: a tenant it never saw";
 /** The cases whose retrievals find passages: each goes through the reranker. */
 const RETRIEVING = [ISOLATION, NEAR, REINDEX, TOP_K, COST, WELL_FORMED];
 
@@ -73,7 +75,7 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
         WELL_FORMED,
         SHARED_CORPUS,
         SHARED_REINDEX,
-        TENANT_PASSED,
+        EVERY_TENANT_SERVED,
       ]);
       expect(cases.map((found) => found.state)).toEqual(Array(7).fill("pass"));
     },
@@ -83,8 +85,12 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
     expect(failedOf("shared, keyed by tenant")).toEqual([
       SHARED_CORPUS,
       SHARED_REINDEX,
-      TENANT_PASSED,
+      EVERY_TENANT_SERVED,
     ]);
+  });
+
+  it("#818 AC5: one source with a copy per tenant, refreshed by its own index only, fails the shared re-index", () => {
+    expect(failedOf("shared, a copy per tenant")).toEqual([SHARED_REINDEX]);
   });
 
   // a reranker that fails quietly is never replaced by the retrieval's own order
@@ -94,4 +100,12 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
       expect(failedOf(target)).toEqual(RETRIEVING);
     },
   );
+});
+
+describe("#818: a tenancy the suite does not know runs no case — it is refused, never an empty pass", () => {
+  it.each(["Shared", "per_tenant", ""])("tenancy %j", (tenancy) => {
+    expect(() => {
+      ragConnectorContract({ ...memoryTarget("odd"), tenancy: tenancy as never });
+    }).toThrow(/tenancy is RagTenancy\.PerTenant or RagTenancy\.Shared/u);
+  });
 });

@@ -71,3 +71,4 @@ ragConnectorContract({
   },
 });
 ragConnectorContract(shared("shared, keyed by tenant"));
+ragConnectorContract(shared("shared, a copy per tenant", { copiesPerTenant: true }));

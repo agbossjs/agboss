@@ -29,7 +29,7 @@ export default tseslint.config(
   {
     // @agboss/core/internal is the agboss CLI's, with no semver promise: every file imports the
     // public entries only (studioOf, for a test that renders the graphs, is in @agboss/core/testing)
-    files: ["**/*.ts"],
+    files: ["**/*.{ts,mts,cts,js,mjs,cjs}"],
     plugins: { agboss: agbossPlugin },
     rules: { "agboss/no-internal-import": "error" },
   },

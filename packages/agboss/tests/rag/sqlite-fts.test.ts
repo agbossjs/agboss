@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -220,6 +220,72 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     await expect(ask(connector, "acme")).rejects.toThrow("folder unreadable");
     isBroken = false;
 
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+  });
+
+  it("a first build stopped midway — an abort between two documents — leaves nothing: the next retrieval builds it whole", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-half-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    await writeFile(join(root, "b.md"), "Beta secret is blue.");
+    const { connector } = await counted(new Map([["acme", root]]));
+    const caller = new AbortController();
+
+    const stopped = ask(connector, "acme", caller.signal);
+    caller.abort(new Error("caller gone"));
+    await expect(stopped).rejects.toThrow("caller gone");
+    const next = await connector.retrieve("secret", { topK: 5, tenantId: "acme", signal });
+
+    expect(next.results.map((r) => r.source).sort()).toEqual(["a.md", "b.md"]);
+  });
+
+  it("a document that cannot be read fails the first build whole; once it can, the next retrieval finds every document", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-unreadable-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    await mkdir(join(root, "b.md")); // a folder named like a document: reading it fails
+    await writeFile(join(root, "c.md"), "Gamma secret is green.");
+    const { connector } = await counted(new Map([["acme", root]]));
+
+    await expect(ask(connector, "acme")).rejects.toThrow();
+    await rm(join(root, "b.md"), { recursive: true });
+    await writeFile(join(root, "b.md"), "Beta secret is blue.");
+    const next = await connector.retrieve("secret", { topK: 5, tenantId: "acme", signal });
+
+    expect(next.results.map((r) => r.source).sort()).toEqual(["a.md", "b.md", "c.md"]);
+  });
+
+  it("a waiting retrieval whose own signal aborts stops waiting with its own reason; the first look goes on", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-own-abort-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    const { connector, looked } = await counted(new Map([["acme", root]]));
+    const waiter = new AbortController();
+
+    const first = ask(connector, "acme");
+    const waiting = ask(connector, "acme", waiter.signal);
+    waiter.abort(new Error("waiter gone"));
+
+    await expect(waiting).rejects.toThrow("waiter gone");
+    expect((await first).results.map((r) => r.source)).toEqual(["a.md"]);
+    expect(looked).toEqual(["acme"]);
+  });
+
+  it("a first look that failed of itself fails its waiters too, once; the next retrieval tries again", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-shared-fail-"));
+    let tries = 0;
+    let isBroken = true;
+    const connector = new SqliteFtsConnector({
+      folder: () => {
+        tries += 1;
+        if (isBroken) throw new Error("folder unreadable");
+        return undefined;
+      },
+      sqlitePath: join(root, "fts.sqlite"),
+    });
+
+    const results = await Promise.allSettled([ask(connector, "acme"), ask(connector, "acme")]);
+    isBroken = false;
+
+    expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
+    expect(tries).toBe(1);
     await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
   });
 

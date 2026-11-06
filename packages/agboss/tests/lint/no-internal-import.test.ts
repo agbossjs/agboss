@@ -53,12 +53,18 @@ describe("#818: agboss/no-internal-import", () => {
         'import cli = require("@agboss/core/internal");',
         'const required: unknown = require("@agboss/core/internal");',
         'type Graphs = import("@agboss/core/internal").StudioGraphs;',
-        "export const all = [internals, cli, required] as const;",
+        "const templated = await import(`@agboss/core/internal`);",
+        'const resolved = require.resolve("@agboss/core/internal");',
+        'const located = import.meta.resolve("@agboss/core/internal");',
+        'vi.mock("@agboss/core/internal");',
+        'const actual = await vi.importActual("@agboss/core/internal");',
+        '/// <reference types="@agboss/core/internal" />',
+        "export const all = [internals, cli, required, templated, resolved, located, actual] as const;",
         "export type { Graphs };",
       ].join("\n"),
     );
 
-    expect(found).toHaveLength(7);
+    expect(found).toHaveLength(13);
   });
 
   it("leaves the public entries and look-alike names alone", () => {
@@ -70,7 +76,10 @@ describe("#818: agboss/no-internal-import", () => {
         'import { internal } from "@agboss/core/internals";',
         'import { local } from "./@agboss/core/internal";',
         'const dynamic = await import(`@agboss/core/${"internal"}`);',
-        "export const used = [studioOf, Agent, Rag, internal, local, dynamic] as const;",
+        'vi.mock("@agboss/core/testing");',
+        'const other = require.resolve("@agboss/core");',
+        "// @agboss/core/internal in a comment is no import",
+        "export const used = [studioOf, Agent, Rag, internal, local, dynamic, other] as const;",
       ].join("\n"),
     );
 

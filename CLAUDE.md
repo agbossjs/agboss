@@ -1745,11 +1745,11 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
   (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
   file migrates in place to the `default` tenant, a later version is `rag.index-version`), each
-  document replaced in one transaction, a tenant never indexed indexed by its first retrieval on the instance, once (#818: later retrievals only read); `SqliteFtsOptions { folder, sqlitePath, maxChunkLength? }`; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
+  document replaced in one transaction, a tenant never indexed indexed by its first retrieval on the instance, once and whole — one transaction, so a failure midway leaves nothing and the next retrieval builds it again (#818: later retrievals only read; `OncePerTenant`, each caller waiting under its own signal); `SqliteFtsOptions { folder, sqlitePath, maxChunkLength? }`; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
   context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`). A
   connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
   (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
-  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it, and every call still carrying its tenant). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
+  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it for every tenant that read it, and a tenant it never saw served, its calls carrying it; that the core passes the tenant to a shared connector is `tests/rag/tenancy.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
   (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ topK ≤ candidates`;
   `by` is a `RerankerClass` — a model `@Reranker` `extends ModelReranker`, a code one `implements RerankerHandler`; any other class does not compile, #818, a JS caller's is
   `[rag.not-a-reranker]`) — the connector is asked for `candidates`, the `@Reranker`
