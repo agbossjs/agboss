@@ -245,6 +245,16 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `make check`) enforces it; the same in agbossjs/postgres and agbossjs/agboss-examples.
   `RELEASE_CHECKLIST.md` → Dependency installs states the policy.
 
+- **`@agboss/cli` no longer installs `extract-zip`** (#791) — it came with `@langchain/langgraph-cli`
+  (its `langgraphjs new` template download, through `create-langgraph`), which `agboss studio` never
+  used, and has two high advisories with no fixed release (GHSA-jmr9-qjv8-65gv,
+  GHSA-7pqw-9j4j-h8q3). `agboss studio` now starts the LangGraph dev server on
+  `@langchain/langgraph-api` (pinned at 1.5.5) itself, doing what `langgraphjs dev` did — the same
+  command, options, server, Studio URL and browser tab; no usage analytics are sent. A fresh install
+  of the CLI audits with no high or critical finding (`npm audit --omit=dev`); the two moderate ones
+  left are `@hono/node-server` 1.x, which `@hono/node-ws` (under `@langchain/langgraph-api`) requires
+  and no 1.x release fixes. `check:packed` fails on an install that holds `extract-zip` again.
+
 - **A model the framework calls for an agent reads through that agent's PII policies** (#708) —
   the core's LLM reranker sent the query and the candidates to its model unmasked, and so did a
   model judge in an agent's quality gate and a model arbiter. Each now reads as the agent's own

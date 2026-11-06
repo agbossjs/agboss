@@ -1,17 +1,16 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { dirname, join, relative } from "node:path";
+import { relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { studioOf } from "@agboss/core/internal";
 import { loadCliApplication } from "./cli-application.js";
 import { requiredText, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";
-import { CliError, usageError } from "./errors.js";
+import { usageError } from "./errors.js";
 import { writeStudioFiles, type StudioFiles } from "./studio-config.js";
 
 /**
  * `agboss studio [--env <name>] [--port N]` (#268 AC7): the application assembled and its
  * environment resolved first — a problem stops it before any server starts — then the Studio
- * config written into `.agboss/` and the LangGraph CLI's dev server started on it.
+ * config written into `.agboss/` and the LangGraph dev server started on it (`studio-server`).
  */
 
 /** What `agboss studio` serves: the written files and the workflows, by name. */
@@ -47,23 +46,6 @@ export interface CommandLine {
   readonly args: readonly string[];
 }
 
-/** The `langgraphjs` script of `@langchain/langgraph-cli`, a dependency of this package. */
-function langGraphCliScript(): string {
-  const require = createRequire(import.meta.url);
-  const packageJson = require.resolve("@langchain/langgraph-cli/package.json");
-  const { bin } = JSON.parse(readFileSync(packageJson, "utf8")) as {
-    readonly bin?: Readonly<Record<string, string>>;
-  };
-  const script = bin?.langgraphjs;
-  if (script === undefined)
-    throw new CliError(
-      "internal",
-      "studio.no-langgraph-cli",
-      `${packageJson} has no langgraphjs bin`,
-    );
-  return join(dirname(packageJson), script);
-}
-
 /** `--port N`: a whole number from 1 to 65535. */
 export function portOf(context: CommandContext): string {
   const port = requiredText(context.values, "port");
@@ -77,8 +59,24 @@ export function portOf(context: CommandContext): string {
   return String(value);
 }
 
-/** `langgraphjs dev --config .agboss/langgraph.json --port N`, run by this Node. */
-export const langGraphDevOf = (studio: PreparedStudio, port: string): CommandLine => ({
-  command: process.execPath,
-  args: [langGraphCliScript(), "dev", "--config", studio.config, "--port", port],
-});
+/**
+ * The script of the LangGraph dev server (#791: `studio-server`, on `@langchain/langgraph-api`),
+ * next to this module — `.js` in the built package, `.ts` from source (run with tsx).
+ */
+export function studioServerScript(moduleUrl: string = import.meta.url): string {
+  const extension = moduleUrl.endsWith(".ts") ? ".ts" : ".js";
+  return fileURLToPath(new URL(`./studio-server${extension}`, moduleUrl));
+}
+
+/** Node's flags for `script`: tsx registered for a `.ts` one (from source), none for the built `.js`. */
+const loaderOf = (script: string): readonly string[] =>
+  script.endsWith(".ts") ? ["--import", "tsx"] : [];
+
+/** `studio-server --config .agboss/langgraph.json --port N`, run by this Node. */
+export function studioServerOf(studio: PreparedStudio, port: string): CommandLine {
+  const script = studioServerScript();
+  return {
+    command: process.execPath,
+    args: [...loaderOf(script), script, "--config", studio.config, "--port", port],
+  };
+}

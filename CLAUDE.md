@@ -59,7 +59,8 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
   `BudgetPeriod` (UTC); an exhausted one rejects an execution before its first step or stops it
   with `BudgetExceededError`, unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
 - Vitest (+ v8 coverage), ESLint (`typescript-eslint` strict), Prettier,
-  `@langchain/langgraph-cli` for LangGraph Studio
+  `@langchain/langgraph-api` (pinned) for LangGraph Studio — not `@langchain/langgraph-cli`, whose
+  template download brings `extract-zip` (advisories, no fixed release; #791)
 
 ## Commands
 
@@ -155,9 +156,15 @@ problems with their blast radius — the same `checkFederation` over each applic
 and who calls an application whose latest eval run lost pass^k (#401 PR 7); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
-(`@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
-dev` on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
-`langgraph.json` of its own.
+(`@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts the LangGraph
+dev server on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
+`langgraph.json` of its own. The server is `src/cli/studio-server.ts` (#791), a child process doing
+what `langgraphjs dev --config … --port N` did on `@langchain/langgraph-api`'s `spawnServer` alone:
+the config's `env` file read in, restarted when the config or that file changes, tsx reloading the
+sources, Studio opened in the browser once it is up (`BROWSER=none`: not), no analytics sent; the
+CLI installs no `@langchain/langgraph-cli` and no `extract-zip` (`scripts/packed/forbidden.mjs`: the
+CLI's package test on the lockfile, `check:packed` on the packed install, which also runs `agboss
+studio` and reads each graph from the server).
 `agboss describe` (#268 PR 2)
 prints the application's tree — the workflows it lists with their starts and the child workflows
 they launch (`per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `ThisWorkflow,

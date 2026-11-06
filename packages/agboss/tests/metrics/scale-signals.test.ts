@@ -27,6 +27,7 @@ import {
   type Collected,
   type InstanceMeter,
 } from "./support/metric-reader.js";
+import { settle } from "../app/fixtures/fence-takeover.js";
 import { first, untilSettled, watched } from "./support/runs.js";
 
 const maxOf = (collections: readonly Collected[], name: string): number =>
@@ -76,6 +77,10 @@ async function runLooking(
   let looks = 0;
   const look = async (): Promise<void> => {
     const signals = signalsOf(await collectAll(meters));
+    if (progress.isSettled()) return;
+    // #800: the tree's lease goes when it ends, a few turns before the caller's promise settles —
+    // an idle read there is the end, not a moving tree, when the call settles right after
+    if (signals.idle) await settle();
     if (progress.isSettled()) return;
     looks += 1;
     demands.push(signals.demand);
