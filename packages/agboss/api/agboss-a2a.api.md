@@ -273,11 +273,8 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
 
 // @public
 export enum A2AOperation {
-    // (undocumented)
     CancelTask = "CancelTask",
-    // (undocumented)
     GetTask = "GetTask",
-    // (undocumented)
     ListTasks = "ListTasks",
     SendMessage = "SendMessage",
     SendStreamingMessage = "SendStreamingMessage",
@@ -444,12 +441,9 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-caller.ts:23:3 - (ae-undocumented) Missing documentation for "GetTask".
-// src/a2a/a2a-caller.ts:24:3 - (ae-undocumented) Missing documentation for "ListTasks".
-// src/a2a/a2a-caller.ts:25:3 - (ae-undocumented) Missing documentation for "CancelTask".
-// src/a2a/a2a-caller.ts:66:3 - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/a2a-caller.ts:90:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts:97:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:69:3 - (ae-undocumented) Missing documentation for "peer".
+// src/a2a/a2a-caller.ts:93:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
 // src/a2a/a2a-client.ts:25:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
 // src/a2a/a2a-client.ts:28:3 - (ae-undocumented) Missing documentation for "headers".
 // src/a2a/a2a-client.ts:40:3 - (ae-undocumented) Missing documentation for "onEvent".
