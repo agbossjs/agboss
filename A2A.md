@@ -8,10 +8,12 @@
   ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
   both validated by the contract's DTOs, `send(input, call)` the response whatever its status.
 - **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
-  `a2aHttpListener(app, { expose, callerResolver, base? })` (#387, #398): `POST <base>/execute`
-  `{ input, start?, threadId? }`, `POST <base>/resume` `{ pauseId, decision }` and `POST
-  <base>/cancel` `{ threadId }`, answered as JSON or — with `Accept: text/event-stream` — progress
-  events and one `finish` event. This page is mostly about this side.
+  `a2aHttpListener(app, { expose, callerResolver, publicUrl, base? })` as an **A2A v1.0 agent**
+  (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
+  `<base>/.well-known/agent-card.json` and the JSON-RPC 2.0 binding at `POST <base>`. Any A2A v1.0
+  client calls it — the official SDK `@a2a-js/sdk`, which the server is built on, or another
+  vendor's. This page is mostly about this side. (The 0.1.0 wire — `POST /execute`, `/resume`,
+  `/cancel` — is gone, with no shim.)
 
 ## 1. Who calls — the caller resolver
 
@@ -42,7 +44,7 @@ export class SupportWorkflowStart {}
 ```ts file=shop.a2a-caller-resolver.ts
 import {
   A2ACallerResolution,
-  A2ARoute,
+  A2AOperation,
   type A2ACallerRequest,
   type A2ACallerResolver,
 } from "@agboss/core/a2a";
@@ -63,7 +65,8 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
     }
     const grant = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
     if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
-    if (request.route === A2ARoute.Resume && !grant.canAnswerPauses) {
+    const isResume = request.operation === A2AOperation.SendMessage && request.taskId !== undefined;
+    if (isResume && !grant.canAnswerPauses) {
       return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
     }
     return A2ACallerResolution.resolved({
@@ -74,9 +77,15 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
 }
 ```
 
-- `resolveCaller({ route, http })` gets the route (`A2ARoute.Execute` / `Resume` / `Cancel`) and the raw
-  `IncomingMessage` — its headers and its socket (a client certificate for mTLS) — **never its
-  body**: it runs before the body is read and before any header is written.
+- `resolveCaller({ operation, taskId?, http })` gets the JSON-RPC method as an `A2AOperation`
+  (`SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`),
+  the task it names (a `SendMessage` with a `taskId` answers a task's pause), and the raw
+  `IncomingMessage` — its headers and its socket (a client certificate for mTLS). The body is read
+  first (up to `maxBodySize`, default 1 MB, else `413`) and decoded once — by the SDK's own decoder,
+  the one the handler acts on, so `task_id`, a number or a key given twice names the same task to
+  both — for the operation and the task only: nothing of it runs, and no header is written, before
+  the resolver answers. Should the request the handler decodes ever differ from the admitted one,
+  it is refused: `-32602`, `a2a.request-mismatch`.
 - It answers with `A2ACallerResolution` only (`A2ACallerResolutionKind`; branded — a plain object
   does not compile): `resolved(caller)`, `unauthenticated({ reason, challenge? })` or
   `forbidden({ reason })`. `A2ACaller<typeof Start>` is the `tenant`, `ownerId` and `execution` of
@@ -98,7 +107,9 @@ createServer(
   a2aHttpListener(app, {
     expose: ShopA2AExpose, // listed in @Application({ exposes })
     callerResolver: ShopA2aCallerResolver, // the class: its instance is the container's
+    publicUrl: "https://shop.example", // where callers reach it: the card's interface URL
     base: "/a2a",
+    // maxBodySize: kilobytes(1024), maxTaskDuration: minutes(10)
   }),
 ).listen(8080);
 ```
@@ -106,56 +117,67 @@ createServer(
 The listener takes the resolver's instance from the application's container when it is built: a
 class neither the application nor any of its workflows lists stops it there —
 `[a2a.caller-resolver-not-listed] ShopA2aCallerResolver is not listed …` — and an expose the
-application does not list too: `[application.expose-unlisted]`. `app` is an `A2AApp`
-(`execute`, `resume`, `cancel`, `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both
-fit.
+application does not list too: `[application.expose-unlisted]`; a `publicUrl` that is no absolute
+http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
+`resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
-Per `POST`: the route is matched first (`404` otherwise, unchanged), then the caller is resolved:
+**The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Cache-Control: max-age=300`):
+the expose's `name`, `description`, `version` and `provider`; one skill per exported start (its id
+the start's name, its description the start's, `tags` from `@A2AExpose({ skills })`, default the
+application's name; `inputModes` `text/plain` for a `WorkflowStartTextDto` start, else
+`application/json`); `capabilities.streaming: true`, no push notifications; the skills extension
+`https://agboss.dev/a2a/skills/v1` (`A2A_SKILLS_EXTENSION`) whose `params.skills[id]` holds each
+skill's input JSON Schema, its `schemaHash` and each finish's output schema; `securitySchemes` from
+`@A2AExpose({ security: [A2ASecurity.bearer()] })` (`.apiKey({ header })`,
+`.oauth2ClientCredentials({ tokenUrl, scopes })`, `.mtls()` — any one accepted; described only, the
+resolver enforces it); one interface `{ url: publicUrl + base, protocolBinding: "JSONRPC",
+protocolVersion: "1.0" }`.
 
-| The resolver returns                                         | The caller gets                                                                                 |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `resolved({ tenant, ownerId, execution })`                   | the body parsed (`400` when invalid; `400 a2a.unknown-start` for a `start` it does not export, or none with several), the run for that tenant and owner, its response |
-| `unauthenticated({ reason, challenge })`                     | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
-| `forbidden({ reason })`                                      | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                    |
-| it throws (or answers anything else)                         | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }` |
+**The JSON-RPC binding** (`POST <base>`, `A2A-Version: 1.0` required — none means 0.3: `-32009`):
 
-- A refused request **runs nothing**: no `onExecutionStart`, no `onExecutionRejected`, no thread,
-  no record, no model call — and never as the default tenant. Its body is discarded unread.
+| Method | What it does |
+| --- | --- |
+| `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
+| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates, text deltas (`artifactUpdate` `stream`), the output artifact, the last status |
+| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context and state |
+| `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
+| `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
+| push methods / `GetExtendedAgentCard` | `-32003` / `-32007` |
+
+- **A message** names its skill in `metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional
+  with one export; else `-32602` listing the skill ids) and carries text parts (a text start) or one
+  `data` part, checked against the start's input before anything is kept (`-32602`, `dto.invalid`,
+  the fields and the schema in the error's `metadata`); a file part is `-32005`. Its `contextId` is
+  the task's thread (the caller's own, or one minted).
+- **One task is one root execution**, under the task's id, kept in `A2ATaskRepository` (in memory,
+  `SqliteA2ATaskRepository`; `@Application({ a2a: { taskRetention } })`). The same `messageId` from
+  the same tenant and owner gets the same task — never a second run, on any instance; with other
+  content it is `-32602`. A task whose start was lost (a crash right after it was accepted) is
+  started by the resend, under the same id, once.
+- **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
+  with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
+- **Pauses**: a pause the caller answers is `TASK_STATE_INPUT_REQUIRED`, its pauses (`pauseId`,
+  `kind`, `ask`) in the status message's `data` part; a follow-up `SendMessage` with the same `taskId`
+  answers it — one `data` part `{ pauseId?, decision }` (`pauseId` optional with one pause) or a text
+  reply (read by the role's reply interpreter; not understood: `-32602`, the pause still pending). A
+  pause of another task is `-32602`; one a cancel or another answer took first `-32004`. A pause only
+  its channel answers is `TASK_STATE_WORKING`, "awaiting <channel> out of band".
+- **Ends**: a finish is `TASK_STATE_COMPLETED` with one artifact named by the finish (a text part for
+  a `WorkflowFinishTextDto` output, else a `data` part); a failure `TASK_STATE_FAILED` with its stable
+  code in `status.message.metadata["https://agboss.dev/a2a/mesh/v1"].code` and that code's fixed text
+  — never the error's own text, which may carry PII; an unexpected failure of the server is `-32603`
+  "the request failed".
+
+| The resolver returns                       | The caller gets                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `resolved({ tenant, ownerId, execution })` | the operation, for that tenant and owner                                                            |
+| `unauthenticated({ reason, challenge })`   | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
+| `forbidden({ reason })`                    | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
+| it throws (or answers anything else)       | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }`    |
+
+- A refused request **runs nothing**: no task, no `onExecutionStart`, no thread, no record, no model
+  call — and never as the default tenant. A streaming caller gets the real status too.
 - The host's `reason` goes on the wire (its own wording); an exception's text never does.
-- A streaming caller gets the real status too: no event-stream header is written before the
-  resolver answered.
-- An admitted caller's values are checked by the application as for `app.execute` — an invalid one
-  is `dto.invalid`, answered `status: "failed"`. A thread id is the caller's tenant's: two tenants'
-  `ticket-7` are two threads, and one tenant's exhausted budget limits only it (`"limited"`).
-- A caller that disconnects cancels its run (the listener aborts its `signal`).
-
-On the wire the thread is `threadId` (request and response, #387 — it was `thread`).
-
-## 3. A route of your own — `A2AAdapter`
-
-In your own HTTP framework, `new A2AAdapter(app)` maps calls to responses (a failure is a status:
-`failed`, `limited`, `cancelled`), with the caller's values from your own authentication:
-
-<!-- snippet-context
-import type { App } from "@agboss/core";
-import { A2AAdapter } from "@agboss/core/a2a";
-declare const app: App;
-declare const SupportWorkflowStart: new () => object;
--->
-
-```ts
-const adapter = new A2AAdapter(app);
-const caller = { tenant: { tenantId: "acme" }, ownerId: "client-acme" };
-
-const response = await adapter.execute(
-  SupportWorkflowStart,
-  { input: { text: "Where is order 7?" }, threadId: "ticket-7" },
-  undefined, // onEvent: progress events
-  caller,
-);
-await adapter.cancel("ticket-7", caller); // only acme's ticket-7; another tenant's is untouched
-console.log(response.status, response.threadId);
-```
 
 ## 4. The client side
 
@@ -203,6 +225,11 @@ test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
 after an `execute`) — before that it fails with `test.app-not-ready`.
 
 ## 6. The mesh — call chains, hops and loops (#398)
+
+> **On the A2A v1.0 listener (#808) the envelope is not read yet**: it is to travel as the mesh
+> extension `https://agboss.dev/a2a/mesh/v1` in the message's metadata, and until then every A2A
+> task runs untrusted — deduplicated by its `messageId` (§2), never by an envelope's key. What
+> follows holds over MCP, and describes the envelope itself.
 
 Applications calling each other over A2A (and MCP, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398))
 form a mesh. Every call an `A2AClient` makes **inside an execution** — a tool's or an action's — sends,
@@ -339,9 +366,7 @@ deadline, the earlier). `origin.step.tool` names the calling tool.
    run that did not answer is forgotten;
 5. the run.
 
-A peer's public key comes from `mesh.peers`, or from the listener's `meshVerifier` — an
-`@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM, or `undefined`) listed in `providers`
-and asked first: `a2aHttpListener(app, { expose, callerResolver, meshVerifier })`.
+A peer's public key comes from `mesh.peers`.
 
 **Signing as a peer in a test (#521):** `signedMeshEnvelope` (`@agboss/core/testing`) gives the
 `agboss-mesh` value an application with `mesh.signingKey` sends — the framework's own encoder, so
@@ -407,11 +432,6 @@ report is ignored: a caller never pays what an untrusted peer says.
 `Clock` when the execution starts, kept in its state (a pause counts), checked where the budgets
 are: before every agent and router step and every model call (a call in flight is not cut short).
 `DeadlineExceededError` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitExceededError`.
-
-**`POST <base>/cancel { threadId }`** cancels the running execution of the caller's thread or drops
-its pause — the caller resolved first, its tenant's thread only (another tenant's `ticket-7` is
-never touched): `{ threadId, status: "cancelled" }`, or `status: "failed"` with the code
-(`run.unknown-thread`, …). `A2AClient.cancel(threadId)` calls it.
 
 The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
 
@@ -493,7 +513,12 @@ export class BillingWorkflow {} // a @Workflow of its own
 import { A2AExpose } from "@agboss/core/a2a";
 
 // a2a/billing.a2a-expose.ts
-@A2AExpose({ name: "billing-a2a-expose", version: "1.0.0", exports: [BillingWorkflowStart] })
+@A2AExpose({
+  name: "billing-a2a-expose",
+  version: "1.0.0",
+  description: "Answers billing questions", // the Agent Card's description (#808)
+  exports: [BillingWorkflowStart],
+})
 export class BillingA2AExpose {}
 
 @Application({

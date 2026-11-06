@@ -192,6 +192,20 @@ Details: [FinOps](FinOps).
 A used server that is missing, unreachable, lacks an env variable or has a drifted contract stops
 startup. See [Mcp](Mcp).
 
+## `a2aHttpListener` — serving an `@A2AExpose` as an A2A v1.0 agent (#808)
+
+| Option             | What it is                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `expose`           | the `@A2AExpose` (listed in `@Application({ exposes })`): its exported starts are the skills      |
+| `callerResolver`   | the `A2ACallerResolver` class (listed in `providers`): who calls, per request                     |
+| `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL — the card's interface URL    |
+| `base?`            | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json` |
+| `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |
+| `maxTaskDuration?` | every task's execution deadline (a task outlives its request)                                    |
+
+Tasks are kept `@Application({ a2a: { taskRetention } })` after they end (default `hours(24)`). See
+[A2A](A2A#2-serving--a2ahttplistenerapp-options).
+
 ## Agents
 
 From `@Agent` classes: `model`, `description` (shown to routers), `prompt` / `promptUrls` /

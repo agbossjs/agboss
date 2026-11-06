@@ -125,7 +125,7 @@ an expired envelope or other arguments are refused before anything runs — an e
 `_meta["agboss.dev/error"]` `{ code: "mesh.signature-invalid" | "mesh.envelope-expired" |
 "mesh.body-mismatch" }`. A trusted call with a `_meta.callId` (the AGBoss client sends the calling
 step's idempotency key) is deduplicated in the application's `MeshRequestRepository` by `(tenant,
-peer, callId)`, as `POST /execute` is over A2A (#398 PR 2b): a repeat gets the kept result without
+peer, callId)` (#398 PR 2b; an A2A v1.0 task by its `messageId`, #808): a repeat gets the kept result without
 running again, one while the first still runs an error result with `_meta["agboss.dev/error"]`
 `{ code: "mesh.request-in-progress" }`; a call that threw is forgotten. Untrusted calls are never
 deduplicated.
