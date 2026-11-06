@@ -75,7 +75,7 @@ export interface A2ACharged {
 }
 
 /** The ledger identity of a call's price (#810). */
-export const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
+const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
   id: `a2a:${charged.messageId}:price`,
   madeAt: charged.acceptedAt,
 });
