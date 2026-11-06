@@ -22,8 +22,8 @@ const failedOf = (target: string): readonly string[] =>
     .map((found) => found.name);
 
 describe("#807 AC4: a task store that breaks a rule fails the A2A task contract", () => {
-  it("the sound store passes every case (20)", () => {
-    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(20).fill("pass"));
+  it("the sound store passes every case (23)", () => {
+    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(23).fill("pass"));
   });
 
   it.each([

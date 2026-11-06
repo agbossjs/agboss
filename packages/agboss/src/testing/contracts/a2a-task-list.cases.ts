@@ -68,6 +68,48 @@ export const A2A_TASK_LIST_CASES: readonly ContractCase<A2ATaskRepository>[] = [
     },
   },
   {
+    name: "a page that ends inside a tie of status time goes on after its last task",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      // saved in no order, all accepted at nine: one tie of five
+      for (const id of ["t-c", "t-a", "t-e", "t-b", "t-d"]) await saved(first, newTask(id));
+      const query = { tenantId: "default", ownerId: "alice", pageSize: 2 };
+
+      const one = await second.list(query);
+      const two = await second.list({ ...query, pageToken: one.nextPageToken });
+      const three = await first.list({ ...query, pageToken: two.nextPageToken });
+
+      expect([ids(one.tasks), ids(two.tasks), ids(three.tasks)]).toEqual([
+        ["t-e", "t-d"],
+        ["t-c", "t-b"],
+        ["t-a"],
+      ]);
+      expect(three.nextPageToken).toBe("");
+    },
+  },
+  {
+    name: "the next page never gives again a newer task whose id sorts lower",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await saved(first, newTask("t-b", { acceptedAt: at(9) }));
+      await saved(first, newTask("t-c", { acceptedAt: at(8) }));
+      await saved(first, newTask("t-a", { acceptedAt: at(7) }));
+      const query = { tenantId: "default", ownerId: "alice", pageSize: 2 };
+
+      const one = await second.list(query);
+      const two = await first.list({ ...query, pageToken: one.nextPageToken });
+
+      expect([ids(one.tasks), ids(two.tasks)]).toEqual([["t-b", "t-c"], ["t-a"]]);
+    },
+  },
+  {
+    name: "a caller with no task gets an empty last page",
+    run: async ({ first }: Instances): Promise<void> => {
+      expect(await first.list({ tenantId: "default", ownerId: "alice", pageSize: 3 })).toEqual({
+        tasks: [],
+        nextPageToken: "",
+      });
+    },
+  },
+  {
     name: "filters by context and by state; no owner lists the tasks of no owner only",
     run: async ({ first, second }: Instances): Promise<void> => {
       await saved(first, newTask("t-1", { contextId: "ctx-a" }));
@@ -116,6 +158,8 @@ export const A2A_TASK_SWEEP_CASES: readonly ContractCase<A2ATaskRepository>[] = 
       await first.compareAndSetStatus(key(3), 1, WORKING, at(4));
 
       await second.deleteTerminalByStatusAtBefore(at(20));
+      // a task that ended at the cutoff itself is kept
+      await second.deleteTerminalByStatusAtBefore(at(30));
 
       expect(await first.findById(key(1))).toBeUndefined();
       expect(await first.findById(key(2))).toBeDefined();

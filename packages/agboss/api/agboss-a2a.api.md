@@ -453,15 +453,15 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
 // src/a2a/types.ts:63:3 - (ae-undocumented) Missing documentation for "pauseId".
 // src/a2a/types.ts:64:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:58:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:62:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:90:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:99:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:106:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:110:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:114:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:141:3 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:178:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:45:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:49:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:78:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:88:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:97:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:101:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:105:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:133:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:165:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 
 // (No @packageDocumentation comment for this package)
 

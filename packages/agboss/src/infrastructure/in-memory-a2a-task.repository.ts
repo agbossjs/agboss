@@ -18,6 +18,10 @@ import {
 import { a2aMessageRowOf, a2aPageOf, a2aTaskRowOf, byNewestStatus } from "./a2a-task-pages.js";
 import { IN_MEMORY_DATABASE, type InMemoryDatabase } from "./in-memory-database.js";
 
+/** A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). */
+const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
+  JSON.parse(JSON.stringify(status)) as A2ATaskStatus;
+
 /** The built-in default: the tasks in this instance's memory, a copy of each in and out. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class InMemoryA2ATaskRepository extends A2ATaskRepository {
@@ -37,12 +41,12 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
       return Promise.resolve({
         status: A2ATaskSaveStatus.MessageTaken,
         message: structuredClone(kept),
-        task: found === undefined ? undefined : structuredClone(found),
+        task: structuredClone(found),
       });
     }
     if (tasks.has(a2aTaskRowOf(task)))
       return Promise.resolve({ status: A2ATaskSaveStatus.TaskIdTaken });
-    const saved = savedA2ATaskOf(task);
+    const saved = savedA2ATaskOf({ ...task, status: asStored(task.status) });
     tasks.set(a2aTaskRowOf(task), structuredClone(saved));
     messages.set(a2aMessageRowOf(task), firstA2AMessageOf(structuredClone(task)));
     return Promise.resolve({ status: A2ATaskSaveStatus.Saved, task: structuredClone(saved) });
@@ -66,12 +70,12 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
 
   findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined> {
     const task = this.database.a2aTasks.get(a2aTaskRowOf(key));
-    return Promise.resolve(task === undefined ? undefined : structuredClone(task));
+    return Promise.resolve(structuredClone(task));
   }
 
   findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined> {
     const message = this.database.a2aMessages.get(a2aMessageRowOf(key));
-    return Promise.resolve(message === undefined ? undefined : structuredClone(message));
+    return Promise.resolve(structuredClone(message));
   }
 
   compareAndSetStatus(
@@ -86,7 +90,7 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
       return Promise.resolve(undefined);
     const written = {
       ...task,
-      status: structuredClone(status),
+      status: asStored(status),
       version: task.version + 1,
       statusAt,
     };

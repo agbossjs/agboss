@@ -42,10 +42,9 @@ export function withReservedExecutionId<TOptions extends object>(
 }
 
 /** The execution id a transport reserved for this execution, if any. */
-export function reservedExecutionIdOf(options: object): string | undefined {
-  const value: unknown = Reflect.get(options, RESERVED_EXECUTION_ID);
-  return typeof value === "string" ? value : undefined;
-}
+export const reservedExecutionIdOf = (options: object): string | undefined =>
+  // only `withReservedExecutionId` sets it, to a checked text
+  Reflect.get(options, RESERVED_EXECUTION_ID) as string | undefined;
 
 /** One tree of a workflow by its id (#807), loaded on first use. */
 const executionTrees = () => lazyLoad(import("./execution-trees.js"));

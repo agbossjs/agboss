@@ -1,4 +1,5 @@
 import { keyTextRuleOf } from "../core/errors.js";
+import { definedOf } from "../infrastructure/clock.js";
 import { checkedCallerId, treeRead } from "../flow/context/context-values.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runConfig } from "../run/paused.js";
@@ -17,7 +18,7 @@ import {
   type ExecutionCancelRequest,
   type ExecutionTreeOfThread,
 } from "./execution-control.js";
-import { cancelledErrorOf, cancelledRecordOutcome, type LiveRuns } from "./live-runs.js";
+import { CANCELLED_STOP_REASON, cancelledErrorOf, type LiveRuns } from "./live-runs.js";
 import type { TreeState } from "./tree-move-types.js";
 import { ExecutionStatus } from "./types.js";
 
@@ -51,9 +52,10 @@ async function checkedTree<T>(tree: ExecutionTreeOfThread, read: () => Promise<T
  * Whether a failed record says its execution was cancelled — by the reasons the framework writes
  * itself (`cancelledErrorOf`, `cancelledRecordOutcome`), never by reading free text.
  */
-const isCancelledRecord = (record: Tern, threadId: string): boolean =>
-  record.stopReason === cancelledErrorOf(threadId).message ||
-  record.stopReason === cancelledRecordOutcome([], 0).stopReason;
+function isCancelledRecord(record: Tern, threadId: string): boolean {
+  const reasons = [cancelledErrorOf(threadId).message, CANCELLED_STOP_REASON];
+  return reasons.includes(record.stopReason);
+}
 
 /** Whether the tree's own checkpoint thread (its root execution id) has a checkpoint. */
 async function hasCheckpoint(parts: CancelParts, runId: string): Promise<boolean> {
@@ -66,17 +68,15 @@ function recordStateOf(
   record: Tern | undefined,
   threadId: string,
 ): DurableExecutionState | undefined {
-  switch (record?.status) {
-    case ExecutionRecordStatus.Running:
-      return { status: DurableExecutionStatus.Running };
-    case ExecutionRecordStatus.Failed:
-    case ExecutionRecordStatus.Guarded:
-      return isCancelledRecord(record, threadId)
-        ? { status: DurableExecutionStatus.Cancelled }
-        : { status: DurableExecutionStatus.Failed, reason: record.stopReason };
-    default:
-      return undefined;
-  }
+  if (record?.status === ExecutionRecordStatus.Running)
+    return { status: DurableExecutionStatus.Running };
+  const isFailed =
+    record?.status === ExecutionRecordStatus.Failed ||
+    record?.status === ExecutionRecordStatus.Guarded;
+  if (!isFailed) return undefined;
+  return isCancelledRecord(record, threadId)
+    ? { status: DurableExecutionStatus.Cancelled }
+    : { status: DurableExecutionStatus.Failed, reason: record.stopReason };
 }
 
 /** Its paused run, else its last checkpoint at a finish; `undefined` when it is at neither. */
@@ -90,7 +90,8 @@ async function restStateOf(
       ? { status: DurableExecutionStatus.Paused, pending: output.pending }
       : {
           status: DurableExecutionStatus.Finished,
-          finish: output.finish?.name ?? "",
+          // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+          finish: definedOf(output.finish, "a finished output names its finish").name,
           output: output.output,
         };
   } catch (error) {

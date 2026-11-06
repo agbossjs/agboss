@@ -1,7 +1,8 @@
 /**
  * #807 (A2A P1, design §4.1.3 step 7): an application that exposes an `@A2AExpose` moves each A2A
  * task with its execution's events — start → WORKING, a rest at a pause → INPUT_REQUIRED with the
- * pause, resume → WORKING, a finish → COMPLETED with its output, a failure → FAILED with its code, a
+ * pause, resume → WORKING, a finish → COMPLETED with its output, a failure → FAILED with its code (and
+ * that code's fixed text, never the error's own), a
  * cancel → CANCELED — on whichever instance runs the pass; executions that are no task, and
  * applications that expose none, write nothing. A status the events missed is repaired on read.
  */
@@ -125,7 +126,7 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
   );
 
   exposed(
-    "a failure → FAILED with the failing step's code and message",
+    "a failure → FAILED with its code and that code's fixed text, never the error's",
     async ({ app, mockLlm }) => {
       // the agent's second model call has no script: its step fails
       mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }));
@@ -137,8 +138,13 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
         state: A2ATaskState.Failed,
         pendingPauses: [],
         errorCode: "step.agent",
-        message: expect.stringContaining('Agent "clerk-agent" failed') as string,
+        message: "the task failed: step.agent",
       });
+      // what GetTask and ListTasks will serve carries no text of the error itself
+      const listed = await app
+        .resolve(A2ATaskRepository)
+        .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+      expect(JSON.stringify(listed)).not.toMatch(/clerk-agent|script exhausted/u);
     },
   );
 

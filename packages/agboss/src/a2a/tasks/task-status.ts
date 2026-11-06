@@ -10,8 +10,24 @@ import type { PendingPause } from "../../pause/types.js";
 
 export const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] };
 
-/** The code of a failure whose error names none (a project's own error). */
-export const UNCODED_FAILURE = "execution.failed";
+/** The code of a failure whose error names none (a project's own error), or read from a record. */
+export const INTERNAL_FAILURE = "internal";
+
+/**
+ * The one text a caller reads of a failure (#807, security review): fixed per code. An error's own
+ * message may carry internal details or unmasked PII (a model's, a tool's): it stays in the
+ * execution's own records and logs, masked as they are, and never reaches the task.
+ */
+export const failureMessageOf = (code: string): string =>
+  code === INTERNAL_FAILURE ? "the task failed" : `the task failed: ${code}`;
+
+/** A failure with `code`: its code and its fixed text. */
+const failedOf = (code: string): A2ATaskStatus => ({
+  state: A2ATaskState.Failed,
+  pendingPauses: [],
+  errorCode: code,
+  message: failureMessageOf(code),
+});
 
 /**
  * A rest at pauses: `INPUT_REQUIRED` with the pauses a caller may answer (those with a `pauseId`),
@@ -46,18 +62,18 @@ const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [
 
 /**
  * An execution's error as its task's end: a cancel is `CANCELED`; anything else `FAILED` with the
- * error's stable code (a limit's `limit.*`) and its message — what the 0.1.0 wire disclosed too.
+ * error's stable code (a limit's `limit.*`; `internal` for an error with none) and the code's fixed
+ * text — never the error's message.
  */
 export function failedStatusOf(error: Error): A2ATaskStatus {
   if (error instanceof ExecutionCancelledError) return CANCELED;
-  const code = error instanceof AGBossError ? error.code : UNCODED_FAILURE;
-  return { state: A2ATaskState.Failed, pendingPauses: [], errorCode: code, message: error.message };
+  return failedOf(error instanceof AGBossError ? error.code : INTERNAL_FAILURE);
 }
 
 /**
  * Where durable records put a task: `undefined` while its execution has not started (a sweep
- * decides, `a2a-task-repair.ts`). A failure read from a record has no code of its own: the
- * projection's event had it.
+ * decides, `a2a-task-repair.ts`). A failure read from a record has no code of its own (the
+ * projection's event had it) and its reason stays in the record: `internal`, the fixed text.
  */
 export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | undefined {
   switch (state.status) {
@@ -72,11 +88,6 @@ export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | u
     case DurableExecutionStatus.Cancelled:
       return CANCELED;
     case DurableExecutionStatus.Failed:
-      return {
-        state: A2ATaskState.Failed,
-        pendingPauses: [],
-        errorCode: UNCODED_FAILURE,
-        message: state.reason,
-      };
+      return failedOf(INTERNAL_FAILURE);
   }
 }

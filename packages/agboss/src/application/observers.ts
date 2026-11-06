@@ -96,10 +96,10 @@ async function a2aTaskProjectionOf(parts: ObservedParts): Promise<readonly Execu
   const exposes = parts.assembled.exposes.some((cls) => componentOf(cls)?.kind === "a2a-expose");
   if (!exposes) return [];
   const { A2ATaskProjection } = await lazyLoad(import("../a2a/tasks/a2a-task-projection.js"));
-  const { a2aTasks, clock } = parts.infrastructure;
+  const { a2aTasks: tasks, clock } = parts.infrastructure;
   // the instance's trees by id, remembered by its infrastructure once its app is composed
   const control = () => executionControlOf(parts.infrastructure);
-  return [new A2ATaskProjection(a2aTasks, clock, control)];
+  return [new A2ATaskProjection({ tasks, clock, log: parts.log, control })];
 }
 
 /**

@@ -192,6 +192,7 @@ export {
   completedStatusOf,
   durableStatusOf,
   failedStatusOf,
+  failureMessageOf,
+  INTERNAL_FAILURE,
   pausedStatusOf,
-  UNCODED_FAILURE,
 } from "./a2a/tasks/task-status.js";

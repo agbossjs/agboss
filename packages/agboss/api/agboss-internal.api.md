@@ -821,6 +821,9 @@ export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
 export function failedStatusOf(error: Error): A2ATaskStatus;
 
 // @public
+export const failureMessageOf: (code: string) => string;
+
+// @public
 export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
 
 // @public
@@ -957,6 +960,9 @@ export function historyRecordsOf(history: ExecutionHistoryRepository, query: His
 
 // @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
+
+// @public
+export const INTERNAL_FAILURE = "internal";
 
 // @public
 export const isJudgeCheckName: (check: string) => boolean;
@@ -1101,7 +1107,7 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
 export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
 
 // @public
-export function reservedExecutionIdOf(options: object): string | undefined;
+export const reservedExecutionIdOf: (options: object) => string | undefined;
 
 // Warning: (ae-forgotten-export) The symbol "ResolvedModelUse" needs to be exported by the entry point internal.d.ts
 //
@@ -1223,9 +1229,6 @@ export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
 export const TRAJECTORY_CHECK = "trajectory";
-
-// @public
-export const UNCODED_FAILURE = "execution.failed";
 
 // @public
 export const versionOf: (value: unknown) => string;

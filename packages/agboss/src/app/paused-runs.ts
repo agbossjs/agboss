@@ -27,7 +27,7 @@ export interface PausedRunBook {
    * Forgets the thread's paused run and cancels its pending pauses (a cancel) and returns it;
    * `undefined` when none waits — a later resume of one of its pauses gets `NotPausedError`.
    */
-  readonly drop: (thread: ThreadKey) => Promise<AgentExecutionOutput | undefined>;
+  readonly drop: (thread: ThreadKey, runId?: string) => Promise<AgentExecutionOutput | undefined>;
   /** The thread's paused run as stored now (`undefined` when none). */
   readonly find: (thread: ThreadKey) => Promise<PausedExecution | undefined>;
 }
@@ -45,9 +45,11 @@ export function pausedRunBook(
       run.status === ExecutionStatus.Paused
         ? repository.save({ run, ...current })
         : repository.deleteByTenantIdAndThreadId(run.tenantId, run.threadId),
-    drop: async (thread) => {
+    drop: async (thread, runId) => {
       const stored = await find(thread);
-      if (stored === undefined) return undefined;
+      // #807: the run the caller holds the lease of, never one its thread paused since
+      if (stored === undefined || (runId !== undefined && stored.run.runId !== runId))
+        return undefined;
       const tree = { tenantId: thread.tenantId, rootExecutionId: stored.run.runId };
       await withdrawPauses(stores, tree, clock.now());
       await repository.deleteByTenantIdAndThreadId(thread.tenantId, thread.threadId);

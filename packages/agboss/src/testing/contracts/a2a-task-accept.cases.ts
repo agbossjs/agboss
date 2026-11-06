@@ -143,6 +143,10 @@ export const A2A_TASK_ACCEPT_CASES: readonly ContractCase<A2ATaskRepository>[] =
       const reply = replies[0] ? { state: "TASK_STATE_WORKING" } : { error: -32004 };
       expect(stored?.reply).toEqual(reply);
       expect(await first.saveReplyIfAbsent({ ...followUp, messageId: "m-none" }, 1)).toBe(false);
+      // a message saved with its reply keeps it
+      const answered = { ...followUp, messageId: "m-3", reply: { error: { code: -32602 } } };
+      await second.saveMessageIfAbsent(answered);
+      expect((await first.findByMessage(answered))?.reply).toEqual({ error: { code: -32602 } });
     },
   },
 ];

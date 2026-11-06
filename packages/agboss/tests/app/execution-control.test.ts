@@ -17,6 +17,7 @@ import {
 } from "../../src/app/execution-control.js";
 import { withReservedExecutionId } from "../../src/app/tree-control.js";
 import { ExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -32,8 +33,10 @@ import {
   RecoveryApplication,
   resetRecovery,
   seen,
+  StampedExecutionRecordRepository,
   Step,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+import { MemorySaver } from "@langchain/langgraph";
 
 const test = testWith(RecoveryApplication, { instances: 2 });
 const THREAD = "t-1";
@@ -133,6 +136,9 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
 
   test("an id that is no key's text is refused before any call, the id not echoed", () => {
     expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(RangeError);
+    expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(
+      /^a reserved execution id breaks the rule "[a-z-]+"$/u,
+    );
     expect(() => withReservedExecutionId({}, "x\uD800")).not.toThrow(/x\uD800/u);
   });
 
@@ -254,6 +260,53 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     expect(seen.charges).toEqual(["10 USD"]);
   });
 
+  test.for([
+    // the state read looks once, the cancel once before it holds the lease, once after
+    ["at its first look", 2],
+    ["once it holds the lease", 3],
+  ] as const)(
+    "another run of its thread paused %s: left alone (review #1)",
+    async ([, from], { apps, mockLlm }) => {
+      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+      const [first, second] = await pair(apps);
+      const paused = await reserved(first);
+      const find = Reflect.get(
+        InMemoryPausedExecutionRepository.prototype,
+        "findByTenantIdAndThreadId",
+      );
+      let reads = 0;
+      // the state read and the cancel's first look see task-1; once the lease is held, the thread's
+      // paused run is another execution's
+      vi.spyOn(
+        InMemoryPausedExecutionRepository.prototype,
+        "findByTenantIdAndThreadId",
+      ).mockImplementation(async function (
+        this: InMemoryPausedExecutionRepository,
+        tenantId,
+        threadId,
+      ) {
+        reads += 1;
+        const stored = await find.call(this, tenantId, threadId);
+        if (reads < from || stored === undefined) return stored;
+        return { ...stored, run: { ...stored.run, runId: "task-other" } };
+      });
+
+      const outcome = await controlOf(second).cancelExecution(tree());
+      vi.restoreAllMocks();
+
+      expect(outcome).toBe(ExecutionCancelOutcome.Requested);
+      // nothing was dropped: the paused run and its pause are still there (an old drop by thread
+      // would have withdrawn them); its own request stops it at the next take of its lease
+      expect(await controlOf(first).executionStateOf(tree())).toMatchObject({
+        status: DurableExecutionStatus.Paused,
+        pending: [{ pauseId: paused.pending[0]?.pauseId }],
+      });
+      await expect(first.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
+        ExecutionCancelledError,
+      );
+    },
+  );
+
   test("over already: nothing cancelled, the request withdrawn", async ({ apps, mockLlm }) => {
     mockLlm(Clerk).thenReturn(done);
     const [first, second] = await pair(apps);
@@ -277,10 +330,28 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     await expect(
       controlOf(first).cancelExecution({ ...tree(), threadId: "x\uD800" }),
     ).rejects.toMatchObject({ code: "run.invalid-thread-id" });
-    await expect(
-      controlOf(first).cancelExecution({ ...tree(), ownerId: "" }),
-    ).rejects.toMatchObject({ code: "dto.invalid" });
+    await expect(controlOf(first).cancelExecution({ ...tree(), ownerId: "" })).rejects.toThrow(
+      /^invalid ExecutionCancelRequest: ownerId: /u,
+    );
     expect(await requestOf(first)).toBeUndefined();
+  });
+});
+
+describe("#807 AC2: what a cancel saves", () => {
+  test("the request in the tree: when, and who asked — or nobody", async ({ apps, clock }) => {
+    const [first, second] = await pair(apps);
+
+    await controlOf(first).cancelExecution({ ...tree(), ownerId: "alice" });
+    await controlOf(second).cancelExecution(tree("task-2"));
+
+    expect(await requestOf(first)).toEqual({
+      requestedAt: clock.now().toISOString(),
+      ownerId: "alice",
+    });
+    expect(await requestOf(first, "task-2")).toEqual({
+      requestedAt: clock.now().toISOString(),
+      ownerId: null,
+    });
   });
 });
 
@@ -373,6 +444,71 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
       finish: "receipt-workflow-finish",
       output: { text: "Done." },
     });
+  });
+
+  test("a run whose record is out of reach is running while its checkpoint shows it began", async ({
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(...stepAndHold, done);
+    const [first, second] = await pair(apps);
+    const { call } = await holding(first);
+    vi.spyOn(StampedExecutionRecordRepository.prototype, "lastTerns").mockResolvedValue([]);
+
+    const state = await controlOf(second).executionStateOf(tree());
+    vi.restoreAllMocks();
+    levers.letGo?.();
+    await call;
+
+    expect(state).toEqual({ status: DurableExecutionStatus.Running });
+  });
+
+  test("a finished record whose checkpoint is gone reads running, never not started", async ({
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(done);
+    const [first, second] = await pair(apps);
+    await reserved(first);
+    vi.spyOn(MemorySaver.prototype, "getTuple").mockResolvedValue(undefined);
+
+    const state = await controlOf(second).executionStateOf(tree());
+
+    expect(state).toEqual({ status: DurableExecutionStatus.Running });
+  });
+
+  test("a record a guard stopped is a failure with its reason", async ({ apps }) => {
+    const [first] = await pair(apps);
+    const guarded = {
+      id: "r-1",
+      runId: TASK,
+      threadId: THREAD,
+      tenantId: "default",
+      status: "guarded",
+      stopReason: "blocked by a guardrail",
+    };
+    vi.spyOn(StampedExecutionRecordRepository.prototype, "lastTerns").mockResolvedValue([
+      guarded as never,
+    ]);
+
+    expect(await controlOf(first).executionStateOf(tree())).toEqual({
+      status: DurableExecutionStatus.Failed,
+      reason: "blocked by a guardrail",
+    });
+  });
+
+  test("a store that does not answer fails the read, never reads as not started", async ({
+    apps,
+  }) => {
+    const [first] = await pair(apps);
+    vi.spyOn(
+      InMemoryPausedExecutionRepository.prototype,
+      "findByTenantIdAndThreadId",
+    ).mockRejectedValue(new Error("the pause store does not answer"));
+
+    await expect(controlOf(first).executionStateOf(tree())).rejects.toThrow(
+      "the pause store does not answer",
+    );
   });
 
   test("a failure, with its record's reason", async ({ apps, mockLlm }) => {

@@ -148,6 +148,7 @@ export enum A2ATaskState {
 
 // @public
 export interface A2ATaskStatus {
+    readonly cancelRequestedAt?: string;
     readonly errorCode?: string;
     readonly finish?: string;
     readonly message?: string;
@@ -7860,23 +7861,23 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/a2a-task.repository.ts:57:3 - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-task.repository.ts:64:3 - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts:71:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:91:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/a2a-task.repository.ts:106:3 - (ae-undocumented) Missing documentation for "taskId".
-// src/infrastructure/a2a-task.repository.ts:107:3 - (ae-undocumented) Missing documentation for "savedAt".
-// src/infrastructure/a2a-task.repository.ts:114:3 - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-task.repository.ts:115:3 - (ae-undocumented) Missing documentation for "requestHash".
-// src/infrastructure/a2a-task.repository.ts:128:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
-// src/infrastructure/a2a-task.repository.ts:139:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts:140:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:141:3 - (ae-undocumented) Missing documentation for "contextId".
-// src/infrastructure/a2a-task.repository.ts:142:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:151:3 - (ae-undocumented) Missing documentation for "tasks".
-// src/infrastructure/a2a-task.repository.ts:152:3 - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts:157:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts:164:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts:180:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts:182:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/a2a-task.repository.ts:91:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:96:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/a2a-task.repository.ts:111:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/infrastructure/a2a-task.repository.ts:112:3 - (ae-undocumented) Missing documentation for "savedAt".
+// src/infrastructure/a2a-task.repository.ts:119:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts:120:3 - (ae-undocumented) Missing documentation for "requestHash".
+// src/infrastructure/a2a-task.repository.ts:133:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
+// src/infrastructure/a2a-task.repository.ts:144:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:145:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:146:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/infrastructure/a2a-task.repository.ts:147:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-task.repository.ts:156:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/infrastructure/a2a-task.repository.ts:157:3 - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts:162:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:169:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:185:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:187:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
@@ -7966,15 +7967,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect.repository.ts:84:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/fenced-effect.repository.ts:99:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:100:3 - (ae-undocumented) Missing documentation for "result".
-// src/infrastructure/in-memory-a2a-task.repository.ts:28:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-task.repository.ts:32:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:51:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:59:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:67:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/in-memory-a2a-task.repository.ts:72:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/in-memory-a2a-task.repository.ts:77:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/in-memory-a2a-task.repository.ts:97:3 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/in-memory-a2a-task.repository.ts:117:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/in-memory-a2a-task.repository.ts:32:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-task.repository.ts:36:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:55:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:63:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:71:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/in-memory-a2a-task.repository.ts:76:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/in-memory-a2a-task.repository.ts:81:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/in-memory-a2a-task.repository.ts:101:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/in-memory-a2a-task.repository.ts:121:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "backend".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".

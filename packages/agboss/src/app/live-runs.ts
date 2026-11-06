@@ -12,7 +12,8 @@ export type ThreadKey = ThreadOfTenant;
 const keyOf = threadMapKeyOf;
 
 /** A tree's key in the app: its tenant and its root execution (#807: one A2A task). */
-const treeKeyOf = (tree: ExecutionTree): string => `${tree.tenantId}\u0000${tree.rootExecutionId}`;
+const treeKeyOf = (tree: ExecutionTree, threadId: string): string =>
+  `${tree.tenantId}\u0000${tree.rootExecutionId}\u0000${threadId}`;
 
 /** What a leg is tracked by: its thread, and its root execution when it moves a tree. */
 export type TrackedLeg = ThreadKey & { readonly runId?: string };
@@ -43,7 +44,7 @@ export class LiveRuns {
     const leave = [entered(this.#runs, key, controller)];
     if (thread.runId !== undefined) {
       const tree = { tenantId: thread.tenantId, rootExecutionId: thread.runId };
-      leave.push(entered(this.#byTree, treeKeyOf(tree), controller));
+      leave.push(entered(this.#byTree, treeKeyOf(tree, thread.threadId), controller));
     }
     const running = work(
       caller === undefined ? controller.signal : AbortSignal.any([caller, controller.signal]),
@@ -123,11 +124,12 @@ export class LiveRuns {
   }
 
   /**
-   * Aborts the legs of one tree in flight here (#807) — its thread's other runs go on; `false`
-   * when none is running here.
+   * Aborts the legs of one tree on its thread in flight here (#807) — its thread's other runs go
+   * on, and so does a tree of that id on another thread (an id minted twice); `false` when none
+   * is running here.
    */
   abortExecution(tree: ExecutionTree, threadId: string): boolean {
-    return abortAll(this.#byTree.get(treeKeyOf(tree)), threadId);
+    return abortAll(this.#byTree.get(treeKeyOf(tree, threadId)), threadId);
   }
 }
 
@@ -170,11 +172,14 @@ export const runOptionsOf = (call: TreeCall, signal: AbortSignal): AgentExecutio
 export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
   new ExecutionCancelledError(`thread "${threadId}" was cancelled`);
 
+/** The reason a cancelled execution's record gives (#807: what reads it back as cancelled). */
+export const CANCELLED_STOP_REASON = "the run was cancelled";
+
 /** The Tern outcome of a cancelled execution: the path it took and what it cost. */
 export const cancelledRecordOutcome = (route: readonly string[], costUsd: number): TernOutcome => ({
   replyWith: "",
   status: "failed",
-  stopReason: "the run was cancelled",
+  stopReason: CANCELLED_STOP_REASON,
   route,
   steps: [],
   costUsd,

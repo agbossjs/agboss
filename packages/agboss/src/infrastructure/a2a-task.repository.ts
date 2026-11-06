@@ -79,6 +79,11 @@ export interface A2ATaskStatus {
   readonly output?: unknown;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
+  /**
+   * When read repair asked a start it could not fence out to stop (ISO 8601): the task settles
+   * `a2a.start-lost` one start timeout later, unless its execution began meanwhile. Never on the wire.
+   */
+  readonly cancelRequestedAt?: string;
 }
 
 /** A task as kept. */

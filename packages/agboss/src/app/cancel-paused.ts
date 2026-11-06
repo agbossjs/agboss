@@ -23,16 +23,19 @@ export async function cancelledPaused(
 ): Promise<boolean> {
   const { deps, paused, leases } = parts;
   const found = await paused.find(thread);
-  // a cancel of one execution (#807) ends that one only, never another run of its thread
-  if (found === undefined || (runId !== undefined && found.run.runId !== runId)) return false;
-  const { run } = found;
-  const startedVersion = run.startedVersion ?? deps.config.version;
-  const state = { ...thread, runId: run.runId, startedVersion };
-  const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Cancelled);
-  const lease = await leases.hold(treeOf(state), undefined, take);
+  if (found === undefined) return false;
+  // a cancel of one execution (#807) holds that tree's lease and ends that run only — never
+  // another run of its thread, paused before the look or since
+  const tree = { ...thread, runId: runId ?? found.run.runId };
+  const startedVersion = found.run.startedVersion ?? deps.config.version;
+  const take = rootTakeOf(deps.pause, tree.runId, LeaseTakeoverReason.Cancelled);
+  const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {
-    // a holder moved it meanwhile: not paused any more — the caller asks its holder instead
-    if ((await paused.drop(thread)) === undefined) return false;
+    // a holder moved it meanwhile — not paused any more, or another run of the thread paused
+    // since: the caller asks its holder instead
+    const run = await paused.drop(thread, tree.runId);
+    if (run === undefined) return false;
+    const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
     const cause = new ExecutionCancelledError(
       `thread "${thread.threadId}" was cancelled while paused`,
     );
