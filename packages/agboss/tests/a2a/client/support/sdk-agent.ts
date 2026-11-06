@@ -16,7 +16,10 @@ import {
   type ExecutionEventBus,
   type RequestContext,
 } from "@a2a-js/sdk/server";
-import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../../src/a2a/a2a-extension-uris.js";
+import {
+  A2A_MESH_EXTENSION,
+  A2A_SKILLS_EXTENSION,
+} from "../../../../src/a2a/a2a-extension-uris.js";
 import { meshBodyHashOf, meshEnvelopeTextOf } from "../../../../src/a2a/a2a-mesh-message.js";
 import { meshRefusalOf, type MeshReceiver } from "../../../../src/mesh/mesh-admission.js";
 import { isoDurationOf } from "../../../../src/mesh/mesh-durations.js";
