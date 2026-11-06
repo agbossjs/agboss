@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a ledger entry is its own type, one ledger state, `Date` and `Usd` at the store boundary (#817)
+
+- **Changed — breaking**: a `UsageRecord`'s place in the ledger is one field, `ledger?:
+  LedgerMark` — `{ state: LedgerState.Written, ledgerId, madeAt: Date }` or `{ state:
+  LedgerState.RecordedElsewhere }` — in place of `isRecordedElsewhere`, `ledgerId` and an ISO
+  `madeAt`; `ledgerMarkOf(record)` reads it, and reads a record kept before (a 0.1.0 checkpoint) as
+  the same state, never written or counted again. `CostSource` and `CostCategory` are enums of the
+  same strings (a `CostReport`'s JSON is unchanged). The terms — cost, spend, usage — are on
+  [FinOps](FinOps#measure).
+- **Changed — breaking for stores outside the core**: `CostLedgerRepository.saveAll(counters,
+  entries: readonly LedgerEntry[])` — a `UsageRecord` with its `ledgerId`, `madeAt: Date` and
+  `costUsd: Usd`; a record without an identity does not compile, and `assertLedgerEntries` refuses
+  a JS caller's (`CostLedgerEntryInvalidError`, `cost-ledger.entry-invalid`). `deleteByMadeAtBefore`
+  (was `deleteEntriesByMadeAtBefore`), `unrecordedEntriesOf` (was `newEntriesOf`, its callback's
+  `madeAt` a `Date`) and the newly exported `expiredEntriesOf`. A spend's identity across passes
+  (#810, `LedgerKey`) is dated the same way: `LedgerKey.madeAt` is a `Date`. Three contract cases: anything but
+  an entry refused before anything is added, the mark kept to the millisecond, a prune whose cutoff
+  is no valid `Date` refused with the mark where it was. No stored table changes; a checkpoint
+  written by 0.1.1 is not read by a 0.1.0 instance — upgrade every instance together. [Your own store](Your-own-store), [FinOps → The ledger](FinOps#the-ledger).
+
 ## Unreleased — 0.1.1: a resume that dies after recording its answer is recovered (#850)
 
 - **Fixed**: a resume whose process died (or was killed) after the pause went `Resolved` and before

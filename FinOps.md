@@ -2,23 +2,31 @@
 
 ## Measure
 
+**The terms** (#817): **cost** is what one call cost — `UsageRecord.costUsd`, a `CostLine`, its
+`CostSource` and `CostCategory`; **spend** is what was consumed against a budget —
+`result.spend`, a counter's `findSpentByCounter`, `BudgetExceededError.spentUsd`; **usage** is
+tokens only — `TokenUsage`. `UsageRecord` keeps its name: one call's record, with its cost. Every
+amount that crosses a store boundary is `Usd` (`@agboss/core/units`); a `CostReport` — JSON —
+keeps its `…Usd: number` fields.
+
 - **Every model call is accounted**: a `UsageRecord` (caller, model, input/output/cache tokens,
   USD, `costSource`) per call, accumulated in graph state.
 - **Cost source** — the call's [model provider](Model-providers#cost): a cost the provider reports
-  in its answer (Jev, OpenRouter's `usage.cost`) is exact (`"api"`) and always comes first; else the
-  provider's price table (`ModelCost.fromPrices`) or the component's own `price` (`"price-table"`):
+  in its answer (Jev, OpenRouter's `usage.cost`) is exact (`CostSource.Api`) and always comes first; else the
+  provider's price table (`ModelCost.fromPrices`) or the component's own `price` (`CostSource.PriceTable`):
   uncached input × input price + cache read/write × cache prices (fallback: input price) + output ×
-  output price. A call with neither fails — never silently free.
+  output price. A call with neither fails — never silently free; a reported cost below zero, or
+  tokens that price at no amount, fail it too (#817) — never subtracted from the budgets.
 - **Tool costs**: what a tool spends on models through the framework is recorded as the tool's —
   `tool:<name>` — in the same loop as the agent's model calls, so it counts in the budget check
   before the next model call, in the budgets' counters and in a failed agent's spend. A decision a
   tool's service makes through `ROUTER_FACTORY` during the call (job-scout's fit judge) is accounted
   this way, with the decision's model and exact cost; a knowledge-base search reports its retrieval
-  cost under `rag:<name>` (`costSource: "tool"`).
+  cost under `rag:<name>` (`costSource: CostSource.Tool`).
 - **Services that are not models** (#280 S43): a `@Tool` or an `@Action` takes `SpendRecorder` in
   its `deps` and records what one call of the service cost —
   `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })`. The record (`model`: the
-  service, `costSource: "tool"`) joins the current tool call's spend (`tool:<name>`) or the step's
+  service, `costSource: CostSource.Tool`) joins the current tool call's spend (`tool:<name>`) or the step's
   (`action:<name>`, category `tools`), so it counts in every budget of the execution — the next
   check (before the agent's next model call, or the next step — an action too, #634) stops it with
   `BudgetExceededError` — and in the run's `spend`. Called outside a step or a
@@ -244,11 +252,16 @@ on its cost, its tenant's and the application's. All violations at once, before 
   counters at once** (#727, #732): a step of the same tree on another instance — a child on any
   instance, its sibling, the parent of one — sees it at its next read of the counters, not at the
   end of the superstep that spent it. The execution's state keeps the record marked as in the
-  ledger, with its id (`ledgerId`), so no later pass writes it again: the pass writes a checkpoint
+  ledger — its one state `UsageRecord.ledger` (#817): `{ state: LedgerState.Written, ledgerId,
+  madeAt }`; a child's call recorded on another instance `{ state: LedgerState.RecordedElsewhere
+  }`; none while it is not in the ledger yet; `ledgerMarkOf(record)` reads it, a record kept before
+  0.1.1 (`isRecordedElsewhere`) as the same state; a checkpoint keeps JSON, and every read of one
+  through the application's checkpointer gives the mark back as kept — its date a `Date` —, a mark it
+  cannot read failing the read —, so no later pass writes it again: the pass writes a checkpoint
   only once every spend it tallied before is in the ledger, and queues a child on any instance only
   then — also once the spend a sibling branch tallied after the launching step's own checkpoint is
   written (#776) —, so a takeover or a recovery that finds a marked record finds it counted. What is not tallied
-  (a router's decision) is written when its step ends. A read of the counters never overlaps a
+  (a router's decision) is written when its step ends, an entry of its own too (#817). A read of the counters never overlaps a
   write of the same pass, and a child on any instance has its spend taken in by its parent's pass
   with a read of the counters before the parent's state shows it: every dollar counts once,
   whatever the placement (#685). Each such spend is an **entry** of the ledger under its
@@ -257,7 +270,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   own checks too, which read the counters only once such a write is retried (#770) —, and so does a
   record an earlier pass kept that reaches a later one from a durable state (a takeover's restored
   writes, an agent's loop continued from its checkpoint). Entries are not kept for ever (#771):
-  each is dated by its record's `madeAt`, and the recovery sweep prunes those made longer ago than
+  each is dated by its `madeAt` (a `Date`, the `Clock`), and the recovery sweep prunes those made longer ago than
   `@Application({ retention: { costLedgerEntries } })` (default `hours(24)`) — see
   [Pruning the entries](#pruning-the-entries-771). A step **run again** after a crash or a
   takeover makes its spend again — its model calls are billed again, its services paid again — and
@@ -371,10 +384,13 @@ BudgetExceededError {
 ### The ledger
 
 The application's `CostLedgerRepository` (#261 S28) keeps one counter per budget, scope key and
-period — `findSpentByCounter({ budget, scope, key, period })`, `saveAll(counters, records)` (each
-call's cost added to every counter, atomically per counter; a record with a `ledgerId` is an entry
-added once, #727 — a repeated or racing save of the id adds nothing; #771: one made before the
-store's pruning mark and not held is refused), `deleteEntriesByMadeAtBefore(cutoff)` (#771) — and the last `maxSpend()` read per
+period — `findSpentByCounter({ budget, scope, key, period })` (`Usd`), `saveAll(counters,
+entries)` (each entry's cost added to every counter, atomically per counter; an entry added once by
+its `ledgerId`, #727 — a repeated or racing save of the id adds nothing; #771: one made before the
+store's pruning mark and not held is refused; #817: only a `LedgerEntry` — a `UsageRecord` with
+its `ledgerId`, `madeAt: Date` and `costUsd: Usd` — so a record without an identity does not
+compile, and a JS caller's is refused, `CostLedgerEntryInvalidError`, nothing added),
+`deleteByMadeAtBefore(cutoff)` (#771) — and the last `maxSpend()` read per
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
 `2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's
@@ -392,7 +408,9 @@ or checkpoint; every other pass only counts a marked record, never writes it —
 while that pass may still retry. The ledger keeps entries `@Application({ retention: { costLedgerEntries } })`
 after they were made (default `hours(24)`, above the lease's 30 s —
 `[application.retention-invalid]`); every look of the recovery sweep calls
-`deleteEntriesByMadeAtBefore(now − retention)` on the `Clock`. A prune never touches a counter.
+`deleteByMadeAtBefore(now − retention)` on the `Clock`. A prune never touches a counter, and a
+cutoff that is no valid `Date` is refused (#817): it would compare false with every entry and lower
+the mark.
 
 The prune raises the store's **pruning mark** to its cutoff (never lowers it) and removes the
 entries made before the mark, atomically against a save. A save of an entry made before the mark
@@ -407,7 +425,7 @@ entry's spend may be missing, which only a pass asleep longer than the retention
 
 | store | entries | pruning mark |
 | --- | --- | --- |
-| in memory | a map of `ledgerId` → `madeAt` | a number in the instance |
+| in memory | a map of `ledgerId` → `madeAt` | a `Date` in the instance |
 | `SqliteCostLedgerRepository` | `cost_ledger_entries (ledger_id, made_at)`, indexed by `made_at`; a #727 file's entries dated "never" | `cost_ledger_entries_pruned`, read in the save's `BEGIN IMMEDIATE` |
 | agbossjs/postgres | `agboss_cost_entries (ledger_id, made_at)` (migration `0023`) | `agboss_cost_entries_pruned`, read `FOR SHARE` in the save's statement |
 | agbossjs/mongodb | `agboss_cost_entries` documents with `madeAt` | a document of `agboss_cost_entries` (`_id` `"\u0000pruned-before"`, made in the transaction that creates the collection, #798), read in the save's transaction |
