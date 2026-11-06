@@ -32,6 +32,9 @@ export const answerOf = <T>(work: () => T): Promise<T> =>
     resolve(work());
   });
 
+/** A time as the store writes it: `Date.toISOString()` text (no SQLite clock is read). */
+const { datetime: isoTime } = z.iso;
+
 const TaskRow = z.object({
   tenant_id: z.string(),
   task_id: z.string(),
@@ -41,8 +44,8 @@ const TaskRow = z.object({
   state: z.enum(A2ATaskState),
   status: z.string(),
   version: z.number().int().positive(),
-  accepted_at: z.iso.datetime(),
-  status_at: z.iso.datetime(),
+  accepted_at: isoTime(),
+  status_at: isoTime(),
   caller_peer: z.string().nullable(),
 });
 
@@ -52,7 +55,7 @@ const MessageRow = z.object({
   message_id: z.string(),
   request_hash: z.string(),
   task_id: z.string(),
-  saved_at: z.iso.datetime(),
+  saved_at: isoTime(),
   reply: z.string().nullable(),
 });
 
@@ -66,7 +69,7 @@ const Status = z.object({
   finish: z.string().optional(),
   output: z.unknown().optional(),
   errorCode: z.string().optional(),
-  cancelRequestedAt: z.iso.datetime().optional(),
+  cancelRequestedAt: isoTime().optional(),
 });
 
 /** The status of a row whose `state` column agrees with it (M6: a compare-and-set reads the column). */
