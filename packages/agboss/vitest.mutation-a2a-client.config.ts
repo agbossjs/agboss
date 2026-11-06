@@ -14,6 +14,8 @@ export default defineConfig({
       "tests/a2a/client/a2a-client-{units,accept.units,hardening,wire,in-execution}.test.ts",
       "tests/mesh/mesh-audience.test.ts",
       "tests/mcp/mcp-mesh-trust.test.ts",
+      // #810: the mesh end to end, the takeover's charges
+      "tests/a2a/mesh/*.test.ts",
     ],
   },
 });

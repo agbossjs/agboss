@@ -10,6 +10,11 @@ export default defineConfig({
   test: {
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
-    include: ["tests/a2a/server/*.test.ts", "tests/a2a/a2a-task-store-rule*.test.ts"],
+    include: [
+      "tests/a2a/server/*.test.ts",
+      "tests/a2a/a2a-task-store-rule*.test.ts",
+      // #810: the mesh end to end
+      "tests/a2a/mesh/*.test.ts",
+    ],
   },
 });

@@ -17,6 +17,9 @@ export default defineConfig({
       "tests/a2a/a2a-task-{projection,units,retention}.test.ts",
       // #808: the server, over its JSON-RPC binding
       "tests/a2a/server/*.test.ts",
+      // #810: the mesh end to end, a task file of before it
+      "tests/a2a/mesh/*.test.ts",
+      "tests/infrastructure/sqlite/sqlite-a2a-task-mesh.test.ts",
     ],
   },
 });
