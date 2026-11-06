@@ -72,7 +72,7 @@ describe("#807: the A2A task stores' helpers", () => {
         asked.push(cutoff);
         return Promise.resolve();
       },
-    } as unknown as InMemoryA2ATaskRepository;
+    };
 
     const expiry = a2aTaskExpiryOf(tasks, hours(24));
     await expiry.remove?.(NINE);

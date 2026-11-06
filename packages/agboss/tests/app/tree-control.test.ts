@@ -36,7 +36,7 @@ function workflowOf(name: string, threads: readonly string[], asked: string[]): 
       },
       keep: (identity: { readonly executionId: string }) => Promise.resolve(identity.executionId),
     },
-  } as unknown as ControlledWorkflow;
+  };
 }
 
 const tree = (threadId: string) => ({ tenantId: "acme", rootExecutionId: "task-1", threadId });

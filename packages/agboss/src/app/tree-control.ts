@@ -86,7 +86,10 @@ export function runIdOf(
 
 /** A built workflow of an instance: its records (whose threads it has) and its trees by id. */
 export interface ControlledWorkflow extends TreeControl {
-  readonly deps: Pick<AppDeps, "terns" | "config">;
+  readonly deps: {
+    readonly terns: Pick<AppDeps["terns"], "hasThread">;
+    readonly config: Pick<AppDeps["config"], "name">;
+  };
 }
 
 /**

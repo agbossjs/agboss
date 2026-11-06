@@ -229,7 +229,10 @@ export const firstA2AMessageOf = (task: NewA2ATask): A2AMessageRecord => ({
 });
 
 /** The recovery sweep's removal of finished tasks (#807), after `retention` on the `Clock`. */
-export const a2aTaskExpiryOf = (tasks: A2ATaskRepository, retention: Milliseconds): Expiry => ({
+export const a2aTaskExpiryOf = (
+  tasks: Pick<A2ATaskRepository, "deleteTerminalByStatusAtBefore">,
+  retention: Milliseconds,
+): Expiry => ({
   what: "the finished A2A tasks",
   remove: (cutoff: Date) => tasks.deleteTerminalByStatusAtBefore(cutoff),
   retention,
