@@ -5,6 +5,7 @@
 export { createSqliteTernStore, sharedTernStore, type ThreadIds } from "./sqlite-store.js";
 /** The Tern database itself (opened and migrated), for stores that share it (paused runs, #201). */
 export { openTernDatabase } from "./schema.js";
+export { pauseAnswerEntryOf } from "./writes.js";
 export {
   TERN_STATUSES,
   type NewTern,

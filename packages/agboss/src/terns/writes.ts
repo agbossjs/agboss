@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { storedTextOf } from "./schema.js";
-import type { Tern, TernOutcome, TernStore } from "./types.js";
+import type { PauseAnswerEntry, Tern, TernOutcome, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -92,3 +92,22 @@ export function ternWrites(
     },
   };
 }
+
+/** What a kept pause answer is keyed by: its step's key and when it was asked (the whole of it as JSON). */
+interface KeptPauseAnswer {
+  readonly step: { readonly idempotencyKey: string };
+  readonly askedAt: string;
+}
+
+/** A pause answer as a Tern store keeps it: by its tree and its step key, the record as JSON. */
+export const pauseAnswerEntryOf = (
+  tenantId: string,
+  rootExecutionId: string,
+  answer: KeptPauseAnswer,
+): PauseAnswerEntry => ({
+  tenantId,
+  rootExecutionId,
+  stepKey: answer.step.idempotencyKey,
+  askedAt: answer.askedAt,
+  record: JSON.stringify(answer),
+});

@@ -9,7 +9,6 @@ import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { dedupeKeyOf, type TrustedRequest } from "../../src/a2a/a2a-trusted.js";
 import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { MeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
@@ -106,32 +105,4 @@ describe("#568: a trusted MCP call under a tenant id that is no key's text", () 
       expect(kept).toBeUndefined();
     },
   );
-});
-
-describe("#568: the A2A answer's key", () => {
-  const trusted = (tenantId: string): TrustedRequest => ({
-    tenantId,
-    peer: "orders-application",
-    envelope: {
-      schema: 1,
-      issuer: "orders-application",
-      origin: {
-        rootExecutionId: "root-1",
-        executionId: "root-1",
-        workflow: { name: "orders-workflow", version: "1.0.0" },
-        step: { component: "orders-desk-agent", idempotencyKey: CALL_ID },
-      },
-      callChain: [],
-    },
-  });
-
-  it("is none for a tenant id that is no key's text, and the request's own for one that is", () => {
-    for (const tenantId of ["t\uD800", "t\uDFFF", "cafe\u0301", "acme​", " acme"])
-      expect(dedupeKeyOf(trusted(tenantId)), tenantId).toBeUndefined();
-    expect(dedupeKeyOf(trusted("t�"))).toEqual({
-      tenantId: "t�",
-      peer: "orders-application",
-      idempotencyKey: CALL_ID,
-    });
-  });
 });

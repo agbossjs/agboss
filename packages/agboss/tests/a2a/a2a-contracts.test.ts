@@ -1,5 +1,3 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener, A2AStatus } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
@@ -25,78 +23,22 @@ import {
 import { offline } from "./fixtures/remote.workflow.js";
 
 const apps: App[] = [];
-const servers: Server[] = [];
 
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
-  servers.splice(0).forEach((server) => {
-    server.closeAllConnections();
-    server.close();
-  });
 });
 
-/** The shop served over A2A with `expose`; its base URL. */
-async function shop(book: ScriptBook): Promise<string> {
-  const app = await createApp(ShopApplication, offline(book));
-  apps.push(app);
-  const server = createServer(
-    a2aHttpListener(app, { expose: ShopA2AExpose, callerResolver: OpenCallerResolver }),
-  );
-  servers.push(server);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
-}
-
-const post = (url: string, body: unknown): Promise<Response> =>
-  fetch(`${url}/execute`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
 describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
-  it("a request names the exported start it runs", async () => {
-    const book = new ScriptBook();
-    book.scriptOf("agent:quote-desk-agent").thenReturn(replyWith("Quoted."));
-    const url = await shop(book);
-
-    const quote = await post(url, { input: { text: "quote 7" }, start: "quote-workflow-start" });
-    const refund = await post(url, { input: { text: "refund 7" }, start: "refund-workflow-start" });
-
-    expect(await quote.json()).toMatchObject({
-      status: A2AStatus.Finished,
-      finish: "quote-workflow-finish",
-      output: { text: "Quoted." },
-    });
-    expect(await refund.json()).toMatchObject({
-      finish: "refund-workflow-finish",
-      output: { text: "refund 7" },
-    });
-  });
-
-  it("no start with several exports, or one it does not export: 400 a2a.unknown-start", async () => {
-    const url = await shop(new ScriptBook());
-
-    const unnamed = await post(url, { input: { text: "hi" } });
-    const unknown = await post(url, { input: { text: "hi" }, start: "kb-workflow-start" });
-
-    expect(unnamed.status).toBe(400);
-    expect(await unnamed.json()).toMatchObject({
-      code: "a2a.unknown-start",
-      error: expect.stringContaining("quote-workflow-start, refund-workflow-start"),
-    });
-    expect(await unknown.json()).toMatchObject({
-      code: "a2a.unknown-start",
-      error: expect.stringContaining("kb-workflow-start is not exported here"),
-    });
-  });
-
   it("an expose the application does not list: [application.expose-unlisted]", async () => {
     const app = await createApp(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const built = () =>
-      a2aHttpListener(app, { expose: QuoteA2AExpose, callerResolver: OpenCallerResolver });
+      a2aHttpListener(app, {
+        expose: QuoteA2AExpose,
+        callerResolver: OpenCallerResolver,
+        publicUrl: "http://127.0.0.1",
+      });
 
     expect(built).toThrow(/^\[application\.expose-unlisted\] QuoteA2AExpose is not listed/);
   });
@@ -104,7 +46,12 @@ describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
 
 describe("#398 PR 3: the contracts at assembly", () => {
   it("names, exports and targets are checked, every violation at once", async () => {
-    @A2AExpose({ name: "shop-expose", version: "1.0.0", exports: [QuoteWorkflowStart, Object] })
+    @A2AExpose({
+      name: "shop-expose",
+      version: "1.0.0",
+      description: "A shop",
+      exports: [QuoteWorkflowStart, Object],
+    })
     class ShopExpose {}
 
     @A2AAgent({

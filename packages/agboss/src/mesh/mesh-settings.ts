@@ -1,6 +1,7 @@
 import type { KeyObject } from "node:crypto";
 import type { Class } from "../components/injection.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
+import type { ContractsSnapshot } from "../describe/contracts-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { MeshKeys } from "./mesh-keys.js";
 
@@ -19,6 +20,12 @@ export interface MeshSettings {
   readonly idempotencyRetention: number;
   /** `@Application({ exposes })` (#398 PR 3): the contracts a transport may serve. */
   readonly exposes: readonly Class[];
+  /**
+   * The application's declared contracts (#808: what `describe --json` lists — each exported
+   * start's input and finishes, every DTO's JSON Schema), read on first use: an A2A listener's
+   * Agent Card is written from them.
+   */
+  readonly contracts: () => Promise<ContractsSnapshot>;
 }
 
 const byApp = new WeakMap<object, () => MeshSettings | undefined>();

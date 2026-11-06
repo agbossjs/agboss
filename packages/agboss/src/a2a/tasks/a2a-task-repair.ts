@@ -9,6 +9,7 @@ import {
   type A2ATaskStatus,
 } from "../../infrastructure/a2a-task.repository.js";
 import type { Milliseconds } from "../../units/index.js";
+import { taskChanged } from "./task-changes.js";
 import { durableStatusOf } from "./task-status.js";
 
 /** The code of a task whose execution never started (design §4.3.2). */
@@ -62,7 +63,9 @@ export async function repairedTask(
     return task;
   const key = { tenantId: task.tenantId, taskId: task.taskId };
   const written = await tasks.compareAndSetStatus(key, task.version, status, now);
-  return written ?? (await tasks.findById(key)) ?? task;
+  if (written === undefined) return (await tasks.findById(key)) ?? task;
+  taskChanged(key);
+  return written;
 }
 
 /** An execution that has not begun: settled once its start timed out, as described above. */

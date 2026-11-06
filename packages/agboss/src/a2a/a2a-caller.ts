@@ -3,47 +3,50 @@ import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { AGBossError } from "../core/errors.js";
 import type { ExecutionOptionsOf } from "../flow/generated-types.js";
-import type { MeshEnvelope } from "../mesh/mesh-envelope.js";
 
 /**
- * What `a2aHttpListener` needs of an application (#387): its `execute` / `resume` / `cancel`, and
- * `resolve` — the listener takes its caller resolver from the application's container. Both
- * `createApp`'s app and `testWith`'s `app` are one.
+ * What `a2aHttpListener` needs of an application (#387, #808): its `execute` / `resume` /
+ * `cancel`, and `resolve` — the listener takes its caller resolver and stores from the
+ * application's container. Both `createApp`'s app and `testWith`'s `app` are one.
  */
 export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
 
-/** The route of an A2A request: `POST <base>/execute` or `POST <base>/resume`. */
-export enum A2ARoute {
-  /** `POST <base>/execute`: a run of the start. */
-  Execute = "execute",
-  /** `POST <base>/resume`: an answer to a pause. */
-  Resume = "resume",
-  /** `POST <base>/cancel`: the caller's thread's run cancelled, or its pause dropped (#398 PR 2). */
-  Cancel = "cancel",
+/**
+ * The A2A v1.0 operation a request asks for (#808): its JSON-RPC method — what a caller resolver
+ * may allow or refuse per caller (a key that may not answer pauses: `SendMessage` with a `taskId`).
+ */
+export enum A2AOperation {
+  /** A new task, or — with a `taskId` — a follow-up answering a task's pause. */
+  SendMessage = "SendMessage",
+  /** `SendMessage`, its task's changes streamed back. */
+  SendStreamingMessage = "SendStreamingMessage",
+  /** One task of the caller's. */
+  GetTask = "GetTask",
+  /** The caller's tasks. */
+  ListTasks = "ListTasks",
+  /** A cancel of one task. */
+  CancelTask = "CancelTask",
+  /** A task's changes streamed, from its current state on. */
+  SubscribeToTask = "SubscribeToTask",
 }
 
 /**
- * What a caller resolver reads of one request, before its body is read (#387 S2 Q2): the route and
- * the raw request — its headers and its socket (a client certificate), never its body.
+ * What a caller resolver reads of one request (#387, #808): the operation, the task it names and
+ * the raw request — its headers and its socket (a client certificate). The body has been read
+ * (bounded by `maxBodySize`) and parsed to find the operation and the task, nothing more: nothing
+ * of it is trusted or acted on before the resolver decides.
  */
 export interface A2ACallerRequest {
-  /** Which route the request is for. */
-  readonly route: A2ARoute;
-  /** The raw request: headers, socket — its body is not read yet and is not the resolver's. */
+  /** What the request asks for. */
+  readonly operation: A2AOperation;
+  /**
+   * The task it names: `GetTask`, `CancelTask`, `SubscribeToTask`, and a follow-up `SendMessage` /
+   * `SendStreamingMessage` (a resume). A claim of the caller, unchecked: `undefined` for a new task
+   * and `ListTasks`.
+   */
+  readonly taskId?: string;
+  /** The raw request: headers, socket — its body is not the resolver's. */
   readonly http: IncomingMessage;
-  /**
-   * The mesh envelope the request carries (#398, the `agboss-mesh` header), read but **not
-   * verified**: a claim of where the call comes from — never the tenant, a budget or a deadline.
-   * `undefined` when there is none, or none the listener can read (a malformed header is ignored).
-   */
-  readonly envelope?: MeshEnvelope;
-  /**
-   * The envelope's `issuer` when its signature verified (#398 PR 2) — with the key of
-   * `@Application({ mesh: { peers } })` or of the listener's `meshVerifier` — and it has not
-   * expired. A resolver that authenticated this peer by its transport names it as `peer`: then the
-   * request is trusted. `undefined` for an unsigned envelope or one whose issuer has no key.
-   */
-  readonly signedBy?: string;
 }
 
 /**
@@ -59,23 +62,11 @@ export type A2ACaller<TStart extends Class> = Pick<
 
 /**
  * The mesh peer a resolver authenticated (#398 PR 2): the calling application by its
- * `@Application({ name })`, as its transport proved it (mTLS, an API key). When it is the
- * envelope's verified `signedBy`, the envelope's budget, deadline, origin and idempotency key are
- * honoured; otherwise the envelope stays a claim.
+ * `@Application({ name })`, as its transport proved it (mTLS, an API key) — kept with the tasks it
+ * sends (#808).
  */
 export interface A2APeer {
   readonly peer?: string;
-}
-
-/**
- * The public keys of mesh peers (#398 PR 2), for a listener whose peers are not all in
- * `@Application({ mesh: { peers } })` (a key store, a JWKS later): an `@Injectable` listed in
- * `providers`, `a2aHttpListener(app, { …, meshVerifier: KeyStoreMeshVerifier })`. It runs before
- * the caller resolver; an issuer it has no key for leaves the envelope unverified.
- */
-export interface MeshVerifier {
-  /** The issuer's Ed25519 public key (SPKI PEM); `undefined` when it has none. */
-  readonly verifyKeyOf: (issuer: string) => string | undefined | Promise<string | undefined>;
 }
 
 /** How a caller resolver decided on a request. */
@@ -171,7 +162,7 @@ export const isA2ACallerResolution = <TStart extends Class>(
 /**
  * Who calls the listener (#387): an `@Injectable` listed in `@Application({ providers })` or a
  * `@Workflow({ providers })`, created by the application's container. It decides on each request
- * before its body is read — the tenant is never guessed from the request by the framework.
+ * before anything of it runs — the tenant is never guessed from the request by the framework.
  */
 export interface A2ACallerResolver<TStart extends Class> {
   /** Decides on one request: `resolved(caller)`, `unauthenticated(…)` or `forbidden(…)`. */

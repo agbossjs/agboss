@@ -25,20 +25,20 @@ vi.mock("../../src/app/run-events.js", () => ({
 
 const STATE = { runId: "root-1", threadId: "thread-1", tenantId: "acme", startedVersion: "1" };
 
-function partsOf(isFailedHere: boolean) {
+function partsOf(isFailedHere: boolean, recordThread = "thread-1") {
   const onExecutionError = vi.fn(() => Promise.resolve());
+  const record = { id: "tern-1", runId: "root-1", threadId: recordThread, route: [], costUsd: 0 };
+  const findByTenantIdAndRunId = vi.fn(() => Promise.resolve(record));
+  const completeIfStatus = vi.fn(() => Promise.resolve(isFailedHere));
   const deps: AppDeps = {
-    terns: {
-      lastTerns: () => Promise.resolve([{ id: "tern-1", runId: "root-1", route: [], costUsd: 0 }]),
-      completeIfStatus: vi.fn(() => Promise.resolve(isFailedHere)),
-    },
+    terns: { findByTenantIdAndRunId, completeIfStatus },
     observer: { onExecutionError },
   } as never;
   const parts: EndedTreeParts = {
     deps,
     paused: { find: () => Promise.resolve(undefined), drop: vi.fn() },
   } as never;
-  return { parts, onExecutionError };
+  return { parts, onExecutionError, findByTenantIdAndRunId, completeIfStatus };
 }
 
 const end = () => ({
@@ -66,6 +66,21 @@ describe("#633: endedWithoutPass", () => {
     await endedWithoutPass(parts, STATE, { ...end(), undo: { compensations } });
 
     expect(onExecutionError).toHaveBeenCalledWith(expect.objectContaining({ compensations }));
+  });
+
+  it("#808: the root's record is found by its tenant and id, on its own thread", async () => {
+    const { parts, findByTenantIdAndRunId } = partsOf(true);
+
+    expect((await endedWithoutPass(parts, STATE, end())).isEnded).toBe(true);
+    expect(findByTenantIdAndRunId).toHaveBeenCalledWith("acme", "root-1");
+  });
+
+  it("#808: a record of the run's id on another thread is not the tree's: nothing ended", async () => {
+    const { parts, onExecutionError, completeIfStatus } = partsOf(true, "another-thread");
+
+    expect((await endedWithoutPass(parts, STATE, end())).isEnded).toBe(false);
+    expect(completeIfStatus).not.toHaveBeenCalled();
+    expect(onExecutionError).not.toHaveBeenCalled();
   });
 
   it("the record ended by another call: nothing observed", async () => {

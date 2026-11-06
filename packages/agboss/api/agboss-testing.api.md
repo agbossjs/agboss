@@ -27,7 +27,9 @@ import { z } from 'zod';
 // Warning: (ae-forgotten-export) The symbol "A2AHttpListenerOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type A2AServerFixture = <TStart extends Class>(options: A2AHttpListenerOptions<TStart>) => Promise<A2ATestServer>;
+export type A2AServerFixture = <TStart extends Class>(options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & {
+    readonly publicUrl?: string;
+}) => Promise<A2ATestServer>;
 
 // @public
 export interface A2ATestServer {

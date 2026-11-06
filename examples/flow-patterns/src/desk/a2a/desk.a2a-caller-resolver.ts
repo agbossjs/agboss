@@ -1,7 +1,7 @@
 import { Injectable } from "@agboss/core";
 import {
   A2ACallerResolution,
-  A2ARoute,
+  A2AOperation,
   type A2ACallerRequest,
   type A2ACallerResolver,
 } from "@agboss/core/a2a";
@@ -11,8 +11,8 @@ import type { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js
 const LOOPBACK: ReadonlySet<string> = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
 /**
- * Who calls the desk over A2A — decided by the host from the request's socket and headers, never
- * its body: a caller on this host, for the tenant it names. The desk never pauses, so nobody
+ * Who calls the desk over A2A — decided by the host from the request's socket and headers and the
+ * operation it asks for, never the rest of its body: a caller on this host, for the tenant it names. The desk never pauses, so nobody
  * answers a pause through it.
  */
 @Injectable()
@@ -25,7 +25,7 @@ export class DeskA2aCallerResolver implements A2ACallerResolver<typeof DeskWorkf
     if (!LOOPBACK.has(request.http.socket.remoteAddress ?? "")) {
       return A2ACallerResolution.forbidden({ reason: "the desk serves callers on this host only" });
     }
-    if (request.route === A2ARoute.Resume) {
+    if (request.operation === A2AOperation.SendMessage && request.taskId !== undefined) {
       return A2ACallerResolution.forbidden({ reason: "the desk never pauses" });
     }
     const tenantId = request.http.headers["x-tenant-id"];

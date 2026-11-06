@@ -1,8 +1,8 @@
 import type { ServerResponse } from "node:http";
 import { isListedProvider } from "../application/listed-providers.js";
-import type { ErrorDetails } from "../core/errors.js";
 import type { Class } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import {
   A2A_CALLER_CODES,
   A2ACallerResolutionKind,
@@ -11,15 +11,13 @@ import {
   type A2ACaller,
   type A2ACallerRequest,
   type A2ACallerResolver,
-  type MeshVerifier,
   type RejectedA2ACallerResolution,
 } from "./a2a-caller.js";
 
-/** A refusal on the wire (#387): its code and reason, a mesh limit's facts too (#398). */
+/** A refusal on the wire (#387): its code and reason. */
 export interface A2ARejectionBody {
   readonly code: string;
   readonly error: string;
-  readonly details?: ErrorDetails;
 }
 
 const HTTP_UNAUTHORIZED = 401;
@@ -41,13 +39,6 @@ export function callerResolverOf<TStart extends Class>(
 ): A2ACallerResolver<TStart> {
   return listedInstanceOf(app, callerResolver, "a2a.caller-resolver-not-listed");
 }
-
-/**
- * The listener's mesh verifier (#398 PR 2), from the application's container like its resolver:
- * listed in `providers`, else `[a2a.mesh-verifier-not-listed]`.
- */
-export const meshVerifierOf = (app: A2AApp, meshVerifier: Class<MeshVerifier>): MeshVerifier =>
-  listedInstanceOf(app, meshVerifier, "a2a.mesh-verifier-not-listed");
 
 function listedInstanceOf<T>(app: A2AApp, cls: Class<T>, code: string): T {
   if (isListedProvider(app, cls) === false) {
@@ -97,24 +88,29 @@ function failResolution(res: ServerResponse): void {
 async function resolutionOf<TStart extends Class>(
   resolver: A2ACallerResolver<TStart>,
   request: A2ACallerRequest,
+  log: Pick<FrameworkLog, "error">,
 ): Promise<unknown> {
   try {
     return await resolver.resolveCaller(request);
-  } catch {
+  } catch (error) {
+    // the host's own bug: its class in the log, never its text on the wire
+    const name = error instanceof Error ? error.name : typeof error;
+    log.error("a2a.caller-resolution-failed", `the A2A caller resolver threw: ${name}`);
     return undefined;
   }
 }
 
 /**
- * Resolves the request's caller before its body is read or a header written (#387): admitted, or
- * answered `401` / `403` / `500` — its body left unread and nothing run.
+ * Resolves the request's caller before anything of it runs or a header is written (#387, #808):
+ * admitted, or answered `401` / `403` / `500` — nothing run.
  */
 export async function admitCaller<TStart extends Class>(
   resolver: A2ACallerResolver<TStart>,
   request: A2ACallerRequest,
   res: ServerResponse,
+  log: Pick<FrameworkLog, "error">,
 ): Promise<CallerGateOutcome<TStart>> {
-  const resolution = await resolutionOf(resolver, request);
+  const resolution = await resolutionOf(resolver, request, log);
   if (isA2ACallerResolution<TStart>(resolution)) {
     if (resolution.kind === A2ACallerResolutionKind.Resolved) {
       return { isAdmitted: true, caller: resolution.caller };
@@ -123,6 +119,5 @@ export async function admitCaller<TStart extends Class>(
   } else {
     failResolution(res);
   }
-  request.http.resume(); // the body is discarded unread
   return { isAdmitted: false };
 }

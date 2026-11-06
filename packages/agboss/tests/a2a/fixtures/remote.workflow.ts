@@ -1,15 +1,10 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import {
-  A2AAdapter,
   A2AExpose,
   A2ACallerResolution,
-  a2aHttpListener,
   type A2ACallerResolver,
 } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import type { AppOptions } from "../../../src/app/create-app.js";
-import type { App } from "../../../src/app/types.js";
 import {
   Agent,
   ExecutionContext,
@@ -137,7 +132,7 @@ export class RemoteDesk implements WorkflowDefinition {
 }
 
 /** What the application serves over A2A (#398 PR 3): its one start. */
-@A2AExpose({ name: "remote-desk-a2a-expose", version: "1.0.0", exports: [AskStart] })
+@A2AExpose({ name: "remote-desk-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [AskStart] })
 export class RemoteDeskA2AExpose {}
 
 @Application({
@@ -155,38 +150,3 @@ export const offline = (book: ScriptBook): AppOptions => ({
   processEnv: {},
   gateway: createScriptedGateway(book),
 });
-
-/** An app's workflow served over A2A on an ephemeral local port. */
-export interface Served {
-  readonly url: string;
-  readonly adapter: A2AAdapter;
-  readonly close: () => Promise<void>;
-}
-
-/** Serves the app; `seen` gets each request's `authorization` header. */
-export async function serve(app: App, seen: (string | undefined)[] = []): Promise<Served> {
-  const adapter = new A2AAdapter(app);
-  const listener = a2aHttpListener(app, {
-    expose: RemoteDeskA2AExpose,
-    callerResolver: SingleTenantCallerResolver,
-  });
-  const server: Server = createServer((req, res) => {
-    seen.push(req.headers.authorization);
-    listener(req, res);
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
-  return {
-    url: `http://127.0.0.1:${String(port)}`,
-    adapter,
-    close: async () => {
-      server.closeAllConnections();
-      await new Promise<void>((resolve) =>
-        server.close(() => {
-          resolve();
-        }),
-      );
-      await app.close();
-    },
-  };
-}

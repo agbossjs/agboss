@@ -232,7 +232,7 @@ export class ApiKeyDirectory {
 ```ts file=src/support/a2a/support.a2a-caller-resolver.ts
 // a2a/support.a2a-caller-resolver.ts — who calls: decided by the host, the tenant never guessed
 import { Injectable } from "@agboss/core";
-import { A2ACallerResolution, A2ARoute, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
+import { A2ACallerResolution, A2AOperation, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
 import type { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 import { ApiKeyDirectory, type ApiKeyGrant } from "../services/api-key-directory.service.js";
 
@@ -241,13 +241,14 @@ export class SupportA2aCallerResolver implements A2ACallerResolver<typeof Suppor
   constructor(private readonly apiKeyDirectory: ApiKeyDirectory) {}
 
   async resolveCaller(request: A2ACallerRequest): Promise<A2ACallerResolution<typeof SupportWorkflowStart>> {
-    const header: string = request.http.headers.authorization ?? ""; // headers and socket, never the body
+    const header: string = request.http.headers.authorization ?? ""; // headers, socket, operation, task
     if (!header.startsWith("Bearer ")) {
       return A2ACallerResolution.unauthenticated({ reason: "no API key", challenge: 'Bearer realm="a2a"' });
     }
     const grant: ApiKeyGrant | undefined = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
     if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
-    if (request.route === A2ARoute.Resume && !grant.canAnswerPauses) {
+    const isResume = request.operation === A2AOperation.SendMessage && request.taskId !== undefined;
+    if (isResume && !grant.canAnswerPauses) {
       return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
     }
     return A2ACallerResolution.resolved({ tenant: { tenantId: grant.tenantId }, ownerId: grant.clientId });
@@ -303,10 +304,16 @@ export class SupportWorkflow {}
 
 ```ts file=src/support/a2a/support.a2a-expose.ts
 // what the application serves over A2A (#398 PR 3): the starts a caller may run
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AExpose, A2ASecurity } from "@agboss/core/a2a";
 import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 
-@A2AExpose({ name: "support-a2a-expose", version: "1.0.0", exports: [SupportWorkflowStart] })
+@A2AExpose({
+  name: "support-a2a-expose",
+  version: "1.0.0",
+  description: "Answers support questions",
+  exports: [SupportWorkflowStart],
+  security: [A2ASecurity.bearer()], // the card's securitySchemes; the resolver enforces it
+})
 export class SupportA2AExpose {}
 ```
 
@@ -422,16 +429,32 @@ const service = createMcpService(app, SupportMcp);
 await service.connectStdio(); // serves until stdin closes
 ```
 
-Over A2A — an `@A2AExpose({ name, version, exports })` (`-a2a-expose`, a `…A2AExpose` class; its
-`exports` starts of the application's workflows, `[application.expose-unknown-start]`) listed in
-`@Application({ exposes })` (else `a2aHttpListener` throws `[application.expose-unlisted]`) — then
-`POST <base>/execute` `{ input, start?, threadId? }` (`start` names an exported start, optional
-with one; else `400 a2a.unknown-start`), `POST <base>/resume` `{ pauseId, decision }` and
-`POST <base>/cancel` `{ threadId }`, JSON or server-sent events (`Accept: text/event-stream`). The
-listener is built from the application: its resolver comes from the container (listed in the application's or a workflow's `providers`, else
-`a2aHttpListener` throws `[a2a.caller-resolver-not-listed]`), and every request's caller is resolved
-before its body is read or a header written. A run that waits for an approval answers
-`status: A2AStatus.Paused` (`"paused"` on the wire) with its `pauseIds`; the caller resumes it with a decision:
+Over A2A — an `@A2AExpose({ name, version, description, exports, skills?, provider?, security? })`
+(`-a2a-expose`, a `…A2AExpose` class; its `exports` starts of the application's workflows,
+`[application.expose-unknown-start]`) listed in `@Application({ exposes })` (else `a2aHttpListener`
+throws `[application.expose-unlisted]`) is an **A2A v1.0 agent** (#808,
+https://a2a-protocol.org/v1.0.0/specification/): its Agent Card at
+`<base>/.well-known/agent-card.json` (one skill per exported start, its id the start's name, tags
+default the application's name; `capabilities.streaming`; the skills extension
+`https://agboss.dev/a2a/skills/v1` with each skill's input and finishes' JSON Schemas;
+`securitySchemes` from `security`; one JSONRPC 1.0 interface at `publicUrl` + `base`) and the
+JSON-RPC binding at `POST <base>`: `SendMessage` (blocking, or `configuration.returnImmediately`),
+`SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`; push methods are
+`-32003`, a missing or `0.3` `A2A-Version` `-32009`. A message names its skill in
+`metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional with one export); its input is text
+parts for a `WorkflowStartTextDto` start, else one `data` part, checked before anything is kept
+(`-32602`). Each task is one root execution under the task's id, kept in `A2ATaskRepository`: a
+message resent with the same `messageId` gets the same task, never a second run; a task outlives
+its connection (a disconnect never cancels it); `CancelTask` cancels that task only, also before
+it started. A run at a pause its caller answers is `TASK_STATE_INPUT_REQUIRED` (its pauses in the
+status message); a follow-up `SendMessage` with the same `taskId` answers it — one `data` part
+`{ pauseId?, decision }` or a text reply. A pause only its channel answers is
+`TASK_STATE_WORKING`, "awaiting <channel> out of band". A failure is `TASK_STATE_FAILED` with its
+stable code and that code's fixed text, never the error's own. The listener is built from the
+application: its resolver comes from the container (listed in the application's or a workflow's
+`providers`, else `a2aHttpListener` throws `[a2a.caller-resolver-not-listed]`), and every request's
+caller is resolved after its body is read (`maxBodySize`, default 1 MB, else `413`) and decoded for
+its `operation` and `taskId` only — nothing of it acted on before the resolver decides:
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
@@ -449,6 +472,7 @@ createServer(
   a2aHttpListener(app, {
     expose: SupportA2AExpose, // listed in @Application({ exposes })
     callerResolver: SupportA2aCallerResolver, // the class: its instance is the container's
+    publicUrl: "https://support.example", // where callers reach it: the card's interface URL
     base: "/a2a",
   }),
 ).listen(8080);
@@ -456,7 +480,7 @@ createServer(
 
 | The resolver returns                                           | The caller gets                                                                                     |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `A2ACallerResolution.resolved({ tenant, ownerId, execution })` | the run, for that tenant and owner (a thread id is the tenant's own)                                |
+| `A2ACallerResolution.resolved({ tenant, ownerId, execution })` | the operation, for that tenant and owner (its tasks only; a context id is the tenant's own)         |
 | `.unauthenticated({ reason, challenge? })`                     | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
 | `.forbidden({ reason })`                                       | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
 | it throws                                                      | `500`, `{ "code": "a2a.caller-resolution-failed" }` — never the error's text                        |
@@ -468,12 +492,10 @@ createServer(
 - `resolved({ … })` is typed by the start's application: with a declared `TenantContext` its values
   are required. A single-tenant host returns `A2ACallerResolution.resolved({})` — never implied.
 - An answer is built only by `A2ACallerResolution` (branded: a plain object does not compile).
-- Your own handler instead of the listener: `new A2AAdapter(app).execute(Start, { input, threadId },
-onEvent, { tenant, execution, ownerId })` — the same values, from your authenticated caller;
-  `adapter.cancel(threadId, caller)` cancels only that caller's tenant's thread.
-- A caller that disconnects cancels its run (the listener aborts its `signal`).
+- A caller that disconnects never cancels its task: it runs on, and `GetTask` / `SubscribeToTask`
+  read it. `maxTaskDuration` gives every task an execution deadline.
 - The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions`, `A2ACaller`,
-  `A2ACallerRequest`, `A2ARoute`, `A2ACallerResolutionKind`, `ResolvedA2ACallerResolution`,
+  `A2ACallerRequest`, `A2AOperation`, `A2ACallerResolutionKind`, `ResolvedA2ACallerResolution`,
   `RejectedA2ACallerResolution`, `A2ACallerUnauthenticatedOptions`, `A2ACallerForbiddenOptions`.
 
 Tests: the `a2aServer({ expose, callerResolver })` fixture of `testWith` (an `A2AServerFixture`)
@@ -619,15 +641,17 @@ export class BillingWorkflow {} // a @Workflow of its own
 export class BillingApplication {}
 ```
 
-A request is **trusted** only when both hold: the listener's `callerResolver` names its `peer`
+These checks run where the envelope is read: an MCP call's `_meta["agboss.dev/mesh"]`. The A2A v1.0
+listener (#808) reads no envelope yet — its tasks run untrusted, deduplicated by `messageId`, and a
+resolver's `peer` is kept with the task only.
+
+A request is **trusted** only when both hold: the transport's caller names its `peer`
 (`A2ACallerResolution.resolved({ …, peer: "orders-application" })` — what your transport proved,
 mTLS or a token) and the envelope carries that peer's valid signature (`signedBy`). Before the
 resolver the listener checks a signed envelope of a known issuer — its signature and its
 `issuedAt` + `expiresIn` (60 s) on the `Clock` — and refuses a bad one with `401`
 `mesh.signature-invalid` / `mesh.envelope-expired`; a trusted one must carry the body it signed
-(`bodyHash`, else `401 mesh.body-mismatch`). `a2aHttpListener(app, { …, meshVerifier })` takes the
-peers' public keys from an `@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM) besides
-`mesh.peers`, asked first. Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
+(`bodyHash`, else `401 mesh.body-mismatch`). Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
 the session's peer. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
 signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/core/testing`,
 #521) — the framework's own encoder, the very header a real client sends for that call.
@@ -647,13 +671,11 @@ spend as `a2a:<issuer>` / `mcp:<issuer>` in the calling tool's spend and the rem
 `ToolCallRecord.remote` (`ToolCallRemote`: `application`, `executionId`); an unverified report is
 ignored. The deadline is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — the
 smaller of it and a trusted caller's, checked before every step and model call (a call in flight is
-not cut). `A2AClient.cancel(threadId)` → `POST <base>/cancel { threadId }`, for the resolved
-caller's tenant only.
+not cut).
 
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
   between instances), kept `mesh.idempotencyRetention` (default `minutes(30)`), then removed by the
-  recovery sweep. Only trusted requests are deduplicated: `POST /execute` by the envelope's
-  `origin.step.idempotencyKey`, an MCP `tools/call` by its `_meta.callId` (the AGBoss client sends
+  recovery sweep. Only trusted MCP requests are deduplicated: a `tools/call` by its `_meta.callId` (the AGBoss client sends
   the step's key) — a repeat gets the kept result, one in flight an error result with
   `_meta["agboss.dev/error"]` `mesh.request-in-progress`.
 - `[mesh.signing-key-missing]`, `[mesh.unknown-peer-key]`, `[mesh.duplicate-peer]` at assembly;

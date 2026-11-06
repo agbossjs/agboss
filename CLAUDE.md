@@ -1777,11 +1777,36 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   `@A2AAgent({ name: "-a2a-agent", url, target: { application, start }, input, output, price?, deps })`
   on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`,
   `[a2a.target-required]`), in `providers` — `execute(input)` is typed and validated both ways; what
-  an application serves is an `@A2AExpose({ name: "-a2a-expose", version, exports: [Start] })`
-  (`a2a/*.a2a-expose.ts`) listed in `@Application({ exposes })` with its `@McpExpose`s
-  (`[application.expose-unknown-start]`, `[application.not-an-expose]`) and served by
-  `a2aHttpListener(app, { expose, callerResolver })` (`[application.expose-unlisted]`; a request names
-  its `start`, else `400 a2a.unknown-start` with several); `agboss describe --json` lists both sides
+  an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
+[Start], skills?, provider?, security? })` (`a2a/*.a2a-expose.ts`) listed in
+  `@Application({ exposes })` with its `@McpExpose`s (`[application.expose-unknown-start]`,
+  `[application.not-an-expose]`) and served as an **A2A v1.0 agent** (#808) by
+  `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })`
+  (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
+  `A2ARequestHandler` over the app, never its `DefaultRequestHandler`): the Agent Card at
+  `<base>/.well-known/agent-card.json` (one skill per exported start, `capabilities.streaming`, the
+  skills extension `A2A_SKILLS_EXTENSION` with each skill's JSON Schemas, `securitySchemes` from
+  `A2ASecurity.bearer()` / `.apiKey({ header })` / `.oauth2ClientCredentials(…)` / `.mtls()`, one
+  JSONRPC 1.0 interface at `publicUrl` + `base`) and JSON-RPC 2.0 at `POST <base>` — `SendMessage`
+  (blocking, or `returnImmediately`), `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`,
+  `SubscribeToTask` (server-sent events: the task first); push methods `-32003`, no or a `0.3`
+  `A2A-Version` `-32009` (`src/a2a/server/`). The caller resolver runs after the body is read
+  (`maxBodySize`, default 1 MB, else `413`) and decoded once, by the SDK's own decoder, for its
+  `A2ACallerRequest { operation: A2AOperation, taskId?, http }` (a refusal is `401` / `403`); the
+  handler refuses a decoded request that is not the admitted one (`-32602 a2a.request-mismatch`). A
+  message names its skill in `metadata[A2A_SKILLS_EXTENSION].skill` (optional with one export) and
+  carries text parts (a `WorkflowStartTextDto` start) or one `data` part, checked before anything is
+  kept (`-32602`; files `-32005`). One task = one root execution under the task's id (P1's reserved
+  id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
+  other content `-32602`; a task outlives its connection — a disconnect never cancels it (#806);
+  `CancelTask` cancels that task only, before its start too (its id fenced: `CANCELED`); a pause its
+  caller answers is `INPUT_REQUIRED` (a follow-up with the `taskId` resumes it: `{ pauseId?,
+decision }` or a text reply; another task's pause `-32602`; a resume that loses its pause to a
+  cancel or another answer `-32004`), a channel-only pause `WORKING` "awaiting <channel> out of
+  band"; reads repair from the records (a root's record by `findByTenantIdAndRunId`). Nothing of an
+  error's own text reaches the wire: a failure's stable code (`status.message.metadata
+[A2A_MESH_EXTENSION].code`) and that code's fixed text, anything unexpected `-32603` "the request
+  failed". The 0.1.0 wire (`POST /execute`, `/resume`, `/cancel`) is gone; `agboss describe --json` lists both sides
   under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`);
   `agboss check --federation <snapshot…>` (#398 PR 4; files or folders of neighbours' `describe
 --json`, no network; `checkFederation` in `@agboss/core/internal`) compares every consumed contract whose

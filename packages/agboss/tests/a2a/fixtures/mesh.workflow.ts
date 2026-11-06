@@ -178,7 +178,12 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     }
   }
 
-  @A2AExpose({ name: `${name}-a2a-expose`, version: "1.0.0", exports: [MeshStart] })
+  @A2AExpose({
+    name: `${name}-a2a-expose`,
+    version: "1.0.0",
+    description: "Served over A2A",
+    exports: [MeshStart],
+  })
   class MeshA2AExpose {}
 
   @Application({

@@ -51,7 +51,7 @@ export class MovedBillingWorkflowFinish {}
 })
 export class MovedBillingWorkflow {}
 
-@A2AExpose({ name: "billing-a2a-expose", version: "1.0.0", exports: [MovedBillingWorkflowStart] })
+@A2AExpose({ name: "billing-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [MovedBillingWorkflowStart] })
 export class MovedBillingA2AExpose {}
 
 @Application({

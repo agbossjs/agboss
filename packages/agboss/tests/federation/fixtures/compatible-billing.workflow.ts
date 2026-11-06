@@ -53,6 +53,7 @@ export class CompatibleBillingWorkflow {}
 
 @A2AExpose({
   name: "billing-a2a-expose",
+  description: "Served over A2A",
   version: "1.0.0",
   exports: [CompatibleBillingWorkflowStart],
 })

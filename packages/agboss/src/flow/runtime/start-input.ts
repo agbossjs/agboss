@@ -5,6 +5,7 @@ import type { DtoClass } from "../../dto/types.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
+import type { WorkflowStartInput } from "../decorators/workflow-start.js";
 import { Wrapper, type ListWrapper, type ValueShape } from "../dto-wrappers.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 
@@ -35,15 +36,23 @@ function validField(shape: ValueShape, value: unknown, field: string): unknown {
 export function validStartInput(node: RuntimeNode, payload: unknown): unknown {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Start) throw new TypeError(`${node.id} is not a start`);
-  const { input } = declaration.options;
-  if (!isFieldMap(input)) return validField(input, payload, node.id);
+  return validInputOf(declaration.options.input, node.id, payload);
+}
+
+/**
+ * A payload checked against a start's declared `input` (`id`: the start's name, in the error) —
+ * what `app.execute` checks, for a transport that refuses an invalid one before it accepts it
+ * (#808: an A2A message's input).
+ */
+export function validInputOf(input: WorkflowStartInput, id: string, payload: unknown): unknown {
+  if (!isFieldMap(input)) return validField(input, payload, id);
   const given: Readonly<Record<string, unknown>> =
     typeof payload === "object" && payload !== null
       ? Object.fromEntries(Object.entries(payload))
       : {};
   return Object.fromEntries(
     Object.entries(input).flatMap(([name, shape]) => {
-      const value = validField(shape, given[name], `${node.id}.${name}`);
+      const value = validField(shape, given[name], `${id}.${name}`);
       return value === undefined ? [] : [[name, value] as const];
     }),
   );

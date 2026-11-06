@@ -10,22 +10,11 @@ import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { meshEnvOf, meshKeyPair, meshOf } from "../a2a/fixtures/mesh-keys.js";
 import { meshAppOf } from "../a2a/fixtures/mesh.workflow.js";
-import {
-  AskStart,
-  offline,
-  RemoteDeskApplication,
-  serve,
-  SlowLookup,
-  slowLookups,
-  type Served,
-} from "../a2a/fixtures/remote.workflow.js";
+import { AskStart, offline, RemoteDeskApplication } from "../a2a/fixtures/remote.workflow.js";
 
 const apps: App[] = [];
-let served: Served | undefined;
 
 afterEach(async () => {
-  await served?.close();
-  served = undefined;
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
 
@@ -119,24 +108,5 @@ describe("#398 PR 2: app.execute(…, { deadline })", () => {
     const result = await execute(app, AskStart, { text: "hi" }, { deadline: seconds(60) });
 
     expect(result).toMatchObject({ output: { text: "hello" } });
-  });
-});
-
-describe("#398 PR 2: POST /cancel", () => {
-  it("A2AClient.cancel stops a running execution of its thread", async () => {
-    const book = new ScriptBook();
-    book.scriptOf("agent:desk-agent").thenReturn(callTool(SlowLookup, { orderId: "7" }));
-    served = await serve(await createApp(RemoteDeskApplication, offline(book)));
-    const client = new A2AClient({ url: served.url });
-    const started = new Promise<void>((resolve) => {
-      slowLookups.started = resolve;
-    });
-
-    const running = client.send({ text: "look up order 7" }, { threadId: "t-7" });
-    await started;
-    const cancelled = client.cancel("t-7");
-
-    await expect(cancelled).resolves.toBeUndefined();
-    await expect(running).resolves.toMatchObject({ status: A2AStatus.Cancelled });
   });
 });

@@ -1,18 +1,31 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import {
-  migrateTernDatabase,
-  openTernDatabase,
-  placeholders,
-  toTern,
-  toVersionScore,
-} from "./schema.js";
+import { migrateTernDatabase, openTernDatabase, placeholders, toTern } from "./schema.js";
 import { configMethods } from "./configs.js";
 import { pauseAnswerWrites, ternWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
-import type { Tern, TernStore } from "./types.js";
+import type { Tern, TernStore, VersionScore } from "./types.js";
+
+const SummaryRow = z.object({
+  prompt_version: z.string(),
+  terns: z.number(),
+  scored: z.number(),
+  mean_score: z.number().nullable(),
+  cost_usd: z.number(),
+});
+
+function toVersionScore(row: unknown): VersionScore {
+  const r = SummaryRow.parse(row);
+  return {
+    promptVersion: r.prompt_version,
+    terns: r.terns,
+    scored: r.scored,
+    meanScore: r.mean_score,
+    costUsd: r.cost_usd,
+  };
+}
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -67,9 +80,20 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
   };
 }
 
-/** Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first. */
-function statusReads(rows: Rows): Pick<TernStore, "byStatus"> {
+/**
+ * Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first; and a run's
+ * latest Tern by its id (#808), however many later Terns its thread has.
+ */
+function statusReads(rows: Rows): Pick<TernStore, "byStatus" | "findByTenantIdAndRunId"> {
   return {
+    findByTenantIdAndRunId: (tenantId, runId) =>
+      Promise.resolve(
+        rows(
+          `SELECT * FROM terns WHERE tenant_id = ? AND run_id = ? ORDER BY rowid DESC LIMIT 1`,
+          tenantId,
+          runId,
+        ).at(0),
+      ),
     byStatus: (status, limit, after) =>
       Promise.resolve(
         rows(

@@ -1,6 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import {
   createSqliteTernStore,
+  pauseAnswerEntryOf,
   type ConfigSnapshot,
   type NewSummary,
   type NewTern,
@@ -99,6 +100,12 @@ export abstract class ExecutionRecordRepository {
     limit: number,
     after?: string,
   ): Promise<Tern[]>;
+  /**
+   * The record an execution of the tenant wrote (#808), by its id (`runId`, a root's: its A2A task
+   * id) — the latest one if it wrote several —, however many later records its thread has;
+   * `undefined` when it wrote none. Read repair finds a task's root record this way.
+   */
+  abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Tern | undefined>;
   /** Original (non-replay) records of a prompt version, oldest first; `running` ones left out. */
   abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
   /** Answered records without a score, oldest first. */
@@ -205,6 +212,9 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]> {
     return this.#store.byStatus(status, limit, after);
   }
+  findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Tern | undefined> {
+    return this.#store.findByTenantIdAndRunId(tenantId, runId);
+  }
   byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]> {
     return this.#store.byVersion(workflow, promptVersion, limit);
   }
@@ -252,10 +262,7 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
     rootExecutionId: string,
     answer: PauseAnswerRecord,
   ): Promise<void> {
-    const { idempotencyKey: stepKey } = answer.step;
-    const { askedAt } = answer;
-    const record = JSON.stringify(answer);
-    return this.#store.appendPauseAnswer({ tenantId, rootExecutionId, stepKey, askedAt, record });
+    return this.#store.appendPauseAnswer(pauseAnswerEntryOf(tenantId, rootExecutionId, answer));
   }
   async findPauseAnswersByTenantIdAndRootExecutionId(
     tenantId: string,

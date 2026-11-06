@@ -5,15 +5,18 @@ import { blockNetwork } from "./network-guard.js";
 import type { TestApp } from "./test-app.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
-/** The test's A2A server (`a2aServer(options)`): its base URL — `new A2AClient({ url })`. */
+/** The test's A2A server (`a2aServer(options)`): its agent's URL. */
 export interface A2ATestServer {
-  /** `http://127.0.0.1:<port><base>`: the client posts to `<url>/execute`, `<url>/resume`. */
+  /** `http://127.0.0.1:<port><base>`: the JSON-RPC endpoint, its card at `<url>/.well-known/agent-card.json`. */
   readonly url: string;
 }
 
-/** `a2aServer({ expose, callerResolver, base? })`: the listener of the test's app, on a free port. */
+/**
+ * `a2aServer({ expose, callerResolver, base?, … })`: the listener of the test's app, on a free port
+ * — its `publicUrl` that port's, unless given.
+ */
 export type A2AServerFixture = <TStart extends Class>(
-  options: A2AHttpListenerOptions<TStart>,
+  options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & { readonly publicUrl?: string },
 ) => Promise<A2ATestServer>;
 
 /** The servers one test started, closed at its end. */
@@ -55,12 +58,21 @@ function a2aTestServersOf(app: TestApp): A2ATestServers {
       lazyLoad(import("node:http")),
       lazyLoad(import("../a2a/a2a-http.js")),
     ]);
-    const server = createServer(a2aHttpListener(app, options));
+    // the port is known once it listens: the listener is built then, before its first request
+    const listening: { listener?: ReturnType<typeof a2aHttpListener> } = {};
+    const server = createServer((req, res) => {
+      listening.listener?.(req, res);
+    });
     servers.push(server);
     // the test's own blocker reports a blocked host; this one only opens the loopback
     unblock ??= blockNetwork({ allowed: [LOOPBACK], onBlocked: () => undefined });
     const port = await listen(server);
-    return { url: `http://${LOOPBACK}:${String(port)}${options.base ?? ""}` };
+    const origin = `http://${LOOPBACK}:${String(port)}`;
+    listening.listener = a2aHttpListener(app, {
+      ...options,
+      publicUrl: options.publicUrl ?? origin,
+    });
+    return { url: `${origin}${options.base ?? ""}` };
   };
   const closeAll = async (): Promise<void> => {
     await Promise.all(servers.map(close));

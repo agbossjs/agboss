@@ -162,6 +162,11 @@ const SHARDS = {
       "src/a2a/tasks/task-status.ts",
       "src/a2a/tasks/a2a-task-projection.ts",
       "src/a2a/tasks/a2a-task-repair.ts",
+      // #808: the server's admission of a request, its caller and owned task, the end of a task
+      // no execution can start under, and the wake-ups of a task's waiters
+      "src/a2a/tasks/task-changes.ts",
+      "src/a2a/server/a2a-admitted.ts",
+      "src/a2a/server/a2a-server-parts.ts",
     ],
   },
 };

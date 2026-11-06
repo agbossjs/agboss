@@ -453,7 +453,10 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     mockLlm(Clerk).thenReturn(...stepAndHold, done);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
-    vi.spyOn(StampedExecutionRecordRepository.prototype, "lastTerns").mockResolvedValue([]);
+    vi.spyOn(
+      StampedExecutionRecordRepository.prototype,
+      "findByTenantIdAndRunId",
+    ).mockResolvedValue(undefined);
 
     const state = await controlOf(second).executionStateOf(tree());
     vi.restoreAllMocks();
@@ -487,9 +490,10 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
       status: "guarded",
       stopReason: "blocked by a guardrail",
     };
-    vi.spyOn(StampedExecutionRecordRepository.prototype, "lastTerns").mockResolvedValue([
-      guarded as never,
-    ]);
+    vi.spyOn(
+      StampedExecutionRecordRepository.prototype,
+      "findByTenantIdAndRunId",
+    ).mockResolvedValue(guarded as never);
 
     expect(await controlOf(first).executionStateOf(tree())).toEqual({
       status: DurableExecutionStatus.Failed,

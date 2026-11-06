@@ -2381,6 +2381,7 @@ export abstract class ExecutionRecordRepository {
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
     abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]>;
+    abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Tern | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]>;
@@ -7788,8 +7789,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/router-error.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/router-error.ts:62:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/router-error.ts:63:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/start-input.ts:76:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/start-input.ts:77:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/step-records.ts:17:3 - (ae-undocumented) Missing documentation for "judge".
 // src/flow/runtime/step-records.ts:20:3 - (ae-undocumented) Missing documentation for "passed".
 // src/flow/runtime/step-records.ts:23:3 - (ae-undocumented) Missing documentation for "metrics".
@@ -7945,12 +7946,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-lease-event.repository.ts:230:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
 // src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
-// src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:111:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:121:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:144:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/fenced-effect-key.ts:132:3 - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-key.ts:133:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/fenced-effect-key.ts:144:3 - (ae-undocumented) Missing documentation for "name".
