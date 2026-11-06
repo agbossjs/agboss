@@ -267,7 +267,7 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   passes (#810):** both charges are made on every pass that reaches the accept — a takeover that
   replays the accept an earlier pass recorded too — under the call's own ledger identity
   (`UsageRecord.ledgerKey`: `a2a:<messageId>:price`, dated by the accept; `a2a:<messageId>:report`,
-  dated by the report): the ledger adds each once, whichever pass writes it first. A call priced 1
+  dated by the report clamped into the caller's own window — from its stored accept to its `now`, never the peer's date alone): the ledger adds each once, whichever pass writes it first. A call priced 1
   whose peer reports 3 costs 3 — never 1 (the excess lost on a replay), 4 or 6 — when its holder
   dies while it waits, after it settled but before its step was durable, or while a frozen holder
   settles beside the new one (`tests/a2a/mesh/a2a-mesh-takeover.test.ts`).
