@@ -94,7 +94,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "createMcpService",
       "mcpServerStub",
     ],
-    ...["A2AAgent", "A2AClient", "a2aHttpListener", "A2AStatus", "A2ARemoteCallError"],
+    ...["A2AAgent", "A2AClient", "a2aHttpListener", "A2ARemoteCallError"],
     ...["A2ACallerResolver", "A2ACallerResolution", "A2AOperation", "A2ACallerRejectedError"],
     ...["A2ASecurity", "A2ATaskRepository"],
     ...["A2AApp", "A2AHttpListenerOptions", "A2ACaller", "A2ACallerRequest"],
