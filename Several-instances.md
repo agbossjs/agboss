@@ -767,7 +767,7 @@ export class ChargeOrderAction {
   effect under one does not compile, and a JavaScript caller's or a cast's key is refused before any
   transaction, `FingerprintRequiredError` (`fenced-effect.fingerprint-required`): before #825 two
   effects with one business key and other work — a charge and a refund of `order:42` — replayed
-  each other silently. The key is branded: `effectKeyOf` is an application's only maker of one. A
+  each other silently. The key is marked: `effectKeyOf` is an application's only maker of one — a literal or a spread copy does not compile, and a key the framework did not make is refused at run time. A
   business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
   `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);

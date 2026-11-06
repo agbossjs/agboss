@@ -12,8 +12,9 @@ From the 0.1.1 API review (G1b, G5); the surface is not published yet, so no ali
   is an `OutboundCallKey`, which only `OutboundCalls.send` takes. Without either a fenced effect does
   not compile, and a JavaScript caller is refused before any transaction (`FingerprintRequiredError`,
   `fenced-effect.fingerprint-required`) — two effects with one business key and other work replayed
-  each other silently before. `EffectKey` is branded (`effectKeyForTesting` in
-  `@agboss/core/testing/contracts` for a store's tests). **Migration:** add the fingerprint of what
+  each other silently before. `EffectKey` is marked by a private member — a literal or a spread copy does not compile,
+  a key the framework did not make is refused at run time (`effectKeyForTesting(fields, changes?)`
+  in `@agboss/core/testing/contracts` for a store's tests). **Migration:** add the fingerprint of what
   the work does. [Several instances](Several-instances#business-idempotency-keys-508).
 - **Changed — breaking**: `@Application({ idempotencyKeyField, previousIdempotencyKeyField? })` —
   business-key fingerprints are keyed by a `Secret` of their own, required where business keys can

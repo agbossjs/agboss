@@ -25,7 +25,7 @@ mark still at its own token and writes. Only the lease itself knows that another
   even when it reaches the write first. The price: the fenced-effect store and the lease store must be
   of one database — each implementation declares its lease store (`static leaseRepository`), and a
   listed mismatch fails assembly (`[application.fenced-effect-lease-store]`). **Amended by #526:**
-  the check is by backend — each store declares `static backend`, a listed fenced-effect or
+  the check is by backend — each store declares its backend (`static store = { backend }` since #825), a listed fenced-effect or
   outbound-call store and the lease store must declare the same one
   (`[application.store-backend-mismatch]`, `[application.store-backend-undeclared]`), with an
   explicit opt-out that names the guarantee lost (`LeaseCheck.WithoutDoubleChargeProtection`).

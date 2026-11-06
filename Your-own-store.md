@@ -120,8 +120,10 @@ infrastructure implementation as its own registration (#526). A dependency of yo
 ## The key's rules: use the core's helpers
 
 A fenced effect's or an outbound call's key comes from `effectKeyOf(executionContext, name,
-{ businessKey, fingerprint })` — an `EffectKey`, branded (#825): your store's own tests make one with
-`effectKeyForTesting(fields)` of `@agboss/core/testing/contracts`. A store keeps a few rules about it,
+{ businessKey, fingerprint })` — an `EffectKey`, marked by a private member (#825): neither a
+literal nor a spread copy compiles as one, and a key the framework did not make is refused at run
+time. Your store's own tests make one with `effectKeyForTesting(fields, changes?)` of
+`@agboss/core/testing/contracts` — `effectKeyForTesting(key, { token: 2 })`, never a spread. A store keeps a few rules about it,
 and `@agboss/core` exports each one (#526 AC5). Don't copy them:
 
 | Helper | Use |
