@@ -3,7 +3,7 @@
 // entries. Flags every way a module names it — `import` / `export … from`, `import type`, a dynamic
 // `import()`, `import x = require()`, `require()` / `require.resolve()`, `import.meta.resolve()`,
 // vitest's `vi.mock()` / `vi.importActual()` and the like, a type's `import("…")` and a
-// `/// <reference types="…" />` — by a string or a template without placeholders, of the entry
+// triple-slash `reference types` directive — by a string or a template without placeholders, of the entry
 // itself or a path under it. On for every file of a project (the config `agboss create` writes, the
 // examples).
 import {
