@@ -139,7 +139,7 @@ protocolVersion: "1.0" }`.
 | --- | --- |
 | `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
 | `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates, text deltas (`artifactUpdate` `stream`), the output artifact, the last status |
-| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context and state |
+| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter`; `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
 | `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
 | `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
 | push methods / `GetExtendedAgentCard` | `-32003` / `-32007` |
@@ -149,11 +149,22 @@ protocolVersion: "1.0" }`.
   `data` part, checked against the start's input before anything is kept (`-32602`, `dto.invalid`,
   the fields and the schema in the error's `metadata`); a file part is `-32005`. Its `contextId` is
   the task's thread (the caller's own, or one minted).
-- **One task is one root execution**, under the task's id, kept in `A2ATaskRepository` (in memory,
-  `SqliteA2ATaskRepository`; `@Application({ a2a: { taskRetention } })`). The same `messageId` from
-  the same tenant and owner gets the same task — never a second run, on any instance; with other
-  content it is `-32602`. A task whose start was lost (a crash right after it was accepted) is
-  started by the resend, under the same id, once.
+- **One task is one root execution**, under the task's id, kept in `A2ATaskRepository`
+  (`@Application({ a2a: { taskRetention } })`). The same `messageId` from the same tenant and owner
+  gets the same task — never a second run, on any instance; with other content it is `-32602`. A
+  task whose start was lost (a crash right after it was accepted) is started by the resend, under
+  the same id, once.
+- **The task store is shared by the instances** (#824). "On any instance" holds only when every
+  instance reads one store, so the store declares its `static backend` and assembly checks it: an
+  application that serves A2A on a lease store its instances share (any backend but `in-memory`)
+  keeps its tasks on that backend, or on another no single host owns. Anything else — the in-memory
+  default, a store that declares no backend, SQLite beside PostgreSQL leases — does not assemble:
+  `[a2a.task-store-not-shared]`, naming the store to list. Leases on the in-memory default: nothing
+  to list; on SQLite: `SqliteA2ATaskRepository`; on PostgreSQL: `PostgresA2ATaskRepository`
+  (`@agboss/postgres`); on MongoDB: `MongoA2ATaskRepository` (`@agboss/mongodb`); on Redis
+  (coordination only, it keeps no A2A tasks): the A2A task store of the durable backend. A store of
+  your own declares `static backend = "<kind>"` and passes `a2aTaskContract`
+  ([Your own store](Your-own-store)).
 - **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
   with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
 - **Pauses**: a pause the caller answers is `TASK_STATE_INPUT_REQUIRED`, its pauses (`pauseId`,

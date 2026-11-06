@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A tasks shared by the instances, `ListTasks.totalSize` (#824)
+
+- **Added**: `A2ATaskRepository` declares its `static backend`; `PostgresA2ATaskRepository`
+  (`@agboss/postgres`) and `MongoA2ATaskRepository` (`@agboss/mongodb`) share the A2A tasks on those
+  databases. An application serving A2A on leases its instances share keeps its tasks where they
+  share them too, else `[a2a.task-store-not-shared]` at assembly. Redis keeps no A2A tasks.
+- **Changed**: `ListTasks.totalSize` is every task the filters match before paging (was the page's
+  count), `pageSize` the page size used; the store contract gains `A2ATaskQuery.statusAtAfter` and
+  `A2ATaskPage.totalSize`.
+
 ## Unreleased — 0.1.1: the outbound-call contract fails closed (#795)
 
 From the 0.1.1 API review; the surface is not published yet, so no aliases.

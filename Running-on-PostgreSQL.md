@@ -98,6 +98,10 @@ export class DeskApplication {}
 - **The schema.** The tables go to the first existing schema of the connection's `search_path`
   (`public` by default); `?options=-c%20search_path%3Dmy_schema` in the URL picks another — two
   applications on one database each take their own.
+- **A2A tasks** (#824): an application that serves A2A (`@A2AExpose`) also lists
+  `PostgresA2ATaskRepository` (migration `0026_a2a_tasks`): the same `messageId` sent to two pods
+  at once starts one execution, and `GetTask` / `ListTasks` read any pod's tasks. Without it the
+  application does not assemble (`[a2a.task-store-not-shared]`, [A2A](A2A)).
 - **A subclass** goes through public tokens only, with the store's own `deps`
   (`[PostgresConnection, StoreClock, ApplicationContext]`), as with the SQLite stores
   ([Several-instances](Several-instances#extending-a-sqlite-implementation)).

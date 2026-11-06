@@ -39,6 +39,11 @@ export class DeskApplication {}
 A fenced effect's work gets the transaction, `{ session, db }`, and writes its business documents
 with `{ session }` — a write without it is outside the guarantee.
 
+An application that serves A2A (`@A2AExpose`) also lists `MongoA2ATaskRepository` (#824): a message
+and its task are accepted in one transaction, so the same `messageId` sent to two pods at once
+starts one execution; without it the application does not assemble (`[a2a.task-store-not-shared]`,
+[A2A](A2A)).
+
 ## What the deployment must give
 
 The connection (`MongoConnection`, one `MongoClient` per instance) refuses to start on less, each
