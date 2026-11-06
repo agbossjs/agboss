@@ -67,7 +67,7 @@ export function logWithdrawFailed(
   error: unknown,
 ): void {
   const { pause } = call;
-  const text = `channel ${call.channel}: withdraw() failed for a pause of ${pause.agent}: ${messageOf(error)}`;
+  const text = `channel ${call.channel}: withdraw() failed for a pause of ${pause.step}: ${messageOf(error)}`;
   log.warn(WITHDRAW_FAILED, text, { executionId: pause.executionId, tenantId: pause.tenantId });
 }
 

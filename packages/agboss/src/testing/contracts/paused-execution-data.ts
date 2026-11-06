@@ -7,6 +7,7 @@ import {
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
+import { PauseKind, questionAskOf } from "../../infrastructure/pause-record.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 
 /** The data of the paused-execution contract: paused runs, pauses and answers. */
@@ -44,7 +45,8 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   visitNumber: 1,
   itemIndex: undefined,
   copyNumber: 1,
-  agent: "clerk-agent",
+  kind: PauseKind.Approval,
+  step: "clerk-agent",
   channel: "refund-approval-channel",
   answeredBy: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "charge", arguments: { text: "10 USD" }, summary: "charge" },
@@ -67,8 +69,8 @@ export const NINE = new Date("2026-01-05T09:00:00.000Z");
 export const TEN = new Date("2026-01-05T10:00:00.000Z");
 
 /**
- * #746: a question role's pause (#659, #712) — its step's component is the role (`kind:
- * "question"`) and its ask is the role's own DTO, no tool call: a store keeps both as written.
+ * #746: a question role's pause (#659, #712) — `kind: PauseKind.Question`, its step's component the
+ * role and its ask the role's own DTO, no tool call: a store keeps them as written.
  */
 export const questionPauseOf = (
   pauseId: string,
@@ -76,11 +78,27 @@ export const questionPauseOf = (
 ): PauseRecord => ({
   ...pauseOf(pauseId, stepKey),
   nodeId: "spending-limit-question",
-  agent: "spending-limit-question",
+  kind: PauseKind.Question,
+  step: "spending-limit-question",
   channel: "spending-limit-question",
   component: bareRecordOf("spending-limit-question", ComponentKind.Question),
-  ask: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
+  ask: questionAskOf({ item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } }),
 });
+
+/**
+ * 0.1.1: a pause's `kind` is the record's own fact — a store keeps it as written and never infers
+ * it from the component: a question with no component (a record from before components), and an
+ * approval whose component a project's own store would read as a question.
+ */
+export const kindOnlyPausesOf = (): readonly PauseRecord[] => {
+  return [
+    { ...questionPauseOf("pause-k1", "run-1:q:1"), component: undefined },
+    {
+      ...pauseOf("pause-k2", "run-1:clerk-agent:1:call-9"),
+      component: bareRecordOf("clerk-agent", ComponentKind.Question),
+    },
+  ];
+};
 
 /** A question's answer: the role's answer DTO, not an approval. */
 export const QUESTION_ANSWER: PauseAnswer = {

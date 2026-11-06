@@ -80,9 +80,9 @@ function pauseWorkflowOf(
 function pauseStepOf(pause: PauseRecord, own: GraphDeps<string>): StepDescriptor {
   const { executionId, nodeId, visitNumber, itemIndex } = pause;
   const callId = callIdOfPause(pause);
-  const type = own.graph.nodes.get(pause.agent)?.component ?? own.graph.type;
+  const type = own.graph.nodes.get(pause.step)?.component ?? own.graph.type;
   return Object.freeze({
-    component: { type, ...nodeRecordIn(own, pause.agent) },
+    component: { type, ...nodeRecordIn(own, pause.step) },
     nodeId,
     visitNumber,
     idempotencyKey: idempotencyKeyOf({ executionId, nodeId, visitNumber, itemIndex, callId }),

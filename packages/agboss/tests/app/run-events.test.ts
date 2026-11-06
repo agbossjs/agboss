@@ -58,7 +58,7 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
       "execution-end",
     ]);
     const [, pause, resume, end] = workflowEvents();
-    expect(pause?.detail).toMatchObject([{ ask: { tool: "apply-tool" }, agent: "clerk-agent" }]);
+    expect(pause?.detail).toMatchObject([{ ask: { tool: "apply-tool" }, step: "clerk-agent" }]);
     expect(resume?.detail).toEqual(approve);
     expect(end?.detail).toEqual(done.finish);
     expect(done.executionId).toBe(paused.executionId);

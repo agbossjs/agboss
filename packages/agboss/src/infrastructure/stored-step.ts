@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
-import type { PauseAsk } from "./pause-record.js";
+import type { PauseAnswer, PauseAsk, QuestionAsk } from "./pause-record.js";
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -44,5 +44,28 @@ const StoredApprovalAsk = z.object({
 /** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
 export const askOfStored = (
   ask: Readonly<Record<string, unknown>>,
-  component: ComponentRecord | undefined,
-): PauseAsk => (component?.kind === ComponentKind.Question ? ask : StoredApprovalAsk.parse(ask));
+  isQuestion: boolean,
+): PauseAsk => (isQuestion ? (ask as QuestionAsk) : StoredApprovalAsk.parse(ask));
+
+/** The answer a pause row keeps as JSON (#267 S107): the decision, who gave it, what reading it cost. */
+const StoredUsage = z.object({
+  caller: z.string(),
+  model: z.string(),
+  ...{ inputTokens: z.number(), outputTokens: z.number() },
+  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
+  costUsd: z.number(),
+  costSource: z.enum(["api", "price-table", "tool"]),
+  servedBy: z.string().optional(),
+});
+
+const StoredAnswer = z.object({
+  decision: z.unknown(),
+  answerer: z.string().optional(),
+  usage: z.array(StoredUsage).optional(),
+});
+
+/** The answer a row keeps, as JSON. */
+export function answerOf(text: string): PauseAnswer {
+  const { decision, answerer, usage } = StoredAnswer.parse(JSON.parse(text));
+  return { decision, answerer, ...(usage === undefined ? {} : { usage }) };
+}

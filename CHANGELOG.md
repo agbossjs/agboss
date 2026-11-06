@@ -114,6 +114,20 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   step's `schemaHash` changes with its field's name.
   **Migration:** `InputOf<Role>["question"]` → `InputOf<Role>["ask"]`; rerun `agboss check`.
 
+- **A pending pause's ask is read after narrowing on its `kind`** (#801) — `QuestionAsk` was
+  `Readonly<Record<string, unknown>>`, which absorbed any property, so `result.pending[0].ask.arguments`
+  compiled on the `PendingApproval | PendingQuestion` union as `unknown` and an approval's typing was
+  lost silently. `QuestionAsk` is opaque now: a field of a `PendingPause`'s ask does not compile until
+  `kind === PauseKind.Approval` (its ask then is `ToolCallApprovalAskDto`, typed as before); a question's
+  ask is read as `const fields: Readonly<Record<string, unknown>> = pending.ask`. Renamed in the same
+  change: `PendingPauseSite` → `PendingPauseBase`, and its `agent` → `step` (it names a question step
+  since #659: the agent whose call waits, the agent that asks a question role through its tool, or the
+  question step); `toHavePausedAt` compares `step`. `QuestionFailedError` takes an options object —
+  `new QuestionFailedError({ question }, cause)` — and carries `readonly question` (also in `details`),
+  its `static code` the literal `"step.question"`. **Migration:** narrow before reading `ask`
+  (`if (pause.kind === PauseKind.Approval) pause.ask.arguments`); read `pending[i].step` for
+  `pending[i].agent`.
+
 ### Changed — breaking for stores outside the core
 
 - **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
@@ -144,6 +158,19 @@ claim stores.<key>`; the child queue's two watch cases are skipped, with the rea
   reads its database's clock — PostgreSQL, MongoDB —, `FaultStoreTime.Host` for one on the process's
   clock) and drop `storeTimeScale`; explore a fencing set at least at the floor; read a checklist
   report's `results` for what was skipped.
+
+- **A pause record stores its `kind` and names its `step`** (#801) — `PauseRecord.kind: PauseKind`
+  is written by the step that pauses and kept as written; `isQuestionPause` reads it, and a store no
+  longer tells a question from an approval by `component?.kind`. `PauseRecord.agent` is `step`. The
+  paused-execution contract checks it (`a pause's kind is kept as written — never inferred from its
+component`: a question with no component, an approval whose component reads as a question); a store
+  that drops `kind` and infers it fails that case. The SQLite store rewrites a row written before at
+  open (`agent` → `step`; `kind` `question` for a question role's component, `approval` otherwise) —
+  a file opened by 0.1.1 is not read by 0.1.0 again. A `kind` other than the two throws when read,
+  never taken for an approval; `questionAskOf` (a store's read-back of a question's ask) throws on
+  anything but an object.
+  **Migration:** a pause store of your own persists both fields (agbossjs/postgres: migration
+  `0024`; agbossjs/mongodb reads a record written before by the same rule).
 
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
   new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic

@@ -107,9 +107,9 @@ export function answerValidatorOf(
     const tool = checks.tools(pause.ask.tool);
     return (decision) => validDecisionOf(decision, tool);
   }
-  const answer = checks.questions?.(pause.workflow, pause.agent) ?? askedByAgent(pause, checks);
+  const answer = checks.questions?.(pause.workflow, pause.step) ?? askedByAgent(pause, checks);
   if (answer === undefined)
-    throw new TypeError(`pause ${pause.pauseId}: ${pause.agent} is no question of this tree`);
+    throw new TypeError(`pause ${pause.pauseId}: ${pause.step} is no question of this tree`);
   return (decision) => validate(answer, decision);
 }
 

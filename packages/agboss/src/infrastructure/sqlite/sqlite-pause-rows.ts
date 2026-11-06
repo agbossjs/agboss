@@ -1,13 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { SqliteConnection } from "./sqlite-connection.js";
 import { z } from "zod";
-import { askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
+import { answerOf, askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import {
-  PauseResolution,
-  PauseStatus,
-  type PauseAnswer,
-  type PauseRecord,
-} from "../pause-record.js";
+import { PauseKind, PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
 
 /**
  * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
@@ -28,6 +24,50 @@ CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at)
 export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
 
 /**
+ * #663: a file whose pauses were unique per step key of a tenant — the table rebuilt unique per
+ * step key of a tree, its rows in their order (`findAllByRoot` reads by `rowid`). Its indexes
+ * follow the renamed table and go with it; they are made again on the new one.
+ */
+const PAUSE_COLUMNS = `tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, answer,
+  resolution, resolved_at`;
+const PAUSES_TREE_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_trees;
+${PAUSES_TABLE}
+INSERT INTO pauses (${PAUSE_COLUMNS}) SELECT ${PAUSE_COLUMNS} FROM pauses_before_trees ORDER BY rowid;
+DROP TABLE pauses_before_trees;
+${PAUSES_INDEXES}`;
+
+/**
+ * The migration of a file written before the pause answer records (#267 S107): the answer column
+ * was named `resolution`; how and when a pause was resolved get columns of their own.
+ */
+const PAUSE_ANSWERS_MIGRATION = `ALTER TABLE pauses RENAME COLUMN resolution TO answer;
+ALTER TABLE pauses ADD COLUMN resolution TEXT;
+ALTER TABLE pauses ADD COLUMN resolved_at TEXT;
+CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
+
+/**
+ * 0.1.1: a pause stores its `kind` and names its `step` (`agent` before). A row written before is
+ * rewritten once, by the rule it was written under: a question role's component is a question,
+ * every other pause an approval (an approval's row from before components, #268 S93, too). Rows
+ * that have a `kind` are left as they are, so it runs at every open and changes a file once; a row
+ * that is not JSON is left to fail its own read. A file opened by 0.1.1 is not read by 0.1.0 again.
+ */
+const PAUSE_KIND_MIGRATION = `UPDATE pauses SET pause = json_set(json_remove(pause, '$.agent'), '$.step', json_extract(pause, '$.agent'),
+    '$.kind', CASE json_extract(pause, '$.component.kind') WHEN 'question' THEN 'question' ELSE 'approval' END)
+  WHERE json_valid(pause) AND json_type(pause, '$.kind') IS NULL AND json_type(pause, '$.agent') = 'text';`;
+
+/** Migrates a file's pauses written by an older version (inside a transaction): S107, #663, 0.1.1. */
+export function migratePauses(connection: SqliteConnection): void {
+  const columns = connection.columnsOf("pauses");
+  if (columns.length > 0 && !columns.includes("resolved_at"))
+    connection.database.exec(PAUSE_ANSWERS_MIGRATION);
+  // #663: unique per step key of a tenant — a pause of another tree with that step key hits it
+  if (connection.uniqueIndexesOf("pauses").includes("tenant_id,step_key"))
+    connection.database.exec(PAUSES_TREE_MIGRATION);
+  if (columns.length > 0) connection.database.exec(PAUSE_KIND_MIGRATION);
+}
+
+/**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
  * and the JSON it keeps, each validated on the way out; a row stored by an earlier version reads
  * with defaults (no copy number: the first copy; no resolution column: its status says).
@@ -44,14 +84,14 @@ const StoredPause = z.object({
   // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
   copyNumber: z.number().default(1),
   askedAt: z.string().default(""),
-  agent: z.string(),
+  kind: z.enum(PauseKind),
+  step: z.string(),
   ...StoredLoopProgress,
   channel: z.string(),
   // a pause stored before #337 has none: its own step's key is its only branch key
   branchKeys: z.array(z.string()).optional(),
   answeredBy: z.enum(PauseAnswerer),
-  // an approval's tool call, or a question role's own ask (#659, #712): told apart by the component
-  ask: z.record(z.string(), z.unknown()),
+  ask: z.record(z.string(), z.unknown()), // a tool call, or a role's ask (#659, #712): `kind` says
 });
 
 const PauseRow = z.object({
@@ -67,22 +107,6 @@ const PauseRow = z.object({
   resolved_at: z.string().nullable(),
 });
 
-const StoredUsage = z.object({
-  caller: z.string(),
-  model: z.string(),
-  ...{ inputTokens: z.number(), outputTokens: z.number() },
-  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
-  costUsd: z.number(),
-  costSource: z.enum(["api", "price-table", "tool"]),
-  servedBy: z.string().optional(),
-});
-
-const StoredAnswer = z.object({
-  decision: z.unknown(),
-  answerer: z.string().optional(),
-  usage: z.array(StoredUsage).optional(),
-});
-
 /** How a row was resolved: its column, else (a row stored before #267 S107) its status says. */
 function resolutionOf(r: z.infer<typeof PauseRow>): PauseResolution | undefined {
   if (r.resolution !== null) return r.resolution;
@@ -90,22 +114,17 @@ function resolutionOf(r: z.infer<typeof PauseRow>): PauseResolution | undefined 
   return r.answer === null ? undefined : PauseResolution.Replied;
 }
 
-/** The answer a row keeps, as JSON. */
-function answerOf(text: string): PauseAnswer {
-  const { decision, answerer, usage } = StoredAnswer.parse(JSON.parse(text));
-  return { decision, answerer, ...(usage === undefined ? {} : { usage }) };
-}
-
 /** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const { itemIndex, component, branchKeys, ask, ...stored } = StoredPause.parse(
-    JSON.parse(r.pause),
-  );
+  const parsed = StoredPause.safeParse(JSON.parse(r.pause));
+  if (!parsed.success)
+    throw new Error(`pause ${r.pause_id} (${r.tenant_id}) unreadable: ${parsed.error.message}`);
+  const { itemIndex, component, branchKeys, ask, ...stored } = parsed.data;
   const record = component === undefined ? undefined : componentOfStored(component);
   const pause: PauseRecord = {
     ...stored,
-    ask: askOfStored(ask, record),
+    ask: askOfStored(ask, stored.kind === PauseKind.Question),
     ...(record === undefined ? {} : { component: record }),
     ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
@@ -136,7 +155,8 @@ const storedOf = (pause: PauseRecord): string =>
     itemIndex: pause.itemIndex,
     copyNumber: pause.copyNumber,
     askedAt: pause.askedAt,
-    agent: pause.agent,
+    kind: pause.kind,
+    step: pause.step,
     component: pause.component,
     toolLoopIteration: pause.toolLoopIteration,
     validationAttempts: pause.validationAttempts,

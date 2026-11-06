@@ -440,7 +440,8 @@ is recorded — or `{ pauseId, reply: "up to 900" }`, read by the role's `replyI
 DTO (a chat model gets one answer tool, `answer-<answer dto>`, and the not-understood tool; a code
 interpreter returns `ReplyInterpretation.understood(answer)`; a decision model cannot answer a
 question, `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.Question`,
-`agent` the step, `ask` the masked question. Exactly one answer wins (`NotPausedError` for the
+`step` the question step, `ask` the masked question (opaque: read it after narrowing on `kind`, as
+`const fields: Readonly<Record<string, unknown>> = pending.ask`). Exactly one answer wins (`NotPausedError` for the
 second), another instance continues it, a cancel withdraws it — as any pause. The step is no model
 call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
 names a question role is `[channel.wrong-tool]`.
@@ -458,7 +459,7 @@ other tools run (several question calls of one move are asked one after the othe
 the `answer` DTO — is the call's result the model reads next (through the tool-result path: PII
 masking of the answer's `sensitive` fields, `maxResultSize`, `onToolStart` / `onToolEnd`,
 `result.toolCalls` with `step.component.kind` `question`; tool interceptors do not apply — the call
-runs no tool). `result.pending[i]` is `kind: PauseKind.Question`, `agent` the asking agent,
+runs no tool). `result.pending[i]` is `kind: PauseKind.Question`, `step` the asking agent,
 `channel` the role; every guarantee of a question step holds (one answer wins, another instance
 resumes it without asking again, a cancel withdraws it, tenant and owner checks). The role's
 `maxVisits` bounds how many times one visit of the agent asks it (the next call fails the step with
@@ -472,10 +473,12 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 ## The pause's life and its records
 
 - **`PendingPause`** (`result.pending`): `kind` (`PauseKind.Approval` | `PauseKind.Question`),
-  `pauseId?` (ThreadOwner roles only), `answeredBy`, `agent`, `channel`, `ask` (an approval's
-  `ToolCallApprovalAskDto`: `tool`, `arguments`, `summary`, `callId`; a question's ask DTO —
-  `sensitive` fields masked), `itemIndex`, `childExecutionId` (a pause in a child workflow is the
-  root's). Parallel branches pause on their own; the execution rests when nothing else can move,
+  `pauseId?` (ThreadOwner roles only), `answeredBy`, `step` (the agent whose call waits, or the
+  question step), `channel`, `ask` (an approval's `ToolCallApprovalAskDto`: `tool`, `arguments`,
+  `summary`, `callId`; a question's `QuestionAsk` — its ask DTO, `sensitive` fields masked,
+  opaque), `itemIndex`, `childExecutionId` (a pause in a child workflow is the root's); the fields
+  every kind has are `PendingPauseBase`. Narrow on `kind` before reading `ask`: `pending[0].ask.arguments`
+  does not compile until `pending[0].kind === PauseKind.Approval`. Parallel branches pause on their own; the execution rests when nothing else can move,
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn). An answer to anything but `Pending` → `NotPausedError` (a double
@@ -562,21 +565,21 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 
 ## Rule codes and errors
 
-| Code / error                              | Cause → fix                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                           |
-| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                     |
-| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                |
-| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`              |
-| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`) → `.onError`    |
-| `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application       |
-| `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                   |
-| `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                   |
-| `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                    |
-| `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                    |
-| `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones |
-| `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential         |
-| `IncompatibleResumeError`                 | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`  |
+| Code / error                              | Cause → fix                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                                    |
+| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                              |
+| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                         |
+| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                       |
+| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError` |
+| `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                |
+| `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                            |
+| `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                            |
+| `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                             |
+| `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                             |
+| `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones          |
+| `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                  |
+| `IncompatibleResumeError`                 | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`           |
 
 ## Pitfalls
 

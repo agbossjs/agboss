@@ -3,7 +3,7 @@ import { DtoValidationError } from "../../../dto/errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
-import type { QuestionAsk } from "../../../infrastructure/pause-record.js";
+import { PauseKind, questionAskOf } from "../../../infrastructure/pause-record.js";
 import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
@@ -40,7 +40,7 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
     if (pause === undefined || channelOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = redactedDto(role.ask, questionOf(input.fields.ask)) as QuestionAsk;
+    const ask = questionAskOf(redactedDto(role.ask, questionOf(input.fields.ask)));
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
         deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),
@@ -57,9 +57,11 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
       withdrawn: pause.withdrawn,
     };
     frame.execution.lease?.assertHeld();
-    const reply = await pauseStep(site, { agent: node.id, ask }).catch((error: unknown) => {
-      if (error instanceof ChannelSendError) throw new QuestionFailedError(node.id, error.cause);
-      if (error instanceof DtoValidationError) throw new QuestionFailedError(node.id, error);
+    const asked = { kind: PauseKind.Question, step: node.id, ask };
+    const reply = await pauseStep(site, asked).catch((error: unknown) => {
+      const question = { question: node.id };
+      if (error instanceof ChannelSendError) throw new QuestionFailedError(question, error.cause);
+      if (error instanceof DtoValidationError) throw new QuestionFailedError(question, error);
       throw error;
     });
     await reportNodeEvent((base) =>

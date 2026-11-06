@@ -42,6 +42,7 @@ export {
 export {
   ActionFailedError,
   QuestionFailedError,
+  type QuestionFailedErrorOptions,
   AgentAnswerInvalidError,
   GuardrailBlockedError,
   OutputInvalidError,

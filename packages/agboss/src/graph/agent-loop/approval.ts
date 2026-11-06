@@ -2,7 +2,7 @@ import { interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import { redactedArguments, redactedDto } from "../../dto/redact.js";
 import { validate } from "../../dto/schema.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import type { PauseAsk, QuestionAsk } from "../../infrastructure/pause-record.js";
+import { PauseKind, questionAskOf, type PauseAsk } from "../../infrastructure/pause-record.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
@@ -83,6 +83,8 @@ const shownAsk = (ask: ToolCallApprovalAskDto, tool: AnyTool): ToolCallApprovalA
 
 /** One ask through the pause seam: its channel, what it shows, how its answer is validated. */
 interface SeamAsk {
+  /** An approval of the call, or a question role asked through the agent's tool (#712). */
+  readonly kind: PauseKind;
   readonly channel: string;
   readonly agent: string;
   readonly shown: PauseAsk;
@@ -130,7 +132,8 @@ async function seamAnswer(
       observer?.onChannelStart({ ...base, name: ask.channel, input: ask.input }),
     );
   const question = {
-    agent: ask.agent,
+    kind: ask.kind,
+    step: ask.agent,
     ask: ask.shown,
     ...(ask.component === undefined ? {} : { component: ask.component }),
   };
@@ -164,7 +167,10 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       const shown = shownAsk(ask, tool);
       const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
       const channel = tool.channel ?? "";
-      const seam = { channel, agent, shown, input: shown.arguments, validate };
+      const seam = {
+        kind: PauseKind.Approval,
+        ...{ channel, agent, shown, input: shown.arguments, validate },
+      };
       const answer = await seamAnswer(channels, seam, signal);
       return approvalDecisionOf(answer.decision, tool, answer.by, answer.usage);
     },
@@ -172,11 +178,12 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       const { question } = tool;
       if (question === undefined) throw new TypeError(`${tool.name} asks no question`);
       // the question as the channel, the records and the events see it: `sensitive` fields masked
-      const shown = redactedDto(question.ask, args) as QuestionAsk;
+      const shown = questionAskOf(redactedDto(question.ask, args));
       const answered = (decision: unknown): unknown => validate(question.answer, decision);
       const channel = tool.channel ?? tool.name;
       const component = toolRecordOf(tool);
-      const seam = { channel, agent, shown, input: shown, validate: answered, component };
+      const kind = PauseKind.Question;
+      const seam = { kind, channel, agent, shown, input: shown, validate: answered, component };
       const answer = await seamAnswer(channels, seam, signal);
       return { answer: answered(answer.decision), by: answer.by, usage: answer.usage };
     },

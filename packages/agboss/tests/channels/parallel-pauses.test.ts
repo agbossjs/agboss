@@ -40,7 +40,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
       ["B", "C"].map((orderId, index) => ({
         answeredBy: PauseAnswerer.Channel,
         kind: PauseKind.Approval,
-        agent: "batch-refund-agent",
+        step: "batch-refund-agent",
         channel: "refund-approval-channel",
         childExecutionId: undefined,
         itemIndex: index + 1,

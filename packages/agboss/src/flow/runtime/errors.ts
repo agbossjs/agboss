@@ -83,18 +83,29 @@ export class ActionFailedError extends StepFailedError {
  * class or cause chain.
  */
 export class QuestionFailedError extends StepFailedError {
-  static override readonly code: string = "step.question";
+  static override readonly code = "step.question" as const;
   override name = "QuestionFailedError";
+  /** The question step that failed: its node (the role's name). */
+  readonly question: string;
 
-  constructor(question: string, cause: unknown) {
+  constructor(options: QuestionFailedErrorOptions, cause: unknown) {
+    const { question } = options;
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(
       `Question "${question}" failed: ${reason}`,
       [],
       cause,
       stepCoordinatesOf(question, ComponentKind.Question),
+      { question },
     );
+    this.question = question;
   }
+}
+
+/** What a `QuestionFailedError` names. */
+export interface QuestionFailedErrorOptions {
+  /** The question step that failed: its node (the role's name). */
+  readonly question: string;
 }
 
 /**

@@ -1230,8 +1230,8 @@ step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, neve
 **Pauses (#267).** An execution may wait for several answers at once — one per tool call whose
 channel replied `ChannelOutcome.awaitReply()`, in parallel branches too: a paused branch does not
 stop its siblings, the execution pauses only when nothing else can move, and `result.pending`
-lists every waiting pause (`PendingPause`: `answeredBy`, `agent`, `channel`, `itemIndex`,
-`childExecutionId`, the question `ask`). A pause is answered by its id, never by its thread —
+lists every waiting pause (`PendingPause`: `kind`, `answeredBy`, `step`, `channel`, `itemIndex`,
+`childExecutionId`, the question `ask` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is

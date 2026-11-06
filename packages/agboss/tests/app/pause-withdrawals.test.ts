@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { pauseWithdrawalsOf, type WithdrawalParts } from "../../src/app/pause-withdrawals.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import {
+  PauseKind,
   PauseResolution,
   PauseStatus,
   type PauseRecord,
@@ -28,7 +29,8 @@ const pause: PauseRecord = {
   visitNumber: 1,
   itemIndex: undefined,
   copyNumber: 1,
-  agent: "clerk-agent",
+  kind: PauseKind.Approval,
+  step: "clerk-agent",
   channel: "refund-approval-channel",
   answeredBy: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },

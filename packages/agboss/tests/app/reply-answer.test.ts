@@ -8,7 +8,7 @@ import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
 import { UninterpretableReplyError } from "../../src/channels/channel-role.decorator.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
-import { PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
+import { PauseKind, PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { testFrame } from "../helpers/frame.js";
 
@@ -28,7 +28,8 @@ const pause: PauseRecord = {
   visitNumber: 1,
   itemIndex: undefined,
   copyNumber: 1,
-  agent: "clerk-agent",
+  kind: PauseKind.Approval,
+  step: "clerk-agent",
   channel: "refund-approval-channel",
   answeredBy: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },

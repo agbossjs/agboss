@@ -6,7 +6,12 @@ import {
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./seam.js";
-import { NINE, QUESTION_ANSWER, questionPauseOf } from "./paused-execution-data.js";
+import {
+  kindOnlyPausesOf,
+  NINE,
+  QUESTION_ANSWER,
+  questionPauseOf,
+} from "./paused-execution-data.js";
 
 /** What each case below gets. */
 type Instances = ContractInstances<PausedExecutionRepository>;
@@ -53,6 +58,17 @@ export const QUESTION_PAUSE_CASES: readonly ContractCase<PausedExecutionReposito
         resolution: PauseResolution.Replied,
         resolvedAt: NINE.toISOString(),
       });
+    },
+  },
+  {
+    name: "0.1.1: a pause's kind is kept as written — never inferred from its component",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const asked = kindOnlyPausesOf();
+      for (const pause of asked) await first.findOrCreateByStepKey(pause);
+
+      for (const pause of asked)
+        expect(await second.findByTenantIdAndPauseId("default", pause.pauseId)).toEqual(pause);
+      expect(await second.findAllByTenantIdAndRootExecutionId("default", "run-1")).toEqual(asked);
     },
   },
 ];

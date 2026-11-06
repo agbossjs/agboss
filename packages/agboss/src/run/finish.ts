@@ -32,7 +32,7 @@ function outcomeOf(
 /** The visited nodes; a paused execution waits in an agent whose visit has not finished yet. */
 const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): readonly string[] => {
   const [first] = pending;
-  return first === undefined ? state.path : [...state.path, first.agent];
+  return first === undefined ? state.path : [...state.path, first.step];
 };
 
 const traceUrlOf = <TName extends string>(

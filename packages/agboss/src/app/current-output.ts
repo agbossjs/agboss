@@ -7,6 +7,7 @@ import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { runConfig } from "../run/paused.js";
+import { waitingPauseOf } from "../run/waiting-pauses.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { PausedRunBook } from "./paused-runs.js";
@@ -14,17 +15,22 @@ import type { ThreadKey } from "./live-runs.js";
 import { runResultOf, withPauseAnswers } from "./result.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
-/** The stored run with only the pauses still pending now (another call may have answered some). */
-async function stillPending(
-  deps: AgentExecutionDeps<string>,
+/**
+ * The stored run with only the pauses still pending now (another call may have answered some),
+ * each as its record says — its kind, step and ask (#801: a run stored before 0.1.1 lists `agent`).
+ */
+export async function stillPending(
+  deps: Pick<AgentExecutionDeps<string>, "pause">,
   run: AgentExecutionOutput,
 ): Promise<AgentExecutionOutput> {
   const records =
     (await deps.pause?.pauses.findAllByTenantIdAndRootExecutionId(run.tenantId, run.runId)) ?? [];
-  const pending = new Set(
-    records.flatMap((pause) => (pause.status === PauseStatus.Pending ? [pause.pauseId] : [])),
-  );
-  return { ...run, pending: run.pending.filter((pause) => pending.has(pause.pauseId)) };
+  const byId = new Map(records.map((record) => [record.pauseId, record]));
+  const pending = run.pending.flatMap((listed) => {
+    const record = byId.get(listed.pauseId);
+    return record?.status === PauseStatus.Pending ? [waitingPauseOf(record)] : [];
+  });
+  return { ...run, pending };
 }
 
 /** What a finished execution's state lists: its launches, children and handled failures. */

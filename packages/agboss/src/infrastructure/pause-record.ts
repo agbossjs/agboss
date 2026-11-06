@@ -92,11 +92,38 @@ export interface PauseSite {
   readonly branchKeys?: readonly string[];
 }
 
+/** What a pause waits for and what a question asks (0.1.1: stored on every pause record). */
+
+/** What a pause waits for (#659): a tool call's approval, or a question role's answer. */
+export enum PauseKind {
+  /** An agent's tool call through its channel: `ask` is the call, the answer a `ToolCallApprovalDecisionDto`. */
+  Approval = "approval",
+  /** A question role's step or tool (#659, #712): `ask` is the role's ask, the answer its `answer` DTO. */
+  Question = "question",
+}
+
+declare const questionAsk: unique symbol;
+
 /**
- * What a question role's step asks (#659): the role's `ask` value, `sensitive` fields masked — the
- * project's own DTO, so any object.
+ * What a question role asks (#659): the role's `ask` value, `sensitive` fields masked — the
+ * project's own DTO, so opaque here: a field of a `PendingPause`'s ask is read only after narrowing
+ * on `kind` (an approval's ask keeps its typing), and a question's is read by assigning it to
+ * `Readonly<Record<string, unknown>>` (0.1.1 API review). A plain object is not one.
  */
-export type QuestionAsk = Readonly<Record<string, unknown>>;
+export type QuestionAsk = Readonly<{ [questionAsk]: true }>;
+
+/**
+ * A question's ask as the framework made it — the role's DTO, masked — or as a store of your own
+ * reads it back (a question pause's `ask`, kept as written): the one place it is branded. Anything
+ * but an object (`null`, an array, a text) throws `TypeError`.
+ */
+export function questionAskOf(ask: unknown): QuestionAsk {
+  if (typeof ask !== "object" || ask === null || Array.isArray(ask))
+    throw new TypeError(
+      `a question's ask is an object (the role's ask DTO), not ${JSON.stringify(ask)}`,
+    );
+  return ask as QuestionAsk;
+}
 
 /** What a pause asks: a tool call to approve, or a question role's ask (#659). */
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
@@ -105,15 +132,23 @@ export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 export interface PauseRecord extends PauseSite {
   /** A random 128-bit token (hex), made once per pause: the right to answer it (AC3). */
   readonly pauseId: string;
-  /** The agent whose tool call waits, or the question role's step that asks (#659). */
-  readonly agent: string;
+  /**
+   * What it waits for (0.1.1: stored, written by the step that pauses): a tool call's approval or
+   * a question role's answer — what `ask` is. A store keeps it as written, never infers it.
+   */
+  readonly kind: PauseKind;
+  /**
+   * The step that asks: the agent whose tool call waits (an agent asking a question role through
+   * its tool, #712, too), or a question role's step (#659).
+   */
+  readonly step: string;
   /** The channel asked: a role's name or a concrete `@Channel`'s. */
   readonly channel: string;
   /** Who may answer it (its channel role's `answeredBy`). */
   readonly answeredBy: PauseAnswerer;
   /**
    * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
-   * role's ask (#659) — told apart by the waiting step's `component.kind` (`isQuestionPause`).
+   * role's ask (#659) — told apart by `kind`.
    */
   readonly ask: PauseAsk;
   readonly status: PauseStatus;
@@ -129,9 +164,22 @@ export interface PauseRecord extends PauseSite {
   readonly resolvedAt?: string;
 }
 
-/** A pause of a question role's step (#659): its step's component is a question, not an agent. */
-export const isQuestionPause = (pause: Pick<PauseRecord, "component">): boolean =>
-  pause.component?.kind === ComponentKind.Question;
+/**
+ * A pause of a question role (#659, #712): its `kind` says, never its component. Any other value
+ * than the two kinds — a store that does not keep `kind` — throws: never read as an approval.
+ */
+export function isQuestionPause(pause: Pick<PauseRecord, "kind" | "pauseId">): boolean {
+  switch (pause.kind) {
+    case PauseKind.Question:
+      return true;
+    case PauseKind.Approval:
+      return false;
+    default:
+      throw new TypeError(
+        `pause ${pause.pauseId}: kind ${String(pause.kind)} is no PauseKind — a pause store keeps PauseRecord.kind as written`,
+      );
+  }
+}
 
 /** A pause of an agent's tool call: its `ask` is the call (every pause before #659). */
 export type ApprovalPauseRecord = PauseRecord & { readonly ask: ToolCallApprovalAskDto };
@@ -203,7 +251,7 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
     pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
     executionId: pause.executionId,
     step: {
-      component: pause.component ?? bareRecordOf(pause.agent, ComponentKind.Agent),
+      component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
       nodeId: pause.nodeId,
       visitNumber: pause.visitNumber,
       idempotencyKey: pause.stepKey,

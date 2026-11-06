@@ -2,9 +2,10 @@
 export {
   pendingPauseOf,
   PauseKind,
+  questionAskOf,
   type ApprovalRecord,
   type PendingApproval,
-  type PendingPauseSite,
+  type PendingPauseBase,
   type PendingQuestion,
   type PauseSeam,
   type PendingPause,
