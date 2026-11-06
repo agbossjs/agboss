@@ -10,7 +10,6 @@ import type { A2AApp, A2ACallerResolver } from "./a2a-caller.js";
 import { callerResolverOf, writeRejection } from "./a2a-caller-gate.js";
 import { exportsOf } from "./a2a-exports.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
-import { servedContractsOf } from "./server/served-contracts.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 
 /** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
@@ -85,7 +84,7 @@ async function bindingOf<TStart extends Class>(
       lazyLoad(import("./server/a2a-request-handler.js")),
       lazyLoad(import("./server/a2a-local-runs.js")),
     ]);
-  const contracts = servedContractsOf(app);
+  const contracts = meshSettingsOf(app)?.contracts();
   const control = executionControlOf(app);
   if (contracts === undefined || control === undefined)
     throw new ComponentError(

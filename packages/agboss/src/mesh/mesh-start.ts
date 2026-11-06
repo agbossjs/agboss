@@ -1,7 +1,7 @@
 import type { App } from "../app/types.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
-import { Clock } from "../infrastructure/clock.js";
+import { Clock, lazyLoad } from "../infrastructure/clock.js";
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "./mesh-defaults.js";
 import { meshKeysOf } from "./mesh-keys.js";
 import { rememberContextMeshSettings, type MeshSettings } from "./mesh-settings.js";
@@ -22,6 +22,8 @@ export function meshSettingsFor(
     clock: app.resolve(Clock),
     idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
     exposes: assembled.exposes,
+    contracts: async () =>
+      (await lazyLoad(import("../describe/contracts.js"))).contractsOf(assembled),
   };
   rememberContextMeshSettings(context, settings);
   return settings;

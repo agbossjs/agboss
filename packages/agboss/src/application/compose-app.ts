@@ -28,7 +28,8 @@ import {
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
-import { rememberServedSettings } from "./served-settings.js";
+import { rememberMeshSettings } from "../mesh/mesh-settings.js";
+import { meshSettingsFor } from "../mesh/mesh-start.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
@@ -149,7 +150,8 @@ export function composeApp(
   const remembered = appWorkflowOf(first.app);
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
-  rememberServedSettings(app, assembled);
+  const mesh = meshSettingsFor(assembled, app);
+  rememberMeshSettings(app, () => mesh);
   return app;
 }
 
