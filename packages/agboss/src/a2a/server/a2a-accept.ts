@@ -155,6 +155,7 @@ export async function acceptedTask(
         return save.task;
       case A2ATaskSaveStatus.MessageTaken:
         return acceptedBefore(parts, caller, save.message, sent);
+      // Stryker disable next-line ConditionalExpression: the last case — falling out of the switch goes on to the next attempt, as `continue` does
       case A2ATaskSaveStatus.TaskIdTaken:
         continue; // an id minted again: the next one
     }

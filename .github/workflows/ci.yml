@@ -85,6 +85,7 @@ jobs:
             unwind,
             money,
             a2a-tasks,
+            a2a-server,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}

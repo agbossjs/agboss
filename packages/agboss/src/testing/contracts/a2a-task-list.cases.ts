@@ -106,6 +106,54 @@ export const A2A_TASK_LIST_CASES: readonly ContractCase<A2ATaskRepository>[] = [
       expect(await first.list({ tenantId: "default", ownerId: "alice", pageSize: 3 })).toEqual({
         tasks: [],
         nextPageToken: "",
+        totalSize: 0,
+      });
+    },
+  },
+  {
+    name: "totalSize counts every task the query matches, before paging: the same on every page",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await savedMany(first, 5);
+      await saved(first, newTask("t-bob", { ownerId: "bob", acceptedAt: at(9) }));
+      await saved(first, newTask("t-other", { contextId: "ctx-b", acceptedAt: at(8) }));
+      await first.compareAndSetStatus({ tenantId: "default", taskId: "t-2" }, 1, WORKING, at(6));
+      const query = { tenantId: "default", ownerId: "alice", pageSize: 2 };
+
+      const one = await second.list(query);
+      const two = await first.list({ ...query, pageToken: one.nextPageToken });
+      const last = await second.list({ ...query, pageToken: "", pageSize: 100 });
+      const inContext = await first.list({ ...query, contextId: "ctx-1" });
+      const working = await second.list({ ...query, state: A2ATaskState.Working });
+
+      expect([one.totalSize, two.totalSize, last.totalSize]).toEqual([6, 6, 6]);
+      expect(ids(one.tasks)).toHaveLength(2);
+      expect(inContext.totalSize).toBe(5);
+      expect([working.totalSize, ids(working.tasks)]).toEqual([1, ["t-2"]]);
+    },
+  },
+  {
+    name: "statusAtAfter keeps the tasks whose status changed strictly after it, page by page, and totalSize counts them",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await savedMany(first, 4);
+      // t-1 written at 9:10 is newer than the cutoff again
+      await first.compareAndSetStatus({ tenantId: "default", taskId: "t-1" }, 1, WORKING, at(10));
+      const query = { tenantId: "default", ownerId: "alice", pageSize: 2, statusAtAfter: at(2) };
+
+      const one = await second.list(query);
+      const two = await first.list({ ...query, pageToken: one.nextPageToken });
+
+      expect([ids(one.tasks), ids(two.tasks)]).toEqual([["t-1", "t-4"], ["t-3"]]);
+      expect(two.nextPageToken).toBe("");
+      expect([one.totalSize, two.totalSize]).toEqual([3, 3]);
+      // a cutoff at a task's own status time leaves it out; one past every task leaves none
+      expect(ids((await second.list({ ...query, statusAtAfter: at(3) })).tasks)).toEqual([
+        "t-1",
+        "t-4",
+      ]);
+      expect(await first.list({ ...query, statusAtAfter: at(10) })).toEqual({
+        tasks: [],
+        nextPageToken: "",
+        totalSize: 0,
       });
     },
   },

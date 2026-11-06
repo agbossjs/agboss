@@ -73,14 +73,18 @@ export const byNewestStatus = (
   // Stryker disable next-line EqualityOperator: one tenant's task ids are unique, never equal
   (left.taskId < right.taskId ? 1 : -1);
 
-/** A page of `matching` (sorted by `byNewestStatus`) as `list` gives it. */
+/** A page of `matching` (every task the query matches, sorted by `byNewestStatus`) as `list` gives it. */
 export function a2aPageOf(matching: readonly A2ATaskRecord[], query: A2ATaskQuery): A2ATaskPage {
   const token = query.pageToken ?? "";
   const position = token === "" ? undefined : a2aPagePositionOf(token);
   const after =
     position === undefined ? matching : matching.filter((task) => isAfterPosition(task, position));
   const tasks = after.slice(0, query.pageSize);
-  return { tasks, nextPageToken: nextPageTokenOf(tasks, after.length > query.pageSize) };
+  return {
+    tasks,
+    nextPageToken: nextPageTokenOf(tasks, after.length > query.pageSize),
+    totalSize: matching.length,
+  };
 }
 
 /** The token of the page after `tasks` when more follow, else `""` (the last page, §3.1.4). */

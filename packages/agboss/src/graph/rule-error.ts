@@ -86,6 +86,8 @@ export type RuleCode =
   | "application.fenced-effects-invalid"
   | "application.store-backend-mismatch"
   | "application.store-backend-undeclared"
+  // an application serving A2A keeps its tasks where its instances share them (#824)
+  | "a2a.task-store-not-shared"
   | "application.outbound-calls-invalid"
   // how long the ledger's entries are kept (#771)
   | "application.ledger-entry-retention-invalid"

@@ -444,7 +444,11 @@ JSON-RPC binding at `POST <base>`: `SendMessage` (blocking, or `configuration.re
 `metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional with one export); its input is text
 parts for a `WorkflowStartTextDto` start, else one `data` part, checked before anything is kept
 (`-32602`). Each task is one root execution under the task's id, kept in `A2ATaskRepository`: a
-message resent with the same `messageId` gets the same task, never a second run; a task outlives
+message resent with the same `messageId` gets the same task, never a second run — on every
+instance when the store is shared: on PostgreSQL, MongoDB or SQLite leases the application lists
+`PostgresA2ATaskRepository`, `MongoA2ATaskRepository` or `SqliteA2ATaskRepository`, else it does not
+assemble (`[a2a.task-store-not-shared]`; Redis keeps no A2A tasks); `ListTasks` gives `totalSize`,
+every task its filters match; a task outlives
 its connection (a disconnect never cancels it); `CancelTask` cancels that task only, also before
 it started. A run at a pause its caller answers is `TASK_STATE_INPUT_REQUIRED` (its pauses in the
 status message); a follow-up `SendMessage` with the same `taskId` answers it — one `data` part

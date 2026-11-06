@@ -75,7 +75,8 @@ class OverwritesTerminal extends InMemoryA2ATaskRepository {
 class Unsorted extends InMemoryA2ATaskRepository {
   override async list(query: A2ATaskQuery): Promise<A2ATaskPage> {
     const page = await super.list({ ...query, pageSize: 1000, pageToken: "" });
-    return { tasks: [...page.tasks].reverse().slice(0, query.pageSize), nextPageToken: "" };
+    const tasks = [...page.tasks].reverse().slice(0, query.pageSize);
+    return { tasks, nextPageToken: "", totalSize: page.totalSize };
   }
 }
 
@@ -102,7 +103,25 @@ class SharesOwners extends InMemoryA2ATaskRepository {
   }
 }
 
+/** Counts the page it gives, not every task the query matches (#824). */
+class CountsThePage extends InMemoryA2ATaskRepository {
+  override async list(query: A2ATaskQuery): Promise<A2ATaskPage> {
+    const page = await super.list(query);
+    return { ...page, totalSize: page.tasks.length };
+  }
+}
+
+/** Leaves the status time filter out (#824): every task, however old its status. */
+class IgnoresStatusTime extends InMemoryA2ATaskRepository {
+  override list(query: A2ATaskQuery): Promise<A2ATaskPage> {
+    const { statusAtAfter: _ignored, ...rest } = query;
+    return super.list(rest);
+  }
+}
+
 a2aTaskContract(target("sound", InMemoryA2ATaskRepository));
+a2aTaskContract(target("counts the page", CountsThePage));
+a2aTaskContract(target("ignores the status time", IgnoresStatusTime));
 a2aTaskContract(target("checks then writes", CheckThenWrite));
 a2aTaskContract(target("ignores the version", IgnoresVersion));
 a2aTaskContract(target("overwrites a terminal status", OverwritesTerminal));

@@ -54,7 +54,9 @@ function pauseOf(answer: FollowUpAnswer, pending: readonly string[]): string | K
       ? answer.pauseId
       : { refused: "invalid-params", code: "a2a.unknown-pause" };
   const [only] = pending;
-  return pending.length === 1 && only !== undefined
+  return pending.length === 1 &&
+    // Stryker disable next-line ConditionalExpression: of one pending pause id, the first is defined
+    only !== undefined
     ? only
     : { refused: "invalid-params", code: "a2a.pause-required" };
 }

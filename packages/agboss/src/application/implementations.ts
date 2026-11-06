@@ -217,13 +217,11 @@ export function storeBackendViolations(
   providers: readonly Provider[],
 ): RuleViolation[] {
   const classes = uniqueClasses(providers);
-  const leaseStores = classes.filter((cls) => isOrExtends(cls, ExecutionLeaseRepository));
+  const leaseStores = listedOf(classes, ExecutionLeaseRepository);
   const found = ambiguityOf(application, leaseStores, "lease stores (ExecutionLeaseRepository)");
-  // with two lease stores the pairing is unknown: their ambiguity is the one problem to fix first
-  const leases =
-    leaseStores.length > 1 ? undefined : (leaseStores[0] ?? InMemoryExecutionLeaseRepository);
+  const leases = leaseStoreOf(providers);
   for (const fencing of FENCING_CONTRACTS) {
-    const stores = classes.filter((cls) => isOrExtends(cls, fencing.contract));
+    const stores = listedOf(classes, fencing.contract);
     const what = `${fencing.kind.replace(/^an? /u, "")}s (${fencing.contract.name})`;
     found.push(...ambiguityOf(application, stores, what));
     if (leases === undefined) continue;
@@ -231,6 +229,19 @@ export function storeBackendViolations(
       found.push(...pairViolations(application, store, leases, fencing));
   }
   return found;
+}
+
+/** The listed classes that are `contract` or extend it. */
+const listedOf = (classes: readonly Class[], contract: Class): readonly Class[] =>
+  classes.filter((cls) => isOrExtends(cls, contract));
+
+/**
+ * The application's lease store (#526): the one listed, else the in-memory default; `undefined`
+ * with two listed — the pairing is unknown, their ambiguity is the one problem to fix first.
+ */
+export function leaseStoreOf(providers: readonly Provider[]): Class | undefined {
+  const listed = listedOf(uniqueClasses(providers), ExecutionLeaseRepository);
+  return listed.length > 1 ? undefined : (listed[0] ?? InMemoryExecutionLeaseRepository);
 }
 
 /** The listed fencing stores that opt out of the atomic lease check (#526): the start warns. */

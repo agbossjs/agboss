@@ -34,6 +34,7 @@ import {
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
 import { storeBackendViolations } from "./implementations.js";
+import { a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -216,6 +217,8 @@ export function applicationRuleViolations(
     ...ledgerEntryRetentionViolations(options.name, options.ledgerEntryRetention),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
     ...storeBackendViolations(options.name, options.providers ?? []),
+    // an application serving A2A on shared leases keeps its tasks shared too (#824)
+    ...a2aTaskStoreViolations(options),
     ...meshRuleViolations(
       options.name,
       options.mesh,

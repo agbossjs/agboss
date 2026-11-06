@@ -158,6 +158,7 @@ const SHARDS = {
       "src/infrastructure/in-memory-a2a-task.repository.ts",
       "src/infrastructure/sqlite/sqlite-a2a-task.repository.ts",
       "src/infrastructure/sqlite/sqlite-a2a-task-rows.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-task-pages.ts",
       "src/app/execution-control.ts",
       "src/app/tree-control.ts",
       "src/app/execution-trees.ts",
@@ -169,6 +170,21 @@ const SHARDS = {
       "src/a2a/tasks/task-changes.ts",
       "src/a2a/server/a2a-admitted.ts",
       "src/a2a/server/a2a-server-parts.ts",
+    ],
+  },
+  // #824: the server's accept, follow-up, cancel, wait and stream, ListTasks, and the assembly rule
+  // that keeps an application's A2A tasks where its instances share them
+  "a2a-server": {
+    configFile: "vitest.mutation-a2a-server.config.ts",
+    mutate: [
+      "src/a2a/server/a2a-accept.ts",
+      "src/a2a/server/a2a-follow-up.ts",
+      "src/a2a/server/a2a-follow-up-outcome.ts",
+      "src/a2a/server/a2a-cancel-task.ts",
+      "src/a2a/server/a2a-task-wait.ts",
+      "src/a2a/server/a2a-stream.ts",
+      "src/a2a/server/a2a-list-tasks.ts",
+      "src/a2a/a2a-task-store-rule.ts",
     ],
   },
 };

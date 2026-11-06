@@ -133,6 +133,8 @@ describe("#808 AC2: ListTasks", () => {
       (await rpc(url, "ListTasks", params)).body.result as {
         tasks: { id: string }[];
         nextPageToken: string;
+        pageSize: number;
+        totalSize?: number;
       };
     const first = await listed({ pageSize: 2 });
     const second = await listed({ pageSize: 2, pageToken: first.nextPageToken });
@@ -150,5 +152,25 @@ describe("#808 AC2: ListTasks", () => {
     expect(errorInfoOf(tooBig)?.code).toBe("a2a.page-size");
     const badTime = await rpc(url, "ListTasks", { statusTimestampAfter: "yesterday" });
     expect(errorInfoOf(badTime)?.code).toBe("a2a.invalid-timestamp");
+    // #824: totalSize counts every task the filters match, before paging; pageSize is the one used
+    expect([first.totalSize, second.totalSize, inA.totalSize, failed.totalSize]).toEqual([
+      4, 4, 2, 1,
+    ]);
+    expect([first.pageSize, second.pageSize, inA.pageSize]).toEqual([2, 2, 50]);
+    const since = await listed({ pageSize: 2, statusTimestampAfter: "2000-01-01T00:00:00Z" });
+    expect([since.tasks.length, since.totalSize, since.nextPageToken === ""]).toEqual([
+      2,
+      4,
+      false,
+    ]);
+    const sinceNext = await listed({
+      pageSize: 2,
+      statusTimestampAfter: "2000-01-01T00:00:00Z",
+      pageToken: since.nextPageToken,
+    });
+    expect([...since.tasks, ...sinceNext.tasks].map((task) => task.id)).toEqual([...ids].reverse());
+    // ProtoJSON leaves a zero count out
+    const none = await listed({ statusTimestampAfter: "2999-01-01T00:00:00Z" });
+    expect([none.tasks, none.nextPageToken, none.totalSize ?? 0]).toEqual([[], "", 0]);
   });
 });

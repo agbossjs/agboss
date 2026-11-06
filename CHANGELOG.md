@@ -790,6 +790,17 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **A2A tasks shared by the instances, or no start** (#824) — `A2ATaskRepository` declares its
+  `static backend` (the in-memory store `"in-memory"`, `SqliteA2ATaskRepository` `"sqlite"`;
+  `PostgresA2ATaskRepository` in `@agboss/postgres` and `MongoA2ATaskRepository` in
+  `@agboss/mongodb` share them on those databases). An application that serves A2A (`@A2AExpose`)
+  on a lease store its instances share keeps its tasks where they share them too, else it does not
+  assemble — `[a2a.task-store-not-shared]`, naming the store to list: on each instance's own
+  memory a message resent to another instance would start a second execution. Redis keeps no A2A
+  tasks. `ListTasks` answers `totalSize` — every task the filters match before paging, the same on
+  every page — and `pageSize` the page size used; `statusTimestampAfter` filters in the store. The
+  store contract gains `A2ATaskQuery.statusAtAfter` and `A2ATaskPage.totalSize`, with
+  `a2aTaskContract` cases and sabotages.
 - **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, topK, onFailure } })`
   fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `topK` (one name
   with `@Rag({ topK })`, #818), in tool and context mode. `by` is a `RerankerClass`: another class
