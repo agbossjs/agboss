@@ -82,7 +82,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("  maxSteps 9 (default: (agents + routers) × 3) · steps 2–2");
     // create wires the MCP server and the knowledge base into the first agent
     expect(out).toMatch(
-      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3\)/,
+      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3, per-tenant\)/,
     );
     expect(out).toContain("· search-orders-tool (local)");
     expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
@@ -179,7 +179,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(
       readFileSync(join(project, "src/routers/escalation/escalation.router.ts"), "utf8"),
     ).toContain("maxVisits: 1,");
-    expect(out).toContain("rag: policies-rag (tool, k 3)");
+    expect(out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
     expect(out).toContain("· refund-tool (local)");
     expect(out).toContain("· tickets-search-tool (MCP tickets)");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto

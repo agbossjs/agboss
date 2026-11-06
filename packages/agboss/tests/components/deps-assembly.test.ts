@@ -35,6 +35,7 @@ import {
   Plain as PlainAgent,
   applicationWith,
 } from "./fixture/deps-contract.workflow.js";
+import { RagTenancy } from "../../src/rag/types.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
@@ -150,7 +151,7 @@ class Topic {
   topic!: string;
 }
 
-@Rag({ name: "manuals", description: "Manuals", topK: 1 })
+@Rag({ name: "manuals", description: "Manuals", tenancy: RagTenancy.PerTenant, topK: 1 })
 class Manuals {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({ results: [] });

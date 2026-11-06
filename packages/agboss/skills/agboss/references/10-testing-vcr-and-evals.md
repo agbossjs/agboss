@@ -151,9 +151,15 @@ export class CandidateArchiveTool implements ToolHandler<ArchiveQueryDto, Archiv
 ```
 
 ```ts file=src/screening/rag/hiring-policy.rag.ts
-import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
+import { Rag, RagTenancy, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 
-@Rag({ name: "hiring-policy-rag", description: "The hiring policy", topK: 2 })
+// one policy every tenant reads: declared Shared (#796), so the connector may ignore the tenant
+@Rag({
+  name: "hiring-policy-rag",
+  description: "The hiring policy",
+  tenancy: RagTenancy.Shared,
+  topK: 2,
+})
 export class HiringPolicyRag implements RagConnector {
   retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
     const results = [{ text: `Hire at 7 or more (${query.slice(0, 20)}).`, source: "policy.md#bar" }];

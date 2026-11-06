@@ -30,6 +30,7 @@ import { Rag } from "../../../src/components/decorators.js";
 import { OneOf, PlainTextDto, Text } from "../../../src/dto/index.js";
 import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
 import { seconds, usd } from "../../../src/units/index.js";
+import { RagTenancy } from "../../../src/rag/types.js";
 
 // ── services the tests replace ──
 
@@ -155,7 +156,13 @@ export class ToneJudge implements JudgeHandler<PlainTextDto> {
 
 // ── a knowledge base ──
 
-@Rag({ name: "handbook", description: "The team handbook", topK: 2, deps: [JobBoardService] })
+@Rag({
+  name: "handbook",
+  description: "The team handbook",
+  tenancy: RagTenancy.PerTenant,
+  topK: 2,
+  deps: [JobBoardService],
+})
 export class HandbookRag implements RagConnector {
   constructor(private readonly jobBoardService: JobBoardService) {}
 

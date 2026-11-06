@@ -45,6 +45,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { RagTenancy } from "../../src/rag/types.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -146,7 +147,7 @@ class ObsFinish {}
 })
 class ObsNoReply {}
 
-@Rag({ name: "ObsRag", description: "test rag", topK: 5 })
+@Rag({ name: "ObsRag", description: "test rag", tenancy: RagTenancy.PerTenant, topK: 5 })
 class ObsRag {
   async retrieve(): Promise<RagRetrieval> {
     return { results: [] };

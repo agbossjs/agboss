@@ -17,6 +17,7 @@ import { DecidedBy } from "../flow/decorators/router.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { WorkflowServices } from "../workflow.js";
 import { defineTool, type AnyTool } from "../tools/index.js";
+import type { AgentsConfigOf } from "../config/types.js";
 import type { Class } from "./injection.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
@@ -40,15 +41,13 @@ export function ragClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[])
 
 export const ragMeta = (cls: Class): RagMeta => requireComponent(cls, "rag", "workflowOf").meta;
 
-/** The `@Rag` classes the workflow's agents bind, their reranking checked (#703: loaded only then). */
+/** The `@Rag` classes the agents bind: tenancy declared (#796), reranking checked (#703, lazily). */
 export async function checkedRagClassesOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
 ): Promise<Class[]> {
   const rags = ragClassesOf(bundle, agents);
-  if (rags.every((cls) => ragMeta(cls).rerank === undefined)) return rags;
-  const { checkRerankings } = await lazyLoad(import("../rag/rerank-checks.js"));
-  checkRerankings(rags);
+  if (rags.length > 0) (await lazyLoad(import("../rag/rag-checks.js"))).checkRags(rags);
   return rags;
 }
 
@@ -76,13 +75,14 @@ const rerankSettingOf = (meta: RagMeta): { readonly rerank?: RagRerankSetting } 
   return { rerank: { reranker: reranker.name, candidates, onFailure } };
 };
 
-/** An agent's knowledge bases as config entries (for describe and profiles). */
+/** An agent's knowledge bases as config entries (describe, profiles, `configHash`; #796: tenancy). */
 export const ragSettings = (
   agent: AgentMeta,
-): { name: string; mode: RagMode; topK: number; rerank?: RagRerankSetting }[] =>
+): AgentsConfigOf<string>["agents"][string]["rag"] & {} =>
   (agent.rag ?? []).map((binding) => {
     const meta = ragMeta(binding.use);
-    return { name: meta.name, mode: binding.mode, topK: meta.topK, ...rerankSettingOf(meta) };
+    const { name, topK, tenancy } = meta;
+    return { name, mode: binding.mode, topK, tenancy, ...rerankSettingOf(meta) };
   });
 
 /** The `@Reranker` classes of knowledge bases, for the container (#703). */

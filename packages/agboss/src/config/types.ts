@@ -2,7 +2,7 @@ import type { PromptInput } from "../components/prompt-input.js";
 
 import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
-import { RagMode, RerankFailurePolicy } from "../rag/types.js";
+import { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
 import { CompactionStrategy } from "../compaction/compaction.decorator.js";
 
@@ -131,6 +131,8 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
         name: z.string(),
         mode: z.enum(RagMode),
         topK: z.number().int().positive(),
+        /** Whose content it serves (#796). */
+        tenancy: z.enum(RagTenancy),
         /** Reranked (#703): its `@Reranker`, the candidates fetched, what a failure does. */
         rerank: z
           .object({

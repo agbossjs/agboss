@@ -170,12 +170,25 @@ export class CustomerLookupTool implements ToolHandler<CustomerQueryDto, Custome
 
 ```ts file=src/desk/rag/help-center.rag.ts
 // rag/help-center.rag.ts — a knowledge base: any class implementing RagConnector; every retrieval
-// carries the execution's tenant (#700) — return that tenant's passages only
-import { Rag, type RagConnector, type RagRetrieval, type RagRetrieveOptions } from "@agboss/core/rag";
+// carries the execution's tenant (#700) — return that tenant's passages only. `tenancy` is required
+// (#796): `RagTenancy.PerTenant` reads `options.tenantId`; `RagTenancy.Shared` is one corpus every
+// tenant may read, a declared choice (none → `[rag.tenancy-required]`)
+import {
+  Rag,
+  RagTenancy,
+  type RagConnector,
+  type RagRetrieval,
+  type RagRetrieveOptions,
+} from "@agboss/core/rag";
 
 const ARTICLES = new Map([["default", [{ text: "Refunds take 5 days.", source: "help/refunds.md" }]]]);
 
-@Rag({ name: "help-center-rag", description: "Help-center articles", topK: 3 })
+@Rag({
+  name: "help-center-rag",
+  description: "Help-center articles",
+  tenancy: RagTenancy.PerTenant,
+  topK: 3,
+})
 export class HelpCenterRag implements RagConnector {
   retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
     const results = (ARTICLES.get(options.tenantId) ?? []).filter(() => query !== "");

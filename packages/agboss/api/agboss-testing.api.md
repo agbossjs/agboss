@@ -1422,7 +1422,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-rag.ts:23:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-rag.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-reply-interpreter.ts:33:36 - (ae-forgotten-export) The symbol "ChannelAnswerOf" needs to be exported by the entry point index.d.ts
 // src/testing/units/test-reply-interpreter.ts:38:3 - (ae-undocumented) Missing documentation for "ask".
 // src/testing/units/test-reply-interpreter.ts:39:3 - (ae-undocumented) Missing documentation for "reply".

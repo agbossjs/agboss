@@ -42,7 +42,7 @@ describe("knowledge bases — contract", () => {
       },
     });
     expect(costs).toEqual([0.0002]);
-    expect(describeWorkflow(bundle)).toContain("    rag: handbook (tool, k 2)");
+    expect(describeWorkflow(bundle)).toContain("    rag: handbook (tool, k 2, per-tenant)");
   });
 
   it("#148 AC3: the search tool's description speaks of search results, not passages", async () => {

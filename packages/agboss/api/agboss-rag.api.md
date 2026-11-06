@@ -82,6 +82,7 @@ export interface ModelRerankerMeta extends RerankerBaseMeta {
 export function Rag<const D extends readonly Token[] = []>(options: {
     readonly name: string;
     readonly description: string;
+    readonly tenancy: RagTenancy;
     readonly prompt?: string;
     readonly promptUrls?: readonly string[];
     readonly deps?: D;
@@ -136,6 +137,12 @@ export interface RagRetrieveOptions {
     readonly tenantId: string;
     // (undocumented)
     readonly topK: number;
+}
+
+// @public
+export enum RagTenancy {
+    PerTenant = "per-tenant",
+    Shared = "shared"
 }
 
 // @public
@@ -212,9 +219,9 @@ export class SqliteFtsConnector implements RagConnector {
 // src/rag/types.ts:48:3 - (ae-undocumented) Missing documentation for "signal".
 // src/rag/types.ts:67:3 - (ae-undocumented) Missing documentation for "signal".
 // src/rag/types.ts:85:3 - (ae-undocumented) Missing documentation for "rerank".
-// src/rag/types.ts:123:3 - (ae-undocumented) Missing documentation for "name".
-// src/rag/types.ts:124:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:125:3 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/types.ts:135:3 - (ae-undocumented) Missing documentation for "name".
+// src/rag/types.ts:136:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:137:3 - (ae-undocumented) Missing documentation for "retrieve".
 
 // (No @packageDocumentation comment for this package)
 

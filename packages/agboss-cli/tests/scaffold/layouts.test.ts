@@ -96,7 +96,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
       "      route(OnboardingAssistantAgent)\n        .toFinish(TextWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)\n    )",
     );
     expect(described.out).toContain("· read-tickets-tool (MCP tickets)");
-    expect(described.out).toContain("rag: policies-rag (tool, k 3)");
+    expect(described.out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
     expect(described.out).toContain("· get-pet-tool (local) ← PetsApiService");
     // #268 AC8: the new workflow is one more of the application, listed in @Application({ workflows })
     expect(described.out).toContain("onboarding-workflow 0.1.0");
