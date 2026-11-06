@@ -13,7 +13,8 @@ import {
 } from "../terns/index.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { Clock, IdGenerator, mintedThreadIdsOf } from "./clock.js";
-import { pauseAnswerEntryOf, pauseAnswerRecordOfJson } from "./pause-record.js";
+import { pauseAnswerEntryOf } from "./pause-answer-entry.js";
+import { pauseAnswerRecordOfJson } from "./pause-record.js";
 
 export type { NewThread } from "../terns/index.js";
 
