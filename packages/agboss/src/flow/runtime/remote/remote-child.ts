@@ -220,10 +220,10 @@ async function lastStateOf(
  * pass wrote under an id keeps its mark (counted by that id, #727), the others are recorded
  * elsewhere (counted by what they are, #685).
  */
-export const recordedElsewhere = (
-  state: ExecutionStateType,
+export const recordedElsewhere = <TState extends Pick<ExecutionStateType, "usage">>(
+  state: TState,
   inheritedUsage: number,
-): ExecutionStateType => ({
+): TState => ({
   ...state,
   usage: state.usage.map((record, index) =>
     index < inheritedUsage || ledgerMarkOf(record) !== undefined

@@ -19,8 +19,9 @@ const written = {
 const atStepEnd = recordToolCost("child-router", 3);
 
 /** A child's last state holding only `usage` (the rest is never read here). */
-const stateOf = (usage: ExecutionStateType["usage"]): ExecutionStateType =>
-  ({ usage }) as unknown as ExecutionStateType;
+const stateOf = (usage: ExecutionStateType["usage"]): Pick<ExecutionStateType, "usage"> => ({
+  usage,
+});
 
 describe("#817: a remote child's usage as its parent takes it", () => {
   it("keeps a written mark and its id, marks the rest recorded elsewhere, leaves the inherited as it was", () => {
