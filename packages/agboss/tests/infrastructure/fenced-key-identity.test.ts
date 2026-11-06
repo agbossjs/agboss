@@ -11,7 +11,7 @@ import {
   BUSINESS_KEY_HANDLE_LABEL,
   businessKeyHashOf,
   FINGERPRINT_LABEL,
-  fencedEffectKeyOf,
+  effectKeyOf,
   fingerprintOf,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
@@ -19,7 +19,7 @@ import {
   replayedFromOf,
   shownCallOf,
 } from "../../src/infrastructure/fenced-effect-key.js";
-import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallRecord } from "../../src/infrastructure/outbound-call.repository.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
 import { stableJson, versionOf } from "../../src/terns/versions.js";
@@ -48,7 +48,7 @@ const keyMadeBy = (origin: { executionId: string; nodeId: string; visitNumber: n
     name: "charge",
     businessKey: "order:42",
     origin,
-  }) satisfies FencedEffectKey;
+  }) satisfies EffectKey;
 
 const ORIGIN = { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 };
 
@@ -101,7 +101,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     } as never;
 
     const key = await inFrame(frameWith({}), () =>
-      fencedEffectKeyOf(context, "charge", { businessKey: "order:42" }),
+      effectKeyOf(context, "charge", { businessKey: "order:42" }),
     );
 
     expect(Object.keys(key)).not.toContain("businessKeyHash");
@@ -168,7 +168,7 @@ describe("#626: the key errors", () => {
     });
     const refused = (() => {
       try {
-        fencedEffectKeyOf(
+        effectKeyOf(
           { step: { nodeId: "n", visitNumber: 1, idempotencyKey: "k" }, fence: {} } as never,
           "charge",
           { businessKey: "" },

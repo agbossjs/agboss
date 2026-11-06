@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import type { FencedEffectKey } from "./fenced-effect.repository.js";
+import type { EffectKey } from "./fenced-effect.repository.js";
 import { Injectable } from "../components/decorators.js";
 import { StoreClock, type Clock, lazyLoad } from "./clock.js";
 import {
@@ -12,7 +12,7 @@ import {
   inMemoryLeaseMismatch,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
-import { fencedKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
+import { effectKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
@@ -98,10 +98,10 @@ export abstract class OutboundCallRepository {
   abstract ping(): Promise<void>;
 
   /** The intent of `key`, if one was recorded — fenced: a stale token is refused before the read. */
-  abstract findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+  abstract findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
 
   /** Records `intent` `Pending` under `key` — fenced; `false` when the key has one already. */
-  abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+  abstract saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
 
   /**
    * The intent goes `Pending` at `claim` — the next attempt and its new owner (a resend after
@@ -111,7 +111,7 @@ export abstract class OutboundCallRepository {
    * caller must not send.
    */
   abstract markPending(
-    key: FencedEffectKey,
+    key: EffectKey,
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean>;
@@ -120,15 +120,11 @@ export abstract class OutboundCallRepository {
    * The intent is `Completed` with `result` (its JSON) — fenced, and only while `attemptOwner` still
    * owns its attempt (a compare-and-set): `false` when a newer attempt took it over, nothing changed.
    */
-  abstract markCompleted(
-    key: FencedEffectKey,
-    attemptOwner: string,
-    result: string,
-  ): Promise<boolean>;
+  abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
 
   /** The intent is `Failed` with `failure` — fenced, and only while `attemptOwner` owns it. */
   abstract markFailed(
-    key: FencedEffectKey,
+    key: EffectKey,
     attemptOwner: string,
     failure: OutboundCallFailure,
   ): Promise<boolean>;
@@ -195,17 +191,17 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve();
   }
 
-  findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
+  findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
-      const found = this.database.outboundCalls.get(fencedKeyIdentityOf(key));
+      const found = this.database.outboundCalls.get(effectKeyIdentityOf(key));
       // a copy of the row, read now (#658)
       return found === undefined ? undefined : { ...structuredClone(found), readAt: this.#now() };
     });
   }
 
-  saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
+  saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = fencedKeyIdentityOf(key);
+      const row = effectKeyIdentityOf(key);
       if (this.database.outboundCalls.has(row)) return false;
       this.database.outboundCalls.set(
         row,
@@ -216,7 +212,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 
   async markPending(
-    key: FencedEffectKey,
+    key: EffectKey,
     expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
@@ -225,20 +221,16 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
-  markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean> {
+  markCompleted(key: EffectKey, owner: string, result: string): Promise<boolean> {
     return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
   }
 
-  markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
+  markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
     return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
-  async #ended(
-    key: FencedEffectKey,
-    attemptOwner: string,
-    ending: OutboundCallEnding,
-  ): Promise<boolean> {
+  async #ended(key: EffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
     const { endedOf } = await this.#changes;
     const endedAt = this.clock.now().toISOString();
     return this.#changed(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
@@ -285,11 +277,11 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
    * `change` declines (`undefined`) → nothing, `false`.
    */
   #changed(
-    key: FencedEffectKey,
+    key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
-      const row = fencedKeyIdentityOf(key);
+      const row = effectKeyIdentityOf(key);
       const found = this.database.outboundCalls.get(row);
       const changed = found === undefined ? undefined : change(found);
       if (changed === undefined) return false;
@@ -300,7 +292,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 
   /** `work` after the fencing checks (the mark raised): one synchronous step, nothing in between. */
-  #fenced<TValue>(key: FencedEffectKey, work: () => TValue): Promise<TValue> {
+  #fenced<TValue>(key: EffectKey, work: () => TValue): Promise<TValue> {
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
     return new Promise((resolve) => {

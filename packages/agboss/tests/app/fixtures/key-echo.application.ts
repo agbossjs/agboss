@@ -5,12 +5,13 @@ import {
   ExecutionContext,
   InMemoryFencedEffectRepository,
   Injectable,
-  OutboundCalls,
+  NotSentTrust,
   OutboundCallReconciliation,
+  OutboundCalls,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type ActionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionRejectedEvent,
@@ -26,7 +27,7 @@ import { RecordingLogger } from "../../helpers/log.js";
 
 /**
  * #538 acceptance — where a refused key could leak: an action that keys a fenced effect by the
- * text it is given (`fencedEffectKeyOf`), one that sends a call under a key built by hand with that
+ * text it is given (`effectKeyOf`), one that sends a call under a key built by hand with that
  * text (`OutboundCalls.send`), a listed `RecordingLogger`, and an observer of the hooks that carry
  * an error or a refused request.
  */
@@ -74,7 +75,7 @@ export class KeyedEffectAction {
   ) {}
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge", {
+    const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: input.message.value.text,
     });
     await this.fencedEffects.saveResultIfAbsent(key, () => {
@@ -99,7 +100,7 @@ export class HandKeyedSendAction {
   ) {}
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
-    const valid = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
+    const valid = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
     const byHand = { ...valid, businessKey: input.message.value.text };
     await this.outboundCalls.send(byHand, {
       target: "payments",
@@ -109,6 +110,7 @@ export class HandKeyedSendAction {
         echoSeen.ran += 1;
         return Promise.resolve({ receipt: "r1" });
       },
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: () => Promise.resolve(OutboundCallReconciliation.notSent()),
     });
     return { text: "sent" };

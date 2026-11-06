@@ -20,7 +20,7 @@ export enum FaultWorkflow {
 
 /**
  * How the fixture's payment talks to the gateway (#657, #658): its `reconcile`, what it says of an
- * error, and the key retention it declares — the default and one each scenario needs, with the
+ * error, and how far it trusts a `notSent()` (#795) — the default and one each scenario needs, with the
  * sabotages that prove the scenarios bite.
  */
 export enum FaultPayment {
@@ -28,8 +28,8 @@ export enum FaultPayment {
   Lookup = "lookup",
   /** A gateway with no lookup: `reconcile` replays the key, the gateway's retention declared. */
   ReplayOnly = "replay-only",
-  /** The sabotage of `ReplayOnly`: the same replay, no retention declared. */
-  ReplayOnlyUndeclared = "replay-only-undeclared",
+  /** The sabotage of `ReplayOnly`: the same replay, trusted as a lookup (`NotSentTrust.Lookup`, #795). */
+  ReplayOnlyTrustedAsLookup = "replay-only-trusted-as-lookup",
   /** The sabotage of `Lookup`: every error the gateway answers taken for a definite failure. */
   EveryErrorDefinite = "every-error-definite",
 }

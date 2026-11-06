@@ -103,9 +103,12 @@ export const s15KeyExpired: FaultScenario = {
   run: (world) => keyExpired(world, FaultPayment.ReplayOnly),
 };
 
-/** 15's sabotage (#658): no key retention declared — the replay is a new charge, two payments. */
-export const s15Undeclared: FaultScenario = {
-  id: "s15-sabotage-retention-undeclared",
-  title: "15, sabotaged: the gateway's key retention not declared",
-  run: (world) => keyExpired(world, FaultPayment.ReplayOnlyUndeclared),
+/**
+ * 15's sabotage (#658, #795): the replay trusted as a lookup (`NotSentTrust.Lookup`, no retention) —
+ * the replay of an expired key is a new charge, two payments.
+ */
+export const s15TrustedAsLookup: FaultScenario = {
+  id: "s15-sabotage-replay-trusted-as-lookup",
+  title: "15, sabotaged: the gateway's key replay trusted as a lookup",
+  run: (world) => keyExpired(world, FaultPayment.ReplayOnlyTrustedAsLookup),
 };

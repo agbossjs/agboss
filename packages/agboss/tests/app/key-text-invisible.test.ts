@@ -1,7 +1,7 @@
 /**
  * #556 AC1 — the four rules of #556 at the entry points the shared tables do not reach elsewhere: a
  * tenant id at `app.execute`, `app.resume` and `app.cancel`, and `app.cancel`'s thread id
- * (`fencedEffectKeyOf`, a thread id at `app.execute` and `OutboundCalls.send` run every row of
+ * (`effectKeyOf`, a thread id at `app.execute` and `OutboundCalls.send` run every row of
  * `REFUSED_KEYS` in key-text-rules / key-text.acceptance). Each refusal names its rule, never the
  * text, and nothing runs.
  */

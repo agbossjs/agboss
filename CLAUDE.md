@@ -2234,7 +2234,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   warns `[application.lease-check-not-atomic]`; rate limits, the queue and the lease log are on any
   backend; `static leaseRepository` names the lease store a unit runner holds its lease in; the
   unlisted default beside SQLite leases fails its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
-  `saveResultIfAbsent(fencedEffectKeyOf(executionContext, name), work)` → `FencedEffectOutcome {
+  `saveResultIfAbsent(effectKeyOf(executionContext, name), work)` → `FencedEffectOutcome {
 status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one transaction — the
   key's lease (not its epoch, released, expired → `ExecutionFencedError`, a hand-over), the scope's
   high-water mark (a lower token refused before any key is read), the key (written → the stored
@@ -2248,13 +2248,19 @@ status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one tra
   Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
   its key's rules are exported (#526 AC5): `checkedEffectName`, `replayedFromOf` (a row's `null`s
-  taken, a stored step checked), `storedKeyFactsOf`, `fencedKeyIdentityOf`, `pendingOutboundCallOf`.
+  taken, a stored step checked), `storedKeyFactsOf`, `effectKeyIdentityOf`, `pendingOutboundCallOf`.
   A store's connection (`SqliteConnection`, `PostgresConnection`) need not be listed (#526 AC8): the
   workflow graph check takes an unlisted class under an infrastructure implementation as its own
   registration, as the container creates it.
 - **Calls that leave the system (#505):** `OutboundCalls` (a core service, `deps: [ExecutionContext,
-OutboundCalls]`) — `send(fencedEffectKeyOf(executionContext, name), { target, operation, request,
-send, reconcile })` records an intent before the call and settles it after, over the infrastructure
+OutboundCalls]`) — `send(effectKeyOf(executionContext, name), { target, operation, request,
+send, reconcile, notSent })` (`OutboundCallSendOptions`; #795: `notSent` required — `{ trust:
+NotSentTrust.Lookup }` when `reconcile` reads a record that does not expire, `{ trust:
+NotSentTrust.KeyReplay, keyRetention: hours(24) }` when its `notSent()` relies on the other system
+  replaying the key; read once, as checked; none, an unknown trust, a `KeyReplay` without a positive
+  finite retention or a `Lookup` with one →
+  `InvalidNotSentTrustError`, `outbound-call.invalid-not-sent-trust`, before anything is recorded or
+  sent) records an intent before the call and settles it after, over the infrastructure
   contract `OutboundCallRepository` (`InMemoryOutboundCallRepository`; `SqliteOutboundCallRepository`
   listed with `SqliteExecutionLeaseRepository`, else `[application.store-backend-mismatch]`; every
   read and write of an intent fenced like a fenced effect — a zombie can neither record nor send):
@@ -2267,29 +2273,35 @@ send, reconcile })` records an intent before the call and settles it after, over
   (`Replayed`); `Pending` → `reconcile(lookup)` — `lookup.attemptStartedAt` and `lookup.keyAge`
   (#658: the pending attempt's start and the key's age from its first attempt, on the store's clock;
   `undefined` for an intent recorded without them) — → `OutboundCallReconciliation.completed(result)`
-  (`Reconciled`) / `.notSent()` (sent once more, the same key, attempt + 1 — refused when the call
-  declares `keyRetention` and `keyAge + attemptTimeout` is not below it, or the age is unknown:
-  `OutboundCallUnreconciledError`, nothing sent) / `.unknown({ reason })` →
+  (`Reconciled`) / `.notSent()` (sent once more, the same key, attempt + 1 — a `Lookup`'s at any age,
+  a `KeyReplay`'s refused when `keyAge + attemptTimeout` is not below its `keyRetention`, or the age
+  is unknown: `OutboundCallUnreconciledError`, nothing sent) / `.unknown({ reason })` →
   `OutboundCallUnreconciledError` (`outbound-call.unreconciled`, a `StepFailedError`, the intent kept
   pending; also a `reconcile` that throws or gives no verdict); `Failed` → sent again (no key-age check:
   nothing moved). Every attempt
   has an owner (`attemptOwner`, a random id per claim); a new attempt is a compare-and-set on status,
   attempt and owner (`markPending(key, expected, claim)`, `OutboundCallState`, `OutboundCallClaim`):
   the loser sends nothing and reads again; `markCompleted` / `markFailed` end an attempt only for its owner (a compare-and-set), the owner live from before its intent is recorded, nothing sent once the step aborted — the winner's result replayed, its pending attempt
-  `OutboundCallInFlightError` (`outbound-call.in-flight`), at most three reads; the same call this
+  `OutboundCallInFlightError` (`outbound-call.in-flight`), at most three reads; an attempt answered
+  after a newer one took its intent over (both reached the other system) is
+  `OutboundCallSupersededError` (#795: `outbound-call.superseded`, a `StepFailedError` — `call`,
+  `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy` —, never an outcome: the
+  answer is not stored, the lease log and the log name both attempts); the same call this
   instance is making meanwhile is joined (`Joined`), never reconciled or resent. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
   child's own): the request, the result and a failure's text — every read shows what is stored; `send`
   and the step get real values, a replay the masked result, `reconcile` the stored request
   (`lookup.storedRequest`) and the key to look the call up by; no mask where policies exist →
   `OutboundCallUnmaskedError`. `@Application({ outboundCalls: { maxPayloadSize, retention } })`
-  (64 KB, `hours(168)`; `OutboundCallPayloadTooLargeError`; ended intents removed by the sweep,
+  (`OutboundCallOptions`, resolved as `OutboundCallSettings` — built by hand it takes
+  `requiresMask`, never a silent `false`, #795; `fencedEffects` the same: `FencedEffectOptions` →
+  `FencedEffectSettings`; 64 KB, `hours(168)`; `OutboundCallPayloadTooLargeError`; ended intents removed by the sweep,
   pending ones never). Read by `app.outboundCallsOf({ tenantId, rootExecutionId })` /
   `app.pendingOutboundCalls({ tenantId })`, `ExecutionHistoryRecord.outboundCalls`, each move an
   `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
   `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Ambiguous`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
-- **Business idempotency keys (#508):** `fencedEffectKeyOf(executionContext, name, { businessKey,
+- **Business idempotency keys (#508):** `effectKeyOf(executionContext, name, { businessKey,
 fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; a key's text,
   #538 — 1–200 characters, no C0 / C1 control (`Cc`), no format character (`Cf`: zero-width, bidi
   controls, U+FEFF, …), no lone surrogate, no space but U+0020 and that one single and inside (#547: `Zs`, U+2028, U+2029 refused, `space-separator`; none at an edge, never two in a row, `spacing`), no code point that renders as nothing (#556:
@@ -2302,7 +2314,7 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; 
   `spacing`, `ignorable`, `private-or-noncharacter`, `unassigned`, `blank`, `not-nfc` —, wherever each
   breach stands); else `InvalidBusinessKeyError`,
   `fenced-effect.invalid-business-key`, its `rule` named, never the key — checked by
-  `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, `checkedBusinessKey` for a
+  `effectKeyOf`, `OutboundCalls.send` and every store's entry, `checkedBusinessKey` for a
   store of your own) —
   one row per tenant, name and business key, whatever step, execution or thread makes it; fencing
   is unchanged (the caller's lease and scope mark first, so a zombie is refused before any lookup).
@@ -2326,8 +2338,10 @@ fingerprint? })` keys an effect or a call by a business identity (`"order:42"`; 
   30 s; a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1)) → `OutboundCallInFlightError`; once its owner is gone, the next
   caller reconciles it, by the compare-and-set. An answer that comes after its lease was handed over is fenced, not stored,
   and logged (`outbound-call.answered-after-hand-over`). An attempt answered after a newer one took
-  the intent over is `Superseded` (both reached the other system; an error `outbound-call.superseded`
-  on the instance's log, the newer attempt named — "unknown" when the intent cannot be read). An
+  the intent over — answered or a definite failure — fails with `OutboundCallSupersededError` (#795:
+  both reached the other system; a joined call shares it; the lease log's row `Superseded` and an
+  error `outbound-call.superseded` on the instance's log, the newer attempt named — "unknown" when
+  the intent cannot be read, the read's code on the log). An
   answered call ends `Completed` even when its result cannot be stored (a marker in its place, a
   warning `outbound-call.result-not-stored`, never `Failed`, which would resend); a replay of it is
   `OutboundCallResultNotStoredError` (`outbound-call.result-not-stored`, a `StepFailedError`,

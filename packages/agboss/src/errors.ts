@@ -91,6 +91,12 @@ export {
 export { ApplicationStoppingError } from "./core/errors.js";
 export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export {
+  InvalidNotSentTrustError,
+  OutboundCallSupersededError,
+  type InvalidNotSentTrustErrorOptions,
+} from "./app/outbound-call-contract.js";
+export type { OutboundCallSupersededErrorOptions } from "./app/outbound-call-types.js";
+export {
   OutboundCallInFlightError,
   OutboundCallPayloadTooLargeError,
   OutboundCallResultNotStoredError,

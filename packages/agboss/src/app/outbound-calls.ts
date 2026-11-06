@@ -4,14 +4,15 @@ import { ComponentKind } from "../flow/runtime/records.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { checkedBusinessKey, checkedEffectName } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
-import type { FencedEffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import { Clock, SystemClock, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger, SilentLogger } from "../infrastructure/logger.js";
+import { checkedNotSentTrust } from "./outbound-call-contract.js";
 import type { LiveCall } from "./outbound-call-parts.js";
 import type {
   OutboundCallInFlightErrorOptions,
-  OutboundCallOptions,
+  OutboundCallSendOptions,
   OutboundCallOutcome,
   OutboundCallPayloadTooLargeErrorOptions,
   OutboundCallUnknownOptions,
@@ -22,7 +23,7 @@ export type {
   OutboundCall,
   OutboundCallInFlightErrorOptions,
   OutboundCallLookup,
-  OutboundCallOptions,
+  OutboundCallSendOptions,
   OutboundCallOutcome,
   OutboundCallPayloadTooLargeErrorOptions,
   OutboundCallUnknownOptions,
@@ -52,11 +53,6 @@ export enum OutboundCallOutcomeStatus {
    * shared — nothing sent again.
    */
   Joined = "joined",
-  /**
-   * Sent and answered, but a newer attempt took the intent over meanwhile (#508): both reached the
-   * other system, this answer is not stored and the log names both attempts. Check the other system.
-   */
-  Superseded = "superseded",
 }
 
 /** What `reconcile` found. */
@@ -65,7 +61,7 @@ export enum OutboundCallVerdict {
   Completed = "completed",
   /**
    * It never arrived — or the other system replays its key (#658): send it, with the same key;
-   * refused past the call's `keyRetention`.
+   * refused past a `KeyReplay`'s `keyRetention`.
    */
   NotSent = "not-sent",
   /** The other system cannot say: the step fails, the intent stays pending. */
@@ -101,7 +97,7 @@ export class OutboundCallReconciliation<TResult> {
 
   /**
    * The call never arrived (or the other system replays its key): it is sent once more, with the
-   * same key and the next attempt — unless the key is past the call's `keyRetention` (#658):
+   * same key and the next attempt — unless the key is past a `KeyReplay`'s `keyRetention` (#658):
    * `OutboundCallUnreconciledError`, nothing sent.
    */
   static notSent(): OutboundCallReconciliation<never> {
@@ -138,20 +134,25 @@ export class OutboundCalls {
   ) {}
 
   /**
-   * Sends the call of `key` (`fencedEffectKeyOf(executionContext, name)`) at most once per
+   * Sends the call of `key` (`effectKeyOf(executionContext, name)`) at most once per
    * outcome: completed → its stored result (`Replayed`); left pending — a crash before the answer,
-   * an error of unknown outcome (#657) — → `reconcile` decides, a `notSent()` refused past the
-   * call's `keyRetention` (#658); failed for certain (`isDefiniteFailure`) → sent again with the
-   * same key; none → recorded, then sent. A zombie's call is refused (`ExecutionFencedError`)
-   * before anything is recorded or sent.
+   * an error of unknown outcome (#657) — → `reconcile` decides, a `KeyReplay`'s `notSent()` refused
+   * past its `keyRetention` (#658); failed for certain (`isDefiniteFailure`) → sent again with the
+   * same key; none → recorded, then sent; answered after a newer attempt took it over →
+   * `OutboundCallSupersededError` (#795). A zombie's call, or one whose `notSent` is not one
+   * (`InvalidNotSentTrustError`, #795), is refused before anything is recorded or sent.
    */
   async send<TRequest, TResult>(
-    key: FencedEffectKey,
-    options: OutboundCallOptions<TRequest, TResult>,
+    key: EffectKey,
+    options: OutboundCallSendOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
-    // a key built by hand is checked as fencedEffectKeyOf checks it (#508, #538): nothing recorded or sent
+    // a key built by hand is checked as effectKeyOf checks it (#508, #538): nothing recorded or sent
     checkedEffectName(key.name);
     checkedBusinessKey(key);
+    // #795: how far a notSent() is trusted, said and valid — a JavaScript caller's too; the
+    // checked copy is the one the protocol reads (`options` as given is the caller's, live)
+    const { notSent, ...given } = options; // read once: a getter is never asked again
+    const checked = { ...given, notSent: checkedNotSentTrust(key.name, notSent) };
     const { sendOutboundCall } = await lazyLoad(import("./outbound-call-protocol.js"));
     const { repository, settings } = this;
     const live = this.#live;
@@ -163,13 +164,13 @@ export class OutboundCalls {
       log: frameworkLogOf(this.logger, this.clock),
       clock: this.clock,
     };
-    return sendOutboundCall(parts, key, options);
+    return sendOutboundCall(parts, key, checked);
   }
 }
 
 /**
  * An intent left pending could not be reconciled (#505): `reconcile` said `unknown`, threw (its
- * error the `cause`), gave no verdict, or said `notSent()` for a key past the call's
+ * error the `cause`), gave no verdict, or said `notSent()` for a key past its `KeyReplay`'s
  * `keyRetention` (#658: a resend could be a new call). Nothing was sent; the intent stays `Pending`, listed by
  * `app.pendingOutboundCalls` for an operator. A `StepFailedError`: `.onError(…)` may take it.
  */

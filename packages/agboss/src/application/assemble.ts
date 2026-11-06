@@ -263,10 +263,10 @@ export async function applicationOf(
     ...retentionsOf(options),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     fencedEffects: new FencedEffectSettings(options.fencedEffects),
-    outboundCalls: new OutboundCallSettings(
-      options.outboundCalls,
-      hasPiiPolicies(options, assembled),
-    ),
+    outboundCalls: new OutboundCallSettings({
+      ...options.outboundCalls,
+      requiresMask: hasPiiPolicies(options, assembled),
+    }),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

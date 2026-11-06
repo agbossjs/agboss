@@ -13,7 +13,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type BudgetHandler,
   type Produced,
 } from "../../../src/index.js";
@@ -42,7 +42,7 @@ export const book = {
   charges: [] as ChargeRow[],
   /** Each run of the action: the token it ran under and how its effect went (`refused`). */
   runs: [] as { readonly token: number; readonly status: FencedEffectStatus | "refused" }[],
-  /** What a budget's `maxSpend()` got from `fencedEffectKeyOf` (no lease is held there). */
+  /** What a budget's `maxSpend()` got from `effectKeyOf` (no lease is held there). */
   budgetKey: [] as unknown[],
 };
 
@@ -117,7 +117,7 @@ export class ChargeOrderAction {
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects
@@ -156,7 +156,7 @@ export class DoubleChargeAction {
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const order = input.message.value.text;
     const charge = (transaction: unknown): Receipt => {
       if (!(transaction instanceof InMemoryFencedEffectTransaction))
@@ -180,7 +180,7 @@ export class FencedExecutionBudget implements BudgetHandler {
 
   maxSpend(): Usd {
     try {
-      book.budgetKey.push(fencedEffectKeyOf(this.executionContext, "budget"));
+      book.budgetKey.push(effectKeyOf(this.executionContext, "budget"));
     } catch (error) {
       book.budgetKey.push(error);
     }

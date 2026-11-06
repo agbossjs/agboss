@@ -2,7 +2,7 @@ import { expect } from "vitest";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
@@ -21,7 +21,7 @@ import {
  */
 
 /** `lease`'s step key under business key `order:42`. */
-const businessKeyOf = (lease: ExecutionLease): FencedEffectKey => ({
+const businessKeyOf = (lease: ExecutionLease): EffectKey => ({
   ...keyOf(lease),
   businessKey: "order:42",
   fingerprint: "fingerprint-a",
@@ -131,7 +131,7 @@ const expiredLease: OutboundCallCase = {
 /** What the holder of a closed lease still tries at its token: each must be refused. */
 const HOLDER_WRITES: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: FencedEffectKey) => Promise<unknown>,
+  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   ["saveIfAbsent", (stores, key) => stores.calls.saveIfAbsent(key, intentOf(key))],

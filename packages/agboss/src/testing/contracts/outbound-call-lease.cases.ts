@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf } from "./fenced-effect-data.js";
@@ -18,10 +18,10 @@ import { inTurn, PENDING, ROUNDS } from "./outbound-call-race.cases.js";
 
 /** Round `round`'s keys of one business key under two leases: two executions, two instances. */
 const crossLeaseKeys = (
-  one: FencedEffectKey,
-  other: FencedEffectKey,
+  one: EffectKey,
+  other: EffectKey,
   round: number,
-): readonly [FencedEffectKey, FencedEffectKey] => {
+): readonly [EffectKey, EffectKey] => {
   const businessKey = `order:${String(round)}`;
   return [
     { ...one, businessKey, fingerprint: "f" },

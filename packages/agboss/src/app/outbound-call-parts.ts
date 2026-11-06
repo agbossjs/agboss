@@ -9,10 +9,7 @@ import type {
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
-import type {
-  FencedEffectKey,
-  FencedEffectOrigin,
-} from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey, FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import type {
   OutboundCallFailure,
   OutboundCallRecord,
@@ -25,7 +22,7 @@ import {
   REDACTED,
   type OutboundCall,
   type OutboundCallLookup,
-  type OutboundCallOptions,
+  type OutboundCallSendOptions,
   type OutboundCallOutcome,
   type OutboundCallOutcomeStatus,
   OutboundCallPart,
@@ -71,8 +68,8 @@ export interface LiveCall {
 /** One call in flight: its parts, key, options, the step's frame and the key it goes with. */
 export interface CallRun<TRequest, TResult> {
   readonly parts: OutboundCallParts;
-  readonly key: FencedEffectKey;
-  readonly options: OutboundCallOptions<TRequest, TResult>;
+  readonly key: EffectKey;
+  readonly options: OutboundCallSendOptions<TRequest, TResult>;
   readonly frame: FrameSpec;
   readonly idempotencyKey: string;
   /** Whether the other system answered its attempt with an error: what a joined call shares. */

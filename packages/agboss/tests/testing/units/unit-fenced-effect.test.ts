@@ -15,7 +15,7 @@ import {
   ExecutionLeaseRepository,
   FencedEffectSettings,
   FencedEffectStatus,
-  fencedEffectKeyOf,
+  effectKeyOf,
   InMemoryFencedEffectRepository,
   Injectable,
 } from "../../../src/index.js";
@@ -90,7 +90,7 @@ class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
 }
 
 const writeOnce = (store: InMemoryFencedEffectRepository, executionContext: ExecutionContext) =>
-  store.saveResultIfAbsent(fencedEffectKeyOf(executionContext, "charge"), () => "done");
+  store.saveResultIfAbsent(effectKeyOf(executionContext, "charge"), () => "done");
 
 @Action({
   name: "unleased-charge-action",

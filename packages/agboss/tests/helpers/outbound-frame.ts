@@ -4,13 +4,14 @@ import { applicationContextOf } from "../../src/flow/context/application-context
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   InMemoryOutboundCallRepository,
+  NotSentTrust,
   OutboundCallReconciliation,
-  OutboundCalls,
   OutboundCallSettings,
+  OutboundCalls,
   type Clock,
-  type FencedEffectKey,
+  type EffectKey,
   type OutboundCallLookup,
-  type OutboundCallOptions,
+  type OutboundCallSendOptions,
   type OutboundCallOutcome,
 } from "../../src/index.js";
 import {
@@ -53,7 +54,7 @@ export interface OutboundFrameOptions {
 /** A taken lease and the key of a call under it. */
 export interface KeyedLease {
   readonly lease: ExecutionLease;
-  readonly key: FencedEffectKey;
+  readonly key: EffectKey;
 }
 
 /** One instance's stores and `OutboundCalls`, with what its frame was told and its log. */
@@ -66,8 +67,8 @@ export interface OutboundFrame {
   readonly logger: { readonly entries: LogEntry[] };
   readonly keyIn: (executionId: string, businessKey?: string) => Promise<KeyedLease>;
   readonly send: <TRequest, TResult>(
-    key: FencedEffectKey,
-    callOptions: OutboundCallOptions<TRequest, TResult>,
+    key: EffectKey,
+    callOptions: OutboundCallSendOptions<TRequest, TResult>,
   ) => Promise<OutboundCallOutcome<TResult>>;
 }
 
@@ -101,7 +102,7 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const frame: FrameSpec = { ...base, execution: { ...base.execution, lease } };
   const origin = { executionId: base.execution.executionId, nodeId: "pay-action", visitNumber: 1 };
   const logger = new KeptLogger();
-  const settings = options.settings ?? new OutboundCallSettings();
+  const settings = options.settings ?? new OutboundCallSettings({ requiresMask: false });
   const instanceClock = options.instanceClock?.(clock) ?? clock;
   const calls = new OutboundCalls(store, settings, logger, instanceClock);
   /** The lease of `executionId` taken, and the call's key under it — `order:42` by default. */
@@ -112,8 +113,8 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   };
   /** `calls.send` in the step's frame. */
   const send = <TRequest, TResult>(
-    key: FencedEffectKey,
-    callOptions: OutboundCallOptions<TRequest, TResult>,
+    key: EffectKey,
+    callOptions: OutboundCallSendOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> => runInFrame(frame, () => calls.send(key, callOptions));
   return { clock, store, leases, reports, logger, keyIn, send };
 }
@@ -156,8 +157,8 @@ export const byReference =
 /** A charge of 10 at `gateway`, reconciled by reference, with `extra` options over it. */
 export const gatewayCharge = (
   gateway: FakeOutboundGateway,
-  extra: Partial<OutboundCallOptions<GatewayChargeRequest, GatewayPaymentReceipt>> = {},
-): OutboundCallOptions<GatewayChargeRequest, GatewayPaymentReceipt> => ({
+  extra: Partial<OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt>> = {},
+): OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt> => ({
   target: "gateway",
   operation: "charge",
   request: { amount: 10 },
@@ -165,6 +166,7 @@ export const gatewayCharge = (
     const receipt = await gateway.charge({ amount: 10, idempotencyKey: call.idempotencyKey });
     return { paymentId: receipt.paymentId };
   },
+  notSent: { trust: NotSentTrust.Lookup },
   reconcile: byReference(gateway),
   ...extra,
 });

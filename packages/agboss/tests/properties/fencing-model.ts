@@ -9,8 +9,8 @@ import { scopeKeyOf } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
-import { fencedKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
-import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
+import { effectKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
+import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
 import { TEST_START, VirtualClock } from "../../src/testing/clock.js";
 import type { ContractTarget, OutboundCallStores } from "../../src/testing/contracts/index.js";
@@ -142,10 +142,10 @@ export async function worldOn(target: ContractTarget<OutboundCallStores>): Promi
 function keyOf(
   world: PropertyWorld,
   instance: number,
-): { readonly key: FencedEffectKey; readonly facts: CallKeyFacts } {
+): { readonly key: EffectKey; readonly facts: CallKeyFacts } {
   const lease = world.leases.get(instance);
   const leaseTree = lease?.rootExecutionId ?? TREES[0];
-  const key: FencedEffectKey = {
+  const key: EffectKey = {
     scopeKey: scopeKeyOf(TENANT, leaseTree),
     tenantId: TENANT,
     leaseExecutionId: leaseTree,
@@ -159,7 +159,7 @@ function keyOf(
     tree: treeOf(TENANT, leaseTree),
     token: key.token,
     scope: key.scopeKey,
-    identity: fencedKeyIdentityOf(key),
+    identity: effectKeyIdentityOf(key),
     leaseExecutionId: leaseTree,
   };
   return { key, facts };
@@ -313,7 +313,7 @@ export async function firstDifference(
   return undefined;
 }
 
-const intentOf = (key: FencedEffectKey, attemptOwner: string) => ({
+const intentOf = (key: EffectKey, attemptOwner: string) => ({
   rootExecutionId: key.leaseExecutionId,
   executionId: key.leaseExecutionId,
   workflow: "property-workflow",

@@ -14,7 +14,7 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
   FencedEffectStatus,
-  type FencedEffectKey,
+  type EffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
@@ -66,7 +66,7 @@ function effectsInFrame() {
 }
 
 /** `key` of a business identity, made by step `executionId`. */
-const businessKeyOf = (key: FencedEffectKey, executionId: string): FencedEffectKey => ({
+const businessKeyOf = (key: EffectKey, executionId: string): EffectKey => ({
   ...key,
   businessKey: "order:42",
   origin: { executionId, nodeId: "charge-action", visitNumber: 1 },

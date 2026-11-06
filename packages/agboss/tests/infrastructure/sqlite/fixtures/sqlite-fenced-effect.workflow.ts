@@ -14,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type Produced,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -75,7 +75,7 @@ export class SqliteChargeOrderAction {
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects

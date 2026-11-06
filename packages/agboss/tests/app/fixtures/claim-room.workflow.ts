@@ -12,7 +12,11 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
-import { ItemDto, ItemResultDto, SummaryDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import {
+  ItemDto,
+  ItemResultDto,
+  SummaryDto,
+} from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
  * #767 — a worker's room to claim children on any instance: `claim-room-batch-workflow` launches

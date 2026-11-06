@@ -5,14 +5,17 @@ import {
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
 import type { Milliseconds } from "../units/index.js";
-import { fencedEnd, superseded } from "./outbound-call-endings.js";
+import type { OutboundCallSupersededError } from "./outbound-call-contract.js";
+import { fencedEnd, supersededErrorOf } from "./outbound-call-endings.js";
+import { NotSentTrust } from "./outbound-call-contract.js";
 import { maskedFailureOf, subjectOf, told, type CallRun } from "./outbound-call-parts.js";
 
 /**
  * When the outcome of a call is not known (#657, #658), loaded with the protocol: an error `send`
  * threw is a definite failure only when the call's `isDefiniteFailure` says so — anything else
  * leaves the intent pending, for `reconcile`; and a `notSent()` is sent again only while the key is
- * younger than the other system's `keyRetention` by at least `attemptTimeout`.
+ * younger than the other system's `keyRetention` by at least `attemptTimeout` — under
+ * `NotSentTrust.KeyReplay` (#795); under `Lookup` at any age.
  */
 
 /**
@@ -84,16 +87,18 @@ export function keyAgeOf<TRequest, TResult>(
 }
 
 /**
- * Why a `notSent()` of `found` must not be sent again (#658), or `undefined` when it may: with a
- * `keyRetention`, only a key whose age plus `attemptTimeout` (how long the resend may take to
- * arrive) is below it — an age not recorded, or a retention that is not a number, refuses.
+ * Why a `notSent()` of `found` must not be sent again (#658), or `undefined` when it may: a
+ * `Lookup`'s at any age; a `KeyReplay`'s only for a key whose age plus `attemptTimeout` (how long the
+ * resend may take to arrive) is below its `keyRetention` — an age not recorded refuses (#795: the
+ * trust was checked before anything was recorded or sent).
  */
 export function keyRetentionRefusalOf<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   keyAge: Milliseconds | undefined,
 ): string | undefined {
-  const { keyRetention, target } = run.options;
-  if (keyRetention === undefined) return undefined;
+  const { notSent, target } = run.options;
+  if (notSent.trust === NotSentTrust.Lookup) return undefined;
+  const { keyRetention } = notSent;
   const margin = run.parts.settings.attemptTimeout;
   // an age not recorded is as old as can be: refused
   if ((keyAge ?? Number.POSITIVE_INFINITY) + margin < keyRetention) return undefined;
@@ -108,22 +113,25 @@ export function keyRetentionRefusalOf<TRequest, TResult>(
 /**
  * Attempt `attempt` threw `error`, its step not aborted: `Failed` (fenced, for its owner) only when
  * the call's `isDefiniteFailure` says the other system did not carry it out (#657); anything else
- * leaves it `Pending`, so the next call reconciles it before anything is sent again.
+ * leaves it `Pending`, so the next call reconciles it before anything is sent again. A definite
+ * failure answered after a newer attempt took the intent over is `OutboundCallSupersededError`
+ * (#795, the failure its `cause`): the newer attempt may have been carried out.
  */
 export async function failedOrPending<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
   owner: string,
   error: unknown,
-): Promise<void> {
+): Promise<OutboundCallSupersededError | undefined> {
   // the other system's error, definite or not: a call joined to this one shares it
   run.answer.isAnswered = true;
   if (!isDefiniteFailureOf(run, error)) {
     leftPending(run, attempt, error);
-    return;
+    return undefined;
   }
   const failure = await maskedFailureOf(run, error);
   const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure);
-  if (!(await fencedEnd(run, attempt, isFailed))) await superseded(run, attempt);
-  else told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
+  if (!(await fencedEnd(run, attempt, isFailed))) return supersededErrorOf(run, attempt, error);
+  told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
+  return undefined;
 }

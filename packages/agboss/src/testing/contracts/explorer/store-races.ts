@@ -1,4 +1,4 @@
-import type { FencedEffectKey } from "../../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRepository,
@@ -97,7 +97,7 @@ const onKey = (
   run: ExplorerRun,
   instance: number,
   lease: ExecutionLease,
-): { readonly calls: OutboundCallRepository; readonly key: FencedEffectKey } => {
+): { readonly calls: OutboundCallRepository; readonly key: EffectKey } => {
   const calls = run.storesOf(instance).calls;
   if (calls === undefined) throw new TypeError("no outbound-call store");
   return { calls, key: callKeyOf("tree-1", lease.leaseEpoch) };

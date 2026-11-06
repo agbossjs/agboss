@@ -12,7 +12,7 @@ import {
   checkedBusinessKey,
   FencedEffectStatus,
   InvalidBusinessKeyError,
-  type FencedEffectKey,
+  type EffectKey,
 } from "../../src/index.js";
 import {
   keyOf,
@@ -257,7 +257,7 @@ describe.each(CALL_TARGETS)("#538 AC2: outbound-call intents (%s)", (_kind, targ
         fc.asyncProperty(distinctKeys, async (keys) => {
           round += 1;
           const lease = await leaseOf(first, `execution-${String(round)}`);
-          const keyed = (businessKey: string): FencedEffectKey => ({
+          const keyed = (businessKey: string): EffectKey => ({
             ...keyOf(lease, `charge-${String(round)}`),
             businessKey,
           });
@@ -288,7 +288,7 @@ function effectsProperty<TTransaction>(
       fc.asyncProperty(distinctKeys, async (keys) => {
         round += 1;
         const lease = await leaseOf(first, `execution-${String(round)}`);
-        const keyed = (businessKey: string): FencedEffectKey => ({
+        const keyed = (businessKey: string): EffectKey => ({
           ...keyOf(lease, `charge-${String(round)}`),
           businessKey,
         });

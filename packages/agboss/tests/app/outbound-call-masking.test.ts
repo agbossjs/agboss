@@ -9,7 +9,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   OutboundCallRepository,
-  OutboundCallSettings,
   OutboundCallUnmaskedError,
   Workflow,
   WorkflowStart,
@@ -114,7 +113,6 @@ describe("#505: no mask where policies exist — fail closed", () => {
 
     expect(withPolicies.outboundCalls.requiresMask).toBe(true);
     expect(without.outboundCalls.requiresMask).toBe(false);
-    expect(new OutboundCallSettings().requiresMask).toBe(false);
   });
 });
 

@@ -550,7 +550,7 @@ export interface ApplicationOptions {
     readonly executionContext?: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes?: readonly Class[];
-    readonly fencedEffects?: FencedEffectsOptions;
+    readonly fencedEffects?: FencedEffectOptions;
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly leaseEventRetention?: Milliseconds;
@@ -560,7 +560,7 @@ export interface ApplicationOptions {
     readonly mesh?: MeshOptions;
     readonly name: string;
     readonly observers?: readonly ObserverClass[];
-    readonly outboundCalls?: OutboundCallsOptions;
+    readonly outboundCalls?: OutboundCallOptions;
     readonly pauseRecordRetention?: Milliseconds;
     readonly piiPolicies?: readonly Class[];
     readonly providers?: readonly Provider[];
@@ -1010,7 +1010,7 @@ export interface ChannelWithdrawal<TRole> {
 }
 
 // @public
-export function checkedBusinessKey(key: Pick<FencedEffectKey, "name" | "businessKey">): void;
+export function checkedBusinessKey(key: Pick<EffectKey, "name" | "businessKey">): void;
 
 // @public
 export function checkedEffectName(name: string): void;
@@ -1720,6 +1720,33 @@ export class DuplicateThreadIdError extends AGBossError {
     readonly generator: string;
     name: string;
     readonly tries: number;
+}
+
+// @public
+export interface EffectKey {
+    readonly businessKey?: string;
+    readonly businessKeyHash?: string;
+    readonly fingerprint?: string;
+    readonly idempotencyKey: string;
+    readonly leaseExecutionId: string;
+    readonly name: string;
+    readonly origin?: FencedEffectOrigin;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+}
+
+// @public
+export const effectKeyIdentityOf: (key: EffectKey) => string;
+
+// @public
+export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options?: EffectKeyOptions<TFingerprint>): EffectKey;
+
+// @public
+export interface EffectKeyOptions<TFingerprint = unknown> {
+    readonly businessKey: string;
+    readonly fingerprint?: JsonResult<TFingerprint>;
 }
 
 // @public
@@ -2565,27 +2592,10 @@ export enum FencedEffectEventOutcome {
 }
 
 // @public
-export interface FencedEffectKey {
-    readonly businessKey?: string;
-    readonly businessKeyHash?: string;
-    readonly fingerprint?: string;
-    readonly idempotencyKey: string;
-    readonly leaseExecutionId: string;
-    readonly name: string;
-    readonly origin?: FencedEffectOrigin;
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    readonly token: number;
-}
-
-// @public
-export function fencedEffectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options?: FencedEffectKeyOptions<TFingerprint>): FencedEffectKey;
-
-// @public
-export interface FencedEffectKeyOptions<TFingerprint = unknown> {
-    readonly businessKey: string;
-    readonly fingerprint?: JsonResult<TFingerprint>;
+export interface FencedEffectOptions {
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxResultSize?: Bytes;
+    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -2631,10 +2641,10 @@ export abstract class FencedEffectRepository<TTransaction> {
     static readonly leaseCheck: LeaseCheck;
     static readonly leaseRepository: Class | undefined;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: FencedEffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    saveResultIfAbsent<TResult>(key: FencedEffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    saveResultIfAbsent<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
     protected readonly settings: FencedEffectSettings;
-    protected storedResultOf(key: FencedEffectKey, result: unknown): string;
+    protected storedResultOf(key: EffectKey, result: unknown): string;
 }
 
 // @public
@@ -2663,16 +2673,9 @@ export interface FencedEffectResultTooLargeErrorOptions {
 
 // @public
 export class FencedEffectSettings {
-    constructor(options?: FencedEffectsOptions);
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    constructor(options?: FencedEffectOptions);
     readonly maxResultSize: Bytes;
     readonly retention: Milliseconds;
-}
-
-// @public
-export interface FencedEffectsOptions {
-    readonly maxResultSize?: Bytes;
-    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -2706,9 +2709,6 @@ export interface FencedEffectStoreMismatchErrorOptions {
 
 // @public
 export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonResult<TResult>) | Promise<TResult & JsonResult<TResult>>;
-
-// @public
-export const fencedKeyIdentityOf: (key: FencedEffectKey) => string;
 
 // @public
 export function file(filePath: string): string;
@@ -3239,7 +3239,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: FencedEffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
 }
 
 // @public
@@ -3259,21 +3259,21 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     // (undocumented)
     findAllByTenantIdAndStatus(tenantId: string, status: OutboundCallStatus): Promise<readonly OutboundCallRecord[]>;
     // (undocumented)
-    findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+    findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     // (undocumented)
     static readonly leaseRepository: Class | undefined;
     // (undocumented)
     leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
     // (undocumented)
-    markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean>;
+    markCompleted(key: EffectKey, owner: string, result: string): Promise<boolean>;
     // (undocumented)
-    markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean>;
+    markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean>;
     // (undocumented)
-    markPending(key: FencedEffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
+    markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+    saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
 }
 
 // @public
@@ -3352,6 +3352,27 @@ export class InvalidMintedIdError extends AGBossError {
     // (undocumented)
     name: string;
     readonly rule: KeyTextRule;
+}
+
+// @public
+export class InvalidNotSentTrustError extends AGBossError {
+    constructor(options: InvalidNotSentTrustErrorOptions);
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: "outbound-call.invalid-not-sent-trust";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly problem: string;
+}
+
+// @public
+export interface InvalidNotSentTrustErrorOptions {
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    readonly problem: string;
 }
 
 // @public
@@ -4119,6 +4140,26 @@ export class NotPausedError extends AGBossError {
     name: string;
 }
 
+// @public
+export interface NotSentByKeyReplay {
+    readonly keyRetention: Milliseconds;
+    // (undocumented)
+    readonly trust: NotSentTrust.KeyReplay;
+}
+
+// @public
+export interface NotSentByLookup {
+    readonly keyRetention?: never;
+    // (undocumented)
+    readonly trust: NotSentTrust.Lookup;
+}
+
+// @public
+export enum NotSentTrust {
+    KeyReplay = "key-replay",
+    Lookup = "lookup"
+}
+
 // Warning: (ae-forgotten-export) The symbol "BuiltReplyInterpretation" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -4583,14 +4624,13 @@ export interface OutboundCallLookup {
 }
 
 // @public
-export interface OutboundCallOptions<TRequest, TResult> {
-    readonly isDefiniteFailure?: (error: unknown) => boolean;
-    readonly keyRetention?: Milliseconds;
-    readonly operation: string;
-    readonly reconcile: (lookup: OutboundCallLookup) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
-    readonly request: TRequest & JsonResult<TRequest>;
-    readonly send: (call: OutboundCall<TRequest>) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
-    readonly target: string;
+export type OutboundCallNotSent = NotSentByLookup | NotSentByKeyReplay;
+
+// @public
+export interface OutboundCallOptions {
+    readonly attemptTimeout?: Milliseconds;
+    readonly maxPayloadSize?: Bytes;
+    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -4611,8 +4651,7 @@ export enum OutboundCallOutcomeStatus {
     Joined = "joined",
     Reconciled = "reconciled",
     Replayed = "replayed",
-    Sent = "sent",
-    Superseded = "superseded"
+    Sent = "sent"
 }
 
 // @public
@@ -4690,15 +4729,15 @@ export abstract class OutboundCallRepository {
     abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
     abstract findAllByTenantIdAndStatus(tenantId: string, status: OutboundCallStatus): Promise<readonly OutboundCallRecord[]>;
-    abstract findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+    abstract findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     static readonly leaseCheck: LeaseCheck;
     static readonly leaseRepository: Class | undefined;
     abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
-    abstract markCompleted(key: FencedEffectKey, attemptOwner: string, result: string): Promise<boolean>;
-    abstract markFailed(key: FencedEffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
-    abstract markPending(key: FencedEffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
+    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
+    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    abstract markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+    abstract saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
 }
 
 // @public
@@ -4721,12 +4760,23 @@ export class OutboundCallResultNotStoredError extends StepFailedError {
 // @public
 export class OutboundCalls {
     constructor(repository: OutboundCallRepository, settings: OutboundCallSettings, logger?: Logger, clock?: Clock);
-    send<TRequest, TResult>(key: FencedEffectKey, options: OutboundCallOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
+    send<TRequest, TResult>(key: EffectKey, options: OutboundCallSendOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
+}
+
+// @public
+export interface OutboundCallSendOptions<TRequest, TResult> {
+    readonly isDefiniteFailure?: (error: unknown) => boolean;
+    readonly notSent: OutboundCallNotSent;
+    readonly operation: string;
+    readonly reconcile: (lookup: OutboundCallLookup) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
+    readonly request: TRequest & JsonResult<TRequest>;
+    readonly send: (call: OutboundCall<TRequest>) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
+    readonly target: string;
 }
 
 // @public
 export class OutboundCallSettings {
-    constructor(options?: OutboundCallsOptions, requiresMask?: boolean);
+    constructor(options?: OutboundCallSettingsOptions);
     readonly attemptTimeout: Milliseconds;
     readonly maxPayloadSize: Bytes;
     readonly requiresMask: boolean;
@@ -4734,10 +4784,8 @@ export class OutboundCallSettings {
 }
 
 // @public
-export interface OutboundCallsOptions {
-    readonly attemptTimeout?: Milliseconds;
-    readonly maxPayloadSize?: Bytes;
-    readonly retention?: Milliseconds;
+export interface OutboundCallSettingsOptions extends OutboundCallOptions {
+    readonly requiresMask: boolean;
 }
 
 // @public
@@ -4769,6 +4817,38 @@ export interface OutboundCallStep {
     readonly nodeId: string;
     // (undocumented)
     readonly visitNumber: number;
+}
+
+// @public
+export class OutboundCallSupersededError extends StepFailedError {
+    constructor(options: OutboundCallSupersededErrorOptions, cause?: unknown);
+    readonly attempt: number;
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    static readonly code: "outbound-call.superseded";
+    readonly idempotencyKey: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: string;
+    readonly supersededBy: number | undefined;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
+export interface OutboundCallSupersededErrorOptions {
+    readonly attempt: number;
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly operation: string;
+    readonly supersededBy: number | undefined;
+    // (undocumented)
+    readonly target: string;
 }
 
 // @public
@@ -5076,7 +5156,7 @@ export interface PendingApproval extends PendingPauseBase {
 }
 
 // @public
-export const pendingOutboundCallOf: (key: FencedEffectKey, intent: OutboundCallIntent, recordedAt: Date) => OutboundCallRecord;
+export const pendingOutboundCallOf: (key: EffectKey, intent: OutboundCallIntent, recordedAt: Date) => OutboundCallRecord;
 
 // @public
 export type PendingPause = PendingApproval | PendingQuestion;
@@ -5590,7 +5670,7 @@ export interface ReplaceWithTokenAction {
 }
 
 // @public
-export function replayedFromOf(key: FencedEffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
+export function replayedFromOf(key: EffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
 
 // @public
 export type ReplyInterpretation<TDecision> = UnderstoodReply<TDecision> | NotUnderstoodReply;
@@ -6145,7 +6225,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: FencedEffectKey, work: FencedEffectWork<DatabaseSync, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>): Promise<FencedEffectOutcome<TResult>>;
 }
 
 // @public
@@ -6177,21 +6257,21 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     // (undocumented)
     findAllByTenantIdAndStatus(tenantId: string, status: OutboundCallStatus): Promise<readonly OutboundCallRecord[]>;
     // (undocumented)
-    findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined>;
+    findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     // (undocumented)
     static readonly leaseRepository: Class | undefined;
     // (undocumented)
     leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
     // (undocumented)
-    markCompleted(key: FencedEffectKey, owner: string, result: string): Promise<boolean>;
+    markCompleted(key: EffectKey, owner: string, result: string): Promise<boolean>;
     // (undocumented)
-    markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean>;
+    markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean>;
     // (undocumented)
-    markPending(key: FencedEffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
+    markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean>;
+    saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
 }
 
 // @public
@@ -6377,7 +6457,7 @@ export interface StoredKeyFacts {
 }
 
 // @public
-export const storedKeyFactsOf: (key: FencedEffectKey) => {
+export const storedKeyFactsOf: (key: EffectKey) => {
     readonly fingerprint?: string;
     readonly origin?: FencedEffectOrigin;
 };
@@ -7134,57 +7214,74 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/lease-lost.ts:101:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/lease-lost.ts:104:3 - (ae-undocumented) Missing documentation for "token".
 // src/app/lease-lost.ts:105:3 - (ae-undocumented) Missing documentation for "observedToken".
-// src/app/outbound-call-types.ts:22:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:23:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts:53:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:54:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts:102:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/outbound-call-types.ts:103:3 - (ae-undocumented) Missing documentation for "result".
-// src/app/outbound-call-types.ts:104:3 - (ae-undocumented) Missing documentation for "attempt".
-// src/app/outbound-call-types.ts:105:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts:112:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-call-types.ts:117:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-types.ts:118:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:119:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts:120:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts:121:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-call-types.ts:126:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts:127:3 - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-call-types.ts:128:3 - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-call-types.ts:129:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-call-types.ts:134:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-types.ts:135:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:136:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:82:3 - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-calls.ts:177:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:178:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:179:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:180:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:181:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:182:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-calls.ts:183:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts:204:3 - (ae-undocumented) Missing documentation for "Request".
-// src/app/outbound-calls.ts:205:3 - (ae-undocumented) Missing documentation for "Result".
-// src/app/outbound-calls.ts:214:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:215:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:216:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:217:3 - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-calls.ts:218:3 - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-calls.ts:219:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-calls.ts:238:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:239:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:240:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:261:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:262:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:263:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:264:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:265:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:289:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:290:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:291:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:292:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:293:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:294:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-call-contract.ts:73:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-contract.ts:74:3 - (ae-undocumented) Missing documentation for "problem".
+// src/app/outbound-call-contract.ts:83:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:84:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-contract.ts:85:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-contract.ts:86:3 - (ae-undocumented) Missing documentation for "problem".
+// src/app/outbound-call-contract.ts:106:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:107:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-contract.ts:108:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-contract.ts:109:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-contract.ts:110:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:23:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:24:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:54:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:55:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:108:3 - (ae-undocumented) Missing documentation for "trust".
+// src/app/outbound-call-types.ts:115:3 - (ae-undocumented) Missing documentation for "trust".
+// src/app/outbound-call-types.ts:128:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/outbound-call-types.ts:129:3 - (ae-undocumented) Missing documentation for "result".
+// src/app/outbound-call-types.ts:130:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/app/outbound-call-types.ts:131:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-call-types.ts:138:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-call-types.ts:143:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-types.ts:144:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:145:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:146:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-call-types.ts:147:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-call-types.ts:152:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-types.ts:153:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-call-types.ts:154:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-call-types.ts:155:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-call-types.ts:160:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-types.ts:161:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:162:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:163:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-call-types.ts:172:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-types.ts:173:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:174:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:78:3 - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-calls.ts:178:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:179:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:180:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:181:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:182:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:183:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:184:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:205:3 - (ae-undocumented) Missing documentation for "Request".
+// src/app/outbound-calls.ts:206:3 - (ae-undocumented) Missing documentation for "Result".
+// src/app/outbound-calls.ts:215:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:216:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:217:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:218:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:219:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:220:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:239:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:240:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:241:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:262:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:263:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:264:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:265:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:266:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:290:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:291:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:292:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:293:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:294:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:295:3 - (ae-undocumented) Missing documentation for "reason".
 // src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/resume.ts:45:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:46:12 - (ae-undocumented) Missing documentation for "name".
@@ -7952,28 +8049,28 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-key.ts:132:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:133:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:144:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:145:3 - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-key.ts:153:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:154:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:155:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts:156:3 - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-key.ts:170:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:171:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
-// src/infrastructure/fenced-effect-key.ts:201:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-key.ts:202:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-key.ts:203:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts:235:3 - (ae-undocumented) Missing documentation for "fingerprint".
-// src/infrastructure/fenced-effect-key.ts:236:3 - (ae-undocumented) Missing documentation for "origin".
-// src/infrastructure/fenced-effect-settings.ts:186:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:187:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-settings.ts:196:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts:197:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-settings.ts:198:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-settings.ts:199:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:200:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-key.ts:128:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:129:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:140:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:141:3 - (ae-undocumented) Missing documentation for "rule".
+// src/infrastructure/fenced-effect-key.ts:149:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:150:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:151:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-key.ts:152:3 - (ae-undocumented) Missing documentation for "rule".
+// src/infrastructure/fenced-effect-key.ts:166:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:167:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
+// src/infrastructure/fenced-effect-key.ts:197:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-key.ts:198:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-key.ts:199:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-key.ts:231:3 - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-key.ts:232:3 - (ae-undocumented) Missing documentation for "origin".
+// src/infrastructure/fenced-effect-settings.ts:203:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:204:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:213:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-settings.ts:214:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-settings.ts:215:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-settings.ts:216:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:217:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:47:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/fenced-effect.repository.ts:82:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/fenced-effect.repository.ts:83:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -8022,18 +8119,18 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/outbound-call-record.ts:102:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/outbound-call-record.ts:103:3 - (ae-undocumented) Missing documentation for "attempt".
 // src/infrastructure/outbound-call-record.ts:104:3 - (ae-undocumented) Missing documentation for "attemptOwner".
-// src/infrastructure/outbound-call.repository.ts:172:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/outbound-call.repository.ts:173:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/outbound-call.repository.ts:194:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/outbound-call.repository.ts:198:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/outbound-call.repository.ts:206:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/outbound-call.repository.ts:218:9 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/outbound-call.repository.ts:228:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/outbound-call.repository.ts:232:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/outbound-call.repository.ts:247:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/outbound-call.repository.ts:256:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/outbound-call.repository.ts:263:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/outbound-call.repository.ts:268:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/outbound-call.repository.ts:168:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/outbound-call.repository.ts:169:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/outbound-call.repository.ts:190:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/outbound-call.repository.ts:194:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/outbound-call.repository.ts:202:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/outbound-call.repository.ts:214:9 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/outbound-call.repository.ts:224:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/outbound-call.repository.ts:228:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/outbound-call.repository.ts:239:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/outbound-call.repository.ts:248:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/outbound-call.repository.ts:255:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/outbound-call.repository.ts:260:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
 // src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
@@ -8082,14 +8179,14 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:60:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:71:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:117:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:118:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:130:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:134:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:143:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:235:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:236:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:112:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:113:3 - (ae-undocumented) Missing documentation for "backend".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:125:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:129:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:138:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:229:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:230:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:231:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:38:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:42:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:52:3 - (ae-undocumented) Missing documentation for "findByKey".
@@ -8104,10 +8201,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:126:9 - (ae-undocumented) Missing documentation for "markPending".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:137:3 - (ae-undocumented) Missing documentation for "markCompleted".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:141:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:156:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:168:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:180:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:185:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:164:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:181:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:115:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:119:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:129:3 - (ae-undocumented) Missing documentation for "save".

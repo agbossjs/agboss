@@ -296,7 +296,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   contract target. A test that expected a holder to trust its lease for the full 30 s counts 29 s.
 
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
-  `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `fencedKeyIdentityOf`
+  `null`s taken, a stored step checked: `StoredKeyFacts`), `storedKeyFactsOf`, `effectKeyIdentityOf`
   and `pendingOutboundCallOf` from `@agboss/core`, so a store outside the core keeps no copy of them.
   `FencedEffectStoreMismatchError` and `FencedEffectResultTooLargeError` moved modules (still exported
   from the root).
@@ -375,6 +375,32 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   `data:` URL is exempt from a judge's masking.
 
 ### Fixed — guarantees and safety
+
+- **The outbound-call contract fails closed** (#795, from the 0.1.1 API review) — three defaults
+  that failed open and two names that misled, changed before the surface is published:
+  - every `OutboundCalls.send` says how far its `notSent()` is trusted, a required `notSent`:
+    `{ trust: NotSentTrust.Lookup }` (the lookup reads a record that does not expire, trusted at any
+    age) or `{ trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }` (the other system's replay
+    of the key, refused past its retention as `keyRetention` was). The optional `keyRetention` —
+    "unset: `notSent()` is trusted at any age" — is gone; leaving `notSent` out does not compile,
+    and a JavaScript caller without it, with an unknown trust or a bad retention is refused before
+    anything is recorded or sent (`InvalidNotSentTrustError`, `outbound-call.invalid-not-sent-trust`);
+  - an attempt answered after a newer one took its intent over — both reached the other system —
+    fails the step with `OutboundCallSupersededError` (`outbound-call.superseded`, a
+    `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy`),
+    never a normal outcome; `OutboundCallOutcomeStatus.Superseded` is removed (the lease log's
+    `OutboundCallEventOutcome.Superseded` stays);
+  - `new OutboundCallSettings({ …, requiresMask })` takes one options bag whose `requiresMask` is
+    required (`OutboundCallSettingsOptions`), where a positional boolean defaulted to `false`; a
+    JavaScript caller without it gets `true`;
+  - the shared key is `effectKeyOf` / `EffectKey` / `EffectKeyOptions` / `effectKeyIdentityOf`
+    (was `fencedEffectKeyOf`, `FencedEffectKey`, `FencedEffectKeyOptions`, `fencedKeyIdentityOf`);
+    options are the input and settings the resolved value — `FencedEffectOptions` +
+    `FencedEffectSettings`, `OutboundCallOptions` + `OutboundCallSettings` (was
+    `FencedEffectsOptions`, `OutboundCallsOptions`), the per-call options of `send`
+    `OutboundCallSendOptions` (was `OutboundCallOptions`). The fault suite's sabotage
+    `s15-sabotage-retention-undeclared` is `s15-sabotage-replay-trusted-as-lookup`; a
+    superseded definite failure and a call joined to a superseded one fail so too.
 
 - **MongoDB: a missing ledger pruning mark counted spend twice** (#798, agbossjs/mongodb) — the
   #771 mark was created by the first prune, so a mark deleted by hand read as "never pruned", and a
@@ -644,7 +670,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   silently, which would no longer replay a key stored before). `InvalidBusinessKeyError` and
   `InvalidThreadIdError` name the rule (`rule: KeyTextRule`, `keyTextRuleOf(text)` from the root),
   never the key; an invalid thread id is no longer echoed in `onExecutionRejected`. Checked by
-  `fencedEffectKeyOf`, `OutboundCalls.send` and at every store's entry for a key built by hand
+  `effectKeyOf`, `OutboundCalls.send` and at every store's entry for a key built by hand
   (`checkedBusinessKey`, exported for a store of your own); new contract cases: keys of many scripts
   round-trip byte for byte and are each their own row, and a key built by hand breaking a rule is
   refused by every method. **Migration:** normalize a key where it is made (`text.normalize("NFC")`)
@@ -843,14 +869,14 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   across processes, and the run's history (`OperationHistory`) keeps every store operation's
   invoke and complete. The core runs it on SQLite; Wiki → Guarantees-across-processes.
 
-- **Business idempotency keys** (#508) — `fencedEffectKeyOf(executionContext, name, { businessKey,
+- **Business idempotency keys** (#508) — `effectKeyOf(executionContext, name, { businessKey,
 fingerprint? })`: one fenced effect or outbound call per tenant, name and business key, whatever
   step, execution or thread makes it; another fingerprint is `IdempotencyKeyConflictError`; a
   business key shows only by its keyed handle. A pending call under a business key is in flight
   while the lease that wrote it is live (`OutboundCallRepository.leaseStateOf`, an expired lease
   closed by the check in one atomic step); a holder waits for its attempts within
   `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
-  start) — a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). `OutboundCallResultNotStoredError`, `Superseded` outcomes and the
+  start) — a send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1). `OutboundCallResultNotStoredError`, `OutboundCallSupersededError` (#795) and the
   `outbound-call.*` log codes; no read shows a fingerprint.
 
 - **Handover telemetry: the lease log** (#501) — a takeover of a tree's lease is told and kept:

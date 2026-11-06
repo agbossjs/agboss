@@ -79,6 +79,8 @@ const SHARDS = {
       // `keyTextRuleOf` and its rules, not the error classes around them
       keyTextRulesOf("src/core/errors.ts"),
       "src/app/outbound-calls.ts",
+      // #795: how far a notSent() is trusted, and the superseded attempt's error
+      "src/app/outbound-call-contract.ts",
       "src/app/outbound-call-join.ts",
       "src/app/outbound-call-business.ts",
       "src/app/outbound-call-endings.ts",

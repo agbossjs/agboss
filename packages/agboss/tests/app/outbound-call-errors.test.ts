@@ -15,15 +15,16 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { InMemoryOutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";
 import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { VirtualClock } from "../../src/testing/clock.js";
+import { NotSentTrust } from "../../src/app/outbound-call-contract.js";
 import {
-  OutboundCallReconciliation,
-  OutboundCalls,
   OutboundCallInFlightError,
   OutboundCallPart,
   OutboundCallPayloadTooLargeError,
+  OutboundCallReconciliation,
   OutboundCallResultNotStoredError,
   OutboundCallUnmaskedError,
   OutboundCallUnreconciledError,
+  OutboundCalls,
   REDACTED,
 } from "../../src/app/outbound-calls.js";
 
@@ -148,7 +149,7 @@ describe("#626: send checks a key built by hand first", () => {
     const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
     return new OutboundCalls(
       new InMemoryOutboundCallRepository(clock, database, leases),
-      new OutboundCallSettings(),
+      new OutboundCallSettings({ requiresMask: false }),
     );
   }
 
@@ -157,6 +158,7 @@ describe("#626: send checks a key built by hand first", () => {
     operation: "charge",
     request: {},
     send: () => ({}),
+    notSent: { trust: NotSentTrust.Lookup } as const,
     reconcile: () => OutboundCallReconciliation.notSent(),
   };
 

@@ -5,7 +5,7 @@
  *   refusal notwithstanding;
  * - the accepted side of every refused range's edge: a table one off at either end refuses it;
  * - a refused key never reaches a log entry or an observer event — at `app.execute` (a thread id)
- *   and inside a step (`fencedEffectKeyOf`, and a key built by hand at `OutboundCalls.send`) —
+ *   and inside a step (`effectKeyOf`, and a key built by hand at `OutboundCalls.send`) —
  *   and nothing runs under a refused thread id.
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -163,7 +163,7 @@ describe("#538 acceptance: a refused thread id is in no log entry and no event, 
 
 describe("#538 acceptance: a business key refused inside a step is in no log entry and no event", () => {
   for (const [path, start] of [
-    ["fencedEffectKeyOf", KeyedEffectStart],
+    ["effectKeyOf", KeyedEffectStart],
     ["a key built by hand at OutboundCalls.send", HandKeyedStart],
   ] as const) {
     app.for(IN_A_STEP)(`${path}: %s (%s)`, async ([, rule, text], { app: echo }) => {

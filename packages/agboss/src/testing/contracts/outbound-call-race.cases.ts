@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf, rejectionOf } from "./fenced-effect-data.js";
@@ -30,7 +30,7 @@ export const PENDING = { status: OutboundCallStatus.Pending, attempt: 1, attempt
 const FAILURE = { name: "PaymentDeclinedError", code: "PaymentDeclinedError", message: "declined" };
 
 /** Round `round`'s key of `name` under the lease the case holds. */
-const roundKey = (key: FencedEffectKey, round: number): FencedEffectKey => ({
+const roundKey = (key: EffectKey, round: number): EffectKey => ({
   ...key,
   name: `charge-${String(round)}`,
 });

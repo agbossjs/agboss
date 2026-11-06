@@ -4,15 +4,16 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
+  NotSentTrust,
   OutboundCallReconciliation,
   OutboundCallRepository,
-  OutboundCalls,
   OutboundCallSettings,
   OutboundCallStatus,
+  OutboundCalls,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -55,12 +56,13 @@ export class ChildChargeAction {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargedDto> {
     const [orderId = "", email = ""] = input.message.value.text.split(" ");
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const outcome = await this.outboundCalls.send(key, {
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd: 10, email },
       send: (call) => this.paymentGateway.charge(call),
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: (call) => this.paymentGateway.reconcile(call),
     });
     return { chargeId: outcome.result.chargeId };
@@ -85,14 +87,18 @@ export class UnmaskedChargeAction {
   ) {}
 
   async execute(): Promise<void> {
-    const masked = new OutboundCalls(this.repository, new OutboundCallSettings({}, true));
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const masked = new OutboundCalls(
+      this.repository,
+      new OutboundCallSettings({ requiresMask: true }),
+    );
+    const key = effectKeyOf(this.executionContext, "charge");
     try {
       await masked.send(key, {
         target: "payments",
         operation: "charge",
         request: { orderId: "order-1", amountUsd: 10, email: "alice@example.com" },
         send: (call) => this.paymentGateway.charge(call),
+        notSent: { trust: NotSentTrust.Lookup },
         reconcile: () => OutboundCallReconciliation.notSent(),
       });
     } finally {

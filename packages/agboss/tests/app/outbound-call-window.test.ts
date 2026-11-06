@@ -10,13 +10,14 @@ import {
   Action,
   ExecutionContext,
   ExecutionLeaseRepository,
-  fencedEffectKeyOf,
-  Injectable,
   InMemoryOutboundCallRepository,
+  Injectable,
+  NotSentTrust,
   OutboundCallOutcomeStatus,
   OutboundCallRepository,
   OutboundCalls,
-  type FencedEffectKey,
+  effectKeyOf,
+  type EffectKey,
   type OutboundCallIntent,
 } from "../../src/index.js";
 import { Clock } from "../../src/infrastructure/clock.js";
@@ -40,7 +41,7 @@ const reachedWindow = (): Promise<void> =>
 
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class GatedOutboundCallRepository extends InMemoryOutboundCallRepository {
-  override async saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
+  override async saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     const isSaved = await super.saveIfAbsent(key, intent);
     if (!window.isArmed) return isSaved;
     window.isArmed = false;
@@ -55,12 +56,13 @@ class GatedOutboundCallRepository extends InMemoryOutboundCallRepository {
 /** What the second call of the action got. */
 const seen = { statuses: [] as OutboundCallOutcomeStatus[] };
 
-const charge = (outboundCalls: OutboundCalls, gatewayOf: PaymentGateway, key: FencedEffectKey) =>
+const charge = (outboundCalls: OutboundCalls, gatewayOf: PaymentGateway, key: EffectKey) =>
   outboundCalls.send(key, {
     target: "payments",
     operation: "charge",
     request: { orderId: "order-1", amountUsd: 10 },
     send: (call) => gatewayOf.charge(call),
+    notSent: { trust: NotSentTrust.Lookup },
     reconcile: (lookup) => gatewayOf.reconcile(lookup),
   });
 
@@ -78,7 +80,7 @@ class ChargeInWindowAction {
   ) {}
 
   async execute(): Promise<void> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
+    const key = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
     window.isArmed = true;
     const reached = reachedWindow();
     const first = charge(this.outboundCalls, this.paymentGateway, key);
@@ -104,7 +106,7 @@ class ChargeOnceAction {
   ) {}
 
   async execute(): Promise<void> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
+    const key = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
     await charge(this.outboundCalls, this.paymentGateway, key);
   }
 }

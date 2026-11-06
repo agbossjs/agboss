@@ -6,7 +6,7 @@ import {
   FencedEffectRepository,
   Injectable,
   SpendRecorder,
-  fencedEffectKeyOf,
+  effectKeyOf,
   oneOf,
   variant,
   type ExecutionEndEvent,
@@ -115,7 +115,7 @@ export class RefundBookingAction {
     const { bookingId } = input.booking.value;
     undoOnceSeen.undos.push({ key, instanceId });
     await reached(UndoPoint.ActionBefore, key, instanceId);
-    const effect = fencedEffectKeyOf(this.executionContext, "refund");
+    const effect = effectKeyOf(this.executionContext, "refund");
     // in memory the work runs inside the effect's one atomic step: run is taken effect
     await this.fencedEffectRepository.saveResultIfAbsent(effect, () => {
       undoOnceSeen.refunds.push({ bookingId, instanceId });

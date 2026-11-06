@@ -2,7 +2,7 @@ import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";
@@ -17,7 +17,7 @@ const FAILURE = { name: "PaymentDeclinedError", code: "PaymentDeclinedError", me
 /** One fenced call of the holder on an intent it recorded at the take. */
 interface IntentWrite {
   readonly name: string;
-  readonly call: (stores: OutboundCallStores, key: FencedEffectKey) => Promise<unknown>;
+  readonly call: (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>;
 }
 
 const INTENT_WRITES: readonly IntentWrite[] = [

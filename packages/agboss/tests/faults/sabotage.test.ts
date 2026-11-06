@@ -41,7 +41,7 @@ import { s05ZombieRecordedNotSent } from "../../src/testing/faults/scenarios/s05
 import { s12bMarkedUndo } from "../../src/testing/faults/scenarios/s12b-marked-undo.js";
 import {
   s14EveryErrorDefinite,
-  s15Undeclared,
+  s15TrustedAsLookup,
 } from "../../src/testing/faults/scenarios/s14-s15-key-expiry.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 
@@ -135,8 +135,8 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
     );
   }, 120_000);
 
-  it("#658: no key retention declared: 15's replay of an expired key is a new charge — two payments", async () => {
-    const failure = await failureOf(s15Undeclared, sqliteFaultTarget());
+  it("#658, #795: a key replay trusted as a lookup: 15's replay of an expired key is a new charge — two payments", async () => {
+    const failure = await failureOf(s15TrustedAsLookup, sqliteFaultTarget());
     expect(failure.invariants).toContain(FaultInvariant.EffectsOnce);
     expect(failure.violations.map((found) => found.message)).toEqual(
       expect.arrayContaining([

@@ -1,6 +1,6 @@
 import { scopeKeyOf } from "../../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../../infrastructure/execution-lease-event.repository.js";
-import type { FencedEffectKey } from "../../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
@@ -42,7 +42,7 @@ export type CallPhase =
   | { readonly phase: "done" };
 
 /** The key of `tree`'s call at `token`, under the explored business key. */
-export const callKeyOf = (tree: string, token: number): FencedEffectKey => ({
+export const callKeyOf = (tree: string, token: number): EffectKey => ({
   scopeKey: scopeKeyOf(EXPLORED_TENANT, tree),
   tenantId: EXPLORED_TENANT,
   leaseExecutionId: tree,

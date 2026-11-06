@@ -12,7 +12,7 @@ import {
   FencedEffectRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
-  type FencedEffectsOptions,
+  type FencedEffectOptions,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, kilobytes, minutes, seconds, type Bytes } from "../../src/units/index.js";
@@ -34,7 +34,7 @@ beforeEach(() => {
   resetRecovery();
 });
 
-const assembledWith = (fencedEffects: FencedEffectsOptions) => {
+const assembledWith = (fencedEffects: FencedEffectOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",

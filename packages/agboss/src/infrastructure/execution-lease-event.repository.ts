@@ -175,7 +175,7 @@ export interface StepHandedOverRecord extends ExecutionLeaseEventBase {
 /** One call of a step's fenced effect (`ExecutionLeaseEventKind.FencedEffect`), never its result. */
 export interface FencedEffectRecord extends ExecutionLeaseEventBase {
   readonly kind: ExecutionLeaseEventKind.FencedEffect;
-  /** The effect's name (`fencedEffectKeyOf(executionContext, name)`). */
+  /** The effect's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
   readonly outcome: FencedEffectEventOutcome;
   readonly step: LeaseEventStep;
@@ -193,7 +193,7 @@ export interface FencedEffectRecord extends ExecutionLeaseEventBase {
  */
 export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   readonly kind: ExecutionLeaseEventKind.OutboundCall;
-  /** The call's name (`fencedEffectKeyOf(executionContext, name)`). */
+  /** The call's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
   readonly target: string;
   readonly operation: string;

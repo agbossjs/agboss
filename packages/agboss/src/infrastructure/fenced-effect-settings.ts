@@ -4,7 +4,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hours, kilobytes, minutes, type Bytes, type Milliseconds } from "../units/index.js";
 
 /** `@Application({ fencedEffects })` (#500): the largest result and how long rows are kept. */
-export interface FencedEffectsOptions {
+export interface FencedEffectOptions {
   /** The largest stored result, in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
   readonly maxResultSize?: Bytes;
   /**
@@ -31,7 +31,7 @@ export class FencedEffectSettings {
   /** How long stored results and marks are kept. */
   readonly retention: Milliseconds;
 
-  constructor(options: FencedEffectsOptions = {}) {
+  constructor(options: FencedEffectOptions = {}) {
     this.maxResultSize = options.maxResultSize ?? DEFAULT_FENCED_EFFECT_RESULT_SIZE;
     this.retention = options.retention ?? DEFAULT_FENCED_EFFECT_RETENTION;
     Object.freeze(this);
@@ -44,7 +44,7 @@ export class FencedEffectSettings {
  */
 export function fencedEffectsViolations(
   application: string,
-  options: FencedEffectsOptions | undefined,
+  options: FencedEffectOptions | undefined,
 ): RuleViolation[] {
   const { maxResultSize, retention } = options ?? {};
   return sizeAndRetentionProblems(["maxResultSize", maxResultSize], retention).map((problem) =>
@@ -95,7 +95,7 @@ export function ledgerEntryRetentionViolations(
 }
 
 /** `@Application({ outboundCalls })` (#505): the largest request and result, how long ended intents are kept. */
-export interface OutboundCallsOptions {
+export interface OutboundCallOptions {
   /** The largest request and the largest result, each in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
   readonly maxPayloadSize?: Bytes;
   /**
@@ -126,6 +126,19 @@ export const DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE: Bytes = kilobytes(64);
 export const DEFAULT_OUTBOUND_CALL_RETENTION: Milliseconds = hours(168);
 
 /**
+ * What `OutboundCallSettings` is built from (#795): the application's `outboundCalls` and whether a
+ * request is stored only masked — always said, never a silent `false`.
+ */
+export interface OutboundCallSettingsOptions extends OutboundCallOptions {
+  /**
+   * Whether a request is stored only masked: `true` where the application or one of its workflows
+   * lists PII policies (the assembly says so). A JavaScript caller that leaves it out, or gives no
+   * boolean, gets `true` — the step with no mask then refuses its call rather than store it raw.
+   */
+  readonly requiresMask: boolean;
+}
+
+/**
  * The application's outbound-call settings (#505), as `OutboundCalls` and an outbound-call store
  * read them: a DI token of the application's container.
  */
@@ -142,11 +155,15 @@ export class OutboundCallSettings {
    */
   readonly requiresMask: boolean;
 
-  constructor(options: OutboundCallsOptions = {}, requiresMask = false) {
-    this.maxPayloadSize = options.maxPayloadSize ?? DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE;
-    this.retention = options.retention ?? DEFAULT_OUTBOUND_CALL_RETENTION;
-    this.attemptTimeout = options.attemptTimeout ?? DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT;
-    this.requiresMask = requiresMask;
+  // none given: masked (fail closed), the defaults for the rest — and no required parameter, so the
+  // assembly's DI check takes this token as one needing no decorator (as `FencedEffectSettings`)
+  constructor(options: OutboundCallSettingsOptions = { requiresMask: true }) {
+    // a JavaScript caller's options without a boolean `requiresMask` fail closed too
+    const given: Partial<OutboundCallSettingsOptions> = options;
+    this.maxPayloadSize = given.maxPayloadSize ?? DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE;
+    this.retention = given.retention ?? DEFAULT_OUTBOUND_CALL_RETENTION;
+    this.attemptTimeout = given.attemptTimeout ?? DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT;
+    this.requiresMask = given.requiresMask !== false;
     Object.freeze(this);
   }
 }
@@ -158,7 +175,7 @@ export class OutboundCallSettings {
  */
 export function outboundCallsViolations(
   application: string,
-  options: OutboundCallsOptions | undefined,
+  options: OutboundCallOptions | undefined,
 ): RuleViolation[] {
   const { maxPayloadSize, retention, attemptTimeout } = options ?? {};
   const isTimeoutValid =
@@ -181,7 +198,7 @@ export function outboundCallsViolations(
 
 /** What a result too large to store knows: the effect, its size and the limit (UTF-8 bytes). */
 export interface FencedEffectResultTooLargeErrorOptions {
-  /** The effect's `name` (`fencedEffectKeyOf(executionContext, name)`). */
+  /** The effect's `name` (`effectKeyOf(executionContext, name)`). */
   readonly effect: string;
   readonly size: number;
   readonly maxResultSize: number;

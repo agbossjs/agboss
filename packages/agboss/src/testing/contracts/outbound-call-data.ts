@@ -1,5 +1,5 @@
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import type {
   OutboundCallIntent,
   OutboundCallRepository,
@@ -24,7 +24,7 @@ export type OutboundCallCase = ContractCase<OutboundCallStores>;
 
 /** The intent of `key`'s call, about to be sent for the first time. */
 export const intentOf = (
-  key: FencedEffectKey,
+  key: EffectKey,
   overrides: Partial<OutboundCallIntent> = {},
 ): OutboundCallIntent => ({
   rootExecutionId: key.leaseExecutionId,
@@ -43,7 +43,7 @@ export const intentOf = (
 /** Records `key`'s intent through `stores`; a case fails when the key had one. */
 export async function recorded(
   stores: OutboundCallStores,
-  key: FencedEffectKey,
+  key: EffectKey,
   overrides: Partial<OutboundCallIntent> = {},
 ): Promise<void> {
   if (!(await stores.calls.saveIfAbsent(key, intentOf(key, overrides))))

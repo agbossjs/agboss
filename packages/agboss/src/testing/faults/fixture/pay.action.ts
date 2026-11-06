@@ -2,11 +2,12 @@ import {
   Action,
   ApplicationContext,
   ExecutionContext,
+  NotSentTrust,
   OutboundCallReconciliation,
   OutboundCalls,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type OutboundCallLookup,
-  type OutboundCallOptions,
+  type OutboundCallSendOptions,
   type Produced,
 } from "../../../index.js";
 import { seconds } from "../../../units/index.js";
@@ -48,14 +49,20 @@ export const FAULT_REPLAY_KEY_RETENTION = seconds(1);
 /** What a payment declares beside its send and reconcile, by how it talks to the gateway. */
 const declaredOf = (
   payment: FaultPayment,
-): Pick<OutboundCallOptions<unknown, unknown>, "isDefiniteFailure" | "keyRetention"> => {
-  if (payment === FaultPayment.ReplayOnly) return { keyRetention: FAULT_REPLAY_KEY_RETENTION };
-  if (payment === FaultPayment.EveryErrorDefinite) return { isDefiniteFailure: () => true };
-  return {};
+): Pick<OutboundCallSendOptions<unknown, unknown>, "isDefiniteFailure" | "notSent"> => {
+  if (payment === FaultPayment.ReplayOnly)
+    return {
+      notSent: { trust: NotSentTrust.KeyReplay, keyRetention: FAULT_REPLAY_KEY_RETENTION },
+    };
+  // the sabotage (#795): a key's replay trusted as if it were a lookup that does not expire
+  const lookup = { notSent: { trust: NotSentTrust.Lookup } } as const;
+  if (payment === FaultPayment.EveryErrorDefinite)
+    return { ...lookup, isDefiniteFailure: () => true };
+  return lookup;
 };
 
 const isReplayOnly = (payment: FaultPayment): boolean =>
-  payment === FaultPayment.ReplayOnly || payment === FaultPayment.ReplayOnlyUndeclared;
+  payment === FaultPayment.ReplayOnly || payment === FaultPayment.ReplayOnlyTrustedAsLookup;
 
 @Action({
   name: "fault-pay-action",
@@ -81,7 +88,7 @@ export class FaultPayAction {
     const { signal } = this.executionContext;
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.PayBefore, where, signal);
-    const key = fencedEffectKeyOf(this.executionContext, "pay", {
+    const key = effectKeyOf(this.executionContext, "pay", {
       businessKey: `order:${orderId}`,
     });
     const link = this.faultPodLink;

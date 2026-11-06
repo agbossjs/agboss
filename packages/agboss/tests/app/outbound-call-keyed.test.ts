@@ -10,12 +10,13 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
-  fencedEffectKeyOf,
   IdempotencyKeyConflictError,
+  NotSentTrust,
   OutboundCallRepository,
   OutboundCalls,
+  effectKeyOf,
   type OutboundCallRecord,
-  type FencedEffectKeyOptions,
+  type EffectKeyOptions,
   type Produced,
 } from "../../src/index.js";
 import { testAction } from "../../src/testing/index.js";
@@ -26,7 +27,7 @@ import { gateway, letChargesGo, PaymentGateway, resetGateway } from "./fixtures/
 /** What the next run charges, and under which key. */
 const next = {
   amountUsd: 10,
-  options: undefined as FencedEffectKeyOptions<{ readonly version: number }> | undefined,
+  options: undefined as EffectKeyOptions<{ readonly version: number }> | undefined,
   found: [] as (OutboundCallRecord | undefined)[],
 };
 
@@ -49,12 +50,13 @@ class KeyedChargeAction {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
     const orderId = input.message.value.text;
-    const key = fencedEffectKeyOf(this.executionContext, "charge", next.options);
+    const key = effectKeyOf(this.executionContext, "charge", next.options);
     const outcome = await this.outboundCalls.send(key, {
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd: next.amountUsd },
       send: (call) => this.paymentGateway.charge(call),
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: (call) => this.paymentGateway.reconcile(call),
     });
     next.found.push(await this.repository.findByKey(key));

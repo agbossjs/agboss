@@ -1,5 +1,5 @@
-import { fencedKeyIdentityOf } from "../../../infrastructure/fenced-effect-key.js";
-import type { FencedEffectKey } from "../../../infrastructure/fenced-effect.repository.js";
+import { effectKeyIdentityOf } from "../../../infrastructure/fenced-effect-key.js";
+import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
 import {
   callClaimed,
   callEnded,
@@ -25,7 +25,7 @@ export const isSame = (output: unknown, answer: unknown): boolean =>
 /** The fenced key the history kept, as the call model reads it. */
 export function callKeyOf(input: Readonly<Record<string, unknown>>): CallKeyFacts {
   const businessKey = input.businessKey;
-  const key: FencedEffectKey = {
+  const key: EffectKey = {
     scopeKey: textOf(input, "scopeKey"),
     tenantId: textOf(input, "tenantId"),
     leaseExecutionId: textOf(input, "leaseExecutionId"),
@@ -38,7 +38,7 @@ export function callKeyOf(input: Readonly<Record<string, unknown>>): CallKeyFact
     tree: treeOf(key.tenantId, key.leaseExecutionId),
     token: key.token,
     scope: key.scopeKey,
-    identity: fencedKeyIdentityOf(key),
+    identity: effectKeyIdentityOf(key),
     leaseExecutionId: key.leaseExecutionId,
   };
 }
