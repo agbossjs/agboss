@@ -21,6 +21,8 @@ import { repairedTask } from "../tasks/a2a-task-repair.js";
 import type { LocalRuns } from "./a2a-local-runs.js";
 import type { ServedSkill } from "./a2a-skills.js";
 import type { AdmittedRequest } from "./a2a-admitted.js";
+import type { A2ARequestMesh } from "./a2a-mesh-admission.js";
+import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
 
 /**
@@ -40,6 +42,11 @@ export interface A2AServerParts {
   readonly log: FrameworkLog;
   /** Every task's execution deadline (`a2aHttpListener({ maxTaskDuration })`); none when unset. */
   readonly maxTaskDuration: Milliseconds | undefined;
+  /**
+   * The application's mesh settings (#810): its name and `maxMeshHops` (what refuses a chain), its
+   * signing key (what signs a trusted task's run report).
+   */
+  readonly mesh: MeshSettings;
 }
 
 /** The admitted caller of one request, and the request's own end (its connection closed). */
@@ -51,6 +58,8 @@ export interface A2ARequestCaller {
   readonly ownerId: string | undefined;
   /** Aborted when the request's connection closes: what waits for the task stops — never the task. */
   readonly signal: AbortSignal;
+  /** The request's mesh (#810): its envelope as checked, its body hash, its trusted peer. */
+  readonly mesh: A2ARequestMesh;
 }
 
 // Stryker disable next-line StringLiteral: the state's key — any text names it, written and read alike
@@ -87,9 +96,11 @@ export function callerState(
   caller: A2ACaller<Class>,
   signal: AbortSignal,
   admitted: AdmittedRequest,
+  mesh: A2ARequestMesh,
 ): Map<string, unknown> {
   const tenantId = caller.tenant?.tenantId ?? DEFAULT_TENANT_ID;
-  const request: A2ARequestCaller = { caller, tenantId, ownerId: caller.ownerId, signal, admitted };
+  const ownerId = caller.ownerId;
+  const request: A2ARequestCaller = { caller, tenantId, ownerId, signal, admitted, mesh };
   return new Map<string, unknown>([[CALLER, request]]);
 }
 

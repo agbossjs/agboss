@@ -4,6 +4,8 @@ import { minutes, type Milliseconds } from "../../units/index.js";
 import { checkCard, fetchCard, type CheckedCard } from "./a2a-card.js";
 import type { A2AClientContract } from "./a2a-client-options.js";
 import type { OriginPolicy } from "./a2a-origins.js";
+import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
+import type { ExtensionEcho } from "./a2a-echo.js";
 import { sdkClientOf, wireFetchOf } from "./a2a-transport.js";
 
 /**
@@ -17,6 +19,11 @@ export interface Wire {
   readonly checked: CheckedCard;
   readonly client: Client;
   readonly fetchedAt: number;
+  /**
+   * Whether the answer to the send of `messageId` echoed the mesh extension (#810) — taken once;
+   * `undefined` when no send of it asked for the mesh.
+   */
+  readonly meshEchoOf: (messageId: string) => boolean | undefined;
 }
 
 /** What the cache is built with. */
@@ -38,10 +45,18 @@ export class CardCache {
   readonly #fetch: typeof fetch;
   readonly #ttl: Milliseconds;
   readonly #wires = new Map<string, Wire>();
+  /** The mesh echo of each send that asked for it, by messageId, until its accept takes it. */
+  readonly #echoes = new Map<string, boolean>();
 
   constructor(options: CardCacheOptions) {
     this.#options = options;
-    this.#fetch = wireFetchOf(options.fetcher, options.headersOf, options.policy);
+    const echo = {
+      uri: A2A_MESH_EXTENSION,
+      onEcho: ({ messageId, isEchoed }: ExtensionEcho) => {
+        this.#echoes.set(messageId, isEchoed);
+      },
+    };
+    this.#fetch = wireFetchOf(options.fetcher, options.headersOf, options.policy, echo);
     this.#ttl = options.ttl ?? DEFAULT_CARD_TTL;
   }
 
@@ -59,7 +74,12 @@ export class CardCache {
       output: contract?.output,
     });
     const client = await sdkClientOf(checked.card, this.#fetch);
-    const wire = { checked, client, fetchedAt: now };
+    const meshEchoOf = (messageId: string): boolean | undefined => {
+      const echoed = this.#echoes.get(messageId);
+      this.#echoes.delete(messageId);
+      return echoed;
+    };
+    const wire = { checked, client, fetchedAt: now, meshEchoOf };
     this.#wires.set(url, wire);
     return wire;
   }

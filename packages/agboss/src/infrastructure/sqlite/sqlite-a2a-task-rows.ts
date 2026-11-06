@@ -11,12 +11,16 @@ import {
 
 /** The rows of `SqliteA2ATaskRepository` (#807): its schema, and their records. */
 
+/** #810: the body hash of a trusted task's first message, added to a file written before. */
+export const MESH_BODY_HASH_COLUMN = ["a2a_tasks", "mesh_body_hash", "TEXT"] as const;
+
 export const TERMINAL_STATES = Object.values(A2ATaskState).filter(isTerminalA2ATaskState);
 
 export const SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_tasks (
   tenant_id TEXT NOT NULL, task_id TEXT NOT NULL, owner_id TEXT NOT NULL,
   context_id TEXT NOT NULL, skill TEXT NOT NULL, state TEXT NOT NULL, status TEXT NOT NULL,
   version INTEGER NOT NULL, accepted_at TEXT NOT NULL, status_at TEXT NOT NULL, caller_peer TEXT,
+  mesh_body_hash TEXT,
   PRIMARY KEY (tenant_id, task_id));
 CREATE INDEX IF NOT EXISTS a2a_tasks_by_owner
   ON a2a_tasks (tenant_id, owner_id, status_at DESC, task_id DESC);
@@ -47,6 +51,8 @@ const TaskRow = z.object({
   accepted_at: isoTime(),
   status_at: isoTime(),
   caller_peer: z.string().nullable(),
+  // a file of before #810 has no such column: read as none
+  mesh_body_hash: z.string().nullable().optional(),
 });
 
 const MessageRow = z.object({
@@ -69,6 +75,8 @@ const Status = z.object({
   finish: z.string().optional(),
   output: z.unknown().optional(),
   errorCode: z.string().optional(),
+  errorDetails: z.unknown().optional(),
+  spentUsd: z.number().nonnegative().optional(),
   cancelRequestedAt: isoTime().optional(),
 });
 
@@ -98,6 +106,9 @@ export const taskOf = (row: unknown): A2ATaskRecord => {
     acceptedAt: new Date(parsed.accepted_at),
     statusAt: new Date(parsed.status_at),
     ...(parsed.caller_peer === null ? {} : { callerPeer: parsed.caller_peer }),
+    ...(parsed.mesh_body_hash === null || parsed.mesh_body_hash === undefined
+      ? {}
+      : { meshBodyHash: parsed.mesh_body_hash }),
   };
 };
 

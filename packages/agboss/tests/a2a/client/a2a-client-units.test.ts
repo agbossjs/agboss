@@ -657,7 +657,7 @@ describe("reconciling a pending accept, by peer", () => {
     url: "https://billing.example",
     peer,
     client: { sendMessage: () => Promise.reject(new Error("not sent")), getTask },
-    clock: { sleep: () => Promise.resolve() },
+    clock: { now: () => new Date(0), sleep: () => Promise.resolve() },
     parts: [],
     skill: undefined,
     contextId: undefined,

@@ -29,7 +29,7 @@ export interface AcceptCall {
   readonly peer: A2ARemotePeer;
   /** The SDK client's two calls an accept makes (the send, a foreign reply's reconcile). */
   readonly client: Pick<Client, "sendMessage" | "getTask">;
-  readonly clock: Pick<Clock, "sleep">;
+  readonly clock: Pick<Clock, "sleep" | "now">;
   readonly parts: readonly Part[];
   readonly skill: string | undefined;
   readonly contextId: string | undefined;
@@ -39,6 +39,11 @@ export interface AcceptCall {
   readonly key: string | undefined;
   /** What rides each attempt's message: the mesh's envelope and headers. */
   readonly sign: (message: Message) => A2AMeshSigned;
+  /**
+   * Whether the agent's answer to the send of `messageId` echoed the mesh extension (#810, spec
+   * §4.6: an agent names the extensions it activated); `undefined` when it was not asked.
+   */
+  readonly meshEchoOf?: (messageId: string) => boolean | undefined;
   readonly signal: AbortSignal | undefined;
 }
 
@@ -54,18 +59,36 @@ export interface Accepted {
   readonly messageId: string;
   /** Whether the mesh's envelope rode the message — as stored, so a replay says it too. */
   readonly isMeshed: boolean;
+  /**
+   * The `bodyHash` the envelope bound (#810), as stored: what the run report must bind — a replay
+   * verifies the report of the message an earlier pass sent.
+   */
+  readonly bodyHash?: string;
+  /**
+   * When the message was first accepted (#810, ISO 8601 on the `Clock`), as stored: the date of the
+   * price's ledger entry, the same on every pass that charges it.
+   */
+  readonly acceptedAt?: string;
 }
 
 /** What the call's intent stores of the answer: plain JSON. */
 export type AcceptResult =
-  | {
+  | ({
       readonly kind: "task";
       readonly taskId: string;
       readonly contextId: string;
-      /** Whether the mesh's envelope rode the message. */
+      /** Whether the mesh's envelope rode the message (and the agent activated it, #810). */
       readonly mesh: boolean;
-    }
-  | { readonly kind: "message"; readonly message: string; readonly mesh: boolean };
+    } & AcceptFacts)
+  | ({ readonly kind: "message"; readonly message: string; readonly mesh: boolean } & AcceptFacts);
+
+/** What an accept stores besides its answer (#810): what charging it the same on every pass needs. */
+export interface AcceptFacts {
+  /** The envelope's `bodyHash`, when the mesh rode. */
+  readonly bodyHash?: string;
+  /** When the agent accepted it (ISO 8601). */
+  readonly acceptedAt?: string;
+}
 
 /** A UUID (version 5 layout) over the tenant and the call's idempotency key: one per call, ever. */
 export function messageIdOf(tenantId: string, idempotencyKey: string): string {
@@ -98,7 +121,12 @@ function messageOf(call: AcceptCall, messageId: string): Message {
 function signedOf(
   call: AcceptCall,
   messageId: string,
-): { message: Message; serviceParameters: Record<string, string>; isMeshed: boolean } {
+): {
+  message: Message;
+  serviceParameters: Record<string, string>;
+  isMeshed: boolean;
+  bodyHash: string | undefined;
+} {
   const message = messageOf(call, messageId);
   let signed: A2AMeshSigned;
   try {
@@ -111,6 +139,7 @@ function signedOf(
     message: { ...message, metadata: Object.keys(metadata).length === 0 ? undefined : metadata },
     serviceParameters: { ...signed.serviceParameters },
     isMeshed: Object.keys(signed.metadata).length > 0,
+    bodyHash: signed.bodyHash,
   };
 }
 
@@ -126,16 +155,21 @@ const requestOf = (message: Message): SendMessageRequest => ({
 });
 
 /** What is stored of an answer: a task's ids, checked — or a stateless message's wire JSON. */
-function resultOf(agent: string, answer: Task | Message, mesh: boolean): AcceptResult {
+function resultOf(
+  agent: string,
+  answer: Task | Message,
+  mesh: boolean,
+  facts: AcceptFacts,
+): AcceptResult {
   if ("messageId" in answer) {
-    return { kind: "message", message: JSON.stringify(Message.toJSON(answer)), mesh };
+    return { kind: "message", message: JSON.stringify(Message.toJSON(answer)), mesh, ...facts };
   }
   const taskId = safeTaskIdOf(answer.id);
   const contextId = safeTaskIdOf(answer.contextId);
   if (taskId === undefined || contextId === undefined) {
     throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
   }
-  return { kind: "task", taskId, contextId, mesh };
+  return { kind: "task", taskId, contextId, mesh, ...facts };
 }
 
 /** One `SendMessage`, its answer as stored; an error translated (codes only). */
@@ -143,18 +177,28 @@ export async function sentOf(
   call: AcceptCall,
   messageId: string,
 ): Promise<{ answer: Task | Message; result: AcceptResult }> {
-  const { message, serviceParameters, isMeshed } = signedOf(call, messageId);
+  const signed = signedOf(call, messageId);
   const options = {
-    serviceParameters,
+    serviceParameters: signed.serviceParameters,
     ...(call.signal === undefined ? {} : { signal: call.signal }),
   };
   let answer: Task | Message;
+  let isEchoed: boolean | undefined;
   try {
-    answer = await call.client.sendMessage(requestOf(message), options);
+    answer = await call.client.sendMessage(requestOf(signed.message), options);
   } catch (error) {
     throw wireErrorOf(error, call.agent, A2AClientOperation.SendMessage, call.signal);
+  } finally {
+    isEchoed = call.meshEchoOf?.(messageId);
   }
-  return { answer, result: resultOf(call.agent, answer, isMeshed) };
+  // the envelope rode, and the agent says it activated the mesh: an agent that does not echo it
+  // gave none of its guarantees — the call is unmeshed, said in its peer and its step record
+  const isMeshed = signed.isMeshed && isEchoed === true;
+  const facts: AcceptFacts = {
+    ...(isMeshed && signed.bodyHash !== undefined ? { bodyHash: signed.bodyHash } : {}),
+    acceptedAt: call.clock.now().toISOString(),
+  };
+  return { answer, result: resultOf(call.agent, answer, isMeshed, facts) };
 }
 
 /** An accepted answer from what was stored. */
@@ -177,6 +221,7 @@ export function acceptedOf(
       isNew,
       messageId,
       isMeshed: result.mesh,
+      ...factsOf(result),
     };
   }
   const task = answer !== undefined && !("messageId" in answer) ? answer : undefined;
@@ -188,5 +233,12 @@ export function acceptedOf(
     isNew,
     messageId,
     isMeshed: result.mesh,
+    ...factsOf(result),
   };
 }
+
+/** The facts an accept stored (#810), as an accepted answer carries them. */
+const factsOf = (result: AcceptResult): AcceptFacts => ({
+  ...(result.bodyHash === undefined ? {} : { bodyHash: result.bodyHash }),
+  ...(result.acceptedAt === undefined ? {} : { acceptedAt: result.acceptedAt }),
+});

@@ -1,6 +1,7 @@
 import type { KeyObject } from "node:crypto";
 import { z } from "zod";
 import { serviceUsageOf } from "../components/spend-recorder.js";
+import type { UsageRecord } from "../finops/usage.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { usd, type Usd } from "../units/index.js";
 import { amountOf, dollarsOf } from "./mesh-durations.js";
@@ -82,16 +83,17 @@ export function takeRunReport(
   bodyHash: string,
   contract?: ContractPrice,
   alreadyCharged = 0,
+  identity?: RunReportIdentity,
 ): void {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
-  const report =
-    settings === undefined ? undefined : verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const report = callReportOf(settings, value, bodyHash, identity);
   const charge = chargeOf(report, contract, alreadyCharged);
   if (charge !== undefined) {
     const service = `${transport}:${charge.application}`;
-    frame.services.reportUsage?.(serviceUsageOf({ service, cost: usd(charge.cost) }));
+    const spent = serviceUsageOf({ service, cost: usd(charge.cost) });
+    frame.services.reportUsage?.(withLedgerKey(spent, identity, madeAtOf(report, settings)));
   }
   if (report === undefined) return;
   frame.services.meshCall?.recordRemote({
@@ -99,6 +101,55 @@ export function takeRunReport(
     executionId: report.executionId,
   });
 }
+
+/**
+ * The call's verified report: signed by a known peer for this `bodyHash` — and, when the call
+ * knows its remote execution (an A2A task, #810), naming it: another execution's report is not
+ * this call's.
+ */
+function callReportOf(
+  settings: ReturnType<typeof contextMeshSettingsOf>,
+  value: unknown,
+  bodyHash: string,
+  identity: RunReportIdentity | undefined,
+): MeshRunReport | undefined {
+  if (settings === undefined) return undefined;
+  const verified = verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const expected = identity?.executionId;
+  return expected === undefined || verified?.executionId === expected ? verified : undefined;
+}
+
+/**
+ * What makes a report's charge one across passes (#810): its ledger id, and the execution the
+ * report must name (the call's task).
+ */
+export interface RunReportIdentity {
+  readonly id: string;
+  readonly executionId?: string;
+}
+
+/**
+ * The date of a report's charge: when its peer signed it — the same on every pass that charges it
+ * — never later than now (a peer's clock ahead dates nothing into the future).
+ */
+const madeAtOf = (
+  report: MeshRunReport | undefined,
+  settings: ReturnType<typeof contextMeshSettingsOf>,
+): string => {
+  const now = settings?.clock.now() ?? new Date(0);
+  const issued = report === undefined ? Number.NaN : Date.parse(report.issuedAt);
+  return Number.isNaN(issued) || issued > now.getTime()
+    ? now.toISOString()
+    : new Date(issued).toISOString();
+};
+
+/** The charge under the call's own ledger identity, when it has one (#810). */
+const withLedgerKey = (
+  spent: UsageRecord,
+  identity: RunReportIdentity | undefined,
+  madeAt: string,
+): UsageRecord =>
+  identity === undefined ? spent : { ...spent, ledgerKey: { id: identity.id, madeAt } };
 
 /**
  * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less

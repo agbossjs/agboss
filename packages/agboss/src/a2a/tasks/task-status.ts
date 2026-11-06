@@ -2,6 +2,8 @@ import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
 import type { PendingPause } from "../../pause/types.js";
+import type { MeshLimitError } from "../../mesh/mesh-errors.js";
+import { meshLimitBodyOf } from "../../mesh/mesh-wire.js";
 
 /**
  * An execution's state as its A2A task's status (#807, design §3 and §4.1.7) — one mapping for the
@@ -50,13 +52,38 @@ export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus 
     : { state: A2ATaskState.InputRequired, pendingPauses: answerable, ...message };
 }
 
-/** A finish reached: `COMPLETED` with the finish and its output. */
-export const completedStatusOf = (finish: string, output: unknown): A2ATaskStatus => ({
+/**
+ * A finish reached: `COMPLETED` with the finish and its output — and, when its end event said, what
+ * the execution spent (#810: what a trusted caller's run report signs; a status repaired from the
+ * records has none, so its caller is charged its contract price).
+ */
+export const completedStatusOf = (
+  finish: string,
+  output: unknown,
+  spentUsd?: number,
+): A2ATaskStatus => ({
   state: A2ATaskState.Completed,
   pendingPauses: [],
   finish,
   output,
+  ...(spentUsd === undefined ? {} : { spentUsd }),
 });
+
+/**
+ * A message the receiver's mesh check refused before anything ran (#810, design §4.1.7): a loop or
+ * a chain past its `maxMeshHops` — `REJECTED` with the limit's code, its fixed text and its facts
+ * (the entry, the chain, the limit), which the AGBoss client rebuilds into the same error.
+ */
+export function rejectedStatusOf(limit: MeshLimitError): A2ATaskStatus {
+  const body = meshLimitBodyOf(limit);
+  return {
+    state: A2ATaskState.Rejected,
+    pendingPauses: [],
+    errorCode: limit.code,
+    message: `the task was rejected: ${limit.code}`,
+    ...(body === undefined ? {} : { errorDetails: body.details }),
+  };
+}
 
 const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
 

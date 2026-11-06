@@ -42,6 +42,19 @@ export const A2A_TASK_ACCEPT_CASES: readonly ContractCase<A2ATaskRepository>[] =
     },
   },
   {
+    name: "a trusted task keeps its first message's mesh body hash (#810); another task none",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const hash = `sha256:${"ab".repeat(32)}`;
+      await saved(first, newTask("t-1", { callerPeer: "orders-application", meshBodyHash: hash }));
+      await saved(first, newTask("t-2"));
+
+      expect((await second.findById(keyOf(newTask("t-1"))))?.meshBodyHash).toBe(hash);
+      const plain = await second.findById(keyOf(newTask("t-2")));
+      expect(plain).toBeDefined();
+      expect(plain).not.toHaveProperty("meshBodyHash");
+    },
+  },
+  {
     name: "one message is accepted once, on two instances: the loser gets the winner's task",
     run: async ({ first, second }: Instances): Promise<void> => {
       const message = { messageId: "m-same" };

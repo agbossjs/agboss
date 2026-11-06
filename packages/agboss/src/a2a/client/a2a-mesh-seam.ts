@@ -5,6 +5,7 @@ import { MeshLoopDetectedError } from "../../mesh/mesh-errors.js";
 import { TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { takeRunReport } from "../../mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../mesh/outbound-mesh.js";
+import type { LedgerKey } from "../../finops/ledger-key.js";
 import { usd, type Usd } from "../../units/index.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { meshBodyHashOf, meshReportTextOf } from "../a2a-mesh-message.js";
@@ -34,6 +35,8 @@ export interface A2AMeshCall {
 export interface A2AMeshSigned {
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly serviceParameters: Readonly<Record<string, string>>;
+  /** The `bodyHash` the envelope binds (#810); `undefined` when no envelope rides. */
+  readonly bodyHash?: string;
 }
 
 /** The mesh of one call. */
@@ -43,13 +46,39 @@ export interface A2AMeshActivation {
   /** What rides `message` (as it is sent, without the mesh entries): signed once per attempt. */
   sign(message: Message): A2AMeshSigned;
   /**
-   * Charges the call to the calling step when it was accepted: the client's price, at once — the
+   * Charges the call to the calling step once it is accepted: the client's price, at once — the
    * spend is in the step's ledger before the wait, so a crash during the wait loses none of it.
+   * Charged on every pass that reaches the accept, a replayed one too (#810, AC5), under the call's
+   * own ledger identity: the ledger adds it once.
    */
-  charge(price: Usd | undefined): void;
-  /** At the task's end: what a verified run report says above the price, charged too. */
-  settle(task: Task | undefined, price: Usd | undefined): void;
+  charge(price: Usd | undefined, charged: A2ACharged): void;
+  /**
+   * At the task's end: what a verified run report says above the price, charged too — on every
+   * pass, under its own ledger identity (#810), so a takeover that waits again charges it once.
+   */
+  settle(task: Task | undefined, price: Usd | undefined, charged: A2ACharged): void;
 }
+
+/** What makes one call's charges the same on every pass (#810): its accept as stored. */
+export interface A2ACharged {
+  /** The call's messageId: one per call, ever (the tenant and the step's key). */
+  readonly messageId: string;
+  /**
+   * When the agent accepted it (ISO 8601), as stored — the price entry's date; for an accept that
+   * stored none (a foreign agent's reconciled reply), when this pass took it.
+   */
+  readonly acceptedAt: string;
+  /** The envelope's `bodyHash`, as stored: what the report must bind; `undefined` unmeshed. */
+  readonly bodyHash: string | undefined;
+  /** The task the report must name as its execution. */
+  readonly taskId: string | undefined;
+}
+
+/** The ledger identity of a call's price (#810). */
+export const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
+  id: `a2a:${charged.messageId}:price`,
+  madeAt: charged.acceptedAt,
+});
 
 export interface A2AMeshSeam {
   /** The mesh of a call to the agent of `card`; refuses it before anything is sent when it must. */
@@ -58,19 +87,26 @@ export interface A2AMeshSeam {
 
 const NOTHING: A2AMeshSigned = { metadata: {}, serviceParameters: {} };
 
-/** The price alone, charged to the calling step's budgets as the service `a2a:<who>`. */
-function chargePrice(call: A2AMeshCall, price: Usd | undefined): void {
+/**
+ * The price alone, charged to the calling step's budgets as the service `a2a:<who>`, under the
+ * call's own ledger identity (#810): a pass that replays the accept charges the same entry.
+ */
+function chargePrice(call: A2AMeshCall, price: Usd | undefined, charged: A2ACharged): void {
   if (price === undefined || price <= 0) return;
   const service = `a2a:${call.application ?? call.agent}`;
-  currentFrame()?.services.reportUsage?.(serviceUsageOf({ service, cost: usd(price) }));
+  const ledgerKey = priceLedgerKeyOf(charged);
+  currentFrame()?.services.reportUsage?.({
+    ...serviceUsageOf({ service, cost: usd(price) }),
+    ledgerKey,
+  });
 }
 
 /** No mesh: the core protocol only, said in the peer. */
 const withoutMesh = (peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation => ({
   peer: { ...peer, mesh: false },
   sign: () => NOTHING,
-  charge: (price) => {
-    chargePrice(call, price);
+  charge: (price, charged) => {
+    chargePrice(call, price, charged);
   },
   settle: () => undefined,
 });
@@ -101,11 +137,9 @@ function refuseLoop(call: A2AMeshCall): void {
  * call chain) is refused: the mesh would not ride.
  */
 function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
-  let bodyHash: string | undefined;
   return {
-    get peer(): A2ARemotePeer {
-      return { ...peer, mesh: bodyHash !== undefined && call.application !== undefined };
-    },
+    // the mesh as the call can have it: signed to an application; whether it rode is the accept's
+    peer: { ...peer, mesh: call.application !== undefined },
     sign: (message) => {
       const hash = meshBodyHashOf(Message.toJSON(message));
       const outbound = outboundMeshOfHash(hash, call.application);
@@ -115,24 +149,29 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
         }
         return NOTHING;
       }
-      bodyHash = hash;
       return {
         metadata: { [A2A_MESH_EXTENSION]: { envelope: outbound.envelope } },
         serviceParameters: {
           [HTTP_EXTENSION_HEADER]: A2A_MESH_EXTENSION,
           [TRACEPARENT]: outbound.traceparent,
         },
+        bodyHash: hash,
       };
     },
-    charge: (price) => {
-      chargePrice(call, price);
+    charge: (price, charged) => {
+      chargePrice(call, price, charged);
     },
-    settle: (task, price) => {
+    settle: (task, price, charged) => {
+      // the body the accept stored: a pass that replays it verifies the report of what was sent
+      const { bodyHash } = charged;
       if (bodyHash === undefined) return;
       // a trusted peer's signed spend, verified against this call's body, above the price charged
       const application = call.application ?? call.agent;
       const contract = price === undefined ? undefined : { application, price };
-      takeRunReport("a2a", meshReportTextOf(task), bodyHash, contract, price ?? 0);
+      takeRunReport("a2a", meshReportTextOf(task), bodyHash, contract, price ?? 0, {
+        id: `a2a:${charged.messageId}:report`,
+        ...(charged.taskId === undefined ? {} : { executionId: charged.taskId }),
+      });
     },
   };
 }

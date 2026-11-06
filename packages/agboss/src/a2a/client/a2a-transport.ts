@@ -8,6 +8,7 @@ import {
 } from "@a2a-js/sdk/client";
 import { A2ACallerRejectedError } from "../a2a-caller.js";
 import { A2AOriginSite } from "./a2a-guard-errors.js";
+import { observeEcho, type EchoWatch } from "./a2a-echo.js";
 import { originRefusalOf, type OriginPolicy } from "./a2a-origins.js";
 
 /**
@@ -179,12 +180,13 @@ async function answerOf(
  * The fetch every request of a client goes through: only to the client's origins (any other is
  * `A2AOriginError`, nothing sent — so its headers never leave them), redirects never followed by
  * the fetcher (`redirect: "manual"`), the caller's headers on each request, the answer as
- * `answerOf` takes it.
+ * `answerOf` takes it — and, for a send that asked for `echo.uri`, whether its answer echoed it.
  */
 export function wireFetchOf(
   fetcher: typeof fetch,
   headersOf: () => Promise<Record<string, string>>,
   policy: OriginPolicy,
+  echo?: EchoWatch,
 ): typeof fetch {
   return async (input, init) => {
     let url = urlOfInput(input);
@@ -196,7 +198,10 @@ export function wireFetchOf(
     for (let redirects = 0; ; redirects += 1) {
       const response = await fetchedOnce(fetcher, url, { ...init, headers, redirect: "manual" });
       const answer = await answerOf(policy, response, { url, isGet, isJsonRpc, redirects });
-      if (answer instanceof Response) return answer;
+      if (answer instanceof Response) {
+        if (echo !== undefined) observeEcho(echo.uri, headers, init, answer, echo.onEcho);
+        return answer;
+      }
       url = answer.next;
     }
   };

@@ -31,6 +31,7 @@ export {
 export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
+export type { LedgerDated, LedgerKey } from "../finops/ledger-key.js";
 export { newEntriesOf } from "../infrastructure/cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";

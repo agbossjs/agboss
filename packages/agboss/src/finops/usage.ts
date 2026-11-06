@@ -1,5 +1,6 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
+import type { LedgerDated } from "./ledger-key.js";
 import { servedByOf, withoutLedgerMarks } from "./served-by.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
@@ -31,7 +32,7 @@ export interface TokenUsage {
 export type CostSource = "api" | "price-table" | "tool";
 
 /** One model call: who made it, on which model, what it cost. */
-export interface UsageRecord extends TokenUsage {
+export interface UsageRecord extends TokenUsage, LedgerDated {
   readonly caller: string;
   readonly model: string;
   readonly costUsd: number;
@@ -53,8 +54,6 @@ export interface UsageRecord extends TokenUsage {
    * parent's or a takeover's, writes or counts it again. Absent for spend written at its step's end.
    */
   readonly ledgerId?: string;
-  /** When the spend under `ledgerId` was made (#771: ISO 8601, the `Clock`): its entry's date. */
-  readonly madeAt?: string;
 }
 
 /** What a call was for — the cost categories of a turn. */

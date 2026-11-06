@@ -78,6 +78,16 @@ export interface A2ATaskStatus {
   readonly finish?: string;
   /** The finish's output (`COMPLETED`), plain JSON. */
   readonly output?: unknown;
+  /**
+   * The facts of a mesh limit that rejected it (#810: `limit.mesh-loop` / `limit.hops` — the entry,
+   * the chain, `maxMeshHops`), plain JSON; no other error's facts are kept.
+   */
+  readonly errorDetails?: unknown;
+  /**
+   * What its execution spent in all, in USD (#810), kept once it completed: what a trusted caller's
+   * run report signs.
+   */
+  readonly spentUsd?: number;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
   /**
@@ -103,6 +113,11 @@ export interface A2ATaskRecord extends A2ATaskKey {
   readonly statusAt: Date;
   /** The authenticated mesh peer that sent it, if any. */
   readonly callerPeer?: string;
+  /**
+   * The `bodyHash` of the message that started it (#810), kept only when its envelope was signed by
+   * the peer the caller resolver authenticated: what the run report it gets binds.
+   */
+  readonly meshBodyHash?: string;
 }
 
 /** An accepted message as kept: the task it was accepted for, and its reply once it has one. */
@@ -232,6 +247,7 @@ export const savedA2ATaskOf = (task: NewA2ATask): A2ATaskRecord => ({
   acceptedAt: task.acceptedAt,
   statusAt: task.acceptedAt,
   ...(task.callerPeer === undefined ? {} : { callerPeer: task.callerPeer }),
+  ...(task.meshBodyHash === undefined ? {} : { meshBodyHash: task.meshBodyHash }),
 });
 
 /** The first message of a new task. */

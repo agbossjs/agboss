@@ -67,6 +67,26 @@ function interfaceUrlOf(publicUrl: string, base: string): string {
   return `${publicUrl.replace(/\/+$/, "")}${base}`;
 }
 
+/** The server's modules, loaded with the first request (the root import stays lean). */
+const serverModules = () =>
+  Promise.all([
+    lazyLoad(import("./server/a2a-skills.js")),
+    lazyLoad(import("./server/a2a-card.js")),
+    lazyLoad(import("./server/a2a-request-handler.js")),
+    lazyLoad(import("./server/a2a-local-runs.js")),
+  ]);
+
+/** What an app `createApp` or `testWith` built has: its mesh settings and its trees' control. */
+function builtAppOf(app: A2AApp) {
+  const mesh = meshSettingsOf(app);
+  const control = executionControlOf(app);
+  if (mesh === undefined || control === undefined)
+    throw new ComponentError(
+      "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
+    );
+  return { mesh, control };
+}
+
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
 async function bindingOf<TStart extends Class>(
   app: A2AApp,
@@ -78,26 +98,21 @@ async function bindingOf<TStart extends Class>(
   },
 ): Promise<A2AHttpBinding> {
   const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
-    await Promise.all([
-      lazyLoad(import("./server/a2a-skills.js")),
-      lazyLoad(import("./server/a2a-card.js")),
-      lazyLoad(import("./server/a2a-request-handler.js")),
-      lazyLoad(import("./server/a2a-local-runs.js")),
-    ]);
-  const contracts = meshSettingsOf(app)?.contracts();
-  const control = executionControlOf(app);
-  if (contracts === undefined || control === undefined)
-    throw new ComponentError(
-      "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
-    );
-  const skills = servedSkillsOf(checked.exports, await contracts);
+    await serverModules();
+  const { mesh, control } = builtAppOf(app);
+  const skills = servedSkillsOf(checked.exports, await mesh.contracts());
   const meta = componentOf(options.expose);
   // exportsOf checked it is an @A2AExpose
   if (meta?.kind !== "a2a-expose")
     throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+  const card = agentCardOf({
+    expose: meta.meta,
+    skills,
+    application: mesh.application,
+    url: checked.url,
+    idempotencyRetention: mesh.a2aTaskRetention,
+  });
   const clock = app.resolve(Clock);
-  const application = meshSettingsOf(app)?.application ?? meta.meta.name;
-  const card = agentCardOf({ expose: meta.meta, skills, application, url: checked.url });
   const parts = {
     app,
     tasks: app.resolve(A2ATaskRepository),
@@ -108,11 +123,13 @@ async function bindingOf<TStart extends Class>(
     runs: new LocalRuns(),
     log: frameworkLogOf(app.resolve(Logger), clock),
     maxTaskDuration: options.maxTaskDuration,
+    mesh,
   };
   return {
     card,
     handler: new A2AServerRequestHandler(parts, card.card),
     resolver: checked.resolver,
+    mesh,
     log: parts.log,
     base: options.base ?? "",
     maxBodySize: options.maxBodySize ?? MAX_BODY_SIZE,

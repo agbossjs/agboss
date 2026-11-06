@@ -24,6 +24,7 @@ interface LedgerMarked {
   readonly isRecordedElsewhere?: boolean;
   readonly ledgerId?: string;
   readonly madeAt?: string;
+  readonly ledgerKey?: unknown;
 }
 
 /** A record as a cost report shows it: without where the ledger holds it. */
@@ -31,12 +32,14 @@ export function withoutLedgerMarks<T extends LedgerMarked>(record: T): T {
   if (
     record.isRecordedElsewhere === undefined &&
     record.ledgerId === undefined &&
-    record.madeAt === undefined
+    record.madeAt === undefined &&
+    record.ledgerKey === undefined
   )
     return record;
   const copy = { ...record };
   Reflect.deleteProperty(copy, "isRecordedElsewhere");
   Reflect.deleteProperty(copy, "ledgerId");
   Reflect.deleteProperty(copy, "madeAt");
+  Reflect.deleteProperty(copy, "ledgerKey");
   return copy;
 }

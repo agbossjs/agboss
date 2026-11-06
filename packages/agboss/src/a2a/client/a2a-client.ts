@@ -22,6 +22,7 @@ import {
 import { A2AClientOperation } from "./a2a-client-errors.js";
 import { a2aClientServicesOf, type A2AClientServices } from "./a2a-client-services.js";
 import { A2AMesh } from "./a2a-guard-errors.js";
+import { chargedOf, settledPeerOf } from "./a2a-charges.js";
 import { AGBOSS_MESH, type A2AMeshActivation } from "./a2a-mesh-seam.js";
 import { originPolicyOf } from "./a2a-origins.js";
 import { failureOf, isInterrupted, outputOf } from "./a2a-outcome.js";
@@ -185,7 +186,11 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     return skill === undefined ? { activation } : { activation, skill };
   }
 
-  /** One call: the card, the accept (its price charged then), the wait (a report's excess then). */
+  /**
+   * One call: the card, the accept (its price charged then), the wait (a report's excess then) —
+   * both charged on every pass under the call's own ledger identity, so a takeover that replays the
+   * accept charges each once (#810 AC5).
+   */
   async #call(
     parts: readonly Part[],
     taskId: string | undefined,
@@ -207,28 +212,37 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
       taskId,
       key,
       sign: (message) => activation.sign(message),
+      meshEchoOf: wire.meshEchoOf,
       signal: call.signal,
     });
     const price = this.contract?.price;
-    if (accepted.isNew) activation.charge(price);
-    const task =
-      accepted.taskId === undefined
-        ? undefined
-        : await waitForTask({
-            agent: this.#agent,
-            client: wire.client,
-            clock,
-            taskId: accepted.taskId,
-            task: accepted.task,
-            isStreaming: wire.checked.card.capabilities?.streaming === true,
-            deadlineAt: deadlineOf(clock, call),
-            signal: call.signal,
-            onEvent: call.onEvent,
-          });
-    if (accepted.isNew) activation.settle(task, price);
-    // the mesh rode when it did on this pass, or — replayed — when it did on the one that sent it
-    const peer = { ...activation.peer, mesh: activation.peer.mesh || accepted.isMeshed };
+    const charged = chargedOf(accepted, clock);
+    activation.charge(price, charged);
+    const task = await this.#waited(wire, accepted, clock, call);
+    activation.settle(task, price, charged);
+    const peer = settledPeerOf(activation, accepted, this.contract?.application ?? this.#agent);
     return { accepted, task, peer };
+  }
+
+  /** The accepted task, waited for until it settles; `undefined` for a stateless answer. */
+  async #waited(
+    wire: Wire,
+    accepted: Accepted,
+    clock: Clock,
+    call: A2AClientCall,
+  ): Promise<Task | undefined> {
+    if (accepted.taskId === undefined) return undefined;
+    return waitForTask({
+      agent: this.#agent,
+      client: wire.client,
+      clock,
+      taskId: accepted.taskId,
+      task: accepted.task,
+      isStreaming: wire.checked.card.capabilities?.streaming === true,
+      deadlineAt: deadlineOf(clock, call),
+      signal: call.signal,
+      onEvent: call.onEvent,
+    });
   }
 
   /** An untyped call's result: an interrupted task given back, any other failure thrown. */

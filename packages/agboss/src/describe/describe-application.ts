@@ -1,5 +1,6 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { DescribedEnvironment } from "../environments/resolve.js";
+import { a2aAgentLines } from "./a2a-agents.js";
 import { applicationLines, describedApplicationOf } from "./application.js";
 import { channelLines } from "./channels.js";
 import { describeWorkflow } from "./describe-workflow.js";
@@ -45,6 +46,7 @@ export function describeApplication(
     ...treeLines(assembled),
     ...applicationLines(described),
     ...channelLines(assembled),
+    ...a2aAgentLines(assembled),
     ...environmentLines(description.environment),
     ...assembled.workflows.flatMap((workflow) => [
       "",

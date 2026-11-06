@@ -6,7 +6,7 @@
  */
 import { AgentCard } from "@a2a-js/sdk";
 import { beforeEach, describe, expect } from "vitest";
-import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/index.js";
+import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../src/a2a/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { resetRecovery } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
@@ -59,8 +59,15 @@ describe("#808 AC1: the Agent Card", () => {
         securityRequirements: [{ schemes: { bearer: {} } }],
       });
       // only the extension it serves
-      const { extensions } = card.capabilities as { extensions: { uri: string }[] };
-      expect(extensions.map((extension) => extension.uri)).toEqual([A2A_SKILLS_EXTENSION]);
+      const { extensions } = card.capabilities as {
+        extensions: { uri: string; params: unknown }[];
+      };
+      expect(extensions.map((extension) => extension.uri)).toEqual([
+        A2A_MESH_EXTENSION,
+        A2A_SKILLS_EXTENSION,
+      ]);
+      // #810: an AGBoss peer — a messageId deduplicated as long as a finished task is kept
+      expect(extensions[0]?.params).toEqual({ idempotencyRetention: "PT86400S" });
       expect(() => AgentCard.fromJSON(card)).not.toThrow();
     },
   );
@@ -89,7 +96,9 @@ describe("#808 AC1: the Agent Card", () => {
         { id: "audit-workflow-start", tags: ["audit", "refunds"] },
       ]);
       expect(skills[1]?.examples).toEqual(["refund order 7"]);
-      const [extension] = (card.capabilities as { extensions: { params: unknown }[] }).extensions;
+      const extension = (
+        card.capabilities as { extensions: { uri: string; params: unknown }[] }
+      ).extensions.find((declared) => declared.uri === A2A_SKILLS_EXTENSION);
       expect(extension?.params).toMatchObject({
         skills: {
           "audit-workflow-start": {

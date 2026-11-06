@@ -213,6 +213,12 @@ export class LedgerIds {
     return id;
   }
 
+  /** An id the spend brought (#810: the same on every pass), counted from now as this pass's. */
+  keep(id: string): string {
+    this.#counted.add(id);
+    return id;
+  }
+
   /** Counts the ids of `records`. */
   count(records: readonly UsageRecord[]): void {
     // Stryker disable next-line ConditionalExpression: an absent id kept is never asked for

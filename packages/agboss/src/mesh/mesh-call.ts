@@ -22,4 +22,11 @@ export interface MeshCallServices {
 export interface ToolCallRemote {
   readonly application: string;
   readonly executionId: string;
+  /**
+   * `false` for a call made without the mesh (#810, design §4.2: an `@A2AAgent` under
+   * `A2AMesh.IfSupported` to an agent that does not activate it) — no loop, hop, budget or deadline
+   * guarantee beyond it, its price the only spend; `executionId` is then the agent's task id. Absent
+   * for a call the mesh rode, its execution from the run report the peer signed.
+   */
+  readonly mesh?: false;
 }

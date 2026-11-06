@@ -300,8 +300,9 @@ describe("#807: the projection on its own", () => {
     expect(await tasks.findById(KEY)).toMatchObject({ status: WORKING, version: 4 });
   });
 
-  it("an end → COMPLETED from the records; nothing while they show no finish", async () => {
-    const end = { ...(eventOf() as object), finish: { name: "f" } } as never;
+  it("an end → COMPLETED from the records, with what it spent (#810); nothing while they show no finish", async () => {
+    const spend = { totalUsd: 0.25 };
+    const end = { ...(eventOf() as object), finish: { name: "f" }, spend } as never;
     const { tasks } = await storeWith(WORKING);
 
     const running = scripted([{ status: DurableExecutionStatus.Running }]);
@@ -317,6 +318,7 @@ describe("#807: the projection on its own", () => {
       pendingPauses: [],
       finish: "f",
       output: 1,
+      spentUsd: 0.25,
     });
   });
 

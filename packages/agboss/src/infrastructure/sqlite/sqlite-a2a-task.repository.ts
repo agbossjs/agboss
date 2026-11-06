@@ -20,6 +20,7 @@ import {
   messageOf,
   MESSAGE_KEY,
   ownerColumnOf,
+  MESH_BODY_HASH_COLUMN,
   SCHEMA,
   taskOf,
   TERMINAL_STATES,
@@ -43,6 +44,7 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     super();
     // Stryker disable next-line StringLiteral: the name only keeps the schema run once per connection
     connection.ensureSchema("a2a_tasks", SCHEMA);
+    connection.addColumn(...MESH_BODY_HASH_COLUMN);
   }
 
   ping(): Promise<void> {
@@ -58,7 +60,11 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
         if (this.#task(task) !== undefined) return { status: A2ATaskSaveStatus.TaskIdTaken };
         const record = savedA2ATaskOf(task);
         this.connection.database
-          .prepare("INSERT INTO a2a_tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .prepare(
+            `INSERT INTO a2a_tasks (tenant_id, task_id, owner_id, context_id, skill, state, status,
+              version, accepted_at, status_at, caller_peer, mesh_body_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
           .run(
             record.tenantId,
             record.taskId,
@@ -71,6 +77,7 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
             record.acceptedAt.toISOString(),
             record.statusAt.toISOString(),
             record.callerPeer ?? null,
+            record.meshBodyHash ?? null,
           );
         this.#insertMessage(firstA2AMessageOf(task));
         return { status: A2ATaskSaveStatus.Saved, task: record };

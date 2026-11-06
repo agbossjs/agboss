@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { AgentCard, type SecurityScheme } from "@a2a-js/sdk";
-import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import { AgentCard, type AgentExtension, type SecurityScheme } from "@a2a-js/sdk";
+import { isoDurationOf } from "../../mesh/mesh-durations.js";
+import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { A2ASecuritySchemeKind, type A2ASecurityScheme } from "../a2a-security.js";
 import type { ServedSkill } from "./a2a-skills.js";
@@ -9,7 +10,9 @@ import type { ServedSkill } from "./a2a-skills.js";
  * The Agent Card of a listener (#808, spec §4.4 and §8): served at
  * `<base>/.well-known/agent-card.json`, built once from the `@A2AExpose`, its skills and the
  * listener's public URL — the JSON-RPC 1.0 binding only, streaming, no push notifications, the
- * skills extension with each skill's schemas, and the declared security schemes.
+ * skills extension with each skill's schemas, the mesh extension (#810: how long a `messageId` is
+ * deduplicated, what makes the listener an AGBoss peer to a client), and the declared security
+ * schemes.
  */
 
 /** The A2A version this listener serves. */
@@ -25,6 +28,11 @@ export interface AgentCardSource {
   readonly application: string;
   /** Where the JSON-RPC endpoint is: `publicUrl` + `base`. */
   readonly url: string;
+  /**
+   * How long a `messageId` is deduplicated (#810): a finished task, with its messages, is kept this
+   * long (`@Application({ a2a: { taskRetention } })`); an unfinished one never goes.
+   */
+  readonly idempotencyRetention: number;
 }
 
 /** The card as served: its JSON text and its entity tag. */
@@ -86,6 +94,24 @@ function skillsParamsOf(skills: readonly ServedSkill[]): Record<string, unknown>
   return { skills: Object.fromEntries(entries) };
 }
 
+/** The card's two extensions: the mesh (an AGBoss peer's), the skills' schemas. */
+const extensionsOf = (source: AgentCardSource): AgentExtension[] => [
+  {
+    uri: A2A_MESH_EXTENSION,
+    description:
+      "The AGBoss mesh: the caller's signed envelope in message.metadata[uri].envelope (call chain, budget, deadline), the signed run report in task.metadata[uri].report",
+    required: false,
+    params: { idempotencyRetention: isoDurationOf(source.idempotencyRetention) },
+  },
+  {
+    uri: A2A_SKILLS_EXTENSION,
+    description:
+      "The skills' input and output JSON Schemas; message.metadata[uri].skill names the skill a message runs",
+    required: false,
+    params: skillsParamsOf(source.skills),
+  },
+];
+
 /** The card of a listener. */
 export function agentCardOf(source: AgentCardSource): ServedAgentCard {
   const { expose, skills, application } = source;
@@ -107,15 +133,7 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
       streaming: true,
       pushNotifications: false,
       extendedAgentCard: false,
-      extensions: [
-        {
-          uri: A2A_SKILLS_EXTENSION,
-          description:
-            "The skills' input and output JSON Schemas; message.metadata[uri].skill names the skill a message runs",
-          required: false,
-          params: skillsParamsOf(skills),
-        },
-      ],
+      extensions: extensionsOf(source),
     },
     securitySchemes: Object.fromEntries(security.map((scheme) => [scheme.name, schemeOf(scheme)])),
     // any one of the declared schemes

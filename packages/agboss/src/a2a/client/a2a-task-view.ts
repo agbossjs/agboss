@@ -42,14 +42,21 @@ function withArtifact(task: Task, artifact: Artifact, isAppend: boolean): Task {
   return { ...task, artifacts: [...others, merged] };
 }
 
-/** A task with a status update of this task applied (before the first task: nothing to change). */
+/**
+ * A task with a status update of this task applied (before the first task: nothing to change) — its
+ * status, and the update's metadata over the task's (#810: an AGBoss agent's run report).
+ */
 function withStatus(
   of: TaskViewOf,
   task: Task | undefined,
   update: TaskStatusUpdateEvent,
 ): Task | undefined {
   if (update.taskId !== of.taskId) throw malformed(of);
-  return task === undefined ? undefined : { ...task, status: update.status };
+  if (task === undefined) return undefined;
+  // an update's metadata is the task's from then on (#810: the run report rides the last one)
+  const metadata =
+    update.metadata === undefined ? task.metadata : { ...task.metadata, ...update.metadata };
+  return { ...task, status: update.status, metadata };
 }
 
 /** A task with an artifact update of this task applied. */
