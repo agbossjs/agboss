@@ -902,6 +902,13 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 
 ### Fixed — other
 
+- **`agboss rag index` without `--tenant` built the `default` tenant's index in a multi-tenant
+  application** (#797) — and reported success, while the tenant meant stayed unbuilt; `records
+export` already refused the same omission. In an application that declares a tenant context
+  (`@Application({ tenantContext })`) the bare command is now exit 2, `rag.tenant-required`,
+  nothing built; name the tenant with `--tenant <id>`. An application without one still builds
+  `default`, its only tenant.
+
 - **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
   parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every
   attempt was refused and the step failed. An agent whose only tools are its answer tools (not a
