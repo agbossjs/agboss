@@ -10,6 +10,7 @@ import { ExplorerRun } from "./run.js";
 import { exhaustive, randomWalks } from "./search.js";
 import { budgetOf, expectComplete, InterleavingViolationError, timeoutOf } from "./outcomes.js";
 import { ExplorerWorldKind, type ExplorerStores } from "./types.js";
+import { INTERLEAVING_DEFAULTS as DEFAULTS } from "./floor.js";
 import {
   CALL_SKEWS,
   callTarget,
@@ -158,7 +159,7 @@ const seedOf = (options: InterleavingOptions): number => {
 };
 
 function registerWorld(name: string, world: WorldCase, options: RegisterOptions): void {
-  const depth = options.depth ?? 8;
+  const depth = options.depth ?? DEFAULTS.depth;
   const skews = world.kind === ExplorerWorldKind.Lease ? EXPLORED_SKEWS : CALL_SKEWS;
   it(
     `${world.title}: every schedule of 2 instances up to ${String(depth)} steps, the second's clock ${skews.map(skewText).join(", ")}`,
@@ -173,8 +174,8 @@ function registerWorld(name: string, world: WorldCase, options: RegisterOptions)
     },
     timeoutOf(options),
   );
-  const walks = options.walks ?? 200;
-  const walkDepth = options.walkDepth ?? 30;
+  const walks = options.walks ?? DEFAULTS.walks;
+  const walkDepth = options.walkDepth ?? DEFAULTS.walkDepth;
   const seed = seedOf(options);
   it(
     `${world.title}: ${String(walks)} seeded walks of 3 instances, ${String(walkDepth)} steps each (seed ${String(seed)})`,

@@ -99,6 +99,35 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking for stores outside the core
 
+- **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
+  of the store author's suites:
+  - a fault store set declares the time its fencing stores decide by, `FaultStores.storeTime:
+FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/faults`), and
+    the `linearizable` invariant reads the run's history on it — at 1 on a database's own clock,
+    at the pods' `timeScale` on the host's. `FaultScenarioOptions.storeTimeScale` is removed: a
+    database-clock set run at `timeScale: 5` without it was read five times too fast. A set without
+    the field does not start its pods (`[fault-suite.store-time]`, `FaultStoreTimeError`);
+  - `ragConnectorContract` reranks under `RerankFailurePolicy.FailStep`: a reranker that throws or
+    returns a passage that is no candidate fails the cases, where the fallback to the retrieval's
+    order passed them;
+  - `storeConformance`'s explorer: `interleavings: false` shows `interleavings (<name>)` with one
+    skipped case; a `depth`, `walks` or `walkDepth` that is not a whole number of at least 1 (`walks: 0`, a
+    negative depth, a fraction), a seed not whole, a `timeLimit` not positive or an unknown key is refused, `[store-conformance.invalid-interleavings]`; a set with
+    a fenced-effect or outbound-call store explored below depth 4, 20 walks of 16 steps — or not at
+    all — fails `store set (<name>)`'s case `explores its fencing stores at least at the floor …`
+    (`[store-conformance.interleavings-below-floor]`);
+  - `store set (<name>)` lists every contract the set does not claim as a skipped case, `does not
+claim stores.<key>`; the child queue's two watch cases are skipped, with the reason, for a store
+    without `watchQueued` — they passed — and fail for one with it on one instance only;
+  - `outboundGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
+    skipped for lack of a clock is no longer a pass, and G5 passes only when the same amount
+    under a fresh key goes through after the refusal — a gateway that is down refuses everything.
+
+  **Migration:** add `storeTime` to your `faultStores` (`FaultStoreTime.Database` for a store that
+  reads its database's clock — PostgreSQL, MongoDB —, `FaultStoreTime.Host` for one on the process's
+  clock) and drop `storeTimeScale`; explore a fencing set at least at the floor; read a checklist
+  report's `results` for what was skipped.
+
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
   new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic
   insert-if-absent by the id alone (across tenants: a step's idempotency key and the key an
@@ -704,8 +733,8 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   recorded operations, each at an instant of its span on the store's time, in which every answer is
   the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
   reported with the longest order found and what could not follow it. `linearizabilityOf(history,
-{ timeScale })` (`@agboss/core/testing/faults`) checks any history; `faultSuite({ storeTimeScale })`
-  says how fast the store's own clock runs (1 for a database that decides by its clock). The history
+{ timeScale })` (`@agboss/core/testing/faults`) checks any history; the store set says
+  what its stores decide by (`FaultStores.storeTime`, #799: a database's own clock is read at 1). The history
   now keeps a lease's length, a claim's expected state and an ending's owner.
 
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never

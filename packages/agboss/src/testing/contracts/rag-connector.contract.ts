@@ -13,7 +13,9 @@ import {
  * `ragConnectorContract(target)` (#700): the rules every knowledge base connector keeps, as the
  * core's reference `SqliteFtsConnector` runs them — registered as `RAG connector contract (<name>)`,
  * each case on a fresh connector: tenant isolation (near-identical ids too), re-indexing that
- * replaces, `topK`, the abort signal, a cost the ledger can add, well-formed results.
+ * replaces, `topK`, the abort signal, a cost the ledger can add, well-formed results. With
+ * `rerank: { by }` every retrieval goes through that reranker under `RerankFailurePolicy.FailStep`
+ * (#799): one that throws or returns a passage that is no candidate fails the case.
  *
  * `ragConnectorContract({ name: "pgvector", connector: () => new MyConnector(pool), documents: (c, tenantId, docs) => seed(tenantId, docs), reset: truncate })`
  */
@@ -53,7 +55,8 @@ function retrieveOf<TConnector extends RagConnector>(
     rag: target.name,
     reranker: "contract-reranker",
     candidates: rerank.candidates,
-    onFailure: RerankFailurePolicy.Fallback,
+    // #799: a failing reranker fails the case — a fallback to the retrieval's order would pass it
+    onFailure: RerankFailurePolicy.FailStep,
     source: { kind: "code", instance: () => rerank.by },
   } as const;
   return (query, { topK, tenantId, signal }) =>

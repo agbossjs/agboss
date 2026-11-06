@@ -163,6 +163,7 @@ export class FaultPod {
     get output(): string;
     get pid(): number;
     stop(): void;
+    storeTime: FaultStoreTime | undefined;
     term(): void;
 }
 
@@ -220,7 +221,6 @@ export interface FaultScenarioOptions {
     // (undocumented)
     readonly database: FaultDatabase;
     readonly stores: string;
-    readonly storeTimeScale?: number;
     readonly timeScale?: number;
 }
 
@@ -246,6 +246,20 @@ export interface FaultStores<TTransaction = unknown> {
     // (undocumented)
     readonly environment: FaultEnvironment;
     readonly providers: readonly Class[];
+    readonly storeTime: FaultStoreTime;
+}
+
+// @public
+export enum FaultStoreTime {
+    Database = "database",
+    Host = "host"
+}
+
+// @public
+export class FaultStoreTimeError extends Error {
+    constructor(given: unknown);
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -728,8 +742,9 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/fault-clock.ts:67:3 - (ae-undocumented) Missing documentation for "sleep".
 // src/testing/faults/fault-gateway.ts:47:1 - (ae-undocumented) Missing documentation for "FaultGateway".
 // src/testing/faults/fault-gateway.ts:48:3 - (ae-undocumented) Missing documentation for "requests".
-// src/testing/faults/fault-stores.ts:44:3 - (ae-undocumented) Missing documentation for "environment".
-// src/testing/faults/fault-stores.ts:45:3 - (ae-undocumented) Missing documentation for "businessRows".
+// src/testing/faults/fault-stores.ts:61:3 - (ae-undocumented) Missing documentation for "environment".
+// src/testing/faults/fault-stores.ts:62:3 - (ae-undocumented) Missing documentation for "businessRows".
+// src/testing/faults/fault-stores.ts:83:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/fixture/pod-link.ts:49:3 - (ae-undocumented) Missing documentation for "Reserve".
 // src/testing/faults/fixture/pod-link.ts:50:3 - (ae-undocumented) Missing documentation for "ChargeBefore".
 // src/testing/faults/fixture/pod-link.ts:53:3 - (ae-undocumented) Missing documentation for "PayBefore".
@@ -768,21 +783,21 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/pod-protocol.ts:93:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/testing/faults/pod-protocol.ts:94:3 - (ae-undocumented) Missing documentation for "orderId".
 // src/testing/faults/pod-protocol.ts:95:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/faults/pod.ts:34:3 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/pod.ts:39:3 - (ae-undocumented) Missing documentation for "timeScale".
-// src/testing/faults/pod.ts:40:3 - (ae-undocumented) Missing documentation for "timeOrigin".
-// src/testing/faults/pod.ts:41:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
-// src/testing/faults/pod.ts:42:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
-// src/testing/faults/pod.ts:55:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/pod.ts:60:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/faults/pod.ts:61:3 - (ae-undocumented) Missing documentation for "signal".
-// src/testing/faults/pod.ts:82:1 - (ae-undocumented) Missing documentation for "FaultPod".
-// src/testing/faults/pod.ts:83:3 - (ae-undocumented) Missing documentation for "events".
-// src/testing/faults/pod.ts:84:3 - (ae-undocumented) Missing documentation for "exited".
-// src/testing/faults/pod.ts:85:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/faults/pod.ts:93:5 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/scenario.ts:29:3 - (ae-undocumented) Missing documentation for "database".
-// src/testing/faults/scenario.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:35:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:40:3 - (ae-undocumented) Missing documentation for "timeScale".
+// src/testing/faults/pod.ts:41:3 - (ae-undocumented) Missing documentation for "timeOrigin".
+// src/testing/faults/pod.ts:42:3 - (ae-undocumented) Missing documentation for "shutdownTimeout".
+// src/testing/faults/pod.ts:43:3 - (ae-undocumented) Missing documentation for "maxConcurrentSteps".
+// src/testing/faults/pod.ts:56:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/pod.ts:61:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/pod.ts:62:3 - (ae-undocumented) Missing documentation for "signal".
+// src/testing/faults/pod.ts:83:1 - (ae-undocumented) Missing documentation for "FaultPod".
+// src/testing/faults/pod.ts:84:3 - (ae-undocumented) Missing documentation for "events".
+// src/testing/faults/pod.ts:85:3 - (ae-undocumented) Missing documentation for "exited".
+// src/testing/faults/pod.ts:86:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/faults/pod.ts:96:5 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/scenario.ts:30:3 - (ae-undocumented) Missing documentation for "database".
+// src/testing/faults/scenario.ts:41:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-outage.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/faults/store-points.ts:15:3 - (ae-undocumented) Missing documentation for "LeaseAcquire".
 // src/testing/faults/store-points.ts:16:3 - (ae-undocumented) Missing documentation for "LeaseRenew".

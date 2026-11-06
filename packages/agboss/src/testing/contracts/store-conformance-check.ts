@@ -3,8 +3,9 @@
  * contracts do not hold together — a lease store whose fenced-effect, outbound-call or lease-log
  * store is missing (its lease cases would never run: a double charge or a second owner nobody
  * tests), a fencing store without the lease store it checks, a contract both given and left out,
- * a store under a key that names no contract (#542: it would never be tested), or no store at all.
- * One error lists every problem.
+ * a store under a key that names no contract (#542: it would never be tested), no store at all, or
+ * an interleaving budget that is no budget (#799: `walks: 0` would search nothing and pass). One
+ * error lists every problem.
  */
 
 /** The fencing contracts a set with a lease store may leave out, by its `stores` key. */
@@ -28,6 +29,8 @@ export interface ClaimedSet {
   readonly name: string;
   readonly claimed: readonly string[];
   readonly without: readonly string[];
+  /** The set's `interleavings`, as given (unchecked). */
+  readonly interleavings?: unknown;
 }
 
 /**
@@ -83,8 +86,59 @@ function withoutProblemsOf(set: ClaimedSet): string[] {
   });
 }
 
+/** A value as a message shows it: a number as written (NaN too), anything else as JSON. */
+const valueText = (value: unknown): string =>
+  typeof value === "number" ? String(value) : JSON.stringify(value);
+
+const isCount = (value: unknown): boolean => Number.isSafeInteger(value) && (value as number) >= 1;
+
+/** Each budget field: what it must be, and whether a value is that. */
+const BUDGET_FIELDS: Readonly<Record<string, readonly [string, (value: unknown) => boolean]>> = {
+  depth: ["a whole number of at least 1", isCount],
+  walks: ["a whole number of at least 1", isCount],
+  walkDepth: ["a whole number of at least 1", isCount],
+  seed: ["a whole number", (value) => Number.isSafeInteger(value)],
+  timeLimit: [
+    "a positive number of ms",
+    (value) => typeof value === "number" && Number.isFinite(value) && value > 0,
+  ],
+};
+
+/** What a budget field holds that it may not: `undefined` when it is valid or absent. */
+function budgetFieldProblem(key: string, value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  const field = Object.hasOwn(BUDGET_FIELDS, key) ? BUDGET_FIELDS[key] : undefined;
+  if (field === undefined)
+    return "no option of the explorer (depth, walks, walkDepth, seed, timeLimit)";
+  const [must, isValid] = field;
+  return isValid(value) ? undefined : must;
+}
+
+/**
+ * What the set's `interleavings` says that is no budget (#799): anything but `false` or an
+ * object, a count that is not a whole number of at least 1 (`walks: 0` searches nothing), a
+ * seed that is not whole, a time limit that is not positive, a key the explorer has no option for.
+ */
+function interleavingProblemsOf(set: ClaimedSet): string[] {
+  const given = set.interleavings;
+  if (given === undefined || given === false) return [];
+  const invalid = (what: string): string =>
+    `[store-conformance.invalid-interleavings] "${set.name}" gives interleavings${what}: give a budget ({ depth, walks, walkDepth, seed, timeLimit }) or false`;
+  if (typeof given !== "object" || given === null || Array.isArray(given))
+    return [invalid(` = ${valueText(given)}`)];
+  // every field as the explorer reads it (an inherited one too), and every own key it has none for
+  const keys = new Set([...Object.keys(BUDGET_FIELDS), ...Object.keys(given)]);
+  return [...keys].flatMap((key) => {
+    const value: unknown = Reflect.get(given, key);
+    const problem = budgetFieldProblem(key, value);
+    return problem === undefined
+      ? []
+      : [invalid(`.${key} = ${valueText(value)}, which must be ${problem}`)];
+  });
+}
+
 /** Every key of `stores`, one per contract with a suite (`ConformanceStores`). */
-const CONTRACTS: readonly string[] = [
+export const CONTRACTS: readonly string[] = [
   "checkpointSaver",
   "childExecutionQueue",
   "costLedger",
@@ -116,6 +170,11 @@ export function checkStoreSet(set: ClaimedSet): void {
       ? [
           `[store-conformance.empty] "${set.name}" gives no store: list at least one in stores (executionLease, fencedEffect, …)`,
         ]
-      : [...unknownOf(set), ...withoutProblemsOf(set), ...missingOf(set)];
+      : [
+          ...unknownOf(set),
+          ...withoutProblemsOf(set),
+          ...missingOf(set),
+          ...interleavingProblemsOf(set),
+        ];
   if (problems.length > 0) throw new StoreConformanceError(problems);
 }

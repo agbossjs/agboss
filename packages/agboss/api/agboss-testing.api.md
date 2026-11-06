@@ -418,7 +418,6 @@ export interface GatewayChecklistClock {
 
 // @public
 export interface GatewayChecklistReport {
-    // (undocumented)
     readonly isPassed: boolean;
     // (undocumented)
     readonly results: readonly GatewayCheckResult[];
@@ -1343,11 +1342,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/gateway/outbound-gateway-checklist.ts:35:3 - (ae-undocumented) Missing documentation for "status".
 // src/testing/gateway/outbound-gateway-checklist.ts:36:3 - (ae-undocumented) Missing documentation for "evidence".
 // src/testing/gateway/outbound-gateway-checklist.ts:41:3 - (ae-undocumented) Missing documentation for "results".
-// src/testing/gateway/outbound-gateway-checklist.ts:42:3 - (ae-undocumented) Missing documentation for "isPassed".
-// src/testing/gateway/outbound-gateway-checklist.ts:47:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/outbound-gateway-checklist.ts:48:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/outbound-gateway-checklist.ts:53:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/outbound-gateway-checklist.ts:58:3 - (ae-undocumented) Missing documentation for "advance".
+// src/testing/gateway/outbound-gateway-checklist.ts:48:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/outbound-gateway-checklist.ts:49:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/outbound-gateway-checklist.ts:54:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/outbound-gateway-checklist.ts:59:3 - (ae-undocumented) Missing documentation for "advance".
 // src/testing/invalid-turns.ts:61:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".

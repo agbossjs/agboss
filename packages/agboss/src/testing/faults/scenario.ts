@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { faultViolationsOf } from "./invariants/check.js";
 import { FaultInvariantError } from "./invariants/violations.js";
 import type { FaultRun } from "./facts.js";
+import { FaultStoreTimeError, storeTimeScaleOf } from "./fault-stores.js";
 import type { FaultPod } from "./pod.js";
 import { FaultWorld, type FaultDatabase } from "./world.js";
 
@@ -27,14 +28,12 @@ export interface FaultScenarioOptions {
   /** The store set's module (an absolute path or a file URL): it exports `faultStores`. */
   readonly stores: string;
   readonly database: FaultDatabase;
-  /** How much faster than real time every pod's clock runs; default 1 (the real clock). */
-  readonly timeScale?: number;
   /**
-   * How fast the store decides a lease's time runs (#533, the linearizability checker reads the
-   * history by it): 1 for a database that decides by its own clock (`clock_timestamp()`); default
-   * `timeScale`, the pods' — the time an in-memory or SQLite store decides by.
+   * How much faster than real time every pod's clock runs; default 1 (the real clock). The store's
+   * time runs at it only for a set on the host's clock: the set says which (`FaultStores.storeTime`,
+   * #799).
    */
-  readonly storeTimeScale?: number;
+  readonly timeScale?: number;
 }
 
 /** A scenario's own expectations that did not hold, or a wait that ran past its deadline. */
@@ -50,11 +49,7 @@ const anyLivePod = (world: FaultWorld): FaultPod | undefined =>
  * The scenario run and its facts checked: the invariants first — also when the scenario stopped
  * early, on what a live pod reads then —, then the scenario's own expectations.
  */
-async function checkedRun(
-  scenario: FaultScenario,
-  world: FaultWorld,
-  timeScale: number,
-): Promise<FaultRun> {
+async function checkedRun(scenario: FaultScenario, world: FaultWorld): Promise<FaultRun> {
   let reader: FaultPod | undefined;
   let stopped: Error | undefined;
   try {
@@ -64,7 +59,10 @@ async function checkedRun(
     reader = anyLivePod(world);
   }
   if (reader === undefined) throw stopped ?? new Error(`${scenario.id} gave no pod to read with`);
-  // the history read on the store's own time (#533): the linearizability checker maps it so
+  // the history read on the store's own time (#533), as its set declares it (#799): the
+  // linearizability checker maps it so
+  if (reader.storeTime === undefined) throw new FaultStoreTimeError(undefined);
+  const timeScale = storeTimeScaleOf(reader.storeTime, world.options.timeScale);
   const run = { ...(await world.run(reader)), timeScale };
   const violations = faultViolationsOf(run);
   const notes = [...world.expectations, ...(stopped === undefined ? [] : [String(stopped)])];
@@ -103,7 +101,7 @@ export async function runFaultScenario(
     timeScale: options.timeScale ?? 1,
   });
   try {
-    return await checkedRun(scenario, world, options.storeTimeScale ?? options.timeScale ?? 1);
+    return await checkedRun(scenario, world);
   } catch (error) {
     dumped(scenario, world);
     throw error;

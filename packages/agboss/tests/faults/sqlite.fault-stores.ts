@@ -14,7 +14,7 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../src/index.js";
-import { defineFaultStores } from "../../src/testing/faults/index.js";
+import { defineFaultStores, FaultStoreTime } from "../../src/testing/faults/index.js";
 
 /**
  * #484 — the core's own store set under the fault suite: every SQLite store on one file that
@@ -48,6 +48,8 @@ export const sqliteFaultStoreClasses = [
 
 export const faultStores = defineFaultStores<DatabaseSync>({
   providers: sqliteFaultStoreClasses,
+  // the SQLite stores read the pod's clock: the history runs at the suite's timeScale (#799)
+  storeTime: FaultStoreTime.Host,
   environment: {
     contract: SqliteFaultEnvironment,
     values: { sqlitePath: env("AGBOSS_FAULT_DATABASE_URL") },
