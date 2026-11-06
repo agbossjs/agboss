@@ -46,38 +46,32 @@ interface Marked extends LegacyMarks {
   readonly ledger?: unknown;
 }
 
-const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null;
-
 /**
  * A mark's date as a `Date` (#817): a `Date`, or the ISO text a checkpoint keeps it as (JSON) — only
  * text a `Date` writes (`toISOString()`), never a lenient parse. Anything else fails closed.
  */
 function dateOf(madeAt: unknown, ledgerId: string): Date {
-  const date = isDate(madeAt)
-    ? madeAt
-    : typeof madeAt === "string" && isIsoText(madeAt)
-      ? new Date(madeAt)
-      : undefined;
+  const date = isDate(madeAt) ? madeAt : isIsoText(madeAt) ? new Date(String(madeAt)) : undefined;
   if (date === undefined || Number.isNaN(date.getTime()))
     throw new TypeError(`the ledger entry ${ledgerId} has no valid madeAt: ${String(madeAt)}`);
   return date;
 }
 
-/** Whether `text` is a date as `Date#toISOString()` writes it. */
-function isIsoText(text: string): boolean {
-  const date = new Date(text);
-  return !Number.isNaN(date.getTime()) && date.toISOString() === text;
+/** Whether `value` is a date as `Date#toISOString()` writes it. */
+function isIsoText(value: unknown): boolean {
+  const date = new Date(String(value));
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
 /** The mark as kept (`ledger`): checked, never guessed — an unknown one fails closed. */
 function markOf(ledger: unknown): LedgerMark {
-  if (isObject(ledger)) {
-    if (ledger.state === LedgerState.RecordedElsewhere) return { state: ledger.state };
-    const { ledgerId } = ledger;
-    if (ledger.state === LedgerState.Written && typeof ledgerId === "string" && ledgerId !== "")
-      return { state: ledger.state, ledgerId, madeAt: dateOf(ledger.madeAt, ledgerId) };
-  }
+  // a primitive (or null) has none of the fields: refused below
+  const fields: object = new Object(ledger);
+  const state: unknown = Reflect.get(fields, "state");
+  const ledgerId: unknown = Reflect.get(fields, "ledgerId");
+  if (state === LedgerState.RecordedElsewhere) return { state };
+  if (state === LedgerState.Written && typeof ledgerId === "string" && ledgerId !== "")
+    return { state, ledgerId, madeAt: dateOf(Reflect.get(fields, "madeAt"), ledgerId) };
   throw new TypeError(
     `a usage record's ledger mark is not one this version reads: ${JSON.stringify(ledger)}`,
   );

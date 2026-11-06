@@ -12,9 +12,12 @@ import {
   CostLedgerEntryInvalidError,
   expiredEntriesOf,
   invalidDateErrorOf,
+  InMemoryCostLedgerRepository,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
 } from "../../src/infrastructure/cost-ledger.repository.js";
+import { SqliteCostLedgerRepository } from "../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
+import { connectionTo, temporarySqlitePath } from "../infrastructure/contracts/store-kinds.js";
 
 const MADE_AT = new Date("2026-11-04T12:00:00.000Z");
 const fine = ledgerEntryOf(recordToolCost("pay-tool", 0.25), "p:0", MADE_AT);
@@ -37,6 +40,7 @@ describe("#817: assertLedgerEntries refuses anything but a ledger entry, naming 
       "its costUsd is no finite amount ≥ 0: Infinity",
     ],
     [{ ...fine, costUsd: -0.25 }, "its costUsd is no finite amount ≥ 0: -0.25"],
+    [{ ...fine, costUsd: undefined }, "its costUsd is no finite amount ≥ 0: undefined"],
   ];
 
   it.each(cases)("%o: %s", (entry, reason) => {
@@ -134,5 +138,18 @@ describe("#817: a date that is no date is refused, as a cutoff or a mark", () =>
       ["p:0", MADE_AT],
       ["p:6", MADE_AT],
     ]);
+  });
+});
+
+describe("#817: a store refuses a cutoff that is no date, naming it", () => {
+  it.each([
+    ["in memory", () => new InMemoryCostLedgerRepository()],
+    ["SQLite", () => new SqliteCostLedgerRepository(connectionTo(temporarySqlitePath()))],
+  ])("%s", async (_name, ledgerOf) => {
+    const ledger = ledgerOf();
+
+    await expect(ledger.deleteByMadeAtBefore(new Date(Number.NaN))).rejects.toThrow(
+      new TypeError("the cutoff is no valid Date: Invalid Date"),
+    );
   });
 });
