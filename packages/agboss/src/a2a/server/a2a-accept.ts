@@ -1,5 +1,5 @@
 import type { Message } from "@a2a-js/sdk";
-import { executeUnchecked } from "../../app/execute-unchecked.js";
+import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { DurableExecutionStatus } from "../../app/execution-control.js";
 import { DuplicateExecutionIdError } from "../../core/errors.js";
 import { failedStatusOf } from "../tasks/task-status.js";
@@ -71,7 +71,7 @@ function started(
   // its end is its task's status: the projection writes it, or — refused before it began — below
   void parts.runs.start(taskKeyOf(task), async (onStream) => {
     try {
-      return await executeUnchecked(parts.app, sent.skill.start, sent.input, {
+      return await executeWithoutInputCheck(parts.app, sent.skill.start, sent.input, {
         ...options,
         onStream,
       });
