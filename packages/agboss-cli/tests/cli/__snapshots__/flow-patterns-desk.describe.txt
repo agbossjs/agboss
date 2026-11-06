@@ -14,6 +14,7 @@ implementations
   ExecutionTreeRepository → InMemoryExecutionTreeRepository (built-in default: none listed)
   RateLimitRepository → InMemoryRateLimitRepository (built-in default: none listed)
   MeshRequestRepository → InMemoryMeshRequestRepository (built-in default: none listed)
+  A2ATaskRepository → InMemoryA2ATaskRepository (built-in default: none listed)
   ExecutionHistoryRepository → SqliteExecutionHistoryRepository (listed in @Application providers)
   ChildExecutionQueueRepository → InMemoryChildExecutionQueueRepository (built-in default: none listed)
   FencedEffectRepository → InMemoryFencedEffectRepository (built-in default: none listed)

@@ -15,6 +15,16 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ObserverClass } from "../core/observer-hooks.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 
+/** `@Application({ a2a })` (#807): what the application's A2A tasks keep. */
+export interface A2AApplicationOptions {
+  /**
+   * How long a finished A2A task is kept after its last status change — and with it the ids of its
+   * messages: a message resent within it gets the same task, never a second execution; the recovery
+   * sweep removes it on the `Clock` after this (an unfinished task never). Default `hours(24)`.
+   */
+  readonly taskRetention?: Milliseconds;
+}
+
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
  * `testWith(App)` take. It lists the top-level workflows, the infrastructure (`providers`: a
@@ -112,6 +122,8 @@ export interface ApplicationOptions {
    * on the `Clock` after this. Default `hours(24)`.
    */
   readonly leaseEventRetention?: Milliseconds;
+  /** What the application serves over A2A keeps (#807): see `A2AApplicationOptions`. */
+  readonly a2a?: A2AApplicationOptions;
   /**
    * How long an entry of the ledger is kept after its spend was made (#771): every tallied spend is
    * an entry under its `ledgerId` (#727) so that a write retried after a lost answer counts once;

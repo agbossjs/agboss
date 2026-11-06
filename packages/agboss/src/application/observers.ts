@@ -11,6 +11,8 @@ import { lazyLoad } from "../infrastructure/clock.js";
 import type { InstanceMetrics } from "../metrics/instance-metrics.js";
 import { leaseEventLogOf, type LeaseEventLog } from "../app/execution-leases.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import { executionControlOf } from "../app/execution-control.js";
+import { componentOf } from "../components/metadata.js";
 
 /**
  * The observers of an application instance (#261): `@Application({ observers })` only, one instance
@@ -29,11 +31,6 @@ const failureLoggedTo =
 /** Observers of an instance besides the application's (a test's call recorder, #262). */
 export interface ObserverSeams {
   readonly observers?: readonly ExecutionObserver[];
-}
-
-/** The instance's metrics (#485): their observer is called unmasked, before the others. */
-export interface MeteredObserver {
-  readonly observer: ExecutionObserver;
 }
 
 /** What an instance's metrics read, and where its created parts are kept (their `onDestroy`). */
@@ -64,7 +61,9 @@ export async function observersOf(
 ): Promise<{ readonly observer: ExecutionObserverManager; readonly leaseEvents: LeaseEventLog }> {
   const { assembled, shared, log, seams, mask, infrastructure } = parts;
   const metrics = await instanceMetricsOf(meterProvider, parts);
-  const observer = observerManagerOf(assembled, shared, options, log, seams, metrics);
+  const projection = await a2aTaskProjectionOf(parts);
+  const builtIn = [...(metrics === undefined ? [] : [metrics.observer]), ...projection];
+  const observer = observerManagerOf(assembled, shared, options, log, seams, builtIn);
   const heldLeases = metrics?.heldLeases;
   return {
     observer,
@@ -88,18 +87,35 @@ export async function instanceMetricsOf(
   return metrics;
 }
 
-/** The manager of the application's observers, each created now (its hooks run with the others'). */
+/**
+ * The A2A task projection (#807), when the application exposes an `@A2AExpose` — loaded only then:
+ * the framework's own observer, called first and unmasked (it keeps the pauses' masked asks as the
+ * execution lists them, and a finish's output as the caller gets it).
+ */
+async function a2aTaskProjectionOf(parts: ObservedParts): Promise<readonly ExecutionObserver[]> {
+  const exposes = parts.assembled.exposes.some((cls) => componentOf(cls)?.kind === "a2a-expose");
+  if (!exposes) return [];
+  const { A2ATaskProjection } = await lazyLoad(import("../a2a/tasks/a2a-task-projection.js"));
+  const { a2aTasks: tasks, clock } = parts.infrastructure;
+  // the instance's trees by id, remembered by its infrastructure once its app is composed
+  const control = () => executionControlOf(parts.infrastructure);
+  return [new A2ATaskProjection({ tasks, clock, log: parts.log, control })];
+}
+
+/**
+ * The manager of the application's observers, each created now (its hooks run with the others'),
+ * after the framework's own (`builtIn`: the instance's metrics, the A2A task projection).
+ */
 export function observerManagerOf(
   assembled: AssembledApplication,
   application: ApplicationContainer,
   options: ContainerOptions,
   log: FrameworkLog,
   seams: ObserverSeams = {},
-  metrics?: MeteredObserver,
+  builtIn: readonly ExecutionObserver[] = [],
 ): ExecutionObserverManager {
   // each listed class is checked at assembly to implement observer hooks
   const observers = resolveListed(application, options, assembled.observers) as ExecutionObserver[];
   const all = [...observers, ...(seams.observers ?? [])];
-  const builtIn = metrics === undefined ? [] : [metrics.observer];
   return new ExecutionObserverManager(all, failureLoggedTo(log), undefined, builtIn);
 }

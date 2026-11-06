@@ -137,3 +137,24 @@ export {
 } from "../infrastructure/fenced-effect-settings.js";
 // the class a refusal of minted ids names, for a store of your own (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
+// #807: the A2A tasks an application serves (infrastructure, listed in `@Application({ providers })`)
+export {
+  A2ATaskRepository,
+  A2ATaskSaveStatus,
+  A2ATaskState,
+  InvalidA2APageTokenError,
+  isTerminalA2ATaskState,
+  type A2AMessageKey,
+  type A2AMessageRecord,
+  type A2ATaskKey,
+  type A2ATaskPage,
+  type A2ATaskPause,
+  type A2ATaskQuery,
+  type A2ATaskRecord,
+  type A2ATaskSave,
+  type A2ATaskStatus,
+  type A2ATerminalTaskState,
+  type NewA2ATask,
+} from "../infrastructure/a2a-task.repository.js";
+export type { A2AApplicationOptions } from "../application/application.js";
+export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";

@@ -22,6 +22,8 @@ import {
 } from "./paused-execution.repository.js";
 import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
+import { A2ATaskRepository } from "./a2a-task.repository.js";
+import { InMemoryA2ATaskRepository } from "./in-memory-a2a-task.repository.js";
 import {
   ExecutionHistoryRepository,
   InMemoryExecutionHistoryRepository,
@@ -70,6 +72,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionTreeRepository, InMemoryExecutionTreeRepository],
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
+  [A2ATaskRepository, InMemoryA2ATaskRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
@@ -128,6 +131,8 @@ export interface Infrastructure {
   readonly executionTrees: ExecutionTreeRepository;
   readonly rateLimits: RateLimitRepository;
   readonly meshRequests: MeshRequestRepository;
+  /** The A2A tasks the application serves (#807): one per root execution, ever. */
+  readonly a2aTasks: A2ATaskRepository;
   /** The kept root executions (#401 PR 1): written only with `executionRecordRetention`. */
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
@@ -174,6 +179,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   executionTrees: resolve(ExecutionTreeRepository) as ExecutionTreeRepository,
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
+  a2aTasks: resolve(A2ATaskRepository) as A2ATaskRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,

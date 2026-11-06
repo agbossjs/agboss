@@ -1,4 +1,5 @@
-import { unkeptExecutionIds, lazyLoad } from "../infrastructure/clock.js";
+import { lazyLoad } from "../infrastructure/clock.js";
+import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
@@ -69,7 +70,7 @@ const STOPPING = "the app is stopping: app.close() was called, no new execution 
  * the running ones, `interrupt(reason)` stops what still runs (the application's graceful stop),
  * `recover` continues one of its interrupted roots (the recovery sweep, #265 S30).
  */
-export interface BuiltApp {
+export interface BuiltApp extends TreeControl {
   readonly app: WorkflowApp;
   readonly deps: AppDeps;
   readonly bundle: AssembledWorkflow;
@@ -125,6 +126,8 @@ export async function buildApp(
   const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>
     admitRequest(deps.observer, deps, request, checks);
   const cancelParts = { deps, live, paused, trees, clock, leases, admit, known };
+  // its trees by id and the ids transports reserve (#807)
+  const byId = treeControlOf(parts.infrastructure, cancelParts);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError(STOPPING);
@@ -160,8 +163,9 @@ export async function buildApp(
       });
       const { tenantId } = checked.contexts.tenant;
       // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and
-      // its result — kept before anything of it is written, never another tree's (#591)
-      const runId = await (deps.executionIds ?? unkeptExecutionIds).newExecutionId(tenantId);
+      // its result — kept before anything of it is written, never another tree's (#591); a
+      // transport's reserved id (#807: an A2A task's) is kept instead of a minted one
+      const runId = await runIdOf(call, tenantId, deps.executionIds, byId.reservedIds);
       const { contexts: values } = checked;
       // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
       // before anything is written: no thread, no record, no checkpoint
@@ -230,5 +234,6 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
+    ...byId,
   };
 }

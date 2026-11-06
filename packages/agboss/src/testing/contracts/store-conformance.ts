@@ -7,6 +7,7 @@ import type { ExecutionLeaseRepository } from "../../infrastructure/execution-le
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import type { MeshRequestRepository } from "../../infrastructure/mesh-request.repository.js";
+import type { A2ATaskRepository } from "../../infrastructure/a2a-task.repository.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { RateLimitRepository } from "../../infrastructure/rate-limit.repository.js";
 import { checkpointSaverContract } from "./checkpoint-saver.contract.js";
@@ -21,6 +22,7 @@ import type { FencedEffectStores } from "./fenced-effect-data.js";
 import { registerFencedEffectContract } from "./fenced-effect.contract.js";
 import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
+import { a2aTaskContract } from "./a2a-task.contract.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { registerOutboundCallContract } from "./outbound-call.contract.js";
 import { pausedExecutionContract } from "./paused-execution.contract.js";
@@ -56,6 +58,8 @@ export interface ConformanceStores<TTransaction = unknown> {
   readonly executionTree?: ConformanceStore<ExecutionTreeRepository>;
   readonly fencedEffect?: ConformanceStore<FencedEffectStores<TTransaction>>;
   readonly meshRequest?: ConformanceStore<MeshRequestRepository>;
+  /** The A2A tasks (#807). */
+  readonly a2aTask?: ConformanceStore<A2ATaskRepository>;
   readonly outboundCall?: ConformanceStore<OutboundCallStores>;
   readonly pausedExecution?: ConformanceStore<PausedExecutionRepository>;
   readonly rateLimit?: ConformanceStore<RateLimitRepository>;
@@ -152,6 +156,7 @@ export function storeConformance<TTransaction>(
     registerFencedEffectContract(target, fencing);
   });
   each(set, stores.meshRequest, meshRequestContract);
+  each(set, stores.a2aTask, a2aTaskContract);
   const outboundCall = each(set, stores.outboundCall, (target) => {
     registerOutboundCallContract(target, fencing);
   });

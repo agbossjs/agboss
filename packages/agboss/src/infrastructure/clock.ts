@@ -7,7 +7,7 @@ import {
   KeyTextRule,
   keyTextRuleOf,
 } from "../core/errors.js";
-import type { ExecutionLeaseRepository } from "./execution-lease.repository.js";
+import type { ExecutionIdentity, ExecutionLeaseRepository } from "./execution-lease.repository.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -211,6 +211,31 @@ export const executionIdsOf = (
   async newExecutionId(tenantId: string): Promise<string> {
     const executionId = idGenerator.newExecutionId();
     if (await leases.saveExecutionIdIfAbsent({ executionId, tenantId })) return executionId;
+    throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
+  },
+});
+
+/**
+ * An execution id reserved before its execution starts (#807: an A2A task's id, known when the task
+ * is accepted): minted like any other, kept by the lease store only when the execution starts — or
+ * when a sweep fences it, so that none ever can. The claim is the same arbiter as a minted id's, so
+ * one reserved id starts at most one execution, ever.
+ */
+export interface ReservedExecutionIds {
+  /** Keeps the id now: `true` when this call kept it, `false` when it was kept before. */
+  claim(identity: ExecutionIdentity): Promise<boolean>;
+  /** The id, kept now for its execution; `DuplicateExecutionIdError` when it was kept before. */
+  keep(identity: ExecutionIdentity): Promise<string>;
+}
+
+/** The reserved ids of an application instance, kept in `leases`. */
+export const reservedExecutionIdsOf = (
+  idGenerator: IdGenerator,
+  leases: Pick<ExecutionLeaseRepository, "saveExecutionIdIfAbsent">,
+): ReservedExecutionIds => ({
+  claim: (identity) => leases.saveExecutionIdIfAbsent(identity),
+  async keep(identity: ExecutionIdentity): Promise<string> {
+    if (await leases.saveExecutionIdIfAbsent(identity)) return identity.executionId;
     throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
   },
 });

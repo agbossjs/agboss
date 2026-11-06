@@ -73,6 +73,8 @@ export interface AssembledApplication {
   readonly executionRecordRetention?: Milliseconds;
   /** How long a row of the lease log is kept (`@Application({ leaseEventRetention })`, #501). */
   readonly leaseEventRetention: Milliseconds;
+  /** How long a finished A2A task is kept (`@Application({ a2a: { taskRetention } })`, #807). */
+  readonly a2aTaskRetention: Milliseconds;
   /** How long an entry of the ledger is kept (`@Application({ ledgerEntryRetention })`, #771). */
   readonly ledgerEntryRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
@@ -103,6 +105,8 @@ const PAUSE_RECORD_RETENTION: Milliseconds = hours(24);
 
 /** How long a row of the lease log is kept by default (#501): a day of takeovers and hand-overs. */
 const LEASE_EVENT_RETENTION: Milliseconds = hours(24);
+/** How long a finished A2A task is kept by default (#807). */
+const A2A_TASK_RETENTION: Milliseconds = hours(24);
 
 /**
  * How long a ledger entry is kept by default (#771): a day — a pass retries a lost write at its
@@ -218,6 +222,7 @@ const retentionsOf = (options: ApplicationOptions) => ({
     ? {}
     : { executionRecordRetention: options.executionRecordRetention }),
   leaseEventRetention: options.leaseEventRetention ?? LEASE_EVENT_RETENTION,
+  a2aTaskRetention: options.a2a?.taskRetention ?? A2A_TASK_RETENTION,
   ledgerEntryRetention: options.ledgerEntryRetention ?? LEDGER_ENTRY_RETENTION,
 });
 

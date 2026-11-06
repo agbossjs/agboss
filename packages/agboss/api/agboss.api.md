@@ -19,6 +19,149 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // @public
+export interface A2AApplicationOptions {
+    readonly taskRetention?: Milliseconds;
+}
+
+// @public
+export interface A2AMessageKey {
+    // (undocumented)
+    readonly messageId: string;
+    readonly ownerId: string | undefined;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AMessageRecord extends A2AMessageKey {
+    readonly reply?: unknown;
+    readonly requestHash: string;
+    // (undocumented)
+    readonly savedAt: Date;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export interface A2ATaskKey {
+    // (undocumented)
+    readonly taskId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2ATaskPage {
+    // (undocumented)
+    readonly nextPageToken: string;
+    // (undocumented)
+    readonly tasks: readonly A2ATaskRecord[];
+}
+
+// @public
+export interface A2ATaskPause {
+    readonly ask: unknown;
+    // (undocumented)
+    readonly kind: PauseKind;
+    readonly pauseId?: string;
+}
+
+// @public
+export interface A2ATaskQuery {
+    // (undocumented)
+    readonly contextId?: string;
+    // (undocumented)
+    readonly ownerId: string | undefined;
+    readonly pageSize: number;
+    readonly pageToken?: string;
+    // (undocumented)
+    readonly state?: A2ATaskState;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2ATaskRecord extends A2ATaskKey {
+    readonly acceptedAt: Date;
+    readonly callerPeer?: string;
+    readonly contextId: string;
+    // (undocumented)
+    readonly ownerId: string | undefined;
+    readonly skill: string;
+    // (undocumented)
+    readonly status: A2ATaskStatus;
+    readonly statusAt: Date;
+    readonly version: number;
+}
+
+// @public (undocumented)
+export abstract class A2ATaskRepository {
+    abstract compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    abstract findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    abstract findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    abstract list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    abstract ping(): Promise<void>;
+    abstract saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    abstract saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    abstract saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+}
+
+// @public (undocumented)
+export type A2ATaskSave = {
+    readonly status: A2ATaskSaveStatus.Saved;
+    readonly task: A2ATaskRecord;
+} | {
+    readonly status: A2ATaskSaveStatus.MessageTaken;
+    readonly message: A2AMessageRecord;
+    readonly task: A2ATaskRecord | undefined;
+} | {
+    readonly status: A2ATaskSaveStatus.TaskIdTaken;
+};
+
+// @public
+export enum A2ATaskSaveStatus {
+    MessageTaken = "message-taken",
+    Saved = "saved",
+    TaskIdTaken = "task-id-taken"
+}
+
+// @public
+export enum A2ATaskState {
+    // (undocumented)
+    Canceled = "TASK_STATE_CANCELED",
+    // (undocumented)
+    Completed = "TASK_STATE_COMPLETED",
+    // (undocumented)
+    Failed = "TASK_STATE_FAILED",
+    // (undocumented)
+    InputRequired = "TASK_STATE_INPUT_REQUIRED",
+    // (undocumented)
+    Rejected = "TASK_STATE_REJECTED",
+    // (undocumented)
+    Submitted = "TASK_STATE_SUBMITTED",
+    // (undocumented)
+    Working = "TASK_STATE_WORKING"
+}
+
+// @public
+export interface A2ATaskStatus {
+    readonly cancelRequestedAt?: string;
+    readonly errorCode?: string;
+    readonly finish?: string;
+    readonly message?: string;
+    readonly output?: unknown;
+    readonly pendingPauses: readonly A2ATaskPause[];
+    // (undocumented)
+    readonly state: A2ATaskState;
+}
+
+// @public
+export type A2ATerminalTaskState = A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Canceled | A2ATaskState.Rejected;
+
+// @public
 export interface AcceptedBy {
     // (undocumented)
     readonly arbiters: readonly ArbiterClass[];
@@ -398,6 +541,7 @@ export abstract class ApplicationContext {
 
 // @public
 export interface ApplicationOptions {
+    readonly a2a?: A2AApplicationOptions;
     readonly budgets?: readonly Class[];
     readonly compaction?: Class;
     readonly compensationTimeout?: Milliseconds;
@@ -3059,8 +3203,31 @@ export class InjectionToken<T> {
 }
 
 // @public
-export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
+export class InMemoryA2ATaskRepository extends A2ATaskRepository {
     // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
+    constructor(database: InMemoryDatabase);
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+}
+
+// @public
+export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
     constructor(clock: Pick<Clock, "now">, database: InMemoryDatabase, settings: FencedEffectSettings, leases: ExecutionLeaseRepository);
     // (undocumented)
     static readonly backend: string | undefined;
@@ -3138,6 +3305,13 @@ export interface Inputs {
 }
 
 // @public
+export class InvalidA2APageTokenError extends AGBossError {
+    constructor();
+    // (undocumented)
+    static readonly code: string;
+}
+
+// @public
 export class InvalidBusinessKeyError extends AGBossError {
     constructor(options: InvalidBusinessKeyErrorOptions);
     // (undocumented)
@@ -3189,6 +3363,9 @@ export class InvalidThreadIdError extends AGBossError {
     // (undocumented)
     readonly rule: KeyTextRule;
 }
+
+// @public
+export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
 // @public
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
@@ -3843,6 +4020,14 @@ export interface ModelUsage {
 
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
+
+// @public
+export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> {
+    // (undocumented)
+    readonly messageId: string;
+    // (undocumented)
+    readonly requestHash: string;
+}
 
 // @public
 export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string, madeAt: number) => boolean) => readonly UsageRecord[];
@@ -6927,7 +7112,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 //
 // src/app/app-deps.ts:59:3 - (ae-undocumented) Missing documentation for "evaluation".
 // src/app/app-deps.ts:111:3 - (ae-undocumented) Missing documentation for "container".
-// src/app/create-app.ts:59:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/lease-lost.ts:98:3 - (ae-undocumented) Missing documentation for "code".
@@ -7009,7 +7194,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:301:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:306:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:307:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/application/application.ts:220:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:232:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -7663,6 +7848,36 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/a2a-task.repository.ts:22:3 - (ae-undocumented) Missing documentation for "Submitted".
+// src/infrastructure/a2a-task.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Working".
+// src/infrastructure/a2a-task.repository.ts:24:3 - (ae-undocumented) Missing documentation for "InputRequired".
+// src/infrastructure/a2a-task.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Completed".
+// src/infrastructure/a2a-task.repository.ts:26:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/a2a-task.repository.ts:27:3 - (ae-undocumented) Missing documentation for "Canceled".
+// src/infrastructure/a2a-task.repository.ts:28:3 - (ae-undocumented) Missing documentation for "Rejected".
+// src/infrastructure/a2a-task.repository.ts:48:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:49:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/infrastructure/a2a-task.repository.ts:54:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:57:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts:64:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/a2a-task.repository.ts:71:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-task.repository.ts:91:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:96:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/a2a-task.repository.ts:111:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/infrastructure/a2a-task.repository.ts:112:3 - (ae-undocumented) Missing documentation for "savedAt".
+// src/infrastructure/a2a-task.repository.ts:119:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts:120:3 - (ae-undocumented) Missing documentation for "requestHash".
+// src/infrastructure/a2a-task.repository.ts:133:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
+// src/infrastructure/a2a-task.repository.ts:144:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:145:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:146:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/infrastructure/a2a-task.repository.ts:147:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-task.repository.ts:156:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/infrastructure/a2a-task.repository.ts:157:3 - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts:162:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:169:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:185:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:187:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
@@ -7752,6 +7967,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect.repository.ts:84:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/fenced-effect.repository.ts:99:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:100:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/in-memory-a2a-task.repository.ts:32:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-task.repository.ts:36:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:55:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:63:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:71:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/in-memory-a2a-task.repository.ts:76:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/in-memory-a2a-task.repository.ts:81:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/in-memory-a2a-task.repository.ts:101:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/in-memory-a2a-task.repository.ts:121:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:60:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "backend".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".

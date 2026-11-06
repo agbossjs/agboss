@@ -19,6 +19,26 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // @public
+export const A2A_START_LOST = "a2a.start-lost";
+
+// @public
+export interface A2ATaskRepairParts {
+    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly clock: Pick<Clock, "now">;
+    // (undocumented)
+    readonly control: ExecutionControl;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point internal.d.ts
+    readonly staleAfter: Milliseconds;
+    readonly startTimeout: Milliseconds;
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly tasks: A2ATaskRepository;
+}
+
+// @public
 export interface ApplicationDescription {
     readonly environment?: DescribedEnvironment;
     readonly profile?: string;
@@ -64,6 +84,7 @@ export const applicationWarningsOf: (assembled: AssembledApplication) => readonl
 
 // @public
 export interface AssembledApplication {
+    readonly a2aTaskRetention: Milliseconds;
     // (undocumented)
     readonly application: Class;
     // (undocumented)
@@ -97,7 +118,6 @@ export interface AssembledApplication {
     // Warning: (ae-forgotten-export) The symbol "Provider" needs to be exported by the entry point internal.d.ts
     readonly providers: readonly Provider[];
     readonly pseudonymKey?: string;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point internal.d.ts
     readonly shutdownTimeout: Milliseconds;
     readonly source?: string;
     // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point internal.d.ts
@@ -259,6 +279,11 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
 //
 // @public
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
+
+// Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export const completedStatusOf: (finish: string, output: unknown) => A2ATaskStatus;
 
 // Warning: (ae-forgotten-export) The symbol "SnapshotDeps" needs to be exported by the entry point internal.d.ts
 //
@@ -573,6 +598,38 @@ export interface DraftToolCall {
     readonly tool: string;
 }
 
+// @public (undocumented)
+export type DurableExecutionState = {
+    readonly status: DurableExecutionStatus.NotStarted;
+} | {
+    readonly status: DurableExecutionStatus.Running;
+} | {
+    readonly status: DurableExecutionStatus.Paused;
+    readonly pending: readonly PendingPause[];
+} | {
+    readonly status: DurableExecutionStatus.Finished;
+    readonly finish: string;
+    readonly output: unknown;
+} | {
+    readonly status: DurableExecutionStatus.Failed;
+    readonly reason: string;
+} | {
+    readonly status: DurableExecutionStatus.Cancelled;
+};
+
+// @public
+export enum DurableExecutionStatus {
+    Cancelled = "cancelled",
+    Failed = "failed",
+    Finished = "finished",
+    NotStarted = "not-started",
+    Paused = "paused",
+    Running = "running"
+}
+
+// @public
+export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | undefined;
+
 // Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -710,6 +767,32 @@ export const executeUnchecked: (app: Pick<App, "execute">, start: Class, input: 
 export const EXECUTION_RECORD_KIND = "agboss.execution-record";
 
 // @public
+export enum ExecutionCancelOutcome {
+    Aborted = "aborted",
+    AlreadyOver = "already-over",
+    AwaitingStart = "awaiting-start",
+    Ended = "ended",
+    Requested = "requested"
+}
+
+// @public
+export interface ExecutionCancelRequest extends ExecutionTreeOfThread {
+    // (undocumented)
+    readonly ownerId?: string | undefined;
+}
+
+// Warning: (ae-forgotten-export) The symbol "WorkflowExecutionControl" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export interface ExecutionControl extends WorkflowExecutionControl {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionIdentity" needs to be exported by the entry point internal.d.ts
+    claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
+}
+
+// @public
+export const executionControlOf: (instance: Pick<App, "execute"> | object) => ExecutionControl | undefined;
+
+// @public
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
@@ -719,10 +802,26 @@ export type ExecutionStreamEvent = {
     readonly args?: unknown;
 };
 
+// @public
+export interface ExecutionTreeOfThread {
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRecord" needs to be exported by the entry point internal.d.ts
 //
 // @public
 export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
+
+// @public
+export function failedStatusOf(error: Error): A2ATaskStatus;
+
+// @public
+export const failureMessageOf: (code: string) => string;
 
 // @public
 export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
@@ -863,6 +962,9 @@ export function historyRecordsOf(history: ExecutionHistoryRepository, query: His
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
+export const INTERNAL_FAILURE = "internal";
+
+// @public
 export const isJudgeCheckName: (check: string) => boolean;
 
 // Warning: (ae-forgotten-export) The symbol "Tool" needs to be exported by the entry point internal.d.ts
@@ -953,6 +1055,9 @@ export function openExecutionHistory(application: Class, options?: Pick<AppOptio
 // @public
 export function pathLines(path: FlowPath, label?: ComponentLabel): readonly string[];
 
+// @public
+export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus;
+
 // @public (undocumented)
 export const problemLine: (problem: ModelProblem) => string;
 
@@ -982,6 +1087,11 @@ export type ProviderFetch = typeof fetch;
 // @public
 export function renderTemplate(text: string, variables: Readonly<Record<string, unknown>>, unknown: (key: string) => Error): string;
 
+// Warning: (ae-forgotten-export) The symbol "A2ATaskRecord" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function repairedTask(parts: A2ATaskRepairParts, task: A2ATaskRecord): Promise<A2ATaskRecord>;
+
 // Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ReplayReport" needs to be exported by the entry point internal.d.ts
 //
@@ -995,6 +1105,9 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
 //
 // @public
 export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
+
+// @public
+export const reservedExecutionIdOf: (options: object) => string | undefined;
 
 // Warning: (ae-forgotten-export) The symbol "ResolvedModelUse" needs to be exported by the entry point internal.d.ts
 //
@@ -1058,8 +1171,6 @@ export interface StaleCassette {
     readonly message: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function standaloneContexts(workflow: {
     readonly name: string;
@@ -1121,6 +1232,9 @@ export const TRAJECTORY_CHECK = "trajectory";
 
 // @public
 export const versionOf: (value: unknown) => string;
+
+// @public
+export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
 export interface WorkflowSnapshot {
@@ -1227,6 +1341,15 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 
 // Warnings were encountered during analysis:
 //
+// src/a2a/tasks/a2a-task-repair.ts:19:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/a2a/tasks/a2a-task-repair.ts:20:3 - (ae-undocumented) Missing documentation for "control".
+// src/a2a/tasks/a2a-task-repair.ts:21:3 - (ae-undocumented) Missing documentation for "clock".
+// src/app/execution-control.ts:15:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/execution-control.ts:16:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/execution-control.ts:17:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/app/execution-control.ts:22:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/execution-control.ts:55:1 - (ae-undocumented) Missing documentation for "DurableExecutionState".
+// src/app/execution-control.ts:58:55 - (ae-forgotten-export) The symbol "PendingPause" needs to be exported by the entry point internal.d.ts
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
@@ -1234,12 +1357,12 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:51:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/assemble.ts:52:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/assemble.ts:61:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:94:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:232:1 - (ae-undocumented) Missing documentation for "applicationOf".
-// src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
-// src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
-// src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".
-// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "infrastructure".
+// src/application/assemble.ts:96:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:237:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "app".
+// src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "assembled".
+// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/application/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts:20:3 - (ae-undocumented) Missing documentation for "history".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".

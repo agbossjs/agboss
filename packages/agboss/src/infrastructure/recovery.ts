@@ -1,3 +1,4 @@
+import type { Expiry } from "./expiry.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { FencedEffectRepository } from "./fenced-effect.repository.js";
@@ -212,19 +213,14 @@ export interface RetentionSources {
   /** The lease log (#501) and `@Application({ leaseEventRetention })`: older rows are removed. */
   readonly leaseEvents?: ExecutionLeaseEventRepository | undefined;
   readonly leaseEventRetention?: Milliseconds | undefined;
+  /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
+  readonly expiries?: readonly Expiry[] | undefined;
   /** The ended outbound calls (#505), removed after `outboundCalls.retention`; never a pending one. */
   readonly outboundCalls?: OutboundCallRepository | undefined;
   readonly outboundCallRetention?: Milliseconds | undefined;
   /** The ledger (#771) and `@Application({ ledgerEntryRetention })`: older entries pruned. */
   readonly ledger?: CostLedgerRepository | undefined;
   readonly ledgerEntryRetention?: Milliseconds | undefined;
-}
-
-/** One kind of rows: what they are, how they are removed before a cutoff, and how long they stay. */
-interface Expiry {
-  readonly what: string;
-  readonly remove: ((cutoff: Date) => Promise<void>) | undefined;
-  readonly retention: number | undefined;
 }
 
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
@@ -266,6 +262,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       remove: sources.ledger?.deleteEntriesByMadeAtBefore.bind(sources.ledger),
       retention: sources.ledgerEntryRetention,
     },
+    ...(sources.expiries ?? []),
   ];
 };
 

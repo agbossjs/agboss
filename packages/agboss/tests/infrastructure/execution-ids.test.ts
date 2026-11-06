@@ -10,6 +10,7 @@ import {
   CheckedIdGenerator,
   executionIdsOf,
   IdGenerator,
+  reservedExecutionIdsOf,
   unkeptExecutionIds,
 } from "../../src/infrastructure/clock.js";
 import type { ExecutionIdentity } from "../../src/infrastructure/execution-lease.repository.js";
@@ -66,5 +67,42 @@ describe("#591: ExecutionIds", () => {
 
     expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(second).not.toBe(first);
+  });
+});
+
+describe("#807: ReservedExecutionIds — an id reserved before its execution starts", () => {
+  const identity = { executionId: "task-1", tenantId: "acme" };
+
+  it("a claim asks the store to keep the id as it is and answers what the store did", async () => {
+    const kept = idsStore(true);
+    const taken = idsStore(false);
+
+    const claims = [
+      await reservedExecutionIdsOf(new FixedIdGenerator(), kept).claim(identity),
+      await reservedExecutionIdsOf(new FixedIdGenerator(), taken).claim(identity),
+    ];
+
+    expect(claims).toEqual([true, false]);
+    expect(kept.asked).toEqual([identity]);
+  });
+
+  it("a kept id is the reserved one, never the generator's", async () => {
+    const store = idsStore(true);
+
+    const id = await reservedExecutionIdsOf(new FixedIdGenerator(), store).keep(identity);
+
+    expect(id).toBe("task-1");
+    expect(store.asked).toEqual([identity]);
+  });
+
+  it("an id kept before is DuplicateExecutionIdError naming the project's generator", async () => {
+    const generator = new CheckedIdGenerator(new FixedIdGenerator());
+
+    const refused = reservedExecutionIdsOf(generator, idsStore(false)).keep(identity);
+
+    await expect(refused).rejects.toMatchObject({
+      code: "run.duplicate-execution-id",
+      generator: "FixedIdGenerator",
+    });
   });
 });
