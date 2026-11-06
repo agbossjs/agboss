@@ -21,8 +21,9 @@ From the 0.1.1 API review (G1b, G5); the surface is not published yet, so no ali
   (`IdempotencyKeyMissingError`); rotation compares under both keys and stores under the current
   one. `pseudonymKey` is `piiKeyField`; both are typed as `Secret` fields of the contract, and a key
   shared with a provider's `apiKey` or another key is `[application.pii-key-shared]` /
-  `[application.idempotency-key-shared]`. **Migration:** `idempotencyKey!: Secret` in the contract,
-  `secret("IDEMPOTENCY_KEY")` in each environment, `idempotencyKeyField: "idempotencyKey"`.
+  `[application.idempotency-key-shared]`. **Migration:** `idempotencyKey?: Secret` in the contract,
+  `secret("IDEMPOTENCY_KEY")` in each environment it runs on (`testWith` gives `test` a key),
+  `idempotencyKeyField: "idempotencyKey"`.
 - **Changed — breaking**: `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` →
   `{ calls, next? }` (was `pendingOutboundCalls`), and the store's
   `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` keyset-paged;
