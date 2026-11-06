@@ -234,7 +234,7 @@ export const migrateTernDatabase = (db: DatabaseSync): void => {
 
 /**
  * Opens (creating directories) and migrates the database. `node:sqlite` is loaded here, on first
- * use, so importing `agboss` never loads it (#195).
+ * use, so importing `@agboss/core` never loads it (#195).
  */
 export function openTernDatabase(path: string): DatabaseSync {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });

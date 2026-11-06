@@ -7,7 +7,10 @@ import {
 } from "../../flow/context/context-values.js";
 import type { FrameSpec } from "../../flow/context/frame.js";
 import { idempotencyKeyOf } from "../../flow/context/idempotency.js";
-import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  tenantOfExecution,
+} from "../../flow/context/runtime-contexts.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
 import type { GraphDeps } from "../../graph/deps.js";
@@ -29,7 +32,7 @@ export function caseContextValuesOf(
   deps: GraphDeps<string>,
   given: { readonly tenant?: unknown; readonly execution?: unknown },
 ): CaseContextValues {
-  const contexts = deps.contexts ?? standaloneContexts(workflowIdentityOf(deps));
+  const contexts = deps.contexts ?? contextsOutsideExecution(workflowIdentityOf(deps));
   return {
     tenant: tenantFieldsOf(contexts.tenantContext, given.tenant),
     execution: executionFieldsOf(contexts.executionContext, given.execution),
@@ -50,7 +53,7 @@ export function judgeFrameOf(
   judge: { readonly type: Class; readonly name: string },
 ): FrameSpec {
   const identity = workflowIdentityOf(deps);
-  const contexts = deps.contexts ?? standaloneContexts(identity);
+  const contexts = deps.contexts ?? contextsOutsideExecution(identity);
   const { executionId, threadId, values } = execution;
   const visitNumber = 1;
   return {

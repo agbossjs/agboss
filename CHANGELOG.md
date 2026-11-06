@@ -71,8 +71,8 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   first open (the old chunks become the `default` tenant's; another tenant indexes its own copy on
   its first retrieval); `folder` may now be a function `tenantId → folder | undefined` for each
   tenant's own documents. `agboss rag index` takes `--tenant <id>` (default `default`); a retrieval
-  outside an execution is `context.unavailable`. `KnowledgeSource.retrieve` is `KnowledgeRetrieve`
-  (the core supplies the tenant).
+  outside an execution is `context.unavailable`. `KnowledgeSource`, `KnowledgeRetrieve` and
+  `KnowledgeRetrieval` — the core's own view of a retrieval — are no longer public (#818, below).
 
 - **A knowledge base declares whose content it serves** (#796) — a connector could ignore
   `tenantId` and still compile, and example 03's did: every tenant read one index. Nothing told a
@@ -83,6 +83,33 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   (`rag: docs-rag (tool, k 3, per-tenant)`), and `describe --json` (each agent's `rag[].tenancy`),
   the profile schema and the `configHash` carry it. The core still passes the tenant either way.
   `agboss generate rag` writes `PerTenant`. **Migration:** add `tenancy` to every `@Rag`.
+  `ragConnectorContract({ …, tenancy: RagTenancy.Shared })` (#818) runs the suite on a shared
+  connector: in place of the isolation cases, every tenant — near-identical ids too — gets the same
+  results, a re-index replaces the corpus for all, and every call still carries its tenant.
+
+- **RAG names: one family, one word per quantity** (#818, the 0.1.1 API review) — `IndexReport` is
+  `RagIndexReport`, `FtsOptions` is `SqliteFtsOptions`, its `dbFile` is `sqlitePath` (as the core's
+  SQLite stores call it) and its `maxChunkChars` is `maxChunkLength` (characters); `KnowledgeSource`,
+  `KnowledgeRetrieve` and `KnowledgeRetrieval` left `@agboss/core/rag` (the core's runtime view, the
+  only RAG types without a tenant). `SqliteFtsConnector.retrieve` no longer writes on every read: a
+  tenant never indexed is indexed by its first retrieval on the instance, once (a tenant without
+  documents used to re-run its index on every retrieval). **Migration:** rename the three names and
+  the two options (`new SqliteFtsConnector({ folder, sqlitePath })`); a project that built on
+  `KnowledgeSource` implements `RagConnector` instead. After the documents change, run `agboss rag
+index` (as before) — a running instance does not re-read a folder on its own.
+
+- **`@agboss/core/internal` is refused by lint, `studioOf` is public** (#818) — the official
+  examples imported `studioOf` from `@agboss/core/internal`, which has no semver promise, and only
+  this repository's lint config refused that entry. `studioOf`, `StudioOptions` and `StudioGraphs` are
+  in `@agboss/core/testing`, and `@agboss/core/eslint` ships `agboss/no-internal-import` (every way
+  a module names `@agboss/core/internal`), on in the `eslint.config.js` `agboss create` writes and in
+  the examples. **Migration:** import `studioOf` from `@agboss/core/testing`; turn the rule on in an
+  existing project (`plugins: { agboss: agbossPlugin }, rules: { "agboss/no-internal-import": "error" }`).
+  Inside `/internal` (the CLI's contract, no promise): `executeUnchecked` is `executeWithoutInputCheck`
+  (it skips the compile-time check of the input only — the run still validates it),
+  `standaloneContexts` is `contextsOutsideExecution`, `FlowTypesWrite.strict` (set by nothing since
+  #769) is gone, and six exports no one used are deleted (`byClassName`, `byComponentName`,
+  `pathLines`, `defaultsLevelsOf`, `requestOfTask`, `TRAJECTORY_CHECK`).
 
 - **Ids and keys must be a key's text** (#538, #547, #552, #556, #578, #589, #591) — a business key,
   a thread id, a tenant id, an `ownerId` and every id a project's own `IdGenerator` mints are now
@@ -735,15 +762,19 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
-- **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, keep, onFailure } })`
-  fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `keep`, in tool and
-  context mode. The core's LLM reranker (`@Reranker({ name, description, model? })`, default
+- **Reranking for knowledge bases** (#703) — `@Rag({ rerank: { by, candidates, topK, onFailure } })`
+  fetches `candidates`, a `@Reranker` re-orders them, and the agent gets the best `topK` (one name
+  with `@Rag({ topK })`, #818), in tool and context mode. `by` is a `RerankerClass`: another class
+  does not compile (#818). The core's LLM reranker (`@Reranker({ name, description, model? })` on a
+  class that `extends ModelReranker`, default
   `openai/gpt-4.1-nano`) runs on the application's model providers — its cost in the turn's
   `retrieval` spend and every budget, its call traced (`rerank:<name>`), scripted in tests with
   `mockLlm(Reranker)`. A dedicated rerank API plugs in as `@Reranker({ decidedBy: DecidedBy.Code })`
-  - `implements RerankerHandler` on its own SDK. A reranker's result must be a subset of the
+  - `implements RerankerHandler` on its own SDK (`rerank(query, candidates, { topK, signal, tenantId
+})` → `RerankResult`; `DecidedBy` and `RagSearchResultDto` come from `@agboss/core/rag` too). A reranker's result must be a subset of the
     tenant's candidates. On a failure: the retrieval's own order with a `rerank:<name>:fallback` span
-    (default), or `RerankFailurePolicy.FailStep` → `RerankFailedError` (`step.rerank-failed`).
+    (default), or `RerankFailurePolicy.FailStep` → `RerankFailedError` (`step.rerank-failed`;
+    `new RerankFailedError({ rag, reranker, cause, usage })`).
     `ragConnectorContract` takes `rerank` to run its cases through the reranking.
 
 - **The races the store contracts were missing** (#695, found by `@agboss/mongodb`, #527) — the

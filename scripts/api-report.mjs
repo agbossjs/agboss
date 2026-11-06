@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The public API reports (#195): one `api-extractor` report per entry of the `agboss` package
+// The public API reports (#195): one `api-extractor` report per entry of the `@agboss/core` package
 // (package.json#exports), committed in packages/agboss/api/. A change of the public surface
 // shows up as a diff of these files in review.
 //   node scripts/api-report.mjs          → check (CI, `npm run check`): fails when a report is stale

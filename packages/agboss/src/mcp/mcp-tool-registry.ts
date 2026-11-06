@@ -5,7 +5,7 @@ import type { Class } from "../components/injection.js";
 import { componentOf, type ToolMeta } from "../components/metadata.js";
 import { adapt } from "../components/runtime.js";
 import { inMcpCallFrame } from "./mcp-call-frame.js";
-import { executeUnchecked } from "../app/execute-unchecked.js";
+import { executeWithoutInputCheck } from "../app/execute-without-input-check.js";
 import { withInboundMesh } from "../mesh/inbound-mesh.js";
 import { isMeshLimitError } from "../mesh/mesh-errors.js";
 import { runReportMetaOf } from "./mcp-run-report.js";
@@ -160,7 +160,7 @@ function addWorkflowStart(
         call.mesh,
       );
       // the app checks the payload against the start's input
-      const result = await executeUnchecked(app, exp, call.args, options);
+      const result = await executeWithoutInputCheck(app, exp, call.args, options);
       reported = runReportMetaOf(app, call, result); // a trusted call's signed report (#398)
       return formatWorkflowOutput(result);
     });

@@ -39,7 +39,7 @@ import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * Connects the MCP servers a workflow uses (see `./mcp/connect.ts`). The MCP SDK is loaded on the
- * first call, never when `agboss` is imported (#195).
+ * first call, never when `@agboss/core` is imported (#195).
  */
 export async function connectMcpServers(
   ...args: Parameters<typeof connectNow>

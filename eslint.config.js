@@ -1,7 +1,11 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { testRules } from "./eslint.tests.js";
-import { componentStateRules, directTimeRules } from "./scripts/eslint-agboss-plugin.mjs";
+import {
+  componentStateRules,
+  directTimeRules,
+  internalImportRules,
+} from "./scripts/eslint-agboss-plugin.mjs";
 import { flowStyleRules } from "./scripts/flow-style.mjs";
 import { cliImportPatterns, packageImportPatterns } from "./scripts/public-entries.mjs";
 
@@ -190,6 +194,7 @@ export default tseslint.config(
   ...testRules,
   componentStateRules,
   directTimeRules,
+  internalImportRules,
   // one call per line in flow chains (#289): these files are formatted by ESLint, not Prettier
   flowStyleRules,
   {

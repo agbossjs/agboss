@@ -2,9 +2,9 @@
  * `@agboss/core/internal` — the framework internals the `agboss` CLI (packages/agboss-cli) is built
  * on (#205): environment and model checks, describe data, golden sets, replay, the template renderer.
  *
- * Not public API: no semver promise, and examples and projects may not import it (the lint allowlist
- * is the public entries only). Its API report (api/agboss-internal.api.md) shows the CLI's
- * contract in review. The CLI depends on the exact same `agboss` version: they ship together.
+ * Not public API: no semver promise, and examples and projects may not import it — the
+ * `agboss/no-internal-import` rule of `@agboss/core/eslint` refuses it (#818). Its API report (api/agboss-internal.api.md) shows the CLI's
+ * contract in review. The CLI depends on the exact same `@agboss/core` version: they ship together.
  */
 export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
@@ -91,7 +91,7 @@ export {
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
-export { isJudgeCheckName, TRAJECTORY_CHECK } from "./eval/run/report.js";
+export { isJudgeCheckName } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
 export {
   evalLabelOf,
@@ -118,7 +118,7 @@ export {
   type CostReport,
   type CostSource,
 } from "./finops/usage.js";
-export { byClassName, byComponentName, flowLines, pathLines } from "./flow/print.js";
+export { flowLines } from "./flow/print.js";
 export { childLines, inputLines } from "./describe/inputs.js";
 export {
   applicationWarningsOf,
@@ -130,17 +130,16 @@ export {
 } from "./describe/application.js";
 export { describedLimitsOf, worstCaseLimitsOf, type DescribedLimits } from "./describe/limits.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
-export { executeUnchecked } from "./app/execute-unchecked.js";
-export { standaloneContexts, type RuntimeContexts } from "./flow/context/runtime-contexts.js";
+export { executeWithoutInputCheck } from "./app/execute-without-input-check.js";
+export { contextsOutsideExecution, type RuntimeContexts } from "./flow/context/runtime-contexts.js";
 export {
   defaultSourceOf,
-  defaultsLevelsOf,
   DefaultsLevel,
   type DefaultSource,
   type DefaultsLevels,
 } from "./config/defaults.js";
 export { loadApplicationClass } from "./loader/load-application.js";
-export { requestOfTask, textRequestOf, type StartRequest } from "./flow/runtime/start-input.js";
+export { textRequestOf, type StartRequest } from "./flow/runtime/start-input.js";
 export { GENERATED_TYPES_FILE } from "./flow/types/generate.js";
 export {
   FlowTypesStatus,
@@ -164,7 +163,9 @@ export { environmentOwnerOf } from "./application/create-app.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
 export { ApplicationLoadError } from "./loader/load-errors.js";
+// public in `@agboss/core/testing` too (#818); the CLI's `agboss studio` takes it from here
 export { studioOf, type StudioGraphs, type StudioOptions } from "./studio.js";
+export type { KnowledgeRetrieval, KnowledgeRetrieve, KnowledgeSource } from "./rag/types.js";
 export {
   cassetteFilesUnder,
   checkCassettes,

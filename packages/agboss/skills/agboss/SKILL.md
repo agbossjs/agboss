@@ -148,7 +148,8 @@ npm test                                                           # scripted mo
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
-(`agboss/no-component-state`, `agboss/no-direct-time`, `@stylistic/newline-per-chained-call`) and a
+(`agboss/no-component-state`, `agboss/no-direct-time`, `agboss/no-internal-import`,
+`@stylistic/newline-per-chained-call`) and a
 suppression budget, and a project made by `npx agboss create` lints with the same rules (its
 `eslint.config.js`). Never work around them:
 
@@ -178,7 +179,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   copy its folders and names as they are.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
   `@agboss/core/testing` (+ `@agboss/core/testing/setup`, `@agboss/core/testing/vitest`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
-  `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`,
+  `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`
+  (`agboss/no-internal-import`; `studioOf`, the graphs `agboss studio` draws, is in `@agboss/core/testing`),
   `agboss/dist/…` or LangGraph directly.
 
 <!-- snippet-context
@@ -253,4 +255,4 @@ answer the rest — then read only the files it names; after changing code, `gra
 | Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss                                                                                                                      | `references/13-migrating-from-langgraph.md`       |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
-replaces it on every `agboss` upgrade.
+replaces it on every `@agboss/core` upgrade.

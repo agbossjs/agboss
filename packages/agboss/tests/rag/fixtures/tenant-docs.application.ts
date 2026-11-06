@@ -10,7 +10,7 @@ import {
   RagTenancy,
   RagMode,
   SqliteFtsConnector,
-  type FtsOptions,
+  type SqliteFtsOptions,
 } from "../../../src/rag/index.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -32,7 +32,7 @@ mkdirSync(join(root, "b"));
 writeFileSync(join(root, "a", "hours.md"), "# Hours\n\nThe office opens at nine every morning.");
 writeFileSync(join(root, "b", "vault.md"), "# Vault\n\nThe vault code is plum seventeen.");
 
-export const TENANT_DOCS = new InjectionToken<FtsOptions>("TENANT_DOCS");
+export const TENANT_DOCS = new InjectionToken<SqliteFtsOptions>("TENANT_DOCS");
 
 @Rag({
   name: "tenant-docs-rag",
@@ -93,7 +93,7 @@ const DEFAULTS = { models: { temperature: 0 }, router: { model: "typesafe/jev-1.
 const PROVIDERS = [
   provide(TENANT_DOCS, {
     folder: (tenantId: string) => FOLDERS.get(tenantId),
-    dbFile: join(root, "index", "docs.sqlite"),
+    sqlitePath: join(root, "index", "docs.sqlite"),
   }),
 ];
 

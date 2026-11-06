@@ -168,7 +168,7 @@ export function knowledgeRetrieveOf(
     const { rerankedRetrieval } = await lazyLoad(import("../rag/rerank.js"));
     const tenantId = tenantOfRetrieval(meta);
     const fetch = (k: number) => connector.retrieve(query, { topK: k, signal, tenantId });
-    return rerankedRetrieval(fetch, reranker, { query, keep: topK, tenantId, signal });
+    return rerankedRetrieval(fetch, reranker, { query, topK, tenantId, signal });
   };
 }
 

@@ -174,6 +174,8 @@ export interface RagConnectorContractTarget<TConnector extends RagConnector = Ra
         readonly candidates: number;
     };
     readonly reset?: () => Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "RagTenancy" needs to be exported by the entry point index.d.ts
+    readonly tenancy?: RagTenancy;
 }
 
 // @public
@@ -225,7 +227,7 @@ export interface StoreSeam {
 // Warnings were encountered during analysis:
 //
 // src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
-// src/testing/contracts/rag-connector-data.ts:38:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
+// src/testing/contracts/rag-connector-data.ts:46:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
 // src/testing/contracts/store-conformance-check.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:43:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:44:3 - (ae-undocumented) Missing documentation for "problems".

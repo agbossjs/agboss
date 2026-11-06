@@ -5,7 +5,7 @@ import type { GraphDeps } from "../../graph/deps.js";
 import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
 import type { PiiRuntime } from "../../pii/runtime.js";
 import type { ExecutionStateType } from "./state.js";
-import { standaloneContexts } from "../context/runtime-contexts.js";
+import { contextsOutsideExecution } from "../context/runtime-contexts.js";
 import type { BranchDeps } from "./launch/branch-runner.js";
 import type { JoinDeps } from "./launch/join-node.js";
 import { LaunchRegistry } from "./launch/launch-registry.js";
@@ -68,7 +68,7 @@ export function nodeDepsOf(
     limits: { maxSteps: deps.maxSteps, budgets: run.budgets },
     workflow,
     components: keys.components,
-    contexts: deps.contexts ?? standaloneContexts(workflow),
+    contexts: deps.contexts ?? contextsOutsideExecution(workflow),
     provenance: deps.graph.provenance,
     graph: deps.graph,
     observer: deps.observer,

@@ -1,6 +1,6 @@
 /**
  * `@agboss/core/router` — deprecated (#195): the flow DSL and the start / router / finish
- * decorators moved to the root entry `agboss`. `agboss migrate imports` rewrites the imports;
+ * decorators moved to the root entry `@agboss/core`. `agboss migrate imports` rewrites the imports;
  * this entry is removed in the next minor release.
  */
 export {

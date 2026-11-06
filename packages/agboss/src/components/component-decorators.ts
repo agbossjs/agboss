@@ -7,7 +7,7 @@
 
 /** The names of the decorators that make a class a component the container creates once. */
 export const COMPONENT_DECORATORS = [
-  // `agboss`
+  // `@agboss/core`
   "Injectable",
   "Tool",
   "Action",

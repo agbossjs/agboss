@@ -149,7 +149,7 @@ type RagResultCount =
 /**
  * A knowledge base: a class implementing `RagConnector`. `topK` (passages per retrieval) is required —
  * there is no default — or `rerank` in its place (#703: fetch `candidates`, a `@Reranker` keeps
- * `keep`); `tenancy` is required too (#796: `RagTenancy.PerTenant` or `Shared`, else
+ * `rerank.topK`); `tenancy` is required too (#796: `RagTenancy.PerTenant` or `Shared`, else
  * `[rag.tenancy-required]` at assembly). Agents bind it with a required `mode`:
  * `rag: [{ use: CompanyDocs, mode: "tool" }]`.
  */
@@ -166,7 +166,7 @@ export function Rag<const D extends readonly Token[] = []>(
 ) {
   return <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C): C => {
     const { rerank, topK, ...rest } = options;
-    const kept = rerank === undefined ? { topK } : { topK: rerank.keep, rerank };
+    const kept = rerank === undefined ? { topK } : { topK: rerank.topK, rerank };
     recordComponent(value, { kind: "rag", meta: withDeps({ ...rest, ...kept }) });
     return value;
   };

@@ -28,6 +28,9 @@ const TOP_K = "#700: topK";
 const ABORT = "#700: an aborted signal rejects retrieve and index";
 const COST = "#700: cost";
 const WELL_FORMED = "#700: every result has a non-empty text and source; a score is finite";
+const SHARED_CORPUS = "#818 shared: one corpus";
+const SHARED_REINDEX = "#818 shared: re-index replaces the corpus";
+const TENANT_PASSED = "#818 shared: every call still carries its tenant";
 /** The cases whose retrievals find passages: each goes through the reranker. */
 const RETRIEVING = [ISOLATION, NEAR, REINDEX, TOP_K, COST, WELL_FORMED];
 
@@ -55,6 +58,33 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
     ["ignores the tenant, reranked", [ISOLATION, NEAR, REINDEX]],
   ])("a connector that %s fails %j only", (target, expected) => {
     expect(failedOf(target)).toEqual(expected);
+  });
+
+  it.each(["shared", "shared, reranked"])(
+    "#818 AC5: a %s corpus passes the Shared cases and the cases of either tenancy (7)",
+    (target) => {
+      const cases = run.cases.filter(
+        (found) => found.suites[0] === `RAG connector contract (${target})`,
+      );
+      expect(cases.map((found) => found.name.split(" — ")[0])).toEqual([
+        TOP_K,
+        ABORT,
+        COST,
+        WELL_FORMED,
+        SHARED_CORPUS,
+        SHARED_REINDEX,
+        TENANT_PASSED,
+      ]);
+      expect(cases.map((found) => found.state)).toEqual(Array(7).fill("pass"));
+    },
+  );
+
+  it("#818 AC5: a connector keyed by tenant, declared Shared, fails every Shared case: another tenant gets nothing", () => {
+    expect(failedOf("shared, keyed by tenant")).toEqual([
+      SHARED_CORPUS,
+      SHARED_REINDEX,
+      TENANT_PASSED,
+    ]);
   });
 
   // a reranker that fails quietly is never replaced by the retrieval's own order

@@ -1,6 +1,6 @@
 /**
- * #703 — the assembly rules of reranking, all at once before any model call: `keep` and
- * `candidates` whole numbers with `1 ≤ keep ≤ candidates`, `by` a `@Reranker`, its name's suffix, a
+ * #703 — the assembly rules of reranking, all at once before any model call: `topK` and
+ * `candidates` whole numbers with `1 ≤ topK ≤ candidates`, `by` a `@Reranker`, its name's suffix, a
  * code reranker's `rerank()`, a model reranker on a chat model served by the application's providers.
  */
 import { describe, expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { Agent, DecidedBy, EmptyEnvironment, Workflow, type Class } from "../../
 import { Application } from "../../src/application/application.js";
 import { createApp } from "../../src/application/create-app.js";
 import {
+  ModelReranker,
   Rag,
   RagMode,
   RagTenancy,
@@ -31,13 +32,13 @@ class Empty implements RagConnector {
 }
 
 @Reranker({ name: "docs-reranker", description: "On the default model" })
-class DefaultModelReranker {}
+class DefaultModelReranker extends ModelReranker {}
 
 @Reranker({ name: "docs-ranker", description: "Wrong suffix", model: "local/llama" })
-class BadNameReranker {}
+class BadNameReranker extends ModelReranker {}
 
 @Reranker({ name: "jev-reranker", description: "A decision model", model: "typesafe/jev-1.13" })
-class DecisionReranker {}
+class DecisionReranker extends ModelReranker {}
 
 // a JS project, or a cast: a code reranker without rerank()
 @Reranker({
@@ -45,18 +46,19 @@ class DecisionReranker {}
   description: "No rerank()",
   decidedBy: DecidedBy.Code,
 } as never)
-class NoHandlerReranker {}
+class NoHandlerReranker extends ModelReranker {}
 
 class NotAReranker {
   readonly isReranker = false;
 }
 
-function workflowReading(by: Class, counts = { candidates: 10, keep: 3 }): Class {
+function workflowReading(by: Class, counts = { candidates: 10, topK: 3 }): Class {
   @Rag({
     name: "docs-rag",
     description: "Docs",
     tenancy: RagTenancy.PerTenant,
-    rerank: { by, ...counts },
+    // a JS caller's `by` may be any class: the assembly refuses what the type does
+    rerank: { by: by as never, ...counts },
   })
   class DocsRag extends Empty {}
   @Agent({
@@ -85,9 +87,9 @@ const codesOf = async (workflow: Class): Promise<readonly string[]> => {
 
 describe("#703: reranking at assembly", () => {
   it.each([
-    [{ candidates: 3, keep: 5 }, "keep above candidates"],
-    [{ candidates: 10, keep: 0 }, "keep 0"],
-    [{ candidates: 2.5, keep: 1 }, "candidates not whole"],
+    [{ candidates: 3, topK: 5 }, "topK above candidates"],
+    [{ candidates: 10, topK: 0 }, "topK 0"],
+    [{ candidates: 2.5, topK: 1 }, "candidates not whole"],
   ])("[rag.rerank-invalid]: %j (%s)", async (counts) => {
     expect(await codesOf(workflowReading(DefaultModelReranker, counts))).toContain(
       "rag.rerank-invalid",
@@ -101,7 +103,7 @@ describe("#703: reranking at assembly", () => {
     expect(await codesOf(workflowReading(NoHandlerReranker))).toEqual(["reranker.missing-handler"]);
   });
 
-  it("describe: k is keep, the reranker, the candidates and the failure policy", async () => {
+  it("describe: k is topK, the reranker, the candidates and the failure policy", async () => {
     const bundle = await workflowOf(workflowReading(DefaultModelReranker));
 
     expect(describeWorkflow(bundle)).toContain(

@@ -2,7 +2,7 @@ import { nodeRecordIn, workflowIdentityOf } from "../flow/runtime/workflow-keys.
 import type { StepDescriptor, WorkflowDescriptor } from "../flow/context/execution-context.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
-import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-contexts.js";
+import { contextsOutsideExecution, tenantOfExecution } from "../flow/context/runtime-contexts.js";
 import { DEFAULT_TENANT, type ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { NodeKind } from "../flow/ast.js";
@@ -102,7 +102,7 @@ export function pauseFrameOf(
   signal: AbortSignal = new AbortController().signal,
 ): FrameSpec {
   const { own, workflow } = pauseWorkflowOf(deps, pause, tree);
-  const contexts = deps.contexts ?? standaloneContexts(workflow);
+  const contexts = deps.contexts ?? contextsOutsideExecution(workflow);
   const { tenant, execution } = tree.contexts;
   return {
     execution: Object.freeze({

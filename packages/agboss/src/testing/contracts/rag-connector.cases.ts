@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { RagTenancy } from "../../rag/types.js";
 import {
   isLedgerCost,
   liveSignal,
@@ -8,13 +9,20 @@ import {
   type RagContractCase,
 } from "./rag-connector-data.js";
 
-/** The rules of the RAG connector contract (#700), each a case of `ragConnectorContract`. */
+/**
+ * The rules of the RAG connector contract (#700), each a case of `ragConnectorContract` — for a
+ * connector of each tenant's own passages, of one shared corpus (#818), or both.
+ */
 
 const TENANT_A = "tenant-a";
 const TENANT_B = "tenant-b";
 const WIDE = 50;
+const PER_TENANT = [RagTenancy.PerTenant] as const;
+const SHARED = [RagTenancy.Shared] as const;
+const EITHER = [RagTenancy.PerTenant, RagTenancy.Shared] as const;
 
 const isolation: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700 AC1: cross-tenant isolation — a passage only tenant B has is never returned to tenant A, for a query made of its own words; B finds it",
   run: async ({ fill, retrieve }) => {
     await fill(TENANT_A, [{ source: "hours.md", text: "The office opens at nine every morning." }]);
@@ -35,6 +43,7 @@ const isolation: RagContractCase = {
 };
 
 const nearIdentical: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700: near-identical tenant ids — case, width, NFC and accent twins, `/` and `%2F`, 200 characters — are each their own tenant: each gets its own passage only",
   run: async ({ fill, retrieve }) => {
     for (const [index, tenantId] of NEAR_IDENTICAL_TENANTS.entries()) {
@@ -61,6 +70,7 @@ const DOCS = [
 ];
 
 const reindex: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700 AC3: re-index replaces — the same documents twice leave one set of chunks; a changed document's old text and a removed document are gone; another tenant's chunks stay",
   run: async ({ fill, retrieve }) => {
     const ask = (tenantId: string) =>
@@ -83,6 +93,7 @@ const reindex: RagContractCase = {
 };
 
 const topK: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: topK — with more matches than topK, at least one and at most topK results",
   run: async ({ fill, retrieve }) => {
     const documents = Array.from({ length: 8 }, (_, index) => ({
@@ -103,6 +114,7 @@ const topK: RagContractCase = {
 };
 
 const aborted: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: an aborted signal rejects retrieve and index",
   run: async ({ connector, fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -124,6 +136,7 @@ const aborted: RagContractCase = {
 };
 
 const cost: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: cost — a retrieval's and an index's costUsd is absent or a finite number from 0",
   run: async ({ connector, fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -140,6 +153,7 @@ const cost: RagContractCase = {
 };
 
 const shape: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: every result has a non-empty text and source; a score is finite",
   run: async ({ fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -157,6 +171,82 @@ const shape: RagContractCase = {
   },
 };
 
+/** A retrieval's results as comparable keys, in order. */
+const keysOf = (results: readonly { readonly source: string; readonly text: string }[]) =>
+  results.map((result) => `${result.source}\u0000${result.text}`);
+
+/** Tenants a shared corpus serves alike: two plain ones and the near-identical ids. */
+const EVERY_TENANT: readonly string[] = [TENANT_A, TENANT_B, ...NEAR_IDENTICAL_TENANTS];
+
+const sharedCorpus: RagContractCase = {
+  tenancies: SHARED,
+  name: "#818 shared: one corpus — every tenant, near-identical ids included, gets the same results for the same query",
+  run: async ({ fill, retrieve }) => {
+    await fill(TENANT_A, [
+      { source: "hours.md", text: "The help desk opens at nine every morning." },
+      { source: "returns.md", text: "Returns are accepted for thirty days." },
+    ]);
+    const ask = (tenantId: string) =>
+      retrieve("When does the help desk open?", { topK: WIDE, tenantId, signal: liveSignal() });
+
+    const asA = keysOf((await ask(TENANT_A)).results);
+    expect(asA.length, "the corpus answers").toBeGreaterThan(0);
+    for (const tenantId of EVERY_TENANT) {
+      const index = EVERY_TENANT.indexOf(tenantId);
+      expect({ tenant: index, results: keysOf((await ask(tenantId)).results) }).toEqual({
+        tenant: index,
+        results: asA,
+      });
+    }
+  },
+};
+
+const sharedReindex: RagContractCase = {
+  tenancies: SHARED,
+  name: "#818 shared: re-index replaces the corpus — the same documents twice leave one set; a changed document's old text and a removed one are gone, for every tenant",
+  run: async ({ fill, retrieve }) => {
+    const ask = (tenantId: string) =>
+      retrieve("leave", { topK: WIDE, tenantId, signal: liveSignal() });
+    await fill(TENANT_A, DOCS);
+    const once = (await ask(TENANT_A)).results;
+    await fill(TENANT_A, DOCS);
+    const twice = keysOf((await ask(TENANT_A)).results);
+
+    expect(new Set(twice).size, "a chunk returned twice").toBe(twice.length);
+    expect(twice.length).toBe(once.length);
+    await fill(TENANT_A, [{ source: "leave.md", text: "Leave is thirty days a year now." }]);
+    for (const tenantId of [TENANT_A, TENANT_B]) {
+      const changed = (await ask(tenantId)).results;
+      expect(textsOf(changed), tenantId).toEqual(["Leave is thirty days a year now."]);
+    }
+  },
+};
+
+const tenantPassed: RagContractCase = {
+  tenancies: SHARED,
+  name: "#818 shared: every call still carries its tenant — each index, retrieval and reranking reaches the connector with the tenant it is made for",
+  run: async ({ calls, fill, retrieve }) => {
+    const odd = "tenant/a";
+    const filled = calls.length;
+    await fill(odd, DOCS);
+    for (const seen of calls.slice(filled))
+      expect(seen).toEqual({ call: seen.call, tenantId: odd });
+
+    for (const tenantId of [TENANT_A, TENANT_B, odd, "k".repeat(200)]) {
+      const from = calls.length;
+      const { results } = await retrieve("leave", { topK: 2, tenantId, signal: liveSignal() });
+      const seen = calls.slice(from);
+
+      expect(results.length, "the corpus answers").toBeGreaterThan(0);
+      expect(seen.map((one) => one.call)).toContain("retrieve");
+      expect(
+        seen.filter((one) => one.tenantId !== tenantId),
+        `${tenantId}: another tenant passed`,
+      ).toEqual([]);
+    }
+  },
+};
+
 /** Every case, in the order the suite registers them. */
 export const RAG_CONNECTOR_CASES: readonly RagContractCase[] = [
   isolation,
@@ -166,4 +256,7 @@ export const RAG_CONNECTOR_CASES: readonly RagContractCase[] = [
   aborted,
   cost,
   shape,
+  sharedCorpus,
+  sharedReindex,
+  tenantPassed,
 ];

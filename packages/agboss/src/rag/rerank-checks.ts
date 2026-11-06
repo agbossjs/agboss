@@ -7,7 +7,7 @@ import { DEFAULT_RERANKER_MODEL, type RagRerank } from "./types.js";
 
 /**
  * The assembly rules of a knowledge base's reranking (#703), loaded only when one reranks: `by` is a
- * `@Reranker` (`[rag.not-a-reranker]`), `1 ≤ keep ≤ candidates` whole numbers
+ * `@Reranker` (`[rag.not-a-reranker]`), `1 ≤ topK ≤ candidates` whole numbers
  * (`[rag.rerank-invalid]`), the reranker's name ends with `-reranker` (`[name.kind-suffix]`), a code
  * one has `rerank()` (`[reranker.missing-handler]`), a model one is on a chat model
  * (`[reranker.decision-model]`).
@@ -18,9 +18,9 @@ const SUFFIX = "-reranker";
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1;
 
 function countViolations(rag: string, rerank: RagRerank): RuleViolation[] {
-  const { candidates, keep } = rerank;
-  if (isCount(candidates) && isCount(keep) && keep <= candidates) return [];
-  const message = `${rag}: rerank needs whole numbers 1 ≤ keep ≤ candidates (keep ${String(keep)}, candidates ${String(candidates)})`;
+  const { candidates, topK } = rerank;
+  if (isCount(candidates) && isCount(topK) && topK <= candidates) return [];
+  const message = `${rag}: rerank needs whole numbers 1 ≤ topK ≤ candidates (topK ${String(topK)}, candidates ${String(candidates)})`;
   return [violation("rag.rerank-invalid", message, [rag])];
 }
 

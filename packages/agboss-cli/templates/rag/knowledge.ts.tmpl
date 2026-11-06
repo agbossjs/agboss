@@ -16,7 +16,7 @@ export class {{pascal}}Rag extends SqliteFtsConnector {
     super({
       folder: join(process.cwd(), "{{folder}}"),
       // the index lives in the project's git-ignored .agboss/ (`npx agboss rag index` builds it)
-      dbFile: join(process.cwd(), ".agboss", "rag", "{{kebab}}-rag.sqlite"),
+      sqlitePath: join(process.cwd(), ".agboss", "rag", "{{kebab}}-rag.sqlite"),
     });
   }
 }

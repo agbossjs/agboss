@@ -1,5 +1,5 @@
 import { createApp, type App, type Class, type ExecutionOutput } from "@agboss/core";
-import { executeUnchecked, type ApplicationStart } from "@agboss/core/internal";
+import { executeWithoutInputCheck, type ApplicationStart } from "@agboss/core/internal";
 import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";
@@ -71,7 +71,12 @@ async function turn(session: Session, line: string): Promise<void> {
     const thread = session.thread === undefined ? {} : { threadId: session.thread };
     session.interrupted = false;
     const first = await busy((signal) =>
-      executeUnchecked(session.app, session.start.component, { text: line }, { ...thread, signal }),
+      executeWithoutInputCheck(
+        session.app,
+        session.start.component,
+        { text: line },
+        { ...thread, signal },
+      ),
     );
     const result = await untilDone(first, session.app, session.ask, busy);
     session.thread = result.threadId;

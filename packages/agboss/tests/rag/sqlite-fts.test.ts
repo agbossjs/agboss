@@ -18,7 +18,7 @@ async function docs(): Promise<{ folder: string; connector: SqliteFtsConnector }
   await writeFile(join(folder, "notes.bin"), "ignored");
   return {
     folder,
-    connector: new SqliteFtsConnector({ folder, dbFile: join(folder, "index", "fts.sqlite") }),
+    connector: new SqliteFtsConnector({ folder, sqlitePath: join(folder, "index", "fts.sqlite") }),
   };
 }
 
@@ -32,7 +32,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     // two connections on one file, at once
     const other = new SqliteFtsConnector({
       folder: changed.folder,
-      dbFile: join(changed.folder, "index", "fts.sqlite"),
+      sqlitePath: join(changed.folder, "index", "fts.sqlite"),
     });
     await Promise.all([changed.connector.index(asDefault), other.index(asDefault)]);
     const everything = await connector.retrieve("onboarding nimbus call demo", {
@@ -52,7 +52,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     const folders = new Map([["Acme", join(root, "a")]]);
     const connector = new SqliteFtsConnector({
       folder: (tenant) => folders.get(tenant),
-      dbFile: join(root, "fts.sqlite"),
+      sqlitePath: join(root, "fts.sqlite"),
     });
 
     const own = await connector.retrieve("alpha secret", { topK: 5, tenantId: "Acme", signal });
@@ -137,5 +137,119 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     ]);
     expect(ftsQuery("On-call: when? on-call")).toBe('"on" OR "call" OR "when"');
     expect(ftsQuery("?")).toBeUndefined();
+  });
+});
+
+/**
+ * #818 AC4: a retrieval reads — a tenant never indexed is indexed by its first retrieval on the
+ * instance, once; later ones, a tenant without documents included, write nothing.
+ */
+describe("#818: the read path indexes lazily, once per tenant per instance", () => {
+  /** A connector whose `folder` lookups are counted: each `index()` makes one. */
+  async function counted(folders: ReadonlyMap<string, string>) {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-"));
+    const looked: string[] = [];
+    const connector = new SqliteFtsConnector({
+      folder: (tenant) => {
+        looked.push(tenant);
+        return folders.get(tenant);
+      },
+      sqlitePath: join(root, "fts.sqlite"),
+    });
+    return { connector, looked };
+  }
+
+  const ask = (connector: SqliteFtsConnector, tenant: string, own = signal) =>
+    connector.retrieve("alpha secret", { topK: 5, tenantId: tenant, signal: own });
+
+  it("a tenant without documents: its first retrieval indexes it, the next ones only read", async () => {
+    const { connector, looked } = await counted(new Map());
+
+    await ask(connector, "empty");
+    await ask(connector, "empty");
+    await ask(connector, "empty");
+
+    expect(looked).toEqual(["empty"]);
+  });
+
+  it("a tenant with documents: found by its first retrieval; each tenant is looked at once", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-docs-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    const { connector, looked } = await counted(new Map([["acme", root]]));
+
+    const first = await ask(connector, "acme");
+    const second = await ask(connector, "acme");
+    await ask(connector, "other");
+
+    expect(first.results.map((r) => r.source)).toEqual(["a.md"]);
+    expect(second.results.map((r) => r.source)).toEqual(["a.md"]);
+    expect(looked).toEqual(["acme", "other"]);
+  });
+
+  it("first retrievals at once index once", async () => {
+    const { connector, looked } = await counted(new Map());
+
+    await Promise.all([ask(connector, "empty"), ask(connector, "empty"), ask(connector, "empty")]);
+
+    expect(looked).toEqual(["empty"]);
+  });
+
+  it("an index already built (agboss rag index) is read as it is: no index on the read path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-built-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    const { connector, looked } = await counted(new Map([["acme", root]]));
+    await connector.index({ tenantId: "acme", signal });
+    looked.length = 0;
+
+    await ask(connector, "acme");
+
+    expect(looked).toEqual([]);
+  });
+
+  it("a first look that failed is no look: the next retrieval tries again", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-fail-"));
+    let isBroken = true;
+    const connector = new SqliteFtsConnector({
+      folder: () => {
+        if (isBroken) throw new Error("folder unreadable");
+        return undefined;
+      },
+      sqlitePath: join(root, "fts.sqlite"),
+    });
+
+    await expect(ask(connector, "acme")).rejects.toThrow("folder unreadable");
+    isBroken = false;
+
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+  });
+
+  it("a retrieval waiting on another's first look, aborted by its own caller, tries its own", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-abort-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    const { connector, looked } = await counted(new Map([["acme", root]]));
+    const first = new AbortController();
+
+    const aborted = ask(connector, "acme", first.signal);
+    const waiting = ask(connector, "acme");
+    first.abort(new Error("caller gone"));
+
+    await expect(aborted).rejects.toThrow("caller gone");
+    expect((await waiting).results.map((r) => r.source)).toEqual(["a.md"]);
+    expect(looked).toEqual(["acme", "acme"]);
+  });
+
+  it("a waiting retrieval whose own signal is aborted too gives up", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-lazy-both-"));
+    await writeFile(join(root, "a.md"), "Alpha secret is amber.");
+    const { connector, looked } = await counted(new Map([["acme", root]]));
+    const shared = new AbortController();
+
+    const one = ask(connector, "acme", shared.signal);
+    const two = ask(connector, "acme", shared.signal);
+    shared.abort(new Error("both gone"));
+
+    await expect(one).rejects.toThrow("both gone");
+    await expect(two).rejects.toThrow("both gone");
+    expect(looked).toEqual(["acme"]);
   });
 });

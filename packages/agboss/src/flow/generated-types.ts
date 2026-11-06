@@ -13,7 +13,7 @@ export type { HistoryOf, Produced } from "./dto-wrappers.js";
  * Every table is keyed by the component's `name`; every component class is branded with its name
  * (`readonly [agbossComponent]?: "draft-agent"`, merged into the class's instance type), so empty
  * classes become distinct types. Before generation a lookup gives `MissingGeneratedTypes`, which
- * names the fix. Until PR 4 exports this module from `agboss`, the generator (`flow/types/`) augments
+ * names the fix. Until PR 4 exports this module from `@agboss/core`, the generator (`flow/types/`) augments
  * it here; it imports `Produced` and `HistoryOf` from here too, so the generated file names one module.
  */
 

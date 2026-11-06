@@ -1,6 +1,6 @@
 import { TenantContext, type AssembledWorkflow, type Environment } from "@agboss/core";
-import { describeServices, standaloneContexts } from "@agboss/core/internal";
-import type { IndexReport, RagConnector } from "@agboss/core/rag";
+import { describeServices, contextsOutsideExecution } from "@agboss/core/internal";
+import type { RagIndexReport, RagConnector } from "@agboss/core/rag";
 import {
   applicationEnvironment,
   assembleApplication,
@@ -26,7 +26,7 @@ function knowledgeBasesOf(
     (workflow) =>
       workflow.knowledgeBases?.({
         router: describeServices.router,
-        contexts: standaloneContexts(workflow.config, environment),
+        contexts: contextsOutsideExecution(workflow.config, environment),
       }) ?? [],
   );
   return [...new Map(bases.map((base) => [base.name, base])).values()];
@@ -70,7 +70,7 @@ function tenantOf(given: string | undefined, application: TenantSource): string 
   );
 }
 
-const reportLine = (name: string, report: IndexReport): string =>
+const reportLine = (name: string, report: RagIndexReport): string =>
   `${name}: ${String(report.documents)} documents, ${String(report.chunks)} chunks, ${String(report.skipped)} unchanged · $${(report.costUsd ?? 0).toFixed(6)}`;
 
 /**

@@ -1,4 +1,4 @@
-// The project skills shipped with `agboss` (#305, packages/agboss/skills/agboss/): besides the
+// The project skills shipped with `@agboss/core` (#305, packages/agboss/skills/agboss/): besides the
 // checks of every doc (snippets compile, one call per line, commands exist), check:docs checks
 //   1. SKILL.md: its frontmatter first, then the version header — the version of
 //      packages/agboss/package.json;

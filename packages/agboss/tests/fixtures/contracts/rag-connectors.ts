@@ -1,5 +1,5 @@
 import type {
-  IndexReport,
+  RagIndexReport,
   RagConnector,
   RagIndexOptions,
   RagRetrieval,
@@ -38,7 +38,7 @@ export class MemoryConnector implements RagConnector {
     this.sources.set(this.key(tenantId), documents);
   }
 
-  index({ tenantId, signal }: RagIndexOptions): Promise<IndexReport> {
+  index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
     if (this.flaws.ignoresSignal !== true) signal.throwIfAborted();
     const key = this.key(tenantId);
     const documents = this.sources.get(key) ?? [];

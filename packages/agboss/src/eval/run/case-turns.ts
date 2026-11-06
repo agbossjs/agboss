@@ -1,4 +1,4 @@
-import { executeUnchecked } from "../../app/execute-unchecked.js";
+import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../app/types.js";
 import { AGBossError } from "../../core/errors.js";
 import type { EvalCase } from "../suite/cases.js";
@@ -42,7 +42,7 @@ export async function runTurns(
       return { kind: "failed", error: { code: "execution.paused", message }, spentUsd };
     }
     try {
-      last = await executeUnchecked(parts.app, parts.start.component, turn.input, {
+      last = await executeWithoutInputCheck(parts.app, parts.start.component, turn.input, {
         threadId,
         ...contexts,
         record: index === written.turns.length - 1, // the last turn's trajectory (#397 PR 2)

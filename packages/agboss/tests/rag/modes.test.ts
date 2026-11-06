@@ -6,7 +6,7 @@ import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
 import type { AgentExecutionDeps } from "../../src/index.js";
 import { createModelRegistry, type ModelFactory } from "../../src/llm/registry.js";
 import { CITE_INSTRUCTION } from "../../src/prompts/rag.js";
-import type { KnowledgeSource } from "../../src/rag/index.js";
+import type { KnowledgeSource } from "../../src/rag/types.js";
 import { ScriptedChatModel } from "../fakes/scripted-model.js";
 import { routeTo, fakeDeps, fakeGateway, runText } from "../helpers.js";
 import { ExecutionStatus } from "../../src/app/types.js";

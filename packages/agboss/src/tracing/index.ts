@@ -7,7 +7,7 @@ export type { ExecutionTracing, TraceContext, TraceMask } from "./types.js";
 
 /**
  * The app's tracing: Langfuse when configured, else none. The Langfuse and OpenTelemetry modules are
- * loaded only here, when tracing is on — importing `agboss` never loads them (#195).
+ * loaded only here, when tracing is on — importing `@agboss/core` never loads them (#195).
  */
 export async function tracingOf(
   env: NodeJS.ProcessEnv,

@@ -4,16 +4,11 @@
 
 ```ts
 
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { z } from 'zod';
-
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "RerankerBaseMeta" needs to be exported by the entry point index.d.ts
 //
 // @public
 export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> extends RerankerBaseMeta {
-    // Warning: (ae-forgotten-export) The symbol "DecidedBy" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     // (undocumented)
@@ -23,47 +18,16 @@ export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]>
 }
 
 // @public
+export enum DecidedBy {
+    Code = "code",
+    Model = "model"
+}
+
+// @public
 export const DEFAULT_RERANKER_MODEL = "openai/gpt-4.1-nano";
 
 // @public
-export interface FtsOptions {
-    // (undocumented)
-    readonly dbFile: string;
-    readonly folder: string | ((tenantId: string) => string | undefined);
-    readonly maxChunkChars?: number;
-}
-
-// @public (undocumented)
-export interface IndexReport {
-    // (undocumented)
-    readonly chunks: number;
-    // (undocumented)
-    readonly costUsd?: number;
-    // (undocumented)
-    readonly documents: number;
-    readonly skipped: number;
-}
-
-// @public
-export interface KnowledgeRetrieval extends RagRetrieval {
-    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
-    readonly usage?: readonly UsageRecord[];
-}
-
-// @public
-export type KnowledgeRetrieve = (query: string, options: {
-    readonly topK: number;
-    readonly signal: AbortSignal;
-}) => Promise<KnowledgeRetrieval>;
-
-// @public
-export interface KnowledgeSource {
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly retrieve: KnowledgeRetrieve;
-    // (undocumented)
-    readonly topK: number;
+export abstract class ModelReranker {
 }
 
 // @public
@@ -90,7 +54,7 @@ export function Rag<const D extends readonly Token[] = []>(options: {
 
 // @public
 export interface RagConnector {
-    readonly index?: (options: RagIndexOptions) => Promise<IndexReport>;
+    readonly index?: (options: RagIndexOptions) => Promise<RagIndexReport>;
     readonly retrieve: (query: string, options: RagRetrieveOptions) => Promise<RagRetrieval>;
 }
 
@@ -102,6 +66,17 @@ export interface RagIndexOptions {
 }
 
 // @public
+export interface RagIndexReport {
+    // (undocumented)
+    readonly chunks: number;
+    // (undocumented)
+    readonly costUsd?: number;
+    // (undocumented)
+    readonly documents: number;
+    readonly skipped: number;
+}
+
+// @public
 export enum RagMode {
     Context = "context",
     Tool = "tool"
@@ -109,18 +84,10 @@ export enum RagMode {
 
 // @public
 export interface RagRerank {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    readonly by: Class;
+    readonly by: RerankerClass;
     readonly candidates: number;
-    readonly keep: number;
     readonly onFailure?: RerankFailurePolicy;
-}
-
-// @public
-export interface RagReranking {
-    readonly costUsd?: number;
-    // Warning: (ae-forgotten-export) The symbol "RagSearchResultDto" needs to be exported by the entry point index.d.ts
-    readonly results: readonly RagSearchResultDto[];
+    readonly topK: number;
 }
 
 // @public
@@ -140,21 +107,34 @@ export interface RagRetrieveOptions {
 }
 
 // @public
+export class RagSearchResultDto {
+    // (undocumented)
+    score?: number;
+    // (undocumented)
+    source: string;
+    // (undocumented)
+    text: string;
+}
+
+// @public
 export enum RagTenancy {
     PerTenant = "per-tenant",
     Shared = "shared"
 }
 
 // @public
-export function Reranker(options: ModelRerankerMeta): <C extends new () => object>(value: C) => C;
+export function Reranker(options: ModelRerankerMeta): <C extends abstract new () => ModelReranker>(value: C) => C;
 
 // @public
 export function Reranker<const D extends readonly Token[] = []>(options: CodeRerankerMeta<D>): <C extends new (...args: ResolvedAll<D>) => RerankerHandler>(value: C) => C;
 
 // @public
+export type RerankerClass = abstract new (...args: never[]) => RerankerHandler | ModelReranker;
+
+// @public
 export interface RerankerHandler {
     // (undocumented)
-    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => Promise<RagReranking>;
+    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => Promise<RerankResult>;
 }
 
 // @public
@@ -164,14 +144,22 @@ export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
 //
 // @public
 export class RerankFailedError extends StepFailedError {
-    // Warning: (ae-forgotten-export) The symbol "BoundReranker" needs to be exported by the entry point index.d.ts
-    constructor(bound: BoundReranker, cause: unknown, usage: readonly UsageRecord[]);
+    constructor(input: RerankFailedErrorOptions);
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     name: string;
     readonly rag: string;
     readonly reranker: string;
+}
+
+// @public
+export interface RerankFailedErrorOptions {
+    readonly cause: unknown;
+    readonly rag: string;
+    readonly reranker: string;
+    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
+    readonly usage: readonly UsageRecord[];
 }
 
 // @public
@@ -182,35 +170,49 @@ export enum RerankFailurePolicy {
 
 // @public
 export interface RerankOptions {
-    readonly keep: number;
     // (undocumented)
     readonly signal: AbortSignal;
     readonly tenantId: string;
+    readonly topK: number;
+}
+
+// @public
+export interface RerankResult {
+    readonly costUsd?: number;
+    readonly results: readonly RagSearchResultDto[];
 }
 
 // @public
 export class SqliteFtsConnector implements RagConnector {
-    constructor(options: FtsOptions);
+    constructor(options: SqliteFtsOptions);
     // (undocumented)
-    index(input: RagIndexOptions): Promise<IndexReport>;
+    index(input: RagIndexOptions): Promise<RagIndexReport>;
     // (undocumented)
     retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval>;
 }
 
+// @public
+export interface SqliteFtsOptions {
+    readonly folder: string | ((tenantId: string) => string | undefined);
+    readonly maxChunkLength?: number;
+    readonly sqlitePath: string;
+}
+
 // Warnings were encountered during analysis:
 //
-// src/rag/rerank.ts:48:3 - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/dto/standard/framework.ts:116:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:119:3 - (ae-undocumented) Missing documentation for "source".
+// src/dto/standard/framework.ts:122:3 - (ae-undocumented) Missing documentation for "score".
+// src/rag/rerank.ts:60:3 - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts:61:12 - (ae-undocumented) Missing documentation for "name".
 // src/rag/reranker.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "deps".
 // src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts:33:3 - (ae-undocumented) Missing documentation for "model".
 // src/rag/reranker.decorator.ts:34:3 - (ae-undocumented) Missing documentation for "deps".
-// src/rag/sqlite-fts.ts:25:3 - (ae-undocumented) Missing documentation for "dbFile".
-// src/rag/sqlite-fts.ts:87:9 - (ae-undocumented) Missing documentation for "index".
-// src/rag/sqlite-fts.ts:122:9 - (ae-undocumented) Missing documentation for "retrieve".
-// src/rag/types.ts:7:3 - (ae-undocumented) Missing documentation for "results".
-// src/rag/types.ts:12:1 - (ae-undocumented) Missing documentation for "IndexReport".
+// src/rag/sqlite-fts.ts:94:9 - (ae-undocumented) Missing documentation for "index".
+// src/rag/sqlite-fts.ts:129:9 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/types.ts:6:3 - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts:13:3 - (ae-undocumented) Missing documentation for "documents".
 // src/rag/types.ts:14:3 - (ae-undocumented) Missing documentation for "chunks".
 // src/rag/types.ts:17:3 - (ae-undocumented) Missing documentation for "costUsd".
@@ -219,9 +221,6 @@ export class SqliteFtsConnector implements RagConnector {
 // src/rag/types.ts:48:3 - (ae-undocumented) Missing documentation for "signal".
 // src/rag/types.ts:67:3 - (ae-undocumented) Missing documentation for "signal".
 // src/rag/types.ts:85:3 - (ae-undocumented) Missing documentation for "rerank".
-// src/rag/types.ts:135:3 - (ae-undocumented) Missing documentation for "name".
-// src/rag/types.ts:136:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:137:3 - (ae-undocumented) Missing documentation for "retrieve".
 
 // (No @packageDocumentation comment for this package)
 

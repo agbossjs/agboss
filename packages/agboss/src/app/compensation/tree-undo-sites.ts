@@ -2,7 +2,10 @@ import { NodeKind } from "../../flow/ast.js";
 import type { CompensationEntry, CompensationReason } from "../../flow/compensation.js";
 import { COMPENSATION_TIMEOUT } from "../../flow/compensation.js";
 import type { ExecutionFacts, FrameLease } from "../../flow/context/frame.js";
-import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  tenantOfExecution,
+} from "../../flow/context/runtime-contexts.js";
 import type { UndoSite } from "../../flow/runtime/compensation/undo.js";
 import { joinKeysOf, workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
 import { isThisWorkflow } from "../../flow/this-workflow.js";
@@ -59,7 +62,7 @@ function factsOf(
   const isRoot = executionId === state.runId;
   const startedVersion = isRoot ? state.startedVersion : identity.version;
   const contexts = contextsOf(checkpoint, state.tenantId);
-  const runtime = own.contexts ?? standaloneContexts(identity);
+  const runtime = own.contexts ?? contextsOutsideExecution(identity);
   return Object.freeze({
     executionId,
     threadId: state.threadId,

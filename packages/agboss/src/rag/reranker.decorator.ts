@@ -1,11 +1,11 @@
 import { recordComponent } from "../components/metadata.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
-import { DEFAULT_RERANKER_MODEL, type RerankerHandler } from "./types.js";
+import { DEFAULT_RERANKER_MODEL, type ModelReranker, type RerankerHandler } from "./types.js";
 
 /**
  * `@Reranker` (#703): what re-orders a knowledge base's candidates before the agent reads them —
- * bound by `@Rag({ rerank: { by, candidates, keep } })`. By model (the default): the core's LLM
+ * bound by `@Rag({ rerank: { by, candidates, topK } })`. By model (the default): the core's LLM
  * reranker on any chat model of the application's providers. By code: your class's `rerank()`
  * (`implements RerankerHandler`), a dedicated rerank API on its official SDK.
  */
@@ -50,8 +50,10 @@ export const isCodeReranker = (meta: RerankerMeta): meta is CodeRerankerMeta =>
 export const rerankerModelOf = (meta: ModelRerankerMeta): string =>
   meta.model ?? DEFAULT_RERANKER_MODEL;
 
-/** A model reranker: an empty class, decided by the core's LLM reranker on its model. */
-export function Reranker(options: ModelRerankerMeta): <C extends new () => object>(value: C) => C;
+/** A model reranker: `extends ModelReranker` with no code, decided by the core's LLM reranker on its model. */
+export function Reranker(
+  options: ModelRerankerMeta,
+): <C extends abstract new () => ModelReranker>(value: C) => C;
 /** A code reranker: `implements RerankerHandler`, created by the container with its `deps`. */
 export function Reranker<const D extends readonly Token[] = []>(
   options: CodeRerankerMeta<D>,

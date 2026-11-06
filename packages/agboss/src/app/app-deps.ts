@@ -46,7 +46,10 @@ import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js"
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
-import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  type RuntimeContexts,
+} from "../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 
@@ -241,7 +244,8 @@ export async function createWorkflowDeps(
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
   const { clock, records: terns, checkpointer } = parts.infrastructure;
-  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
+  const contexts =
+    parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
   const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
   const lifecycle = lifecycleOf(options.container, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);

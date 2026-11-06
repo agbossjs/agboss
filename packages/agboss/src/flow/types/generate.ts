@@ -42,10 +42,8 @@ export interface FlowTypesRequest {
   readonly modules: readonly LoadedModule[];
   /** The absolute path of the file, `<project>/.agboss/types.d.ts`. */
   readonly outFile: string;
-  /** The module the tables are augmented in: `agboss`, or a file's absolute path (this repo). */
+  /** The module the tables are augmented in: `@agboss/core`, or a file's absolute path (this repo). */
   readonly tablesModule?: string;
-  /** `--strict`: analyser warnings are errors. */
-  readonly strict?: boolean;
 }
 
 export interface FlowTypes {
@@ -139,10 +137,8 @@ const applicationOptionsOf = (request: FlowTypesRequest): readonly ApplicationOp
   });
 
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
-  const options: AnalyseOptions = {
-    modules: request.modules,
-    ...(request.strict === undefined ? {} : { strict: request.strict }),
-  };
+  // `agboss check --strict` reads the warnings as errors itself (#769): generation never does
+  const options: AnalyseOptions = { modules: request.modules };
   const applications = applicationOptionsOf(request);
   const { all, owners, checks } = checkedWorkflows(request, applications, options);
   const errors = checks.flatMap((check) => check.errors);

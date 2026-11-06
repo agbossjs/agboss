@@ -169,7 +169,6 @@ describe("S3 / S5: names that key the tables are unique in the application", () 
         },
       ],
       outFile,
-      strict: true,
     });
 
     expect(text).toContain('declare module "@agboss/core" {');

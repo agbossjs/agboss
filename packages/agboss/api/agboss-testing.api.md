@@ -5,14 +5,22 @@
 ```ts
 
 import type { Assertion } from 'vitest';
+import { BaseChannel } from '@langchain/langgraph';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { BaseCheckpointSaver } from '@langchain/langgraph';
+import type { BaseMessage } from '@langchain/core/messages';
+import { CompiledStateGraph } from '@langchain/langgraph';
 import type { IncomingMessage } from 'node:http';
+import { inspect } from 'node:util';
 import { KeyObject } from 'node:crypto';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import { Mocked } from 'vitest';
+import { OverwriteValue } from '@langchain/langgraph';
+import { StateDefinition } from '@langchain/langgraph';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
@@ -822,6 +830,26 @@ export class StaleCassetteError extends TestFailure {
 
 // @public
 export function step<TNode extends Class>(node: TNode, input?: InputMatcherOf<InstanceType<TNode>>): OrderedStep;
+
+// @public
+export interface StudioGraphs {
+    readonly application: string;
+    readonly close: () => Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionGraph" needs to be exported by the entry point index.d.ts
+    readonly graph: (name: string) => ExecutionGraph;
+    readonly names: readonly string[];
+}
+
+// @public
+export function studioOf(application: Class, options?: StudioOptions): Promise<StudioGraphs>;
+
+// Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
+    readonly env?: string | undefined;
+    readonly processEnv?: NodeJS.ProcessEnv;
+}
 
 // Warning: (ae-forgotten-export) The symbol "ExecuteMethod" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
