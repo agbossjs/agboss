@@ -59,12 +59,13 @@ AGBoss code follows, the same ones the framework's own gate runs:
 | -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
 | `agboss/no-component-state`            | `src/**/*.ts` but `*.test.ts`      | `this.x = …` outside the constructor of a component ([Components](Components))        |
 | `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `agboss/no-internal-import`            | every `.ts` / `.js` file           | an import of `@agboss/core/internal` — the CLI's, no semver promise; `studioOf` is in `@agboss/core/testing` (#818) |
 | `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `start(A)` / `.returns(B)` / `.toFinish(C)`         |
 
 The `agboss/…` rules come from the public entry `@agboss/core/eslint` of the framework (#388 S2):
 `agbossPlugin` and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
 (`ignoreChainWithDepth: 1`); the entry needs `@typescript-eslint/utils` (an optional peer of
-`agboss`, installed with `typescript-eslint`), and the root import never loads it. The generated
+`@agboss/core`, installed with `typescript-eslint`), and the root import never loads it. The generated
 config, in short:
 
 ```js
@@ -72,6 +73,7 @@ import { FLOW_CHAIN_RULE, agbossPlugin } from "@agboss/core/eslint";
 // …
 { files: ["src/**/*.ts"], ignores: ["src/**/*.test.ts"], plugins: { agboss: agbossPlugin },
   rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" } },
+{ files: ["**/*.{ts,mts,cts,js,mjs,cjs}"], plugins: { agboss: agbossPlugin }, rules: { "agboss/no-internal-import": "error" } },
 { files: ["**/*.workflow.ts"], plugins: { "@stylistic": stylistic }, rules: FLOW_CHAIN_RULE },
 ```
 
@@ -401,7 +403,7 @@ passes never run at once. It runs one pass at start, prints `dev: watching src �
 project. It builds every workflow of the application — the listed ones and the child workflows they
 launch, on the chosen environment — as the server will, so an assembly problem or a missing variable
 stops it with exit 3 before any server starts; then it writes the git-ignored `.agboss/studio.ts` (one
-export per workflow, built by `studioOf` from `@agboss/core/internal`) and `.agboss/langgraph.json` (one graph
+export per workflow, built by `studioOf` — public in `@agboss/core/testing`, #818, for a test that renders the graphs) and `.agboss/langgraph.json` (one graph
 per workflow, named by the workflow's full name; the project's `.env` when it has one) and runs
 LangGraph's dev server on them: a child process of `agboss studio` that does what `langgraphjs dev
 --config .agboss/langgraph.json --port N` did, on `@langchain/langgraph-api` (a pinned dependency of

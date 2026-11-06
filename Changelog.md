@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: RAG names and contracts, `/internal` off limits (#818)
+
+- **Changed — breaking**: `rerank: { by, candidates, topK }` — the agent gets `topK`, as with
+  `@Rag({ topK })` (`keep` is gone; `RerankOptions.topK`, `[rag.rerank-invalid]` says `topK`).
+  `rerank.by` is a `RerankerClass`: a model `@Reranker` `extends ModelReranker`, a code one
+  `implements RerankerHandler`; any other class does not compile. Renamed: `IndexReport` →
+  `RagIndexReport`, `FtsOptions` → `SqliteFtsOptions`, its `dbFile` → `sqlitePath`, `maxChunkChars`
+  → `maxChunkLength`, `RagReranking` → `RerankResult`. `new RerankFailedError({ rag, reranker,
+  cause, usage })`. `KnowledgeSource`, `KnowledgeRetrieve`, `KnowledgeRetrieval` are no longer
+  public. **Migration:** the renames; `extends ModelReranker` on each model reranker.
+  [Knowledge bases](Knowledge-bases#reranking).
+- **Added**: `@agboss/core/rag` re-exports `DecidedBy` and `RagSearchResultDto` — a reranker's
+  author imports one entry. `ragConnectorContract({ …, tenancy: RagTenancy.Shared })` runs the
+  suite on a shared connector: one corpus for every tenant, a re-index that replaces it for every
+  tenant that read it, a tenant it never saw served. [Knowledge bases → Prove it](Knowledge-bases#prove-it--ragconnectorcontract).
+- **Changed**: `SqliteFtsConnector.retrieve` no longer writes on every read — a tenant never indexed
+  is indexed by its first retrieval on the instance, once and whole (one transaction: a failure
+  midway leaves nothing, and the next retrieval builds it).
+- **Added**: `studioOf`, `StudioOptions`, `StudioGraphs` in `@agboss/core/testing`, and the lint rule
+  `agboss/no-internal-import` in `@agboss/core/eslint` (on in the config `agboss create` writes and
+  in the examples): `@agboss/core/internal` is the CLI's, with no semver promise. [CLI](CLI).
+
 ## Unreleased — 0.1.1: the pause contract — an opaque question ask, a stored kind, `step` (#801)
 
 - **Changed — breaking**: a field of a `PendingPause`'s `ask` compiles only after narrowing on

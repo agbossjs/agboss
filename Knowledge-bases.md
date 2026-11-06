@@ -5,17 +5,16 @@ The core fixes a **contract**, not a technology: a knowledge base is any class i
 to agents, reports its cost and traces it. Decision: [ADR-0010](ADR-0010-RAG-as-a-contract).
 
 <!-- snippet-context
-import type { IndexReport } from "@agboss/core/rag";
-import type { RagSearchResultDto } from "@agboss/core/dto";
+import type { RagIndexReport, RagSearchResultDto } from "@agboss/core/rag";
 -->
 
 ```ts
 interface RagConnector {
   retrieve(query: string, options: { topK: number; signal: AbortSignal; tenantId: string }): Promise<RagRetrieval>;
-  index?(options: { tenantId: string; signal: AbortSignal }): Promise<IndexReport>; // optional: build / update one tenant's index
+  index?(options: { tenantId: string; signal: AbortSignal }): Promise<RagIndexReport>; // optional: build / update one tenant's index
 }
 interface RagRetrieval {
-  results: readonly RagSearchResultDto[]; // { text, source, score? } (agboss/dto)
+  results: readonly RagSearchResultDto[]; // { text, source, score? } (@agboss/core/rag, also /dto)
   costUsd?: number;
 }
 // `source` is what the answer cites as [source]
@@ -27,9 +26,9 @@ The reference connector, extended — its options come through the constructor a
 
 ```ts file=rag/company-docs.rag.ts
 import { InjectionToken } from "@agboss/core";
-import { Rag, RagTenancy, SqliteFtsConnector, type FtsOptions } from "@agboss/core/rag";
+import { Rag, RagTenancy, SqliteFtsConnector, type SqliteFtsOptions } from "@agboss/core/rag";
 
-export const DOCS_INDEX = new InjectionToken<FtsOptions>("DOCS_INDEX");
+export const DOCS_INDEX = new InjectionToken<SqliteFtsOptions>("DOCS_INDEX");
 
 // `topK` (search results per retrieval) and `tenancy` are required; there are no defaults
 @Rag({
@@ -70,7 +69,7 @@ export class Faq implements RagConnector {
 ```
 
 Dependencies come through the constructor, like any [component](Components); register the token's
-value in the workflow's `providers` (`provide(DOCS_INDEX, { folder: "docs", dbFile: "docs.sqlite" })`).
+value in the workflow's `providers` (`provide(DOCS_INDEX, { folder: "docs", sqlitePath: "docs.sqlite" })`).
 Swap the implementation in this one file — nothing else changes.
 
 ## Binding — `mode` is required
@@ -183,19 +182,29 @@ chunks stay; at least one and at most `topK` results; an aborted signal rejects 
 connector that ignores the tenant, folds its id, appends on re-index, ignores `topK` or the signal,
 or reports `NaN` fails its case (the core's own bite proofs).
 
+A **shared** connector (`RagTenancy.Shared`) says so to the suite (#818) —
+`ragConnectorContract({ …, tenancy: RagTenancy.Shared })`. In place of the isolation cases it checks
+that every tenant — the fifteen near-identical ids too — gets the same results for the same query;
+that a re-index replaces the corpus for every tenant that read it before (a copy kept per tenant
+fails it); and that a tenant it never saw — a 200-character id, one with `/` — is served, the calls
+it gets carrying that tenant. `documents` is the one corpus, whatever its `tenantId`. The `topK`,
+signal, cost and shape cases run for both; another `tenancy` value is refused, never an empty
+suite. A per-tenant connector declared `Shared` fails it: another tenant gets nothing. The core
+passes the execution's tenant to a shared connector too — every retrieval, every reranking.
+
 ## Reranking
 
 Retrieval ranks the truly relevant passage below near-misses more often than not. A knowledge base
 reranks (#703) by asking its connector for more `candidates`, re-ordering them with a more precise
-model and giving the agent the best `keep` — `rerank` takes the place of `topK` (both, or neither,
-do not compile):
+model and giving the agent the best `topK` — `rerank: { by, candidates, topK }` takes the place of
+`@Rag({ topK })`, one name for what the agent gets (both, or neither, do not compile):
 
 ```ts file=rerankers/docs.reranker.ts
-import { Reranker } from "@agboss/core/rag";
+import { ModelReranker, Reranker } from "@agboss/core/rag";
 
-// the core's LLM reranker on any chat model of the application's providers
+// the core's LLM reranker on any chat model of the application's providers: no code of its own
 @Reranker({ name: "docs-reranker", description: "Reranks the docs", model: "openai/gpt-4.1-nano" })
-export class DocsReranker {}
+export class DocsReranker extends ModelReranker {}
 ```
 
 <!-- snippet-context
@@ -209,7 +218,7 @@ import { DocsReranker } from "./rerankers/docs.reranker.js";
   name: "reranked-docs-rag",
   description: "Nimbus Labs docs, reranked",
   tenancy: RagTenancy.PerTenant,
-  rerank: { by: DocsReranker, candidates: 30, keep: 4, onFailure: RerankFailurePolicy.Fallback },
+  rerank: { by: DocsReranker, candidates: 30, topK: 4, onFailure: RerankFailurePolicy.Fallback },
   deps: [DOCS_INDEX],
 })
 export class RerankedDocs extends SqliteFtsConnector {}
@@ -217,16 +226,17 @@ export class RerankedDocs extends SqliteFtsConnector {}
 
 | Setting     | What it is                                                                                     |
 | ----------- | ---------------------------------------------------------------------------------------------- |
-| `by`        | a `@Reranker` class (`rerankers/*.reranker.ts`, name ending `-reranker`)                        |
+| `by`        | a `@Reranker` class (`RerankerClass`: `extends ModelReranker` or `implements RerankerHandler` — another class does not compile, #818; `rerankers/*.reranker.ts`, name ending `-reranker`) |
 | `candidates`| how many results the connector is asked for                                                     |
-| `keep`      | how many reach the agent, best first (`1 ≤ keep ≤ candidates`, else `[rag.rerank-invalid]`)     |
+| `topK`      | how many reach the agent, best first (`1 ≤ topK ≤ candidates`, else `[rag.rerank-invalid]`)     |
 | `onFailure` | `RerankFailurePolicy.Fallback` (default) or `RerankFailurePolicy.FailStep`                       |
 
-It works with any connector and in both modes: the search tool returns the reranked `keep`, the
+It works with any connector and in both modes: the search tool returns the reranked `topK`, the
 context block holds them; `testRag(R)` reranks the same way (`model: replyWith(…)` scripts a model
 reranker), and a scripted agent searches a knowledge base with `callTool(CompanyDocs, { query })`.
 
-**The LLM reranker** (`DecidedBy.Model`, the default) is an empty class: `model` is any chat model of
+**The LLM reranker** (`DecidedBy.Model`, the default) is a class with no code that `extends
+ModelReranker`: `model` is any chat model of
 the application's providers, a cheap one by default (`DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`;
 under providers that do not serve it `[model.unserved]` names `rerankers.<name>`; a decision model is
 `[reranker.decision-model]`). One call per reranking: the query and the numbered candidates in, a
@@ -236,20 +246,25 @@ provider's. In tests: `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[2
 unscripted it ranks nothing (the retrieval's order).
 
 **Your own reranker** — a dedicated API such as Cohere Rerank, on its official SDK, no AGBoss
-wrapper — is code:
+wrapper — is code; everything it needs comes from `@agboss/core/rag`:
 
 <!-- snippet-context
-import { DecidedBy } from "@agboss/core";
-import { Reranker, type RagReranking, type RerankerHandler, type RerankOptions } from "@agboss/core/rag";
-import type { RagSearchResultDto } from "@agboss/core/dto";
+import {
+  DecidedBy,
+  Reranker,
+  type RagSearchResultDto,
+  type RerankerHandler,
+  type RerankOptions,
+  type RerankResult,
+} from "@agboss/core/rag";
 declare const rerankApi: { rerank(query: string, documents: readonly string[], topN: number): Promise<readonly { index: number; score: number }[]> };
 -->
 
 ```ts
 @Reranker({ name: "api-reranker", description: "A rerank API", decidedBy: DecidedBy.Code })
 export class ApiReranker implements RerankerHandler {
-  async rerank(query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions): Promise<RagReranking> {
-    const ranked = await rerankApi.rerank(query, candidates.map((c) => c.text), options.keep);
+  async rerank(query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions): Promise<RerankResult> {
+    const ranked = await rerankApi.rerank(query, candidates.map((c) => c.text), options.topK);
     const results = ranked.flatMap(({ index, score }) => {
       const candidate = candidates[index];
       return candidate === undefined ? [] : [{ ...candidate, score }];
@@ -264,7 +279,7 @@ example with Cohere Rerank, offline: agboss-examples
 [`13-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/13-rag-reranking).
 
 **What a reranker may return:** a subset of the candidates it was given — the same `source` and
-`text`, none twice, at most `keep`. Anything else is a failure, so no reranker can put a passage
+`text`, none twice, at most `topK`. Anything else is a failure, so no reranker can put a passage
 the tenant's retrieval did not return before the agent ([Tenants](#tenants)); it sees only the
 current tenant's candidates (`options.tenantId`). `ragConnectorContract({ …, rerank: { by,
 candidates } })` runs the contract's cases through the reranking under
@@ -273,10 +288,10 @@ candidate fails the cases that retrieve, never falls back to the retrieval's own
 
 **When it fails** (it throws, times out, gives no ranking, or an invalid result):
 
-- `RerankFailurePolicy.Fallback` (default) — the retrieval's own first `keep`; the trace has the
+- `RerankFailurePolicy.Fallback` (default) — the retrieval's own first `topK`; the trace has the
   failed span `rerank:<name>` and a span `rerank:<name>:fallback` with the reason.
 - `RerankFailurePolicy.FailStep` — `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`:
-  `rag`, `reranker`, `cause`) fails the agent's step in both modes — context mode does not swallow
+  `rag`, `reranker`, `cause`; `new RerankFailedError({ rag, reranker, cause, usage })`) fails the agent's step in both modes — context mode does not swallow
   it, tool mode does not hand it to the model; `.onError(RerankFailedError, …)` may take it.
 
 **PII (#708):** the core's LLM reranker reads the query and the candidates — their texts and
@@ -312,8 +327,13 @@ npx agboss rag index   # every knowledge base of the application [--rag company_
 
 SQLite FTS5 (built into Node's `node:sqlite`), ranked by BM25 — no dependencies, no cost. `index()`
 splits Markdown at headings and paragraphs (≤ 800 characters) and skips files whose content hash did
-not change; each document's chunks are replaced in one transaction (a second process or a crash
-never leaves two sets); the index is built on first use when the tenant's is empty. Every chunk is
+not change (`maxChunkLength`, in characters); each document's chunks are replaced in one transaction (a second process or a crash
+never leaves two sets). A retrieval reads (#818): a tenant never indexed is indexed by its first
+retrieval on the instance, once — however many arrive at once, and a tenant without documents too —
+and whole, in one transaction, then every retrieval only reads. A first build that failed midway
+(an abort, an unreadable file, a crash) leaves nothing, so the next retrieval builds it again; a
+retrieval that was only waiting stops at its own abort. After the
+documents change, run `agboss rag index`: a running instance does not re-read a folder on its own. Every chunk is
 its tenant's (#700): `folder` is one folder every tenant indexes for itself, or a function giving
 each tenant its own — look it up, never build the path from the id (a tenant id may hold `/` or
 `..`):
@@ -325,7 +345,7 @@ const folders = new Map([["acme", "docs/acme"], ["globex", "docs/globex"]]);
 -->
 
 ```ts
-provide(DOCS_INDEX, { folder: (tenantId: string) => folders.get(tenantId), dbFile: "docs.sqlite" });
+provide(DOCS_INDEX, { folder: (tenantId: string) => folders.get(tenantId), sqlitePath: "docs.sqlite" });
 ```
 
 An index file written before #700 migrates itself on first open: its chunks become the `default`
