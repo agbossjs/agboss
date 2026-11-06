@@ -47,8 +47,17 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   amounts still `…Usd: number`. Every amount that crosses a store boundary is `Usd`
   (`LedgerEntry.costUsd`, `findSpentByCounter`, what `totalCost` sums of entries). The terms: cost —
   what one call cost; spend — what was consumed against a budget; usage — tokens only (CLAUDE.md,
-  Wiki → FinOps). **Migration:** compare a record's source with `CostSource.Api` (not `"api"`), read
-  `ledgerMarkOf(record)` instead of the three fields; nothing stored changes.
+  Wiki → FinOps). A checkpoint keeps JSON, so every read of one through the application's
+  checkpointer gives each record's mark back as this version keeps it — its date a `Date`, a record
+  of before in the one field —, and a mark it cannot read (or a field of before of another kind)
+  fails the read rather than being taken as "not in the ledger". A cost below zero or no amount is
+  refused where it enters (a decision model's or Jev's `cost`, tokens that price at `NaN`:
+  `ModelCostError`), never subtracted from the counters. **Migration:** compare a record's source
+  with `CostSource.Api` (not `"api"`), read `ledgerMarkOf(record)` instead of the three fields; no
+  stored table changes. A checkpoint written by 0.1.1 marks its spend only in `ledger`, which a
+  0.1.0 instance does not read: upgrade every instance of an application together, as the store
+  migrations of this release already ask — never a fleet of both versions, never a rollback onto
+  0.1.1's checkpoints.
 
 - **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
   passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
@@ -398,7 +407,8 @@ Date` and its `costUsd: Usd`, so a record without an identity — which the cont
   and give `Date`: `unrecordedEntriesOf(entries, isNew: (ledgerId, madeAt: Date) => boolean)` (was
   `newEntriesOf`, its callback given ms) and `expiredEntriesOf(entries, prunedBefore: Date |
 undefined, isHeld)`, now exported (the half that refuses); both in the root for now. New contract
-  cases: anything but an entry refused before anything is added, the mark kept to the millisecond
+  cases: anything but an entry refused before anything is added (with counters or none), the mark
+  kept to the millisecond, a prune whose cutoff is no valid `Date` refused with the mark where it was
   (each with a naive store that fails it). **Migration:** a ledger of your own takes
   `readonly LedgerEntry[]`, calls `assertLedgerEntries` first, renames `deleteEntriesByMadeAtBefore`
   to `deleteByMadeAtBefore` and `newEntriesOf` to `unrecordedEntriesOf` (its callback's `madeAt` a

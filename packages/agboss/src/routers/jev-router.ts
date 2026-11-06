@@ -21,7 +21,13 @@ const JevResponseSchema = z.object({
       probabilities: z.record(z.string(), z.number()).optional(),
     }),
   }),
-  usage: z.object({ cost: z.number().optional(), total_cost: z.number().optional() }).optional(),
+  // a cost below zero would take spend off the budgets' counters: an invalid answer (#817)
+  usage: z
+    .object({
+      cost: z.number().nonnegative().optional(),
+      total_cost: z.number().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 type JevResponse = z.infer<typeof JevResponseSchema>;

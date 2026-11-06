@@ -170,11 +170,17 @@ export function recordUsage(
       `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
     );
   }
+  const costUsd = costOf(usage, settings.price);
+  // tokens a provider left out price as NaN: never accounted as an amount (#817)
+  if (!Number.isFinite(costUsd) || costUsd < 0)
+    throw new ModelCostError(
+      `${caller}: model ${settings.model} — its tokens price at no amount: ${String(costUsd)}`,
+    );
   return {
     caller,
     model: settings.model,
     ...usage,
-    costUsd: costOf(usage, settings.price),
+    costUsd,
     costSource: CostSource.PriceTable,
     ...served,
   };

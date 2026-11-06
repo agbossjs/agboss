@@ -7,6 +7,7 @@ import {
   CostLedgerEntryExpiredError,
   CostLedgerRepository,
   expiredEntriesOf,
+  invalidDateErrorOf,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
   type BudgetAccount,
@@ -105,6 +106,19 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     const invalid = invalidLedgerEntryErrorOf(entries);
     if (invalid !== undefined) return Promise.reject(invalid);
     if (counters.length === 0 || entries.length === 0) return Promise.resolve();
+    // a failure of the file (busy, a row that does not parse) rejects, never throws
+    return new Promise<void>((resolve, reject) => {
+      const refused = this.#add(counters, entries);
+      if (refused === undefined) resolve();
+      else reject(refused);
+    });
+  }
+
+  /** Adds `entries` to every counter in one transaction, or answers why it refused them (#771). */
+  #add(
+    counters: readonly CostCounter[],
+    entries: readonly LedgerEntry[],
+  ): CostLedgerEntryExpiredError | undefined {
     let refused: CostLedgerEntryExpiredError | undefined;
     this.connection.transaction(() => {
       // an entry it may have pruned is refused, the whole save with it (#771): the mark is read
@@ -114,6 +128,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         "SELECT 1 FROM cost_ledger_entries WHERE ledger_id = ?",
       );
       const expired = expiredEntriesOf(entries, prunedBefore, (id) => held.get(id) !== undefined);
+      // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
       if (expired.length > 0 && prunedBefore !== undefined) {
         refused = new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore });
         return;
@@ -135,10 +150,13 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
       for (const counter of counters)
         statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent);
     });
-    return refused === undefined ? Promise.resolve() : Promise.reject(refused);
+    return refused;
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
+    // a cutoff that is no date would lower the mark: refused (#817)
+    const invalid = invalidDateErrorOf(cutoff, "the cutoff");
+    if (invalid !== undefined) return Promise.reject(invalid);
     this.connection.transaction(() => {
       const kept = this.#prunedBefore()?.getTime() ?? Number.NEGATIVE_INFINITY;
       const prunedBefore = Math.max(kept, cutoff.getTime());

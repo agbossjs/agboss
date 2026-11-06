@@ -220,7 +220,7 @@ async function lastStateOf(
  * pass wrote under an id keeps its mark (counted by that id, #727), the others are recorded
  * elsewhere (counted by what they are, #685).
  */
-const recordedElsewhere = (
+export const recordedElsewhere = (
   state: ExecutionStateType,
   inheritedUsage: number,
 ): ExecutionStateType => ({

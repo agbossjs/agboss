@@ -29,7 +29,8 @@ const ResponseSchema = z.object({
     .object({
       input_tokens: z.number().optional(),
       output_tokens: z.number().optional(),
-      cost: z.number().optional(),
+      // a cost below zero would take spend off the budgets' counters: an invalid answer (#817)
+      cost: z.number().nonnegative().optional(),
     })
     .optional(),
 });

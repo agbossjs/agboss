@@ -187,6 +187,8 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
   readonly #maxSpend = new Map<string, Usd>();
   #prunedBefore: Date | undefined;
   protected abstract readonly isChecked: boolean;
+  /** Whether it refuses a cutoff that is no date. */
+  protected readonly isCutoffChecked: boolean = true;
 
   protected markOf(cutoff: Date): Date {
     return cutoff;
@@ -234,6 +236,10 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
+    if (this.isCutoffChecked && Number.isNaN(new Date(cutoff).getTime()))
+      return Promise.reject(new TypeError("the cutoff is no valid Date"));
+    if (this.isCutoffChecked && !(cutoff instanceof Date))
+      return Promise.reject(new TypeError("the cutoff is no Date"));
     const mark = this.markOf(cutoff);
     const kept = this.#prunedBefore;
     this.#prunedBefore = kept !== undefined && kept.getTime() > mark.getTime() ? kept : mark;
@@ -271,4 +277,13 @@ export class SecondsMarkCostLedgerRepository extends BreakableCostLedger {
   protected override markOf(cutoff: Date): Date {
     return new Date(Math.floor(cutoff.getTime() / 1000) * 1000);
   }
+}
+
+/**
+ * A ledger that takes any cutoff (#817): one that is no date compares false with every entry — the
+ * mark goes to it, nothing is refused from then on, and a retry of a pruned entry counts again.
+ */
+export class AnyCutoffCostLedgerRepository extends BreakableCostLedger {
+  protected readonly isChecked = true;
+  protected override readonly isCutoffChecked = false;
 }

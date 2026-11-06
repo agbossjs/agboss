@@ -8,13 +8,13 @@ import type {
   LedgerEntry,
 } from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
-import { usd } from "../units/index.js";
 import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
 import {
   budgetExceededErrorOf,
   counterOf,
   isRecordedHere,
   isSpendExhausted,
+  ledgerEntryOf,
   LedgerIds,
 } from "./budget-check.js";
 import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
@@ -195,12 +195,7 @@ export class BudgetMeter implements BudgetCheck {
 
   /** `record` as an entry of the ledger under a new id of this pass, made now (#727, #771, #817). */
   #entryOf(record: UsageRecord): LedgerEntry {
-    return {
-      ...record,
-      costUsd: usd(record.costUsd),
-      ledgerId: this.#ids.mint(),
-      madeAt: this.clock.now(),
-    };
+    return ledgerEntryOf(record, this.#ids.mint(), this.clock.now());
   }
 
   /**
@@ -323,8 +318,8 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       await this.#writeUnwritten();
-      // written at its step's end: an entry of its own under a new id, so a save retried after a
-      // lost answer counts once (#817 — no record is saved without an identity)
+      // written at its step's end: each an entry of its own under a new id of the pass (#817 — the
+      // ledger saves nothing without an identity; a step run again mints new ones, as a tally does)
       const own = records.filter(isRecordedHere).map((record) => this.#entryOf(record));
       const elsewhere = this.#ids.uncounted(records, false);
       this.#recorded += totalCost(own);

@@ -116,11 +116,17 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         { ...fine, ledgerId: "run-1:pass-f:6", costUsd: -0.25 },
         null,
       ];
-      for (const record of broken)
+      for (const record of broken) {
+        // a JS caller (or a cast): what the type refuses, the store refuses at run time — with
+        // counters to add to or none
         await expect(
-          // a JS caller (or a cast): what the type refuses, the store refuses at run time
           first.saveAll([tenantDay], [fine, record as LedgerEntry]),
         ).rejects.toMatchObject({ code: "cost-ledger.entry-invalid", index: 1 });
+        await expect(second.saveAll([], [record as LedgerEntry])).rejects.toMatchObject({
+          code: "cost-ledger.entry-invalid",
+          index: 0,
+        });
+      }
 
       expect(await second.findSpentByCounter(tenantDay)).toBe(0);
       // the refused saves kept nothing: the valid entry saved alone counts, once
