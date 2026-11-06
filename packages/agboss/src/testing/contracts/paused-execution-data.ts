@@ -7,7 +7,7 @@ import {
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import { PauseKind, questionAskOf } from "../../infrastructure/pause-kind.js";
+import { PauseKind, questionAskOf } from "../../infrastructure/pause-record.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 
 /** The data of the paused-execution contract: paused runs, pauses and answers. */

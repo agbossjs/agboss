@@ -4,10 +4,10 @@
  * is not told and nothing is logged.
  */
 import { describe, expect, it } from "vitest";
-import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 import { pauseWithdrawalsOf, type WithdrawalParts } from "../../src/app/pause-withdrawals.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import {
+  PauseKind,
   PauseResolution,
   PauseStatus,
   type PauseRecord,

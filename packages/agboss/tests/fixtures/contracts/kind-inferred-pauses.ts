@@ -4,7 +4,7 @@
  * Every pause the framework makes passes; the contract's kind case does not.
  */
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
-import { PauseKind } from "../../../src/infrastructure/pause-kind.js";
+import { PauseKind } from "../../../src/infrastructure/pause-record.js";
 import {
   InMemoryPausedExecutionRepository,
   type PauseRecord,

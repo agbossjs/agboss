@@ -3,8 +3,9 @@
  * fails loudly where it is read, never taken for an approval or branded as an ask.
  */
 import { describe, expect, it } from "vitest";
-import { PauseKind, questionAskOf } from "../../src/infrastructure/pause-kind.js";
 import {
+  PauseKind,
+  questionAskOf,
   isApprovalPause,
   isQuestionPause,
   type PauseRecord,

@@ -8,12 +8,11 @@
  * `tests/channels/concurrent-resume.test.ts`.
  */
 import { describe, expect, it } from "vitest";
-import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../src/channels/channel-sender.js";
-import { PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
+import { PauseKind, PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import {

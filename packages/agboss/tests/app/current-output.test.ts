@@ -16,7 +16,7 @@ import {
   pauseOf,
   questionPauseOf,
 } from "../../src/testing/contracts/paused-execution-data.js";
-import { PauseKind } from "../../src/infrastructure/pause-kind.js";
+import { PauseKind } from "../../src/infrastructure/pause-record.js";
 
 /** A stored run's `pending` as 0.1.0 wrote it: `agent`, no `kind`, no `step`. */
 const listedBefore = (pauseId: string, agent: string): WaitingPause =>

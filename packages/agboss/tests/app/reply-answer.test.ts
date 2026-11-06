@@ -4,12 +4,11 @@
  */
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { describe, expect, it } from "vitest";
-import { PauseKind } from "../../src/infrastructure/pause-kind.js";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
 import { UninterpretableReplyError } from "../../src/channels/channel-role.decorator.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
-import { PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
+import { PauseKind, PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { testFrame } from "../helpers/frame.js";
 

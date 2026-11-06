@@ -11,8 +11,7 @@ import {
 } from "../paused-execution.repository.js";
 import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { migratePauses } from "./sqlite-pause-migrations.js";
-import { PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
+import { migratePauses, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
 const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
