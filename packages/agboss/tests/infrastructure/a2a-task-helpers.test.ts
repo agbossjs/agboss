@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { a2aPagePositionOf, nextPageTokenOf } from "../../src/infrastructure/a2a-task-pages.js";
 import {
+  A2ATaskRepository,
   A2ATaskState,
   a2aTaskExpiryOf,
   InvalidA2APageTokenError,
@@ -79,6 +80,14 @@ describe("#807: the A2A task stores' helpers", () => {
 
     expect(expiry).toMatchObject({ what: "the finished A2A tasks", retention: hours(24) });
     expect(asked).toEqual([NINE]);
+  });
+
+  it("#824: each store declares its backend; the contract leaves it undeclared", () => {
+    expect([
+      A2ATaskRepository.backend,
+      InMemoryA2ATaskRepository.backend,
+      SqliteA2ATaskRepository.backend,
+    ]).toEqual([undefined, "in-memory", "sqlite"]);
   });
 
   it("both stores answer ping() with a promise; the SQLite one is a SQLite implementation", async () => {

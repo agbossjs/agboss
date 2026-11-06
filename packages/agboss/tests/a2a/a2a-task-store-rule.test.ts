@@ -4,7 +4,7 @@
  * too — the leases' backend, or another backend no single host owns — else
  * `[a2a.task-store-not-shared]` names both stores and the one to list: on each instance's own
  * memory a message resent to another instance would start a second execution. Every pairing of
- * eight lease stores with eight A2A task stores; an application on in-memory leases, or serving no
+ * eight lease stores with ten A2A task stores; an application on in-memory leases, or serving no
  * A2A, is never refused.
  */
 import { describe, expect, it } from "vitest";
@@ -24,7 +24,9 @@ import {
 import {
   a2aStoresApplication,
   BillingA2ATasks,
+  CapitalSqliteA2ATasks,
   EmptyA2ATasks,
+  LmdbA2ATasks,
   MongoA2ATasks,
   MongoLeases,
   OwnInMemoryA2ATasks,
@@ -64,8 +66,14 @@ const LEASES: readonly Choice[] = [
   { name: "an empty backend", listed: EmptyLeases, backend: undefined },
 ];
 
+const IN_MEMORY_TASKS: Choice = {
+  name: "the in-memory default",
+  listed: undefined,
+  backend: "in-memory",
+};
+
 const TASKS: readonly Choice[] = [
-  { name: "the in-memory default", listed: undefined, backend: "in-memory" },
+  IN_MEMORY_TASKS,
   { name: "a subclass of the in-memory store", listed: OwnInMemoryA2ATasks, backend: "in-memory" },
   { name: "SQLite", listed: SqliteA2ATaskRepository, backend: "sqlite" },
   { name: "PostgreSQL", listed: PostgresA2ATasks, backend: "postgres" },
@@ -73,17 +81,19 @@ const TASKS: readonly Choice[] = [
   { name: "MongoDB", listed: MongoA2ATasks, backend: "mongodb" },
   { name: "no backend", listed: UndeclaredA2ATasks, backend: undefined },
   { name: "an empty backend", listed: EmptyA2ATasks, backend: undefined },
+  { name: "a backend no rule knows", listed: LmdbA2ATasks, backend: "lmdb" },
+  { name: "a known kind in capitals", listed: CapitalSqliteA2ATasks, backend: "SQLite" },
 ];
 
-/** The backends one host owns: their tasks are not shared by instances on other hosts. */
-const SINGLE_HOST = new Set(["in-memory", "sqlite"]);
+/** The backend kinds known to be shared by the instances of any host. */
+const SHARED = new Set(["postgres", "mongodb"]);
 const kindOf = (backend: string): string => backend.split(":")[0] ?? backend;
 
 /** Whether the rule lets `tasks` serve beside `leases` (the rule, restated independently). */
 function isShared(leases: Choice, tasks: Choice): boolean {
   if (leases.backend === "in-memory") return true;
   if (tasks.backend === undefined) return false;
-  return tasks.backend === leases.backend || !SINGLE_HOST.has(kindOf(tasks.backend));
+  return tasks.backend === leases.backend || SHARED.has(kindOf(tasks.backend));
 }
 
 const providersOf = (leases: Choice, tasks: Choice): readonly Provider[] =>
@@ -119,7 +129,7 @@ describe("#824 AC3: an application serving A2A keeps its tasks where its instanc
   it.each(LEASES)(
     "serving no A2A, leases on $name never refuse an in-memory task store",
     async (leases) => {
-      const found = await violationsOf(providersOf(leases, TASKS[0] as Choice), {
+      const found = await violationsOf(providersOf(leases, IN_MEMORY_TASKS), {
         isExposed: false,
       });
 
@@ -138,6 +148,12 @@ describe("#824 AC3: an application serving A2A keeps its tasks where its instanc
 
     expect(refusal).toMatch(/^\[a2a\.task-store-not-shared\] /u);
     expect(refusal).toContain(fix);
+  });
+
+  it("a backend no rule knows is refused as not known to be shared, never taken as shared", async () => {
+    const [refusal] = await violationsOf([PostgresLeases, LmdbA2ATasks]);
+
+    expect(refusal).toContain('LmdbA2ATasks (backend "lmdb"), not known to be shared:');
   });
 
   it("the full refusal on PostgreSQL leases with the in-memory default", async () => {

@@ -14,15 +14,16 @@ import { definedOf } from "../infrastructure/clock.js";
 /**
  * Fail closed at assembly (#824): an application that serves A2A (`@A2AExpose`) dedupes a message
  * and finds a task in its `A2ATaskRepository`, so on leases its instances share (any backend but
- * `in-memory`) its tasks must be shared by them too — on its lease store's backend, or on another
- * backend no single host owns (`in-memory` and `sqlite` are one host's). Anything else — the
- * in-memory default, an undeclared backend, a single-host one other than the leases' — is
+ * `in-memory`) its tasks must be shared by them too: on its lease store's own backend, or on a
+ * backend kind known to be shared by instances on any host (`postgres`, `mongodb`). Anything else —
+ * the in-memory default, an undeclared backend, SQLite beside other leases, a backend no rule knows
+ * (an allow-list: an unknown name, or a known one in other letters, is never taken as shared) — is
  * `[a2a.task-store-not-shared]`: a message resent to another instance would start a second
  * execution. Read from the declarations only, as the store-backend rules are.
  */
 
-/** The backends whose rows only one host's instances share. */
-const SINGLE_HOST: ReadonlySet<string> = new Set(["in-memory", "sqlite"]);
+/** The backend kinds whose rows the instances of any host share. */
+const SHARED: ReadonlySet<string> = new Set(["postgres", "mongodb"]);
 
 /** The A2A task store of each backend kind, as the fix names it. */
 const STORE_OF_KIND: Readonly<Record<string, string>> = {
@@ -38,7 +39,7 @@ const kindOf = (backend: string): string => backend.split(":", 1)[0] ?? backend;
 function isShared(leases: string | undefined, tasks: string | undefined): boolean {
   if (leases === "in-memory") return true;
   if (tasks === undefined) return false;
-  return tasks === leases || !SINGLE_HOST.has(kindOf(tasks));
+  return tasks === leases || SHARED.has(kindOf(tasks));
 }
 
 /** The names of the application's `@A2AExpose`s. */
@@ -56,14 +57,18 @@ function leasesText(leases: Class, backend: string | undefined): string {
     : `${leases.name} (backend "${backend}"), which its instances share`;
 }
 
+/** Whose rows a backend kind keeps that is not shared here. */
+function whoseOf(kind: string): string {
+  if (kind === "in-memory") return "each instance's own";
+  return kind === "sqlite" ? "one host's" : "not known to be shared";
+}
+
 function tasksText(tasks: Class, backend: string | undefined, reason: ImplementationReason) {
   const listed =
     reason === ImplementationReason.Default ? ", the built-in default: none listed" : "";
   if (backend === undefined)
     return `${tasks.name}, which declares no backend${listed}: each instance's own, for all assembly knows`;
-  return `${tasks.name} (backend "${backend}"${listed}), ${
-    kindOf(backend) === "in-memory" ? "each instance's own" : "one host's"
-  }`;
+  return `${tasks.name} (backend "${backend}"${listed}), ${whoseOf(kindOf(backend))}`;
 }
 
 /** What to list in place of the task store. */

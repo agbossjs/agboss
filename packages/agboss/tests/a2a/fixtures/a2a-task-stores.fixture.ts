@@ -43,6 +43,18 @@ export class EmptyA2ATasks extends InMemoryA2ATaskRepository {
   static override readonly backend: string | undefined = "";
 }
 
+/** A backend no rule knows: shared or not, assembly cannot tell — refused beside other leases. */
+@Injectable(TASK_DEPS)
+export class LmdbA2ATasks extends InMemoryA2ATaskRepository {
+  static override readonly backend: string | undefined = "lmdb";
+}
+
+/** A known kind, written in another case: not the kind it looks like. */
+@Injectable(TASK_DEPS)
+export class CapitalSqliteA2ATasks extends InMemoryA2ATaskRepository {
+  static override readonly backend: string | undefined = "SQLite";
+}
+
 /** A project's own in-memory subclass: still each instance's own memory. */
 @Injectable(TASK_DEPS)
 export class OwnInMemoryA2ATasks extends InMemoryA2ATaskRepository {}
