@@ -93,7 +93,7 @@ export function takeRunReport(
   if (charge !== undefined) {
     const service = `${transport}:${charge.application}`;
     const spent = serviceUsageOf({ service, cost: usd(charge.cost) });
-    frame.services.reportUsage?.(withLedgerKey(spent, identity, madeAtOf(report, settings)));
+    frame.services.reportUsage?.(withLedgerKey(spent, identity, report));
   }
   if (report === undefined) return;
   frame.services.meshCall?.recordRemote({
@@ -120,36 +120,51 @@ function callReportOf(
 }
 
 /**
- * What makes a report's charge one across passes (#810): its ledger id, and the execution the
- * report must name (the call's task).
+ * What makes a report's charge one across passes (#810): its ledger id, the execution the report
+ * must name (the call's task), and the window its entry is dated in — never by the peer's word
+ * alone: from the call's own accept (`notBefore`, as the caller stored it) to the caller's `now`.
  */
 export interface RunReportIdentity {
   readonly id: string;
   readonly executionId?: string;
+  /** When the caller's accept of the call was stored (ISO 8601): the entry's earliest date. */
+  readonly notBefore: string;
+  /** The caller's own time now, on its `Clock`: the entry's latest date. */
+  readonly now: Date;
 }
 
 /**
- * The date of a report's charge: when its peer signed it — the same on every pass that charges it
- * — never later than now (a peer's clock ahead dates nothing into the future).
+ * The date of a report's charge (#810, security review): when its peer signed it, clamped into the
+ * caller's own window `[notBefore, now]` — a peer that backdates it (to 1970, before the call was
+ * accepted) cannot put the spend behind a budget's period or the ledger's pruning mark, one that
+ * dates it ahead cannot keep it from them; an unreadable date is `now`. Inside the window it is the
+ * same on every pass that charges it (the report is the task's one report).
  */
-const madeAtOf = (
-  report: MeshRunReport | undefined,
-  settings: ReturnType<typeof contextMeshSettingsOf>,
-): string => {
-  const now = settings?.clock.now() ?? new Date(0);
-  const issued = report === undefined ? Number.NaN : Date.parse(report.issuedAt);
-  return Number.isNaN(issued) || issued > now.getTime()
-    ? now.toISOString()
-    : new Date(issued).toISOString();
-};
+export function reportMadeAtOf(
+  issuedAt: string | undefined,
+  identity: Pick<RunReportIdentity, "notBefore" | "now">,
+): string {
+  const now = identity.now.getTime();
+  const lower = Date.parse(identity.notBefore);
+  // a lower bound that is no date, or past now, leaves only now: fail closed to the caller's time
+  const floor = Number.isNaN(lower) || lower > now ? now : lower;
+  const issued = issuedAt === undefined ? Number.NaN : Date.parse(issuedAt);
+  const dated = Number.isNaN(issued) ? now : Math.min(now, Math.max(floor, issued));
+  return new Date(dated).toISOString();
+}
 
 /** The charge under the call's own ledger identity, when it has one (#810). */
 const withLedgerKey = (
   spent: UsageRecord,
   identity: RunReportIdentity | undefined,
-  madeAt: string,
+  report: MeshRunReport | undefined,
 ): UsageRecord =>
-  identity === undefined ? spent : { ...spent, ledgerKey: { id: identity.id, madeAt } };
+  identity === undefined
+    ? spent
+    : {
+        ...spent,
+        ledgerKey: { id: identity.id, madeAt: reportMadeAtOf(report?.issuedAt, identity) },
+      };
 
 /**
  * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less

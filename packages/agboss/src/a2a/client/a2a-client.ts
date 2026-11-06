@@ -22,7 +22,7 @@ import {
 import { A2AClientOperation } from "./a2a-client-errors.js";
 import { a2aClientServicesOf, type A2AClientServices } from "./a2a-client-services.js";
 import { A2AMesh } from "./a2a-guard-errors.js";
-import { chargedOf, settledPeerOf } from "./a2a-charges.js";
+import { chargedOf, settledChargeOf, settledPeerOf } from "./a2a-charges.js";
 import { AGBOSS_MESH, type A2AMeshActivation } from "./a2a-mesh-seam.js";
 import { originPolicyOf } from "./a2a-origins.js";
 import { failureOf, isInterrupted, outputOf } from "./a2a-outcome.js";
@@ -219,7 +219,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     const charged = chargedOf(accepted, clock);
     activation.charge(price, charged);
     const task = await this.#waited(wire, accepted, clock, call);
-    activation.settle(task, price, charged);
+    activation.settle(task, price, settledChargeOf(charged, clock));
     const peer = settledPeerOf(activation, accepted, this.contract?.application ?? this.#agent);
     return { accepted, task, peer };
   }

@@ -72,6 +72,8 @@ export interface A2ACharged {
   readonly bodyHash: string | undefined;
   /** The task the report must name as its execution. */
   readonly taskId: string | undefined;
+  /** The caller's time when it settles, on its `Clock`: the latest date of the report's charge. */
+  readonly now: Date;
 }
 
 /** The ledger identity of a call's price (#810). */
@@ -171,6 +173,9 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
       takeRunReport("a2a", meshReportTextOf(task), bodyHash, contract, price ?? 0, {
         id: `a2a:${charged.messageId}:report`,
         ...(charged.taskId === undefined ? {} : { executionId: charged.taskId }),
+        // dated inside the caller's own window, never by the peer's word alone
+        notBefore: charged.acceptedAt,
+        now: charged.now,
       });
     },
   };

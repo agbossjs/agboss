@@ -12,11 +12,21 @@ import type { A2ACharged, A2AMeshActivation } from "./a2a-mesh-seam.js";
  */
 
 /** The charges' identity of an accepted call; `now` dates an accept that stored no time. */
-export const chargedOf = (accepted: Accepted, clock: Pick<Clock, "now">): A2ACharged => ({
-  messageId: accepted.messageId,
-  acceptedAt: accepted.acceptedAt ?? clock.now().toISOString(),
-  bodyHash: accepted.bodyHash,
-  taskId: accepted.taskId,
+export const chargedOf = (accepted: Accepted, clock: Pick<Clock, "now">): A2ACharged => {
+  const now = clock.now();
+  return {
+    messageId: accepted.messageId,
+    acceptedAt: accepted.acceptedAt ?? now.toISOString(),
+    bodyHash: accepted.bodyHash,
+    taskId: accepted.taskId,
+    now,
+  };
+};
+
+/** The same, at the task's end: its `now` the time of the settle (the report's latest date). */
+export const settledChargeOf = (charged: A2ACharged, clock: Pick<Clock, "now">): A2ACharged => ({
+  ...charged,
+  now: clock.now(),
 });
 
 /**
