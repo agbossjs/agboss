@@ -224,12 +224,23 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   | foreign, a reply to a known task | `GetTask`: the task no longer waits for input → the reply arrived; else unknown |
   | foreign, a new message | `OutboundCallUnreconciledError` (`foreign A2A peer`): nothing is sent again |
 
-  Two calls of one step with different messages need their own `call.key` (`[a2a.repeated-call]`).
+  The peer's trust is recorded with the intent: a card that changed since (a foreign peer now
+  declaring a retention) is unknown, never a resend. A foreign peer's reply counts as arrived only
+  when `GetTask`'s history holds its `messageId`. A send certainly did nothing only for an allowlist
+  of codes that come before the agent acts (`-32700`, `-32600`, `-32601`, `-32602`, `-32001`,
+  `-32004`, `-32005`, `-32008`, `-32009`, a 4xx but 408 / 429) or when it never left (a failing
+  `getHeaders()`); anything else is of unknown outcome. Two calls of one step with different
+  messages need their own `call.key` (`[a2a.repeated-call]`; 1–40 of `[A-Za-z0-9._-]`). A step of no
+  composed application (a unit runner's) has nothing to record into: `[a2a.outside-application]`,
+  nothing sent — mock the client there.
 - **Waiting** is a pure read, safe after any crash: `SubscribeToTask` when the card streams (a
   dropped stream is opened again, then polling), else `GetTask` polled on the `Clock` (250 ms
   doubling to 5 s). A task that works — an out-of-band pause included — is waited for up to the
   execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2ACallDeadlineError`
-  (`isCanceled`). The call's `signal` ends the wait with its reason and cancels nothing.
+  (`cancel: A2ACancelOutcome` — `canceled`, `not-canceled`, `refused`, `no-answer`). Every event and
+  read must be of the waited task (another id, a message in its stream: `A2ARemoteCallError`); a
+  read that fails transiently (no answer, a 5xx, 408, 429, `-32603`) is tried again, by stream or
+  poll alike, any other ends the wait; the caller's `onEvent` failing ends it with its own error. The call's `signal` ends the wait with its reason and cancels nothing.
 - **Outcomes.** COMPLETED → the output (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
   same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCanceledError`;
@@ -243,8 +254,10 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   `message.metadata[uri].envelope` with `A2A-Extensions` and `traceparent`, its `bodyHash` the
   message's canonical JSON without that entry (`meshBodyHashOf`); it is signed only with an
   `audience` — the target application — else it is an unsigned claim. A loop (the target's
-  application and skill already in the chain) is refused before sending. `price` is charged to the
-  step (`a2a:<application>`) unless a verified run report says more.
+  application and skill already in the chain) is refused before sending; under `Required` a step
+  with no envelope to send is refused too, and `result.peer.mesh` is `true` only once one rode. The
+  `price` is charged to the step (`a2a:<application>`) when the call is accepted — a call that later
+  runs out of time is charged too — and a verified run report's spend above it at the end.
 
 ## 5. Testing — the `a2aServer` fixture
 
