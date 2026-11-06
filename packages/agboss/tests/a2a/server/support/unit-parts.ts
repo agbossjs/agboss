@@ -132,7 +132,7 @@ export function unitParts(
         script.resumes.push({ request, options });
         return run();
       }) as never,
-      cancel: (() => Promise.reject(new Error("not used"))),
+      cancel: () => Promise.reject(new Error("not used")),
       resolve: (() => undefined) as never,
     },
     log: {
