@@ -314,8 +314,11 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     const two = ask(connector, "acme", shared.signal);
     shared.abort(new Error("both gone"));
 
-    await expect(one).rejects.toThrow("both gone");
-    await expect(two).rejects.toThrow("both gone");
+    // the waiter stops at its own abort at once, before the first look ends: both watched together
+    await Promise.all([
+      expect(one).rejects.toThrow("both gone"),
+      expect(two).rejects.toThrow("both gone"),
+    ]);
     expect(looked).toEqual(["acme"]);
   });
 });

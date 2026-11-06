@@ -85,6 +85,10 @@ describe("#388 S2: the agboss/eslint entry", () => {
     expect(FLOW_CHAIN_RULE).toEqual({
       "@stylistic/newline-per-chained-call": ["error", { ignoreChainWithDepth: 1 }],
     });
-    expect(Object.keys(agbossPlugin.rules)).toEqual(["no-component-state", "no-direct-time"]);
+    expect(Object.keys(agbossPlugin.rules)).toEqual([
+      "no-component-state",
+      "no-direct-time",
+      "no-internal-import",
+    ]);
   });
 });
