@@ -207,7 +207,6 @@ reranker needs is in `@agboss/core/rag`, `DecidedBy` and `RagSearchResultDto` in
 // rerankers/help-center.reranker.ts — by code: a subset of the candidates, best first, at most topK
 import {
   DecidedBy,
-  ModelReranker,
   Reranker,
   type RagSearchResultDto,
   type RerankerHandler,
@@ -231,8 +230,12 @@ export class HelpCenterReranker implements RerankerHandler {
     return Promise.resolve({ results: [...named, ...rest].slice(0, topK) });
   }
 }
+```
 
-// by model (the default): the core's LLM reranker on `model`, the class has no code
+```ts file=src/desk/rerankers/help-model.reranker.ts
+// rerankers/help-model.reranker.ts — by model (the default): the core's LLM reranker, no code
+import { ModelReranker, Reranker } from "@agboss/core/rag";
+
 @Reranker({ name: "help-model-reranker", description: "Reranks on a cheap model" })
 export class HelpModelReranker extends ModelReranker {}
 ```
