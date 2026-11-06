@@ -24,6 +24,7 @@ import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import { observersOf } from "./observers.js";
+import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -212,7 +213,7 @@ export async function buildApplication(
     throw error;
   }
   const surface = { ...common, log, contexts, quiet, isInstanceKey: piiKey.isInstanceKey };
-  return { ...instanceAppOf(assembled, workflows, surface), assembled, workflows };
+  return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
 
 /** The store of the root executions' history, when the application keeps it (#401). */

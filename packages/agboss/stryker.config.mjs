@@ -145,6 +145,25 @@ const SHARDS = {
       settledSpendSaverOf("src/app/leased-checkpointer.ts"),
     ],
   },
+  // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
+  // status by compare-and-set, sticky terminal states, pages, the sweep), the reserved execution id,
+  // the cancel of one tree and its durable state, the task projection and its read repair
+  "a2a-tasks": {
+    configFile: "vitest.mutation-a2a.config.ts",
+    mutate: [
+      "src/infrastructure/a2a-task.repository.ts",
+      "src/infrastructure/a2a-task-pages.ts",
+      "src/infrastructure/in-memory-a2a-task.repository.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-task.repository.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-task-rows.ts",
+      "src/app/execution-control.ts",
+      "src/app/tree-control.ts",
+      "src/app/execution-trees.ts",
+      "src/a2a/tasks/task-status.ts",
+      "src/a2a/tasks/a2a-task-projection.ts",
+      "src/a2a/tasks/a2a-task-repair.ts",
+    ],
+  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

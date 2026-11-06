@@ -51,6 +51,7 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     [stores.executionTrees, () => stores.executionTrees.ping()],
     [stores.rateLimits, () => stores.rateLimits.ping()],
     [stores.meshRequests, () => stores.meshRequests.ping()],
+    [stores.a2aTasks, () => stores.a2aTasks.ping()],
     [stores.executionHistory, () => stores.executionHistory.ping()],
     [stores.leaseEvents, () => stores.leaseEvents.ping()],
     [saver, () => pingCheckpointSaver(saver)],

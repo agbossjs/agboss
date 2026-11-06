@@ -14,12 +14,17 @@ import { rootTakeOf } from "./execution-leases.js";
  * (S7 3), then its record is failed as cancelled, its keys removed and `onExecutionError` observed.
  * The cancel returns after the undo; `false` when the thread rests paused no more. An undo that
  * failed — the others ran — rejects the cancel with `CompensationFailedError`, its cause the
- * `ExecutionCancelledError` (S7 1).
+ * `ExecutionCancelledError` (S7 1). With `runId`, only that execution's paused run (#807).
  */
-export async function cancelledPaused(parts: CancelParts, thread: ThreadKey): Promise<boolean> {
+export async function cancelledPaused(
+  parts: CancelParts,
+  thread: ThreadKey,
+  runId?: string,
+): Promise<boolean> {
   const { deps, paused, leases } = parts;
   const found = await paused.find(thread);
-  if (found === undefined) return false;
+  // a cancel of one execution (#807) ends that one only, never another run of its thread
+  if (found === undefined || (runId !== undefined && found.run.runId !== runId)) return false;
   const { run } = found;
   const startedVersion = run.startedVersion ?? deps.config.version;
   const state = { ...thread, runId: run.runId, startedVersion };

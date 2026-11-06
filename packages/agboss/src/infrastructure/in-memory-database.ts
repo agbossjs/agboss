@@ -5,6 +5,7 @@ import type { ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
+import type { A2AMessageRecord, A2ATaskRecord } from "./a2a-task.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
 import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
 import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
@@ -31,6 +32,10 @@ export class InMemoryDatabase {
   readonly rateLimitPauses = new Map<string, Date>();
   /** The trusted mesh requests by their key (#398 PR 2). */
   readonly meshRequests = new Map<string, MeshRequestRecord>();
+  /** The A2A tasks by `tenantId` + `taskId` (#807). */
+  readonly a2aTasks = new Map<string, A2ATaskRecord>();
+  /** The accepted A2A messages by `tenantId` + `ownerId` + `messageId` (#807). */
+  readonly a2aMessages = new Map<string, A2AMessageRecord>();
   /** The kept root executions by `tenantId` + `executionId` (#401 PR 1). */
   readonly executionHistory = new Map<string, ExecutionHistoryRecord>();
   /** The queued children by `tenantId` + `executionId` (#333 PR 2), in the order queued. */

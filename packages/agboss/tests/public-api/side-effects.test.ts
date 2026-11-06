@@ -70,8 +70,13 @@ const FORBIDDEN =
 
 /** What only the CLI or `loadWorkflow` needs: the compiler, tsx, prompts, the OpenAPI parser. */
 const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\//;
-/** Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before; 1,500 at #340 for its public names). */
-const MODULE_BUDGET = 1_500;
+/**
+ * Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before; 1,500
+ * at #340 for its public names; 1,505 at #807 for the A2A task store's contract, its in-memory
+ * default and the execution-control seams — the SQLite store is in `@agboss/core/a2a`, the
+ * projection and the tree reads load on first use).
+ */
+const MODULE_BUDGET = 1_505;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

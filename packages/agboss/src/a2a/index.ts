@@ -23,3 +23,5 @@ export {
 export { a2aHttpListener, type A2AHttpListenerOptions } from "./a2a-http.js";
 export { A2AExpose, type A2AExposeOptions } from "./a2a-expose.decorator.js";
 export type { A2AContract } from "./a2a-contract.js";
+// #807: the A2A task store on the application's SQLite file (`@Application({ providers })`)
+export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";

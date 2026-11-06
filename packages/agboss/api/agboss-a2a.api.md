@@ -4,6 +4,7 @@
 
 ```ts
 
+import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import { z } from 'zod';
@@ -371,6 +372,47 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> extends Built
     readonly kind: A2ACallerResolutionKind.Resolved;
 }
 
+// Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class SqliteA2ATaskRepository extends A2ATaskRepository {
+    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
+    constructor(connection: SqliteConnection);
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskKey" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskRecord" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskQuery" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskPage" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "NewA2ATask" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskSave" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // Warning: (ae-forgotten-export) The symbol "A2AMessageKey" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+}
+
 // Warnings were encountered during analysis:
 //
 // src/a2a/a2a-adapter.ts:32:3 - (ae-undocumented) Missing documentation for "execute".
@@ -411,6 +453,15 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> extends Built
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
 // src/a2a/types.ts:63:3 - (ae-undocumented) Missing documentation for "pauseId".
 // src/a2a/types.ts:64:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:58:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:62:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:90:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:99:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:106:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:110:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:114:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:141:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:178:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 
 // (No @packageDocumentation comment for this package)
 

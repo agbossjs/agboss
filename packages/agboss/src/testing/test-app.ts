@@ -1,3 +1,8 @@
+import {
+  executionControlOf,
+  rememberExecutionControl,
+  type ExecutionControl,
+} from "../app/execution-control.js";
 import { LeaseGate, rememberLeaseGate } from "./leases.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
@@ -18,7 +23,7 @@ import {
 import { toolNameOf } from "./script.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
-import { lazyLoad } from "../infrastructure/clock.js";
+import { definedOf, lazyLoad } from "../infrastructure/clock.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -142,6 +147,17 @@ const probesOf = (
     checked(environment, async () => (await probed()).app.pendingOutboundCalls(tenant)),
 });
 
+/** The built app's execution control (#807), reached once the app is built. */
+function forwardedControlOf(readyApp: () => App): ExecutionControl {
+  const control = (): ExecutionControl =>
+    definedOf(executionControlOf(readyApp()), "a built application has its execution control");
+  return {
+    cancelExecution: (request) => control().cancelExecution(request),
+    executionStateOf: (tree) => control().executionStateOf(tree),
+    claimExecutionId: (identity) => control().claimExecutionId(identity),
+  };
+}
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
@@ -188,6 +204,8 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
+  // a transport built from this app reaches its trees by id (#807: an A2A server in a test)
+  rememberExecutionControl(testApp, forwardedControlOf(readyApp));
   // `leases.stall(app)` closes this instance's gate (#471)
   rememberLeaseGate(testApp, gate);
   return testApp;

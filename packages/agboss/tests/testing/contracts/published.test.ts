@@ -17,6 +17,7 @@ const SOURCE = join(PACKAGE_ROOT, "src");
 
 /** The published functions, by the suite title each registers. */
 const SUITES: Readonly<Record<string, string>> = {
+  a2aTaskContract: "A2A task contract",
   checkpointSaverContract: "checkpoint saver contract",
   childExecutionQueueContract: "child execution queue contract",
   costLedgerContract: "cost ledger contract",

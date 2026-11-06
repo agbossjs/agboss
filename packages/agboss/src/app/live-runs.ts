@@ -11,9 +11,19 @@ export type ThreadKey = ThreadOfTenant;
 
 const keyOf = threadMapKeyOf;
 
-/** The runs in flight by thread: what `app.cancel(threadId)` aborts. */
+/** A tree's key in the app: its tenant and its root execution (#807: one A2A task). */
+const treeKeyOf = (tree: ExecutionTree): string => `${tree.tenantId}\u0000${tree.rootExecutionId}`;
+
+/** What a leg is tracked by: its thread, and its root execution when it moves a tree. */
+export type TrackedLeg = ThreadKey & { readonly runId?: string };
+
+/**
+ * The runs in flight by thread — what `app.cancel(threadId)` aborts — and by tree, what a cancel
+ * of one execution aborts (#807: `cancelExecution`, an A2A task's `CancelTask`).
+ */
 export class LiveRuns {
   readonly #runs = new Map<string, Set<AbortController>>();
+  readonly #byTree = new Map<string, Set<AbortController>>();
   readonly #inFlight = new Set<Promise<unknown>>();
   /** Set once the app interrupts what still runs at its stop (#265 S51): later runs stop at once. */
   #interrupted: unknown;
@@ -23,16 +33,18 @@ export class LiveRuns {
 
   /** Runs `work` with a signal that `abort(thread)` or the caller's own signal aborts. */
   async track<T>(
-    thread: ThreadKey,
+    thread: TrackedLeg,
     caller: AbortSignal | undefined,
     work: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
     const controller = new AbortController();
     if (this.#interrupted !== undefined) controller.abort(this.#interrupted);
     const key = keyOf(thread);
-    const runs = this.#runs.get(key) ?? new Set<AbortController>();
-    runs.add(controller);
-    this.#runs.set(key, runs);
+    const leave = [entered(this.#runs, key, controller)];
+    if (thread.runId !== undefined) {
+      const tree = { tenantId: thread.tenantId, rootExecutionId: thread.runId };
+      leave.push(entered(this.#byTree, treeKeyOf(tree), controller));
+    }
     const running = work(
       caller === undefined ? controller.signal : AbortSignal.any([caller, controller.signal]),
     );
@@ -41,8 +53,7 @@ export class LiveRuns {
       return await running;
     } finally {
       this.#inFlight.delete(running);
-      runs.delete(controller);
-      if (runs.size === 0 && this.#runs.get(key) === runs) this.#runs.delete(key);
+      for (const left of leave) left();
     }
   }
 
@@ -108,11 +119,38 @@ export class LiveRuns {
 
   /** Aborts the thread's runs in flight; `false` when none is running. */
   abort(thread: ThreadKey): boolean {
-    const runs = this.#runs.get(keyOf(thread));
-    if (runs === undefined || runs.size === 0) return false;
-    for (const controller of runs) controller.abort(cancelledErrorOf(thread.threadId));
-    return true;
+    return abortAll(this.#runs.get(keyOf(thread)), thread.threadId);
   }
+
+  /**
+   * Aborts the legs of one tree in flight here (#807) — its thread's other runs go on; `false`
+   * when none is running here.
+   */
+  abortExecution(tree: ExecutionTree, threadId: string): boolean {
+    return abortAll(this.#byTree.get(treeKeyOf(tree)), threadId);
+  }
+}
+
+/** Adds `controller` under `key`; the call that removes it again. */
+function entered(
+  index: Map<string, Set<AbortController>>,
+  key: string,
+  controller: AbortController,
+): () => void {
+  const runs = index.get(key) ?? new Set<AbortController>();
+  runs.add(controller);
+  index.set(key, runs);
+  return () => {
+    runs.delete(controller);
+    if (runs.size === 0 && index.get(key) === runs) index.delete(key);
+  };
+}
+
+/** Aborts each of `runs` as a cancel of the thread; `false` when there is none. */
+function abortAll(runs: Set<AbortController> | undefined, threadId: string): boolean {
+  if (runs === undefined || runs.size === 0) return false;
+  for (const controller of runs) controller.abort(cancelledErrorOf(threadId));
+  return true;
 }
 
 /** What a leg of a tree is moved with: the call's options, its owner (#261: `ownerId`). */

@@ -15,6 +15,7 @@ import type { StepsAtStop } from "./instance-steps.js";
 import type { LeaseEventLog } from "../app/execution-leases.js";
 
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
+import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -222,6 +223,7 @@ export function stopOf(
     fencedEffectRetention: assembled.fencedEffects.retention,
     leaseEvents: parts.infrastructure.leaseEvents,
     leaseEventRetention: assembled.leaseEventRetention,
+    expiries: [a2aTaskExpiryOf(parts.infrastructure.a2aTasks, assembled.a2aTaskRetention)],
     outboundCalls: parts.infrastructure.outboundCalls,
     outboundCallRetention: assembled.outboundCalls.retention,
     ledger: parts.infrastructure.costLedger,
