@@ -75,7 +75,8 @@ function exportedNamesOf(repo) {
       /^export (?:declare )?(?:abstract )?(?:const|let|function|class|interface|type|enum|namespace) (\w+)/gm,
     ))
       names.add(name);
-    for (const [, name] of report.matchAll(/^export \{ \w+ as (\w+) \}/gm)) names.add(name);
+    // a re-export, renamed or not (`export { VcrMode as VCRMode }`, `export { VcrMode }`)
+    for (const [, name] of report.matchAll(/^export \{ (?:\w+ as )?(\w+) \}/gm)) names.add(name);
   }
   return names;
 }
