@@ -120,3 +120,7 @@ export const messageKeyOf = (key: A2AMessageKey): readonly [string, string, stri
   ownerColumnOf(key.ownerId),
   key.messageId,
 ];
+
+/** The count of a `SELECT count(*) AS total` (#824). */
+export const totalOf = (row: unknown): number =>
+  z.object({ total: z.number().int() }).parse(row).total;

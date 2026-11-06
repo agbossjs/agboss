@@ -25,6 +25,8 @@ const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
 /** The built-in default: the tasks in this instance's memory, a copy of each in and out. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class InMemoryA2ATaskRepository extends A2ATaskRepository {
+  static override readonly backend: string | undefined = "in-memory";
+
   constructor(private readonly database: InMemoryDatabase) {
     super();
   }
@@ -112,7 +114,8 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
           task.tenantId === query.tenantId &&
           task.ownerId === query.ownerId &&
           (query.contextId === undefined || task.contextId === query.contextId) &&
-          (query.state === undefined || task.status.state === query.state),
+          (query.state === undefined || task.status.state === query.state) &&
+          (query.statusAtAfter === undefined || task.statusAt > query.statusAtAfter),
       )
       .sort(byNewestStatus);
     return structuredClone(a2aPageOf(matching, query));

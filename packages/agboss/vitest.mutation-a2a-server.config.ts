@@ -1,0 +1,15 @@
+import { defineConfig } from "vitest/config";
+
+/**
+ * The tests Stryker runs on the A2A server (#824, shard `a2a-server` of `stryker.config.mjs`): the
+ * server over its JSON-RPC binding and the official SDK client — accept, follow-ups, cancel, the
+ * waits and streams, ListTasks — and the assembly rule on where an application keeps its A2A
+ * tasks. One process, no nested vitest and no pods.
+ */
+export default defineConfig({
+  test: {
+    expect: { requireAssertions: true },
+    setupFiles: ["./src/testing/setup.ts"],
+    include: ["tests/a2a/server/*.test.ts", "tests/a2a/a2a-task-store-rule.test.ts"],
+  },
+});

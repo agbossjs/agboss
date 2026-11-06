@@ -17,6 +17,7 @@ import {
 import {
   answerOf,
   messageKeyOf,
+  totalOf,
   messageOf,
   MESSAGE_KEY,
   ownerColumnOf,
@@ -36,6 +37,8 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteA2ATaskRepository extends A2ATaskRepository {
+  static override readonly backend: string | undefined = "sqlite";
+
   constructor(private readonly connection: SqliteConnection) {
     super();
     // Stryker disable next-line StringLiteral: the name only keeps the schema run once per connection
@@ -147,19 +150,35 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
       where.push("state = ?");
       values.push(query.state);
     }
-    if (position !== undefined) {
-      where.push("(status_at < ? OR (status_at = ? AND task_id < ?))");
-      const at = new Date(position.statusAt).toISOString();
-      values.push(at, at, position.taskId);
+    if (query.statusAtAfter !== undefined) {
+      where.push("status_at > ?");
+      values.push(query.statusAtAfter.toISOString());
     }
-    const rows = this.connection.database
+    const matching = where.join(" AND ");
+    const after = [...where];
+    const afterValues = [...values];
+    if (position !== undefined) {
+      after.push("(status_at < ? OR (status_at = ? AND task_id < ?))");
+      const at = new Date(position.statusAt).toISOString();
+      afterValues.push(at, at, position.taskId);
+    }
+    const { database } = this.connection;
+    const rows = database
       .prepare(
-        `SELECT * FROM a2a_tasks WHERE ${where.join(" AND ")}
+        `SELECT * FROM a2a_tasks WHERE ${after.join(" AND ")}
          ORDER BY status_at DESC, task_id DESC LIMIT ?`,
       )
-      .all(...values, query.pageSize + 1);
+      .all(...afterValues, query.pageSize + 1);
     const tasks = rows.slice(0, query.pageSize).map(taskOf);
-    return { tasks, nextPageToken: nextPageTokenOf(tasks, rows.length > query.pageSize) };
+    // a second read, no write lock: a task saved in between moves the count by one, as a next page would
+    const counted = database
+      .prepare(`SELECT count(*) AS total FROM a2a_tasks WHERE ${matching}`)
+      .get(...values);
+    return {
+      tasks,
+      nextPageToken: nextPageTokenOf(tasks, rows.length > query.pageSize),
+      totalSize: totalOf(counted),
+    };
   }
 
   deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {

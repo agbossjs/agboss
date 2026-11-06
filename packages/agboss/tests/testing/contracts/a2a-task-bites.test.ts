@@ -2,7 +2,8 @@
  * #807 AC4 — the A2A task contract bites: the sound in-memory store passes every case, and a store
  * broken one way fails the cases of its rule — a check-then-write accept, a compare-and-set that
  * ignores the version or writes over a terminal status, an unsorted list, a sweep of unfinished
- * tasks, message ids shared across owners.
+ * tasks, message ids shared across owners, a total of the page only, a status time filter left out
+ * (#824).
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
@@ -22,8 +23,8 @@ const failedOf = (target: string): readonly string[] =>
     .map((found) => found.name);
 
 describe("#807 AC4: a task store that breaks a rule fails the A2A task contract", () => {
-  it("the sound store passes every case (23)", () => {
-    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(23).fill("pass"));
+  it("the sound store passes every case (25)", () => {
+    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(25).fill("pass"));
   });
 
   it.each([
@@ -35,6 +36,12 @@ describe("#807 AC4: a task store that breaks a rule fails the A2A task contract"
     ["lists unsorted", "pages follow each other"],
     ["sweeps unfinished tasks", "the sweep removes terminal tasks older than its cutoff"],
     ["shares message ids across owners", "a message id is its tenant's and its owner's"],
+    ["counts the page", "totalSize counts every task the query matches"],
+    ["counts the page", "statusAtAfter keeps the tasks whose status changed strictly after it"],
+    [
+      "ignores the status time",
+      "statusAtAfter keeps the tasks whose status changed strictly after it",
+    ],
   ])("a store that %s fails %j", (target, rule) => {
     expect(failedOf(target).some((name) => name.startsWith(rule))).toBe(true);
   });

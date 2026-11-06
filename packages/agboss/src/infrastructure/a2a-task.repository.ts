@@ -145,6 +145,8 @@ export interface A2ATaskQuery {
   readonly ownerId: string | undefined;
   readonly contextId?: string;
   readonly state?: A2ATaskState;
+  /** Only the tasks whose status changed strictly after this time (`ListTasks.statusTimestampAfter`). */
+  readonly statusAtAfter?: Date;
   /** At most this many (a whole number from 1). */
   readonly pageSize: number;
   /** The previous page's `nextPageToken`; absent or `""` for the first page. */
@@ -155,6 +157,11 @@ export interface A2ATaskQuery {
 export interface A2ATaskPage {
   readonly tasks: readonly A2ATaskRecord[];
   readonly nextPageToken: string;
+  /**
+   * How many tasks the query matches before paging (#824, `ListTasks.totalSize`): every filter
+   * counts, the page token and the page size do not — the same on every page.
+   */
+  readonly totalSize: number;
 }
 
 /** A page token that no `list` of this store gave. */
@@ -167,6 +174,14 @@ export class InvalidA2APageTokenError extends AGBossError {
 }
 
 export abstract class A2ATaskRepository {
+  /**
+   * The backend the store's rows live in (#824, as `ExecutionLeaseRepository.backend`):
+   * `"<kind>"` or `"<kind>:<database>"`. An application that serves A2A on leases its instances
+   * share keeps its tasks where they share them too — on its lease store's backend, or another no
+   * single host owns — else assembly refuses it (`[a2a.task-store-not-shared]`). Unset: undeclared.
+   */
+  static readonly backend: string | undefined = undefined;
+
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
 
@@ -197,7 +212,7 @@ export abstract class A2ATaskRepository {
     statusAt: Date,
   ): Promise<A2ATaskRecord | undefined>;
 
-  /** A caller's tasks by `statusAt`, newest first (ties by task id, descending). */
+  /** A caller's tasks by `statusAt`, newest first (ties by task id, descending), and their count. */
   abstract list(query: A2ATaskQuery): Promise<A2ATaskPage>;
 
   /** Removes the terminal tasks whose status changed before `cutoff`, with their messages. */
