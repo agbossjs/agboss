@@ -157,8 +157,9 @@ protocolVersion: "1.0" }`.
 - **The task store is shared by the instances** (#824). "On any instance" holds only when every
   instance reads one store, so the store declares its `static backend` and assembly checks it: an
   application that serves A2A on a lease store its instances share (any backend but `in-memory`)
-  keeps its tasks on that backend, or on another no single host owns. Anything else — the in-memory
-  default, a store that declares no backend, SQLite beside PostgreSQL leases — does not assemble:
+  keeps its tasks on that backend, or on a kind known to be shared (`postgres`, `mongodb`). Anything
+  else — the in-memory default, a store that declares no backend, SQLite beside PostgreSQL leases,
+  a backend the rule does not know (an allow-list: never taken as shared) — does not assemble:
   `[a2a.task-store-not-shared]`, naming the store to list. Leases on the in-memory default: nothing
   to list; on SQLite: `SqliteA2ATaskRepository`; on PostgreSQL: `PostgresA2ATaskRepository`
   (`@agboss/postgres`); on MongoDB: `MongoA2ATaskRepository` (`@agboss/mongodb`); on Redis
