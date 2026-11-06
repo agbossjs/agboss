@@ -1,14 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
+import { answerOf } from "./sqlite-pause-answer.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import {
-  PauseKind,
-  PauseResolution,
-  PauseStatus,
-  type PauseAnswer,
-  type PauseRecord,
-} from "../pause-record.js";
+import { PauseKind, PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
 
 /**
  * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
@@ -45,7 +40,7 @@ const StoredPause = z.object({
   // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
   copyNumber: z.number().default(1),
   askedAt: z.string().default(""),
-  kind: z.enum(PauseKind), // 0.1.1: stored, never inferred (older rows migrated at open)
+  kind: z.enum(PauseKind),
   step: z.string(),
   ...StoredLoopProgress,
   channel: z.string(),
@@ -68,33 +63,11 @@ const PauseRow = z.object({
   resolved_at: z.string().nullable(),
 });
 
-const StoredUsage = z.object({
-  caller: z.string(),
-  model: z.string(),
-  ...{ inputTokens: z.number(), outputTokens: z.number() },
-  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
-  costUsd: z.number(),
-  costSource: z.enum(["api", "price-table", "tool"]),
-  servedBy: z.string().optional(),
-});
-
-const StoredAnswer = z.object({
-  decision: z.unknown(),
-  answerer: z.string().optional(),
-  usage: z.array(StoredUsage).optional(),
-});
-
 /** How a row was resolved: its column, else (a row stored before #267 S107) its status says. */
 function resolutionOf(r: z.infer<typeof PauseRow>): PauseResolution | undefined {
   if (r.resolution !== null) return r.resolution;
   if (r.status === PauseStatus.Cancelled) return PauseResolution.Cancelled;
   return r.answer === null ? undefined : PauseResolution.Replied;
-}
-
-/** The answer a row keeps, as JSON. */
-function answerOf(text: string): PauseAnswer {
-  const { decision, answerer, usage } = StoredAnswer.parse(JSON.parse(text));
-  return { decision, answerer, ...(usage === undefined ? {} : { usage }) };
 }
 
 /** A row as the record it keeps. */
