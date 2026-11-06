@@ -152,7 +152,7 @@ three stub gateways:
 | Level | The stub offers | PS1 timeout | PS5 crash before the answer | A late replay |
 | --- | --- | --- | --- | --- |
 | **Full** | keys (G1), lookup (G2), retention (G3), first response (G4), conflict (G5), status (G6) | one charge (`Reconciled`, the SDK's error or the aborted wait alike, #657) | one charge (`Reconciled`) | one charge: by the lookup, whatever the key's age |
-| **No lookup** | keys, no lookup | one charge: `unknown`, a person decides — or `notSent()` replaying the key while it lives, refused after `keyRetention` (#658) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
+| **No lookup** | keys, no lookup | one charge: `unknown`, a person decides — or `notSent()` replaying the key while it lives, refused after its `KeyReplay` `keyRetention` (#658, #795) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
 | **No keys** | neither | one charge, `unknown` only (#657): a `notSent()` would charge **twice** | `unknown` only | one charge, `unknown` only (#657) |
 
 - **Wrong:** a gateway without keys turns a timeout's retry into two charges, one without a
