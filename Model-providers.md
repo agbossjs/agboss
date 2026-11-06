@@ -193,7 +193,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
 - **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,
   arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
   cacheWriteTokens? }`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
-  "api"`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
+  CostSource.Api`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
   without `text` or `usage` is a `ModelProviderError`.
 - **Failures** — throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })`
   (`model.provider-failure`): the retry policy retries the failures it lists, `RateLimited` pauses
@@ -359,9 +359,9 @@ models
 ## Cost
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost in its answer (`usage.cost`),
-  recorded as `costSource: "api"`.
+  recorded as `costSource: CostSource.Api`.
 - `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })`
-  — tokens × the table (`price-table`); a model it does not price → `model.no-price` at startup.
+  — tokens × the table (`CostSource.PriceTable`); a model it does not price → `model.no-price` at startup.
 - The reported cost always comes first; a component's own `price` overrides the table. A call with
   neither fails (`ModelCostError`) — an unaccounted call is never silently free. Limits per run and
   per day ([FinOps](FinOps)) use these costs.

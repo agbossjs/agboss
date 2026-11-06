@@ -41,8 +41,8 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | `ChildExecutionQueueRepository` | `claim…` | pick the next queued row and mark it claimed | two workers run one child: **two owners** |
 | | `findQueueDepth` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
 | `ExecutionRecordRepository` | `complete`, status moves | a compare-and-set from the expected status | a lost update; two outcomes for one run |
-| `CostLedgerRepository` | `saveAll` (#727, #771) | insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
-| | `deleteEntriesByMadeAtBefore` (#771) | raise the pruning mark (never lower it) and delete the entries made before it, atomically against a save — a save that read the old mark finishes first, or sees the new one | a save that read the old mark inserts an id the prune just deleted: **counted twice** |
+| `CostLedgerRepository` | `saveAll` (#727, #771, #817) | refuse anything but a `LedgerEntry` first (`assertLedgerEntries`), then insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
+| | `deleteByMadeAtBefore` (#771) | raise the pruning mark (never lower it) and delete the entries made before it, atomically against a save — a save that read the old mark finishes first, or sees the new one | a save that read the old mark inserts an id the prune just deleted: **counted twice** |
 | `ExecutionTreeRepository`, `MeshRequestRepository` | `saveIfAbsent` | insert if no row has the key (a unique key) | a request retried on another pod runs twice |
 | `A2ATaskRepository` (#807) | `saveIfAbsent`, `saveMessageIfAbsent` | insert the task and its first message only if no message has the key `(tenantId, ownerId, messageId)` — both or neither, in **one transaction**; a taken task id saves nothing | a resent A2A message on another pod is accepted twice: **two executions of one task** |
 | `A2ATaskRepository` (#824) | `list`, `static store` (#825) | `totalSize` counts every task the query's filters match (`statusAtAfter` too), whatever the page token; the backend declared | `ListTasks.totalSize` is a page's count; beside shared leases the application does not assemble (`[a2a.task-store-not-shared]`) |
@@ -714,6 +714,10 @@ held operation. You write no seam of your own to force an order across processes
       text for one database); a unit runner finds the lease store by it.
 - [ ] `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` pages on an immutable order
       of your own (a sequence, a row id) with an opaque cursor — never an offset (#825).
+- [ ] The ledger takes `LedgerEntry` values only and calls `assertLedgerEntries(entries)` before
+      it reads or writes anything (#817: a JS caller's record without a `ledgerId`, a `madeAt`
+      `Date` or a `costUsd` amount is `CostLedgerEntryInvalidError`, nothing added); it keeps the
+      dates and the mark to the millisecond, and refuses a cutoff that is no valid `Date`.
 - [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark
       with the insert and refuses an entry made before it that it does not hold; the prune raises
       the mark and deletes in one atomic step (#771). The SQL is in agbossjs/postgres's
