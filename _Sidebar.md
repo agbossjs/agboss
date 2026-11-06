@@ -45,6 +45,8 @@
 - [Tools](Tools)
 - [Knowledge bases (RAG)](Knowledge-bases)
 - [A2A — agent to agent](A2A)
+  - [The mesh extension](A2A-Mesh-Extension)
+  - [The skills extension](A2A-Skills-Extension)
 - [FinOps](FinOps)
 - [Tracing](Tracing)
 - [Observability](Observability)

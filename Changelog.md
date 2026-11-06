@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the mesh over A2A v1.0, both sides (#810)
+
+- **Added**: the A2A listener checks a message's mesh envelope before its caller resolver and before
+  anything runs — the audience first, against the application's own name (fail closed), then a
+  known issuer's signature, replay window and `bodyHash` (`401 mesh.*`); a refused chain is a
+  `REJECTED` task with the limit's facts; a trusted caller's chain, origin, budget and deadline bind
+  the remote execution, and its completed task carries the signed run report. The card declares
+  [the mesh extension](A2A-Mesh-Extension) and echoes it; [the skills
+  extension](A2A-Skills-Extension) is written up too. [A2A → §6.1](A2A#61-the-mesh-on-the-a2a-v10-listener-810).
+- **Fixed (money)**: an A2A call's price and its run report's excess are charged on every pass under
+  the call's own ledger identity (`UsageRecord.ledgerKey`, `LedgerKey`) — a takeover that replays
+  the accept charges each exactly once (was: neither). A report must name the call's task.
+- **Added**: an agent that does not echo the mesh extension is called without it, said in the tool
+  call's record (`ToolCallRemote.mesh: false`) and in `agboss describe` (`a2a agents`). An action's
+  remote call passes its budget down. `A2ATaskRecord.meshBodyHash` (SQLite: a column added on open),
+  `A2ATaskStatus.errorDetails` / `spentUsd`, with `a2aTaskContract` cases — a store of your own
+  keeps them.
+
 ## Unreleased — 0.1.1: the fault suite's one-owner fails closed (#840)
 
 - **Fixed**: `one-owner` fails a write the store accepted at a token no grant of its key gave,

@@ -257,9 +257,20 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   message's canonical JSON without that entry (`meshBodyHashOf`); it is signed only with an
   `audience` — the target application — else it is an unsigned claim. A loop (the target's
   application and skill already in the chain) is refused before sending; under `Required` a step
-  with no envelope to send is refused too, and `result.peer.mesh` is `true` only once one rode. The
-  `price` is charged to the step (`a2a:<application>`) when the call is accepted — a call that later
-  runs out of time is charged too — and a verified run report's spend above it at the end.
+  with no envelope to send is refused too, and `result.peer.mesh` is `true` only once one rode and
+  the agent echoed the extension in its answer's `A2A-Extensions` (#810, spec §4.6) — an agent that
+  does not is called without the mesh, said in the tool call's record (`remote: { application,
+  executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
+  `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
+  when the call is accepted — a call that later runs out of time is charged too — and a verified run
+  report's spend above it at the end (the report must name the call's task). **Exactly once across
+  passes (#810):** both charges are made on every pass that reaches the accept — a takeover that
+  replays the accept an earlier pass recorded too — under the call's own ledger identity
+  (`UsageRecord.ledgerKey`: `a2a:<messageId>:price`, dated by the accept; `a2a:<messageId>:report`,
+  dated by the report): the ledger adds each once, whichever pass writes it first. A call priced 1
+  whose peer reports 3 costs 3 — never 1 (the excess lost on a replay), 4 or 6 — when its holder
+  dies while it waits, after it settled but before its step was durable, or while a frozen holder
+  settles beside the new one (`tests/a2a/mesh/a2a-mesh-takeover.test.ts`).
 
 ## 5. Testing — the `a2aServer` fixture
 
@@ -299,10 +310,12 @@ after an `execute`) — before that it fails with `test.app-not-ready`.
 
 ## 6. The mesh — call chains, hops and loops (#398)
 
-> **On the A2A v1.0 listener (#808) the envelope is not read yet**: it is to travel as the mesh
-> extension `https://agboss.dev/a2a/mesh/v1` in the message's metadata, and until then every A2A
-> task runs untrusted — deduplicated by its `messageId` (§2), never by an envelope's key. What
-> follows holds over MCP, and describes the envelope itself.
+> **On the A2A v1.0 listener (#810)** the envelope travels as the mesh extension
+> [`https://agboss.dev/a2a/mesh/v1`](A2A-Mesh-Extension) in `message.metadata[uri].envelope`, its
+> `bodyHash` the message's canonical JSON without that entry (`meshBodyHashOf`), and a task is
+> deduplicated by its `messageId` (§2), never by an envelope's key — see
+> [§6.1](#61-the-mesh-on-the-a2a-v10-listener-810). The rest of this section describes the envelope
+> itself, and the 0.1.0 wire's and MCP's receivers.
 
 Applications calling each other over A2A (and MCP, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398))
 form a mesh. On the 0.1.0 wire the server below still reads, every call made **inside an
@@ -510,6 +523,40 @@ are: before every agent and router step and every model call (a call in flight i
 
 The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
 
+### 6.1 The mesh on the A2A v1.0 listener (#810)
+
+`a2aHttpListener` reads the envelope of a `SendMessage` / `SendStreamingMessage` from the message
+**as the SDK's transport decodes it** — what is checked is what runs — once its `A2A-Version` and
+its operation are read, **before the caller resolver and before anything runs**:
+
+1. **The audience, first**: an envelope addressed to another application is `401 { "code":
+   "mesh.audience-mismatch" }`, a signed one addressed to none `401 mesh.audience-missing` — against
+   the application's own `@Application({ name })`, whoever signed it and whatever its `mesh`
+   settings (with none at all it still fails closed), before any signature is looked at.
+2. **A known issuer's signature** (`mesh.peers`): `401 mesh.signature-invalid`; its replay window
+   (`issuedAt` + `expiresIn`, the `Clock`): `401 mesh.envelope-expired`; its `bodyHash` against
+   `meshBodyHashOf` of the decoded message: `401 mesh.body-mismatch` — an envelope cannot be moved
+   to another message. A signed envelope of an unknown issuer is an unsigned claim.
+3. The caller resolved; the request is **trusted** when the resolver's `peer` is the envelope's
+   verified issuer.
+4. **The chain**, on every envelope, trusted or not: one that already passed through this skill, or
+   is as long as `maxMeshHops`, is accepted as a **`REJECTED` task** — `status.message.metadata[uri]
+   = { code: "limit.mesh-loop" | "limit.hops", details: { entry, chain, maxMeshHops? } }`, nothing
+   started, a resend of its `messageId` gets it again — which the AGBoss client rebuilds into the
+   same `MeshLoopDetectedError` / `HopsLimitExceededError`.
+5. The execution runs with the envelope's chain, and a trusted caller's origin
+   (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
+   execution with `limit.budget`) and deadline. The card declares the extension
+   (`params.idempotencyRetention` = `@Application({ a2a: { taskRetention } })`, how long a
+   `messageId` is deduplicated) and the answer echoes it in `A2A-Extensions` when it was asked.
+6. **The run report**: a trusted task keeps its first message's `bodyHash`
+   (`A2ATaskRecord.meshBodyHash`) and, once `COMPLETED`, carries the report the application signs
+   with `mesh.signingKey` in `task.metadata[uri].report` — `GetTask`, `ListTasks`, and the stream's
+   last status update — over what its execution spent (its end event's, `A2ATaskStatus.spentUsd`;
+   a task its read repair completed has none, and its caller is charged its price).
+
+An `@A2AAgent`'s remote call from an action passes the action's budget down as a tool's does.
+
 ## 7. Declared contracts (#398 PR 3)
 
 Both sides of a call are declared, so `agboss describe --json` lists them and a federation check
@@ -576,8 +623,8 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
   one is refused as `mesh.audience-missing` before its signature is verified (the receivers' shared
-  check; over MCP an error result with that code — the A2A server's mesh check comes with #810) —
-  else any receiver could replay it to another application as its issuer's signed word.
+  check; over MCP an error result with that code, on the A2A listener `401`, #810) — else any
+  receiver could replay it to another application as its issuer's signed word.
 
 **The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
 `@McpExpose`s in `@Application({ exposes })`:
