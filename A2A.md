@@ -572,8 +572,9 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
   before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
-  one is `401 { "code": "mesh.audience-missing" }` — else any receiver could replay it to another
-  application as its issuer's signed word.
+  one is refused as `mesh.audience-missing` before its signature is verified (the receivers' shared
+  check; over MCP an error result with that code — the A2A server's mesh check comes with #810) —
+  else any receiver could replay it to another application as its issuer's signed word.
 
 **The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
 `@McpExpose`s in `@Application({ exposes })`:
