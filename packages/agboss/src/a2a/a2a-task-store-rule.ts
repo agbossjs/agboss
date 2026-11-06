@@ -9,6 +9,7 @@ import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
+import { definedOf } from "../infrastructure/clock.js";
 
 /**
  * Fail closed at assembly (#824): an application that serves A2A (`@A2AExpose`) dedupes a message
@@ -42,6 +43,7 @@ function isShared(leases: string | undefined, tasks: string | undefined): boolea
 
 /** The names of the application's `@A2AExpose`s. */
 const a2aExposesOf = (options: ApplicationOptions): readonly string[] =>
+  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no @A2AExpose: none either way
   (options.exposes ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
     return meta?.kind === "a2a-expose" ? [meta.meta.name] : [];
@@ -80,15 +82,16 @@ function fixOf(leases: string | undefined): string {
 /** `[a2a.task-store-not-shared]` of an application, or none. */
 export function a2aTaskStoreViolations(options: ApplicationOptions): RuleViolation[] {
   const exposes = a2aExposesOf(options);
+  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no store: the defaults either way
   const providers = options.providers ?? [];
   const leases = leaseStoreOf(providers);
   // no A2A served, or two lease stores (their ambiguity is reported first)
   if (exposes.length === 0 || leases === undefined) return [];
-  const choice = implementationsOf(providers).find(
-    ({ contract }) => contract === A2ATaskRepository,
+  const choice = definedOf(
+    implementationsOf(providers).find(({ contract }) => contract === A2ATaskRepository),
+    // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+    "A2ATaskRepository is a built-in contract",
   );
-  // Stryker disable next-line ConditionalExpression: A2ATaskRepository is always a built-in contract
-  if (choice === undefined) return [];
   const [leaseBackend, taskBackend] = [backendOf(leases), backendOf(choice.implementation)];
   if (isShared(leaseBackend, taskBackend)) return [];
   const message = `${options.name} serves A2A (${exposes.join(", ")}) on ${leasesText(leases, leaseBackend)}, but keeps its A2A tasks in ${tasksText(choice.implementation, taskBackend, choice.reason)}: a message resent to another instance would start a second execution — ${fixOf(leaseBackend)}`;

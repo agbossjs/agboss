@@ -1798,7 +1798,11 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   carries text parts (a `WorkflowStartTextDto` start) or one `data` part, checked before anything is
   kept (`-32602`; files `-32005`). One task = one root execution under the task's id (P1's reserved
   id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
-  other content `-32602`; a task outlives its connection — a disconnect never cancels it (#806);
+  other content `-32602` — on every instance, as the store declares its `static backend` (#824): an
+  application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
+  their backend or another no single host owns (`PostgresA2ATaskRepository`,
+  `MongoA2ATaskRepository`; Redis keeps none), else `[a2a.task-store-not-shared]` at assembly;
+  `ListTasks.totalSize` counts every task its filters match; a task outlives its connection — a disconnect never cancels it (#806);
   `CancelTask` cancels that task only, before its start too (its id fenced: `CANCELED`); a pause its
   caller answers is `INPUT_REQUIRED` (a follow-up with the `taskId` resumes it: `{ pauseId?,
 decision }` or a text reply; another task's pause `-32602`; a resume that loses its pause to a

@@ -62,6 +62,7 @@ function emptyMessageOf(task: A2ATaskRecord): Message {
     contextId: task.contextId,
     taskId: task.taskId,
     role: Role.ROLE_AGENT,
+    // Stryker disable next-line ArrayDeclaration: every use replaces its parts with the tool call's
     parts: [],
     metadata: undefined,
     extensions: [],
