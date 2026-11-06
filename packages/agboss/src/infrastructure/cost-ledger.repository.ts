@@ -133,7 +133,7 @@ function invalidityOf(entry: unknown): string | undefined {
   // a Date of any realm (a driver's, a test's vm), never a string or a number of ms
   if (!isDate(madeAt) || Number.isNaN(madeAt.getTime()))
     return `its madeAt is no valid Date: ${String(madeAt)}`;
-  if (typeof costUsd !== "number" || !Number.isFinite(costUsd) || costUsd < 0)
+  if (!Number.isFinite(costUsd) || Number(costUsd) < 0)
     return `its costUsd is no finite amount ≥ 0: ${String(costUsd)}`;
   return undefined;
 }

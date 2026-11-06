@@ -83,6 +83,10 @@ describe("#817: ledgerMarkOf reads the one state", () => {
   it("a mark this version does not read fails closed — never read as not in the ledger, never as counted", () => {
     const unread = [
       { state: LedgerState.Written, ledgerId: "p:9" },
+      { state: "written-later", ledgerId: "p:16", madeAt: NOW },
+      { state: LedgerState.Written, ledgerId: 42, madeAt: NOW },
+      { state: LedgerState.Written, ledgerId: 42, madeAt: NOW.toISOString() },
+      { state: LedgerState.Written, ledgerId: "p:15", madeAt: Date.parse("2026-11-04") },
       { state: LedgerState.Written, ledgerId: "p:10", madeAt: "garbage 12" },
       { state: LedgerState.Written, ledgerId: "p:11", madeAt: "2026-11-04" },
       { state: "written" },
@@ -273,6 +277,15 @@ describe("#817: why a mark is not read", () => {
     [
       { ledger: { state: LedgerState.Written, ledgerId: "p:32", madeAt: new Date(Number.NaN) } },
       "the ledger entry p:32 has no valid madeAt: Invalid Date",
+    ],
+    [{ ledger: null }, "a usage record's ledger mark is not one this version reads: null"],
+    [
+      { ledger: "written" },
+      `a usage record's ledger mark is not one this version reads: "written"`,
+    ],
+    [
+      { ledger: { state: LedgerState.Written, ledgerId: "p:35", madeAt: 1762250400000 } },
+      "the ledger entry p:35 has no valid madeAt: 1762250400000",
     ],
     [{ isRecordedElsewhere: "yes" }, `a usage record's isRecordedElsewhere is no boolean: "yes"`],
     [{ isRecordedElsewhere: true, ledgerId: 42 }, "a usage record's ledgerId is no id: 42"],
