@@ -82,7 +82,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("  maxSteps 9 (default: (agents + routers) × 3) · steps 2–2");
     // create wires the MCP server and the knowledge base into the first agent
     expect(out).toMatch(
-      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3\)/,
+      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3, per-tenant\)/,
     );
     expect(out).toContain("· search-orders-tool (local)");
     expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
