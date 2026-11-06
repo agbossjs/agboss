@@ -1,5 +1,6 @@
 import type { FencedEffectOrigin, JsonResult } from "../infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../units/index.js";
+import type { NotSentTrust } from "./outbound-call-contract.js";
 import type {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
@@ -57,7 +58,7 @@ export interface OutboundCallLookup {
 }
 
 /** How a call that leaves the system is made: what, where, and the two hooks. */
-export interface OutboundCallOptions<TRequest, TResult> {
+export interface OutboundCallSendOptions<TRequest, TResult> {
   /** What the call goes to, for operators: `"payments"`. */
   readonly target: string;
   /** What it does there: `"charge"`. */
@@ -86,15 +87,40 @@ export interface OutboundCallOptions<TRequest, TResult> {
    */
   readonly isDefiniteFailure?: (error: unknown) => boolean;
   /**
-   * How long the other system keeps an idempotency key, at least (#658: its documented minimum —
-   * Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`). Set it when `notSent()`
+   * How far a `notSent()` of `reconcile` is trusted (#795) — required, so the author says it:
+   * `{ trust: NotSentTrust.Lookup }` when `reconcile` reads a record the other system keeps for
+   * good (its books, a list of refunds), `{ trust: NotSentTrust.KeyReplay, keyRetention }` when it
    * relies on the other system replaying the key (a gateway whose only lookup is the replay, or
-   * whose search lags): a `notSent()` is sent again only while `lookup.keyAge` plus
-   * `outboundCalls.attemptTimeout` (how long the resend may take to arrive) is below it; else
-   * nothing is sent — `OutboundCallUnreconciledError`, the intent pending for an operator. Unset:
-   * `notSent()` is trusted at any age.
+   * whose search lags). Anything else is refused before anything is recorded or sent
+   * (`InvalidNotSentTrustError`).
    */
-  readonly keyRetention?: Milliseconds;
+  readonly notSent: OutboundCallNotSent;
+}
+
+/**
+ * How far a `notSent()` is trusted (#795): the lookup's word at any age, or the key's replay only
+ * while the other system still keeps the key.
+ */
+export type OutboundCallNotSent = NotSentByLookup | NotSentByKeyReplay;
+
+/** `reconcile` reads a record that does not expire: its `notSent()` is trusted at any age. */
+export interface NotSentByLookup {
+  readonly trust: NotSentTrust.Lookup;
+  /** A lookup has no retention: the record it reads does not expire. */
+  readonly keyRetention?: never;
+}
+
+/** `reconcile`'s `notSent()` relies on the other system replaying the key. */
+export interface NotSentByKeyReplay {
+  readonly trust: NotSentTrust.KeyReplay;
+  /**
+   * How long the other system keeps an idempotency key, at least (#658: its documented minimum —
+   * Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`): a `notSent()` is sent again
+   * only while `lookup.keyAge` plus `outboundCalls.attemptTimeout` (how long the resend may take to
+   * arrive) is below it; else nothing is sent — `OutboundCallUnreconciledError`, the intent pending
+   * for an operator. A positive, finite duration.
+   */
+  readonly keyRetention: Milliseconds;
 }
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */
@@ -127,6 +153,18 @@ export interface OutboundCallPayloadTooLargeErrorOptions {
   readonly part: OutboundCallPart;
   readonly size: number;
   readonly maxPayloadSize: number;
+}
+
+/** What a superseded attempt knows (#795): the call, its key's handle and both attempts. */
+export interface OutboundCallSupersededErrorOptions {
+  readonly name: string;
+  readonly target: string;
+  readonly operation: string;
+  readonly idempotencyKey: string;
+  /** The attempt that was answered too late. */
+  readonly attempt: number;
+  /** The newer attempt that took the intent over; `undefined` when the intent could not be read. */
+  readonly supersededBy: number | undefined;
 }
 
 /** What an in-flight call knows: the call, never its request or its business key. */

@@ -13,7 +13,7 @@ import {
   OutboundCallInFlightError,
   OutboundCallRepository,
   OutboundCallStatus,
-  type FencedEffectKey,
+  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
 import { Clock } from "../../src/infrastructure/clock.js";
@@ -40,7 +40,7 @@ const rival = { move: RivalMove.Resends, reads: 0, moves: 0 };
 
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
-  override async findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
+  override async findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
     const found = await super.findByKey(key);
     if (found === undefined || found.status === OutboundCallStatus.Completed || rival.reads <= 0)
       return found;
@@ -49,7 +49,7 @@ class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
     return found; // this call goes on from what it read: the rival's move is unseen
   }
 
-  async #moved(key: FencedEffectKey, found: OutboundCallRecord): Promise<void> {
+  async #moved(key: EffectKey, found: OutboundCallRecord): Promise<void> {
     const claim = { attempt: found.attempt + 1, attemptOwner: "rival" };
     if (!(await super.markPending(key, stateOf(found), claim))) return;
     rival.moves += 1;

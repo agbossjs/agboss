@@ -1,7 +1,7 @@
 import {
   Action,
   ExecutionContext,
-  fencedEffectKeyOf,
+  effectKeyOf,
   optional,
   SqliteFencedEffectRepository,
   type ActionHandler,
@@ -42,7 +42,7 @@ export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
 
   async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
     const { applicationId, customerId, total } = input.order.value;
-    const key = fencedEffectKeyOf(this.executionContext, "charge", {
+    const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: `credit:${applicationId}`,
       fingerprint: { customerId, total },
     });

@@ -11,14 +11,14 @@ import { FencedEffectSettings } from "./fenced-effect-settings.js";
 import {
   FencedEffectRepository,
   FencedEffectStatus,
-  type FencedEffectKey,
+  type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
 import {
   checkedBusinessKey,
   checkedEffectName,
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   replayedFromOf,
   storedKeyFactsOf,
 } from "./fenced-effect-key.js";
@@ -74,13 +74,13 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   }
 
   protected runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
     // a business key is one row for every scope of the tenant: its transactions in turn too (#508)
-    const lock = key.businessKey === undefined ? key.scopeKey : fencedKeyIdentityOf(key);
+    const lock = key.businessKey === undefined ? key.scopeKey : effectKeyIdentityOf(key);
     return this.#serialized(lock, () => this.#transaction(key, work));
   }
 
@@ -93,11 +93,11 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   }
 
   async #transaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
-    const stored = this.database.fencedEffectResults.get(fencedKeyIdentityOf(key));
+    const stored = this.database.fencedEffectResults.get(effectKeyIdentityOf(key));
     if (stored !== undefined) {
       const replayedFrom = replayedFromOf(key, stored);
       raiseInMemoryMark(this.database, this.clock, key);
@@ -122,7 +122,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       result: text,
       ...storedKeyFactsOf(key),
     };
-    this.database.fencedEffectResults.set(fencedKeyIdentityOf(key), row);
+    this.database.fencedEffectResults.set(effectKeyIdentityOf(key), row);
     applyWrites(transaction);
     return {
       status: FencedEffectStatus.Ran,
@@ -155,7 +155,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
 export function checkInMemoryFence(
   database: InMemoryDatabase,
   clock: Pick<Clock, "now">,
-  key: FencedEffectKey,
+  key: EffectKey,
 ): void {
   checkedEffectName(key.name);
   checkedBusinessKey(key);
@@ -174,7 +174,7 @@ export function checkInMemoryFence(
 export function isInMemoryLeaseHeld(
   database: InMemoryDatabase,
   clock: Pick<Clock, "now">,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId" | "token">,
+  lease: Pick<EffectKey, "tenantId" | "leaseExecutionId" | "token">,
 ): boolean {
   const row = database.executionLeases.get(treeKeyOf(lease.tenantId, lease.leaseExecutionId));
   return (
@@ -189,7 +189,7 @@ export function isInMemoryLeaseHeld(
 export function raiseInMemoryMark(
   database: InMemoryDatabase,
   clock: Pick<Clock, "now">,
-  key: FencedEffectKey,
+  key: EffectKey,
 ): void {
   const highest = database.fencedEffectMarks.get(key.scopeKey)?.highestToken ?? 0;
   database.fencedEffectMarks.set(key.scopeKey, {

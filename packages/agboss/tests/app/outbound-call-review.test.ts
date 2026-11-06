@@ -12,7 +12,7 @@ import {
   Action,
   ExecutionContext,
   ExecutionLeaseRepository,
-  fencedEffectKeyOf,
+  effectKeyOf,
   InvalidFencedEffectNameError,
   Injectable,
   InMemoryOutboundCallRepository,
@@ -20,7 +20,8 @@ import {
   OutboundCallOutcomeStatus,
   OutboundCallRepository,
   OutboundCallStatus,
-  type FencedEffectKey,
+  OutboundCallSupersededError,
+  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
@@ -101,26 +102,36 @@ describe("#508 review 1a: a lease stays open while an attempt under it is in fli
 /** The rival that takes the attempt over between this call's send and its completion. */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
-  override async markCompleted(key: FencedEffectKey, owner: string, result: string) {
+  override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);
     if (found !== undefined) await this.#takenOver(key, found);
     return super.markCompleted(key, owner, result);
   }
 
-  async #takenOver(key: FencedEffectKey, found: OutboundCallRecord): Promise<void> {
+  async #takenOver(key: EffectKey, found: OutboundCallRecord): Promise<void> {
     await this.markPending(key, stateOf(found), { attempt: found.attempt + 1, attemptOwner: "x" });
   }
 }
 
-describe("#508 review 2: a lost completion is Superseded, never a silent Sent", () => {
-  it("a newer attempt took the intent over while this one was in flight: Superseded, the newer attempt's intent kept", async () => {
+describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError, never a silent Sent", () => {
+  it("a newer attempt took the intent over while this one was in flight: the step fails naming both attempts, the newer attempt's intent kept", async () => {
     const run = testAction(ChargeOrderAction, {
       overrides: [override(OutboundCallRepository, SupersedingOutboundCallRepository)],
     });
 
-    await run(order);
+    const failed = await run(order).catch((error: unknown) => error);
 
-    expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Superseded, attempt: 1 }]);
+    expect(failed).toBeInstanceOf(OutboundCallSupersededError);
+    expect(failed).toMatchObject({
+      code: "outbound-call.superseded",
+      call: "charge",
+      target: "payments",
+      operation: "charge",
+      attempt: 1,
+      supersededBy: 2,
+      idempotencyKey: expect.stringMatching(/charge/u) as unknown,
+    });
+    expect(runs.outcomes).toEqual([]);
     expect(gateway.calls).toHaveLength(1);
   });
 });
@@ -216,7 +227,7 @@ class BadlyNamedAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(): Promise<void> {
-    fencedEffectKeyOf(this.executionContext, "charge:twice");
+    effectKeyOf(this.executionContext, "charge:twice");
     return Promise.resolve();
   }
 }

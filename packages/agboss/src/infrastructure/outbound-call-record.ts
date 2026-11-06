@@ -48,7 +48,7 @@ export interface OutboundCallIntent {
 /** One call that left the system, as the store keeps it. */
 export interface OutboundCallRecord extends OutboundCallIntent {
   readonly tenantId: string;
-  /** The call's name (`fencedEffectKeyOf(executionContext, name)`). */
+  /** The call's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
   readonly status: OutboundCallStatus;
   /** The result's JSON, once `Completed`. */
@@ -63,7 +63,7 @@ export interface OutboundCallRecord extends OutboundCallIntent {
   readonly businessKey?: string;
   /** What it does, as a hash of its request (#508): another one under its business key conflicts. */
   readonly fingerprint?: string;
-  /** Its business key's handle (#508, `FencedEffectKey.businessKeyHash`): what reads show of it. */
+  /** Its business key's handle (#508, `EffectKey.businessKeyHash`): what reads show of it. */
   readonly businessKeyHash?: string;
   /** When it was recorded (ISO 8601, the application's `Clock`). */
   readonly recordedAt: string;

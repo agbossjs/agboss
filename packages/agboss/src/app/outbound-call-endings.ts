@@ -1,3 +1,4 @@
+import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionFencedError } from "./lease-lost.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
 import {
@@ -5,6 +6,7 @@ import {
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
 import { replayedFromOf, reportedKeyOf } from "./outbound-call-business.js";
+import { OutboundCallSupersededError } from "./outbound-call-contract.js";
 import {
   maskedTextOf,
   notStoredOf,
@@ -22,20 +24,26 @@ import {
 
 /**
  * How a call ends (#505, #508), loaded with the protocol: replayed from a completed intent, or
- * badly — superseded by a newer attempt while it was in flight, or left pending with no verdict
+ * badly — superseded by a newer attempt while it was in flight (an error, #795), or left pending with no verdict
  * `reconcile` could give.
  */
 
 /**
  * Attempt `attempt` was answered after a newer one took the intent over (#508): both reached the
  * other system. Told as `Superseded`, naming the newer attempt when the intent can still be read —
- * else "unknown", never a guess — and logged as an error on the instance's log, lease or none.
+ * else "unknown", never a guess — and logged as an error on the instance's log, lease or none. The
+ * newer attempt, `undefined` when unknown (#795: `OutboundCallSupersededError.supersededBy`).
  */
 export async function superseded<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
-): Promise<void> {
-  const found = await run.parts.repository.findByKey(run.key).catch(() => undefined);
+): Promise<number | undefined> {
+  // the read is for the report only: its failure is named, never thrown over the superseded error
+  let unread = "";
+  const found = await run.parts.repository.findByKey(run.key).catch((error: unknown) => {
+    unread = ` (the intent could not be read: ${errorRecordOf(error).code})`;
+    return undefined;
+  });
   const newer = found === undefined || found.attempt === attempt ? undefined : found.attempt;
   const status = found?.status ?? OutboundCallStatus.Pending;
   told(run, OutboundCallEventOutcome.Superseded, [status, attempt], { supersededBy: newer });
@@ -43,8 +51,30 @@ export async function superseded<TRequest, TResult>(
   const { operation, target } = run.options;
   const by =
     newer === undefined ? "a newer attempt (which one is unknown)" : `attempt ${String(newer)}`;
-  const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — check it there`;
+  const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after ${by} took its intent over${unread}: both reached ${target} — check it there`;
   run.parts.log.error("outbound-call.superseded", text, subjectOf(run));
+  return newer;
+}
+
+/**
+ * Attempt `attempt` was answered after a newer one took its intent over (#795): told and logged
+ * (`superseded`), then the error the step fails with — never a normal outcome.
+ */
+export async function supersededErrorOf<TRequest, TResult>(
+  run: CallRun<TRequest, TResult>,
+  attempt: number,
+  cause?: unknown,
+): Promise<OutboundCallSupersededError> {
+  const supersededBy = await superseded(run, attempt);
+  const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
+  const { target, operation } = run.options;
+  return new OutboundCallSupersededError(
+    {
+      ...{ name: run.key.name, target, operation, idempotencyKey },
+      ...{ attempt, supersededBy },
+    },
+    cause,
+  );
 }
 
 /**

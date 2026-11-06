@@ -1,9 +1,9 @@
 import {
   IdempotencyKeyConflictError,
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
 } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
-import type { FencedEffectKey } from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { outcomeOf, told, type CallRun, type LiveCall } from "./outbound-call-parts.js";
 import { OutboundCallOutcomeStatus, type OutboundCallOutcome } from "./outbound-calls.js";
@@ -16,8 +16,7 @@ import { OutboundCallOutcomeStatus, type OutboundCallOutcome } from "./outbound-
  */
 
 /** What a call of this instance is known by while it is made: its key's row (a business key's). */
-const liveKeyOf = (key: FencedEffectKey): string =>
-  `${key.tenantId}\u0000${fencedKeyIdentityOf(key)}`;
+const liveKeyOf = (key: EffectKey): string => `${key.tenantId}\u0000${effectKeyIdentityOf(key)}`;
 
 /**
  * The outcome of the call this instance is making now: shared when it succeeded, its error when

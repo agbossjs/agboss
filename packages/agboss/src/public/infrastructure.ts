@@ -44,11 +44,11 @@ export { SqliteOutboundCallRepository } from "../infrastructure/sqlite/sqlite-ou
 export { SqliteChildExecutionQueueRepository } from "../infrastructure/sqlite/sqlite-child-execution-queue.repository.js";
 // the fenced effect (#500): the contract, its key and outcome, the in-memory store, its settings
 export {
-  fencedEffectKeyOf,
+  effectKeyOf,
   FencedEffectRepository,
   FencedEffectStatus,
-  type FencedEffectKey,
-  type FencedEffectKeyOptions,
+  type EffectKey,
+  type EffectKeyOptions,
   type FencedEffectOrigin,
   type FencedEffectOutcome,
   type FencedEffectWork,
@@ -61,7 +61,7 @@ export {
 export {
   checkedBusinessKey,
   checkedEffectName,
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   pendingOutboundCallOf,
   replayedFromOf,
   storedKeyFactsOf,
@@ -73,7 +73,7 @@ export {
 } from "../infrastructure/in-memory-fenced-effect.repository.js";
 export {
   FencedEffectSettings,
-  type FencedEffectsOptions,
+  type FencedEffectOptions,
 } from "../infrastructure/fenced-effect-settings.js";
 // every type an infrastructure contract's members name (#511 AC4, tests/public-api/contract-types):
 // a store outside the core implements the contract with these, never derives them from the class
@@ -119,6 +119,12 @@ export {
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+export { NotSentTrust } from "../app/outbound-call-contract.js";
+export type {
+  NotSentByKeyReplay,
+  NotSentByLookup,
+  OutboundCallNotSent,
+} from "../app/outbound-call-types.js";
 export {
   OutboundCallOutcomeStatus,
   OutboundCallPart,
@@ -127,13 +133,14 @@ export {
   OutboundCallVerdict,
   type OutboundCall,
   type OutboundCallLookup,
-  type OutboundCallOptions,
+  type OutboundCallSendOptions,
   type OutboundCallOutcome,
   type OutboundCallUnknownOptions,
 } from "../app/outbound-calls.js";
 export {
   OutboundCallSettings,
-  type OutboundCallsOptions,
+  type OutboundCallOptions,
+  type OutboundCallSettingsOptions,
 } from "../infrastructure/fenced-effect-settings.js";
 // the class a refusal of minted ids names, for a store of your own (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";

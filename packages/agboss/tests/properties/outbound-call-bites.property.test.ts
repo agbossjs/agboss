@@ -7,7 +7,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import {
   InMemoryOutboundCallRepository,
   type OutboundCallClaim,
@@ -20,7 +20,7 @@ import { commandArbitrary, firstDifference } from "./fencing-model.js";
 /** `markPending` that does not compare: every claimer wins. */
 class UncomparedCalls extends InMemoryOutboundCallRepository {
   override async markPending(
-    key: FencedEffectKey,
+    key: EffectKey,
     _expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
@@ -36,11 +36,7 @@ class UncomparedCalls extends InMemoryOutboundCallRepository {
 
 /** `markCompleted` for whoever asks: the owner ignored. */
 class OwnerBlindCalls extends InMemoryOutboundCallRepository {
-  override async markCompleted(
-    key: FencedEffectKey,
-    _owner: string,
-    result: string,
-  ): Promise<boolean> {
+  override async markCompleted(key: EffectKey, _owner: string, result: string): Promise<boolean> {
     const found = await this.findByKey(key);
     return found === undefined ? false : super.markCompleted(key, found.attemptOwner, result);
   }

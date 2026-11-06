@@ -13,14 +13,14 @@ import { scopeKeyOf } from "../../src/app/lease-lost.js";
 import { callKeyOf } from "../../src/app/outbound-call-business.js";
 import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   fingerprintOf,
   IdempotencyKeyConflictError,
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
   FencedEffectStatus,
   type FencedEffectOutcome,
-  type FencedEffectKey,
+  type EffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../src/terns/versions.js";
 import { seconds } from "../../src/units/index.js";
@@ -39,7 +39,7 @@ const keyText = fc
 const name = fc.stringMatching(/^[A-Za-z0-9._-]{1,8}$/u).filter((text) => !text.startsWith("."));
 
 /** A key of `tenantId`, `businessKey` and `effect` (the rest fixed). */
-const keyWith = (tenantId: string, businessKey: string, effect: string): FencedEffectKey => ({
+const keyWith = (tenantId: string, businessKey: string, effect: string): EffectKey => ({
   scopeKey: scopeKeyOf(tenantId, "tree-1"),
   tenantId,
   leaseExecutionId: "tree-1",
@@ -97,7 +97,7 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
           const isSame = t1 === t2 && b1 === b2 && n1 === n2;
           const [one, other] = [keyWith(t1, b1, n1), keyWith(t2, b2, n2)];
           return (
-            (fencedKeyIdentityOf(one) === fencedKeyIdentityOf(other)) === isSame &&
+            (effectKeyIdentityOf(one) === effectKeyIdentityOf(other)) === isSame &&
             (callKeyOf(one) === callKeyOf(other)) === isSame
           );
         }),
@@ -154,7 +154,7 @@ async function outcomesOf(
     const lease = leases[call.execution - 1];
     if (lease === undefined) throw new Error("no lease");
     const tree = `tree-${String(call.execution)}`;
-    const key: FencedEffectKey = {
+    const key: EffectKey = {
       ...keyWith("default", "order:1", "charge"),
       scopeKey: scopeKeyOf("default", tree),
       leaseExecutionId: tree,

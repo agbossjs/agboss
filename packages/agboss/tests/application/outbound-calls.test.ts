@@ -14,7 +14,7 @@ import {
   OutboundCallRepository,
   OutboundCallSettings,
   OutboundCallStatus,
-  type OutboundCallsOptions,
+  type OutboundCallOptions,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import {
@@ -46,7 +46,7 @@ beforeEach(() => {
 
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
-const assembledWith = (outboundCalls: OutboundCallsOptions) => {
+const assembledWith = (outboundCalls: OutboundCallOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
@@ -63,7 +63,7 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
   it("defaults to 64 KB and a week", async () => {
     const assembled = await assembledWith({});
 
-    expect(assembled.outboundCalls).toEqual(new OutboundCallSettings());
+    expect(assembled.outboundCalls).toEqual(new OutboundCallSettings({ requiresMask: false }));
     expect(assembled.outboundCalls).toMatchObject({
       maxPayloadSize: 65_536,
       retention: hours(168),

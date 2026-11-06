@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import { fencedKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
+import { effectKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
-import type { FencedEffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import { endedOf, isInState, withoutEnd } from "../../src/infrastructure/outbound-call-changes.js";
 import {
   InMemoryOutboundCallRepository,
@@ -33,9 +33,9 @@ import { inMemoryTarget, type StoreFactory } from "./contracts/store-kinds.js";
 const roundTrip = () => new Promise((resolve) => setTimeout(resolve, 1));
 
 /** A per-lease mutex: what a lock on the lease row serializes — one lease, never one intent. */
-function leaseLock(): <T>(key: FencedEffectKey, work: () => Promise<T>) => Promise<T> {
+function leaseLock(): <T>(key: EffectKey, work: () => Promise<T>) => Promise<T> {
   const locks = new Map<string, Promise<unknown>>();
-  return <T>(key: FencedEffectKey, work: () => Promise<T>): Promise<T> => {
+  return <T>(key: EffectKey, work: () => Promise<T>): Promise<T> => {
     const id = `${key.tenantId}/${key.leaseExecutionId}`;
     const next = (locks.get(id) ?? Promise.resolve()).then(work, work);
     locks.set(
@@ -46,7 +46,7 @@ function leaseLock(): <T>(key: FencedEffectKey, work: () => Promise<T>) => Promi
   };
 }
 
-type Lock = <T>(key: FencedEffectKey, work: () => Promise<T>) => Promise<T>;
+type Lock = <T>(key: EffectKey, work: () => Promise<T>) => Promise<T>;
 
 /** A store that reads fenced, waits, then writes by row — no state, no fence at the write. */
 const naive =
@@ -61,7 +61,7 @@ const naive =
     const endedAt = () => seam.storeClock.now().toISOString();
     class CheckThenWrite extends InMemoryOutboundCallRepository {
       #written(
-        key: FencedEffectKey,
+        key: EffectKey,
         change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
       ): Promise<boolean> {
         return lock(key, async () => {
@@ -70,16 +70,12 @@ const naive =
           const changed = found === undefined ? undefined : change(found);
           if (changed === undefined) return false;
           await roundTrip();
-          rows.set(fencedKeyIdentityOf(key), { ...changed, token: key.token });
+          rows.set(effectKeyIdentityOf(key), { ...changed, token: key.token });
           return true;
         });
       }
 
-      override markPending(
-        key: FencedEffectKey,
-        expected: OutboundCallState,
-        claim: OutboundCallClaim,
-      ) {
+      override markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim) {
         return this.#written(key, (found) =>
           isInState(found, expected)
             ? { ...withoutEnd(found), status: OutboundCallStatus.Pending, ...claim }
@@ -87,12 +83,12 @@ const naive =
         );
       }
 
-      override markCompleted(key: FencedEffectKey, owner: string, result: string) {
+      override markCompleted(key: EffectKey, owner: string, result: string) {
         const ending = { status: OutboundCallStatus.Completed, result } as const;
         return this.#written(key, (found) => endedOf(found, owner, ending, endedAt()));
       }
 
-      override markFailed(key: FencedEffectKey, owner: string, failure: OutboundCallFailure) {
+      override markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure) {
         const ending = { status: OutboundCallStatus.Failed, failure } as const;
         return this.#written(key, (found) => endedOf(found, owner, ending, endedAt()));
       }

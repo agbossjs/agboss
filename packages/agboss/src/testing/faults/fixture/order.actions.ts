@@ -3,7 +3,7 @@ import {
   ApplicationContext,
   ExecutionContext,
   FencedEffectRepository,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type Produced,
 } from "../../../index.js";
 import { FAULT_BUSINESS_ROWS, type FaultBusinessRows } from "../fault-stores.js";
@@ -121,7 +121,7 @@ export class FaultChargeAction {
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.ChargeBefore, where, signal);
     if (decline) throw new FaultChargeDeclinedError(`the card of ${orderId} was declined`);
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const row = `charge:${this.executionContext.executionId}`;
     const receipt = { chargeId: `${row}@${String(key.token)}` };
     const outcome = await this.fencedEffectRepository.saveResultIfAbsent(key, (transaction) => {

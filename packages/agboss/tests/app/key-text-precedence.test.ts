@@ -9,12 +9,7 @@ import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import {
-  Action,
-  ExecutionContext,
-  fencedEffectKeyOf,
-  InvalidBusinessKeyError,
-} from "../../src/index.js";
+import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
 import { testAction, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { seededProperties } from "../helpers/property-seed.js";
@@ -168,7 +163,7 @@ class PrecedenceChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: { readonly message: { readonly value: WorkflowStartTextDto } }) {
-    const key = fencedEffectKeyOf(this.executionContext, "charge", {
+    const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: input.message.value.text,
     });
     return Promise.resolve({ text: key.businessKey ?? "" });

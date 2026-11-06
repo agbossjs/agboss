@@ -16,7 +16,7 @@ import {
 import {
   FencedEffectRepository,
   FencedEffectStatus,
-  type FencedEffectKey,
+  type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
@@ -52,7 +52,7 @@ const ResultRow = z.object({
 });
 
 /** A stored row of `key`: in the step's table, or by its business key (#508). */
-function storedRowOf(database: DatabaseSync, key: FencedEffectKey): unknown {
+function storedRowOf(database: DatabaseSync, key: EffectKey): unknown {
   if (key.businessKey === undefined)
     return database
       .prepare(
@@ -67,12 +67,7 @@ function storedRowOf(database: DatabaseSync, key: FencedEffectKey): unknown {
 }
 
 /** Writes `key`'s result `text` under `token` at `now`, in the table of its kind. */
-function insertRowOf(
-  database: DatabaseSync,
-  key: FencedEffectKey,
-  now: number,
-  text: string,
-): void {
+function insertRowOf(database: DatabaseSync, key: EffectKey, now: number, text: string): void {
   if (key.businessKey === undefined) {
     database
       .prepare("INSERT INTO fenced_effect_results VALUES (?, ?, ?, ?, ?, ?)")
@@ -132,7 +127,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   }
 
   protected runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     return new Promise((resolve) => {
@@ -154,7 +149,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   }
 
   #transaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
   ): FencedEffectOutcome<TResult> {
     const { database } = this.connection;
@@ -194,7 +189,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
  * name is valid (#508), its lease is held, live (`expires_at > now`, #534) and its epoch, and no newer token wrote the scope — else
  * `ExecutionFencedError`, a hand-over.
  */
-export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, now: number): void {
+export function checkSqliteFence(database: DatabaseSync, key: EffectKey, now: number): void {
   checkedEffectName(key.name);
   checkedBusinessKey(key);
   const { scopeKey, token } = key;
@@ -212,7 +207,7 @@ export function checkSqliteFence(database: DatabaseSync, key: FencedEffectKey, n
 /** The lease row of `(tenantId, leaseExecutionId)` on the file, if any. */
 function sqliteLeaseOf(
   database: DatabaseSync,
-  lease: Pick<FencedEffectKey, "tenantId" | "leaseExecutionId">,
+  lease: Pick<EffectKey, "tenantId" | "leaseExecutionId">,
 ): z.infer<typeof LeaseRow> | undefined {
   const row = database
     .prepare(

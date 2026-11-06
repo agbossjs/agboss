@@ -101,7 +101,7 @@ describe("#500 AC3: two calls on one key in one step", () => {
 });
 
 describe("#500: where no lease is held", () => {
-  test("a budget's maxSpend() gets ExecutionContextUnavailableError from fencedEffectKeyOf", async ({
+  test("a budget's maxSpend() gets ExecutionContextUnavailableError from effectKeyOf", async ({
     app,
   }) => {
     await execute(app, ChargeWorkflowStart, { text: "order-9" });

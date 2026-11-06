@@ -135,7 +135,7 @@ export enum FaultPayment {
     EveryErrorDefinite = "every-error-definite",
     Lookup = "lookup",
     ReplayOnly = "replay-only",
-    ReplayOnlyUndeclared = "replay-only-undeclared"
+    ReplayOnlyTrustedAsLookup = "replay-only-trusted-as-lookup"
 }
 
 // @public (undocumented)

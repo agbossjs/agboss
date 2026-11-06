@@ -1,5 +1,5 @@
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
 import type { ExecutionHistoryRecord } from "../../infrastructure/execution-history.repository.js";
 
@@ -65,7 +65,7 @@ export const leaseFacts = (lease: unknown): unknown => {
 /** What the history keeps of a fenced key. */
 export const keyFacts = (key: unknown): unknown => {
   const { scopeKey, tenantId, leaseExecutionId, token, idempotencyKey, name, businessKey } =
-    key as FencedEffectKey;
+    key as EffectKey;
   const business = businessKey === undefined ? {} : { businessKey };
   return { scopeKey, tenantId, leaseExecutionId, token, idempotencyKey, name, ...business };
 };
@@ -73,8 +73,7 @@ export const keyFacts = (key: unknown): unknown => {
 const first = (args: readonly unknown[]): unknown => args[0];
 const asIs = (result: unknown): unknown => (result === undefined ? null : result);
 const rootOf = (args: readonly unknown[]): string => (args[0] as ExecutionLease).rootExecutionId;
-const leaseKeyOf = (args: readonly unknown[]): string =>
-  (args[0] as FencedEffectKey).leaseExecutionId;
+const leaseKeyOf = (args: readonly unknown[]): string => (args[0] as EffectKey).leaseExecutionId;
 
 /** A method on a held lease: its key and input are the lease's. */
 const onLease = (point: StoreHoldPoint, outputOf = asIs): StoreMethod => ({

@@ -8,7 +8,7 @@
  */
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import {
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   replayedFromOf,
   storedKeyFactsOf,
 } from "../../../src/infrastructure/fenced-effect-key.js";
@@ -16,7 +16,7 @@ import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-
 import {
   FencedEffectRepository,
   FencedEffectStatus,
-  type FencedEffectKey,
+  type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
@@ -68,10 +68,10 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
   }
 
   protected runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<DeferredTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
-    const lock = key.businessKey === undefined ? key.scopeKey : fencedKeyIdentityOf(key);
+    const lock = key.businessKey === undefined ? key.scopeKey : effectKeyIdentityOf(key);
     const tails = queues.get(this.results) ?? new Map<string, Promise<unknown>>();
     queues.set(this.results, tails);
     const call = Promise.allSettled([tails.get(lock)]).then(() => this.#transaction(key, work));
@@ -83,13 +83,13 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
   }
 
   async #transaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<DeferredTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     // the lease checked once, before the work — a read that locks nothing
     checkInMemoryFence(this.seam.database, this.seam.storeClock, key);
     raiseInMemoryMark(this.seam.database, this.seam.storeClock, key);
-    const row = fencedKeyIdentityOf(key);
+    const row = effectKeyIdentityOf(key);
     const found = this.results.get(row);
     if (found !== undefined) {
       const replayedFrom = replayedFromOf(key, found);

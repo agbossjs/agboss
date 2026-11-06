@@ -74,9 +74,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before; 1,500
  * at #340 for its public names; 1,505 at #807 for the A2A task store's contract, its in-memory
  * default and the execution-control seams — the SQLite store is in `@agboss/core/a2a`, the
- * projection and the tree reads load on first use).
+ * projection and the tree reads load on first use); 1,510 at #795 for the outbound-call contract's
+ * module.
  */
-const MODULE_BUDGET = 1_505;
+const MODULE_BUDGET = 1_510;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { hours, seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
@@ -22,7 +22,7 @@ import {
 /** Each fenced method, called with `key`. */
 const FENCED_CALLS: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: FencedEffectKey) => Promise<unknown>,
+  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   [

@@ -3,18 +3,13 @@
  * so two texts that look the same must never be two keys. Every refused class — one sample per
  * range and the range's edges —, NFC against NFD pairs, and accepted non-ASCII (CJK, emoji,
  * Cyrillic, already NFC). Each refusal names its rule, never the key, wherever the key enters:
- * `fencedEffectKeyOf`, a key built by hand at `OutboundCalls.send` and at a store's entry, and a
+ * `effectKeyOf`, a key built by hand at `OutboundCalls.send` and at a store's entry, and a
  * thread id at `app.execute`.
  */
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import {
-  Action,
-  ExecutionContext,
-  fencedEffectKeyOf,
-  InvalidBusinessKeyError,
-} from "../../src/index.js";
+import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
 import { testAction, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
@@ -31,7 +26,7 @@ class KeyedChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: { readonly message: { readonly value: WorkflowStartTextDto } }) {
-    const key = fencedEffectKeyOf(this.executionContext, "charge", {
+    const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: input.message.value.text,
     });
     return Promise.resolve({ text: key.businessKey ?? "" });
@@ -66,7 +61,7 @@ describe("#538 AC1: the rules of a key's text", () => {
   );
 });
 
-describe("#538 AC1: fencedEffectKeyOf refuses each class, naming the rule, never the key", () => {
+describe("#538 AC1: effectKeyOf refuses each class, naming the rule, never the key", () => {
   it.each(REFUSED_KEYS)("%s → InvalidBusinessKeyError(%s)", async (_label, rule, text) => {
     const error = await keyed(text);
 

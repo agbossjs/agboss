@@ -341,11 +341,17 @@ Autoscaling.
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
   judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
 - **The fenced effect (#500).** For rows in the store's own database, one call does the fencing and
-  the deduplication: `saveResultIfAbsent(fencedEffectKeyOf(executionContext, "charge"), (database) =>
+  the deduplication: `saveResultIfAbsent(effectKeyOf(executionContext, "charge"), (database) =>
 …)` on `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; the work is
   synchronous) or the built-in in-memory store — the lease, the scope's mark and the step's key
   checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionFencedError`.
   No fencing or idempotency table of your own.
+- **Calls that leave the system (#505).** `outboundCalls.send(effectKeyOf(executionContext,
+"charge"), { target, operation, request, send, reconcile, notSent })` records the intent first
+  and reconciles one left pending; `notSent` is required (#795): `{ trust: NotSentTrust.Lookup }`
+  when `reconcile` reads the other system's own records, `{ trust: NotSentTrust.KeyReplay,
+keyRetention: hours(24) }` when its `notSent()` relies on the key's replay. An attempt answered
+  after a newer one took it over fails the step with `OutboundCallSupersededError`.
 - **Any instance answers.** A pause made on one instance is resumed on another; `app.cancel` reaches
   the tree on whichever instance moves it.
 - **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,

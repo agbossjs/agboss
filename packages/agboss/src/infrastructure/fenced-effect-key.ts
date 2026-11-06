@@ -6,11 +6,7 @@ import type { OutboundCallIntent, OutboundCallRecord } from "./outbound-call-rec
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 import { KEY_TEXT_RULE_TEXT, keyTextRuleOf, type KeyTextRule } from "../core/errors.js";
 import { stableJson, versionOf } from "../terns/index.js";
-import type {
-  FencedEffectKey,
-  FencedEffectOrigin,
-  JsonResult,
-} from "./fenced-effect.repository.js";
+import type { EffectKey, FencedEffectOrigin, JsonResult } from "./fenced-effect.repository.js";
 
 /**
  * The key of a fenced effect or of an outbound call (#500, #505), and its business identity
@@ -20,7 +16,7 @@ import type {
  */
 
 /** A business identity for a key (#508). */
-export interface FencedEffectKeyOptions<TFingerprint = unknown> {
+export interface EffectKeyOptions<TFingerprint = unknown> {
   /**
    * `"order:42"`: a key's text (#538, `KeyTextRule`) — 1–200 characters, no control or format
    * character, no lone surrogate, in NFC. Never sent to a model.
@@ -53,7 +49,7 @@ export function fingerprintOf(value: unknown): string {
 
 /**
  * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `InvalidFencedEffectNameError` —
- * by `fencedEffectKeyOf` and again at every store's entry, for a key built by hand (exported for
+ * by `effectKeyOf` and again at every store's entry, for a key built by hand (exported for
  * stores outside the core, #526: before any statement, as the core's stores check it).
  */
 export function checkedEffectName(name: string): void {
@@ -62,18 +58,18 @@ export function checkedEffectName(name: string): void {
 
 /**
  * Checks a key's business key (#538): a key's text (`keyTextRuleOf`), else
- * `InvalidBusinessKeyError` naming the rule, never the key — by `fencedEffectKeyOf`,
+ * `InvalidBusinessKeyError` naming the rule, never the key — by `effectKeyOf`,
  * `OutboundCalls.send` and again at every store's entry, for a key built by hand (exported for
  * stores outside the core: before any statement, beside `checkedEffectName`).
  */
-export function checkedBusinessKey(key: Pick<FencedEffectKey, "name" | "businessKey">): void {
+export function checkedBusinessKey(key: Pick<EffectKey, "name" | "businessKey">): void {
   const invalid = businessKeyErrorOf(key);
   if (invalid !== undefined) throw invalid;
 }
 
 /** The `InvalidBusinessKeyError` of `key`'s business key (#538), `undefined` when it has a valid one or none. */
 export function businessKeyErrorOf(
-  key: Pick<FencedEffectKey, "name" | "businessKey">,
+  key: Pick<EffectKey, "name" | "businessKey">,
 ): InvalidBusinessKeyError | undefined {
   const rule = key.businessKey === undefined ? undefined : keyTextRuleOf(key.businessKey);
   return rule === undefined ? undefined : new InvalidBusinessKeyError({ name: key.name, rule });
@@ -91,11 +87,11 @@ export const isEffectName = (name: string): boolean => EFFECT_NAME.test(name);
  * `maxSpend()`, a yielded lease, an ancestor's context) it throws `ExecutionContextUnavailableError`,
  * as `fence` does.
  */
-export function fencedEffectKeyOf<TFingerprint>(
+export function effectKeyOf<TFingerprint>(
   executionContext: ExecutionContext,
   name: string,
-  options?: FencedEffectKeyOptions<TFingerprint>,
-): FencedEffectKey {
+  options?: EffectKeyOptions<TFingerprint>,
+): EffectKey {
   checkedEffectName(name);
   const { fence, step } = executionContext;
   const origin = {
@@ -201,7 +197,7 @@ export class IdempotencyKeyConflictError extends AGBossError {
   static override readonly code: string = "fenced-effect.key-conflict";
   override name = "IdempotencyKeyConflictError";
   readonly effect: string;
-  /** The business key's handle, when one could be made (`FencedEffectKey.businessKeyHash`). */
+  /** The business key's handle, when one could be made (`EffectKey.businessKeyHash`). */
   declare readonly businessKeyHash?: string;
 
   constructor(options: IdempotencyKeyConflictErrorOptions) {
@@ -221,7 +217,7 @@ export class IdempotencyKeyConflictError extends AGBossError {
  * name — or, with a business key, by the tenant, the name and the business key. One text, the
  * parts joined by NUL (exported for stores outside the core, #526: a key-value store's row key).
  */
-export const fencedKeyIdentityOf = (key: FencedEffectKey): string =>
+export const effectKeyIdentityOf = (key: EffectKey): string =>
   key.businessKey === undefined
     ? [key.scopeKey, key.idempotencyKey, key.name].join("\u0000")
     : ["business", key.tenantId, key.name, key.businessKey].join("\u0000");
@@ -241,7 +237,7 @@ export interface StoredKeyFacts {
  * fingerprint and its step, when it has them — stored with the row, read back for `replayedFromOf`.
  */
 export const storedKeyFactsOf = (
-  key: FencedEffectKey,
+  key: EffectKey,
 ): { readonly fingerprint?: string; readonly origin?: FencedEffectOrigin } => ({
   ...(key.fingerprint === undefined ? {} : { fingerprint: key.fingerprint }),
   ...(key.origin === undefined ? {} : { origin: key.origin }),
@@ -276,7 +272,7 @@ function storedOriginOf(value: unknown): FencedEffectOrigin | undefined {
  * own step, or one without its step.
  */
 export function replayedFromOf(
-  key: FencedEffectKey,
+  key: EffectKey,
   stored: StoredKeyFacts,
 ): FencedEffectOrigin | undefined {
   if (key.businessKey === undefined) return undefined;
@@ -288,7 +284,7 @@ export function replayedFromOf(
 
 /** A key's business identity as a record keeps it (#508): none for a step's key. */
 const businessFactsOf = (
-  key: FencedEffectKey,
+  key: EffectKey,
 ): Pick<OutboundCallRecord, "businessKey" | "fingerprint" | "businessKeyHash"> => ({
   ...(key.businessKey === undefined ? {} : { businessKey: key.businessKey }),
   ...(key.fingerprint === undefined ? {} : { fingerprint: key.fingerprint }),
@@ -303,7 +299,7 @@ const businessFactsOf = (
  * of its own (a database's) writes by that clock instead.
  */
 export const pendingOutboundCallOf = (
-  key: FencedEffectKey,
+  key: EffectKey,
   intent: OutboundCallIntent,
   recordedAt: Date,
 ): OutboundCallRecord => ({

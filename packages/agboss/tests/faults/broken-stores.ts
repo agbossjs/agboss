@@ -10,7 +10,7 @@ import {
   SqliteFencedEffectRepository,
   ApplicationContext,
   type ExecutionLease,
-  type FencedEffectKey,
+  type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
   type OutboundCallIntent,
@@ -33,7 +33,7 @@ import type { Milliseconds } from "../../src/units/index.js";
  */
 
 /** The lease's current epoch in the file. */
-function currentEpochOf(database: DatabaseSync, key: FencedEffectKey): number {
+function currentEpochOf(database: DatabaseSync, key: EffectKey): number {
   const row = database
     .prepare(
       "SELECT lease_epoch FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",
@@ -53,7 +53,7 @@ export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepo
   }
 
   protected override runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
@@ -91,7 +91,7 @@ export class UnfencedSqliteOutboundCallRepository extends SqliteOutboundCallRepo
     super(sqliteConnection, clock);
   }
 
-  override saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent): Promise<boolean> {
+  override saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
     return super.saveIfAbsent({ ...key, token }, intent);
   }

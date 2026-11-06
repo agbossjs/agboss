@@ -4,7 +4,7 @@ import type {
   ExecutionLeaseRepository,
 } from "../../infrastructure/execution-lease.repository.js";
 import type {
-  FencedEffectKey,
+  EffectKey,
   FencedEffectRepository,
   FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
@@ -76,7 +76,7 @@ export const keyOf = (
   lease: ExecutionLease,
   name = "charge",
   idempotencyKey = `${lease.rootExecutionId}:charge-action:1`,
-): FencedEffectKey => ({
+): EffectKey => ({
   scopeKey: scopeKeyOf(lease.tenantId, lease.rootExecutionId),
   tenantId: lease.tenantId,
   leaseExecutionId: lease.rootExecutionId,
@@ -93,7 +93,7 @@ export const businessKeyOf = (
   lease: ExecutionLease,
   fingerprint: string | null = "fingerprint-a",
   step = `${lease.rootExecutionId}:charge-action:1`,
-): FencedEffectKey => ({
+): EffectKey => ({
   ...keyOf(lease, "charge", step),
   businessKey: "order:42",
   ...(fingerprint === null ? {} : { fingerprint }),

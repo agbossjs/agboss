@@ -11,12 +11,13 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   InMemoryFencedEffectRepository,
+  NotSentTrust,
   OutboundCalls,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type FencedEffectStatus,
   type OutboundCallOutcomeStatus,
   type Produced,
@@ -82,7 +83,7 @@ async function chargedOnce(
   request: ChargeRequestDto,
 ): Promise<ChargeResultDto> {
   const { orderId, amountUsd } = request;
-  const key = fencedEffectKeyOf(executionContext, "charge", {
+  const key = effectKeyOf(executionContext, "charge", {
     businessKey: `order:${orderId}`,
     fingerprint: { amountUsd },
   });
@@ -156,7 +157,7 @@ async function frozenWhenAsked(signal: AbortSignal): Promise<void> {
 /** Charges `request` once per order through the provider, as a call that leaves the system. */
 async function sentOnce(site: OutboundSite, request: ChargeRequestDto): Promise<ChargeResultDto> {
   const { orderId, amountUsd } = request;
-  const key = fencedEffectKeyOf(site.executionContext, "charge", {
+  const key = effectKeyOf(site.executionContext, "charge", {
     businessKey: `order:${orderId}`,
   });
   const outcome = await site.outboundCalls.send(key, {
@@ -167,6 +168,7 @@ async function sentOnce(site: OutboundSite, request: ChargeRequestDto): Promise<
       await frozenWhenAsked(call.signal);
       return site.paymentGateway.charge(call);
     },
+    notSent: { trust: NotSentTrust.Lookup },
     reconcile: (call) => site.paymentGateway.reconcile(call),
   });
   ledger.outbound.push(outcome.status);

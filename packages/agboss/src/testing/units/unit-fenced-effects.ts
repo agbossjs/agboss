@@ -34,7 +34,8 @@ export class UnitFencedEffects {
   readonly core: readonly (readonly [Token, unknown])[] = [
     [IN_MEMORY_DATABASE, new InMemoryDatabase()],
     [FencedEffectSettings, new FencedEffectSettings()],
-    [OutboundCallSettings, new OutboundCallSettings()],
+    // a unit runner lists no PII policies: its frames carry no mask to require (#795: said, not defaulted)
+    [OutboundCallSettings, new OutboundCallSettings({ requiresMask: false })],
   ];
 
   readonly defaults: ReadonlyMap<Class, Class> = new Map<Class, Class>([

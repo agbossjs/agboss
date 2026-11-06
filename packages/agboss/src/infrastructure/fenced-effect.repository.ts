@@ -7,7 +7,7 @@ import type { Class } from "../components/injection.js";
 import { LeaseCheck } from "./execution-lease.repository.js";
 import {
   businessKeyErrorOf,
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   InvalidFencedEffectNameError,
   isEffectName,
 } from "./fenced-effect-key.js";
@@ -41,7 +41,7 @@ export type JsonResult<T> = T extends JsonPrimitive
       : never;
 
 /** The identity of one protected write: the lease scope and token it runs under, the step, a name. */
-export interface FencedEffectKey {
+export interface EffectKey {
   /** `executionContext.fence.scopeKey`: the lease scope, the key of its high-water mark. */
   readonly scopeKey: string;
   readonly tenantId: string;
@@ -57,7 +57,7 @@ export interface FencedEffectKey {
    * A business identity (#508, `"order:42"`): the effect is then one per tenant, name and business
    * key — deduplicated across tool calls, visits, executions and threads — instead of one per step.
    * Fencing is the caller's lease as always. A key's text (#538, `KeyTextRule`): validated by
-   * `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry (`InvalidBusinessKeyError`).
+   * `effectKeyOf`, `OutboundCalls.send` and every store's entry (`InvalidBusinessKeyError`).
    */
   readonly businessKey?: string;
   /**
@@ -120,7 +120,7 @@ class InvalidFencedEffectKeyError extends TypeError {
 }
 
 /** Why a key cannot be one: its scope does not match its parts, no name, no token. */
-function keyProblemOf(key: FencedEffectKey): string | undefined {
+function keyProblemOf(key: EffectKey): string | undefined {
   if (key.scopeKey !== scopeKeyOf(key.tenantId, key.leaseExecutionId))
     return `its scopeKey ${JSON.stringify(key.scopeKey)} is not the scope of tenant ${key.tenantId} and execution ${key.leaseExecutionId}`;
   if (!Number.isInteger(key.token) || key.token < 1)
@@ -138,8 +138,8 @@ const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unk
  * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`). No fingerprint is
  * `null` and every text, `""` too, is itself (#574): as `replayedFromOf` tells them apart.
  */
-const joinKeyOf = (key: FencedEffectKey): string =>
-  JSON.stringify([key.scopeKey, fencedKeyIdentityOf(key), key.token, key.fingerprint ?? null]);
+const joinKeyOf = (key: EffectKey): string =>
+  JSON.stringify([key.scopeKey, effectKeyIdentityOf(key), key.token, key.fingerprint ?? null]);
 
 /**
  * Infrastructure (#500): one protected write per key, inside the store's own transaction — the
@@ -188,7 +188,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    * outcome (`Joined`); across instances the transaction serializes them (`Replayed`).
    */
   saveResultIfAbsent<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     // the name first, as every store checks it at its entry (#508, #526 AC7)
@@ -205,7 +205,7 @@ export abstract class FencedEffectRepository<TTransaction> {
 
   /** The call itself: the leader's transaction, or the outcome of the leader on its key. */
   #call<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     const calls = inFlight.get(this) ?? new Map<string, Promise<FencedEffectOutcome<unknown>>>();
@@ -229,7 +229,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    * token and the `Clock`'s time → `Ran`). Rolled back as a whole when anything throws.
    */
   protected abstract runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>>;
 
@@ -240,7 +240,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    * The result as stored: its JSON, within `maxResultSize` (UTF-8 bytes) — else
    * `FencedEffectResultTooLargeError`, thrown inside the transaction so it rolls back.
    */
-  protected storedResultOf(key: FencedEffectKey, result: unknown): string {
+  protected storedResultOf(key: EffectKey, result: unknown): string {
     const text = JSON.stringify(result);
     // Stryker disable next-line StringLiteral: `Buffer.byteLength` counts UTF-8 for an empty encoding as for "utf8"
     const size = Buffer.byteLength(text, "utf8");
@@ -268,7 +268,7 @@ const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutco
  * does not record (a unit runner's).
  */
 function observedCall<TResult>(
-  key: FencedEffectKey,
+  key: EffectKey,
   frame: FrameSpec | undefined,
   call: Promise<FencedEffectOutcome<TResult>>,
 ): Promise<FencedEffectOutcome<TResult>> {
@@ -277,7 +277,7 @@ function observedCall<TResult>(
 
 /** `observedCall` in a step's frame: told to its lease, unless that lease does not record. */
 function observedInStep<TResult>(
-  key: FencedEffectKey,
+  key: EffectKey,
   frame: FrameSpec,
   call: Promise<FencedEffectOutcome<TResult>>,
 ): Promise<FencedEffectOutcome<TResult>> {
@@ -321,11 +321,11 @@ const joinedOutcome = (outcome: FencedEffectOutcome<unknown>): FencedEffectOutco
 });
 
 export {
-  fencedEffectKeyOf,
+  effectKeyOf,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
-  type FencedEffectKeyOptions,
+  type EffectKeyOptions,
   type IdempotencyKeyConflictErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-key.js";

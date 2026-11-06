@@ -13,15 +13,16 @@ import {
   ExecutionContextUnavailableError,
   ExecutionFencedError,
   ExecutionLeaseLostError,
-  fencedEffectKeyOf,
+  InMemoryOutboundCallRepository,
+  NotSentTrust,
   OutboundCallOutcomeStatus,
   OutboundCallReconciliation,
+  OutboundCallSettings,
+  OutboundCallStatus,
+  OutboundCallUnreconciledError,
   OutboundCallVerdict,
   OutboundCalls,
-  OutboundCallSettings,
-  OutboundCallUnreconciledError,
-  InMemoryOutboundCallRepository,
-  OutboundCallStatus,
+  effectKeyOf,
 } from "../../src/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -201,12 +202,13 @@ class TwiceAtOnceAction {
   ) {}
 
   async execute(): Promise<void> {
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const options = {
       target: "payments",
       operation: "charge",
       request: { orderId: "order-2", amountUsd: 10 },
       send: (call: Parameters<PaymentGateway["charge"]>[0]) => this.paymentGateway.charge(call),
+      notSent: { trust: NotSentTrust.Lookup } as const,
       reconcile: (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
         this.paymentGateway.reconcile(lookup),
     };
@@ -250,13 +252,17 @@ describe("#505: what the protocol refuses", () => {
     });
     const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
     const store = new InMemoryOutboundCallRepository(clock, database, leases);
-    const outboundCalls = new OutboundCalls(store, new OutboundCallSettings());
+    const outboundCalls = new OutboundCalls(
+      store,
+      new OutboundCallSettings({ requiresMask: false }),
+    );
 
     const refused = outboundCalls.send(KEY_PARTS, {
       target: "payments",
       operation: "charge",
       request: {},
       send: () => ({}),
+      notSent: { trust: NotSentTrust.Lookup } as const,
       reconcile: () => OutboundCallReconciliation.notSent(),
     });
 

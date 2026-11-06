@@ -1470,7 +1470,7 @@ holds only when the external system checks both atomically. A test freezes a wri
 step has a held lease (`fence: { token, isLost, confirmNowFails }`).
 
 **The fenced effect** (#500) does all of that in one call, for rows in the store's own database —
-no fencing or idempotency table of the application's: `saveResultIfAbsent(fencedEffectKeyOf(
+no fencing or idempotency table of the application's: `saveResultIfAbsent(effectKeyOf(
 executionContext, name), work)` checks, in one transaction, the step's lease (not its epoch,
 released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
 before any key is read, so a zombie never gets the new holder's result), then the step's key —
@@ -1484,7 +1484,7 @@ connection's `DatabaseSync` and runs it synchronously — a returned promise rol
 `FencedEffectAsyncWorkError`:
 
 <!-- snippet-context
-import { Action, ExecutionContext, SqliteFencedEffectRepository, fencedEffectKeyOf } from "@agboss/core";
+import { Action, ExecutionContext, SqliteFencedEffectRepository, effectKeyOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class OrderDto {
   @Text() orderId!: string;
@@ -1510,7 +1510,7 @@ export class ChargeOrderAction {
 
   async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
     const { orderId } = input.order.value;
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const { result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(key, (database) => {
       // synchronous: the row and the receipt commit together, with the fencing checks
       const { lastInsertRowid } = database

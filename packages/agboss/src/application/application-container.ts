@@ -86,7 +86,11 @@ export function applicationContainerOf(
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
-      [OutboundCallSettings, sources.outboundCalls ?? new OutboundCallSettings()],
+      // no assembled settings (a store opened on its own): fail closed, every request masked (#795)
+      [
+        OutboundCallSettings,
+        sources.outboundCalls ?? new OutboundCallSettings({ requiresMask: true }),
+      ],
       ...contextValuesOf(sources.contexts),
     ]),
     defaults: sources.quiet === true ? TEST_CONTAINER_DEFAULTS : CONTAINER_DEFAULTS,

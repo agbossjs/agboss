@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { InvalidBusinessKeyError } from "../../infrastructure/fenced-effect-key.js";
-import type { FencedEffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf, rejectionOf } from "./fenced-effect-data.js";
@@ -15,7 +15,7 @@ import {
 /** Every method a key enters an outbound-call store through. */
 const KEYED_METHODS: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: FencedEffectKey) => Promise<unknown>,
+  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   ["saveIfAbsent", (stores, key) => stores.calls.saveIfAbsent(key, intentOf(key))],
@@ -40,7 +40,7 @@ const roundTrip: OutboundCallCase = {
   name: "#538: business keys of many scripts — CJK, Cyrillic, Hebrew, emoji, astral, 200 code units — come back byte for byte, on the other instance, each its own intent",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
-    const keyed = (businessKey: string): FencedEffectKey => ({ ...keyOf(lease), businessKey });
+    const keyed = (businessKey: string): EffectKey => ({ ...keyOf(lease), businessKey });
 
     for (const businessKey of ROUND_TRIP_KEYS) await recorded(first, keyed(businessKey));
     for (const businessKey of ROUND_TRIP_KEYS) {

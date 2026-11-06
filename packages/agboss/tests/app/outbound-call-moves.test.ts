@@ -14,14 +14,15 @@ import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/cont
 import {
   ExecutionContextUnavailableError,
   InMemoryOutboundCallRepository,
+  NotSentTrust,
   OutboundCallEventOutcome,
   OutboundCallInFlightError,
   OutboundCallOutcomeStatus,
   OutboundCallReconciliation,
-  OutboundCalls,
   OutboundCallSettings,
   OutboundCallStatus,
-  type FencedEffectKey,
+  OutboundCalls,
+  type EffectKey,
   type OutboundCallIntent,
   type OutboundCallRecord,
 } from "../../src/index.js";
@@ -42,11 +43,11 @@ beforeEach(() => {
 
 /** The in-memory store; scripted, it says another call recorded the key, or drops a result. */
 class ScriptedOutboundCallRepository extends InMemoryOutboundCallRepository {
-  override async saveIfAbsent(key: FencedEffectKey, intent: OutboundCallIntent) {
+  override async saveIfAbsent(key: EffectKey, intent: OutboundCallIntent) {
     return storeScript.isRecordedElsewhere ? false : super.saveIfAbsent(key, intent);
   }
 
-  override async findByKey(key: FencedEffectKey): Promise<OutboundCallRecord | undefined> {
+  override async findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
     const found = await super.findByKey(key);
     if (found === undefined || !storeScript.isResultDropped) return found;
     const dropped = { ...found };
@@ -90,13 +91,13 @@ function callsInFrame() {
     nodeId: base.step.nodeId,
     visitNumber: base.step.visitNumber,
   };
-  const keyIn = async (executionId: string): Promise<FencedEffectKey> => {
+  const keyIn = async (executionId: string): Promise<EffectKey> => {
     const taken = await leases.acquire("default", executionId, hours(1));
     if (taken === undefined) throw new Error("the lease is held");
     return { ...keyOf(taken), origin };
   };
   return {
-    calls: new OutboundCalls(store, new OutboundCallSettings()),
+    calls: new OutboundCalls(store, new OutboundCallSettings({ requiresMask: false })),
     reports,
     keyIn,
     recording: frameUnder(lease),
@@ -121,6 +122,7 @@ function provider() {
       state.failNext = false;
       throw new Error(state.timesOut ? "gateway timeout" : "declined");
     },
+    notSent: { trust: NotSentTrust.Lookup } as const,
     reconcile: () => OutboundCallReconciliation.notSent(),
     isDefiniteFailure: (error: unknown) => error instanceof Error && error.message === "declined",
   };

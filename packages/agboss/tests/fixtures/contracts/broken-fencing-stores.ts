@@ -18,7 +18,7 @@ import {
   LeaseCheck,
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import {
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   replayedFromOf,
   storedKeyFactsOf,
 } from "../../../src/infrastructure/fenced-effect-key.js";
@@ -26,7 +26,7 @@ import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-
 import {
   FencedEffectRepository,
   FencedEffectStatus,
-  type FencedEffectKey,
+  type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
@@ -95,10 +95,7 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
   }
 
   /** The stored result of `key`, replayed. */
-  protected replayOf<TResult>(
-    key: FencedEffectKey,
-    stored: StoredResult,
-  ): FencedEffectOutcome<TResult> {
+  protected replayOf<TResult>(key: EffectKey, stored: StoredResult): FencedEffectOutcome<TResult> {
     const replayedFrom = replayedFromOf(key, stored);
     return {
       status: FencedEffectStatus.Replayed,
@@ -109,9 +106,9 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
   }
 
   /** Stores `key`'s result: Ran. */
-  protected stored<TResult>(key: FencedEffectKey, result: unknown): FencedEffectOutcome<TResult> {
+  protected stored<TResult>(key: EffectKey, result: unknown): FencedEffectOutcome<TResult> {
     const text = this.storedResultOf(key, result);
-    this.results.set(fencedKeyIdentityOf(key), {
+    this.results.set(effectKeyIdentityOf(key), {
       token: key.token,
       storedAt: this.seam.storeClock.now().getTime(),
       result: text,
@@ -124,7 +121,7 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
     };
   }
 
-  protected check(key: FencedEffectKey): void {
+  protected check(key: EffectKey): void {
     checkInMemoryFence(this.seam.database, this.seam.storeClock, key);
     raiseInMemoryMark(this.seam.database, this.seam.storeClock, key);
   }
@@ -137,11 +134,11 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
  */
 export class CheckThenWriteEffects extends BrokenEffects {
   protected async runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<BufferedTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     this.check(key);
-    const found = this.results.get(fencedKeyIdentityOf(key));
+    const found = this.results.get(effectKeyIdentityOf(key));
     await roundTrip();
     if (found !== undefined) return this.replayOf(key, found);
     const transaction = new BufferedTransaction(false);
@@ -157,11 +154,11 @@ export class CheckThenWriteEffects extends BrokenEffects {
  */
 export class RowsOutsideEffects extends BrokenEffects {
   protected async runInTransaction<TResult>(
-    key: FencedEffectKey,
+    key: EffectKey,
     work: FencedEffectWork<BufferedTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     this.check(key);
-    const found = this.results.get(fencedKeyIdentityOf(key));
+    const found = this.results.get(effectKeyIdentityOf(key));
     if (found !== undefined) return this.replayOf(key, found);
     const result = await work(new BufferedTransaction(true));
     await roundTrip();

@@ -7,12 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import {
-  Action,
-  ExecutionContext,
-  fencedEffectKeyOf,
-  InvalidBusinessKeyError,
-} from "../../src/index.js";
+import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
 import { isThreadId } from "../../src/run/thread.js";
 import { testAction } from "../../src/testing/index.js";
 
@@ -30,7 +25,7 @@ class CutKeyAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(): Promise<WorkflowStartTextDto> {
-    fencedEffectKeyOf(this.executionContext, "charge", { businessKey: CUT });
+    effectKeyOf(this.executionContext, "charge", { businessKey: CUT });
     return Promise.resolve({ text: "keyed" });
   }
 }
@@ -42,7 +37,7 @@ describe("a business key with a lone surrogate", () => {
     expect(isThreadId("order:\u{1F9FE}42")).toBe(true);
   });
 
-  it("fencedEffectKeyOf refuses it with InvalidBusinessKeyError, the key not in the message", async () => {
+  it("effectKeyOf refuses it with InvalidBusinessKeyError, the key not in the message", async () => {
     const run = testAction(CutKeyAction);
 
     const error: unknown = await run({ message: { value: { text: "x" } } }).catch(

@@ -4,6 +4,7 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
+  NotSentTrust,
   OutboundCallReconciliation,
   OutboundCallUnreconciledError,
   OutboundCalls,
@@ -13,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  fencedEffectKeyOf,
+  effectKeyOf,
   pii,
   type OnOutboundCall,
   type OutboundCallEvent,
@@ -114,12 +115,13 @@ export class ChargeOrderAction {
     const [orderId = "", email] = input.message.value.text.split(" ");
     const contact = email === undefined ? {} : { email };
     const request: ChargeRequest = { orderId, amountUsd: 10, ...contact };
-    const key = fencedEffectKeyOf(this.executionContext, "charge");
+    const key = effectKeyOf(this.executionContext, "charge");
     const outcome = await this.outboundCalls.send(key, {
       target: "payments",
       operation: "charge",
       request,
       send: (call) => this.paymentGateway.charge(call),
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: (call) => this.paymentGateway.reconcile(call),
       // #657: a decline is the provider's definite answer — anything else is of unknown outcome
       isDefiniteFailure: isDeclined,
@@ -148,22 +150,24 @@ export class ChargeAndNotifyAction {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
     const request: ChargeRequest = { orderId: input.message.value.text, amountUsd: 10 };
-    const chargeKey = fencedEffectKeyOf(this.executionContext, "charge");
+    const chargeKey = effectKeyOf(this.executionContext, "charge");
     const charged = await this.outboundCalls.send(chargeKey, {
       target: "payments",
       operation: "charge",
       request,
       send: (call) => this.paymentGateway.charge(call),
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: (call) => this.paymentGateway.reconcile(call),
       // #657: a decline is the provider's definite answer — anything else is of unknown outcome
       isDefiniteFailure: isDeclined,
     });
-    const mailKey = fencedEffectKeyOf(this.executionContext, "receipt-mail");
+    const mailKey = effectKeyOf(this.executionContext, "receipt-mail");
     await this.outboundCalls.send(mailKey, {
       target: "mail",
       operation: "send-receipt",
       request: { chargeId: charged.result.chargeId },
       send: () => ({ messageId: "m-1" }),
+      notSent: { trust: NotSentTrust.Lookup },
       reconcile: () =>
         OutboundCallReconciliation.unknown({ reason: "a receipt mail is never left pending here" }),
     });

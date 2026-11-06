@@ -1,9 +1,6 @@
 import { fingerprintOf, IdempotencyKeyConflictError } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
-import type {
-  FencedEffectKey,
-  FencedEffectOrigin,
-} from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey, FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
@@ -20,7 +17,7 @@ import { OutboundCallInFlightError } from "./outbound-calls.js";
  */
 
 /** The key with its fingerprint: the request's, when a business key names none. */
-export const keyedByRequest = (key: FencedEffectKey, request: unknown): FencedEffectKey =>
+export const keyedByRequest = (key: EffectKey, request: unknown): EffectKey =>
   key.businessKey === undefined || key.fingerprint !== undefined
     ? key
     : { ...key, fingerprint: fingerprintOf(request) };
@@ -29,9 +26,9 @@ export const keyedByRequest = (key: FencedEffectKey, request: unknown): FencedEf
  * The idempotency key sent with the call: the step's key and the name — or, with a business key,
  * the tenant, the business key and the name, the same from every step and execution. Each part is
  * unambiguous (#508): the tenant and the business key `encodeURIComponent`-encoded, the name
- * without a `:` (`fencedEffectKeyOf` checks it), so two keys never give one string.
+ * without a `:` (`effectKeyOf` checks it), so two keys never give one string.
  */
-export const callKeyOf = (key: FencedEffectKey): string =>
+export const callKeyOf = (key: EffectKey): string =>
   key.businessKey === undefined
     ? `${key.idempotencyKey}:${key.name}`
     : `${encodeURIComponent(key.tenantId)}:${encodeURIComponent(key.businessKey)}:${key.name}`;
@@ -70,7 +67,7 @@ export async function checkedCall<TRequest, TResult>(
  * How an error names a call's key: a business key only by its keyed handle (#508), never as it is
  * — `business-key:<handle>:<name>`, or `business-key:<name>` where no handle could be made.
  */
-export function reportedKeyOf(key: FencedEffectKey, idempotencyKey: string): string {
+export function reportedKeyOf(key: EffectKey, idempotencyKey: string): string {
   if (key.businessKey === undefined) return idempotencyKey;
   const handle = key.businessKeyHash === undefined ? "" : `${key.businessKeyHash}:`;
   return `business-key:${handle}${key.name}`;
@@ -78,7 +75,7 @@ export function reportedKeyOf(key: FencedEffectKey, idempotencyKey: string): str
 
 /** The step a replayed call was made by, when it is another step or execution (#508). */
 export function replayedFromOf(
-  key: FencedEffectKey,
+  key: EffectKey,
   found: OutboundCallRecord,
 ): FencedEffectOrigin | undefined {
   const origin = {

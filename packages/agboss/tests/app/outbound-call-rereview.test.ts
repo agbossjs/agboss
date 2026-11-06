@@ -20,7 +20,7 @@ import {
   Injectable,
   InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  type FencedEffectKey,
+  type EffectKey,
   Logger,
   OutboundCallRepository,
   OutboundCallOutcomeStatus,
@@ -366,7 +366,7 @@ describe("#508 re-review MEDIUM4: a fingerprint is kept in the store's row only"
 /** The rival that takes the attempt over between this call's send and its completion. */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
-  override async markCompleted(key: FencedEffectKey, owner: string, result: string) {
+  override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);
     if (found !== undefined)
       await this.markPending(key, stateOf(found), {
@@ -386,7 +386,10 @@ describe("#508 re-review LOW/MEDIUM6: a Superseded attempt is logged on the inst
       ],
     });
 
-    await run({ message: { value: { text: "order-1" } } } as never);
+    // #795: the step fails with OutboundCallSupersededError — and the log says it all the same
+    await expect(run({ message: { value: { text: "order-1" } } } as never)).rejects.toThrow(
+      /attempt 1 was answered after attempt 2/u,
+    );
 
     expect(logged).toEqual([
       expect.objectContaining({

@@ -3,26 +3,26 @@
  * (agbossjs/postgres, a Redis or a MongoDB store) keeps them with the core's own code instead of a
  * copy: the name rule (`checkedEffectName`), the replay and conflict rule (`replayedFromOf`, which
  * takes a row's `null`s and checks a stored step), what a row keeps (`storedKeyFactsOf`), where a
- * key's row is (`fencedKeyIdentityOf`) and the record of an outbound call's intent
+ * key's row is (`effectKeyIdentityOf`) and the record of an outbound call's intent
  * (`pendingOutboundCallOf`). The core's own stores use the same functions.
  */
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import {
   checkedEffectName,
-  fencedKeyIdentityOf,
+  effectKeyIdentityOf,
   IdempotencyKeyConflictError,
   InvalidFencedEffectNameError,
   OutboundCallStatus,
   pendingOutboundCallOf,
   replayedFromOf,
   storedKeyFactsOf,
-  type FencedEffectKey,
+  type EffectKey,
   type OutboundCallIntent,
   type StoredKeyFacts,
 } from "../../src/index.js";
 
-const STEP: FencedEffectKey = {
+const STEP: EffectKey = {
   scopeKey: "default:root-1",
   tenantId: "default",
   leaseExecutionId: "root-1",
@@ -32,7 +32,7 @@ const STEP: FencedEffectKey = {
   origin: { executionId: "root-1", nodeId: "charge-action", visitNumber: 1 },
 };
 
-const BUSINESS: FencedEffectKey = {
+const BUSINESS: EffectKey = {
   ...STEP,
   businessKey: "order:42",
   fingerprint: "f-10",
@@ -44,7 +44,7 @@ const OTHER_STEP = { executionId: "root-2", nodeId: "charge-action", visitNumber
 describe("#526 AC5: the helpers are on the root entry", () => {
   it.each([
     "checkedEffectName",
-    "fencedKeyIdentityOf",
+    "effectKeyIdentityOf",
     "pendingOutboundCallOf",
     "replayedFromOf",
     "storedKeyFactsOf",
@@ -179,19 +179,19 @@ describe("#526 AC5: storedKeyFactsOf — what a row keeps", () => {
   });
 });
 
-describe("#526 AC5: fencedKeyIdentityOf — where a key's row is", () => {
+describe("#526 AC5: effectKeyIdentityOf — where a key's row is", () => {
   it("a step's key: its scope, idempotency key and name", () => {
-    expect(fencedKeyIdentityOf(STEP)).toBe(
+    expect(effectKeyIdentityOf(STEP)).toBe(
       "default:root-1\u0000root-1:charge-action:1\u0000charge",
     );
   });
 
   it("a business key: its tenant, name and business key — not the scope, the token or the step", () => {
-    const identity = fencedKeyIdentityOf(BUSINESS);
+    const identity = effectKeyIdentityOf(BUSINESS);
 
     expect(identity).toBe("business\u0000default\u0000charge\u0000order:42");
     expect(
-      fencedKeyIdentityOf({
+      effectKeyIdentityOf({
         ...BUSINESS,
         scopeKey: "default:root-9",
         token: 7,
@@ -202,13 +202,13 @@ describe("#526 AC5: fencedKeyIdentityOf — where a key's row is", () => {
 
   it("another name, tenant or business key is another row; a step's key never meets a business key's", () => {
     const rows = new Set([
-      fencedKeyIdentityOf(STEP),
-      fencedKeyIdentityOf({ ...STEP, name: "refund" }),
-      fencedKeyIdentityOf({ ...STEP, idempotencyKey: "root-1:charge-action:2" }),
-      fencedKeyIdentityOf(BUSINESS),
-      fencedKeyIdentityOf({ ...BUSINESS, tenantId: "acme" }),
-      fencedKeyIdentityOf({ ...BUSINESS, businessKey: "order:43" }),
-      fencedKeyIdentityOf({ ...BUSINESS, name: "refund" }),
+      effectKeyIdentityOf(STEP),
+      effectKeyIdentityOf({ ...STEP, name: "refund" }),
+      effectKeyIdentityOf({ ...STEP, idempotencyKey: "root-1:charge-action:2" }),
+      effectKeyIdentityOf(BUSINESS),
+      effectKeyIdentityOf({ ...BUSINESS, tenantId: "acme" }),
+      effectKeyIdentityOf({ ...BUSINESS, businessKey: "order:43" }),
+      effectKeyIdentityOf({ ...BUSINESS, name: "refund" }),
     ]);
 
     expect(rows.size).toBe(7);

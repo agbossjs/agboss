@@ -87,7 +87,7 @@ export interface OnStepHandedOver {
 export interface FencedEffectEvent extends NodeEvent {
   readonly name: string;
   readonly scopeKey: string;
-  /** The token the call ran under (`fencedEffectKeyOf(…).token`). */
+  /** The token the call ran under (`effectKeyOf(…).token`). */
   readonly token: number;
   readonly outcome: FencedEffectEventOutcome;
   /** The token the stored result was first written under, when there is a result. */
@@ -124,7 +124,7 @@ export interface OutboundCallEvent extends NodeEvent {
   readonly attempt: number;
   readonly outcome: OutboundCallEventOutcome;
   readonly scopeKey: string;
-  /** The token the call ran under (`fencedEffectKeyOf(…).token`). */
+  /** The token the call ran under (`effectKeyOf(…).token`). */
   readonly token: number;
   /** The instance that made the call. */
   readonly holderInstanceId: string;

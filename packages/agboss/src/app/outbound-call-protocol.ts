@@ -4,7 +4,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
-import type { FencedEffectKey } from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
@@ -26,7 +26,7 @@ import {
   OutboundCallPart,
   OutboundCallReconciliation,
   OutboundCallVerdict,
-  type OutboundCallOptions,
+  type OutboundCallSendOptions,
   type OutboundCallOutcome,
 } from "./outbound-calls.js";
 
@@ -40,7 +40,7 @@ import {
   fencedEnd,
   leaseSuperseded,
   replayed,
-  superseded,
+  supersededErrorOf,
   unreconciledOf,
 } from "./outbound-call-endings.js";
 import { joinedOrMade, owning } from "./outbound-call-join.js";
@@ -53,7 +53,8 @@ export type { OutboundCallParts } from "./outbound-call-parts.js";
  * (fenced) and, by its state — completed: replayed; pending: reconciled; failed (for certain,
  * #657): sent again; none: recorded (fenced), then sent. An error `send` throws is a failure only
  * when the call's `isDefiniteFailure` says so, else the intent stays pending (#657); a `notSent()`
- * past the call's `keyRetention` is refused (#658). Before the network the lease is renewed (`confirmNow`); the answer
+ * of a `KeyReplay` past its `keyRetention` is refused (#658, #795); an answer after a newer attempt
+ * took the intent over is `OutboundCallSupersededError` (#795). Before the network the lease is renewed (`confirmNow`); the answer
  * is written back fenced — a refusal there is a hand-over, and the new holder reconciles. A new
  * attempt is a compare-and-set on the intent as read — its status, attempt and attempt owner (a
  * random id per claim): a call that loses it sends nothing and reads the intent again, a bounded
@@ -88,15 +89,19 @@ async function sendNow<TRequest, TResult>(
     answer = await run.options.send(call);
   } catch (error) {
     // aborted (a lost lease, a cancel): nobody knows what arrived — the intent stays pending
-    if (!call.signal.aborted) await failedOrPending(run, attempt, owner, error);
-    throw error;
+    const superseded = call.signal.aborted
+      ? undefined
+      : await failedOrPending(run, attempt, owner, error);
+    throw superseded ?? error;
   }
   // stored masked (or a marker: the call happened); the step gets the answer as it is
   const stored = await storedResultOf(run, answer);
   const isCompleted = () => repository.markCompleted(run.key, owner, stored);
+  // both reached the other system (#795): the step fails, never goes on as if all were well
   if (!(await fencedEnd(run, attempt, isCompleted))) {
-    await superseded(run, attempt);
-    return outcomeOf(run, OutboundCallOutcomeStatus.Superseded, answer, attempt);
+    // the other system answered: a call joined to this one shares the error, never sends again
+    run.answer.isAnswered = true;
+    throw await supersededErrorOf(run, attempt);
   }
   told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
   return outcomeOf(run, OutboundCallOutcomeStatus.Sent, answer, attempt);
@@ -123,7 +128,7 @@ async function movedAndSent<TRequest, TResult>(
 
 /**
  * The pending intent `found` (read from `readStarted` on, the monotonic clock), reconciled:
- * completed, sent again — only inside the call's `keyRetention` (#658) —, or the step fails.
+ * completed, sent again — a `KeyReplay`'s only inside its `keyRetention` (#658) —, or the step fails.
  */
 async function reconciled<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
@@ -222,8 +227,8 @@ async function sendOnce<TRequest, TResult>(
 /** `OutboundCalls.send`: the protocol, in the step's frame. */
 export async function sendOutboundCall<TRequest, TResult>(
   parts: OutboundCallParts,
-  stepKey: FencedEffectKey,
-  options: OutboundCallOptions<TRequest, TResult>,
+  stepKey: EffectKey,
+  options: OutboundCallSendOptions<TRequest, TResult>,
 ): Promise<OutboundCallOutcome<TResult>> {
   const key = keyedByRequest(stepKey, options.request);
   const frame = currentFrame();

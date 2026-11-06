@@ -1,9 +1,10 @@
 import {
   Action,
   ExecutionContext,
+  NotSentTrust,
   OutboundCallReconciliation,
   OutboundCalls,
-  fencedEffectKeyOf,
+  effectKeyOf,
   type ActionHandler,
   type InputOf,
   type OutputOf,
@@ -46,7 +47,7 @@ export class BookFlightAction implements ActionHandler<BookFlightAction> {
 
   async execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
     const { destination } = input.request.value;
-    const key = fencedEffectKeyOf(this.executionContext, "book-flight");
+    const key = effectKeyOf(this.executionContext, "book-flight");
     const { result } = await this.outboundCalls.send(key, {
       target: "airline",
       operation: "book-flight",
@@ -61,6 +62,8 @@ export class BookFlightAction implements ActionHandler<BookFlightAction> {
       }),
       reconcile: async (lookup) =>
         reconciliationOf(await this.bookingDeskService.findFlight(lookup.idempotencyKey)),
+      // the airline's own bookings are looked up, not its key store: "missing" is true at any age
+      notSent: { trust: NotSentTrust.Lookup },
     });
     return { bookingId: result.bookingId };
   }

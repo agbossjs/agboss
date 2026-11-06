@@ -15,7 +15,7 @@ import {
   type OutboundCallClaim,
   type OutboundCallState,
 } from "../../../src/infrastructure/outbound-call.repository.js";
-import type { FencedEffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
+import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { Clock, type StoreClock } from "../../../src/infrastructure/clock.js";
 import type {
@@ -69,7 +69,7 @@ class SameEpochReclaimLeaseRepository extends InMemoryExecutionLeaseRepository {
 /** An outbound-call store whose `markPending` does not compare: every claimer wins. */
 class UncomparedOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async markPending(
-    key: FencedEffectKey,
+    key: EffectKey,
     _expected: OutboundCallState,
     claim: OutboundCallClaim,
   ): Promise<boolean> {
