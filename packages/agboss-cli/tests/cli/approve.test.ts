@@ -2,7 +2,7 @@
  * The terminal's approval loop of `agboss run` / `agboss chat`: a paused run asks in the terminal and
  * continues in the same process — on a real app (`testWith`), its models scripted.
  */
-import { executeUnchecked } from "@agboss/core/internal";
+import { executeWithoutInputCheck } from "@agboss/core/internal";
 import { ExecutionStatus } from "@agboss/core";
 import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { describe, expect, vi } from "vitest";
@@ -49,7 +49,7 @@ describe("terminal approval (agboss run and agboss chat)", () => {
     });
     const ask = vi.fn(() => Promise.resolve("y"));
 
-    const paused = await executeUnchecked(app, ChatStart, { text: "note: call back" });
+    const paused = await executeWithoutInputCheck(app, ChatStart, { text: "note: call back" });
     const done = await untilDone(paused, app, ask);
 
     expect(ask).toHaveBeenCalledWith(
@@ -72,7 +72,7 @@ describe("terminal approval (agboss run and agboss chat)", () => {
         write_file: () => Promise.resolve({ content: "ok" }),
       });
 
-      const paused = await executeUnchecked(app, ChatStart, { text: "note: x" });
+      const paused = await executeWithoutInputCheck(app, ChatStart, { text: "note: x" });
       const done = await untilDone(paused, app, () => Promise.resolve(reply));
 
       expect(done).toFinishWith(Reply, { text: "Not saved." });
@@ -83,7 +83,7 @@ describe("terminal approval (agboss run and agboss chat)", () => {
 
 describe("#659: a question pause in the terminal", () => {
   asking("JSON is the typed answer; one that is not valid is asked again", async ({ app }) => {
-    const paused = await executeUnchecked(app, LimitWorkflowStart, { item: "laptop" });
+    const paused = await executeWithoutInputCheck(app, LimitWorkflowStart, { item: "laptop" });
     const ask = vi
       .fn<(question: string) => Promise<string | undefined>>()
       .mockResolvedValueOnce('{ "approved": true }')
@@ -99,7 +99,7 @@ describe("#659: a question pause in the terminal", () => {
   asking(
     "free text is a reply: without an interpreter it is refused, nothing asked again",
     async ({ app }) => {
-      const paused = await executeUnchecked(app, LimitWorkflowStart, { item: "desk" });
+      const paused = await executeWithoutInputCheck(app, LimitWorkflowStart, { item: "desk" });
 
       await expect(
         untilDone(paused, app, () => Promise.resolve("up to 300")),

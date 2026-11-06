@@ -191,14 +191,6 @@ export interface BuiltApplication {
 // @public
 export function builtApplicationOf(application: Class, options?: AppOptions & Pick<BuildOptions, "chaos">): Promise<BuiltApplication>;
 
-// Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
-//
-// @public
-export const byClassName: ComponentLabel;
-
-// @public
-export const byComponentName: ComponentLabel;
-
 // Warning: (ae-forgotten-export) The symbol "EvalRunReport" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "EvalLabel" needs to be exported by the entry point internal.d.ts
 //
@@ -290,6 +282,14 @@ export const completedStatusOf: (finish: string, output: unknown) => A2ATaskStat
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
 
+// Warning: (ae-forgotten-export) The symbol "Environment" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function contextsOutsideExecution(workflow: {
+    readonly name: string;
+    readonly version: string;
+}, environment?: Environment, clock?: Clock): RuntimeContexts;
+
 // @public
 export function contractsOf(assembled: AssembledApplication): ContractsSnapshot;
 
@@ -375,9 +375,6 @@ export interface DefaultsLevels {
     // (undocumented)
     readonly workflow: DefaultsLevel_;
 }
-
-// @public
-export const defaultsLevelsOf: (graph: object) => DefaultsLevels | undefined;
 
 // @public
 export interface DefaultSource {
@@ -473,8 +470,6 @@ export interface DescribedEnvironment {
     readonly fields: Readonly<Record<string, string>>;
     // (undocumented)
     readonly name: string;
-    // Warning: (ae-forgotten-export) The symbol "Environment" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly values: Environment;
 }
@@ -761,7 +756,7 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
 // Warning: (ae-forgotten-export) The symbol "ExecutionOutput" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const executeUnchecked: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
+export const executeWithoutInputCheck: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
 // @public
 export const EXECUTION_RECORD_KIND = "agboss.execution-record";
@@ -884,6 +879,7 @@ export interface FederationReport {
 }
 
 // Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
 // @public
 export const flowLines: (flow: readonly FlowPath[], label?: ComponentLabel) => readonly string[];
@@ -909,7 +905,6 @@ export interface FlowTypesWrite {
     readonly files: readonly string[];
     readonly outFile?: string;
     readonly project: string;
-    readonly strict?: boolean;
     readonly tablesModule?: string;
     readonly typescript?: boolean;
 }
@@ -972,6 +967,30 @@ export const isJudgeCheckName: (check: string) => boolean;
 //
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
+
+// Warning: (ae-forgotten-export) The symbol "RagRetrieval" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export interface KnowledgeRetrieval extends RagRetrieval {
+    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point internal.d.ts
+    readonly usage?: readonly UsageRecord[];
+}
+
+// @public
+export type KnowledgeRetrieve = (query: string, options: {
+    readonly topK: number;
+    readonly signal: AbortSignal;
+}) => Promise<KnowledgeRetrieval>;
+
+// @public
+export interface KnowledgeSource {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly retrieve: KnowledgeRetrieve;
+    // (undocumented)
+    readonly topK: number;
+}
 
 // @public
 export function labelsWith(content: string, label: EvalLabel): string;
@@ -1053,9 +1072,6 @@ export interface OpenedExecutionHistory {
 export function openExecutionHistory(application: Class, options?: Pick<AppOptions, "env" | "processEnv">): Promise<OpenedExecutionHistory>;
 
 // @public
-export function pathLines(path: FlowPath, label?: ComponentLabel): readonly string[];
-
-// @public
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus;
 
 // @public (undocumented)
@@ -1100,11 +1116,6 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
     readonly promptVersion: string;
     readonly limit: number;
 }): Promise<ReplayReport>;
-
-// Warning: (ae-forgotten-export) The symbol "RuntimeGraph" needs to be exported by the entry point internal.d.ts
-//
-// @public
-export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
 
 // @public
 export const reservedExecutionIdOf: (options: object) => string | undefined;
@@ -1171,12 +1182,6 @@ export interface StaleCassette {
     readonly message: string;
 }
 
-// @public
-export function standaloneContexts(workflow: {
-    readonly name: string;
-    readonly version: string;
-}, environment?: Environment, clock?: Clock): RuntimeContexts;
-
 // Warning: (ae-forgotten-export) The symbol "DtoIssue" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -1224,11 +1229,10 @@ export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
     readonly processEnv?: NodeJS.ProcessEnv;
 }
 
+// Warning: (ae-forgotten-export) The symbol "RuntimeGraph" needs to be exported by the entry point internal.d.ts
+//
 // @public
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
-
-// @public
-export const TRAJECTORY_CHECK = "trajectory";
 
 // @public
 export const versionOf: (value: unknown) => string;
@@ -1498,6 +1502,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:21:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
+// src/rag/types.ts:153:3 - (ae-undocumented) Missing documentation for "name".
+// src/rag/types.ts:154:3 - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts:155:3 - (ae-undocumented) Missing documentation for "retrieve".
 // src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".
 // src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "component".
 // src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "changes".

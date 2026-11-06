@@ -10,7 +10,7 @@ import { SqliteFtsConnector } from "../../src/rag/sqlite-fts.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterAll, expect } from "vitest";
 import { modelRerankerOf } from "../../src/rag/llm-reranker.js";
-import type { RagReranking, RerankerHandler } from "../../src/rag/types.js";
+import type { RerankResult, RerankerHandler } from "../../src/rag/types.js";
 import {
   ragConnectorContract,
   type RagConnectorContractTarget,
@@ -28,7 +28,7 @@ const target = {
     const byTenant = new Map<string, string>();
     const connector = new SqliteFtsConnector({
       folder: (tenantId) => byTenant.get(tenantId),
-      dbFile: join(root, "index.sqlite"),
+      sqlitePath: join(root, "index.sqlite"),
     });
     folders.set(connector, byTenant);
     roots.set(connector, root);
@@ -80,8 +80,8 @@ afterAll(() => {
 });
 
 const reversing: RerankerHandler = {
-  rerank: (_query, candidates, { keep }): Promise<RagReranking> =>
-    Promise.resolve({ results: [...candidates].reverse().slice(0, keep), costUsd: 0 }),
+  rerank: (_query, candidates, { topK }): Promise<RerankResult> =>
+    Promise.resolve({ results: [...candidates].reverse().slice(0, topK), costUsd: 0 }),
 };
 
 ragConnectorContract({

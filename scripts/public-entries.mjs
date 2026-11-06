@@ -1,4 +1,4 @@
-// The public entries of the `agboss` package, read from its package.json (#195): `exports`
+// The public entries of the `@agboss/core` package, read from its package.json (#195): `exports`
 // minus `deprecatedExports` (old entries kept one minor release as deprecated re-exports). The
 // examples' lint allowlist is built from it, so the rule and the package cannot drift.
 import { readFileSync } from "node:fs";

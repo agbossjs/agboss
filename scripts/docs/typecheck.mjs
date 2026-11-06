@@ -1,4 +1,4 @@
-// Writes a doc's snippets as a small project and typechecks it against the built `agboss`
+// Writes a doc's snippets as a small project and typechecks it against the built `@agboss/core`
 // package (#196): the folder links the repo's node_modules, so `agboss`, `@agboss/core/dto`, …
 // resolve exactly as in a project that installed it.
 import { mkdirSync, symlinkSync, writeFileSync, existsSync } from "node:fs";

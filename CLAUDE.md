@@ -156,7 +156,7 @@ problems with their blast radius — the same `checkFederation` over each applic
 and who calls an application whose latest eval run lost pass^k (#401 PR 7); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
-(`@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts the LangGraph
+(`@agboss/core/testing`, #818: public — a test renders the graphs with it; the CLI takes it from `@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts the LangGraph
 dev server on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
 `langgraph.json` of its own. The server is `src/cli/studio-server.ts` (#791), a child process doing
 what `langgraphjs dev --config … --port N` did on `@langchain/langgraph-api`'s `spawnServer` alone:
@@ -1433,7 +1433,8 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
   `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
   excepted) and in a project's `src/` outside its tests (the `eslint.config.js` `agboss create`
-  writes, #388).
+  writes, #388). Lint `agboss/no-internal-import` (#818) fails any import of `@agboss/core/internal`
+  (the CLI's, no semver promise) in every file of a project and of the examples.
 - **Ids are the application's `IdGenerator` (#313):** infrastructure like the `Clock` (and in its
   module) — `newThreadId()` and `newExecutionId()`; every thread id the framework mints
   (`app.execute` without a `threadId`) and every execution id (roots, children, recursion levels)
@@ -1744,27 +1745,28 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
   (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
   file migrates in place to the `default` tenant, a later version is `rag.index-version`), each
-  document replaced in one transaction; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
+  document replaced in one transaction, a tenant never indexed indexed by its first retrieval on the instance, once and whole — one transaction, so a failure midway leaves nothing and the next retrieval builds it again (#818: later retrievals only read; `OncePerTenant`, each caller waiting under its own signal); `SqliteFtsOptions { folder, sqlitePath, maxChunkLength? }`; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
   context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`). A
   connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
   (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
-  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, keep, onFailure? } })` in place of `topK`
-  (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ keep ≤ candidates`;
+  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it for every tenant that read it, and a tenant it never saw served, its calls carrying it; that the core passes the tenant to a shared connector is `tests/rag/tenancy.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
+  (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ topK ≤ candidates`;
+  `by` is a `RerankerClass` — a model `@Reranker` `extends ModelReranker`, a code one `implements RerankerHandler`; any other class does not compile, #818, a JS caller's is
   `[rag.not-a-reranker]`) — the connector is asked for `candidates`, the `@Reranker`
-  (`rerankers/*.reranker.ts`, `-reranker`, `@agboss/core/rag`) re-orders them, the agent gets `keep`,
-  in tool and context mode alike (`testRag` too). `DecidedBy.Model` (the default, an empty class):
+  (`rerankers/*.reranker.ts`, `-reranker`, `@agboss/core/rag`) re-orders them, the agent gets `topK`,
+  in tool and context mode alike (`testRag` too). `DecidedBy.Model` (the default, `extends ModelReranker`, no code):
   the core's LLM reranker on `model` (else `DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`), a model use
   `rerankers.<name>` (`[model.unserved]`; a decision model `[reranker.decision-model]`), one call —
   the numbered candidates in, `{"ranking":[…]}` out (unranked ones follow in retrieval order),
   `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1]}'))`, unscripted the retrieval's
-  order; `DecidedBy.Code` — `implements RerankerHandler` (`rerank(query, candidates, { keep, signal,
-tenantId })` → `RagReranking { results, costUsd? }`, `deps`; a dedicated API such as Cohere Rerank on
+  order; `DecidedBy.Code` — `implements RerankerHandler` (`rerank(query, candidates, { topK, signal,
+tenantId })` → `RerankResult { results, costUsd? }`, everything from `@agboss/core/rag` — `DecidedBy` and `RagSearchResultDto` too, `deps`; a dedicated API such as Cohere Rerank on
   its official SDK; none → `[reranker.missing-handler]`). The result must be a subset of the
-  candidates (by `source` + `text`, none twice, at most `keep`), else it is a failure — no reranker can
+  candidates (by `source` + `text`, none twice, at most `topK`), else it is a failure — no reranker can
   put a passage the tenant's retrieval did not return before the agent. A failure (a throw, an
   unreadable reply, an invalid result) under `RerankFailurePolicy.Fallback` (default) gives the
-  retrieval's first `keep` and a span `rerank:<name>:fallback`; under `FailStep` it is
-  `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`) failing the agent's step in both
+  retrieval's first `topK` and a span `rerank:<name>:fallback`; under `FailStep` it is
+  `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`; `new RerankFailedError({ rag, reranker, cause, usage })`) failing the agent's step in both
   modes. The LLM reranker's model reads the query and the candidates (texts and sources) as the reading agent's own model does (#708: that agent's PII policies, its execution's sensitive values and key — in context mode the agent's, in tool mode the searching agent's; a block rule in them refuses as at the agent's boundary: the search call refused, the execution refused in context mode, and no model reads them); a code reranker's call is the project's own. The same holds for a model judge's calls in an agent's quality gate (`judgeModel.invoke` / `decide` masked, its chat reply revealed before the judge reads it) and a model arbiter's (the answering agent's policies). The reranking is the span `rerank:<rag>` (its model call inside, both masked); its spend a `UsageRecord`
   under `rag:<rag>` (category `retrieval`, the reranker's model; a code one's `costUsd` cost source
   `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, per-tenant, reranked by
@@ -2597,7 +2599,7 @@ isPassed }` (#799: every requirement probed and passed — G3 skipped without a 
 
 ### Imports
 
-An example (and any project) imports only the public entries: the root `agboss` (decorators,
+An example (and any project) imports only the public entries: the root `@agboss/core` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
 types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`; `/testing/vitest`, #497, the vitest preset `agbossTest()`; `/testing/contracts`, #481, the store
 contract suites), and
@@ -2605,7 +2607,8 @@ the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` 
 its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a
 project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
 `packages/agboss/package.json#exports` minus `deprecatedExports` (`scripts/public-entries.mjs`): a
-new entry is allowed by adding it there, never by an `eslint-disable`. `/core`, `/graph`, `/router`,
+new entry is allowed by adding it there, never by an `eslint-disable`; a project and agbossjs/agboss-examples
+get the same refusal of `@agboss/core/internal` from `agboss/no-internal-import` (`@agboss/core/eslint`, #818). `/core`, `/graph`, `/router`,
 `/tool`, `/channels` are deprecated re-exports; `agboss migrate imports` rewrites them. The root
 import has no side effects (load tracing, MCP, SQLite lazily), and each name has one meaning across
 entries. A public surface change updates the api-extractor reports (`npm run api:update` →
@@ -2761,15 +2764,15 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
     llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  tracing/
     prompts/  types/
-    loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
+    loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through @agboss/core/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;
-                    describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
+                    describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio, public in /testing)
     federation/     `agboss check --federation` (#398 PR 4): the snapshots read, the contracts compared
-                    (federation.ts) and JSON Schemas compared structurally (schema-compat.ts), through agboss/internal
+                    (federation.ts) and JSON Schemas compared structurally (schema-compat.ts), through @agboss/core/internal
     eval/           `@agboss/core/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
-                    assembly (check-suite.ts, through agboss/internal); run/ — `agboss eval run`'s
+                    assembly (check-suite.ts, through @agboss/core/internal); run/ — `agboss eval run`'s
                     runner (run-suite.ts) and its artifact (report.ts); eval.ts, golden, replay, compare —
-                    the CLI's eval, golden, replay and compare (through agboss/internal)
+                    the CLI's eval, golden, replay and compare (through @agboss/core/internal)
     eslint/         `@agboss/core/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
                     `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` — for the eslint.config.js `agboss
                     create` writes and for this repo's own config (so lint runs on the build)
@@ -2784,7 +2787,7 @@ packages/agboss-cli/    the `agboss` command (#205, npm package `@agboss/cli`; d
     migrate/        `agboss migrate imports` (#195): rewrites the old entries' imports to the new ones
     chat.ts, cli.ts, check.ts, describe.ts, dev.ts, studio.ts, rag-index.ts, eval/   command handlers
   tests/            CLI tests; workflows come from the framework's tests/fixtures
-  bin/              the CLI launcher (bin names `agboss` and `agboss`)
+  bin/              the CLI launcher (bin names `agboss` and `agboss-cli`)
 examples/flow-patterns/      the one in-repo example (#489: job-scout is agbossjs/agboss-examples' 08-job-scout) —
                     the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches

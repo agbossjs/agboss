@@ -5,7 +5,7 @@ import {
   Rag,
   RagMode,
   RagTenancy,
-  type IndexReport,
+  type RagIndexReport,
   type RagConnector,
   type RagIndexOptions,
   type RagRetrieval,
@@ -21,7 +21,7 @@ export class NotesRag implements RagConnector {
   }
 
   // #700: each tenant its own index — another tenant has more documents here
-  index({ tenantId }: RagIndexOptions): Promise<IndexReport> {
+  index({ tenantId }: RagIndexOptions): Promise<RagIndexReport> {
     const documents = tenantId === "default" ? 2 : 7;
     return Promise.resolve({ documents, chunks: 3, skipped: 1, costUsd: 0.000_5 });
   }

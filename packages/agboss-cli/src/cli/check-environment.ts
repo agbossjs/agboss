@@ -6,7 +6,7 @@ import {
   resolveEnvironment,
   SecretResolution,
   selectedEnvironment,
-  standaloneContexts,
+  contextsOutsideExecution,
   type AssembledApplication,
 } from "@agboss/core/internal";
 import type { CheckProblem } from "./check-problems.js";
@@ -56,7 +56,7 @@ export async function environmentProblems(target: EnvironmentTarget): Promise<Ch
     for (const bundle of target.assembled.workflows)
       createStartComponents(bundle, {
         router,
-        contexts: standaloneContexts(bundle.config, environment),
+        contexts: contextsOutsideExecution(bundle.config, environment),
       });
     return [];
   } catch (error) {

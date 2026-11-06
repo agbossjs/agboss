@@ -17,3 +17,13 @@ export const directTimeRules = {
   plugins: { agboss: agbossPlugin },
   rules: { "agboss/no-direct-time": "error" },
 };
+
+/** `agboss/no-internal-import` (#818): an example, like any project, never imports `@agboss/core/internal`. */
+export const internalImportRules = {
+  files: ["examples/**/*.{ts,mts,cts,js,mjs,cjs}"],
+  plugins: { agboss: agbossPlugin },
+  rules: { "agboss/no-internal-import": "error" },
+};
+
+/** Every block of the AGBoss rules, in the order the repository's config lists them. */
+export const agbossRules = [componentStateRules, directTimeRules, internalImportRules];

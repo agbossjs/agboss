@@ -9,7 +9,10 @@ import type { Class, Token } from "../components/injection.js";
 import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import { ComponentError } from "../components/metadata.js";
-import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  type RuntimeContexts,
+} from "../flow/context/runtime-contexts.js";
 import {
   CheckedIdGenerator,
   Clock,
@@ -220,7 +223,11 @@ export function standaloneInfrastructure(
   const clock = clockOf(modules, container);
   return resolveInfrastructure(
     applicationContainerOf(
-      { modules, clock, contexts: standaloneContexts(bundle.config, options.environment, clock) },
+      {
+        modules,
+        clock,
+        contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
+      },
       container,
     ),
     container,

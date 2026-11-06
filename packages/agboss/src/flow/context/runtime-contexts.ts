@@ -31,7 +31,7 @@ export interface RuntimeContexts {
  * What a workflow run without an application gets (eval, replay): its own name, no settings, its
  * start read from `clock`.
  */
-export function standaloneContexts(
+export function contextsOutsideExecution(
   workflow: { readonly name: string; readonly version: string },
   environment: Environment = NO_ENVIRONMENT_VALUES,
   clock: Clock = systemClock,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Docs that compile (#196), run by `npm run check` after the build:
-//   1. every ```ts block of the docs typechecks against the built `agboss` package, with the
+//   1. every ```ts block of the docs typechecks against the built `@agboss/core` package, with the
 //      generated `.agboss/types.d.ts` of the doc's workflows (#272, docs/flow-types.mjs) (conventions — file=, no-check: <reason>, <!-- snippet-context --> — in scripts/docs/snippets.mjs);
 //   2. every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention exists, and so does every
 //      `agboss …` the CLI's own sources print;

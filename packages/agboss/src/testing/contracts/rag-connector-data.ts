@@ -1,5 +1,5 @@
 import type { RagSearchResultDto } from "../../dto/standard/framework.js";
-import type { RagConnector, RagRetrieval, RerankerHandler } from "../../rag/types.js";
+import type { RagConnector, RagRetrieval, RagTenancy, RerankerHandler } from "../../rag/types.js";
 
 /**
  * What the RAG connector contract (#700) runs on: the target a connector's own suite gives, the
@@ -17,12 +17,20 @@ export interface RagContractDocument {
 export interface RagConnectorContractTarget<TConnector extends RagConnector = RagConnector> {
   /** Names the suite: `RAG connector contract (<name>)`. */
   readonly name: string;
+  /**
+   * Whose content the connector serves, as its `@Rag({ tenancy })` says (#818); default
+   * `RagTenancy.PerTenant`: each tenant's own passages, never another's. `RagTenancy.Shared`: one
+   * corpus every tenant reads — the suite checks, in place of the isolation cases, that every tenant
+   * gets the same results, a re-index replaces the corpus for all, and an unseen tenant is served.
+   */
+  readonly tenancy?: RagTenancy;
   /** A connector over an empty knowledge base — a new one for every case. */
   readonly connector: () => TConnector | Promise<TConnector>;
   /**
    * Makes `documents` the whole source of tenant `tenantId`'s knowledge base, replacing what was
    * there (a folder's files, a bucket): the suite calls the connector's `index({ tenantId })` next.
-   * A connector without `index` makes them searchable here.
+   * A connector without `index` makes them searchable here. Under `RagTenancy.Shared` they are the
+   * one corpus, whatever `tenantId` says.
    */
   readonly documents: (
     connector: TConnector,
@@ -44,9 +52,17 @@ export type ContractRetrieve = (
   options: { readonly topK: number; readonly tenantId: string; readonly signal: AbortSignal },
 ) => Promise<RagRetrieval>;
 
+/** Which call reached the connector or the reranker, and for which tenant (#818). */
+export interface ObservedRagCall {
+  readonly call: "retrieve" | "index" | "rerank";
+  readonly tenantId: string;
+}
+
 /** What one case is given. */
 export interface RagCaseContext<TConnector extends RagConnector = RagConnector> {
   readonly connector: TConnector;
+  /** Every call the connector (and the reranker) received so far, in order. */
+  readonly calls: readonly ObservedRagCall[];
   /** Fills a tenant's knowledge base and indexes it (when the connector has an index). */
   readonly fill: (tenantId: string, documents: readonly RagContractDocument[]) => Promise<void>;
   readonly retrieve: ContractRetrieve;
@@ -55,6 +71,8 @@ export interface RagCaseContext<TConnector extends RagConnector = RagConnector> 
 /** One rule of the contract. */
 export interface RagContractCase {
   readonly name: string;
+  /** The tenancies the rule holds for (#818). */
+  readonly tenancies: readonly RagTenancy[];
   readonly run: (context: RagCaseContext) => Promise<void>;
 }
 
@@ -95,3 +113,16 @@ export const textsOf = (results: readonly RagSearchResultDto[]): readonly string
 /** Whether a cost is one the ledger can add: absent (free) or a finite number from 0. */
 export const isLedgerCost = (cost: number | undefined): boolean =>
   cost === undefined || (Number.isFinite(cost) && cost >= 0);
+
+/** The two plain tenants of the cases. */
+export const TENANT_A = "tenant-a";
+export const TENANT_B = "tenant-b";
+
+/** A `topK` above every case's corpus: everything that matches. */
+export const WIDE = 50;
+
+/** Two documents about leave, the re-index cases' corpus. */
+export const DOCS = [
+  { source: "leave.md", text: "Leave is twenty five days a year. Leave requests go to the lead." },
+  { source: "oncall.md", text: "On-call leave starts after the third month." },
+];

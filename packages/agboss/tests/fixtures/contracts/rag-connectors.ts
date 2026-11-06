@@ -1,5 +1,5 @@
 import type {
-  IndexReport,
+  RagIndexReport,
   RagConnector,
   RagIndexOptions,
   RagRetrieval,
@@ -19,6 +19,8 @@ import type {
 export interface ConnectorFlaws {
   readonly keyOf?: (tenantId: string) => string;
   readonly appendsOnReindex?: boolean;
+  /** One source, a copy per tenant: taken at a tenant's first read, refreshed by its own index only. */
+  readonly copiesPerTenant?: boolean;
   readonly ignoresTopK?: boolean;
   readonly ignoresSignal?: boolean;
   readonly costUsd?: number;
@@ -35,13 +37,13 @@ export class MemoryConnector implements RagConnector {
   constructor(private readonly flaws: ConnectorFlaws = {}) {}
 
   setDocuments(tenantId: string, documents: readonly RagContractDocument[]): void {
-    this.sources.set(this.key(tenantId), documents);
+    this.sources.set(this.sourceKey(tenantId), documents);
   }
 
-  index({ tenantId, signal }: RagIndexOptions): Promise<IndexReport> {
+  index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
     if (this.flaws.ignoresSignal !== true) signal.throwIfAborted();
     const key = this.key(tenantId);
-    const documents = this.sources.get(key) ?? [];
+    const documents = this.sources.get(this.sourceKey(tenantId)) ?? [];
     const kept = this.flaws.appendsOnReindex === true ? (this.chunks.get(key) ?? []) : [];
     this.chunks.set(key, [...kept, ...documents]);
     return Promise.resolve({
@@ -55,6 +57,9 @@ export class MemoryConnector implements RagConnector {
   retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
     if (this.flaws.ignoresSignal !== true) options.signal.throwIfAborted();
     const words = new Set(wordsOf(query));
+    const own = this.key(options.tenantId);
+    if (this.flaws.copiesPerTenant === true && !this.chunks.has(own))
+      this.chunks.set(own, [...(this.sources.get(this.sourceKey(options.tenantId)) ?? [])]);
     const scored = (this.chunks.get(this.key(options.tenantId)) ?? [])
       .map((chunk) => ({ chunk, score: wordsOf(chunk.text).filter((w) => words.has(w)).length }))
       .filter(({ score }) => score > 0)
@@ -64,6 +69,10 @@ export class MemoryConnector implements RagConnector {
       results: taken.map(({ chunk, score }) => ({ ...chunk, score })),
       costUsd: this.flaws.costUsd ?? 0,
     });
+  }
+
+  private sourceKey(tenantId: string): string {
+    return this.flaws.copiesPerTenant === true ? "shared" : this.key(tenantId);
   }
 
   private key(tenantId: string): string {

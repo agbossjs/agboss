@@ -1,6 +1,6 @@
 import { createApp, type App, type ExecutionOutput } from "@agboss/core";
 import {
-  executeUnchecked,
+  executeWithoutInputCheck,
   type ApplicationStart,
   type ExecutionStreamEvent,
 } from "@agboss/core/internal";
@@ -33,7 +33,7 @@ async function execute(
   const thread = textOption(context.values, "thread");
   const rl = createInterface({ input: process.stdin, terminal: false });
   try {
-    const first = await executeUnchecked(app, start.component, input, {
+    const first = await executeWithoutInputCheck(app, start.component, input, {
       ...(thread === undefined ? {} : { threadId: thread }),
       onStream: streamTo(context),
     });

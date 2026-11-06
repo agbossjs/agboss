@@ -197,6 +197,49 @@ export class HelpCenterRag implements RagConnector {
 }
 ```
 
+A knowledge base may rerank its candidates before the agent reads them (#703): `rerank: { by,
+candidates, topK }` in place of `topK` — the connector is asked for `candidates`, the agent gets the
+best `topK`. `by` is a `@Reranker` class, nothing else compiles (#818): a model one `extends
+ModelReranker` (the core's LLM reranker), a code one `implements RerankerHandler`. Everything a
+reranker needs is in `@agboss/core/rag`, `DecidedBy` and `RagSearchResultDto` included:
+
+```ts file=src/desk/rerankers/help-center.reranker.ts
+// rerankers/help-center.reranker.ts — by code: a subset of the candidates, best first, at most topK
+import {
+  DecidedBy,
+  Reranker,
+  type RagSearchResultDto,
+  type RerankerHandler,
+  type RerankOptions,
+  type RerankResult,
+} from "@agboss/core/rag";
+
+@Reranker({
+  name: "help-center-reranker",
+  description: "Puts articles that name the query first",
+  decidedBy: DecidedBy.Code,
+})
+export class HelpCenterReranker implements RerankerHandler {
+  rerank(
+    query: string,
+    candidates: readonly RagSearchResultDto[],
+    { topK }: RerankOptions,
+  ): Promise<RerankResult> {
+    const named = candidates.filter((candidate) => candidate.text.includes(query));
+    const rest = candidates.filter((candidate) => !candidate.text.includes(query));
+    return Promise.resolve({ results: [...named, ...rest].slice(0, topK) });
+  }
+}
+```
+
+```ts file=src/desk/rerankers/help-model.reranker.ts
+// rerankers/help-model.reranker.ts — by model (the default): the core's LLM reranker, no code
+import { ModelReranker, Reranker } from "@agboss/core/rag";
+
+@Reranker({ name: "help-model-reranker", description: "Reranks on a cheap model" })
+export class HelpModelReranker extends ModelReranker {}
+```
+
 ```ts file=src/desk/compactions/conversation/conversation.compaction.ts
 // compactions/conversation/conversation.compaction.ts — what happens to turns older than the window
 import { Compaction, CompactionStrategy } from "@agboss/core";

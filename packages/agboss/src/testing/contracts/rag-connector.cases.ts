@@ -1,20 +1,29 @@
 import { expect } from "vitest";
+import { RagTenancy } from "../../rag/types.js";
+import { SHARED_CASES } from "./rag-connector-shared.cases.js";
 import {
+  DOCS,
   isLedgerCost,
   liveSignal,
   markerOf,
   NEAR_IDENTICAL_TENANTS,
+  TENANT_A,
+  TENANT_B,
   textsOf,
+  WIDE,
   type RagContractCase,
 } from "./rag-connector-data.js";
 
-/** The rules of the RAG connector contract (#700), each a case of `ragConnectorContract`. */
+/**
+ * The rules of the RAG connector contract (#700), each a case of `ragConnectorContract` — for a
+ * connector of each tenant's own passages, of one shared corpus (#818), or both.
+ */
 
-const TENANT_A = "tenant-a";
-const TENANT_B = "tenant-b";
-const WIDE = 50;
+const PER_TENANT = [RagTenancy.PerTenant] as const;
+const EITHER = [RagTenancy.PerTenant, RagTenancy.Shared] as const;
 
 const isolation: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700 AC1: cross-tenant isolation — a passage only tenant B has is never returned to tenant A, for a query made of its own words; B finds it",
   run: async ({ fill, retrieve }) => {
     await fill(TENANT_A, [{ source: "hours.md", text: "The office opens at nine every morning." }]);
@@ -35,6 +44,7 @@ const isolation: RagContractCase = {
 };
 
 const nearIdentical: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700: near-identical tenant ids — case, width, NFC and accent twins, `/` and `%2F`, 200 characters — are each their own tenant: each gets its own passage only",
   run: async ({ fill, retrieve }) => {
     for (const [index, tenantId] of NEAR_IDENTICAL_TENANTS.entries()) {
@@ -55,12 +65,8 @@ const nearIdentical: RagContractCase = {
   },
 };
 
-const DOCS = [
-  { source: "leave.md", text: "Leave is twenty five days a year. Leave requests go to the lead." },
-  { source: "oncall.md", text: "On-call leave starts after the third month." },
-];
-
 const reindex: RagContractCase = {
+  tenancies: PER_TENANT,
   name: "#700 AC3: re-index replaces — the same documents twice leave one set of chunks; a changed document's old text and a removed document are gone; another tenant's chunks stay",
   run: async ({ fill, retrieve }) => {
     const ask = (tenantId: string) =>
@@ -83,6 +89,7 @@ const reindex: RagContractCase = {
 };
 
 const topK: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: topK — with more matches than topK, at least one and at most topK results",
   run: async ({ fill, retrieve }) => {
     const documents = Array.from({ length: 8 }, (_, index) => ({
@@ -103,6 +110,7 @@ const topK: RagContractCase = {
 };
 
 const aborted: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: an aborted signal rejects retrieve and index",
   run: async ({ connector, fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -124,6 +132,7 @@ const aborted: RagContractCase = {
 };
 
 const cost: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: cost — a retrieval's and an index's costUsd is absent or a finite number from 0",
   run: async ({ connector, fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -140,6 +149,7 @@ const cost: RagContractCase = {
 };
 
 const shape: RagContractCase = {
+  tenancies: EITHER,
   name: "#700: every result has a non-empty text and source; a score is finite",
   run: async ({ fill, retrieve }) => {
     await fill(TENANT_A, DOCS);
@@ -166,4 +176,5 @@ export const RAG_CONNECTOR_CASES: readonly RagContractCase[] = [
   aborted,
   cost,
   shape,
+  ...SHARED_CASES,
 ];

@@ -3,6 +3,7 @@ import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
+  ModelReranker,
   Rag,
   RagMode,
   RagTenancy,
@@ -45,13 +46,13 @@ class Passages implements RagConnector {
 }
 
 @Reranker({ name: "people-reranker", description: "Reranks on a model", model: "local/llama" })
-export class PeopleReranker {}
+export class PeopleReranker extends ModelReranker {}
 
 @Rag({
   name: "people-rag",
   description: "Who to ask",
   tenancy: RagTenancy.PerTenant,
-  rerank: { by: PeopleReranker, candidates: 3, keep: 3 },
+  rerank: { by: PeopleReranker, candidates: 3, topK: 3 },
 })
 export class PeopleRag extends Passages {
   constructor() {
@@ -63,7 +64,7 @@ export class PeopleRag extends Passages {
   name: "cards-rag",
   description: "Payment notes",
   tenancy: RagTenancy.PerTenant,
-  rerank: { by: PeopleReranker, candidates: 2, keep: 2 },
+  rerank: { by: PeopleReranker, candidates: 2, topK: 2 },
 })
 export class CardsRag extends Passages {
   constructor() {

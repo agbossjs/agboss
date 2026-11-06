@@ -1,4 +1,4 @@
-import { executeUnchecked } from "../app/execute-unchecked.js";
+import { executeWithoutInputCheck } from "../app/execute-without-input-check.js";
 import type { ExecutionOptions, ExecutionOutput, ThreadOwnerResumeOptions } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import type { A2AApp } from "./a2a-caller.js";
@@ -66,7 +66,7 @@ export class A2AAdapter implements IA2AAdapter {
   ): Promise<A2AExecutionResponse> {
     return this.run(req.threadId, options, (call) =>
       // the payload comes off the wire: the app checks it against the start's input
-      executeUnchecked(this.app, start, req.input, {
+      executeWithoutInputCheck(this.app, start, req.input, {
         ...call,
         ...(req.threadId === undefined ? {} : { threadId: req.threadId }),
         ...streamTo(onEvent),

@@ -9,7 +9,7 @@ import { accountedRouters } from "./accounted-router.js";
 import { LiveJudgeModel } from "./judge-call.js";
 import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
-import { standaloneContexts } from "../flow/context/runtime-contexts.js";
+import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
 import { createContainer, DependantValue, type Container } from "./container/container.js";
 import type { ProviderModule } from "./container/registrations.js";
@@ -91,7 +91,7 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   const existing = perBundle.get(services);
   if (existing !== undefined) return existing;
   // the application's contexts (#261: `deps: [ApplicationContext]`, …); a workflow on its own has its own
-  const contexts = services.contexts ?? standaloneContexts(bundle);
+  const contexts = services.contexts ?? contextsOutsideExecution(bundle);
   const core = new Map<Token, unknown>([
     [ROUTER_FACTORY, accountedRouters(services.router)],
     ...contextValuesOf(contexts),

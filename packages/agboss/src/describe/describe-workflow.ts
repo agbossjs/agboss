@@ -27,7 +27,10 @@ import { guardrailLines } from "./guardrails.js";
 import { toolInterceptorLines } from "./tool-interceptors.js";
 import { limitLines } from "./limits.js";
 import { piiPolicyLines } from "./pii-policies.js";
-import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  type RuntimeContexts,
+} from "../flow/context/runtime-contexts.js";
 
 /** A knowledge base's reranking as describe prints it (#703). */
 const rerankText = (
@@ -41,7 +44,7 @@ const rerankText = (
 
 /** The application context `describe` builds tools with: an empty environment unless one is given. */
 const describedApplication = (environment: DescribedEnvironment | undefined): RuntimeContexts => ({
-  ...standaloneContexts({ name: "describe", version: "0.0.0" }),
+  ...contextsOutsideExecution({ name: "describe", version: "0.0.0" }),
   application: applicationContextOf({
     name: "describe",
     version: "0.0.0",

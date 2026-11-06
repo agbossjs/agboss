@@ -26,6 +26,12 @@ export default tseslint.config(
     rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" },
   },
   {
+    // @agboss/core/internal is the agboss CLI's, with no semver promise: the public entries only (#818)
+    files: ["**/*.{ts,mts,cts,js,mjs,cjs}"],
+    plugins: { agboss: agbossPlugin },
+    rules: { "agboss/no-internal-import": "error" },
+  },
+  {
     // one call per line in every chain of a workflow module
     files: ["**/*.workflow.ts"],
     plugins: { "@stylistic": stylistic },

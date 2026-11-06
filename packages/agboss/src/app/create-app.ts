@@ -29,7 +29,7 @@ import { treeMovesOf } from "./tree-moves.js";
 import {
   contextValuesOf,
   defaultTenantOf,
-  standaloneContexts,
+  contextsOutsideExecution,
 } from "../flow/context/runtime-contexts.js";
 import { admitRequest, executionEventAt, type ExecutionRequest } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
@@ -120,7 +120,7 @@ export async function buildApp(
     if (threadId !== undefined) await owned({ tenantId, threadId: id, ownerId });
     return id;
   };
-  const contexts = deps.contexts ?? standaloneContexts(deps.config);
+  const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   let closed = false;
   let released = false;
   const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>

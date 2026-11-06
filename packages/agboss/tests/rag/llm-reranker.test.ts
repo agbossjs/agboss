@@ -1,6 +1,6 @@
 /**
  * #703 AC1 — the core's LLM reranker: the model names candidates by number; numbers out of range or
- * repeated are dropped, the unranked follow in retrieval order, `keep` cut; a reply with no ranking
+ * repeated are dropped, the unranked follow in retrieval order, `topK` cut; a reply with no ranking
  * is a failure that keeps the call's spend; the reranker is a subset of the candidates, never more.
  */
 import { AIMessage } from "@langchain/core/messages";
@@ -15,7 +15,7 @@ import {
 import type { ModelBinding } from "../../src/llm/registry.js";
 
 const candidates = ["a", "b", "c", "d"].map((name) => ({ source: `${name}.md`, text: name }));
-const options = { keep: 3, tenantId: "default", signal: new AbortController().signal };
+const options = { topK: 3, tenantId: "default", signal: new AbortController().signal };
 const bindingOf = (reply: string): ModelBinding => ({
   model: new FakeListChatModel({ responses: [reply] }),
   settings: {
@@ -35,14 +35,14 @@ describe("#703: the LLM reranker's reply", () => {
     expect(rankingOf("{not json}", 4)).toBeUndefined();
   });
 
-  it("rankedCandidates: the ranked first, the rest in retrieval order, keep of them, scored best first", () => {
+  it("rankedCandidates: the ranked first, the rest in retrieval order, topK of them, scored best first", () => {
     const ranked = rankedCandidates(candidates, [4, 2], 3);
 
     expect(ranked.map((c) => c.source)).toEqual(["d.md", "b.md", "a.md"]);
     expect(ranked.map((c) => c.score)).toEqual([1, 2 / 3, 1 / 3]);
   });
 
-  it("one call: the reranked keep, the call's usage under reranker:<name>", async () => {
+  it("one call: the reranked topK, the call's usage under reranker:<name>", async () => {
     const reranker = modelRerankerOf("docs-reranker", bindingOf('{"ranking":[3]}'));
 
     const reranking = await reranker.rerank("q", candidates, options);

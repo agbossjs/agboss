@@ -29,10 +29,8 @@ export interface FlowTypesWrite {
   readonly project: string;
   /** false where TypeScript is already compiled (tests); tsx is registered by default. */
   readonly typescript?: boolean;
-  /** The module the tables are augmented in: `agboss` by default, a file's path in this repo. */
+  /** The module the tables are augmented in: `@agboss/core` by default, a file's path in this repo. */
   readonly tablesModule?: string;
-  /** `--strict`: analyser warnings are errors. */
-  readonly strict?: boolean;
   /**
    * Where to write, relative to the project: a file directly in `.agboss/` (#468 — the types of an
    * application that is not the project's own, so the project's `.agboss/types.d.ts` is left alone).
@@ -83,7 +81,6 @@ export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypes
     modules,
     outFile,
     ...(request.tablesModule === undefined ? {} : { tablesModule: request.tablesModule }),
-    ...(request.strict === undefined ? {} : { strict: request.strict }),
   });
   const { errors, warnings, notes, text } = generated;
   if (text === undefined)

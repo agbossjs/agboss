@@ -177,6 +177,8 @@ export {
 } from "./tool-call-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 export { workflowOf } from "./workflow-of.js";
+// #818: the graphs `agboss studio` serves, for a test that renders or inspects them
+export { studioOf, type StudioGraphs, type StudioOptions } from "../studio.js";
 export { toolOf } from "../components/runtime.js";
 export {
   testExecutionContext,

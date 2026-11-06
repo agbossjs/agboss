@@ -20,7 +20,7 @@ import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
-import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-contexts.js";
+import { contextsOutsideExecution, tenantOfExecution } from "../flow/context/runtime-contexts.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
@@ -66,7 +66,7 @@ function startFrameOf<TName extends string>(
   const { executionId } = start;
   const identity = workflowIdentityOf(deps);
   const workflow = { ...identity, startedVersion: identity.version };
-  const contexts = deps.contexts ?? standaloneContexts(workflow);
+  const contexts = deps.contexts ?? contextsOutsideExecution(workflow);
   return {
     execution: Object.freeze(
       Object.defineProperty(

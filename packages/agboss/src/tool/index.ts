@@ -1,6 +1,6 @@
 /**
  * `@agboss/core/tool` — deprecated (#195): the `@Tool` decorator and its types moved to the root
- * entry `agboss`. `agboss migrate imports` rewrites the imports; this entry is removed in the
+ * entry `@agboss/core`. `agboss migrate imports` rewrites the imports; this entry is removed in the
  * next minor release.
  */
 export {

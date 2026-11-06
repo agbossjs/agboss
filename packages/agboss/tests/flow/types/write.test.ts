@@ -71,7 +71,6 @@ describe("#270 AC13: the generated file", () => {
       files: [fixture("flow/fixtures/unexported.fixture.ts")],
       project: directory,
       typescript: false,
-      strict: true,
     });
 
     expect(result.status).toBe(FlowTypesStatus.Failed);

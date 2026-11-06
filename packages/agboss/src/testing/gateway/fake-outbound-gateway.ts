@@ -91,7 +91,7 @@ export enum FakeGatewayErrorKind {
 
 /**
  * The fake gateway refused or lost a call; `kind` says why. The other system's own error, never a
- * framework one (`agboss/testing` exports no `AGBossError` to throw by name): a plain `Error` with
+ * framework one (`@agboss/core/testing` exports no `AGBossError` to throw by name): a plain `Error` with
  * its own `code`, as a provider SDK's.
  */
 export class FakeGatewayError extends Error {

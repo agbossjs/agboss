@@ -1,5 +1,5 @@
 /**
- * `agboss` — the authoring API (#195): the component decorators and dependency injection, the
+ * `@agboss/core` — the authoring API (#195): the component decorators and dependency injection, the
  * flow DSL and workflow settings, environments, observers, `createApp`, the errors and the public
  * types. Focused entries: `@agboss/core/dto`, `/units`, `/models`, `/testing`, and the integrations
  * `/mcp`, `/rag`, `/a2a`, `/memory`.

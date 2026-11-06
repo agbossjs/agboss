@@ -61,9 +61,9 @@ export type ComponentMeta =
         readonly promptUrls?: readonly string[];
         /** Whose content it serves (#796); checked at assembly — a JS caller may leave it out. */
         readonly tenancy: import("../rag/types.js").RagTenancy;
-        /** What the agent gets per retrieval: `topK`, or `rerank.keep` (#703). */
+        /** What the agent gets per retrieval: `topK`, or `rerank.topK` (#703). */
         readonly topK: number;
-        /** Fetch `candidates`, rerank, keep `keep` (#703). */
+        /** Fetch `candidates`, rerank, keep `topK` (#703). */
         readonly rerank?: import("../rag/types.js").RagRerank;
         readonly deps: readonly Token[];
       };

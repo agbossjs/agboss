@@ -7,11 +7,13 @@ import {
   RagMode,
   RagTenancy,
   Reranker,
+  ModelReranker,
   RerankFailurePolicy,
   type RagConnector,
   type RagRetrieval,
   type RagRetrieveOptions,
-  type RagReranking,
+  type RerankResult,
+  type RerankerClass,
   type RerankerHandler,
 } from "../../../src/rag/index.js";
 import type { RagSearchResultDto } from "../../../src/dto/standard/framework.js";
@@ -50,7 +52,7 @@ class Candidates implements RagConnector {
 }
 
 @Reranker({ name: "docs-reranker", description: "Reranks on a model", model: "local/llama" })
-export class DocsReranker {}
+export class DocsReranker extends ModelReranker {}
 
 /** Finds the passage that names "third month" and puts it first. */
 @Reranker({
@@ -62,17 +64,17 @@ export class KeywordReranker implements RerankerHandler {
   rerank(
     _q: string,
     candidates: readonly RagSearchResultDto[],
-    options: { readonly keep: number },
-  ): Promise<RagReranking> {
+    options: { readonly topK: number },
+  ): Promise<RerankResult> {
     const hits = candidates.filter((c) => c.text.includes("third month"));
     const rest = candidates.filter((c) => !c.text.includes("third month"));
-    return Promise.resolve({ results: [...hits, ...rest].slice(0, options.keep), costUsd: 0.0004 });
+    return Promise.resolve({ results: [...hits, ...rest].slice(0, options.topK), costUsd: 0.0004 });
   }
 }
 
 @Reranker({ name: "failing-reranker", description: "Always fails", decidedBy: DecidedBy.Code })
 export class FailingReranker implements RerankerHandler {
-  rerank(): Promise<RagReranking> {
+  rerank(): Promise<RerankResult> {
     return Promise.reject(new Error("rerank API is down"));
   }
 }
@@ -84,16 +86,16 @@ export class FailingReranker implements RerankerHandler {
   decidedBy: DecidedBy.Code,
 })
 export class InventingReranker implements RerankerHandler {
-  rerank(_q: string, candidates: readonly RagSearchResultDto[]): Promise<RagReranking> {
+  rerank(_q: string, candidates: readonly RagSearchResultDto[]): Promise<RerankResult> {
     const invented = { source: "other-tenant/secret.md", text: "The vault code is plum." };
     return Promise.resolve({ results: [invented, ...candidates.slice(0, 2)] });
   }
 }
 
-const rerankOf = (by: Class, onFailure?: RerankFailurePolicy) => ({
+const rerankOf = (by: RerankerClass, onFailure?: RerankFailurePolicy) => ({
   by,
   candidates: 30,
-  keep: 3,
+  topK: 3,
   ...(onFailure === undefined ? {} : { onFailure }),
 });
 

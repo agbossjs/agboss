@@ -1,6 +1,6 @@
 /**
  * `@agboss/core/core` — deprecated (#195): components, dependency injection, decisions, observers
- * moved to the root entry `agboss`. `agboss migrate imports` rewrites the imports; this entry is
+ * moved to the root entry `@agboss/core`. `agboss migrate imports` rewrites the imports; this entry is
  * removed in the next minor release.
  */
 export {

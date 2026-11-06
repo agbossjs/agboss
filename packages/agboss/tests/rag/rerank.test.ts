@@ -1,5 +1,5 @@
 /**
- * #703 — reranking on `@Rag({ rerank })`: the agent gets the reranked best `keep` of `candidates`,
+ * #703 — reranking on `@Rag({ rerank })`: the agent gets the reranked best `topK` of `candidates`,
  * in tool and in context mode (AC1); the reranker's spend is in the turn's cost and its budgets
  * (AC2); a failing reranker falls back to the retrieval's order with a trace, or fails the step under
  * `FailStep` (AC3); a reranking that is no subset of the candidates is a failure (isolation).
@@ -11,7 +11,8 @@ import { Budget, BudgetScope, type BudgetHandler } from "../../src/budgets/budge
 import { BudgetExceededError } from "../../src/index.js";
 import { boundRerankerOf, knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import type { KnowledgeSource, RagConnector } from "../../src/rag/index.js";
+import type { RagConnector } from "../../src/rag/index.js";
+import type { KnowledgeSource } from "../../src/rag/types.js";
 import { inTestFrame } from "../helpers/frame.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
 import { createApp } from "../../src/application/create-app.js";
@@ -65,8 +66,8 @@ const sourcesOf = (output: unknown): readonly string[] =>
     (result) => result.source,
   );
 
-describe("#703 AC1: the agent gets the reranked best keep of the candidates", () => {
-  it("tool mode, model reranker: the 27th candidate, ranked first, reaches the agent first; keep 3", async () => {
+describe("#703 AC1: the agent gets the reranked best topK of the candidates", () => {
+  it("tool mode, model reranker: the 27th candidate, ranked first, reaches the agent first; topK 3", async () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING));
     book
@@ -141,7 +142,7 @@ describe("#703 AC2: the reranker's cost is in the turn and counts against the bu
 });
 
 describe("#703 AC3: a failing reranker", () => {
-  it("default: the retrieval's own first keep, the turn goes on", async () => {
+  it("default: the retrieval's own first topK, the turn goes on", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:fallback-context-agent").thenReturn(replyWith("done"));
 

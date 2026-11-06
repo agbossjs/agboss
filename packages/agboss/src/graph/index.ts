@@ -1,6 +1,6 @@
 /**
  * `@agboss/core/graph` — deprecated (#195): the flow DSL, workflow settings and limits moved to
- * the root entry `agboss`. `agboss migrate imports` rewrites the imports; this entry is removed
+ * the root entry `@agboss/core`. `agboss migrate imports` rewrites the imports; this entry is removed
  * in the next minor release.
  */
 export {

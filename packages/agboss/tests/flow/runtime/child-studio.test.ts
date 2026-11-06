@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createAppDeps } from "../../../src/app/app-deps.js";
 import { workflowInApplication } from "../../../src/application/workflow-application.js";
 import { studioGraph } from "../../../src/graph/studio-graph.js";
-import { studioOf } from "../../../src/studio.js";
+import * as Internal from "../../../src/internal.js";
+import { studioOf } from "../../../src/testing/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { CompanyReviewApplication, JobOfferWorkflow } from "../fixtures/children.fixture.js";
@@ -106,5 +107,11 @@ describe("#264: ThisWorkflow in Studio", () => {
 
     expect(Object.keys(nodes).filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
     expect(nodes["this-workflow"]?.metadata).toEqual({ recursive: "maxDepth 3" });
+  });
+});
+
+describe("#818: studioOf is public in @agboss/core/testing", () => {
+  it("the testing entry's studioOf is the one agboss studio builds with", () => {
+    expect(studioOf).toBe(Internal.studioOf);
   });
 });

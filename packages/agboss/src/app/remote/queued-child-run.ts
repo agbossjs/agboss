@@ -15,7 +15,10 @@ import {
 import { decodedRun, parentOfRecord } from "../../flow/runtime/remote/remote-child-run.js";
 import type { RemoteChildRun } from "../../flow/runtime/remote/remote-child-run.js";
 import { failureTextOf } from "../../flow/runtime/remote/remote-failure.js";
-import { standaloneContexts, tenantOfExecution } from "../../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  tenantOfExecution,
+} from "../../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { PiiRuntime } from "../../pii/runtime.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
@@ -61,7 +64,7 @@ function runContextOf(
   deps: AppDeps,
   { signal, lease, pii }: ChildRunSite,
 ): RunContext {
-  const contexts = deps.contexts ?? standaloneContexts(deps.config);
+  const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   const values = run.initial.contexts;
   const parent = parentOfRecord(run.parent, {
     ...registry,

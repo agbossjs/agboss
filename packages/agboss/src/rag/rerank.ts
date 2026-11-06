@@ -15,14 +15,14 @@ import {
   RERANK_FAILED_CODE,
   RerankFailurePolicy,
   type KnowledgeRetrieval,
-  type RagReranking,
   type RagRetrieval,
   type RerankerHandler,
+  type RerankResult,
 } from "./types.js";
 
 /**
  * Reranking (#703, loaded on its first use): a knowledge base's `candidates`, re-ordered by its
- * `@Reranker`, its best `keep` to the agent — one span `rerank:<rag>`, the reranker's spend under
+ * `@Reranker`, its best `topK` to the agent — one span `rerank:<rag>`, the reranker's spend under
  * `rag:<rag>`. What comes back is a subset of the tenant's own candidates, or a failure: a reranker
  * can never put a passage the retrieval did not return in front of the agent.
  */
@@ -43,6 +43,18 @@ export interface BoundReranker {
   readonly source: RerankerSource;
 }
 
+/** What a failed reranking was: `new RerankFailedError({ rag, reranker, cause, usage })`. */
+export interface RerankFailedErrorOptions {
+  /** The knowledge base whose reranking failed. */
+  readonly rag: string;
+  /** Its `@Reranker`, by name. */
+  readonly reranker: string;
+  /** What the reranker threw, or why its answer was refused. */
+  readonly cause: unknown;
+  /** The spend the failed reranking still made (a model's reply it could not read). */
+  readonly usage: readonly UsageRecord[];
+}
+
 /** A reranking that failed under `RerankFailurePolicy.FailStep`: the agent's step fails. */
 export class RerankFailedError extends StepFailedError {
   static override readonly code: string = RERANK_FAILED_CODE;
@@ -52,38 +64,38 @@ export class RerankFailedError extends StepFailedError {
   /** Its `@Reranker`, by name. */
   readonly reranker: string;
 
-  constructor(bound: BoundReranker, cause: unknown, usage: readonly UsageRecord[]) {
+  constructor({ rag, reranker, cause, usage }: RerankFailedErrorOptions) {
     const why = cause instanceof Error ? cause.message : String(cause);
     super(
-      `Knowledge base "${bound.rag}": its reranker ${bound.reranker} failed (${why}) — RerankFailurePolicy.FailStep fails the step`,
+      `Knowledge base "${rag}": its reranker ${reranker} failed (${why}) — RerankFailurePolicy.FailStep fails the step`,
       usage,
       cause,
-      stepCoordinatesOf(bound.rag, ComponentKind.Rag),
-      { rag: bound.rag, reranker: bound.reranker },
+      stepCoordinatesOf(rag, ComponentKind.Rag),
+      { rag, reranker },
     );
-    this.rag = bound.rag;
-    this.reranker = bound.reranker;
+    this.rag = rag;
+    this.reranker = reranker;
   }
 }
 
-/** A reranking that is not a subset of the candidates, or longer than `keep`. */
+/** A reranking that is not a subset of the candidates, or longer than `topK`. */
 class InvalidRerankingError extends Error {
   override name = "InvalidRerankingError";
 }
 
 const keyOf = (result: RagSearchResultDto): string => `${result.source}\u0000${result.text}`;
 
-/** The reranking's results, once each is one of the candidates, none twice, at most `keep`. */
+/** The reranking's results, once each is one of the candidates, none twice, at most `topK`. */
 function checkedResults(
   candidates: readonly RagSearchResultDto[],
-  reranking: RagReranking,
-  keep: number,
+  reranking: RerankResult,
+  topK: number,
 ): readonly RagSearchResultDto[] {
   const known = new Set(candidates.map(keyOf));
   const seen = new Set<string>();
-  if (reranking.results.length > keep)
+  if (reranking.results.length > topK)
     throw new InvalidRerankingError(
-      `it returned ${String(reranking.results.length)} > keep ${String(keep)}`,
+      `it returned ${String(reranking.results.length)} > topK ${String(topK)}`,
     );
   for (const result of reranking.results) {
     const key = keyOf(result);
@@ -96,7 +108,7 @@ function checkedResults(
 }
 
 /** The reranker's spend: a model reranker's call, or a code reranker's reported cost. */
-function spendOf(bound: BoundReranker, reranking: RagReranking): readonly UsageRecord[] {
+function spendOf(bound: BoundReranker, reranking: RerankResult): readonly UsageRecord[] {
   const caller = `rag:${bound.rag}`;
   const usage = (reranking as { [MODEL_RERANKER_USAGE]?: readonly UsageRecord[] })[
     MODEL_RERANKER_USAGE
@@ -151,14 +163,14 @@ async function maskedRerankOf(
 /** One reranking call. */
 export interface RerankCall {
   readonly query: string;
-  readonly keep: number;
+  readonly topK: number;
   readonly tenantId: string;
   readonly signal: AbortSignal;
 }
 
 /**
- * The tenant's `candidates` from `retrieve`, reranked, its best `keep`: on a failure the retrieval's
- * own first `keep` with a `rerank:<rag>:fallback` span, or `RerankFailedError` under `FailStep`. An
+ * The tenant's `candidates` from `retrieve`, reranked, its best `topK`: on a failure the retrieval's
+ * own first `topK` with a `rerank:<rag>:fallback` span, or `RerankFailedError` under `FailStep`. An
  * aborted call stays aborted (it is no reranker's failure); an empty retrieval calls no reranker.
  */
 export async function rerankedRetrieval(
@@ -166,21 +178,21 @@ export async function rerankedRetrieval(
   bound: BoundReranker,
   call: RerankCall,
 ): Promise<KnowledgeRetrieval> {
-  const fetched = await retrieve(Math.max(bound.candidates, call.keep));
+  const fetched = await retrieve(Math.max(bound.candidates, call.topK));
   if (fetched.results.length === 0) return fetched;
-  const { query, keep, tenantId, signal } = call;
+  const { query, topK, tenantId, signal } = call;
   // outside the failure policy: a block rule refuses as the agent's own boundary would (#708)
   const masked = await maskedRerankOf(bound, query, fetched.results);
   const shown = masked.reading ?? { query, sources: fetched.results.map((r) => r.source) };
   try {
     const reranked = await RunnableLambda.from(async () => {
       const reranking = await handlerOf(bound, masked.reading).rerank(query, fetched.results, {
-        keep,
+        topK,
         signal,
         tenantId,
       });
       return {
-        results: checkedResults(fetched.results, reranking, keep),
+        results: checkedResults(fetched.results, reranking, topK),
         usage: [...masked.usage, ...spendOf(bound, reranking)],
       };
     }).invoke(
@@ -192,12 +204,17 @@ export async function rerankedRetrieval(
     if (signal.aborted) throw error;
     const usage = [...masked.usage, ...failedSpendOf(bound, error)];
     if (bound.onFailure === RerankFailurePolicy.FailStep)
-      throw new RerankFailedError(bound, error, usage);
+      throw new RerankFailedError({
+        rag: bound.rag,
+        reranker: bound.reranker,
+        cause: error,
+        usage,
+      });
     const reason = error instanceof Error ? error.message : String(error);
     await RunnableLambda.from((fallback: { readonly reason: string }) => fallback).invoke(
       { reason },
       { runName: `rerank:${bound.rag}:fallback` },
     );
-    return { results: fetched.results.slice(0, keep), costUsd: fetched.costUsd, usage };
+    return { results: fetched.results.slice(0, topK), costUsd: fetched.costUsd, usage };
   }
 }
