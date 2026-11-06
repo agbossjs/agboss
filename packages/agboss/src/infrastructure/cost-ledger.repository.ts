@@ -163,6 +163,22 @@ export function assertLedgerEntries(
 }
 
 /**
+ * Throws `TypeError` unless `date` is a valid `Date` (#817): a cutoff or a mark that is no date
+ * compares false with every entry — nothing pruned, nothing refused — so it is never taken.
+ */
+export function assertValidDate(date: unknown, what: string): asserts date is Date {
+  const invalid = invalidDateErrorOf(date, what);
+  if (invalid !== undefined) throw invalid;
+}
+
+/** The refusal of `date` as `what` (#817) when it is no valid `Date`, else `undefined`. */
+export function invalidDateErrorOf(date: unknown, what: string): TypeError | undefined {
+  return isDate(date) && !Number.isNaN(date.getTime())
+    ? undefined
+    : new TypeError(`${what} is no valid Date: ${String(date)}`);
+}
+
+/**
  * Of `entries`, what a save adds (#727): each one whose id `isNew` keeps now — `isNew` inserts the
  * id (made at `madeAt`, #771) if absent and answers whether it did, so an id asked twice, in one
  * save too, counts once. A store asks inside the transaction that adds the cost, after
@@ -184,6 +200,8 @@ export function expiredEntriesOf(
   isHeld: (ledgerId: string) => boolean,
 ): readonly string[] {
   if (prunedBefore === undefined) return [];
+  // a mark that is no date refuses nothing by comparison: it fails closed instead
+  assertValidDate(prunedBefore, "the pruning mark");
   const expired = new Set<string>();
   for (const { ledgerId, madeAt } of entries)
     if (madeAt.getTime() < prunedBefore.getTime() && !isHeld(ledgerId)) expired.add(ledgerId);
@@ -232,10 +250,10 @@ export const counterKeyOf = (counter: CostCounter): string =>
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
   readonly #maxSpend = new Map<string, Usd>();
-  /** Each entry's `ledgerId` and when it was made. */
-  readonly #entries = new Map<string, Date>();
-  /** The pruning mark (#771): entries made before it were, or may have been, removed. */
-  readonly #mark: { prunedBefore?: Date } = {};
+  /** Each entry's `ledgerId` and when it was made, in ms (kept as a number: no caller's `Date`). */
+  readonly #entries = new Map<string, number>();
+  /** The pruning mark (#771), in ms: entries made before it were, or may have been, removed. */
+  readonly #mark = { prunedBefore: Number.NEGATIVE_INFINITY };
 
   ping(): Promise<void> {
     return Promise.resolve();
@@ -255,11 +273,15 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     // Stryker disable next-line ArrowFunction: in memory no entry made before the mark is held — the prune that set it removed them, and no save keeps one — so "held" is never asked true
     const isHeld = (id: string): boolean => this.#entries.has(id);
     const { prunedBefore } = this.#mark;
-    const expired = expiredEntriesOf(entries, prunedBefore, isHeld);
-    if (expired.length > 0 && prunedBefore !== undefined)
-      return Promise.reject(new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore }));
+    const mark = Number.isFinite(prunedBefore) ? new Date(prunedBefore) : undefined;
+    const expired = expiredEntriesOf(entries, mark, isHeld);
+    // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
+    if (expired.length > 0 && mark !== undefined)
+      return Promise.reject(
+        new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: mark }),
+      );
     const spent = totalCost(
-      unrecordedEntriesOf(entries, (id, madeAt) => this.#isNewEntry(id, madeAt)),
+      unrecordedEntriesOf(entries, (id, madeAt) => this.#isNewEntry(id, madeAt.getTime())),
     );
     for (const counter of counters) {
       const key = counterKeyOf(counter);
@@ -268,19 +290,20 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  /** Whether `ledgerId` is new: kept from now on, made at `madeAt`. */
-  #isNewEntry(ledgerId: string, madeAt: Date): boolean {
+  /** Whether `ledgerId` is new: kept from now on, made at `madeAt` (ms). */
+  #isNewEntry(ledgerId: string, madeAt: number): boolean {
     if (this.#entries.has(ledgerId)) return false;
     this.#entries.set(ledgerId, madeAt);
     return true;
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
-    const kept = this.#mark.prunedBefore;
-    const prunedBefore = kept !== undefined && kept.getTime() > cutoff.getTime() ? kept : cutoff;
-    this.#mark.prunedBefore = prunedBefore;
+    // a cutoff that is no date would lower the mark: refused (#817)
+    const invalid = invalidDateErrorOf(cutoff, "the cutoff");
+    if (invalid !== undefined) return Promise.reject(invalid);
+    this.#mark.prunedBefore = Math.max(this.#mark.prunedBefore, cutoff.getTime());
     for (const [ledgerId, madeAt] of this.#entries)
-      if (madeAt.getTime() < prunedBefore.getTime()) this.#entries.delete(ledgerId);
+      if (madeAt < this.#mark.prunedBefore) this.#entries.delete(ledgerId);
     return Promise.resolve();
   }
 

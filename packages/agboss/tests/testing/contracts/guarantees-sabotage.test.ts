@@ -100,6 +100,12 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
     ]);
   });
 
+  it("#817: a ledger that takes any cutoff lowers its mark and counts a pruned entry again", () => {
+    expect(failedOf("a ledger that takes any cutoff")).toEqual([
+      "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+    ]);
+  });
+
   it("each naive store keeps the rules it does not break: its ping passes", () => {
     expect(namesOf(run, FIXTURE, "pass").length).toBeGreaterThan(0);
   });

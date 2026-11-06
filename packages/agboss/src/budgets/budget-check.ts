@@ -3,7 +3,11 @@ import { ledgerMarkOf, writtenLedgerIdOf } from "../finops/ledger-mark.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { BudgetExceededError } from "../graph/limits.js";
-import type { BudgetAccount, CostCounter } from "../infrastructure/cost-ledger.repository.js";
+import type {
+  BudgetAccount,
+  CostCounter,
+  LedgerEntry,
+} from "../infrastructure/cost-ledger.repository.js";
 import { usd } from "../units/index.js";
 import type { Class } from "../components/injection.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -115,6 +119,18 @@ export interface CounterSnapshot {
   readonly recorded: number;
 }
 
+/** `record` as an entry of the ledger under `ledgerId`, made at `madeAt`, its cost in `Usd` (#817). */
+export const ledgerEntryOf = (
+  record: UsageRecord,
+  ledgerId: string,
+  madeAt: Date,
+): LedgerEntry => ({
+  ...record,
+  costUsd: usd(record.costUsd),
+  ledgerId,
+  madeAt,
+});
+
 /** A record this pass writes to the ledger; one recorded elsewhere is there already (#333 PR 3). */
 export const isRecordedHere = (record: UsageRecord): boolean => ledgerMarkOf(record) === undefined;
 
@@ -216,9 +232,9 @@ export class LedgerIds {
 
   /** Counts the ids of `records`. */
   count(records: readonly UsageRecord[]): void {
-    // Stryker disable next-line ConditionalExpression: an absent id kept is never asked for
     for (const record of records) {
       const ledgerId = writtenLedgerIdOf(record);
+      // Stryker disable next-line ConditionalExpression: an absent id kept is never asked for
       if (ledgerId !== undefined) this.#counted.add(ledgerId);
     }
   }

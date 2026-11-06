@@ -14,6 +14,7 @@ import {
 import {
   LedgerState,
   ledgerMarkOf,
+  withLedgerMarkRead,
   withoutLedgerMarks,
   writtenLedgerIdOf,
 } from "../../src/finops/ledger-mark.js";
@@ -81,6 +82,9 @@ describe("#817: ledgerMarkOf reads the one state", () => {
 
   it("a mark this version does not read fails closed — never read as not in the ledger, never as counted", () => {
     const unread = [
+      { state: LedgerState.Written, ledgerId: "p:9" },
+      { state: LedgerState.Written, ledgerId: "p:10", madeAt: "garbage 12" },
+      { state: LedgerState.Written, ledgerId: "p:11", madeAt: "2026-11-04" },
       { state: "written" },
       { state: LedgerState.Written, ledgerId: "", madeAt: NOW },
       { state: LedgerState.Written, ledgerId: "p:2", madeAt: "not a date" },
@@ -127,11 +131,26 @@ describe("#817 AC3: a record kept before 0.1.1 reads as the same state", () => {
     expect(writtenLedgerIdOf(legacy({ isRecordedElsewhere: true, ledgerId: "p:8" }))).toBe("p:8");
   });
 
+  it("a field of before of another kind fails closed — never read as not in the ledger, never as recorded elsewhere without its id", () => {
+    const unread = [
+      { isRecordedElsewhere: "true" },
+      { isRecordedElsewhere: 1, ledgerId: "p:12" },
+      { isRecordedElsewhere: true, ledgerId: 42 },
+      { isRecordedElsewhere: true, ledgerId: "" },
+      { isRecordedElsewhere: true, ledgerId: null },
+      { isRecordedElsewhere: true, ledgerId: "p:13", madeAt: "garbage 12" },
+      { ledgerId: 7 },
+    ];
+    for (const fields of unread) expect(() => ledgerMarkOf(legacy(fields))).toThrow(TypeError);
+  });
+
   it("isRecordedElsewhere without one is recorded elsewhere; none of the fields is not in the ledger", () => {
     expect(ledgerMarkOf(legacy({ isRecordedElsewhere: true }))).toEqual({
       state: LedgerState.RecordedElsewhere,
     });
     expect(ledgerMarkOf(legacy({ isRecordedElsewhere: false }))).toBeUndefined();
+    // a record of #727 that no pass marked as written: written at its step's end, as before
+    expect(ledgerMarkOf(legacy({ ledgerId: "p:14" }))).toBeUndefined();
   });
 
   it("a pass restored from a state of before writes none of its written records again, and counts each once", async () => {
@@ -204,5 +223,77 @@ describe("#817: every save of the meter is a ledger entry", () => {
       }),
     ]);
     expect(kept).not.toHaveProperty("ledgerId");
+  });
+});
+
+describe("#817: a record read back with its mark as this version keeps it", () => {
+  it("a checkpoint's ISO date is a Date again; the fields of before become the one mark", () => {
+    const written = JSON.parse(
+      JSON.stringify({
+        ...paid(1),
+        ledger: { state: LedgerState.Written, ledgerId: "p:20", madeAt: NOW },
+      }),
+    ) as UsageRecord;
+
+    expect(withLedgerMarkRead(written)).toEqual({
+      ...paid(1),
+      ledger: { state: LedgerState.Written, ledgerId: "p:20", madeAt: NOW },
+    });
+    expect(
+      withLedgerMarkRead(
+        legacy({ isRecordedElsewhere: true, ledgerId: "p:21", madeAt: NOW.toISOString() }),
+      ),
+    ).toEqual({
+      ...paid(1),
+      ledger: { state: LedgerState.Written, ledgerId: "p:21", madeAt: NOW },
+    });
+    expect(withLedgerMarkRead(legacy({ isRecordedElsewhere: true }))).toEqual({
+      ...paid(1),
+      ledger: { state: LedgerState.RecordedElsewhere },
+    });
+    const bare = paid(1);
+    expect(withLedgerMarkRead(bare)).toBe(bare);
+  });
+});
+
+describe("#817: why a mark is not read", () => {
+  it.each([
+    [
+      { ledger: { state: "recorded-later" } },
+      `a usage record's ledger mark is not one this version reads: {"state":"recorded-later"}`,
+    ],
+    [
+      { ledger: { state: LedgerState.Written, ledgerId: "p:30", madeAt: "garbage 12" } },
+      "the ledger entry p:30 has no valid madeAt: garbage 12",
+    ],
+    [
+      { ledger: { state: LedgerState.Written, ledgerId: "p:31" } },
+      "the ledger entry p:31 has no valid madeAt: undefined",
+    ],
+    [
+      { ledger: { state: LedgerState.Written, ledgerId: "p:32", madeAt: new Date(Number.NaN) } },
+      "the ledger entry p:32 has no valid madeAt: Invalid Date",
+    ],
+    [{ isRecordedElsewhere: "yes" }, `a usage record's isRecordedElsewhere is no boolean: "yes"`],
+    [{ isRecordedElsewhere: true, ledgerId: 42 }, "a usage record's ledgerId is no id: 42"],
+    [{ isRecordedElsewhere: true, ledgerId: "" }, `a usage record's ledgerId is no id: ""`],
+  ])("%o", (fields, message) => {
+    expect(() => ledgerMarkOf(legacy(fields))).toThrow(new TypeError(message));
+  });
+
+  it("a Date of the mark is taken as it is; ISO text only as a Date writes it", () => {
+    const madeAt = new Date("2026-11-04T10:00:00.000Z");
+    const mark = ledgerMarkOf({
+      ...paid(1),
+      ledger: { state: LedgerState.Written, ledgerId: "p:33", madeAt },
+    });
+
+    expect(mark?.state === LedgerState.Written ? mark.madeAt : undefined).toBe(madeAt);
+    expect(() =>
+      ledgerMarkOf({
+        ...paid(1),
+        ledger: { state: LedgerState.Written, ledgerId: "p:34", madeAt: "2026-11-04T10:00:00Z" },
+      }),
+    ).toThrow(TypeError);
   });
 });

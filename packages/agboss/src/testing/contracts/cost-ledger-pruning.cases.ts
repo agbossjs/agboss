@@ -131,6 +131,23 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       expect(await second.findSpentByCounter(tenantDay)).toBe(0.75);
     },
   },
+  {
+    // #817: a cutoff that is no date compares false with every entry — it would lower the mark
+    name: "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+    run: async ({ first, second }) => {
+      const old = entry("run-1:pass-g:0", 0.25, "2026-10-18T08:00:00.000Z");
+      await first.saveAll([tenantDay], [old]);
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      const invalid: readonly unknown[] = [new Date(Number.NaN), "2026-10-18T10:00:00.000Z", 0];
+
+      for (const cutoff of invalid)
+        await expect(first.deleteByMadeAtBefore(cutoff as Date)).rejects.toThrow();
+      await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject(
+        expired([old.ledgerId], "2026-10-18T09:00:00.000Z"),
+      );
+      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
+    },
+  },
 ];
 
 /** The pruning cases of the cost ledger contract (#771). */
