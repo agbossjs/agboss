@@ -90,7 +90,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   @A2AAgent({
     name: `${name}-peer-a2a-agent`,
     url: spec.peerUrl,
-    target: { application: `${peerName}-application`, start: `${peerName}-workflow-start` },
+    target: { application: `${peerName}-application`, skill: `${peerName}-workflow-start` },
     input: WorkflowStartTextDto,
     output: PeerReply,
     ...(spec.price === undefined ? {} : { price: spec.price }),

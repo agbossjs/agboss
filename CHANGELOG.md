@@ -20,6 +20,20 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking
 
+- **The A2A client speaks A2A v1.0** (#809, epic #805): `A2AClient` / `@A2AAgent` are rebuilt on the
+  official `@a2a-js/sdk` (1.3.0, exact pin) and call any v1.0 agent, AGBoss or foreign — the Agent
+  Card at `<url>/.well-known/agent-card.json`, JSON-RPC or HTTP+JSON, `SendMessage` with
+  `returnImmediately` through `OutboundCalls`, then `SubscribeToTask` or polled `GetTask`. Migration:
+  `target.start` → `target.skill`; `target`, `input` / `output` are optional (an untyped or foreign
+  agent); `send(input)` → `send(message)` returning `A2ATaskResult`, `cancel(threadId)` →
+  `cancel(taskId)`, `call.threadId` → `call.contextId`; `A2ARemoteError` → `A2ARemoteCallError`
+  (`a2a.remote`, an options constructor) beside `A2AProtocolError`, `A2AContractError`,
+  `A2ATaskFailedError`, `A2ATaskCanceledError`, `A2ATaskInterruptedError`, `A2ACallDeadlineError`,
+  `A2AOriginError`, `A2AMeshUnsupportedError`; `A2AContract` → `A2AClientContract`; `IA2AAdapter` →
+  `A2AAdapterContract`; the zod values `A2AResponseSchema`, `A2AEventSchema`, `A2ARequestSchema` leave
+  the public surface; `[a2a.target-required]` is gone. A v0.3-only agent is `A2AProtocolError`
+  naming its version. The 0.1.0 client wire (`POST <url>/execute`, the `agboss-mesh` header) is gone:
+  a 0.1.1 client and a 0.1.0 server do not interoperate (the server follows in #808).
 - **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
   passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and
   no flow step pauses on one. The form is gone from `@ChannelRole`'s types
@@ -348,6 +362,17 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   0.2; import from `@agboss/core` (`npx agboss migrate imports` rewrites them).
 
 ### Security
+
+- **An A2A client talks to its own origins only** (#809): an Agent Card interface on another
+  origin than the client's `url` (or its `allowedOrigins`) is refused, no request — and so no
+  credential header — goes elsewhere, and redirects are never followed off those origins.
+- **A signed mesh envelope always names its audience** (#809): senders sign only when they name the
+  receiving application (else the envelope is an unsigned, untrusted claim), and the receivers'
+  shared check (`audienceRefusalOf`) refuses a signed envelope with no `audience`
+  (`mesh.audience-missing`) or another's (`mesh.audience-mismatch`) before its signature is
+  verified — today an MCP server's (an error result with that code); the A2A server's mesh check
+  comes with #810. A signed claim could otherwise be replayed to another application. An MCP or A2A client without a target application
+  is no longer trusted by its receiver. `signedMeshEnvelope` takes a required `audience`.
 
 - **No CI install takes a release nobody reviewed** (#523): every workflow installs from its
   lockfile (`npm ci`); an install that must resolve ranges — `npm run check:packed`'s probe project

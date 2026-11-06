@@ -57,7 +57,6 @@ describe("#398 PR 3: the contracts at assembly", () => {
     @A2AAgent({
       name: "billing-desk",
       url: "http://billing.invalid",
-      target: { application: "", start: "" }, // names nothing
       input: WorkflowStartTextDto,
       output: WorkflowFinishTextDto,
     })
@@ -94,7 +93,8 @@ describe("#398 PR 3: the contracts at assembly", () => {
       '[name.kind-suffix] "billing-desk" on @A2AAgent — name it "billing-desk-a2a-agent"',
     );
     expect(message).toContain("[name.kind-suffix] class BillingDesk — name it BillingDeskA2AAgent");
-    expect(message).toContain("[a2a.target-required] billing-desk names no target");
+    // #809: a target is optional (a foreign agent has none): no [a2a.target-required]
+    expect(message).not.toContain("a2a.target-required");
   });
 });
 

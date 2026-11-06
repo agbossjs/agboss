@@ -81,13 +81,14 @@ export function takeRunReport(
   value: unknown,
   bodyHash: string,
   contract?: ContractPrice,
+  alreadyCharged = 0,
 ): void {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const report =
     settings === undefined ? undefined : verifiedRunReportOf(value, settings.keys.peers, bodyHash);
-  const charge = chargeOf(report, contract);
+  const charge = chargeOf(report, contract, alreadyCharged);
   if (charge !== undefined) {
     const service = `${transport}:${charge.application}`;
     frame.services.reportUsage?.(serviceUsageOf({ service, cost: usd(charge.cost) }));
@@ -99,13 +100,17 @@ export function takeRunReport(
   });
 }
 
-/** What the calling step is charged (Q6 c): the larger of the verified spend and the price. */
+/**
+ * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less
+ * what the call was charged already (#809: an A2A call charges its price when it is accepted).
+ */
 function chargeOf(
   report: MeshRunReport | undefined,
   contract: ContractPrice | undefined,
+  alreadyCharged: number,
 ): { readonly application: string; readonly cost: number } | undefined {
   const reported = report === undefined ? 0 : (dollarsOf(report.spend.total) ?? 0);
-  const cost = Math.max(reported, contract?.price ?? 0);
+  const cost = Math.max(reported, contract?.price ?? 0) - alreadyCharged;
   const application = report?.issuer ?? contract?.application;
   return application === undefined || cost <= 0 ? undefined : { application, cost };
 }

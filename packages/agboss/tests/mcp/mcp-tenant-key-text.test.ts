@@ -34,6 +34,7 @@ const funded = (key: MeshKeyPair): string =>
     {
       schema: 1,
       issuer: "orders-application",
+      audience: "billing-application",
       origin: {
         rootExecutionId: "root-1",
         executionId: "root-1",

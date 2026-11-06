@@ -23,8 +23,11 @@ import { TestSetupError } from "./errors.js";
 export interface SignedMeshEnvelopeOptions {
   /** The calling application (its `@Application({ name })`): the peer that signs. */
   readonly issuer: string;
-  /** The receiving application it is meant for; another receiver refuses it (`401`). Unset → none. */
-  readonly audience?: string;
+  /**
+   * The receiving application it is meant for (required, #809 security): a receiver refuses a signed
+   * envelope for another application (`mesh.audience-mismatch`) or for none (`mesh.audience-missing`).
+   */
+  readonly audience: string;
   /** The issuer's Ed25519 private key: a `KeyObject`, or its PKCS #8 PEM (what `mesh.signingKey` holds). */
   readonly signingKey: KeyObject | string;
   /** The request's body (A2A) or arguments (MCP) as sent: its `bodyHash` binds the envelope to the call. */
@@ -85,7 +88,7 @@ export function signedMeshEnvelope(options: SignedMeshEnvelopeOptions): string {
     bodyHash: bodyHashOf(options.body),
     ...(options.budget === undefined ? {} : { budget: options.budget }),
     ...(options.deadline === undefined ? {} : { deadline: options.deadline }),
-    ...(options.audience === undefined ? {} : { audience: options.audience }),
+    audience: options.audience,
   };
   return encodeMeshEnvelope(envelope, signingKeyOf(options.signingKey));
 }

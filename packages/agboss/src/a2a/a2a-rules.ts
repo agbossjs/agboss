@@ -12,8 +12,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
  * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
  * or `@McpExpose` classes (`[application.not-an-expose]`), each name once
  * (`[application.duplicate-expose]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
- * workflows (`[application.expose-unknown-start]`). Every `@A2AAgent` it lists names its `target`
- * (`[a2a.target-required]`). Names: `-a2a-agent` on a `…A2AAgent` class, `-a2a-expose` on a
+ * workflows (`[application.expose-unknown-start]`). Names: `-a2a-agent` on a `…A2AAgent` class, `-a2a-expose` on a
  * `…A2AExpose` class (`[name.kind-suffix]`).
  */
 
@@ -92,14 +91,9 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
   return providersOf(options).flatMap((cls): RuleViolation[] => {
     const meta = componentOf(cls);
     if (meta?.kind !== "a2a-agent") return [];
-    const { name, target } = meta.meta;
+    const { name } = meta.meta;
+    // #809: the target is optional — a foreign agent has no application, one skill needs no name
     const found = contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where);
-    // untyped (JS) code may leave the contract out (the decorator's type requires it), or empty
-    const declared = target as Partial<typeof target> | undefined;
-    if (!declared?.application || !declared.start) {
-      const message = `${name} names no target — @A2AAgent({ target: { application, start }, input, output }): the receiving application and its exported start`;
-      found.push(violation("a2a.target-required", message, [where]));
-    }
     return found;
   });
 }

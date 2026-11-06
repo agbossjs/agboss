@@ -13,6 +13,7 @@
     "vitest.mutation-money.config.ts",
     "vitest.mutation-a2a.config.ts",
     "vitest.mutation-a2a-server.config.ts",
+    "vitest.mutation-a2a-client.config.ts",
     ".agboss/types.d.ts"
   ]
 }

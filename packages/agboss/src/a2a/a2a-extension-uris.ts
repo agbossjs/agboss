@@ -12,6 +12,9 @@ export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
 /**
  * The mesh extension (profile): where a failed task's stable code is sent, in
- * `status.message.metadata[A2A_MESH_EXTENSION].code`.
+ * `status.message.metadata[A2A_MESH_EXTENSION].code`; the caller's envelope rides
+ * `message.metadata[A2A_MESH_EXTENSION].envelope` (#809), and the card entry's
+ * `params.idempotencyRetention` (an ISO 8601 duration) says how long the agent deduplicates a
+ * `messageId` — what makes it an AGBoss peer to a client.
  */
 export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";

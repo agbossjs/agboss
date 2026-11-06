@@ -1773,10 +1773,39 @@ tenantId })` → `RerankResult { results, costUsd? }`, everything from `@agboss/
 docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`
   runs the suite through the core's reranking; a scripted agent searches with `callTool(HandbookRag, { query })` (the `@Rag`'s search tool), `testRag(R, { model })` scripts its model reranker. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
-  **A2A (#387, #398 PR 3) — declared contracts:** a call to another application is an
-  `@A2AAgent({ name: "-a2a-agent", url, target: { application, start }, input, output, price?, deps })`
-  on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`,
-  `[a2a.target-required]`), in `providers` — `execute(input)` is typed and validated both ways; what
+  **A2A (#387, #398 PR 3, #809) — declared contracts:** a call to an A2A v1.0 agent (another AGBoss
+  application or a foreign one, on the official `@a2a-js/sdk`, exact pin) is an
+  `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill? }, input?, output?, price?, mesh?, allowedOrigins?, deps })`
+  on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`),
+  in `providers` — `execute(input)` is typed and validated both ways (one data part, text for
+  `WorkflowStartTextDto`; the COMPLETED task's artifact), `send(message)` untyped (`A2ATaskResult`),
+  `reply(taskId, …)`, `getTask`, `cancel(taskId)`, `agentCard()`. The card
+  (`<url>/.well-known/agent-card.json`, read on first use) is checked before anything is sent: an A2A
+  1.0 interface (a v0.3-only card → `A2AProtocolError` naming its version), the skill
+  (`[a2a.unknown-skill]`), an AGBoss peer's skill schemas against the DTOs (`[a2a.schema-mismatch]`,
+  `A2AContractError`), every interface on the `url`'s origin or `allowedOrigins` (`A2AOriginError`;
+  no request, no header goes elsewhere, a redirect elsewhere refused). Inside an execution the accept
+  (`SendMessage`, `returnImmediately`, a messageId derived from the step's key) goes through
+  `OutboundCalls` (`a2a.<agent>[.reply][.<call.key>]`; `[a2a.repeated-call]`): a send of unknown
+  outcome is resent with the same messageId only to an AGBoss peer (its card's mesh extension
+  declares `idempotencyRetention`: `NotSentTrust.KeyReplay`, the trust as recorded with the intent —
+  a card that changed since is unknown), never to a foreign one (`OutboundCallUnreconciledError`; a
+  reply is reconciled only when the task's history holds its messageId); definite failures are an
+  allowlist of codes that come before the agent acts; a step of no composed application (a unit
+  runner's) is refused, `[a2a.outside-application]`; the price is charged at the accept; then the task is waited for by `SubscribeToTask` (a dropped stream
+  reopened) or `GetTask` polled on the `Clock`, to the execution's deadline or `call.timeout`
+  (best-effort `CancelTask`, `A2ACallDeadlineError` with its `cancel: A2ACancelOutcome`). Outcomes: FAILED / REJECTED
+  `A2ATaskFailedError` (an AGBoss peer's mesh limit → the same `MeshLoopDetectedError` /
+  `HopsLimitExceededError`), CANCELED `A2ATaskCanceledError`, INPUT_REQUIRED
+  `A2ATaskInterruptedError`, a JSON-RPC error `A2AProtocolError`, nothing usable
+  `A2ARemoteCallError` — codes only, never a remote text. The mesh rides as the extension
+  `https://agboss.dev/a2a/mesh/v1` (`A2AMesh.Required`, the default with a `target.application` →
+  `A2AMeshUnsupportedError` without it, or `IfSupported`): the envelope in `message.metadata[uri]`,
+  bound to the message by `meshBodyHashOf` (`src/a2a/a2a-mesh-message.ts`), signed only with an
+  `audience` (`audienceRefusalOf`, `src/mesh/mesh-verification.ts`: a signed one without is
+  `mesh.audience-missing`, another's `mesh.audience-mismatch`, before its signature is checked — today
+  MCP's receiver; the A2A server's in P3, #810), a loop refused
+  before sending; `price` charged when no verified run report says more. What
   an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
 [Start], skills?, provider?, security? })` (`a2a/*.a2a-expose.ts`) listed in
   `@Application({ exposes })` with its `@McpExpose`s (`[application.expose-unknown-start]`,

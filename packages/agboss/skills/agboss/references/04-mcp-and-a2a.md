@@ -133,8 +133,8 @@ export class OrderDeskReplyDto {
 ```
 
 ```ts file=src/support/a2a/order-desk.a2a-agent.ts
-// a2a/order-desk.a2a-agent.ts — the remote workflow as a declared contract (#398 PR 3): what it
-// calls, sends, gets back and costs; per-call headers from the execution
+// a2a/order-desk.a2a-agent.ts — an A2A v1.0 agent as a declared contract (#809): whom it calls, what
+// it sends, gets back and costs; per-call headers from the execution
 import { ExecutionContext } from "@agboss/core";
 import { A2AAgent, A2AClient } from "@agboss/core/a2a";
 import { usd } from "@agboss/core/units";
@@ -143,9 +143,9 @@ import { OrderQuestionDto } from "../dto/order-question.dto.js";
 
 @A2AAgent({
   name: "order-desk-a2a-agent",
-  url: "https://orders.example/a2a", // POST <url>/execute, <url>/resume, <url>/cancel
-  target: { application: "orders-application", start: "order-desk-workflow-start" },
-  input: OrderQuestionDto, // the target start's input
+  url: "https://orders.example/a2a", // its card: <url>/.well-known/agent-card.json
+  target: { application: "orders-application", skill: "order-desk-workflow-start" },
+  input: OrderQuestionDto, // the target skill's input
   output: OrderDeskReplyDto, // its finish's output
   price: usd(0.002), // per call: the step records the larger of it and a trusted peer's report
   deps: [ExecutionContext],
@@ -372,18 +372,43 @@ import { SupportWorkflow } from "./support/workflows/support/support.workflow.js
 export class SupportApplication {}
 ```
 
-- `@A2AAgent({ name, url, target, input, output, price?, deps })` (`A2AAgentConfig`; `target` an
-  `A2ATarget`) is a declared contract (#398 PR 3):
-  `execute(input, call?)` sends the input checked by `input` (with `target.start`) and returns the
-  remote output checked by `output`; any status but `A2AStatus.Finished` throws `A2ARemoteError`
-  (`response.status`: `Paused` with `pauseIds`, `Failed`, `Limited`, `Cancelled`). `send(input,
-call)` returns the `A2AExecutionResponse` whatever the status — use it when the caller handles a
-  remote pause itself; `cancel(threadId)` stops a remote run of the caller's thread. A client built
-  by hand takes the same as `new A2AClient({ url, contract: { target, input, output } })` (an `A2AContract`); without
-  one `execute` throws `[a2a.no-contract]`.
-- Names: `name` ends with `-a2a-agent`, the class with `A2AAgent` (`[name.kind-suffix]`); its
-  `target` is required (`[a2a.target-required]`). Its file is `a2a/<name>.a2a-agent.ts`.
-- `call.onEvent` streams the remote run's progress (`{ type: "progress", payload: { step, content } }`).
+- `@A2AAgent({ name, url, target?, input?, output?, price?, mesh?, allowedOrigins?, deps })`
+  (`A2AAgentConfig`; `target` an `A2ATarget { application?, skill? }` — `skill` was `start`) on a class
+  that `extends A2AClient<In, Out>` calls any A2A v1.0 agent (#809, on the official `@a2a-js/sdk`): the
+  card is read from `<url>/.well-known/agent-card.json` on first use (`cardTtl`, 5 min) and checked — an
+  A2A 1.0 interface (a v0.3-only card is `A2AProtocolError` naming its version), the skill
+  (`[a2a.unknown-skill]`), an AGBoss peer's declared schemas against the DTOs (`[a2a.schema-mismatch]`),
+  every interface on the `url`'s origin or `allowedOrigins` (else `A2AOriginError`, no request goes
+  there; redirects elsewhere refused) — before anything is sent (`A2AContractError`).
+  `execute(input, call?)` sends one data part (text for `WorkflowStartTextDto`) and returns the
+  COMPLETED task's output, validated; FAILED / REJECTED is `A2ATaskFailedError` (an AGBoss peer's
+  `limit.mesh-loop` / `limit.hops` the same limit error), CANCELED `A2ATaskCanceledError`,
+  INPUT_REQUIRED `A2ATaskInterruptedError` (a remote pause is not a local one yet), a JSON-RPC error
+  `A2AProtocolError` (codes only, never the agent's text). `send(message, call?)` (a text, `{ data }`
+  or the parts) returns `A2ATaskResult { task, message, text, data, peer }` — an interrupted task too,
+  continued with `reply(taskId, answer)`; `getTask(taskId)`, `cancel(taskId)` (was `cancel(threadId)`),
+  `agentCard()`. A call that gives nothing usable (a COMPLETED task without output) is
+  `A2ARemoteCallError` (was `A2ARemoteError`). Without both DTOs (or `new A2AClient({ url, contract: { skill, input, output } })`,
+  `A2AClientContract`) `execute` throws `[a2a.no-contract]`.
+- The accept round trip runs through `OutboundCalls` inside an execution: `SendMessage` with
+  `returnImmediately`, a messageId derived from the step's key. A send of unknown outcome (no answer, a
+  5xx) is resent with the same messageId only to an **AGBoss peer** (its card's mesh extension declares
+  `idempotencyRetention`, `NotSentTrust.KeyReplay`); to a **foreign peer** it is never resent:
+  `OutboundCallUnreconciledError`. Two calls of one step with other messages need `call.key`
+  (`[a2a.repeated-call]`; 1–40 of `[A-Za-z0-9._-]`). The peer's trust is recorded with the call (a
+  card that changed since is never resent to); a foreign reply counts as arrived only when the
+  task's history holds its messageId; a step of no composed application (a unit runner's) is
+  `[a2a.outside-application]` — mock the client there; the price is charged at the accept. Then
+  the task is waited for — `SubscribeToTask` when the card streams (a
+  dropped stream opened again), else `GetTask` polled on the `Clock` — up to the execution's deadline or
+  `call.timeout`: then a best-effort `CancelTask` and `A2ACallDeadlineError`.
+- The mesh rides the call as the extension `https://agboss.dev/a2a/mesh/v1`: `mesh: A2AMesh.Required`
+  (the default with a `target.application`; a card without it is `A2AMeshUnsupportedError`, nothing
+  sent) or `IfSupported`. The envelope (call chain, budget and deadline left, signed only with an
+  `audience` — the target application) goes in `message.metadata`; a loop is refused before sending.
+- Names: `name` ends with `-a2a-agent`, the class with `A2AAgent` (`[name.kind-suffix]`). Its file is
+  `a2a/<name>.a2a-agent.ts`.
+- `call.onEvent` gets each event of the remote task while the call waits (`A2AStreamEvent`).
 - The remote's cost: `price` per call, and — from a trusted peer (below) — its signed run report;
   the calling tool's spend records the larger (`a2a:<target application>`), so the budgets count it.
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
@@ -511,7 +536,6 @@ test's end, and `override(ApiKeyDirectory, …)` replaces the resolver's service
 ```ts file=tests/support/a2a/support.a2a-caller-resolver.test.ts
 import { expect } from "vitest";
 import { Injectable } from "@agboss/core";
-import { A2ACallerRejectedError, A2AClient } from "@agboss/core/a2a";
 import { override, testWith } from "@agboss/core/testing";
 import { ApiKeyDirectory, type ApiKeyGrant } from "../../../src/support/services/api-key-directory.service.js";
 import { SupportA2aCallerResolver } from "../../../src/support/a2a/support.a2a-caller-resolver.js";
@@ -531,9 +555,15 @@ const test = testWith(SupportApplication, { overrides: [override(ApiKeyDirectory
 test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
   const { url } = await a2aServer({ expose: SupportA2AExpose, callerResolver: SupportA2aCallerResolver });
 
-  const sent = new A2AClient({ url, headers: { authorization: "Bearer key-x" } }).send({ text: "hi" });
+  // the listener's 0.1.0 wire until it serves A2A v1.0 (#808); the A2A v1.0 client is above
+  const sent = await fetch(`${url}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer key-x" },
+    body: JSON.stringify({ input: { text: "hi" } }),
+  });
 
-  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, { httpStatus: 401, wireCode: "a2a.caller-unauthenticated" });
+  expect(sent.status).toBe(401);
+  expect(await sent.json()).toMatchObject({ code: "a2a.caller-unauthenticated" });
   expect(mockLlm(SupportAgent)).toHaveBeenCalledTimes(0);
 });
 ```
@@ -675,7 +705,7 @@ spend as `a2a:<issuer>` / `mcp:<issuer>` in the calling tool's spend and the rem
 `ToolCallRecord.remote` (`ToolCallRemote`: `application`, `executionId`); an unverified report is
 ignored. The deadline is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — the
 smaller of it and a trusted caller's, checked before every step and model call (a call in flight is
-not cut).
+not cut). `A2AClient.cancel(taskId)` sends A2A `CancelTask` for that task only (#809).
 
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
   between instances), kept `mesh.idempotencyRetention` (default `minutes(30)`), then removed by the
@@ -691,25 +721,30 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 
 ## Errors and fixes
 
-| You see                                                        | Fix                                                                                             |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                            |
-| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                         |
-| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                   |
-| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                           |
-| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)           |
-| `A2ARemoteError: … "paused"`                                   | the remote run waits for an approval: use `send` and resume it, or approve remotely             |
-| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                     |
-| `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ target, input, output })`: declare it, or use `send` |
-| `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                            |
-| `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                     |
-| `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                           |
-| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`              |
-| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`                     |
-| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish            |
-| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it              |
-| `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s           |
-| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`          |
+| You see                                                        | Fix                                                                                                |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                               |
+| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                            |
+| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                      |
+| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                              |
+| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)              |
+| `A2ATaskInterruptedError` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely          |
+| `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                            |
+| `A2AOriginError` (`a2a.origin-refused`)                        | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's    |
+| `A2AMeshUnsupportedError`                                      | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card          |
+| `OutboundCallUnreconciledError` (`foreign A2A peer`)           | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCalls`) |
+| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                        |
+| `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`          |
+| `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                               |
+| `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                        |
+| `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                              |
+| `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)          |
+| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`                 |
+| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`                        |
+| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish               |
+| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                 |
+| `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s              |
+| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`             |
 
 ## Pitfalls
 

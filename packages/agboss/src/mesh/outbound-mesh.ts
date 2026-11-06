@@ -80,24 +80,42 @@ function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | u
  * What a call made now with `body` carries: from the current execution frame, if one is open —
  * addressed to `audience` (#398 PR 3: the receiver's application, from the client's `target`).
  */
-export function outboundMeshOf(body: string, audience?: string): OutboundMesh | undefined {
+export const outboundMeshOf = (body: string, audience?: string): OutboundMesh | undefined =>
+  outboundMeshOfHash(bodyHashOf(body), audience);
+
+/**
+ * What a call made now carries, its body already hashed (#809: an A2A message's canonical JSON
+ * without its mesh entry, `meshBodyHashOf`); `undefined` outside a frame or without a call chain.
+ * Signed with the application's `mesh.signingKey` only when it names its `audience` — without one
+ * it is an unsigned claim: its chain checked by the receiver, nothing of it trusted.
+ */
+export function outboundMeshOfHash(bodyHash: string, audience?: string): OutboundMesh | undefined {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return undefined;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const now = settings?.clock.now() ?? new Date(0);
-  const bodyHash = bodyHashOf(body);
   const built = envelopeOf(frame, bodyHash, now);
   if (built === undefined) return undefined;
   const envelope = audience === undefined ? built : { ...built, audience };
   const root = rootFactsOf(frame.execution);
   const traceId = root.mesh?.traceId ?? hexOf(root.executionId, TRACE_ID_LENGTH);
   const spanId = hexOf(frame.step.idempotencyKey, SPAN_ID_LENGTH);
+  // #809 security: signed only when addressed — an envelope with no audience is a claim anyone
+  // could replay to another application as the caller's signed word (a confused deputy)
+  const signingKey = audience === undefined ? undefined : signingKeyOf(settings);
   return {
-    envelope: encodeMeshEnvelope(envelope, signingKeyOf(settings)),
+    envelope: encodeMeshEnvelope(envelope, signingKey),
     traceparent: `00-${traceId}-${spanId}-01`,
     idempotencyKey: frame.step.idempotencyKey,
     bodyHash,
   };
+}
+
+/** The call chain of the current frame's tree (its own hop last); `undefined` without one. */
+export function currentCallChainOf(): MeshEnvelope["callChain"] | undefined {
+  const frame = currentFrame();
+  if (frame === undefined || frame.isClosed()) return undefined;
+  return rootFactsOf(frame.execution).mesh?.chain;
 }
 
 const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/;

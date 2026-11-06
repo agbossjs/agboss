@@ -793,7 +793,7 @@ export function signedMeshEnvelope(options: SignedMeshEnvelopeOptions): string;
 
 // @public
 export interface SignedMeshEnvelopeOptions {
-    readonly audience?: string;
+    readonly audience: string;
     readonly body: string;
     // Warning: (ae-forgotten-export) The symbol "MeshBudgetClaim" needs to be exported by the entry point index.d.ts
     readonly budget?: MeshBudgetClaim;
