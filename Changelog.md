@@ -15,6 +15,7 @@ Breaking changes and notable additions, newest first. The API reports
   rewrites the import. [Testing](Testing).
 - **Deprecated**: the entry aliases `@agboss/core/channels`, `/core`, `/graph`, `/router` and
   `/tool` are removed in 0.2 — import from `@agboss/core` (`npx agboss migrate imports`).
+
 ## Unreleased — 0.1.1: a knowledge base declares whose content it serves (#796); MongoDB's ledger mark fails closed (#798)
 
 - **Changed — breaking**: `@Rag` requires `tenancy: RagTenancy.PerTenant | RagTenancy.Shared`. A
