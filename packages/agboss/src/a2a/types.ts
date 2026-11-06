@@ -58,12 +58,6 @@ export interface A2AExecutionResponse {
   readonly report?: string;
 }
 
-/** Payload for answering one pause of a paused execution (#267: by its id, never by thread). */
-export interface A2AResumeRequest<TDecision = unknown> {
-  readonly pauseId: string;
-  readonly decision: TDecision;
-}
-
 /**
  * Server-sent events of one run: `progress` while it runs (a text delta or a tool call), then one
  * `finish` with the final response — whatever the status.
@@ -100,10 +94,3 @@ export const A2AEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("finish"), payload: z.object({ result: A2AResponseSchema }) }),
 ]);
-
-/** The wire shape of a request (what the server accepts). */
-export const A2ARequestSchema = z.object({
-  input: z.unknown(),
-  start: z.string().optional(),
-  threadId: z.string().optional(),
-});

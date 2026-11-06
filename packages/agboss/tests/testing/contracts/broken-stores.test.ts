@@ -14,6 +14,7 @@ const QUEUE = "queue-claiming-twice.contract-fixture.ts";
 const QUEUE_ROWS = "queue-claiming-two-rows.contract-fixture.ts";
 const QUEUE_WATCH = "queue-watch-insert-only.contract-fixture.ts";
 const RECORD = "record-losing-update.contract-fixture.ts";
+const RECORD_WINDOW = "record-searching-window.contract-fixture.ts";
 const TREE = "tree-keeping-deleted-rows.contract-fixture.ts";
 const WALL_CLOCK = "lease-on-wall-clock.contract-fixture.ts";
 const CALLER_CLOCK = "lease-on-caller-clock.contract-fixture.ts";
@@ -27,6 +28,7 @@ beforeAll(async () => {
     QUEUE_ROWS,
     QUEUE_WATCH,
     RECORD,
+    RECORD_WINDOW,
     TREE,
     WALL_CLOCK,
     CALLER_CLOCK,
@@ -37,7 +39,17 @@ describe("#481 AC2: a broken store fails the published suite of its contract", (
   it("the run of the broken stores fails", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(
-      new Set([LEASE, QUEUE, QUEUE_ROWS, QUEUE_WATCH, RECORD, TREE, WALL_CLOCK, CALLER_CLOCK]),
+      new Set([
+        LEASE,
+        QUEUE,
+        QUEUE_ROWS,
+        QUEUE_WATCH,
+        RECORD,
+        RECORD_WINDOW,
+        TREE,
+        WALL_CLOCK,
+        CALLER_CLOCK,
+      ]),
     );
   });
 
@@ -84,6 +96,13 @@ describe("#481 AC2: a broken store fails the published suite of its contract", (
     expect(namesOf(run, RECORD, "pass")).toContain(
       "a thread made on one instance is known to the other, with its owner",
     );
+  });
+
+  it("a record store that finds a run only among its thread's last records fails the execution record contract (#808)", () => {
+    expect(namesOf(run, RECORD_WINDOW, "fail")).toEqual([
+      "a run's record is found by its id, however many later records its thread has (#808)",
+    ]);
+    expect(namesOf(run, RECORD_WINDOW, "pass")).toContain(PING_CASE);
   });
 
   it("a tree store that keeps deleted rows fails the execution tree contract", () => {

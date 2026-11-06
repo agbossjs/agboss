@@ -24,13 +24,13 @@ import { lazyLoad } from "../infrastructure/clock.js";
 /** What ending a tree without a pass needs from its workflow's app. */
 export type EndedTreeParts = Pick<TreeMoveParts, "deps" | "paused" | "trees" | "clock">;
 
-/** How many of a thread's last records are looked at for its root's record. */
-const RECORDS = 20;
-
-/** The root's record among its thread's last ones; `undefined` when it is not there. */
+/**
+ * The root's record, by its id (#808: however many later turns its thread has); `undefined` when it
+ * has none on its thread.
+ */
 export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tern | undefined> {
-  const records = await deps.terns.lastTerns(state.tenantId, state.threadId, RECORDS);
-  return records.find((record) => record.runId === state.runId);
+  const record = await deps.terns.findByTenantIdAndRunId(state.tenantId, state.runId);
+  return record?.threadId === state.threadId ? record : undefined;
 }
 
 /** The record's outcome for the tree's final error: a cancel, or what ended it. */

@@ -40,6 +40,9 @@ async function pausedRecordOn(records: ExecutionRecordRepository): Promise<strin
   return (await records.append(record(thread, "run-1", ExecutionRecordStatus.Paused))).id;
 }
 
+/** More later turns of a thread than any window of its last records (the 20 read repair read). */
+const LATER_TURNS = 25;
+
 const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
   {
     name: "a thread made on one instance is known to the other, with its owner",
@@ -77,6 +80,25 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         "running",
         "running",
       ]);
+    },
+  },
+  {
+    name: "a run's record is found by its id, however many later records its thread has (#808)",
+    run: async ({ first, second }) => {
+      const thread = await first.createThread({ workflow: "desk-workflow", tenantId: "default" });
+      const root = await first.append(record(thread, "run-0", ExecutionRecordStatus.Paused));
+      for (let turn = 1; turn <= LATER_TURNS; turn += 1) {
+        await first.append(record(thread, `run-${String(turn)}`, ExecutionRecordStatus.Answered));
+      }
+
+      expect(await second.findByTenantIdAndRunId("default", "run-0")).toMatchObject({
+        id: root.id,
+        runId: "run-0",
+        threadId: thread,
+        status: ExecutionRecordStatus.Paused,
+      });
+      expect(await second.findByTenantIdAndRunId("other-tenant", "run-0")).toBeUndefined();
+      expect(await second.findByTenantIdAndRunId("default", "run-unknown")).toBeUndefined();
     },
   },
   {
@@ -167,8 +189,9 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 /**
  * `ExecutionRecordRepository` (#265 AC7): threads and their owners, one record per execution,
  * recovery's paged look-up of `running` roots, and the compare-and-set write (S66 h): a status
- * write lands only while the record still has the expected status; the pause answer log, one
- * answer per pause of a tree (#676).
+ * write lands only while the record still has the expected status; a run's record by its id, past
+ * any window of its thread's last records (#808); the pause answer log, one answer per pause of a
+ * tree (#676).
  */
 export function executionRecordContract(target: ContractTarget<ExecutionRecordRepository>): void {
   registerContract(

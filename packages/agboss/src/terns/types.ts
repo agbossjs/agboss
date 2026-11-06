@@ -193,6 +193,8 @@ export interface TernStore extends MemoryStore, ConfigStore {
   readonly byIds: (ids: readonly string[]) => Promise<Tern[]>;
   /** Up to `limit` Terns with `status`, oldest first, after the Tern `after` (a page of them). */
   readonly byStatus: (status: TernStatus, limit: number, after?: string) => Promise<Tern[]>;
+  /** The latest Tern a run of the tenant wrote (#808); `undefined` when it wrote none. */
+  readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Tern | undefined>;
   /** Original (non-replay) Terns of a prompt version, oldest first; a run in flight (`running`) is no result. */
   readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Tern[]>;
   /** Answered Terns without a score, oldest first. */

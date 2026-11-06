@@ -4,6 +4,7 @@ import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
+import type { PauseAnswerEntry } from "../terns/index.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import { componentOfStored, StoredComponent } from "./stored-step.js";
@@ -303,6 +304,19 @@ const StoredPauseAnswer = z.object({
   resolvedAt: optionalText,
   decision: z.unknown().optional(),
   asked: z.unknown().optional(),
+});
+
+/** A pause answer as a Tern store keeps it: by its tree and its step key, the record as JSON. */
+export const pauseAnswerEntryOf = (
+  tenantId: string,
+  rootExecutionId: string,
+  answer: PauseAnswerRecord,
+): PauseAnswerEntry => ({
+  tenantId,
+  rootExecutionId,
+  stepKey: answer.step.idempotencyKey,
+  askedAt: answer.askedAt,
+  record: JSON.stringify(answer),
 });
 
 /** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */

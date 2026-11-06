@@ -164,6 +164,7 @@
     "schema": "tsx src/config/write-profile-schema.ts"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
     "@langchain/core": "^1.2.12",
     "@langchain/langgraph": "^1.4.17",
     "@langchain/openai": "^1.5.13",

@@ -27,7 +27,9 @@ import { z } from 'zod';
 // Warning: (ae-forgotten-export) The symbol "A2AHttpListenerOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type A2AServerFixture = <TStart extends Class>(options: A2AHttpListenerOptions<TStart>) => Promise<A2ATestServer>;
+export type A2AServerFixture = <TStart extends Class>(options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & {
+    readonly publicUrl?: string;
+}) => Promise<A2ATestServer>;
 
 // @public
 export interface A2ATestServer {
@@ -1403,10 +1405,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/store-clock.ts:8:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/testing/store-clock.ts:14:3 - (ae-undocumented) Missing documentation for "now".
-// src/testing/test-app.ts:47:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:53:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:54:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:55:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:48:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:54:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:55:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".

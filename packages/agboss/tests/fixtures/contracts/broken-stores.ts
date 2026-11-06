@@ -11,7 +11,7 @@ import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructu
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import type { ExecutionTree } from "../../../src/index.js";
-import type { TernOutcome } from "../../../src/terns/index.js";
+import type { Tern, TernOutcome } from "../../../src/terns/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { MapExecutionLeaseRepository } from "./map-lease-store.js";
 
@@ -62,6 +62,25 @@ export class UpdateLosingRecordRepository extends InMemoryExecutionRecordReposit
     return Promise.resolve();
   }
 }
+
+/**
+ * A run's record is looked for only among its thread's last 20 records (#808: what read repair did
+ * before `findByTenantIdAndRunId`): a run with more later turns than that is not found.
+ */
+export class WindowSearchingRecordRepository extends InMemoryExecutionRecordRepository {
+  override async findByTenantIdAndRunId(
+    tenantId: string,
+    runId: string,
+  ): Promise<Tern | undefined> {
+    const found = await super.findByTenantIdAndRunId(tenantId, runId);
+    if (found === undefined) return undefined;
+    const window = await this.lastTerns(tenantId, found.threadId, LAST_RECORDS);
+    return window.find((record) => record.runId === runId);
+  }
+}
+
+/** The window `WindowSearchingRecordRepository` reads. */
+const LAST_RECORDS = 20;
 
 /** Deleting a tree leaves its rows. */
 export class RowKeepingTreeRepository extends InMemoryExecutionTreeRepository {

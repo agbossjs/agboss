@@ -1,45 +1,23 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { z } from "zod";
+import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
-import { withInboundMesh, type InboundMesh } from "../mesh/inbound-mesh.js";
-import type { MeshEnvelope } from "../mesh/mesh-envelope.js";
-import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
+import { componentOf, ComponentError } from "../components/metadata.js";
+import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
+import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
+import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
+import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
+import type { A2AApp, A2ACallerResolver } from "./a2a-caller.js";
+import { callerResolverOf, writeRejection } from "./a2a-caller-gate.js";
+import { exportsOf } from "./a2a-exports.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
-import { MESH_REFUSAL_TEXT, MeshRefusalCode } from "../mesh/mesh-verification.js";
-import { A2AAdapter, type A2ACallOptions } from "./a2a-adapter.js";
-import {
-  A2ARoute,
-  type A2AApp,
-  type A2ACaller,
-  type A2ACallerResolver,
-  type MeshVerifier,
-} from "./a2a-caller.js";
-import {
-  admitCaller,
-  callerResolverOf,
-  meshVerifierOf,
-  writeRejection,
-} from "./a2a-caller-gate.js";
-import { cancelExchangeOf } from "./a2a-cancel.js";
-import { dedupeOf } from "./a2a-dedupe.js";
-import { answer, bodyTextOf, jsonOf, sendJson, type Exchange } from "./a2a-exchange.js";
-import { admitMesh } from "./a2a-mesh-gate.js";
-import { readRequestOf } from "./a2a-mesh-trust.js";
-import { exportedStartOf, exportsOf, type StartRefusal } from "./a2a-exports.js";
-import { dedupeKeyOf, isSignedBody, trustedRequestOf, withRunReport } from "./a2a-trusted.js";
-import { A2ARequestSchema } from "./types.js";
+import { servedContractsOf } from "./server/served-contracts.js";
+import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 
-const ResumeSchema = z.object({ pauseId: z.string(), decision: z.unknown() });
-
-const HTTP_BAD_REQUEST = 400;
-const HTTP_UNAUTHORIZED = 401;
-const HTTP_NOT_FOUND = 404;
-
-/** `a2aHttpListener(app, { expose, callerResolver, meshVerifier?, base? })` (#387, #398). */
+/** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
 export interface A2AHttpListenerOptions<TStart extends Class> {
   /**
-   * What it serves (#398 PR 3): an `@A2AExpose` listed in `@Application({ exposes })` — the starts
-   * `POST <base>/execute { start?, input }` may run (`start` optional with one export).
+   * What it serves (#398 PR 3): an `@A2AExpose` listed in `@Application({ exposes })` — its
+   * exported starts are the agent's skills.
    */
   readonly expose: Class;
   /**
@@ -48,179 +26,141 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
    */
   readonly callerResolver: Class<A2ACallerResolver<TStart>>;
   /**
-   * Where peers' public keys come from besides `@Application({ mesh: { peers } })` (#398 PR 2): an
-   * `@Injectable` listed in `providers`, asked before the caller resolver; omitted → the peers'.
+   * Where callers reach the listener, an absolute URL without the `base` (`https://billing.example`):
+   * the card's interface URL is `publicUrl` + `base`. An environment text field in practice.
    */
-  readonly meshVerifier?: Class<MeshVerifier>;
-  /** The routes' prefix (`"/a2a"` → `POST /a2a/execute`); default none. */
+  readonly publicUrl: string;
+  /** The listener's path (`"/a2a"` → `POST /a2a`, the card at `/a2a/.well-known/agent-card.json`); default none. */
   readonly base?: string;
+  /** The largest request body read (`kilobytes(1024)` by default): over it → `413`, nothing run. */
+  readonly maxBodySize?: Bytes;
+  /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request. */
+  readonly maxTaskDuration?: Milliseconds;
 }
 
-/** A route of the listener: which one, and its call into the adapter (an execute's per start). */
-interface ListenerRoute {
-  readonly route: A2ARoute;
-  readonly exchange: (start: Class | undefined) => Exchange;
+const HTTP_UNAVAILABLE = 503;
+const LISTENER_UNAVAILABLE = { code: "a2a.listener-failed", error: "the agent is not available" };
+
+const nameOf = (error: unknown): string => (error instanceof Error ? error.name : typeof error);
+
+/** The default `maxBodySize`: 1 MB. */
+const MAX_BODY_SIZE = kilobytes(1024);
+
+/** A listener's `publicUrl` + `base`, checked: an absolute http(s) URL, no query or fragment. */
+function interfaceUrlOf(publicUrl: string, base: string): string {
+  let url: URL;
+  try {
+    url = new URL(publicUrl);
+  } catch {
+    throw new ComponentError(
+      `[a2a.public-url-invalid] a2aHttpListener's publicUrl is not an absolute URL`,
+    );
+  }
+  const isHttp = url.protocol === "http:" || url.protocol === "https:";
+  if (!isHttp || url.search !== "" || url.hash !== "")
+    throw new ComponentError(
+      `[a2a.public-url-invalid] a2aHttpListener's publicUrl is an http(s) URL without a query or fragment`,
+    );
+  if (base !== "" && (!base.startsWith("/") || base.endsWith("/")))
+    throw new ComponentError(
+      `[a2a.base-invalid] a2aHttpListener's base starts with "/" and does not end with one`,
+    );
+  return `${publicUrl.replace(/\/+$/, "")}${base}`;
 }
 
-/** The listener's routes, by path. */
-function routesOf(adapter: A2AAdapter, base: string): ReadonlyMap<string, ListenerRoute> {
-  const execute =
-    (start: Class | undefined): Exchange =>
-    (body, onEvent, options) => {
-      const parsed = A2ARequestSchema.safeParse(body);
-      if (!parsed.success || start === undefined) return undefined;
-      return adapter.execute(start, parsed.data, onEvent, options);
-    };
-  const resume: Exchange = (body, onEvent, options) => {
-    const parsed = ResumeSchema.safeParse(body);
-    return parsed.success ? adapter.resume(parsed.data, onEvent, options) : undefined;
+/** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
+async function bindingOf<TStart extends Class>(
+  app: A2AApp,
+  options: A2AHttpListenerOptions<TStart>,
+  checked: {
+    readonly resolver: A2ACallerResolver<TStart>;
+    readonly exports: readonly Class[];
+    readonly url: string;
+  },
+): Promise<A2AHttpBinding> {
+  const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
+    await Promise.all([
+      lazyLoad(import("./server/a2a-skills.js")),
+      lazyLoad(import("./server/a2a-card.js")),
+      lazyLoad(import("./server/a2a-request-handler.js")),
+      lazyLoad(import("./server/a2a-local-runs.js")),
+    ]);
+  const contracts = servedContractsOf(app);
+  const control = executionControlOf(app);
+  if (contracts === undefined || control === undefined)
+    throw new ComponentError(
+      "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
+    );
+  const skills = servedSkillsOf(checked.exports, await contracts);
+  const meta = componentOf(options.expose);
+  // exportsOf checked it is an @A2AExpose
+  if (meta?.kind !== "a2a-expose")
+    throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+  const clock = app.resolve(Clock);
+  const application = meshSettingsOf(app)?.application ?? meta.meta.name;
+  const card = agentCardOf({ expose: meta.meta, skills, application, url: checked.url });
+  const parts = {
+    app,
+    tasks: app.resolve(A2ATaskRepository),
+    control,
+    clock,
+    ids: app.resolve(IdGenerator),
+    skills,
+    runs: new LocalRuns(),
+    log: frameworkLogOf(app.resolve(Logger), clock),
+    maxTaskDuration: options.maxTaskDuration,
   };
-  const cancel = cancelExchangeOf(adapter);
-  return new Map([
-    [`${base}/execute`, { route: A2ARoute.Execute, exchange: execute }],
-    [`${base}/resume`, { route: A2ARoute.Resume, exchange: () => resume }],
-    [`${base}/cancel`, { route: A2ARoute.Cancel, exchange: () => cancel }],
-  ]);
-}
-
-/** What serving one request needs: the app, its exports, resolver and verifier. */
-interface Listener<TStart extends Class> {
-  readonly app: A2AApp;
-  readonly exports: readonly Class[];
-  readonly resolver: A2ACallerResolver<TStart>;
-  readonly verifier: MeshVerifier | undefined;
-}
-
-/** A refused envelope: `401 { code, error }`, its body discarded. */
-function refuse(res: ServerResponse, req: IncomingMessage, code: MeshRefusalCode): void {
-  writeRejection(res, HTTP_UNAUTHORIZED, { code, error: MESH_REFUSAL_TEXT[code] });
-  req.resume();
-}
-
-/** Serves one request of a route: envelope, caller, chain, body, dedupe, then the run. */
-async function serve<TStart extends Class>(
-  listener: Listener<TStart>,
-  found: ListenerRoute,
-  exchange: { readonly req: IncomingMessage; readonly res: ServerResponse },
-): Promise<void> {
-  const { req, res } = exchange;
-  const { app } = listener;
-  const read = await readRequestOf(app, listener.verifier, found.route, req);
-  if ("refusal" in read) {
-    refuse(res, req, read.refusal);
-    return;
-  }
-  const gate = await admitCaller(listener.resolver, read.request, res);
-  if (!gate.isAdmitted) return;
-  const { peer, ...caller }: A2ACaller<TStart> = gate.caller;
-  const text = await bodyTextOf(req);
-  const start = startOf(listener, found.route, jsonOf(text));
-  if (typeof start === "object") {
-    writeRejection(res, HTTP_BAD_REQUEST, start);
-    return;
-  }
-  const mesh = admitMesh(app, start, read.request, { res, peer });
-  if (!mesh.isAdmitted) return;
-  // the caller's values are the start's (the options tie the resolver to it): the app checks them
-  await run(listener, { text, exchange: found.exchange(start), route: found.route }, exchange, {
-    options: withInboundMesh(caller as A2ACallOptions, mesh.inbound),
-    inbound: mesh.inbound,
-    envelope: read.request.envelope,
-  });
-}
-
-/** The export an execute runs (its body's `start`, or the only one); none for the other routes. */
-function startOf<TStart extends Class>(
-  listener: Listener<TStart>,
-  route: A2ARoute,
-  body: unknown,
-): Class | StartRefusal | undefined {
-  if (route !== A2ARoute.Execute) return undefined;
-  const named: unknown =
-    typeof body === "object" && body !== null ? Reflect.get(body, "start") : undefined;
-  return exportedStartOf(listener.exports, typeof named === "string" ? named : undefined);
-}
-
-/** The request's body as read, its route and the exchange it runs. */
-interface ReadBody {
-  readonly text: string;
-  readonly route: A2ARoute;
-  readonly exchange: Exchange;
-}
-
-/** What an admitted request runs with: its options, its chain and the envelope it carried. */
-interface Admitted {
-  readonly options: A2ACallOptions;
-  readonly inbound: InboundMesh | undefined;
-  readonly envelope: MeshEnvelope | undefined;
-}
-
-/** Runs an admitted request: its body checked against a trusted envelope, deduplicated, answered. */
-async function run<TStart extends Class>(
-  listener: Listener<TStart>,
-  found: ReadBody,
-  exchange: { readonly req: IncomingMessage; readonly res: ServerResponse },
-  admitted: Admitted,
-): Promise<void> {
-  const { req, res } = exchange;
-  const { app } = listener;
-  const { text } = found;
-  const tenantId = admitted.options.tenant?.tenantId ?? DEFAULT_TENANT_ID;
-  const trusted = trustedRequestOf(admitted.inbound, admitted.envelope, tenantId);
-  if (!isSignedBody(trusted, text)) {
-    refuse(res, req, MeshRefusalCode.BodyMismatch);
-    return;
-  }
-  const now = meshSettingsOf(app)?.clock.now() ?? new Date(0);
-  const key = found.route === A2ARoute.Execute ? dedupeKeyOf(trusted) : undefined;
-  const dedupe = await dedupeOf(app, key, exchange, now);
-  if (dedupe.isAnswered) return;
-  const settle = (result: Parameters<typeof withRunReport>[2]) =>
-    Promise.resolve(withRunReport(app, trusted, result));
-  const result = await answer(req, res, {
-    exchange: found.exchange,
-    options: admitted.options,
-    body: jsonOf(text),
-    settle,
-  });
-  await dedupe.keep(result);
+  return {
+    card,
+    handler: new A2AServerRequestHandler(parts, card.card),
+    resolver: checked.resolver,
+    log: parts.log,
+    base: options.base ?? "",
+    maxBodySize: options.maxBodySize ?? MAX_BODY_SIZE,
+  };
 }
 
 /**
- * Serves an application's exported starts over HTTP (#387), for
- * `http.createServer(a2aHttpListener(app, { expose, callerResolver, base }))` — `expose` an
- * `@A2AExpose` listed in `@Application({ exposes })` (#398 PR 3; `[application.expose-unlisted]`):
- * `POST <base>/execute` `{ input, start?, threadId? }` (`400 a2a.unknown-start` for a start it does
- * not export, or none with several), `POST <base>/resume` `{ pauseId, decision }` and
- * `POST <base>/cancel` `{ threadId }` (#398 PR 2). Every request's mesh envelope is read first — a
- * signed one of a known issuer verified, a bad one a `401` (`mesh.signature-invalid`,
- * `mesh.envelope-expired`) — then its caller is resolved, by the `callerResolver` the application's
- * container created (not listed → this call throws), before its body is read or a header written:
- * a refused one is a real `401` / `403` (a resolver that throws: `500`), and nothing runs. An
- * admitted one's body is read; it runs for its tenant, owner and execution values — unless its call
- * chain comes back to this start or is too long: `409`, nothing runs (`a2a-mesh-gate.ts`). A trusted one (the
- * resolver's `peer` is the envelope's `signedBy`) must carry the body it signed (`401`
- * `mesh.body-mismatch`), is deduplicated by its idempotency key and runs on its caller's budget,
- * deadline and origin. The reply is the `A2AExecutionResponse` as JSON, or — with `Accept:
- * text/event-stream` — progress events followed by one `finish` event carrying it. A caller that
- * disconnects cancels its run.
+ * Serves an application's `@A2AExpose` as an A2A v1.0 agent (#387, #808), for
+ * `http.createServer(a2aHttpListener(app, { expose, callerResolver, publicUrl, base }))`: its Agent
+ * Card at `<base>/.well-known/agent-card.json` and the JSON-RPC binding at `POST <base>` —
+ * `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`
+ * (push methods `-32003`). Every request's caller is resolved by the `callerResolver` the
+ * application's container created (not listed → this call throws), after its body is read and
+ * parsed for its operation and task — nothing of it acted on before: a refused one is a real `401` /
+ * `403` (a resolver that throws: `500`), and nothing runs. Each task is one root execution under the
+ * task's id, kept in the application's `A2ATaskRepository`: a message resent with the same
+ * `messageId` finds its task, a task outlives its connection — a caller that disconnects never
+ * cancels it —, and `CancelTask` cancels that task alone.
  */
 export function a2aHttpListener<TStart extends Class>(
   app: A2AApp,
   options: A2AHttpListenerOptions<TStart>,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const resolver = callerResolverOf(app, options.callerResolver);
-  const verifier =
-    options.meshVerifier === undefined ? undefined : meshVerifierOf(app, options.meshVerifier);
   const exports = exportsOf(app, options.expose);
-  const listener: Listener<TStart> = { app, exports, resolver, verifier };
-  const routes = routesOf(new A2AAdapter(app), options.base ?? "");
+  const url = interfaceUrlOf(options.publicUrl, options.base ?? "");
+  const log = frameworkLogOf(app.resolve(Logger), app.resolve(Clock));
+  let binding: Promise<A2AHttpBinding> | undefined;
+  const http = () => lazyLoad(import("./server/a2a-jsonrpc-http.js"));
+  const bound = (): Promise<A2AHttpBinding> => {
+    binding ??= bindingOf(app, options, { resolver, exports, url }).catch((error: unknown) => {
+      binding = undefined; // built again by the next request
+      throw error;
+    });
+    return binding;
+  };
   return (req, res) => {
-    const found = req.method === "POST" ? routes.get(req.url ?? "") : undefined;
-    if (found === undefined) {
-      sendJson(res, HTTP_NOT_FOUND, { error: `no A2A route ${req.method ?? ""} ${req.url ?? ""}` });
-      return;
-    }
-    serve(listener, found, { req, res }).catch(() => res.destroy());
+    const served = Promise.all([bound(), http()]).then(([ready, { serveA2AHttp }]) =>
+      serveA2AHttp(ready, req, res),
+    );
+    served.catch((error: unknown) => {
+      // a failure past the binding's own answers (its build, a broken socket): logged by its class
+      // (a framework error by its own fixed text), never an error's text on the wire
+      const what = error instanceof ComponentError ? error.message : nameOf(error);
+      log.error("a2a.listener-failed", `the A2A listener failed to serve a request: ${what}`);
+      if (res.headersSent) res.destroy();
+      else writeRejection(res, HTTP_UNAVAILABLE, LISTENER_UNAVAILABLE);
+    });
   };
 }

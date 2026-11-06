@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { TERN_STATUSES, type Tern, type VersionScore } from "./types.js";
+import { TERN_STATUSES, type Tern } from "./types.js";
 
 /** Ordered schema migrations; `PRAGMA user_version` = how many are applied. */
 const MIGRATIONS: readonly string[] = [
@@ -108,6 +108,7 @@ const MIGRATIONS: readonly string[] = [
    INSERT INTO pause_answers_v15 (rowid, tenant_id, root_execution_id, step_key, asked_at, record) SELECT rowid, tenant_id, root_execution_id, step_key, asked_at, record FROM pause_answers;
    DROP TABLE pause_answers; ALTER TABLE pause_answers_v15 RENAME TO pause_answers;
    CREATE INDEX pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);`,
+  `CREATE INDEX IF NOT EXISTS terns_run ON terns(tenant_id, run_id);`, // 16 — a run's record (#808)
 ];
 
 const TernRow = z.object({
@@ -133,14 +134,6 @@ const TernRow = z.object({
 
 const Route = z.array(z.string());
 const Steps = z.array(z.object({ agent: z.string(), content: z.string() }));
-
-const SummaryRow = z.object({
-  prompt_version: z.string(),
-  terns: z.number(),
-  scored: z.number(),
-  mean_score: z.number().nullable(),
-  cost_usd: z.number(),
-});
 
 /**
  * Free text — a task, an answer, a summary — as its column keeps it (#521): JSON text, where a NUL
@@ -173,17 +166,6 @@ export function toTern(row: unknown): Tern {
     replayOf: r.replay_of,
     configVersion: r.config_version,
     configHash: r.config_hash,
-  };
-}
-
-export function toVersionScore(row: unknown): VersionScore {
-  const r = SummaryRow.parse(row);
-  return {
-    promptVersion: r.prompt_version,
-    terns: r.terns,
-    scored: r.scored,
-    meanScore: r.mean_score,
-    costUsd: r.cost_usd,
   };
 }
 

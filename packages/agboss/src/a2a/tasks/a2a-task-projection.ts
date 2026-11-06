@@ -21,6 +21,7 @@ import {
 } from "../../infrastructure/a2a-task.repository.js";
 import { IncompatibleResumeError } from "../../run/resume-guard.js";
 import { completedStatusOf, failedStatusOf, pausedStatusOf, WORKING } from "./task-status.js";
+import { taskChanged } from "./task-changes.js";
 
 /** How many times a write lost to another writer is read and tried again. */
 const ATTEMPTS = 3;
@@ -106,8 +107,10 @@ export class A2ATaskProjection
       if (task?.contextId !== event.threadId || isTerminalA2ATaskState(task.status.state)) return;
       const status = await statusOf();
       if (status === undefined) return;
-      if ((await tasks.compareAndSetStatus(key, task.version, status, clock.now())) !== undefined)
+      if ((await tasks.compareAndSetStatus(key, task.version, status, clock.now())) !== undefined) {
+        taskChanged(key);
         return;
+      }
     }
     const text = `task ${key.taskId} changed ${String(ATTEMPTS)} times under its projection: left to its read repair`;
     log.warn("a2a.task-projection-contended", text, {

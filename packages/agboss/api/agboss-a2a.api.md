@@ -10,17 +10,10 @@ import type { ServerResponse } from 'node:http';
 import { z } from 'zod';
 
 // @public
-export class A2AAdapter implements IA2AAdapter {
-    constructor(app: A2AApp);
-    // (undocumented)
-    cancel(threadId: string, caller: A2ACallOptions): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    execute(start: Class, req: A2AExecutionRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
-    // (undocumented)
-    resume(req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
-}
+export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
+
+// @public
+export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
 // Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
@@ -64,6 +57,7 @@ export interface A2AAgentMeta {
 // @public
 export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
 
+// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptionsOf" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -89,11 +83,9 @@ export class A2ACallerRejectedError extends AGBossError {
 
 // @public
 export interface A2ACallerRequest {
-    // Warning: (ae-forgotten-export) The symbol "MeshEnvelope" needs to be exported by the entry point index.d.ts
-    readonly envelope?: MeshEnvelope;
     readonly http: IncomingMessage;
-    readonly route: A2ARoute;
-    readonly signedBy?: string;
+    readonly operation: A2AOperation;
+    readonly taskId?: string;
 }
 
 // @public
@@ -123,11 +115,6 @@ export interface A2ACallerUnauthenticatedOptions {
     readonly challenge?: string;
     readonly reason: string;
 }
-
-// Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point index.d.ts
-//
-// @public
-export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "ownerId" | "tenant" | "execution">;
 
 // @public
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
@@ -250,9 +237,22 @@ export interface A2AExecutionResponse {
 export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: C) => C;
 
 // @public
+export interface A2AExposedSkillOptions {
+    readonly examples?: readonly string[];
+    readonly tags?: readonly string[];
+}
+
+// @public
 export interface A2AExposeOptions {
+    readonly description: string;
     readonly exports: readonly Class[];
     readonly name: string;
+    readonly provider?: {
+        readonly organization: string;
+        readonly url: string;
+    };
+    readonly security?: readonly A2ASecurityScheme[];
+    readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
     readonly version: string;
 }
 
@@ -264,7 +264,24 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
     readonly base?: string;
     readonly callerResolver: Class<A2ACallerResolver<TStart>>;
     readonly expose: Class;
-    readonly meshVerifier?: Class<MeshVerifier>;
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxBodySize?: Bytes;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly maxTaskDuration?: Milliseconds;
+    readonly publicUrl: string;
+}
+
+// @public
+export enum A2AOperation {
+    // (undocumented)
+    CancelTask = "CancelTask",
+    // (undocumented)
+    GetTask = "GetTask",
+    // (undocumented)
+    ListTasks = "ListTasks",
+    SendMessage = "SendMessage",
+    SendStreamingMessage = "SendStreamingMessage",
+    SubscribeToTask = "SubscribeToTask"
 }
 
 // @public
@@ -281,13 +298,6 @@ export class A2ARemoteError extends Error {
     // (undocumented)
     readonly response: A2AExecutionResponse;
 }
-
-// @public
-export const A2ARequestSchema: z.ZodObject<{
-    input: z.ZodUnknown;
-    start: z.ZodOptional<z.ZodString>;
-    threadId: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
 
 // @public
 export const A2AResponseSchema: z.ZodObject<{
@@ -308,18 +318,50 @@ export const A2AResponseSchema: z.ZodObject<{
 }, z.core.$strip>;
 
 // @public
-export interface A2AResumeRequest<TDecision = unknown> {
-    // (undocumented)
-    readonly decision: TDecision;
-    // (undocumented)
-    readonly pauseId: string;
-}
+export const A2ASecurity: {
+    readonly bearer: (options?: {
+        readonly name?: string;
+        readonly bearerFormat?: string;
+    }) => A2ASecurityScheme;
+    readonly apiKey: (options: {
+        readonly header: string;
+        readonly name?: string;
+    }) => A2ASecurityScheme;
+    readonly oauth2ClientCredentials: (options: {
+        readonly tokenUrl: string;
+        readonly scopes?: Readonly<Record<string, string>>;
+        readonly name?: string;
+    }) => A2ASecurityScheme;
+    readonly mtls: (options?: {
+        readonly name?: string;
+    }) => A2ASecurityScheme;
+};
 
 // @public
-export enum A2ARoute {
-    Cancel = "cancel",
-    Execute = "execute",
-    Resume = "resume"
+export type A2ASecurityScheme = {
+    readonly kind: A2ASecuritySchemeKind.Bearer;
+    readonly name: string;
+    readonly bearerFormat?: string;
+} | {
+    readonly kind: A2ASecuritySchemeKind.ApiKey;
+    readonly name: string;
+    readonly header: string;
+} | {
+    readonly kind: A2ASecuritySchemeKind.OAuth2ClientCredentials;
+    readonly name: string;
+    readonly tokenUrl: string;
+    readonly scopes: Readonly<Record<string, string>>;
+} | {
+    readonly kind: A2ASecuritySchemeKind.MutualTls;
+    readonly name: string;
+};
+
+// @public
+export enum A2ASecuritySchemeKind {
+    ApiKey = "api-key",
+    Bearer = "bearer",
+    MutualTls = "mtls",
+    OAuth2ClientCredentials = "oauth2-client-credentials"
 }
 
 // @public
@@ -340,19 +382,6 @@ export enum A2AStatus {
 export interface A2ATarget {
     readonly application: string;
     readonly start: string;
-}
-
-// @public
-export interface IA2AAdapter {
-    cancel(threadId: string, caller: A2ACallOptions): Promise<void>;
-    // (undocumented)
-    execute(start: Class, req: A2AExecutionRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
-    resume(req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
-}
-
-// @public
-export interface MeshVerifier {
-    readonly verifyKeyOf: (issuer: string) => string | undefined | Promise<string | undefined>;
 }
 
 // Warning: (ae-forgotten-export) The symbol "BuiltA2ACallerResolution" needs to be exported by the entry point index.d.ts
@@ -415,13 +444,12 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-adapter.ts:32:3 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:61:10 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:77:10 - (ae-undocumented) Missing documentation for "resume".
-// src/a2a/a2a-adapter.ts:88:16 - (ae-undocumented) Missing documentation for "cancel".
-// src/a2a/a2a-caller.ts:67:3 - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/a2a-caller.ts:102:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts:109:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:23:3 - (ae-undocumented) Missing documentation for "GetTask".
+// src/a2a/a2a-caller.ts:24:3 - (ae-undocumented) Missing documentation for "ListTasks".
+// src/a2a/a2a-caller.ts:25:3 - (ae-undocumented) Missing documentation for "CancelTask".
+// src/a2a/a2a-caller.ts:66:3 - (ae-undocumented) Missing documentation for "peer".
+// src/a2a/a2a-caller.ts:90:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:97:3 - (ae-undocumented) Missing documentation for "kind".
 // src/a2a/a2a-client.ts:25:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
 // src/a2a/a2a-client.ts:28:3 - (ae-undocumented) Missing documentation for "headers".
 // src/a2a/a2a-client.ts:40:3 - (ae-undocumented) Missing documentation for "onEvent".
@@ -451,8 +479,6 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 // src/a2a/types.ts:36:3 - (ae-undocumented) Missing documentation for "status".
 // src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "finish".
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/types.ts:63:3 - (ae-undocumented) Missing documentation for "pauseId".
-// src/a2a/types.ts:64:3 - (ae-undocumented) Missing documentation for "decision".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:45:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:49:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:78:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".

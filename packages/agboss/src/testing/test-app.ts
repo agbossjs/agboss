@@ -1,3 +1,4 @@
+import { forwardServedContracts } from "../a2a/server/served-contracts.js";
 import {
   executionControlOf,
   rememberExecutionControl,
@@ -204,6 +205,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
+  forwardServedContracts(testApp, readyApp);
   // a transport built from this app reaches its trees by id (#807: an A2A server in a test)
   rememberExecutionControl(testApp, forwardedControlOf(readyApp));
   // `leases.stall(app)` closes this instance's gate (#471)
