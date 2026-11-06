@@ -245,7 +245,7 @@ declare module "../src/flow/generated-types.js" {
     "board-search-agent": { message: Produced<WorkflowStartTextDto, typeof CompanySearchWorkflowStart> };
     "broken-agent": { readonly __error: "[input.missing-on-path] broken-offer-workflow: broken-agent.unrelated (UnrelatedDto) is not produced on the path offer-workflow-start → draft-agent → broken-agent" };
     "broken-review-workflow-start": WorkflowStartTextDto;
-    "budget-owner-question": { question: Produced<PurchaseQuestionDto, typeof CheckLimitAction | typeof DraftQuestionAction> };
+    "budget-owner-question": { ask: Produced<PurchaseQuestionDto, typeof CheckLimitAction | typeof DraftQuestionAction> };
     "budget-owner-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
     "buyer-agent": { message: Produced<WorkflowStartTextDto, typeof BuyerWorkflowStart> };
     "buyer-workflow-finish": NoInput;
@@ -476,7 +476,7 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
-    "spending-limit-question": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
+    "spending-limit-question": { ask: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
     "spending-limit-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
     "split-requests-action": { message: Produced<WorkflowStartTextDto, typeof TreasuryBatchWorkflowStart> };
     "split-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; tooBroad: Produced<ResearchTooBroadDto, typeof TopicResearcherAgent> };

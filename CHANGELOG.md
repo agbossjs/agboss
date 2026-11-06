@@ -107,6 +107,13 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   **Migration:** a decision, reply correction or `decided(…)` that carried a key the tool's input
   does not declare now fails validation; send only the input's own fields.
 
+- **A question step's input field is `ask`** (#802) — the field the step reads the role's ask from
+  was `question` (`InputOf<Role>["question"]`), while `@ChannelRole({ ask })` and
+  `PendingQuestion.ask` name the same value `ask`. `QuestionNodeOptions`, the step's node record
+  `@ChannelRole` builds, is no longer exported from the root (no user writes it). A question
+  step's `schemaHash` changes with its field's name.
+  **Migration:** `InputOf<Role>["question"]` → `InputOf<Role>["ask"]`; rerun `agboss check`.
+
 ### Changed — breaking for stores outside the core
 
 - **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
@@ -274,6 +281,15 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
   the queue's `ChildExecutionQueueDepth { queued, running, oldestQueuedAt? }`, which the cluster
   gauges of the autoscaling metrics read once per collection. **Migration:** a child queue of your
   own answers it in one query (agbossjs/postgres, agbossjs/mongodb and agbossjs/redis do).
+
+### Deprecated
+
+- **`VCRMode` → `VcrMode`** (#802) — the cased-as-a-word name, as `VcrConfig` and the `vcr` option.
+  `VCRMode` stays a deprecated alias of the same enum until 0.2 (its value, its type, a member as a
+  type); `npx agboss migrate imports` rewrites the import.
+- **The deprecated entry aliases are removed in 0.2** (#802) — `@agboss/core/channels`, `/core`,
+  `/graph`, `/router` and `/tool` (each re-exports the root, `package.json#deprecatedExports`) go in
+  0.2; import from `@agboss/core` (`npx agboss migrate imports` rewrites them).
 
 ### Security
 

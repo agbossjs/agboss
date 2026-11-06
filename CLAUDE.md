@@ -1541,7 +1541,7 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   workflow question asked by a flow step — `.returns(AskDto).toQuestion(Role).returns(AnswerDto)`
   (`question(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
   `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
-  from the path (its field `question`), asks the role's channel through the pause seam like an
+  from the path (its field `ask`, #802), asks the role's channel through the pause seam like an
   approval (`result.pending[i].kind === PauseKind.Question`, `ask` the masked question, `agent` the
   step; the record's `component.kind` is `question`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
@@ -2548,7 +2548,7 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   "points to missing source files", a stack trace inside the core names lines of the package). Errors only the real way:
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
-- A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
+- A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VcrMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`). Recording builds
   the providers' gateway as `createApp` does (#439: `BuildOptions.gatewayOverProviders`, internal — the
   chat extensions loaded, a transport `@ModelProvider` created by the test app's container on its

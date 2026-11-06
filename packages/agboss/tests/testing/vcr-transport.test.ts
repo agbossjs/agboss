@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect } from "vitest";
-import { testWith, VCRMode, type TestApp } from "../../src/testing/index.js";
+import { testWith, VcrMode, type TestApp } from "../../src/testing/index.js";
 import { cassetteFileOf } from "../../src/testing/vcr.js";
 import { execute } from "../helpers/flow.js";
 import { EchoApplication, EchoLog, FIRST, SECOND } from "./fixtures/vcr-transport.fixture.js";
@@ -27,12 +27,12 @@ const dir = mkdtempSync(join(tmpdir(), "vcr-transport-"));
 const cassette = { cassetteName: "echo", dir };
 const file = cassetteFileOf(cassette);
 
-const record = testWith(EchoApplication, { vcr: { ...cassette, mode: VCRMode.RECORD } });
-const replay = testWith(EchoApplication, { vcr: { ...cassette, mode: VCRMode.REPLAY } });
+const record = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.RECORD } });
+const replay = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
 /** The recording with the first agent's prompt changed since: written before its test opens it. */
 const stale = { cassetteName: "echo-stale", dir };
 const staleFile = cassetteFileOf(stale);
-const recordStale = testWith(EchoApplication, { vcr: { ...stale, mode: VCRMode.RECORD_STALE } });
+const recordStale = testWith(EchoApplication, { vcr: { ...stale, mode: VcrMode.RECORD_STALE } });
 
 /** Both workflows once: one call of each agent. */
 async function runBoth(app: TestApp): Promise<unknown[]> {

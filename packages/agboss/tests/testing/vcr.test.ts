@@ -11,8 +11,10 @@ import {
   replyWith,
   routeTo,
   testWith,
-  VCRMode,
+  VcrMode,
+  type VcrConfig,
 } from "../../src/testing/index.js";
+import * as testing from "../../src/testing/index.js";
 import { cassetteFileOf, vcrModeOf } from "../../src/testing/vcr.js";
 import {
   ChatStart,
@@ -35,7 +37,7 @@ import { execute } from "../helpers/flow.js";
 const dir = mkdtempSync(join(tmpdir(), "vcr-"));
 const cassette = { cassetteName: "desk-order", dir };
 const file = cassetteFileOf(cassette);
-const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VCRMode.REPLAY } });
+const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
 let recorded: ExecutionOutput;
 
 beforeAll(async () => {
@@ -106,11 +108,20 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
   it("the mode: as given; REPLAY under CI; else AUTO", () => {
     const named = { cassetteName: "x" };
 
-    expect(vcrModeOf(named, { CI: "true" })).toBe(VCRMode.REPLAY);
-    expect(vcrModeOf(named, { CI: "1" })).toBe(VCRMode.REPLAY);
-    expect(vcrModeOf(named, { CI: "false" })).toBe(VCRMode.AUTO);
-    expect(vcrModeOf(named, {})).toBe(VCRMode.AUTO);
-    expect(vcrModeOf({ ...named, mode: VCRMode.RECORD }, { CI: "true" })).toBe(VCRMode.RECORD);
+    expect(vcrModeOf(named, { CI: "true" })).toBe(VcrMode.REPLAY);
+    expect(vcrModeOf(named, { CI: "1" })).toBe(VcrMode.REPLAY);
+    expect(vcrModeOf(named, { CI: "false" })).toBe(VcrMode.AUTO);
+    expect(vcrModeOf(named, {})).toBe(VcrMode.AUTO);
+    expect(vcrModeOf({ ...named, mode: VcrMode.RECORD }, { CI: "true" })).toBe(VcrMode.RECORD);
+  });
+
+  it("#802 AC3: VcrMode is the mode; the deprecated VCRMode is the same enum", () => {
+    const alias = Object.entries(testing).find(([name]) => name === "VCRMode")?.[1];
+    const config: VcrConfig = { cassetteName: "x", mode: VcrMode.REPLAY };
+
+    expect(alias).toBe(VcrMode);
+    expect(vcrModeOf(config, {})).toBe(VcrMode.REPLAY);
+    expect(Object.values(VcrMode)).toEqual(["RECORD", "REPLAY", "AUTO", "RECORD_STALE"]);
   });
 });
 
@@ -118,7 +129,7 @@ describe("#226: VCR records and replays a judge's decisions", () => {
   const judged = { cassetteName: "decision-judge", dir };
   const judgedFile = cassetteFileOf(judged);
   const replayJudged = testWith(DecisionDeskApplication, {
-    vcr: { ...judged, mode: VCRMode.REPLAY },
+    vcr: { ...judged, mode: VcrMode.REPLAY },
   });
   let judgedRun: ExecutionOutput;
 

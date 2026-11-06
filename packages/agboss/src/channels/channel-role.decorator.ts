@@ -85,12 +85,13 @@ function formProblem(options: ChannelRoleOptions): string | undefined {
 
 /**
  * What a question role's step is as a flow node (#659): its role's name and description, one
- * input field `question` of the `ask` class, the `answer` as its output, its `maxVisits`.
+ * input field `ask` of the `ask` class (#802: one name for the value), the `answer` as its output,
+ * its `maxVisits`. The flow's own record, not part of the public surface.
  */
 export interface QuestionNodeOptions {
   readonly name: string;
   readonly description: string;
-  readonly input: { readonly question: DtoClass };
+  readonly input: { readonly ask: DtoClass };
   readonly output: DtoClass;
   readonly maxVisits?: number;
   /** The role's own options. */
@@ -118,7 +119,7 @@ function questionDeclarationOf(options: ChannelQuestionRoleOptions, source: stri
   const node: QuestionNodeOptions = {
     name,
     description,
-    input: { question: ask },
+    input: { ask },
     output: answer,
     ...(maxVisits === undefined ? {} : { maxVisits }),
     role: options,

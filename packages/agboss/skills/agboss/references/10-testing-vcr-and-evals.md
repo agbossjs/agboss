@@ -1434,10 +1434,10 @@ import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/scre
 ```ts
 // tests/screening/workflows/screening/screening.integration.test.ts — real models once, then replayed with no key or network
 import { expect } from "vitest";
-import { VCRMode, testWith } from "@agboss/core/testing";
+import { VcrMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(ScreeningApplication, {
-  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VCRMode.REPLAY : VCRMode.AUTO },
+  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO },
 });
 
 test("a strong candidate is hired", async ({ app }) => {
@@ -1449,7 +1449,7 @@ test("a strong candidate is hired", async ({ app }) => {
 `AUTO` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
 replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
 with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
-`AGBOSS_VCR_MODE` (a `VCRMode` member's value) overrides every test's own mode for one run.
+`AGBOSS_VCR_MODE` (a `VcrMode` member's value) overrides every test's own mode for one run.
 Recording goes through the application's model providers as `createApp` builds them — a transport
 provider (`complete`, #385) too, created by the test app's container with its hooks (#439) — so an
 offline transport records a cassette with no key: `AGBOSS_VCR_MODE=RECORD npx vitest run
@@ -1462,7 +1462,7 @@ component that calls a model (a model judge by the `reply` it judges, a guardrai
 compaction, a reply interpreter, a PII policy that detects with a model) — or that the application
 no longer has, fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
 — `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
-`VCRMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
+`VcrMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
 key needed for those only): `AGBOSS_VCR_MODE=RECORD_STALE npm test`. `npx agboss check --cassettes`
 finds the same without running a test (`[vcr.stale-cassette]`, exit 3). A version 1 cassette (no
 hashes) still replays, without stale detection, and prints a hint to re-record it once with

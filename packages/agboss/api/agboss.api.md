@@ -5223,23 +5223,6 @@ export class QuestionFailedError extends StepFailedError {
 }
 
 // @public
-export interface QuestionNodeOptions {
-    // (undocumented)
-    readonly description: string;
-    // (undocumented)
-    readonly input: {
-        readonly question: DtoClass;
-    };
-    // (undocumented)
-    readonly maxVisits?: number;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly output: DtoClass;
-    readonly role: ChannelQuestionRoleOptions;
-}
-
-// @public
 export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
@@ -7051,31 +7034,26 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "answer".
 // src/channels/channel-role.decorator.ts:42:3 - (ae-undocumented) Missing documentation for "maxVisits".
 // src/channels/channel-role.decorator.ts:57:3 - (ae-undocumented) Missing documentation for "approves".
-// src/channels/channel-role.decorator.ts:91:3 - (ae-undocumented) Missing documentation for "name".
-// src/channels/channel-role.decorator.ts:92:3 - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts:93:3 - (ae-undocumented) Missing documentation for "input".
-// src/channels/channel-role.decorator.ts:94:3 - (ae-undocumented) Missing documentation for "output".
-// src/channels/channel-role.decorator.ts:95:3 - (ae-undocumented) Missing documentation for "maxVisits".
-// src/channels/channel-role.decorator.ts:100:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:168:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:177:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:178:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:185:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:188:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:189:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:190:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "decision".
-// src/channels/channel-role.decorator.ts:225:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:226:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:234:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:259:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/channels/channel-role.decorator.ts:307:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:308:3 - (ae-undocumented) Missing documentation for "cause".
-// src/channels/channel-role.decorator.ts:317:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:318:12 - (ae-undocumented) Missing documentation for "name".
-// src/channels/channel-role.decorator.ts:330:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:331:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:101:1 - (ae-undocumented) Missing documentation for "ChannelRole".
+// src/channels/channel-role.decorator.ts:169:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:178:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:179:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:186:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:189:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:190:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:191:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:221:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:226:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:227:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:235:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:260:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-role.decorator.ts:308:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:309:3 - (ae-undocumented) Missing documentation for "cause".
+// src/channels/channel-role.decorator.ts:318:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:319:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:331:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:332:12 - (ae-undocumented) Missing documentation for "name".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".

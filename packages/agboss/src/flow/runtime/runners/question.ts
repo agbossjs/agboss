@@ -40,7 +40,7 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
     if (pause === undefined || channelOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = redactedDto(role.ask, questionOf(input.fields.question)) as QuestionAsk;
+    const ask = redactedDto(role.ask, questionOf(input.fields.ask)) as QuestionAsk;
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
         deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),

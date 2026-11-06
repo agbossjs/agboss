@@ -20,7 +20,8 @@ import { VcrChatModel } from "./vcr-chat-model.js";
 // comes from the test's `vcr.mode`, else `AUTO` (`REPLAY` under `CI`); `AGBOSS_VCR_MODE` overrides
 // every test's own for one run.
 
-export enum VCRMode {
+/** How a VCR test answers its model calls: from the cassette, from the models, or both. */
+export enum VcrMode {
   /** Call the real models and write every call to the cassette (from scratch). */
   RECORD = "RECORD",
   /** Answer only from the cassette; a missing cassette or call fails with `CassetteMissingError`. */
@@ -38,12 +39,12 @@ export enum VCRMode {
 /** The process variable that picks the mode of every VCR test: a member's value (`RECORD_STALE`). */
 export const VCR_MODE_VARIABLE = "AGBOSS_VCR_MODE";
 
-const MODES: ReadonlySet<string> = new Set(Object.values(VCRMode));
+const MODES: ReadonlySet<string> = new Set(Object.values(VcrMode));
 
-const isVcrMode = (value: string): value is VCRMode => MODES.has(value);
+const isVcrMode = (value: string): value is VcrMode => MODES.has(value);
 
 /** `AGBOSS_VCR_MODE`, when set: a member's value, else the test fails naming the values. */
-function modeFromEnv(env: NodeJS.ProcessEnv): VCRMode | undefined {
+function modeFromEnv(env: NodeJS.ProcessEnv): VcrMode | undefined {
   const value = env[VCR_MODE_VARIABLE];
   if (value === undefined || value === "") return undefined;
   if (isVcrMode(value)) return value;
@@ -56,7 +57,7 @@ function modeFromEnv(env: NodeJS.ProcessEnv): VCRMode | undefined {
 export interface VcrConfig {
   readonly cassetteName: string;
   /** Default: REPLAY when `CI` is set (CI never calls a model), else AUTO. */
-  readonly mode?: VCRMode;
+  readonly mode?: VcrMode;
   /** Where `<cassetteName>.cassette.json` lives; default `__snapshots__` (from the working directory). */
   readonly dir?: string;
 }
@@ -68,20 +69,20 @@ const isCi = (env: NodeJS.ProcessEnv): boolean =>
  * The mode a VCR test runs in: `AGBOSS_VCR_MODE` when set (it re-records tests that name their own
  * mode too), else the given one; REPLAY under `CI`; else AUTO.
  */
-export const vcrModeOf = (config: VcrConfig, env: NodeJS.ProcessEnv): VCRMode =>
-  modeFromEnv(env) ?? config.mode ?? (isCi(env) ? VCRMode.REPLAY : VCRMode.AUTO);
+export const vcrModeOf = (config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode =>
+  modeFromEnv(env) ?? config.mode ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
 
 export const cassetteFileOf = (config: VcrConfig): string =>
   path.join(config.dir ?? "__snapshots__", `${config.cassetteName}.cassette.json`);
 
 function cassetteOf(
   file: string,
-  mode: VCRMode,
+  mode: VcrMode,
   hashes: CassetteHashes,
   report: (failure: Error) => Error,
 ): Cassette {
-  if (mode === VCRMode.RECORD_STALE) return Cassette.recordingStale(file, hashes, report);
-  const replay = mode === VCRMode.REPLAY || (mode === VCRMode.AUTO && fs.existsSync(file));
+  if (mode === VcrMode.RECORD_STALE) return Cassette.recordingStale(file, hashes, report);
+  const replay = mode === VcrMode.REPLAY || (mode === VcrMode.AUTO && fs.existsSync(file));
   return replay ? Cassette.replaying(file, hashes, report) : Cassette.recording(file, hashes);
 }
 

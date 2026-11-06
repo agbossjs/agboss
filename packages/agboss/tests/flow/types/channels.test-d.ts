@@ -4,6 +4,7 @@ import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import type { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import type { ToolArguments } from "../../../src/dto/standard/framework.js";
+import type * as Root from "../../../src/index.js";
 import type {
   InputOf,
   MissingGeneratedTypes,
@@ -125,8 +126,19 @@ describe("#659 AC6: a question role's ask and answer type its channel and its in
   it("the step's input and output: the ask in, the answer out", () => {
     expectTypeOf<OutputOf<SpendingLimitQuestion>>().toEqualTypeOf<SpendingLimitAnswerDto>();
     expectTypeOf<
-      InputOf<SpendingLimitQuestion>["question"]["value"]
+      InputOf<SpendingLimitQuestion>["ask"]["value"]
     >().toEqualTypeOf<PurchaseQuestionDto>();
+  });
+
+  it("#802 AC4: the step's input field is ask, as the role's option says; question is no field", () => {
+    expectTypeOf<keyof InputOf<SpendingLimitQuestion>>().toEqualTypeOf<"ask">();
+    // @ts-expect-error -- the field was `question` before #802
+    expectTypeOf<InputOf<SpendingLimitQuestion>["question"]>().toBeObject();
+  });
+
+  it("#802 AC4: the step's node record (QuestionNodeOptions) is not on the root entry", () => {
+    // @ts-expect-error -- what @ChannelRole builds for the flow, no user's type
+    expectTypeOf<Root.QuestionNodeOptions>().toBeObject();
   });
 });
 
