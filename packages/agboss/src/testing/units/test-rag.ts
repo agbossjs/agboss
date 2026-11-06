@@ -4,6 +4,7 @@ import type { RagSearchResultDto } from "../../dto/standard/framework.js";
 import { recordReportedCost } from "../../finops/usage.js";
 import type { RagConnector } from "../../rag/types.js";
 import { boundRerankerOf, knowledgeRetrieveOf, type RagMeta } from "../../components/rag.js";
+import { checkTenancies } from "../../rag/tenancy-checks.js";
 import { componentOf } from "../../components/metadata.js";
 import { rerankerKeyOf } from "../scripted-gateway.js";
 import { unitChatSettings } from "./unit-models.js";
@@ -37,6 +38,7 @@ export function testRag<
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
 ): RagRunner {
   const { meta } = requireComponent(rag, "rag", "testRag");
+  checkTenancies([meta]); // #796: as assembly does
   const site = new UnitSite(options);
   const reranker = rerankerOf(meta, site, options);
   const caller = `rag:${meta.name}`;

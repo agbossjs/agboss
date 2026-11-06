@@ -16,7 +16,7 @@ import {
   type RagConnector,
   type RagRetrieval,
 } from "../../src/rag/index.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { testRag, workflowOf } from "../../src/testing/index.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
 
@@ -92,5 +92,14 @@ describe("#796: a knowledge base's tenancy is declared", () => {
         .configHash;
 
     expect(await hashOf(RagTenancy.Shared)).not.toBe(await hashOf(RagTenancy.PerTenant));
+  });
+
+  it("testRag refuses a knowledge base without its tenancy, as assembly does", () => {
+    @Rag({ name: "loose-rag", description: "No tenancy", topK: 1 } as never)
+    class LooseRag extends Empty {}
+
+    expect(() => testRag(LooseRag)).toThrow(
+      /\[rag\.tenancy-required\]|loose-rag: declare whose content/u,
+    );
   });
 });

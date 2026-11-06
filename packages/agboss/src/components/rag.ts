@@ -19,9 +19,7 @@ import type { WorkflowServices } from "../workflow.js";
 import { defineTool, type AnyTool } from "../tools/index.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Class } from "./injection.js";
-import { checkTenancies } from "../rag/tenancy-checks.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
-import { rerankerMetaOf } from "./rag-rerankers.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 
 export type RagMeta = Extract<ReturnType<typeof componentOf>, { kind: "rag" }>["meta"];
@@ -49,10 +47,7 @@ export async function checkedRagClassesOf(
   agents: readonly AgentMeta[],
 ): Promise<Class[]> {
   const rags = ragClassesOf(bundle, agents);
-  checkTenancies(rags.map((cls) => ragMeta(cls)));
-  if (rags.every((cls) => ragMeta(cls).rerank === undefined)) return rags;
-  const { checkRerankings } = await lazyLoad(import("../rag/rerank-checks.js"));
-  checkRerankings(rags);
+  if (rags.length > 0) (await lazyLoad(import("../rag/rag-checks.js"))).checkRags(rags);
   return rags;
 }
 
@@ -66,6 +61,12 @@ export interface RagRerankSetting {
   readonly onFailure: RerankFailurePolicy;
 }
 
+/** The `@Reranker` meta of a knowledge base's `rerank.by`; none without `rerank`. */
+const rerankerMetaOf = (meta: RagMeta) => {
+  const found = meta.rerank === undefined ? undefined : componentOf(meta.rerank.by);
+  return found?.kind === "reranker" ? found.meta : undefined;
+};
+
 /** A knowledge base's reranking for describe and `configHash` (#703). */
 const rerankSettingOf = (meta: RagMeta): { readonly rerank?: RagRerankSetting } => {
   const reranker = rerankerMetaOf(meta);
@@ -74,15 +75,36 @@ const rerankSettingOf = (meta: RagMeta): { readonly rerank?: RagRerankSetting } 
   return { rerank: { reranker: reranker.name, candidates, onFailure } };
 };
 
-type RagSetting = NonNullable<AgentsConfigOf<string>["agents"][string]["rag"]>[number];
-
 /** An agent's knowledge bases as config entries (describe, profiles, `configHash`; #796: tenancy). */
-export const ragSettings = (agent: AgentMeta): RagSetting[] =>
+export const ragSettings = (
+  agent: AgentMeta,
+): AgentsConfigOf<string>["agents"][string]["rag"] & {} =>
   (agent.rag ?? []).map((binding) => {
     const meta = ragMeta(binding.use);
     const { name, topK, tenancy } = meta;
     return { name, mode: binding.mode, topK, tenancy, ...rerankSettingOf(meta) };
   });
+
+/** The `@Reranker` classes of knowledge bases, for the container (#703). */
+export const rerankerClassesOf = (rags: readonly Class[]): Class[] =>
+  rags.flatMap((cls) => {
+    const by = ragMeta(cls).rerank?.by;
+    return by === undefined ? [] : [by];
+  });
+
+/** A model reranker's model: its own, else the default (#703). */
+export const rerankerModelsOf = (
+  rags: readonly Class[],
+): readonly { readonly name: string; readonly model: string }[] =>
+  [
+    ...new Map(
+      rags.flatMap((cls) => {
+        const reranker = rerankerMetaOf(ragMeta(cls));
+        if (reranker === undefined || reranker.decidedBy === DecidedBy.Code) return [];
+        return [[reranker.name, reranker.model ?? DEFAULT_RERANKER_MODEL] as const];
+      }),
+    ),
+  ].map(([name, model]) => ({ name, model }));
 
 /**
  * The tenant of a retrieval (#700): the execution's, read from the frame of the step or tool call

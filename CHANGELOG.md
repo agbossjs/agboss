@@ -306,10 +306,11 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 - **MongoDB: a missing ledger pruning mark counted spend twice** (#798, agbossjs/mongodb) — the
   #771 mark was created by the first prune, so a mark deleted by hand read as "never pruned", and a
-  pruned entry saved again by a late pass was counted a second time. The mark is now seeded once,
-  with `agboss_cost_entries`, and a save or a prune without it fails closed with
-  `MongoLedgerMarkMissingError` (`mongodb.ledger-mark-missing`), adding and deleting nothing, as
-  `PostgresLedgerMarkMissingError` does. A restart never seeds it again. The message is the remedy.
+  pruned entry saved again by a late pass was counted a second time. The mark is now made with
+  `agboss_cost_entries`, in the transaction that creates it, and a save or a prune without it — or
+  with a `prunedBefore` that is no date — fails closed with `MongoLedgerMarkMissingError`
+  (`mongodb.ledger-mark-missing`), adding and deleting nothing, as `PostgresLedgerMarkMissingError`
+  does. A restart never seeds it again. The message is the remedy.
   `@agboss/redis` keeps no ledger.
 
 - **Another tree's approval was dropped from the history** (#676, after #663) — the pause answer
