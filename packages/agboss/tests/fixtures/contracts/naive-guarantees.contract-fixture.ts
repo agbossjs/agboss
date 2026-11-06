@@ -15,7 +15,9 @@ import {
   PrunedWithoutMarkCostLedgerRepository,
   ReadThenWriteCostLedgerRepository,
   rewritingKeys,
+  SecondsMarkCostLedgerRepository,
   stepOnly,
+  UncheckedCostLedgerRepository,
   UncountedRateLimitRepository,
   type KeyRewrite,
 } from "./naive-guarantees.js";
@@ -58,4 +60,16 @@ costLedgerContract({
     sharedInMemory(seam, "unmarked-ledger", () => new PrunedWithoutMarkCostLedgerRepository()),
   ),
   name: "a ledger that prunes without a mark",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "unchecked-ledger", () => new UncheckedCostLedgerRepository()),
+  ),
+  name: "a ledger that takes what it is handed",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "seconds-ledger", () => new SecondsMarkCostLedgerRepository()),
+  ),
+  name: "a ledger that keeps its mark in seconds",
 });

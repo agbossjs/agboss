@@ -1,24 +1,20 @@
-import {
-  COST_CATEGORIES,
-  type CostLine,
-  type CostReport,
-  type CostSource,
-} from "@agboss/core/internal";
+import { CostCategory, CostSource, type CostLine, type CostReport } from "@agboss/core/internal";
 
 /** How each call was priced: tokens × price table, exact price from the API, or the tool's own report. */
 const BASIS: Readonly<Record<CostSource, (line: CostLine) => string>> = {
-  "price-table": (line) => `${String(line.inputTokens)} in / ${String(line.outputTokens)} out`,
-  api: () => "api-priced",
-  tool: () => "tool-reported",
+  [CostSource.PriceTable]: (line) =>
+    `${String(line.inputTokens)} in / ${String(line.outputTokens)} out`,
+  [CostSource.Api]: () => "api-priced",
+  [CostSource.Tool]: () => "tool-reported",
 };
 
 const usd = (value: number): string => `$${value.toFixed(6)}`;
 
 /** Categories that cost something: "agents $0.003378 · routing $0.000050 · guards $0.000044". */
 export function costSummary(cost: CostReport): string {
-  const parts = COST_CATEGORIES.filter((category) => cost.byCategory[category] > 0).map(
-    (category) => `${category} ${usd(cost.byCategory[category])}`,
-  );
+  const parts = Object.values(CostCategory)
+    .filter((category) => cost.byCategory[category] > 0)
+    .map((category) => `${category} ${usd(cost.byCategory[category])}`);
   return parts.length === 0 ? "no paid calls" : parts.join(" · ");
 }
 

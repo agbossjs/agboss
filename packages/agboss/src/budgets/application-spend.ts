@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
+import type { LedgerEntry } from "../infrastructure/cost-ledger.repository.js";
+import { usd } from "../units/index.js";
 import { budgetOf, BudgetScope } from "./budget.js";
 import { isSpendExhausted } from "./budget-check.js";
 import {
@@ -60,5 +63,14 @@ export async function recordApplicationSpend(
   if (application === undefined || records.length === 0) return;
   const now = application.clock.now();
   const counters = (await applicationRecords(application)).map((record) => counterOf(record, now));
-  if (counters.length > 0) await application.ledger.saveAll(counters, records);
+  if (counters.length === 0) return;
+  // each an entry of its own (#817): a random id of this save, made now
+  const prefix = randomUUID();
+  const entries = records.map((record, index): LedgerEntry => ({
+    ...record,
+    costUsd: usd(record.costUsd),
+    ledgerId: `${prefix}:${String(index)}`,
+    madeAt: now,
+  }));
+  await application.ledger.saveAll(counters, entries);
 }

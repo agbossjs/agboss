@@ -12,6 +12,7 @@ import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
 import { inTestFrame } from "../helpers/frame.js";
@@ -36,7 +37,7 @@ const spentIn = (ledger: InMemoryCostLedgerRepository) =>
 class LostAnswerLedger extends InMemoryCostLedgerRepository {
   isAnswerLost = true;
 
-  override async saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]) {
+  override async saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
     await super.saveAll(counters, records);
     if (!this.isAnswerLost) return;
     this.isAnswerLost = false;

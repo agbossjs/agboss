@@ -1,7 +1,10 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
+import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import type { LedgerDated } from "./ledger-key.js";
-import { servedByOf, withoutLedgerMarks } from "./served-by.js";
+import type { LedgerKey } from "./ledger-key.js";
+import { CostCategory, costCategoryOf } from "./cost-category.js";
+import { servedByOf } from "./served-by.js";
+import { withoutLedgerMarks, type LedgerMark } from "./ledger-mark.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {
@@ -25,14 +28,18 @@ export interface TokenUsage {
   readonly cacheWriteTokens: number;
 }
 
-/**
- * "api" = cost reported by the provider (exact); "price-table" = tokens × configured price;
- * "tool" = cost reported by a paid tool itself.
- */
-export type CostSource = "api" | "price-table" | "tool";
+/** Where a call's cost comes from. */
+export enum CostSource {
+  /** Reported by the provider: exact. */
+  Api = "api",
+  /** Tokens × the model's configured price. */
+  PriceTable = "price-table",
+  /** Reported by a paid tool (or a service step) itself. */
+  Tool = "tool",
+}
 
 /** One model call: who made it, on which model, what it cost. */
-export interface UsageRecord extends TokenUsage, LedgerDated {
+export interface UsageRecord extends TokenUsage {
   readonly caller: string;
   readonly model: string;
   readonly costUsd: number;
@@ -43,42 +50,22 @@ export interface UsageRecord extends TokenUsage, LedgerDated {
    */
   readonly servedBy?: string;
   /**
-   * Its cost is in the ledger already (#333 PR 3): a call of a child that ran on another instance
-   * (`ChildPlacement.AnyInstance`), recorded there as it was made — its parent's pass counts it,
-   * never writes it again. Absent for every other call.
+   * Where the ledger holds its cost (#333 PR 3, #727, #771): absent while it is not in the ledger
+   * yet — its pass writes it —; `LedgerState.Written` once a pass wrote it as it was made, under its
+   * `ledgerId` and dated `madeAt`; `LedgerState.RecordedElsewhere` for a call of a child that ran on
+   * another instance, recorded there. A record in the ledger is never written again, and counted
+   * once. Read it with `ledgerMarkOf(record)`, which also reads a record kept before 0.1.1.
    */
-  readonly isRecordedElsewhere?: boolean;
+  readonly ledger?: LedgerMark;
   /**
-   * The spend's identity in the ledger (#727, #732): a call tallied by a pass is written to the
-   * ledger the moment it is made, marked `isRecordedElsewhere` with this id — so no later pass, its
-   * parent's or a takeover's, writes or counts it again. Absent for spend written at its step's end.
+   * The spend's identity on every pass that makes it (#810): a charge a step makes again after a
+   * takeover is written under `ledgerKey.id`, dated `ledgerKey.madeAt`, so the ledger adds it once
+   * whichever pass writes it first. Absent: its entry gets an id of the pass that made it.
    */
-  readonly ledgerId?: string;
+  readonly ledgerKey?: LedgerKey;
 }
 
-/** What a call was for — the cost categories of a turn. */
-export const COST_CATEGORIES = [
-  "agents",
-  "routing",
-  "guards",
-  "review",
-  "tools",
-  "compaction",
-  "retrieval",
-] as const;
-export type CostCategory = (typeof COST_CATEGORIES)[number];
-
-/** Category from the caller name: tool:* and action:* (tools), compaction:*, guardrail:* (guards), router:quality:* and judge:* (review), other router:*, agent. */
-export function costCategoryOf(caller: string): CostCategory {
-  if (caller.startsWith("judge:")) return "review";
-  if (caller.startsWith("tool:") || caller.startsWith("action:")) return "tools";
-  if (caller.startsWith("compaction:")) return "compaction";
-  if (caller.startsWith("rag:")) return "retrieval";
-  if (caller.startsWith("guardrail:")) return "guards";
-  if (caller.startsWith("router:quality:")) return "review";
-  if (caller.startsWith("router:")) return "routing";
-  return "agents";
-}
+export { CostCategory, costCategoryOf } from "./cost-category.js";
 
 /** One call of the turn, in order. */
 export interface CostLine extends TokenUsage {
@@ -172,7 +159,7 @@ export function recordUsage(
       throw new ModelCostError(
         `${caller}: fallback model ${fallback.model} — no cost and no price`,
       );
-    const costSource = fallback.priced ? "price-table" : "api";
+    const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
     return { caller, model: fallback.model, ...usage, costUsd: reported, costSource, ...served };
   }
   if (reported !== undefined) {
@@ -181,7 +168,7 @@ export function recordUsage(
       model: settings.model,
       ...usage,
       costUsd: reported,
-      costSource: "api",
+      costSource: CostSource.Api,
       ...served,
     };
   }
@@ -195,7 +182,7 @@ export function recordUsage(
     model: settings.model,
     ...usage,
     costUsd: costOf(usage, settings.price),
-    costSource: "price-table",
+    costSource: CostSource.PriceTable,
     ...served,
   };
 }
@@ -218,13 +205,22 @@ export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   if (!Number.isFinite(costUsd) || costUsd < 0) {
     throw new InvalidToolCostError(`Tool "${tool}" reported an invalid cost: ${String(costUsd)}`);
   }
-  return { caller: `tool:${tool}`, model: tool, ...ZERO_USAGE, costUsd, costSource: "tool" };
+  return {
+    caller: `tool:${tool}`,
+    model: tool,
+    ...ZERO_USAGE,
+    costUsd,
+    costSource: CostSource.Tool,
+  };
 }
 
 /**
  * What calls cost together, in USD: the sum of their records' `costUsd` — what
- * `CostLedgerRepository.saveAll` adds to each counter (a store of your own sums with it, #521).
+ * `CostLedgerRepository.saveAll` adds to each counter (a store of your own sums its entries with
+ * it, #521: their total is `Usd`).
  */
+export function totalCost(entries: readonly (UsageRecord & { readonly costUsd: Usd })[]): Usd;
+export function totalCost(records: readonly UsageRecord[]): number;
 export function totalCost(records: readonly UsageRecord[]): number {
   return records.reduce((sum, record) => sum + record.costUsd, 0);
 }
@@ -244,13 +240,13 @@ export function buildCostReport(records: readonly UsageRecord[]): CostReport {
     category: costCategoryOf(record.caller),
   }));
   const byCategory: Record<CostCategory, number> = {
-    agents: 0,
-    routing: 0,
-    guards: 0,
-    review: 0,
-    tools: 0,
-    compaction: 0,
-    retrieval: 0,
+    [CostCategory.Agents]: 0,
+    [CostCategory.Routing]: 0,
+    [CostCategory.Guards]: 0,
+    [CostCategory.Review]: 0,
+    [CostCategory.Tools]: 0,
+    [CostCategory.Compaction]: 0,
+    [CostCategory.Retrieval]: 0,
   };
   for (const line of trace) byCategory[line.category] += line.costUsd;
   return {

@@ -8,14 +8,7 @@
 export interface LedgerKey {
   /** The entry's id in the ledger: derived from what makes the spend one (a call's messageId). */
   readonly id: string;
-  /** When the spend was first made (ISO 8601): its entry's date, what the ledger prunes by. */
-  readonly madeAt: string;
+  /** When the spend was first made (the `Clock`): its entry's date, what the ledger prunes by. */
+  readonly madeAt: Date;
 }
 
-/** A usage record's entry date and its identity across passes (`UsageRecord`). */
-export interface LedgerDated {
-  /** When the spend under `ledgerId` was made (#771: ISO 8601, the `Clock`): its entry's date. */
-  readonly madeAt?: string;
-  /** The spend's identity on every pass that makes it (#810); absent: an id of the pass's own. */
-  readonly ledgerKey?: LedgerKey;
-}

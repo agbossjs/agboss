@@ -168,6 +168,8 @@ const SHARDS = {
       "src/budgets/execution-budgets.ts",
       "src/budgets/budget-check.ts",
       "src/budgets/application-spend.ts",
+      // #817: a usage record's one ledger state, and a record kept before it read as the same
+      "src/finops/ledger-mark.ts",
       "src/infrastructure/cost-ledger.repository.ts",
       "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
       settledSpendSaverOf("src/app/leased-checkpointer.ts"),

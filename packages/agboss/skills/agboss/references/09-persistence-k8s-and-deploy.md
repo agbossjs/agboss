@@ -648,7 +648,11 @@ framework (durations as parameters, now from `Clock`), never from the store's cl
 handed unchanged — a model's or a tool's answer may hold a NUL character (U+0000), which
 PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as
 the core's SQLite record store keeps free text (#521; each contract suite has a NUL case). A ledger
-sums a call's records with the core's `totalCost(records)` (root entry).
+(#817) takes `LedgerEntry` values only — calls `assertLedgerEntries(entries)` first
+(`CostLedgerEntryInvalidError` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
+`costUsd` amount), refuses what `expiredEntriesOf(entries, prunedBefore, isHeld)` names, adds what
+`unrecordedEntriesOf(entries, isNew)` keeps (dates are `Date`, to the millisecond) and sums it with
+the core's `totalCost(entries)` (`Usd`; all root entry); `deleteByMadeAtBefore(cutoff)` prunes.
 
 It proves that with the core's own contract suites (#481), published as
 `@agboss/core/testing/contracts` — one function per contract (`executionLeaseContract`,

@@ -10,6 +10,7 @@ import {
   runText,
   usageRecord,
   type RecordingCostLedger,
+  ledgerEntryOf,
 } from "./helpers.js";
 
 /** The tenant `default` already spent `amount` today (of the test tenant budget's $1000). */
@@ -20,7 +21,7 @@ async function spentToday(ledger: RecordingCostLedger, amount: number): Promise<
     key: "default",
     period: new Date().toISOString().slice(0, 10),
   };
-  await ledger.saveAll([counter], [usageRecord("earlier", amount)]);
+  await ledger.saveAll([counter], [ledgerEntryOf(usageRecord("earlier", amount))]);
   ledger.recorded.length = 0;
 }
 

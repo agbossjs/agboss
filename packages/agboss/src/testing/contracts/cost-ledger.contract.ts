@@ -1,9 +1,11 @@
 import { expect } from "vitest";
 import { BudgetScope } from "../../budgets/budget.js";
-import type { UsageRecord } from "../../finops/usage.js";
-import type { CostLedgerRepository } from "../../infrastructure/cost-ledger.repository.js";
+import type {
+  CostLedgerRepository,
+  LedgerEntry,
+} from "../../infrastructure/cost-ledger.repository.js";
 import { usd } from "../../units/index.js";
-import { applicationMonth, call, tenantDay } from "./cost-ledger-data.js";
+import { applicationMonth, call, entry, tenantDay } from "./cost-ledger-data.js";
 import { pruningCases } from "./cost-ledger-pruning.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./instance-context.js";
@@ -61,10 +63,10 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     // #727: spend written as it is made carries its identity; a step run again saves it again
     name: "an entry with a ledgerId counts once: a repeated save on either instance adds nothing",
     run: async ({ first, second }) => {
-      const entry = { ...call(0.25), ledgerId: "run-1:pay-action:1#0" };
-      await first.saveAll([tenantDay, applicationMonth], [entry, call(0.5)]);
-      await second.saveAll([tenantDay, applicationMonth], [entry, call(0.5)]);
-      await first.saveAll([tenantDay], [entry, entry]);
+      const once = entry("run-1:pay-action:1#0", 0.25);
+      await first.saveAll([tenantDay, applicationMonth], [once, call(0.5)]);
+      await second.saveAll([tenantDay, applicationMonth], [once, call(0.5)]);
+      await first.saveAll([tenantDay], [once, once]);
 
       expect(await first.findSpentByCounter(tenantDay)).toBe(1.25);
       expect(await second.findSpentByCounter(applicationMonth)).toBe(1.25);
@@ -73,9 +75,9 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
   {
     name: "a save with no counters adds nothing and keeps no entry: a later save of the id counts",
     run: async ({ first, second }) => {
-      const entry = { ...call(0.25), ledgerId: "run-1:pay-action:2#0" };
-      await first.saveAll([], [entry, call(0.5)]);
-      await second.saveAll([tenantDay], [entry]);
+      const unsaved = entry("run-1:pay-action:2#0", 0.25);
+      await first.saveAll([], [unsaved, call(0.5)]);
+      await second.saveAll([tenantDay], [unsaved]);
 
       expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
     },
@@ -85,18 +87,45 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     run: async ({ first, second }) => {
       const execution = { budget: "execution-budget", scope: BudgetScope.Execution, key: "run-1" };
       const counters = [tenantDay, { ...execution, period: "" }];
-      const entry = (index: number): UsageRecord => ({
-        ...call(0.125),
-        ledgerId: `run-1:pay-action:${String(index % 5)}#0`,
-      });
+      const racing = (index: number): LedgerEntry =>
+        entry(`run-1:pay-action:${String(index % 5)}#0`, 0.125);
       await Promise.all(
         Array.from({ length: 20 }, (_, index) =>
-          (index % 2 === 0 ? first : second).saveAll(counters, [entry(index)]),
+          (index % 2 === 0 ? first : second).saveAll(counters, [racing(index)]),
         ),
       );
 
       // five entries, each saved four times by the two instances at once
       for (const counter of counters) expect(await first.findSpentByCounter(counter)).toBe(0.625);
+    },
+  },
+  {
+    // #817: a record without an identity could be counted on every retry — no store takes one
+    name: "#817: what is no ledger entry is refused before anything is added — no id, an empty id, a madeAt that is no Date, a cost that is no amount",
+    run: async ({ first, second }) => {
+      const fine = entry("run-1:pass-f:0", 0.25);
+      const withoutId: Partial<LedgerEntry> = { ...entry("run-1:pass-f:1", 0.5) };
+      Reflect.deleteProperty(withoutId, "ledgerId");
+      const broken: readonly unknown[] = [
+        withoutId,
+        { ...fine, ledgerId: "" },
+        { ...fine, ledgerId: "run-1:pass-f:2", madeAt: "2026-10-18T12:00:00.000Z" },
+        { ...fine, ledgerId: "run-1:pass-f:3", madeAt: Date.parse("2026-10-18T12:00:00.000Z") },
+        { ...fine, ledgerId: "run-1:pass-f:4", madeAt: new Date(Number.NaN) },
+        { ...fine, ledgerId: "run-1:pass-f:5", costUsd: Number.NaN },
+        { ...fine, ledgerId: "run-1:pass-f:6", costUsd: -0.25 },
+        null,
+      ];
+      for (const record of broken)
+        await expect(
+          // a JS caller (or a cast): what the type refuses, the store refuses at run time
+          first.saveAll([tenantDay], [fine, record as LedgerEntry]),
+        ).rejects.toMatchObject({ code: "cost-ledger.entry-invalid", index: 1 });
+
+      expect(await second.findSpentByCounter(tenantDay)).toBe(0);
+      // the refused saves kept nothing: the valid entry saved alone counts, once
+      await second.saveAll([tenantDay], [fine]);
+      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
     },
   },
   {
@@ -116,9 +145,9 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
 
 /**
  * `CostLedgerRepository` (#265 AC8, #261 PR 5): one counter per budget, scope key and period, each
- * call's cost added to every counter it is given, nothing lost between instances, an entry with a
- * `ledgerId` added once (#727), the entries pruned under a mark that refuses a later save of one
- * pruned (#771); the last
+ * entry's cost added to every counter it is given, nothing lost between instances, an entry added
+ * once by its `ledgerId` (#727), anything but a `LedgerEntry` refused (#817), the entries pruned
+ * under a mark that refuses a later save of one pruned (#771); the last
  * `maxSpend()` per budget and scope key.
  */
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void {

@@ -31,8 +31,14 @@ export {
 export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
-export type { LedgerDated, LedgerKey } from "../finops/ledger-key.js";
-export { newEntriesOf } from "../infrastructure/cost-ledger.repository.js";
+export type { LedgerKey } from "../finops/ledger-key.js";
+// the store helpers of the ledger (#817): what a save refuses and what it adds — a later wave
+// moves them to `@agboss/core/stores`
+export {
+  assertLedgerEntries,
+  expiredEntriesOf,
+  unrecordedEntriesOf,
+} from "../infrastructure/cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";
 export { SqliteExecutionLeaseEventRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -110,13 +116,22 @@ export type {
   TernStep,
   VersionScore,
 } from "../terns/index.js";
-export type {
+export {
   CostCategory,
-  CostLine,
-  CostReport,
   CostSource,
-  TokenUsage,
+  type CostLine,
+  type CostReport,
+  type TokenUsage,
 } from "../finops/usage.js";
+// a usage record's one ledger state (#817) and what a ledger saves
+export {
+  LedgerState,
+  ledgerMarkOf,
+  type LedgerMark,
+  type RecordedElsewhereLedgerMark,
+  type WrittenLedgerMark,
+} from "../finops/ledger-mark.js";
+export type { LedgerEntry } from "../infrastructure/cost-ledger.repository.js";
 // the sum a ledger adds to its counters (#521): stores outside the core use the core's own
 export { totalCost } from "../finops/usage.js";
 export type { CompensationEntry, CompensationEntryStatus } from "../flow/compensation.js";

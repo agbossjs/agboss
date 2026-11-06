@@ -7,6 +7,7 @@ import { BudgetScope } from "../../src/budgets/budget.js";
 import { recordToolCost } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { usd } from "../../src/units/index.js";
+import { ledgerEntryOf } from "../helpers.js";
 
 describe("#633: the in-memory cost ledger keeps accounts apart", () => {
   const first = { budget: "x", scope: BudgetScope.Tenant, key: "tenanty" };
@@ -16,7 +17,10 @@ describe("#633: the in-memory cost ledger keeps accounts apart", () => {
     const ledger = new InMemoryCostLedgerRepository();
 
     await ledger.saveMaxSpend(first, usd(5));
-    await ledger.saveAll([{ ...first, period: "2026-10-20" }], [recordToolCost("judge", 1)]);
+    await ledger.saveAll(
+      [{ ...first, period: "2026-10-20" }],
+      [ledgerEntryOf(recordToolCost("judge", 1))],
+    );
 
     await expect(ledger.findMaxSpendByAccount(second)).resolves.toBeUndefined();
     await expect(ledger.findSpentByCounter({ ...second, period: "2026-10-20" })).resolves.toBe(0);

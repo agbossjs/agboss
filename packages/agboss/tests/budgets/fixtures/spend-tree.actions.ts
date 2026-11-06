@@ -15,7 +15,10 @@ import {
   type Produced,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
-import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
+import type {
+  CostCounter,
+  LedgerEntry,
+} from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { usd, type Usd } from "../../../src/units/index.js";
@@ -259,7 +262,7 @@ export class SpendTreeLedger extends InMemoryCostLedgerRepository {
 
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     for (let turn = 0; turn < spendTree.ledgerLag; turn += 1)
       await new Promise((resolve) => setImmediate(resolve));
