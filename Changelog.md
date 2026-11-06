@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the A2A client speaks A2A v1.0 (#809)
+
+- **Changed — breaking**: `A2AClient` / `@A2AAgent` call any A2A v1.0 agent on the official
+  `@a2a-js/sdk` (1.3.0): the Agent Card, `SendMessage` with `returnImmediately` through
+  `OutboundCalls`, `SubscribeToTask` or polled `GetTask`. `target.start` is `target.skill`; `target`,
+  `input` / `output` are optional; `send(message)` returns `A2ATaskResult`; `cancel(taskId)`;
+  `call.contextId` (was `threadId`); `A2ARemoteError` is `A2ARemoteCallError` beside
+  `A2AProtocolError`, `A2AContractError`, `A2ATaskFailedError`, `A2ATaskCanceledError`,
+  `A2ATaskInterruptedError`, `A2ACallDeadlineError`, `A2AOriginError`, `A2AMeshUnsupportedError`;
+  `A2AContract` is `A2AClientContract`, `IA2AAdapter` `A2AAdapterContract`; the zod values
+  `A2A*Schema` are no longer public; `[a2a.target-required]` is gone. A v0.3-only agent is
+  `A2AProtocolError`. [A2A → The client side](A2A#4-the-client-side--a2a-v10-809).
+- **Security**: a client talks to its `url`'s origin and its `allowedOrigins` only (an interface or
+  a redirect elsewhere is `A2AOriginError`, nothing sent there); a signed mesh envelope always names
+  its audience — senders sign only with one, receivers refuse a signed one without
+  (`mesh.audience-missing`); `signedMeshEnvelope` takes a required `audience`.
+
 ## Unreleased — 0.1.1: A2A tasks shared by the instances, `ListTasks.totalSize` (#824)
 
 - **Added**: `A2ATaskRepository` declares its `static backend`; `PostgresA2ATaskRepository`

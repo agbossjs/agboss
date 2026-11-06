@@ -2,11 +2,12 @@
 
 `@agboss/core/a2a` works both ways:
 
-- **Calling another application** — a declared contract (#398 PR 3, [§7](#7-declared-contracts-398-pr-3)):
-  a `…A2AAgent` class that `extends A2AClient<In, Out>` with `@A2AAgent({ name, url, target, input,
-  output, price?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
+- **Calling an A2A v1.0 agent** — another AGBoss application or any compliant agent (#809, on the
+  official `@a2a-js/sdk`; [§4](#4-the-client-side--a2a-v10-809)): a `…A2AAgent` class that `extends
+  A2AClient<In, Out>` with `@A2AAgent({ name, url, target?, input?, output?, price?, mesh?,
+  allowedOrigins?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
   ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
-  both validated by the contract's DTOs, `send(input, call)` the response whatever its status.
+  both validated by the contract's DTOs, `send(message, call)` an untyped call's `A2ATaskResult`.
 - **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
   `a2aHttpListener(app, { expose, callerResolver, publicUrl, base? })` as an **A2A v1.0 agent**
   (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
@@ -191,16 +192,59 @@ protocolVersion: "1.0" }`.
   call — and never as the default tenant. A streaming caller gets the real status too.
 - The host's `reason` goes on the wire (its own wording); an exception's text never does.
 
-## 4. The client side
+## 4. The client side — A2A v1.0 (#809)
 
-`A2AClient.send(input, { threadId, signal, onEvent })` posts `{ input, start?, threadId? }` (`start`
-is the contract's `target.start`). A refused envelope — a `401` with a `mesh.*` code — is an `Error`
-whose message starts with its code (`[mesh.audience-mismatch] …`). A server that
-refuses the caller — a `401` / `403` carrying an `a2a.caller-*` code — throws
-`A2ACallerRejectedError` (`code` `a2a.caller-rejected`, like every `AGBossError`; `httpStatus`; the
-server's code in `wireCode`, `a2a.caller-unauthenticated` / `a2a.caller-forbidden`, #457; the
-server's reason in its message); any other failed request is a plain `Error`; a remote run that did not finish is
-`A2ARemoteError` from `execute`.
+The client speaks A2A v1.0 (`https://a2a-protocol.org/v1.0.0/specification/`) on the official SDK;
+the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follows in #808.
+
+- **Discovery.** `url` is the agent's base URL: its card is read from
+  `<url>/.well-known/agent-card.json` on first use and kept `cardTtl` (5 minutes). Before anything
+  is sent it is checked: an A2A 1.0 interface on JSON-RPC or HTTP+JSON (a v0.3-only card is
+  `A2AProtocolError` with `protocolVersions: ["0.3.0"]`); the named `target.skill` among its skills
+  (`[a2a.unknown-skill]`; optional with one skill); when an AGBoss peer declares the skill's schemas
+  (the skills extension `https://agboss.dev/a2a/skills/v1`), the skill's input must accept the input
+  DTO and the output DTO every finish output (`[a2a.schema-mismatch]`, compared like
+  [§8](#8-the-federation-check-398-pr-4)) — both `A2AContractError`.
+- **Origins.** Every interface the card names must be on the `url`'s origin or one of
+  `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AOriginError`
+  (`a2a.origin-refused`): no request goes elsewhere — so the client's headers (`headers`,
+  `getHeaders()`) never leave its origins — and a redirect off them is refused, never followed.
+- **The message.** `execute(input)` sends one `data` part (`application/json`; one `text` part for
+  `WorkflowStartTextDto`) and names the skill in `message.metadata["https://agboss.dev/a2a/skills/v1"]
+  = { skill }`; `send(message)` takes a text, `{ data }` or the parts; `reply(taskId, answer)`
+  continues a task that waits for input; `getTask(taskId)`, `cancel(taskId)`, `agentCard()`.
+- **The accept** is one `SendMessage` with `returnImmediately`, through
+  [Outbound calls](Several-instances) inside an execution (`a2a.<agent>[.reply][.<call.key>]`): its
+  `messageId` is derived from the step's key, the same on every attempt. A send of unknown outcome
+  (no answer, a 5xx, `-32603`) is reconciled, never resent blindly:
+
+  | Peer | What a send of unknown outcome becomes |
+  | --- | --- |
+  | AGBoss (its card's mesh extension declares `params.idempotencyRetention`) | sent again with the same `messageId` — the agent returns the same task — within that retention (`NotSentTrust.KeyReplay`); past it `OutboundCallUnreconciledError` |
+  | foreign, a reply to a known task | `GetTask`: the task no longer waits for input → the reply arrived; else unknown |
+  | foreign, a new message | `OutboundCallUnreconciledError` (`foreign A2A peer`): nothing is sent again |
+
+  Two calls of one step with different messages need their own `call.key` (`[a2a.repeated-call]`).
+- **Waiting** is a pure read, safe after any crash: `SubscribeToTask` when the card streams (a
+  dropped stream is opened again, then polling), else `GetTask` polled on the `Clock` (250 ms
+  doubling to 5 s). A task that works — an out-of-band pause included — is waited for up to the
+  execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2ACallDeadlineError`
+  (`isCanceled`). The call's `signal` ends the wait with its reason and cancels nothing.
+- **Outcomes.** COMPLETED → the output (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
+  FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
+  same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCanceledError`;
+  INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
+  the task from `send`; a JSON-RPC error → `A2AProtocolError` (`rpcCode`); a refused caller →
+  `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
+- **The mesh** rides as the extension `https://agboss.dev/a2a/mesh/v1`: `mesh: A2AMesh.Required`
+  (the default with a `target.application`; a card without the extension is
+  `A2AMeshUnsupportedError`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
+  envelope ([§6](#6-the-mesh--call-chains-hops-and-loops-398)) goes in
+  `message.metadata[uri].envelope` with `A2A-Extensions` and `traceparent`, its `bodyHash` the
+  message's canonical JSON without that entry (`meshBodyHashOf`); it is signed only with an
+  `audience` — the target application — else it is an unsigned claim. A loop (the target's
+  application and skill already in the chain) is refused before sending. `price` is charged to the
+  step (`a2a:<application>`) unless a verified run report says more.
 
 ## 5. Testing — the `a2aServer` fixture
 
@@ -224,12 +268,14 @@ const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, F
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
   const { url } = await a2aServer({ expose: ShopA2AExpose, callerResolver: ShopA2aCallerResolver });
 
-  const sent = new A2AClient({ url, headers: { authorization: "Bearer key-unknown" } }).send({ text: "hi" });
-
-  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
-    httpStatus: 401,
-    wireCode: "a2a.caller-unauthenticated",
+  const sent = await fetch(`${url}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer key-unknown" },
+    body: JSON.stringify({ input: { text: "hi" } }),
   });
+
+  expect(sent.status).toBe(401);
+  expect(await sent.json()).toMatchObject({ code: "a2a.caller-unauthenticated" });
 });
 ```
 
@@ -244,8 +290,9 @@ after an `execute`) — before that it fails with `test.app-not-ready`.
 > follows holds over MCP, and describes the envelope itself.
 
 Applications calling each other over A2A (and MCP, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398))
-form a mesh. Every call an `A2AClient` makes **inside an execution** — a tool's or an action's — sends,
-with no code of yours:
+form a mesh. On the 0.1.0 wire the server below still reads, every call made **inside an
+execution** — a tool's or an action's — sends, with no code of yours (the 0.1.1 `A2AClient` carries
+the same envelope in the message's metadata, [§4](#4-the-client-side--a2a-v10-809)):
 
 | Header        | What it is                                                                                                             |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -277,7 +324,7 @@ A refusal runs nothing (no observer event, no record), like a refused caller. A 
 `maxMeshHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
-**On the caller** `A2AClient.send` rethrows a `409` as `MeshLoopDetectedError` (`limit.mesh-loop`:
+**On the caller** (the 0.1.0 client; the 0.1.1 one reads the same limits from a REJECTED task, [§4](#4-the-client-side--a2a-v10-809)) a `409` is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
 `entry`, `chain`) or `HopsLimitExceededError` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
 `hops`) — both `LimitExceededError`s. `execute` does the same for a remote run that another hop's
 limit stopped: a failed response now carries the error's `code`, and for these two limits its
@@ -475,8 +522,8 @@ import { usd } from "@agboss/core/units";
 @A2AAgent({
   name: "billing-desk-a2a-agent",
   url: "https://billing.example/a2a",
-  target: { application: "billing-application", start: "billing-workflow-start" },
-  input: InvoiceQuestionDto, // the target start's input, validated before it is sent
+  target: { application: "billing-application", skill: "billing-workflow-start" },
+  input: InvoiceQuestionDto, // the target skill's input, validated before it is sent
   output: InvoiceAnswerDto, // its finish's output, validated when it comes
   price: usd(0.05), // one call's price by contract
 })
@@ -499,16 +546,21 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
 ```
 
 - `execute(input, call?)` replaces `execute(input, OutputDto, call?)` (breaking, [Changelog](Changelog)).
-  A client built by hand states the contract: `new A2AClient({ url, contract: { target, input,
-  output } })` (`A2AContract`); without one, `execute` throws `[a2a.no-contract]` (`send` needs none).
+  A client built by hand states the contract: `new A2AClient({ url, contract: { application?, skill?,
+  input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` throws
+  `[a2a.no-contract]` (`send` needs none).
 - Names: `-a2a-agent` on a `…A2AAgent` class (`[name.kind-suffix]`, both checked, like `@Application`
-  and `@Budget`); `target` is required (`[a2a.target-required]`). Files: `a2a/<name>.a2a-agent.ts`.
+  and `@Budget`); `target` is optional (#809: a foreign agent has no application) and names a
+  `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
 - **The price**: the calling tool's spend records the larger of `price` and the spend a
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`.
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
   target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
   before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
-  code): a call meant for one application is never run by another it was forwarded to.
+  code): a call meant for one application is never run by another it was forwarded to. A signed
+  envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
+  one is `401 { "code": "mesh.audience-missing" }` — else any receiver could replay it to another
+  application as its issuer's signed word.
 
 **The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
 `@McpExpose`s in `@Application({ exposes })`:
@@ -594,7 +646,7 @@ npx agboss check --federation ../snapshots            # in this application, bef
 
 Every consumed contract whose target application is among the snapshots (or is this application)
 is checked against that application's exports — an `@A2AAgent`'s `target.application` and
-`target.start`, an `@McpServer`'s `target: { application, expose }` and its tools:
+`target.skill` (the export's start), an `@McpServer`'s `target: { application, expose }` and its tools:
 
 | Code | When |
 | --- | --- |
