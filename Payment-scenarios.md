@@ -226,9 +226,9 @@ The connection drops while a write commits. The pod does not know whether it com
 One agent loop calls the charge tool twice, or two visits of the agent each call it. These are two
 tool calls with two step keys.
 
-- **Wrong:** the charge keyed by its step (`fencedEffectKeyOf(executionContext, "charge")`): two
+- **Wrong:** the charge keyed by its step (`effectKeyOf(executionContext, "charge")`): two
   charges.
-- **AGBoss:** a business key, `fencedEffectKeyOf(executionContext, "charge", { businessKey:
+- **AGBoss:** a business key, `effectKeyOf(executionContext, "charge", { businessKey:
   \`order:${orderId}\` })`. The second call gets the first's receipt (`Replayed`; `Joined` while the
   first is still sending on this instance). A call for the same order with another amount is
   `IdempotencyKeyConflictError`, and nothing is sent.
@@ -369,26 +369,27 @@ weekend, an operator's retry, a customer paying again the next day.
   - **A replay past the key's retention is never sent by itself** (#658): `reconcile` is told when
     the pending attempt started (`lookup.attemptStartedAt`) and how old the key is
     (`lookup.keyAge`, from the first attempt), on the store's clock — the database's own on
-    PostgreSQL, the same on every pod and after a takeover. A call that declares the gateway's
-    `keyRetention` (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) sends a
+    PostgreSQL, the same on every pod and after a takeover. A call that declares its `notSent()` a
+    replay of the key — `notSent: { trust: NotSentTrust.KeyReplay, keyRetention }`, the gateway's
+    retention (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) — sends a
     `notSent()` again only while `keyAge + attemptTimeout` is below it; past it, or with the age
     unknown, nothing is sent: `OutboundCallUnreconciledError`, the intent pending for an operator.
 - **Guarantee:** P3. Assumptions: A7 (G3), A12 (retention), A15 (honest classification) and A16
-  (`keyRetention` at most the gateway's documented minimum, declared wherever `notSent()` relies
-  on a replay).
+  (`keyRetention` at most the gateway's documented minimum, declared with `NotSentTrust.KeyReplay`
+  wherever `notSent()` relies on a replay — every call says its trust, #795).
 - **Boundary:**
   - Past both the gateway's retention and AGBoss's, a repeat is a new charge, unless the
     application's order row refuses it: keep a unique "paid" record per order, written in the
     fenced effect's transaction.
   - Reconcile by the merchant reference, which does not expire, not only by the key. A lookup that
-    proves the payment never arrived may answer `notSent()` at any age; one that only replays the
-    key must declare `keyRetention`. After the refusal, a person decides (the gateway's dashboard,
+    proves the payment never arrived may answer `notSent()` at any age (`NotSentTrust.Lookup`); one
+    that only replays the key declares `NotSentTrust.KeyReplay` with its `keyRetention`. After the refusal, a person decides (the gateway's dashboard,
     its reports, a webhook stored by your code).
-  - A `keyRetention` longer than the gateway's real one, or none on a replay-only gateway, brings the
-    second charge back (A16).
+  - A `keyRetention` longer than the gateway's real one, or a replay-only gateway's `notSent()`
+    trusted as a `Lookup`, brings the second charge back (A16).
 - **Proof:** `s15-key-expired-not-resent` — a pod killed with its answer in flight on a gateway with
   no lookup, the key expired before the takeover: the next pod is told the key's age and sends
-  nothing; its sabotage (no `keyRetention`) pays twice, on SQLite and PostgreSQL;
+  nothing; its sabotage (`s15-sabotage-replay-trusted-as-lookup`, the replay trusted as a lookup) pays twice, on SQLite and PostgreSQL;
   `s14-ambiguous-answer-reconciled` (PS1); `tests/app/outbound-call-key-age.test.ts` (the edge:
   `keyAge + attemptTimeout` one millisecond below the retention resends, equal refuses; an instance
   two days ahead reads the same age); the times on every store, `outboundCallContract` → times, and
@@ -481,10 +482,10 @@ keeps a regression test in the core.
 | R17 | Personal data and business keys in stored intents, results, failure texts and errors | Masking at write with the calling frame's policies (fails closed); business keys named by an HMAC handle |
 | R18 | The lease released on a cancel while a step body that ignores its signal is still sending | A holder releases its lease only once the attempts under it settled |
 | R19 | An expired lease renewed back to life after another pod acted on "expired" | Renewals check expiry; `leaseStateOf` closes an expired lease in the same atomic step |
-| R20 | A lost completion (a superseded attempt) silently reported as sent | `OutboundCallOutcomeStatus.Superseded` and `outbound-call.superseded` on the log |
+| R20 | A lost completion (a superseded attempt) silently reported as sent | `OutboundCallSupersededError` failing the step (#795) and `outbound-call.superseded` on the log |
 | R21 | A gateway key built from unescaped parts: two calls share one key | The tenant and business key URI-encoded in `call.idempotencyKey` |
 | R22 | A send that never returns holds the lease and the shutdown forever | Bounded by `attemptTimeout` and the stop; then renewals stop and a takeover decides |
 | R23 | A same-holder reclaim bumps the token, so an attempt still sending looks dead | A holder never yields its lease while an attempt under it sends (up to the `attemptTimeout` bound), so no reclaim moves the token under a live send |
 | R24 | A replayed call whose result could not be stored returns a marker as the gateway's result | `OutboundCallResultNotStoredError`, nothing sent, the marker never returned |
 | R25 | An SDK error of unknown outcome (a 5xx after the charge, a reset, a client timeout) recorded `Failed` and resent with the same key: a second charge once the gateway forgot the key (#657) | Only `isDefiniteFailure(error) === true` is `Failed`; anything else stays `Pending` and is reconciled first |
-| R26 | `reconcile` not told how old the key is: on a replay-only gateway a `notSent()` after the key expired is a second charge (#658) | `lookup.attemptStartedAt` / `keyAge` on the store's clock; a `notSent()` past the call's `keyRetention` is refused, nothing sent |
+| R26 | `reconcile` not told how old the key is: on a replay-only gateway a `notSent()` after the key expired is a second charge (#658) | `lookup.attemptStartedAt` / `keyAge` on the store's clock; a `KeyReplay`'s `notSent()` past its `keyRetention` is refused, nothing sent; every call declares its trust (#795) |

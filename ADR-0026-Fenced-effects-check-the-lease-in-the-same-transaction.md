@@ -17,7 +17,7 @@ mark still at its own token and writes. Only the lease itself knows that another
 ## Decision
 
 - **A repository contract, generic over the store's transaction:** `FencedEffectRepository<TTransaction>`
-  with `saveResultIfAbsent(key, work)`, the key from `fencedEffectKeyOf(executionContext, name)`. The
+  with `saveResultIfAbsent(key, work)`, the key from `effectKeyOf(executionContext, name)`. The
   business rows of the write go in the same transaction (`InMemoryFencedEffectTransaction`, SQLite's
   `DatabaseSync`, a PostgreSQL client), so the application keeps no fencing or idempotency table.
 - **The lease is checked in the same transaction**, before the mark: the lease row of the key's scope,

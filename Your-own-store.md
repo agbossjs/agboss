@@ -117,7 +117,7 @@ infrastructure implementation as its own registration (#526). A dependency of yo
 
 ## The key's rules: use the core's helpers
 
-A fenced effect's or an outbound call's key comes from `fencedEffectKeyOf(executionContext, name,
+A fenced effect's or an outbound call's key comes from `effectKeyOf(executionContext, name,
 { businessKey?, fingerprint? })`. A store keeps a few rules about it, and `@agboss/core` exports each
 one (#526 AC5). Don't copy them:
 
@@ -125,7 +125,7 @@ one (#526 AC5). Don't copy them:
 | --- | --- |
 | `checkedEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
 | `checkedBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
-| `fencedKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
+| `effectKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
 | `storedKeyFactsOf(key)` | what the row keeps of the key: its fingerprint and its step |
 | `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyKeyConflictError` (never a replay); a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
 | `pendingOutboundCallOf(key, intent, recordedAt)` | the record `saveIfAbsent` writes: the intent, `Pending` under the key's lease and token, its business identity |
@@ -262,7 +262,7 @@ agbossjs/mongodb is the reference ([MongoDB](MongoDB)); what it learnt:
 - `$expr` (and so `$$NOW`) is refused in an upsert's filter. Take a lease with a conditional update
   of the existing document, then an upsert matched only by "no lease yet": a held lease makes its
   insert a duplicate `_id`, refused.
-- The result's `_id` is `fencedKeyIdentityOf(key)` (a unique key). The scope's mark is an
+- The result's `_id` is `effectKeyIdentityOf(key)` (a unique key). The scope's mark is an
   `updateOne(…, { $max: { highestToken: token } }, { upsert: true })` in the same transaction.
 - The business documents are written with the same `session`. A business write outside it is
   outside the guarantee.
@@ -277,7 +277,7 @@ await session.withTransaction(async () => {
   const lease = await leases.findOne(id, { session });
   if (!lease || lease.released || lease.leaseEpoch !== token || lease.expiresAt <= lease.checkedAt)
     throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.leaseEpoch });
-  // …the mark ($max), a business key's lock, the stored result by fencedKeyIdentityOf(key), the work, the result
+  // …the mark ($max), a business key's lock, the stored result by effectKeyIdentityOf(key), the work, the result
 });
 ```
 
@@ -703,7 +703,7 @@ held operation. You write no seam of your own to force an order across processes
 - [ ] `checkedEffectName` and `checkedBusinessKey` (#538: a business key's text — no control or
       format character, no lone surrogate, NFC; #547: no space but U+0020, single and inside; #556: nothing default-ignorable, private, a noncharacter, unassigned or U+2800) run at every fenced method's entry; a business key is
       stored and compared byte for byte — no case-insensitive collation, no trim, no normalization.
-      Keys, replays and records use `fencedKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
+      Keys, replays and records use `effectKeyIdentityOf`, `replayedFromOf`, `storedKeyFactsOf` and `pendingOutboundCallOf`.
 - [ ] The lease, fenced-effect and outbound-call stores declare `static backend` (one text for one
       database). The fencing stores declare `static leaseRepository` for unit runners.
 - [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark

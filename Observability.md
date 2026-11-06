@@ -370,7 +370,7 @@ Each move of a step's call that leaves the system (`OutboundCalls.send` —
 move, `outcome` (`OutboundCallEventOutcome.Recorded` — the intent written, nothing sent yet —,
 `Sent`, `Replayed`, `Reconciled`, `NotSent` — `reconcile` found it never arrived, it goes out again
 —, `Unknown` — the step fails with `OutboundCallUnreconciledError` (also a `notSent()` refused past
-the call's `keyRetention`, #658) —, `Failed` — a definite failure (`isDefiniteFailure`, #657) —,
+a `KeyReplay`'s `keyRetention`, #658) —, `Failed` — a definite failure (`isDefiniteFailure`, #657) —,
 `Ambiguous` — `send` threw an error of unknown outcome: the intent stays pending, the next call
 reconciles it (#657) —, `Joined` — the same
 call of this instance was made meanwhile, its outcome shared), the lease's

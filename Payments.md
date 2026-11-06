@@ -54,7 +54,8 @@ Read your gateway's documentation and answer in order:
    your own reference or on an id you held before money moved; or by replaying the same key inside
    a retention the docs state. No → not supported: after a crash before the answer, nobody can
    tell whether the customer was charged (PS5). With only the replay, declare that retention as
-   the call's `keyRetention`: past it, nothing is resent, a person decides (PS17). A search index
+   the call's `notSent: { trust: NotSentTrust.KeyReplay, keyRetention }`: past it, nothing is
+   resent, a person decides (PS17). A search index
    that lags proves nothing while it lags.
 3. **How long does it keep a key?** Compare it with your longest recovery: the lease (30 s), a
    pause answered days later, an operator's retry. A retry later than that is a new charge
@@ -82,7 +83,8 @@ AGBoss or named as the gateway's or your application's.
   - a lasting "paid" record per order beyond every retention window (PS17);
   - numbering payment attempts after a known decline (PS22);
   - marking as definite (`isDefiniteFailure`) only the gateway's errors that moved no money, and
-    declaring the gateway's `keyRetention` where `notSent()` relies on a replay (PS1, PS17).
+    declaring `NotSentTrust.KeyReplay` with the gateway's `keyRetention` where `notSent()` relies
+    on a replay, `NotSentTrust.Lookup` only for a lookup that does not lag or expire (PS1, PS17).
 
 ## How to wire a gateway
 
@@ -91,7 +93,7 @@ The principle: **one outbound call per money-moving operation, keyed by a busine
 that does not expire.**
 
 <!-- snippet-context
-import { Action, ExecutionContext, OutboundCalls, OutboundCallReconciliation, fencedEffectKeyOf } from "@agboss/core";
+import { Action, ExecutionContext, NotSentTrust, OutboundCalls, OutboundCallReconciliation, effectKeyOf } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 interface GatewayPayment {
   readonly paymentId: string;
@@ -135,7 +137,7 @@ export class ChargeOrderAction {
   async execute(input: { readonly order: { readonly value: OrderChargeDto } }): Promise<PaymentReceiptDto> {
     const { orderId, amountCents } = input.order.value;
     // the order, not the step: a second tool call or a second execution gets the first receipt
-    const key = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
+    const key = effectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
     const { result } = await this.outboundCalls.send(key, {
       target: "gateway",
       operation: "charge",
@@ -151,6 +153,8 @@ export class ChargeOrderAction {
           ? OutboundCallReconciliation.unknown({ reason: "the payment is still processing" })
           : OutboundCallReconciliation.completed(found);
       },
+      // required (#795): the gateway's own record by a reference that does not expire — a lookup
+      notSent: { trust: NotSentTrust.Lookup },
     });
     // a decline is a real failure: its .onError (or the saga's undo) runs, never a crash's hand-over
     if (result.status === "failed") throw new PaymentDeclinedError(`order ${orderId} declined`);
@@ -169,8 +173,9 @@ export class ChargeOrderAction {
   ([Payment gateways](Payment-gateways#rules-that-follow)).
 - **`notSent()` only when you know.** A lookup that may lag (a search index) cannot prove a
   payment does not exist. Answer `unknown`, or `notSent()` relying on the gateway replaying the key
-  — and then declare its retention, `keyRetention: hours(24)` (#658): past it, nothing is sent and
-  a person decides. `lookup.keyAge` and `lookup.attemptStartedAt` tell your `reconcile` the same,
+  — and then declare it, `notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }`
+  (#658, #795): past it, nothing is sent and a person decides. Every `send` declares its `notSent`;
+  `NotSentTrust.Lookup` is for a lookup that proves the payment never arrived. `lookup.keyAge` and `lookup.attemptStartedAt` tell your `reconcile` the same,
   on the store's clock (G1, G3).
 - **Refunds, captures and voids** are outbound calls of their own, each with its business key
   (`refund:<payment>:<n>`, `capture:<authorization>:<n>`), PS18–PS20.
@@ -190,7 +195,7 @@ export class ChargeOrderAction {
   touches by that tenant (never a default), and let it update only an existing order of that
   tenant — never create a row, never act on an order or payment the tenant does not own.
 - **The key's age comes from AGBoss** (#658): `lookup.attemptStartedAt` and `lookup.keyAge`, on the
-  store's clock, and `keyRetention` refuses a replay past the gateway's retention — no row of your
+  store's clock, and a `KeyReplay`'s `keyRetention` refuses a replay past the gateway's retention — no row of your
   own for the attempt's start (a fenced effect's stored result would be removed after
   `fencedEffects.retention`, and an age read from a re-run effect would start at zero). Both checks
   above and the declared retention are in

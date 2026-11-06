@@ -450,7 +450,7 @@ never receives the new holder's result. For rows in the store's own database the
 one call, and the application defines no fencing or idempotency table:
 
 ```ts no-check: a fragment of a step; the full action is in README → Several instances
-const key = fencedEffectKeyOf(this.executionContext, "charge");
+const key = effectKeyOf(this.executionContext, "charge");
 const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(
   key,
   (database) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
@@ -484,7 +484,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   `FencedEffectAsyncWorkError` (`fenced-effect.async-work`) — do the step's I/O before the call or
   after it. The in-memory store takes an asynchronous `work` (one transaction per scope at a time)
   and checks the lease and the mark again before it commits.
-- **The key** is `fencedEffectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
+- **The key** is `effectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
   `leaseExecutionId`, `token` and the step's `idempotencyKey`; several effects of one step differ by
   `name`. Where no lease is held it throws `ExecutionContextUnavailableError`, as `fence` does.
 - **The result** is `JsonResult<T>` (an interface or a DTO class is fine; a function, `undefined`
@@ -527,7 +527,7 @@ A store of another database (PostgreSQL, #482) extends the contract, declares it
 implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
 `FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers
 (#526: `checkedEffectName` at its entry, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
-`fencedKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
+`effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
 ## Calls that leave the system (#505)
@@ -538,7 +538,7 @@ the answer leaves nobody knowing whether the charge happened. `OutboundCalls` re
 before the call and settles it after, so a step run again never sends blindly:
 
 ```ts no-check: a fragment of an action; the whole one is tests/app/fixtures/outbound-call.workflow.ts
-const outcome = await this.outboundCalls.send(fencedEffectKeyOf(this.executionContext, "charge"), {
+const outcome = await this.outboundCalls.send(effectKeyOf(this.executionContext, "charge"), {
   target: "payments", // what it goes to, for operators
   operation: "charge",
   request: { orderId: order.id, amountUsd: order.amountUsd }, // JSON; send gets it as it is
@@ -553,14 +553,16 @@ const outcome = await this.outboundCalls.send(fencedEffectKeyOf(this.executionCo
       ? OutboundCallReconciliation.completed(found.receipt)
       : OutboundCallReconciliation.unknown({ reason: `charge ${found.status}` });
   },
+  // #795, required: the lookup reads the provider's own payments, so its notSent() holds at any age
+  notSent: { trust: NotSentTrust.Lookup },
 });
-// outcome.status: OutboundCallOutcomeStatus.Sent | Replayed | Reconciled
+// outcome.status: OutboundCallOutcomeStatus.Sent | Replayed | Reconciled | Joined
 ```
 
 `OutboundCalls` is a core service (`deps: [ExecutionContext, OutboundCalls]`, nothing to list); the
 intents live in `OutboundCallRepository`, infrastructure like the lease store — the built-in
 `InMemoryOutboundCallRepository`, or a store of the application's database listed in
-`@Application({ providers })`. One key is one intent (`fencedEffectKeyOf(executionContext, name)`);
+`@Application({ providers })`. One key is one intent (`effectKeyOf(executionContext, name)`);
 the key sent with the call is the step's `idempotencyKey` and the name (`call.idempotencyKey`), the
 same on every attempt, replay and holder.
 
@@ -569,7 +571,7 @@ same on every attempt, replay and holder.
 | none | recorded `Pending` (fenced), the lease renewed (`fence.confirmNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
 | `Completed` | its stored result, nothing sent — `Replayed` |
 | (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
-| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — unless the call's `keyRetention` has passed (#658); `unknown({ reason })` → `OutboundCallUnreconciledError` |
+| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — a `NotSentTrust.Lookup`'s at any age, a `NotSentTrust.KeyReplay`'s only inside its `keyRetention` (#658, #795); `unknown({ reason })` → `OutboundCallUnreconciledError` |
 | `Failed` | the other system definitely did not carry it out (`isDefiniteFailure`, #657): sent again with the same key, attempt + 1 |
 
 - **Fenced like a fenced effect:** every read and write of an intent checks the key's lease and the
@@ -623,17 +625,25 @@ same on every attempt, replay and holder.
   age adds what passed since the read on the instance's monotonic clock, from before the read, so it
   is never less than the other system's age of the key (up to the store's millisecond and the drift
   bound A4). An intent recorded before 0.1.1 has neither: both `undefined`.
-- **`keyRetention` (#658).** A call whose `notSent()` relies on the other system **replaying the
-  key** — a gateway with no lookup (Adyen), a search that lags (Stripe; named only to identify their
-  APIs, not affiliated with or endorsed by them: [the notice](Payments#the-notice)) — declares how
-  long that system keeps a key, its documented minimum: `keyRetention: hours(24)`. A `notSent()` is then sent
-  again only while `keyAge + outboundCalls.attemptTimeout` (how long the resend may take to arrive,
-  A6) is below it, measured again after `reconcile` answers; past it, or with the age unknown or a
-  `keyRetention` that is not a positive number, nothing is sent: `OutboundCallUnreconciledError`
-  naming the age and the retention, the intent `Pending` for an operator (`app.pendingOutboundCalls`).
-  The framework never resends such a call by itself. A `Failed` intent is sent again at any age (it
-  moved no money). Without `keyRetention`, `notSent()` is trusted at any age — right for a lookup
-  that proves the call never arrived.
+- **How far `notSent()` is trusted — `notSent`, required (#658, #795).** Every `send` says it; a
+  forgotten line is a compile error, never a resend of an expired key:
+  - `notSent: { trust: NotSentTrust.Lookup }` — `reconcile` reads a record the other system keeps
+    for good (its payments, a list of refunds, a search that does not lag), so its `notSent()` proves
+    the call never arrived: sent again at any age.
+  - `notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }` — its `notSent()` relies on
+    the other system **replaying the key**: a gateway with no lookup (Adyen), a search that lags
+    (Stripe; named only to identify their APIs, not affiliated with or endorsed by them:
+    [the notice](Payments#the-notice)). `keyRetention` is how long that system keeps a key, its
+    documented minimum. A `notSent()` is then sent again only while `keyAge +
+    outboundCalls.attemptTimeout` (how long the resend may take to arrive, A6) is below it, measured
+    again after `reconcile` answers; past it, or with the age unknown, nothing is sent:
+    `OutboundCallUnreconciledError` naming the age and the retention, the intent `Pending` for an
+    operator (`app.pendingOutboundCalls`). The framework never resends such a call by itself.
+
+  No `notSent` (a JavaScript caller), an unknown `trust`, a `KeyReplay` without a positive, finite
+  `keyRetention` or a `Lookup` with one: `InvalidNotSentTrustError`
+  (`outbound-call.invalid-not-sent-trust`) before anything is recorded or sent. A `Failed` intent is
+  sent again at any age (it moved no money).
 - **Masked when written.** Everything an intent stores — its request, its result, its failure's text
   — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
   also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
@@ -656,7 +666,8 @@ same on every attempt, replay and holder.
   `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`,
   `attemptStartedAt?`, `firstAttemptStartedAt?` (#658, the store's time).
 - **What exactly-once means here:** the framework never sends twice without a definite failure
-  (`isDefiniteFailure`) or a `notSent()` from `reconcile` inside the declared `keyRetention`;
+  (`isDefiniteFailure`) or a `notSent()` from `reconcile` — a `Lookup`'s, or a `KeyReplay`'s inside
+  its `keyRetention`;
   whether the other system charged twice depends on those answers being true — idempotency keys and
   a lookup that does not lag or expire.
 - **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
@@ -697,9 +708,10 @@ charge of its own. A **business key** keys it by what it is about instead:
 import {
   Action,
   ExecutionContext,
+  NotSentTrust,
   OutboundCalls,
   OutboundCallReconciliation,
-  fencedEffectKeyOf,
+  effectKeyOf,
 } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 declare const paymentClient: {
@@ -729,13 +741,14 @@ export class ChargeOrderAction {
 
   async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
     const { orderId, amountUsd } = input.order.value;
-    const key = fencedEffectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
+    const key = effectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
     await this.outboundCalls.send(key, {
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd }, // its fingerprint: another amount under order:42 is a conflict
       send: (call) => paymentClient.charge(call.request, call.idempotencyKey),
       reconcile: () => OutboundCallReconciliation.unknown({ reason: "no lookup" }),
+      notSent: { trust: NotSentTrust.Lookup }, // never asked: reconcile says unknown
     });
     return { orderId, amountUsd };
   }
@@ -745,7 +758,7 @@ export class ChargeOrderAction {
 - **One row per tenant, name and business key**, whatever step, execution or thread writes it.
   Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
   refused before any lookup — even where the business key already has a result.
-- **The key:** `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`. A
+- **The key:** `effectKeyOf(executionContext, name, { businessKey, fingerprint? })`. A
   business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
   `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);
@@ -792,7 +805,7 @@ export class ChargeOrderAction {
   a refusal is `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`) or
   `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
-  `fencedEffectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
+  `effectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
   (`checkedBusinessKey`, for a store of your own), before anything runs; a thread id at
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
   (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
@@ -838,7 +851,7 @@ export class ChargeOrderAction {
   call of this instance under another fingerprint is refused the same way, never joined.
 - **Any text is a fingerprint, the empty one too** (#574): a key with `fingerprint: ""` and one
   with none are two requests, refused against each other whether the first is stored or still in
-  flight on this instance. `fencedEffectKeyOf` never makes `""` (none, or 64 hex digits); a key
+  flight on this instance. `effectKeyOf` never makes `""` (none, or 64 hex digits); a key
   built by hand may. A store of your own keeps `""` as `""` — a column that turns it into `NULL`
   replays it as none, which `fencedEffectContract`'s case "an empty fingerprint is not none" fails.
 - **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
@@ -868,10 +881,14 @@ export class ChargeOrderAction {
   call in flight — until it ends or loses the lease. Once the
   owner is gone the next caller reconciles, and only the winner of the compare-and-set sends.
 - **A lost completion is never silent:** an attempt answered after a newer one took the intent over
-  is `OutboundCallOutcomeStatus.Superseded` — both reached the other system — with the event's
-  `supersededBy` naming the newer attempt and an error `outbound-call.superseded` on the instance's
-  log, lease log or none (a unit runner); when the intent can no longer be read the newer attempt is
-  "unknown", never guessed.
+  — both reached the other system; an answer or a definite failure (its `cause`) alike, and a call
+  of this instance joined to it shares the error — fails the step with `OutboundCallSupersededError` (#795,
+  `outbound-call.superseded`, a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`,
+  `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The lease log's row
+  (`Superseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
+  the instance's log are written first, lease log or none (a unit runner); when the intent can no
+  longer be read the newer attempt is "unknown" (`supersededBy: undefined`), never guessed. A step
+  that must go on says so: `.onError(OutboundCallSupersededError, …)` — check the other system first.
 - **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
   the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, with a warning
   `outbound-call.result-not-stored`, never `Failed` (which would send it again); the step gets the

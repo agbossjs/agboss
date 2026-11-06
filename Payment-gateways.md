@@ -17,7 +17,7 @@ with or endorsed by any of them ([the notice](Payments#the-notice)).
 | --- | --- | --- | --- |
 | G1 | Accepts a client idempotency key per request | A resend after `notSent()` or a definite failure (the same key) is deduplicated by the gateway | A crash after sending can charge twice; only `reconcile` with G2 prevents it |
 | G2 | Finds a payment by that key, or by a client reference you set | `reconcile` asks what happened: never a blind resend | An unknown outcome stays `unknown`: `OutboundCallUnreconciledError`, a person decides |
-| G3 | Keeps keys at least as long as the longest recovery: the lease (30 s), the sweep (30 s), a pause or an operator's retry, stated in days | Replays inside the window are safe; declared as the call's `keyRetention`, a replay past it is refused (#658) | A late replay after the window is a new charge — unless `keyRetention` refuses it |
+| G3 | Keeps keys at least as long as the longest recovery: the lease (30 s), the sweep (30 s), a pause or an operator's retry, stated in days | Replays inside the window are safe; declared as the call's `notSent: { trust: NotSentTrust.KeyReplay, keyRetention }`, a replay past it is refused (#658, #795) | A late replay after the window is a new charge — unless `keyRetention` refuses it |
 | G4 | Returns the first response on a repeat | A repeat carries the real receipt | A repeat cannot be told from a new charge |
 | G5 | Refuses the same key with other parameters | A bug or a tampered request is caught at the gateway too | Only AGBoss's own check catches it (a business key's fingerprint, #508) |
 | G6 | Tells late outcomes: a status API or webhooks | `unknown` turns into a decision later | Pending intents need manual review |
@@ -27,7 +27,7 @@ with or endorsed by any of them ([the notice](Payments#the-notice)).
 | The gateway supports | A crash before the answer | A provider error, then a retry | A late replay (days later) |
 | --- | --- | --- | --- |
 | G1 + G2 + G3 | No: `reconcile` finds the payment by its key | No: an error of unknown outcome is reconciled first (#657); a definite one moved no money | No: `reconcile` finds it by a reference that does not expire |
-| G1 + G3, no G2 | No while the key lives, if you make `reconcile` answer `notSent()` and rely on G1 to deduplicate, and declare `keyRetention`; with `unknown()`, a person decides | No, the same way | No: past `keyRetention` the replay is refused, a person decides (#658) |
+| G1 + G3, no G2 | No while the key lives, if you make `reconcile` answer `notSent()` and rely on G1 to deduplicate, and declare `NotSentTrust.KeyReplay` with its `keyRetention`; with `unknown()`, a person decides | No, the same way | No: past `keyRetention` the replay is refused, a person decides (#658) |
 | G2, no G1 | No: `reconcile` finds it, if it looks the payment up by your reference | No: the error is of unknown outcome unless you mark it definite, so `reconcile` decides (#657) | No while `reconcile` still finds it by your reference; **yes** once the gateway no longer finds it |
 | Neither | **Yes**: nothing can tell what happened; `reconcile` can only answer `unknown` | **Yes** | **Yes** |
 
@@ -42,13 +42,16 @@ Rules that follow:
   again), a 409 "a request with this key is in progress", a 429, a reset connection, a DNS failure
   or the SDK's own timeout, which come after or regardless of the gateway acting. When in doubt,
   leave it out: an unknown error costs one lookup, a wrong "definite" can cost a second charge.
-- **Declare the key's retention when `notSent()` relies on a replay (#658).** `reconcile` gets
-  `lookup.attemptStartedAt` and `lookup.keyAge` (the store's clock). If your `notSent()` means
-  "send it again under the key and let the gateway replay the first answer" — a gateway with no
-  lookup, or a search that lags —, set `keyRetention` to the gateway's documented minimum (Stripe
-  `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`): past it the framework sends nothing
-  and fails the step with `OutboundCallUnreconciledError` for a person. A lookup that proves a
-  payment never arrived needs no `keyRetention`.
+- **Say how far `notSent()` is trusted — every call does (#658, #795).** `notSent` is required on
+  every `send`. `reconcile` gets `lookup.attemptStartedAt` and `lookup.keyAge` (the store's clock).
+  If your `notSent()` means "send it again under the key and let the gateway replay the first
+  answer" — a gateway with no lookup, or a search that lags —, declare `notSent: { trust:
+  NotSentTrust.KeyReplay, keyRetention }` with the gateway's documented minimum (Stripe `hours(24)`,
+  Checkout.com `hours(72)`, Adyen `hours(168)`): past it the framework sends nothing and fails the
+  step with `OutboundCallUnreconciledError` for a person. A lookup that proves a payment never
+  arrived — the gateway's own records, by a reference that does not expire (a refunds list, an
+  order's GET) — is `notSent: { trust: NotSentTrust.Lookup }`, trusted at any age. A call that says
+  neither is refused before anything is sent (`InvalidNotSentTrustError`).
 - **A send that never returns is bounded, and then G1 is what prevents a second charge.** Another
   instance sees a pending call in flight while its holder's lease is live — for at most
   `@Application({ outboundCalls: { attemptTimeout } })` (default `minutes(2)`, from the attempt's
@@ -185,8 +188,8 @@ All read 2026-11-01.
 - **Adyen:** no read API. Inside 7 days, `notSent()` replays the key and gets the first response.
   Past that, `unknown`. A capture's or refund's answer only says it was received: its outcome is a
   webhook, stored by your code.
-- **Both:** declare the key's retention (`keyRetention: hours(24)` for Stripe, `hours(168)` for
-  Adyen, #658). A `notSent()` that replays the key is then sent only while the key is younger than
+- **Both:** declare the key's replay and its retention (`notSent: { trust: NotSentTrust.KeyReplay,
+  keyRetention: hours(24) }` for Stripe, `hours(168)` for Adyen, #658, #795). A `notSent()` that replays the key is then sent only while the key is younger than
   that by `attemptTimeout`; later, nothing is sent and a person decides. `lookup.keyAge` tells a
   `reconcile` of its own the same age, on the store's clock.
 - **PayPal:** money moves at the capture (or authorize), never at the order's creation. Keep the

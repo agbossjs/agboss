@@ -3,6 +3,39 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the outbound-call contract fails closed (#795)
+
+From the 0.1.1 API review; the surface is not published yet, so no aliases.
+
+- **Changed — breaking**: every `OutboundCalls.send` declares a required `notSent` —
+  `{ trust: NotSentTrust.Lookup }` (`reconcile` reads a record that does not expire: a `notSent()`
+  holds at any age) or `{ trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }` (a `notSent()`
+  relies on the other system replaying the key: refused past its retention). The optional
+  `keyRetention` — unset meant "trusted at any age" — is gone; leaving `notSent` out does not
+  compile, and a JavaScript caller without it is refused before anything is recorded or sent
+  (`InvalidNotSentTrustError`, `outbound-call.invalid-not-sent-trust`). **Migration:** a call
+  without `keyRetention` adds `notSent: { trust: NotSentTrust.Lookup }` when its lookup is
+  authoritative; `keyRetention: X` becomes `notSent: { trust: NotSentTrust.KeyReplay, keyRetention:
+  X }`. [Several instances](Several-instances#calls-that-leave-the-system-505),
+  [Payment gateways](Payment-gateways#rules-that-follow).
+- **Changed — breaking**: an attempt answered after a newer one took its intent over — both reached
+  the other system — fails the step with `OutboundCallSupersededError` (`outbound-call.superseded`, a
+  `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy`);
+  `OutboundCallOutcomeStatus.Superseded` is removed (the lease log's `Superseded` row stays).
+  **Migration:** a step that must go on takes it with `.onError(OutboundCallSupersededError, …)`.
+- **Changed — breaking**: `new OutboundCallSettings({ …, requiresMask })` — one options bag
+  (`OutboundCallSettingsOptions`) with `requiresMask` required, where a positional boolean defaulted
+  to `false` (requests stored unmasked); a JavaScript caller without it gets `true`.
+- **Renamed**: the shared key — `effectKeyOf`, `EffectKey`, `EffectKeyOptions`, `effectKeyIdentityOf`
+  (were `fencedEffectKeyOf`, `FencedEffectKey`, `FencedEffectKeyOptions`, `fencedKeyIdentityOf`);
+  options are the input and settings the resolved value — `FencedEffectOptions` +
+  `FencedEffectSettings`, `OutboundCallOptions` + `OutboundCallSettings` (were
+  `FencedEffectsOptions`, `OutboundCallsOptions`); the per-call options of `send` are
+  `OutboundCallSendOptions` (were `OutboundCallOptions`). The fault suite's sabotage
+  `s15-sabotage-retention-undeclared` is `s15-sabotage-replay-trusted-as-lookup`.
+- **Fixed**: a definite failure answered after a newer attempt took the intent over, and a call
+  joined to a superseded one, fail with `OutboundCallSupersededError` too (the failure its `cause`).
+
 ## Unreleased — 0.1.1: RAG names and contracts, `/internal` off limits (#818)
 
 - **Changed — breaking**: `rerank: { by, candidates, topK }` — the agent gets `topK`, as with
@@ -357,7 +390,7 @@ Breaking changes and notable additions, newest first. The API reports
   the next call reconciles it first. A call that relied on a resend after a decline adds
   `isDefiniteFailure`. [Several instances](Several-instances#calls-that-leave-the-system-505).
 - **Added (#658)**: `OutboundCallLookup.attemptStartedAt` and `.keyAge` — on the store's clock (the
-  database's own on PostgreSQL); `OutboundCallOptions.keyRetention` — a `notSent()` is sent again
+  database's own on PostgreSQL); `OutboundCallSendOptions.keyRetention` — a `notSent()` is sent again
   only while `keyAge + attemptTimeout` is below it, else `OutboundCallUnreconciledError`, nothing
   sent. `OutboundCallRecord` gains `attemptStartedAt`, `firstAttemptStartedAt` and, on a read by
   key, `readAt`; `outboundCallContract` checks them (a store of your own writes them). The fault
@@ -1058,7 +1091,7 @@ Breaking changes and notable additions, newest first. The API reports
   child queue and the lease log are on any backend.
 - **Added — the rules of a fenced key on the root entry**: `checkedEffectName`, `replayedFromOf`
   (`StoredKeyFacts`: a row's `null`s, a stored step checked), `storedKeyFactsOf`,
-  `fencedKeyIdentityOf`, `pendingOutboundCallOf` — a store outside the core keeps no copy.
+  `effectKeyIdentityOf`, `pendingOutboundCallOf` — a store outside the core keeps no copy.
 - **Fixed — a store's connection need not be listed** (found by agbossjs/postgres#8): with
   `OutboundCalls`, or a component that injects a store's own class, an unlisted `SqliteConnection` or
   `PostgresConnection` no longer fails assembly with `"…Connection" is not registered`.
@@ -1093,16 +1126,16 @@ Breaking changes and notable additions, newest first. The API reports
 
 ## Unreleased — 0.1.1: business idempotency keys (#508)
 
-- **Added — `fencedEffectKeyOf(executionContext, name, { businessKey, fingerprint? })`**
-  (`FencedEffectKeyOptions`) ([Several instances](Several-instances#business-idempotency-keys-508)):
+- **Added — `effectKeyOf(executionContext, name, { businessKey, fingerprint? })`**
+  (`EffectKeyOptions`) ([Several instances](Several-instances#business-idempotency-keys-508)):
   one fenced effect or outbound call per tenant, name and business key, whatever step, execution or
-  thread; `FencedEffectKey.businessKey` / `fingerprint` / `origin`, `FencedEffectOrigin`,
+  thread; `EffectKey.businessKey` / `fingerprint` / `origin`, `FencedEffectOrigin`,
   `FencedEffectOutcome.replayedFrom`, `OutboundCallOutcome.replayedFrom`, `OutboundCallRecord.businessKey`
   / `fingerprint` / `leaseExecutionId`.
 - **Added — errors** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`, `effect`,
   `businessKeyHash?`) and `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`); a business
   key never appears in an error, only its handle — HMAC-SHA256 under the execution's PII key
-  (`FencedEffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
+  (`EffectKey.businessKeyHash`), none without a key; `OutboundCallUnreconciledError.idempotencyKey`
   is `business-key:<handle>:<name>`.
 - **Added — `OutboundCallRepository.leaseStateOf(lease)`** → `OutboundCallLeaseState` (`Live`,
   `Ended`, `Superseded`; `OutboundCallLease`): the state of the lease a pending business-key call
@@ -1303,7 +1336,7 @@ Breaking changes and notable additions, newest first. The API reports
 
 - **Added — `FencedEffectRepository<TTransaction>`** ([Several instances](Several-instances#the-fenced-effect-500),
   [ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)):
-  `saveResultIfAbsent(fencedEffectKeyOf(executionContext, name), work)` makes a protected write once
+  `saveResultIfAbsent(effectKeyOf(executionContext, name), work)` makes a protected write once
   per step — the lease, the scope's mark and the key checked in the write's transaction;
   `FencedEffectStatus.Ran` / `Replayed` / `Joined`; a zombie gets `ExecutionFencedError`. The
   built-in `InMemoryFencedEffectRepository` and `SqliteFencedEffectRepository` (with

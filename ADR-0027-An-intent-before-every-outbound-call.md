@@ -16,7 +16,7 @@ left the system. I would store the request before sending it, not after."
 
 - **A core service over a repository contract:** `OutboundCalls.send(key, { target, operation,
   request, send, reconcile })` over `OutboundCallRepository`. The key is #500's
-  (`fencedEffectKeyOf`), so a step run again finds its own intent; the call's idempotency key is the
+  (`effectKeyOf`), so a step run again finds its own intent; the call's idempotency key is the
   step's plus the name.
 - **The intent is recorded before the call, in a fenced write** (the lease and the scope's mark, as
   #500) — a zombie can record nothing — and the lease is renewed (`fence.confirmNow()`) right before
