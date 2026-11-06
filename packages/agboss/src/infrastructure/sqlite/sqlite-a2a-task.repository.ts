@@ -17,7 +17,6 @@ import {
 import {
   answerOf,
   messageKeyOf,
-  totalOf,
   messageOf,
   MESSAGE_KEY,
   ownerColumnOf,
@@ -25,7 +24,7 @@ import {
   taskOf,
   TERMINAL_STATES,
 } from "./sqlite-a2a-task-rows.js";
-import { a2aPagePositionOf, nextPageTokenOf } from "../a2a-task-pages.js";
+import { sqliteA2ATaskPageOf } from "./sqlite-a2a-task-pages.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -134,51 +133,7 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
   }
 
   list(query: A2ATaskQuery): Promise<A2ATaskPage> {
-    return answerOf(() => this.#page(query));
-  }
-
-  #page(query: A2ATaskQuery): A2ATaskPage {
-    const token = query.pageToken ?? "";
-    const position = token === "" ? undefined : a2aPagePositionOf(token);
-    const where = ["tenant_id = ?", "owner_id = ?"];
-    const values: (string | number)[] = [query.tenantId, ownerColumnOf(query.ownerId)];
-    if (query.contextId !== undefined) {
-      where.push("context_id = ?");
-      values.push(query.contextId);
-    }
-    if (query.state !== undefined) {
-      where.push("state = ?");
-      values.push(query.state);
-    }
-    if (query.statusAtAfter !== undefined) {
-      where.push("status_at > ?");
-      values.push(query.statusAtAfter.toISOString());
-    }
-    const matching = where.join(" AND ");
-    const after = [...where];
-    const afterValues = [...values];
-    if (position !== undefined) {
-      after.push("(status_at < ? OR (status_at = ? AND task_id < ?))");
-      const at = new Date(position.statusAt).toISOString();
-      afterValues.push(at, at, position.taskId);
-    }
-    const { database } = this.connection;
-    const rows = database
-      .prepare(
-        `SELECT * FROM a2a_tasks WHERE ${after.join(" AND ")}
-         ORDER BY status_at DESC, task_id DESC LIMIT ?`,
-      )
-      .all(...afterValues, query.pageSize + 1);
-    const tasks = rows.slice(0, query.pageSize).map(taskOf);
-    // a second read, no write lock: a task saved in between moves the count by one, as a next page would
-    const counted = database
-      .prepare(`SELECT count(*) AS total FROM a2a_tasks WHERE ${matching}`)
-      .get(...values);
-    return {
-      tasks,
-      nextPageToken: nextPageTokenOf(tasks, rows.length > query.pageSize),
-      totalSize: totalOf(counted),
-    };
+    return answerOf(() => sqliteA2ATaskPageOf(this.connection.database, query));
   }
 
   deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
