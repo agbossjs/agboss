@@ -19,7 +19,7 @@ export interface MeshSettings {
   readonly clock: Clock;
   readonly idempotencyRetention: number;
   /**
-   * How long a finished A2A task is kept (`@Application({ a2a: { taskRetention } })`, #807): what an
+   * How long a finished A2A task is kept (`@Application({ retention: { a2aTasks } })`, #807): what an
    * A2A listener deduplicates a `messageId` for, its card's mesh `idempotencyRetention` (#810).
    */
   readonly a2aTaskRetention: number;

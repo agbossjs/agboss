@@ -1830,7 +1830,7 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   it is said in the tool call's record (`remote: { application, executionId: <task>, mesh: false }`)
   and `agboss describe` lists every `@A2AAgent` (`a2a agents`: `mesh: required` / `mesh: not
 guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-admission.ts`):
-  the card declares the mesh extension (`params.idempotencyRetention` = `a2a.taskRetention`); a
+  the card declares the mesh extension (`params.idempotencyRetention` = `retention.a2aTasks`); a
   `SendMessage`'s envelope is read from the message as the SDK decodes it, before the caller
   resolver — the audience first, against the application's own name whatever its mesh settings
   (fail closed), then a known issuer's signature, replay window and `meshBodyHashOf` of the decoded

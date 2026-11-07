@@ -35,7 +35,7 @@ export async function servePeer(
     | typeof KeylessPeerApplication = PeerApplication,
 ): Promise<ServedPeer> {
   peer.clock = clock;
-  const app = await createApp(Peer, { env: "test", processEnv: process.env });
+  const app = await createApp(Peer, { env: "test" });
   const listener = a2aHttpListener(app, {
     expose: PeerA2AExpose,
     callerResolver: PeerCallerResolver,

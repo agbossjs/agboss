@@ -990,7 +990,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   the same `MeshLoopDetectedError` / `HopsLimitExceededError`; a trusted caller's chain, origin,
   budget and deadline bind the remote execution, and its completed task carries the signed run
   report (`task.metadata[uri].report`, also on the stream's last status update). The card declares
-  the mesh extension (`idempotencyRetention` = `a2a.taskRetention`) and echoes it. The client
+  the mesh extension (`idempotencyRetention` = `retention.a2aTasks`) and echoes it. The client
   charges an A2A call's price and its report's excess on every pass under the call's own ledger
   identity (`UsageRecord.ledgerKey`, `LedgerKey`): a takeover that replays the accept charges them
   exactly once (price 1, report 3 → 3); a report must name the call's task; an agent that does not

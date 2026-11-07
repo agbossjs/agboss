@@ -30,7 +30,7 @@ export interface AgentCardSource {
   readonly url: string;
   /**
    * How long a `messageId` is deduplicated (#810): a finished task, with its messages, is kept this
-   * long (`@Application({ a2a: { taskRetention } })`); an unfinished one never goes.
+   * long (`@Application({ retention: { a2aTasks } })`); an unfinished one never goes.
    */
   readonly idempotencyRetention: number;
 }
