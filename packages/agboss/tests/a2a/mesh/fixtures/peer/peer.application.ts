@@ -33,11 +33,23 @@ import {
   A2ATaskState,
   type A2ATaskRecord,
 } from "../../../../../src/infrastructure/a2a-task.repository.js";
+import { MeshLoopDetectedError } from "../../../../../src/mesh/mesh-errors.js";
 import { IN_MEMORY_DATABASE } from "../../../../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../../../../src/infrastructure/in-memory-a2a-task.repository.js";
 
 /** The peer's name: the audience a caller's envelope must be addressed to. */
 export const PEER_APPLICATION = "peer-application";
+
+/** A question the peer passes on to a further hop that refuses it as a loop. */
+export const DOWNSTREAM_LOOP = "downstream-loop";
+export const DOWNSTREAM_ENTRY = {
+  application: "caller-application",
+  start: "caller-workflow-start",
+};
+export const DOWNSTREAM_CHAIN = [
+  { application: "caller-application", start: "caller-workflow-start", executionId: "c-1" },
+  { application: PEER_APPLICATION, start: "ask-workflow-start", executionId: "p-1" },
+];
 
 /** The caller the resolver authenticates as the mesh peer `caller-application`. */
 export const CALLER_TOKEN = "caller";
@@ -138,6 +150,9 @@ export class PeerAnswerAction {
   }): Promise<WorkflowFinishTextDto> {
     const { text } = input.message.value;
     peer.runs.push(text);
+    // a call of the peer's own that a further hop refused as a loop: its run fails with that limit
+    if (text === DOWNSTREAM_LOOP)
+      throw new MeshLoopDetectedError(DOWNSTREAM_ENTRY, DOWNSTREAM_CHAIN);
     await peer.gate;
     this.spendRecorder.record({ service: "peer-service", cost: usd(peer.spend) });
     return { text: `answered ${text}` };

@@ -596,6 +596,24 @@ describe("#810: the mesh's statuses", () => {
     });
   });
 
+  it("a run another hop's mesh limit stopped: FAILED with the limit's code, its fixed text and its facts", async () => {
+    const { HopsLimitExceededError, MeshLoopDetectedError } =
+      await import("../../src/mesh/mesh-errors.js");
+
+    expect(failedStatusOf(new MeshLoopDetectedError(entry, chain))).toEqual({
+      state: A2ATaskState.Failed,
+      pendingPauses: [],
+      errorCode: "limit.mesh-loop",
+      message: "the task failed: limit.mesh-loop",
+      errorDetails: expect.objectContaining({ entry, chain }),
+    });
+    expect(failedStatusOf(new HopsLimitExceededError(entry, chain, 2))).toMatchObject({
+      state: A2ATaskState.Failed,
+      errorCode: "limit.hops",
+      errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 2 }),
+    });
+  });
+
   it("#844: a completion always keeps what it spent", async () => {
     const { completedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 

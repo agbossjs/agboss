@@ -2,7 +2,7 @@ import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
 import type { PendingPause } from "../../pause/types.js";
-import type { MeshLimitError } from "../../mesh/mesh-errors.js";
+import { isMeshLimitError, type MeshLimitError } from "../../mesh/mesh-errors.js";
 
 /**
  * An execution's state as its A2A task's status (#807, design §3 and §4.1.7) — one mapping for the
@@ -86,10 +86,15 @@ const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [
 /**
  * An execution's error as its task's end: a cancel is `CANCELED`; anything else `FAILED` with the
  * error's stable code (a limit's `limit.*`; `internal` for an error with none) and the code's fixed
- * text — never the error's message.
+ * text — never the error's message. A run another hop's mesh limit stopped (a loop or a chain past
+ * `maxMeshHops` further down) keeps that limit's facts too — the entry, the chain, the limit, as a
+ * REJECTED task does — so its AGBoss caller rethrows the same limit error (#810 AC1); no other
+ * error's facts leave the application.
  */
 export function failedStatusOf(error: Error): A2ATaskStatus {
   if (error instanceof ExecutionCancelledError) return CANCELED;
+  if (isMeshLimitError(error))
+    return { ...failedOf(error.code), errorDetails: error.details ?? {} };
   return failedOf(error instanceof AGBossError ? error.code : INTERNAL_FAILURE);
 }
 
