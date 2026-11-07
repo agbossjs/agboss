@@ -105,7 +105,7 @@ tree over and charges. Then the frozen pod wakes up and charges too.
 - **Wrong:** a write or a call that checks no fence: two charges.
 - **AGBoss:** every fenced write checks the lease in the write's own transaction, so a superseded
   token is refused (`ExecutionFencedError`, a hand-over). Before an outbound call is sent, the
-  lease is renewed (`confirmNow()`) and checked on the holder's monotonic clock (`assertHeld()`),
+  lease is renewed (`renewNow()`) and checked on the holder's monotonic clock (`assertHeld()`),
   with nothing awaited in between.
 - **Guarantee:** P1, P3. Assumptions: A2–A6.
 - **Boundary:** a request already on the wire when the pod froze can arrive after the new holder's.

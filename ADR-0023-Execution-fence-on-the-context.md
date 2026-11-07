@@ -16,12 +16,12 @@ their own.
 ## Decision
 
 - **Everything on `executionContext.fence`** (`ExecutionFence`): the lease the current step runs
-  under — `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `confirmedUntil`, `assertHeld()`,
-  `confirmNow()` and `fenced(observedToken)`. No new injectable: a step already has its
+  under — `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `trustedUntil`, `assertHeld()`,
+  `renewNow()` and `fencedError(observedToken)`. No new injectable: a step already has its
   `ExecutionContext`, and the fence is a fact of its frame, read live (a fence kept past its step
-  refuses). One I/O method is accepted on the otherwise data-only context: `confirmNow()`, a strict
+  refuses). One I/O method is accepted on the otherwise data-only context: `renewNow()`, a strict
   renewal before a call that cannot check tokens, which also runs the #360 cancel checks.
-- **The token is a number, per lease key**: `leaseEpoch` of `(tenantId, leaseExecutionId)` — 1 for
+- **The token is a number, per lease key**: `token` of `(tenantId, leaseExecutionId)` — 1 for
   its first holder, + 1 with every take. Written into `ExecutionLeaseRepository`'s contract, so a
   distributed store (#469) counts per key, never by its own revision; no `bigint`.
 - **The scope is a string with its parts**: each part `encodeURIComponent`-encoded and joined by one

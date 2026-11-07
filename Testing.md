@@ -1176,13 +1176,13 @@ built as at run time. The levels above (#261): the tenant `"default"` of an appl
 tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
 Its `fence` (#471) is a held lease of the execution: token 1, scope `<tenant>:test-execution`,
 confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { token,
-leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` sets each part — `isLost` makes
-`assertHeld()` and `confirmNow()` refuse with `ExecutionLeaseLostError`, `confirmNowFails` (`true`
-or an error) only `confirmNow()` (a store error right before a webhook). Every unit runner takes the
-same `fence` option, its `confirmedUntil` on `run.clock`. A component's fenced effect (#500) runs on the runner's held
+leaseExecutionId, trustedUntil, isLost, renewNowFails }` sets each part — `isLost` makes
+`assertHeld()` and `renewNow()` refuse with `ExecutionLeaseLostError`, `renewNowFails` (`true`
+or an error) only `renewNow()` (a store error right before a webhook). Every unit runner takes the
+same `fence` option, its `trustedUntil` on `run.clock`. A component's fenced effect (#500) runs on the runner's held
 lease: the in-memory store by default, and every fenced-effect store the runner creates — the SQLite
 one too, on `environment: { sqlitePath: ":memory:" }` — gets the lease written into the lease store
-it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `confirmedUntil` →
+it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `trustedUntil` →
 expired). A second call of one runner is the step run again: `Replayed`.
 
 <!-- snippet-context

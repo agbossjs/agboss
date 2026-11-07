@@ -48,7 +48,7 @@ dropped.
 | `agboss.cluster.children.running` (`agboss_cluster_children_running`) | gauge | `{execution}` | those claimed by an instance |
 | `agboss.cluster.children.oldest_queued_seconds` (`agboss_cluster_children_oldest_queued_seconds`) | gauge | `s` | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none |
 
-All three come from **one** call of `ChildExecutionQueueRepository.findQueueDepth()` per
+All three come from **one** call of `ChildExecutionQueueRepository.countByStatus()` per
 collection — an aggregate, never a read per tree (the SQLite store: one statement over its claims
 index). A read that fails reports none of the three for that collection — never a stale or zero
 value — and the log warns `metrics.child-queue-unreadable` once per failure streak.
@@ -156,7 +156,7 @@ test("an idle instance holds no lease", async ({ app }) => {
 
 ## Your own store
 
-Every `ChildExecutionQueueRepository` answers `findQueueDepth(): Promise<ChildExecutionQueueDepth>`
+Every `ChildExecutionQueueRepository` answers `countByStatus(): Promise<ChildExecutionQueueCounts>`
 — `{ queued, running, oldestQueuedAt? }` over every tenant and tree, in one round trip. The queue
 contract (`childExecutionQueueContract`, and so `storeConformance`) checks it: empty, rows of
 several tenants and trees by status, the oldest *still queued* (a claim of the oldest moves it),

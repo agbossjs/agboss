@@ -163,7 +163,7 @@ of its own injects `IdGenerator` (`deps: [IdGenerator]`), never its generator's 
 
 An id is never handed out twice (#591), whatever the generator does: every execution id it mints —
 a root's, a child's, a recursion level's — is kept by the lease store before anything else of the
-execution is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`: one insert-if-absent by
+execution is written (`ExecutionLeaseRepository.claimExecutionId`: one insert-if-absent by
 the id alone, across tenants, never removed). An id any execution had — running, paused, finished,
 failed or cancelled, of any tenant — fails the new one with `DuplicateExecutionIdError`
 (`run.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or

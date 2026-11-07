@@ -165,7 +165,7 @@ back, so roll the application forward, or run the newer image.
 - **A pool of one never deadlocks** — every transaction runs on the one connection it took — but a
   small pool queues: `pg` waits for a free connection without a timeout, and a lease renewal waits
   behind the work in flight. A holder whose renewal is late is safe — it trusts its lease only until
-  `confirmedUntil` and then hands the tree over ([Several-instances](Several-instances#the-execution-lease))
+  `trustedUntil` and then hands the tree over ([Several-instances](Several-instances#the-execution-lease))
   — but a pool too small for `maxConcurrentSteps` makes hand-overs out of healthy pods. Size it to
   the steps an instance runs at once, plus a few.
 - **A fenced effect's `work` holds a connection and the tree's lease row.** It runs inside the
@@ -180,7 +180,7 @@ back, so roll the application forward, or run the newer image.
   PostgreSQL directly, never behind a pooler.
 - **A lost connection** rejects the operation in flight; the pool drops the connection and opens a
   new one for the next. Nothing retries a write silently: the core's rules decide — a failed renewal
-  past `confirmedUntil` aborts the execution's signal and hands the tree over, so a pod never moves a
+  past `trustedUntil` aborts the execution's signal and hands the tree over, so a pod never moves a
   tree whose lease it could not renew.
 
 ## What the guarantees assume of PostgreSQL

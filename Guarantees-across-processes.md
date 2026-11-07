@@ -29,7 +29,7 @@ assumptions it rests on and the checker that proves it are on [Guarantees](Guara
   it, until the scenario releases it:
   - a step's point (`step.charge.before`, `step.charge.after`: committed but not checkpointed);
   - a store operation, before the store is asked or after it answered (`lease.acquire`,
-    `lease.renew`, `lease.finish`, `fencedEffect.write`, `outboundCall.leaseStateOf`, …);
+    `lease.renew`, `lease.retire`, `fencedEffect.write`, `outboundCall.leaseStateOf`, …);
   - a store's answer **lost** on its way back (`loseAnswer` at `HoldPhase.After`, #720): the
     operation took effect and is in the history, and its caller gets `StoreAnswerLostError`, as when
     the connection drops after the database committed;
@@ -111,7 +111,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 5 | `SIGSTOP` at the charge's write, `SIGCONT` after the new holder charged | The zombie's write is refused by the store (`ExecutionFencedError`); it hands over; nothing is undone | `s05-zombie-write-refused` (`s05-zombie.test.ts`) |
 | 5b | The same, the zombie's write reaching the store **before** the new holder's | Refused by the store's lease check; the new holder charges once | `s05b-zombie-reaches-charge-first` |
 | 5c | The same at the payment: the zombie frozen at its intent (`outboundCall.saveIfAbsent`), reaching the outbound-call store before the new holder's (#584) | Refused by the outbound-call store's lease check: a zombie records no payment; one payment | `s05c-zombie-reaches-payment-first` |
-| 5d | The zombie frozen **after** recording its payment's intent (`Pending`, held right after `outboundCall.saveIfAbsent` answered) and before sending it, thawed after the new holder finished the tree (#608) | The new holder finds the intent of a lease that is no longer live, reconciles it with the gateway (not sent) and pays once; the zombie's renewal right before its send (`confirmNow()`) is refused, so it hands over and never reaches the gateway: one request, one payment | `s05d-zombie-recorded-not-sent` |
+| 5d | The zombie frozen **after** recording its payment's intent (`Pending`, held right after `outboundCall.saveIfAbsent` answered) and before sending it, thawed after the new holder finished the tree (#608) | The new holder finds the intent of a lease that is no longer live, reconciles it with the gateway (not sent) and pays once; the zombie's renewal right before its send (`renewNow()`) is refused, so it hands over and never reaches the gateway: one request, one payment | `s05d-zombie-recorded-not-sent` |
 | 6 | Scale-down (`SIGTERM`) while three children run on three pods | The stopped pod's child is reclaimed from its checkpoint by a live pod: no child lost, none run twice | `s06-scale-down-children` (`s06-children.test.ts`) |
 | 6b | A pod frozen at its ask for another pod's child's lease, thawed after that child finished | The store refuses the finished child's lease in `acquire` itself; no takeover is written (#520 AC1) | `s06b-finished-child-not-taken` |
 | 7 | A new pod joins while the busy pod's child waits in the queue | It claims and runs the waiting child; each child runs once | `s07-new-pod-claims-pending` (`s07-new-pod.test.ts`) |
@@ -138,12 +138,12 @@ These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
   was ever granted at, and it goes in at the lease's current epoch. It fails 1 on `one-owner`,
   because the history holds a write no grant explains (before #840 the checker skipped it, and only
   `linearizable` failed).
-- A lease store whose **`finish` is a plain `release`**: it fails 6b on `finished-work-untouched`,
+- A lease store whose **`retire` is a plain `release`**: it fails 6b on `finished-work-untouched`,
   because the frozen pod was granted the finished child's lease.
 - An outbound-call store with **no fencing check on the payment's intent** (#584): it fails 5c on
   `one-owner`, because the zombie's intent was accepted after the new epoch was granted.
 - A lease store whose **renewal says yes to a lease that is over** (taken over or expired, #608):
-  it fails 5d on `effects-once` and `linearizable`. The zombie's `confirmNow()` right before its
+  it fails 5d on `effects-once` and `linearizable`. The zombie's `renewNow()` right before its
   send passes, so the order reaches the gateway twice (the gateway's own idempotency key makes it
   one payment, but the framework sent twice), and the stale renewal fits no sequential order.
 - A tree store that **forgets every undo's done mark** (`@agboss/compensated/…`, #607): it fails

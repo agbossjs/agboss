@@ -137,19 +137,19 @@ export class LeaseAuditService {
 ```ts
 import {
   ApplicationContext,
-  Clock,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
+  StoreClock,
 } from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 
 /** The SQLite leases, each one taken written to the audit log as well. */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, LeaseAuditService] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext, LeaseAuditService] })
 export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   constructor(
     connection: SqliteConnection,
-    clock: Clock,
+    clock: StoreClock,
     applicationContext: ApplicationContext,
     private readonly leaseAuditService: LeaseAuditService,
   ) {
@@ -267,16 +267,16 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
 - while a parent node waits for children on any instance, **yields** it — in the store, not by a
   release (#516, [below](#a-parent-waiting-for-remote-children-516)): still its own, renewed on;
 - when a renewal answers `false` (the lease expired — the instance was frozen or cut off for 30
-  seconds or longer —, whether another instance took it, `leaseEpoch + 1`, or not), stops: its work
+  seconds or longer —, whether another instance took it, `token + 1`, or not), stops: its work
   is aborted through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
   That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
   record — the new holder owns the execution and continues it;
 - fences itself locally (#335, #533): it trusts the lease until `sentAt + remaining − 1 s` of its
   last acquire or renewal the store confirmed — `remaining` the time the store said is left,
   `sentAt` the holder's monotonic time when it sent that request (the store counts from a later
-  moment, so its lease never ends earlier). `confirmedUntil` is that deadline shown on the wall
+  moment, so its lease never ends earlier). `trustedUntil` is that deadline shown on the wall
   clock. A lease store that errors **before** then is
-  tried again at the next renewal, and a checkpoint write goes on. When `confirmedUntil` comes with
+  tried again at the next renewal, and a checkpoint write goes on. When `trustedUntil` comes with
   no confirmed renewal — the store unreachable for the whole lease — the holder stops at that
   moment, whether or not another instance took the lease yet: its signal aborts with
   `ExecutionLeaseLostError` (the message says the lease expired before its store confirmed a
@@ -288,11 +288,11 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
 **The lease's boundary (#534).** A lease is live while `expiresAt > now`, and only then — for
 every instance, **its holder included**. At `now >= expiresAt` it is over: another instance's
 `acquire` takes it; the holder's `renew` and `yield` answer `false`, its `reclaim` nothing, its
-`fence.confirmNow()` loses the lease, and every fenced write and outbound-call write at its token is
+`fence.renewNow()` loses the lease, and every fenced write and outbound-call write at its token is
 refused (`ExecutionFencedError`) — even when no one took it yet. The holder takes the tree again
 only by `acquire`, at a new epoch, recorded as a takeover from itself. Every check of a lease draws
 the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
-fence (`now >= confirmedUntil`) — so no lease is kept by one part of the system and given up by
+fence (`now >= trustedUntil`) — so no lease is kept by one part of the system and given up by
 another, and at the very instant of expiry only the taker wins. A healthy holder never comes near
 it: it renews every 10 s, a third of the lease, so each renewal reaches the store with 20 s left (19 s
 of its own trust, #533), and one renewal its store does not answer still leaves 10 s. What reaches it is a stop-the-world
@@ -352,11 +352,11 @@ idempotency key and the lease's fencing token — and the framework gives both:
 | --- | --- |
 | `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
 | `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and `ThisWorkflow` levels; a `ChildPlacement.AnyInstance` child itself. |
-| `token` | The lease's `leaseEpoch`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the re-acquire after remote children); never a sequence across keys. |
-| `confirmedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
-| `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= confirmedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
-| `confirmNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
-| `fenced(observedToken?)` | The `ExecutionFencedError` a step throws when the external system refused it. |
+| `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the re-acquire after remote children); never a sequence across keys. |
+| `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
+| `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
+| `renewNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
+| `fencedError(observedToken?)` | The `ExecutionFencedError` a step throws when the external system refused it. |
 
 The external check, in one transaction with the idempotency key: `incoming >= highest` → accept and
 set `highest = incoming`; `incoming < highest` → refuse. SQLite (`BEGIN IMMEDIATE`, run in one
@@ -385,7 +385,7 @@ ON CONFLICT (idempotency_key) DO NOTHING;
 
 A refused write throws `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`; `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken` —
-built by `fence.fenced(highest)` in the step or `new ExecutionFencedError({ scopeKey, token,
+built by `fence.fencedError(highest)` in the step or `new ExecutionFencedError({ scopeKey, token,
 observedToken })` in a repository that has only what it wrote). It is a **hand-over**, wherever it
 is thrown and however it is wrapped (a `cause` chain, an `AggregateError`, a cycle): the runtime
 looks for it first — in a visit, a launch's branch, a child's exit, an undo, an agent's tool call
@@ -401,7 +401,7 @@ moment before. A business error still takes its `.onError`.
   child and send it through false recoveries. A shared aggregate needs its own locking.
 - **Read `fence.token` right before the write**, after `fence.assertHeld()`; across a pause or the
   remote-children wait it rises.
-- **An API that cannot check tokens** (a webhook): `await fence.confirmNow()` and an
+- **An API that cannot check tokens** (a webhook): `await fence.renewNow()` and an
   `Idempotency-Key` header narrow the window, never close it.
 - **Where there is no fence:** frames that run under no held lease — a reply interpreter (it runs in
   `app.resume`'s first phase), a budget's `maxSpend()` (read before the first pass), an eval judge,
@@ -427,7 +427,7 @@ renewed every 10 s like a held one. What every instance sees of a tree whose par
 | Another instance's recovery sweep | `acquire` is refused — the tree is live and owned; nothing is taken over, no `Takeover` row |
 | `app.resume` of a pause in the tree, on any instance | the decision is recorded, then the call waits for the lease; the holder takes the decision before the tree rests (the drain), and the call returns the tree's current output |
 | `app.cancel` on any instance | a cancel request; the holder reads it after its next renewal — renewals go on while it waits — and stops |
-| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `leaseEpoch + 1` (a `Reacquired` row of the [lease log](#the-lease-log-501)); `fence.token` rises |
+| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `token + 1` (a `Reacquired` row of the [lease log](#the-lease-log-501)); `fence.token` rises |
 
 If the holder **dies** while it waits, its renewals stop and the lease expires 30 s later; the next
 sweep takes it over (`takenOverFrom` names the dead holder), re-enters the parent's node, finds
@@ -464,7 +464,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
 
 | Step | What happens |
 | --- | --- |
-| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `leaseEpoch` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
+| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `token` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
 | 2. the mark | `token < highest` for `scopeKey` → `ExecutionFencedError(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
 | 3. the key | `(scopeKey, idempotencyKey, name)` found → `FencedEffectStatus.Replayed`, its stored result and the token it was written under; `work` is not called. |
 | 4. the write | `work(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
@@ -568,7 +568,7 @@ same on every attempt, replay and holder.
 
 | The intent found | What happens |
 | --- | --- |
-| none | recorded `Pending` (fenced), the lease renewed (`fence.confirmNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
+| none | recorded `Pending` (fenced), the lease renewed (`fence.renewNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
 | `Completed` | its stored result, nothing sent — `Replayed` |
 | (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
 | `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — a `NotSentTrust.Lookup`'s at any age, a `NotSentTrust.KeyReplay`'s only inside its `keyRetention` (#658, #795); `unknown({ reason })` → `OutboundCallUnreconciledError` |
@@ -945,7 +945,7 @@ leaves a `running` root that recovery continues with that decision, never a `pau
 1. lists the `running` records (`ExecutionRecordRepository.findByStatus(ExecutionRecordStatus.Running,
    limit, after)`, page by page);
 2. tries each one's lease: a live holder renews it, so only a tree whose holder **died** (its lease
-   expired) or **stopped** (released it) is taken, with `leaseEpoch + 1`; of two instances sweeping
+   expired) or **stopped** (released it) is taken, with `token + 1`; of two instances sweeping
    at once one gets it;
 3. continues the tree from its **last checkpoint**, taking a decision a resume recorded meanwhile
    first (a `Resolved` pause). Every step that finished keeps its writes — every step is
@@ -1239,7 +1239,7 @@ before #334 has no key: its execution goes on with the key of the instance that 
 A project's implementation `extends` the contract and is listed in `@Application({ providers })`
 (`<Qualifier><Contract>`, e.g. `RedisExecutionLeaseRepository`). Its operations are atomic, and it
 decides expiry by the store's time (#533: `deps: [StoreClock]` — the database's own clock in each
-statement, or the test's when one is injected), never by the calling instance's `Clock`; `lease` is
+statement, or the test's when one is injected), never by the calling instance's `Clock`; `duration` is
 a duration, and every take and renewal answers the time left (`remaining`):
 
 <!-- snippet-context
@@ -1254,8 +1254,8 @@ export class LeaseTableService {
   deleteIfHeld(_executionLease: ExecutionLease): Promise<void> {
     return Promise.resolve();
   }
-  markYieldedIfHeld(_executionLease: ExecutionLease): Promise<boolean> {
-    return Promise.resolve(false);
+  markYieldedIfHeld(_executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
   }
   nextEpochIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<ExecutionLease | undefined> {
     return Promise.resolve(undefined);
@@ -1290,17 +1290,17 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
   override acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
-    return this.leaseTableService.insertIfFree(tenantId, rootExecutionId, lease);
+    return this.leaseTableService.insertIfFree(tenantId, rootExecutionId, duration);
   }
 
   // #533: the time the lease has left, on the store's clock; undefined once it is over
   override renew(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<Milliseconds | undefined> {
-    return this.leaseTableService.extendIfHeld(executionLease, lease);
+    return this.leaseTableService.extendIfHeld(executionLease, duration);
   }
 
   override release(executionLease: ExecutionLease): Promise<void> {
@@ -1308,26 +1308,27 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   // #591: every execution id handed out, once, by the id alone — false for one any execution had
-  override saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+  override claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
     return this.leaseTableService.insertIdIfAbsent(identity);
   }
 
   // #520: the work under it is over — released for good, no acquire of the key gets it again
-  override finish(executionLease: ExecutionLease): Promise<void> {
+  override retire(executionLease: ExecutionLease): Promise<void> {
     return this.leaseTableService.markFinishedIfHeld(executionLease);
   }
 
-  // #516: the holder waits for remote children — still its lease, refused to every other acquire
-  override yield(executionLease: ExecutionLease): Promise<boolean> {
+  // #516: the holder waits for remote children — still its lease, refused to every other acquire;
+  // the time it has left, not extended (undefined once it is not the caller's)
+  override yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
     return this.leaseTableService.markYieldedIfHeld(executionLease);
   }
 
-  // #516: the holder's lease again, at leaseEpoch + 1 (undefined once another took it over)
+  // #516: the holder's lease again, at token + 1 (undefined once another took it over)
   override reclaim(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
-    return this.leaseTableService.nextEpochIfHeld(executionLease, lease);
+    return this.leaseTableService.nextEpochIfHeld(executionLease, duration);
   }
 
   override ping(): Promise<void> {
@@ -1366,8 +1367,8 @@ A **`ContractTarget<TStore>`** says how to build the store under test:
 
 The **`StoreInstanceContext`** it builds from is the suite's: `storeClock` (#533: the time the store decides
 by — in most cases the suite's `VirtualClock` injected, one per case at `2026-01-05T09:00:00.000Z`,
-shared by both instances, moved only by the case, `isDatabaseTime` false; in the cases of the
-store's time as the authority the database's own, on real time, `isDatabaseTime` true), `clock`
+shared by both instances, moved only by the case, `StoreTimeSource.Test`; in the cases of the
+store's time as the authority the database's own, on real time, `StoreTimeSource.Database`), `clock`
 (the instance's own clock: the same `VirtualClock`, or in those cases the real time skewed for the
 second instance — a store that decides by it fails them), `instanceId` (`instance-1`,
 `instance-2`: the holder of leases, the claimer of queued children) and `application` (the instance's
@@ -1527,7 +1528,7 @@ The fenced effect is tested the same way (#500): a step frozen **before** its
 `saveResultIfAbsent` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
 is frozen before its own effect; a step frozen **after** it (a crash before the checkpoint) lets
 `apps[1]` replay the stored result, the write made once. Unit runners give the store their held
-lease (`fence: { token }`; `isLost` or a clock past `confirmedUntil` refuses).
+lease (`fence: { token }`; `isLost` or a clock past `trustedUntil` refuses).
 
 `clock` is the test's `VirtualClock` — one for all the instances of the test, the `Clock` every one
 of them reads ([Testing → The clock](Testing#the-clock)). `await clock.advance(d)` lets the work
@@ -1700,7 +1701,7 @@ or `Recovered` row in the [lease log](#the-lease-log-501) for work that was over
 worker even kept that lease, renewed, until its instance stopped. Now:
 
 - **A finished child's lease is never given again.** The worker that ends a child `Answered` or
-  `Failed` gives its lease up with `ExecutionLeaseRepository.finish`, after it completed the queue
+  `Failed` gives its lease up with `ExecutionLeaseRepository.retire`, after it completed the queue
   row: a release for good — every later `acquire` of `(tenantId, childExecutionId)` is refused, by
   any instance, at any time. The refusal is the lease store's own atomic step, so a worker frozen
   right at its `acquire` gets nothing however long it slept. A `Paused` child's lease is released

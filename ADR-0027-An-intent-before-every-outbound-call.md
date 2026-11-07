@@ -19,7 +19,7 @@ left the system. I would store the request before sending it, not after."
   (`effectKeyOf`), so a step run again finds its own intent; the call's idempotency key is the
   step's plus the name.
 - **The intent is recorded before the call, in a fenced write** (the lease and the scope's mark, as
-  #500) — a zombie can record nothing — and the lease is renewed (`fence.confirmNow()`) right before
+  #500) — a zombie can record nothing — and the lease is renewed (`fence.renewNow()`) right before
   the network.
 - **A pending intent is reconciled, never resent blindly:** the component's `reconcile` answers
   with a nominal verdict — `completed(result)`, `notSent()` (one more send, the same key) or

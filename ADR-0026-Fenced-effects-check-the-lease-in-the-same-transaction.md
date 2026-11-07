@@ -49,5 +49,5 @@ mark still at its own token and writes. Only the lease itself knows that another
   credit desk charges with it and keeps no key of its own.
 - No I/O inside a SQLite effect: a step calls its API before or after the effect, never in it.
 - A fenced effect is exactly-once only for rows of the store's database. HTTP APIs, email and
-  webhooks still need their own `Idempotency-Key` and `fence.confirmNow()` (#471).
+  webhooks still need their own `Idempotency-Key` and `fence.renewNow()` (#471).
 - A fourth store means implementing the four steps in its own transaction and passing the suite.

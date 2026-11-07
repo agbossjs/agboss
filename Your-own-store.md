@@ -17,7 +17,7 @@ Everything below serves two promises the framework makes to an application on se
 - **One owner at a time.** A tree is moved by the instance that holds its lease. An instance that
   froze, lost its network or died has its lease taken over by another, which continues the tree
   from its last checkpoint. The frozen one may wake up and keep going — a **zombie** — but it can
-  no longer *do* anything: every write it attempts carries its lease's token (`leaseEpoch`), and
+  no longer *do* anything: every write it attempts carries its lease's token (`token`), and
   the store refuses a token that is not the lease's current one.
 - **One effect per key.** A charge, a booking, a mail — a fenced effect (#500) or a call that leaves
   the system (#505) — is made once per key, however many times its step runs again. A replay
@@ -31,15 +31,15 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 
 | Contract | The operation | What must be one atomic step | Without it |
 | --- | --- | --- | --- |
-| `ExecutionLeaseRepository` | `acquire` | read the tree's lease, decide it is free (released, expired, never finished), write the new holder at `leaseEpoch + 1` | two instances both take a free lease: **two owners** move one tree |
-| | `saveExecutionIdIfAbsent` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — a fenced effect replays the other's result |
-| | `renew`, `release`, `yield`, `reclaim`, `finish` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
+| `ExecutionLeaseRepository` | `acquire` | read the tree's lease, decide it is free (released, expired, never finished), write the new holder at `token + 1` | two instances both take a free lease: **two owners** move one tree |
+| | `claimExecutionId` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — a fenced effect replays the other's result |
+| | `renew`, `release`, `yield`, `reclaim`, `retire` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
 | `FencedEffectRepository` | `saveResultIfAbsent` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
 | `OutboundCallRepository` | every fenced method | the same lease and mark check, in the same step as the read or the write of the intent | a zombie records or completes an intent the new holder is about to send: **two sends** |
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
 | | `leaseStateOf` | read the other execution's lease and, if it expired at the token, close it (released, `superseded`) | the holder renews in the gap and keeps sending, while this caller reconciles and resends: **two senders** |
 | `ChildExecutionQueueRepository` | `claim…` | pick the next queued row and mark it claimed | two workers run one child: **two owners** |
-| | `findQueueDepth` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
+| | `countByStatus` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
 | `ExecutionRecordRepository` | `complete`, status moves | a compare-and-set from the expected status | a lost update; two outcomes for one run |
 | `CostLedgerRepository` | `saveAll` (#727, #771, #817) | refuse anything but a `LedgerEntry` first (`assertLedgerEntries`), then insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
 | | `deleteByMadeAtBefore` (#771) | raise the pruning mark (never lower it) and delete the entries made before it, atomically against a save — a save that read the old mark finishes first, or sees the new one | a save that read the old mark inserts an id the prune just deleted: **counted twice** |
@@ -140,10 +140,10 @@ and `@agboss/core` exports each one (#526 AC5). Don't copy them:
 
 **The store's time decides a lease's expiry (#533)** — never the calling instance's clock, which
 may run ahead or behind the others. Inject `StoreClock` (`@Injectable({ deps: [PostgresConnection,
-StoreClock, ApplicationContext] })`): in production (`storeClock.isDatabaseTime`) every statement that
+StoreClock, ApplicationContext] })`): with `storeClock.source === StoreTimeSource.Database` (production) every statement that
 takes, renews, yields, reclaims, fences or closes a lease reads the database's own time once,
 inside that statement — PostgreSQL `clock_timestamp()` in a CTE, MongoDB `$$NOW`, Redis `TIME` in
-the script; with a test's clock injected (`isDatabaseTime` false, `testWith` and the contract
+the script; with a test's clock injected (`StoreTimeSource.Test`, `testWith` and the contract
 suites' virtual-time cases) the statement takes `storeClock.now()` as a parameter instead, so the
 suites can move time. Every take and renewal answers the time left, `remaining = expires_at − now`
 of that one statement (`remainingOf(expiresAt, now)`, whole ms, rounded down) — `renew` returns it,
@@ -163,7 +163,7 @@ timed attempt fails, never passes.
 WITH t AS (SELECT clock_timestamp() AS now)
 UPDATE agboss_execution_leases SET expires_at = t.now + make_interval(secs => $5 / 1000.0)
   FROM t
-  WHERE tenant_id = $1 AND root_execution_id = $2 AND holder_instance_id = $3 AND lease_epoch = $4
+  WHERE tenant_id = $1 AND root_execution_id = $2 AND holder_instance_id = $3 AND token = $4
     AND NOT released AND expires_at > t.now
   RETURNING floor(extract(epoch FROM expires_at - t.now) * 1000) AS remaining;  -- no row: over
 ```
@@ -172,26 +172,26 @@ UPDATE agboss_execution_leases SET expires_at = t.now + make_interval(secs => $5
 
 ```sql
 INSERT INTO agboss_execution_leases AS l
-  (tenant_id, root_execution_id, holder_instance_id, lease_epoch, expires_at, released, finished)
+  (tenant_id, root_execution_id, holder_instance_id, token, expires_at, released, finished)
 VALUES ($1, $2, $3, 1, $4, false, false)
 ON CONFLICT (tenant_id, root_execution_id) DO UPDATE SET
   holder_instance_id = EXCLUDED.holder_instance_id,
-  lease_epoch = l.lease_epoch + 1,
+  token = l.token + 1,
   expires_at = EXCLUDED.expires_at,
   released = false
 WHERE NOT l.finished AND (l.released OR l.expires_at <= $5)   -- $5: the store's now (#533)
-RETURNING lease_epoch;                                       -- no row: refused
+RETURNING token;                                       -- no row: refused
 ```
 
-`renew`, `release`, `yield` and `finish` are one `UPDATE … WHERE tenant_id = $1 AND
-root_execution_id = $2 AND holder_instance_id = $3 AND lease_epoch = $4 AND NOT released` each, and
+`renew`, `release`, `yield` and `retire` are one `UPDATE … WHERE tenant_id = $1 AND
+root_execution_id = $2 AND holder_instance_id = $3 AND token = $4 AND NOT released` each, and
 succeed only when exactly one row changed; `renew`, `yield` and `reclaim` add `AND expires_at > $5`
 (the store's now, read in that statement, #533).
 
 **The boundary (#534): a lease is live while `expires_at > now`, and only then — for every
 instance, its holder included.** At `now >= expires_at` it is over: `acquire` takes it (`expires_at
 <= now` above), and the holder's `renew` and `yield` are `false`, its `reclaim` `undefined`, its
-`confirmNow()` lost and every fenced write at its token refused, whether another instance took it
+`renewNow()` lost and every fenced write at its token refused, whether another instance took it
 or not. One comparison everywhere — never `>=` in one statement and `>` in another, never holder
 and epoch alone: at the very instant of expiry a takeover and a renewal would both be legal, and a
 renewal that wins after `leaseStateOf` or a fence check gave the lease up keeps two owners. The
@@ -204,7 +204,7 @@ commit, or the commit sees the takeover.
 
 ```sql
 BEGIN;
-SELECT lease_epoch, expires_at, released FROM agboss_execution_leases
+SELECT token, expires_at, released FROM agboss_execution_leases
   WHERE tenant_id = $1 AND root_execution_id = $2 FOR UPDATE;  -- held, at the token, not expired?
 INSERT INTO agboss_fenced_effect_marks AS m (scope_key, highest_token, stored_at)
   VALUES ($3, $4, $5)
@@ -281,8 +281,8 @@ await session.withTransaction(async () => {
   // a write that always changes the document: the lease is locked for this transaction
   await leases.updateOne(id, [{ $set: { checkedAt: "$$NOW", checks: { $add: [{ $ifNull: ["$checks", 0] }, 1] } } }], { session });
   const lease = await leases.findOne(id, { session });
-  if (!lease || lease.released || lease.leaseEpoch !== token || lease.expiresAt <= lease.checkedAt)
-    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.leaseEpoch });
+  if (!lease || lease.released || lease.token !== token || lease.expiresAt <= lease.checkedAt)
+    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.token });
   // …the mark ($max), a business key's lock, the stored result by effectKeyIdentityOf(key), the work, the result
 });
 ```
@@ -325,12 +325,12 @@ return {'ran'}
 ### DynamoDB: conditional writes and `TransactWriteItems`
 
 - **A single item** is a compare-and-set by itself: `PutItem` / `UpdateItem` with a
-  `ConditionExpression`. Taking a lease is one `UpdateItem` with `SET leaseEpoch = leaseEpoch + :one,
+  `ConditionExpression`. Taking a lease is one `UpdateItem` with `SET token = token + :one,
   holder = :me, expiresAt = :until`, conditioned on `attribute_not_exists(pk) OR released = :true OR
   expiresAt <= :now` (and not finished). A failed condition (`ConditionalCheckFailedException`)
   means refused.
 - **A fenced effect** is one `TransactWriteItems`:
-  - a `ConditionCheck` on the lease item (`leaseEpoch = :token AND released = :false AND expiresAt > :now`);
+  - a `ConditionCheck` on the lease item (`token = :token AND released = :false AND expiresAt > :now`);
   - an `Update` of the mark with `highestToken <= :token`;
   - a `Put` of the result with `attribute_not_exists(pk)`;
   - the business items.
@@ -352,7 +352,7 @@ return {'ran'}
   There is no atomic step across partitions.
 - Put the lease, the scope's mark and the step's results in the **partition of the tree**
   (`(tenant_id, root_execution_id)`). The fence check and the write are then one conditional batch:
-  `UPDATE leases … IF lease_epoch = ? AND released = false` plus `INSERT results … IF NOT EXISTS`.
+  `UPDATE leases … IF token = ? AND released = false` plus `INSERT results … IF NOT EXISTS`.
 - **What it can't hold:** a business key's row (one per tenant and name, from any tree) is in
   another partition than the lease. Its check and its write can't be one step, and neither can
   business rows of another table. A Cassandra store keeps fenced effects to rows of the tree's
@@ -507,9 +507,9 @@ for any store, a networked one included, with no free race.
      2. instance-2 acquire tree-1 → epoch 2, 30000 ms left, taken over from instance-1 at 1
   ```
 
-- **Both orders of every two-outcome race** (AC7, from agbossjs/postgres#9): `finish` against
+- **Both orders of every two-outcome race** (AC7, from agbossjs/postgres#9): `retire` against
   another instance's take past the lease, a release against a take, `leaseStateOf` against a take
-  and against a `finish`, a write against its lease's hand-over, two claims of one attempt, an
+  and against a `retire`, a write against its lease's hand-over, two claims of one attempt, an
   ending against a newer claim, two executions recording one business key, a claim against its
   hand-over. Each is run first-then-second and second-then-first, and each order must give the
   outcome the contract gives it.
@@ -538,7 +538,7 @@ for any store, a networked one included, with no free race.
   or lower `depth` to fit CI.
 - The core proves it bites (`tests/testing/contracts/explorer-sabotage.test.ts`). Each naive store
   fails with the invariant it breaks: leases on the caller's clock, a lease live through its expiry
-  instant, a renewal whatever the time or from the old end, a `finish` that only releases, a
+  instant, a renewal whatever the time or from the old end, a `retire` that only releases, a
   `reclaim` that keeps the epoch, calls keyed by the step only, a claim that does not compare,
   effects that trust the current token, and effects on the caller's clock.
 
@@ -743,10 +743,10 @@ that does not load, or one that registers no case, rejects: never an empty run t
 ## Checklist
 
 - [ ] A lease's expiry is decided by the store's time (#533): the database's, read inside each
-      statement, unless `StoreClock.isDatabaseTime` is false (a test's clock, a parameter) — never
+      statement, unless `StoreClock.source` is not `StoreTimeSource.Database` (a test's clock, a parameter) — never
       the caller's `Clock`. `acquire`, `renew` and `reclaim` answer `remaining`; the target is built
       from `context.storeClock`.
-- [ ] `acquire` is one atomic step; `renew` / `release` / `yield` / `reclaim` / `finish` match the
+- [ ] `acquire` is one atomic step; `renew` / `release` / `yield` / `reclaim` / `retire` match the
       holder and the epoch, and succeed only when one row changed.
 - [ ] A lease is live while `expires_at > now` in every statement, for its holder too (#534):
       `renew`, `yield`, `reclaim` and every fence check refuse it at its expiry, `acquire` takes it.

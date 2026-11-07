@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the lease surface says what it does (#847, API review G7)
+
+The store contracts are new in 0.1.1, so only a store or a test written against `main` changes.
+Fencing semantics are unchanged: who holds a lease, when it expires and which write is refused.
+
+- **Changed**: `StoreClock { source: StoreTimeSource.Database | Host | Test; now(): StoreTime }`
+  replaces `DatabaseStoreClock`, `TestStoreClock` and `isDatabaseTime`; `StoreTime` is a branded
+  `Date`, so a `Clock` passed where a fencing store takes its `StoreClock` does not compile.
+  [Your own store](Your-own-store).
+- **Changed**: the fencing token is `token` everywhere — `ExecutionLease.leaseEpoch` and
+  `PreviousLeaseHolder.leaseEpoch` are `token`, as on `ExecutionFence`, `EffectKey` and every event.
+- **Changed**: `ExecutionLeaseRepository` — `finish` → `retire` (the fault hold point `StoreHoldPoint.LeaseFinish` →
+  `LeaseRetire`), `saveExecutionIdIfAbsent` → `claimExecutionId`, the duration parameter `lease` → `duration`; `yield` answers as `renew` does,
+  `Milliseconds | undefined` (the time left, not extended; `undefined` once it is not the caller's).
+- **Changed**: `ExecutionFence` — `confirmNow()` → `renewNow()`, `confirmedUntil` → `trustedUntil`,
+  `fenced(observedToken?)` → `fencedError(observedToken?)`; the testing fence's options follow
+  (`trustedUntil`, `renewNowFails`). [Several instances](Several-instances).
+- **Changed**: `ChildExecutionQueueRepository.findQueueDepth()` → `countByStatus()`,
+  `ChildExecutionQueueDepth` → `ChildExecutionQueueCounts`. [Metrics](Metrics).
+
 ## Unreleased — 0.1.1: a ledger entry is its own type, one ledger state, `Date` and `Usd` at the store boundary (#817)
 
 - **Changed — breaking**: a `UsageRecord`'s place in the ledger is one field, `ledger?:
