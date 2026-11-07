@@ -96,7 +96,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
   });
 
   it("shards: every case in exactly one shard, for any count — the sabotages too", () => {
-    for (const count of [1, 2, 3, 5, ALL.length + 1]) {
+    for (const count of [1, 2, 3, 5, ALL.length]) {
       const ids = Array.from({ length: count }, (_, at) =>
         runsOf({ shard: { index: at + 1, count } }),
       ).flat();
@@ -145,6 +145,22 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
     ])
       expect(() => runsOf({ shard })).toThrow(/whole numbers with 1 ≤ index ≤ count/u);
     expect(faultShardOf("2/3")).toEqual({ index: 2, count: 3 });
+  });
+
+  it("options that would run nothing are refused: an empty selection, more shards than cases, only sabotages turned off", () => {
+    expect(() => runsOf({ scenarios: [] })).toThrow(/scenarios: \[\] selects nothing/u);
+    expect(() => runsOf({ shard: { index: 1, count: ALL.length + 1 } })).toThrow(
+      /shards of \d+ cases — some shard would run nothing/u,
+    );
+    expect(() =>
+      runsOf({
+        scenarios: ["s01-sigterm-drains", "s02-sigkill-mid-step"],
+        shard: { index: 3, count: 3 },
+      }),
+    ).toThrow(/3 shards of 2 cases/u);
+    expect(() =>
+      runsOf({ scenarios: ["s14-sabotage-every-error-definite"], sabotages: false }),
+    ).toThrow(/leave no case to run/u);
   });
 
   it("sabotages: false skips the sabotages, with the reason — never a pass", () => {

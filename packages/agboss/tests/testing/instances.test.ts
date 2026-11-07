@@ -83,6 +83,11 @@ describe("#831 AC3: instances: [{ clockSkew, meterProvider }] — one entry per 
         testInstancesOf({ instances: instances as unknown as TestWithOptions["instances"] }),
       ).toThrow(message);
     expect(testInstancesOf({})).toEqual([{}]);
+    // the parallel arrays of before, from JavaScript or a built options object: refused, never ignored
+    for (const removed of ["clockSkews", "meterProviders"])
+      expect(() =>
+        testInstancesOf({ instances: 2, [removed]: [] } as unknown as TestWithOptions),
+      ).toThrow(new RegExp(`^${removed}: no such option`, "u"));
     expect(testInstancesOf({ instances: 3 })).toEqual([{}, {}, {}]);
   });
 

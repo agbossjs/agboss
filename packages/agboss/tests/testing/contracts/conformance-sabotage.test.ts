@@ -23,6 +23,8 @@ describe("#831 AC2: runConformanceSabotage", () => {
 
     expect(run.isFailed).toBe(true);
     expect(run.failedIn(suite).map((found) => found.name)).toEqual([WATCH]);
+    // failed for the rule it breaks: the watch never woke on a child queued again
+    expect(run.failedIn(suite)[0]?.errors.join("\n")).toMatch(/Test timed out|timed out/u);
     expect(run.cases.find((found) => found.name === WATCH)).toMatchObject({
       file: "tests/fixtures/contracts/queue-watch-insert-only.contract-fixture.ts",
       suites: [suite],
@@ -42,10 +44,35 @@ describe("#831 AC2: runConformanceSabotage", () => {
     );
   }, 120_000);
 
-  it("a path that names no fixture, or none at all, rejects", async () => {
+  it("a fixture that throws after registering a suite, or whose hook fails, rejects — its failures are no sabotage caught", async () => {
+    await expect(
+      runConformanceSabotage({
+        root: ROOT,
+        fixtures: ["tests/fixtures/sabotage-run/partly-loading.contract-fixture.ts"],
+      }),
+    ).rejects.toThrow(/partly-loading\.contract-fixture\.ts did not load: the second suite was refused/u);
+    await expect(
+      runConformanceSabotage({
+        root: ROOT,
+        fixtures: ["tests/fixtures/sabotage-run/failing-hook.contract-fixture.ts"],
+      }),
+    ).rejects.toThrow(/a suite's hook failed — .*a set whose database is down: cannot connect/u);
+  }, 120_000);
+
+  it("a path that names no fixture — alone or beside one that runs — or none at all, rejects", async () => {
     await expect(
       runConformanceSabotage({ root: ROOT, fixtures: ["tests/fixtures/sabotage-run/none.ts"] }),
-    ).rejects.toThrow(/registered no case — check the fixtures' paths/u);
+    ).rejects.toThrow(/none\.ts named no fixture file/u);
+    await expect(
+      runConformanceSabotage({
+        root: ROOT,
+        fixtures: [
+          "tests/fixtures/contracts/queue-watch-insert-only.contract-fixture.ts",
+          "tests/fixtures/sabotage-run/typo.contract-fixture.ts",
+        ],
+        testTimeout: 5000,
+      }),
+    ).rejects.toThrow(/typo\.contract-fixture\.ts named no fixture file/u);
     await expect(runConformanceSabotage({ root: ROOT, fixtures: [] })).rejects.toThrow(
       /no fixture to run/u,
     );

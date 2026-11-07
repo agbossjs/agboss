@@ -62,6 +62,11 @@ const INSTANCE_OPTION_KEYS: ReadonlySet<string> = new Set(["clockSkew", "meterPr
  * `meterProvider`; anything else is a `TestSetupError`.
  */
 export function testInstancesOf(options: TestWithOptions): readonly TestInstanceOptions[] {
+  for (const removed of ["clockSkews", "meterProviders"])
+    if (Reflect.get(options, removed) !== undefined)
+      throw new TestSetupError(
+        `${removed}: no such option (#831) — each instance's own settings are its entry: instances: [{ clockSkew, meterProvider }, …]`,
+      );
   const instances: unknown = options.instances ?? 1;
   if (typeof instances === "number") {
     if (!Number.isInteger(instances) || instances < 1)

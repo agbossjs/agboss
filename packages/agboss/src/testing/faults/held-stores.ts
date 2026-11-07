@@ -73,6 +73,12 @@ export interface HeldOperationsReport {
   readonly onHeld?: (operation: HeldOperation) => void;
 }
 
+const REPORT_KEYS: ReadonlySet<string> = new Set(["instanceId", "onOperation", "onHeld"]);
+
+/** The instance id a live report names the history by, and that report (one at a time). */
+let naming: string | undefined;
+let namer: symbol | undefined;
+
 /**
  * Reports this process's held operations (#831, in place of a mutable global): from now on
  * `onOperation` hears every operation of a `withHoldPoints` store and `onHeld` every hold, and the
@@ -80,8 +86,26 @@ export interface HeldOperationsReport {
  * the instance id given back as it was.
  */
 export function reportHeldOperations(report: HeldOperationsReport): () => void {
+  const unknown = Object.keys(report).filter((key) => !REPORT_KEYS.has(key));
+  if (unknown.length > 0)
+    throw new TypeError(
+      `reportHeldOperations: ${unknown.join(", ")} — it takes instanceId, onOperation and onHeld`,
+    );
+  if (report.onOperation === undefined && report.onHeld === undefined)
+    throw new TypeError(
+      "reportHeldOperations: give onOperation, onHeld or both — it would hear nothing",
+    );
+  if (report.instanceId !== undefined && naming !== undefined)
+    throw new TypeError(
+      `reportHeldOperations: the history is named by instance ${naming} already — undo that report first`,
+    );
   const before = heldStoreState.instanceId;
-  if (report.instanceId !== undefined) heldStoreState.instanceId = report.instanceId;
+  const token = Symbol("report");
+  if (report.instanceId !== undefined) {
+    heldStoreState.instanceId = report.instanceId;
+    naming = report.instanceId;
+    namer = token;
+  }
   const { onOperation, onHeld } = report;
   const recorder: OperationRecorder | undefined =
     onOperation === undefined ? undefined : { record: onOperation };
@@ -93,7 +117,11 @@ export function reportHeldOperations(report: HeldOperationsReport): () => void {
     isUndone = true;
     if (recorder !== undefined) heldStoreState.recorders.delete(recorder);
     stopHeld?.();
-    if (report.instanceId !== undefined) heldStoreState.instanceId = before;
+    if (namer === token) {
+      heldStoreState.instanceId = before;
+      naming = undefined;
+      namer = undefined;
+    }
   };
 }
 
@@ -122,7 +150,23 @@ function recorded(
 ): void {
   const { process, instanceId } = state;
   const full = { ...event, process, instanceId, at: monotonicNow() };
-  for (const recorder of [...state.recorders]) recorder.record(full);
+  for (const recorder of [...state.recorders]) heardApart(() => recorder.record(full));
+}
+
+/**
+ * Runs a listener of the held stores apart from the store call (#831): what it throws — a failed
+ * `expect` in a test's `onOperation` — never becomes the store's answer, which the framework would
+ * read as a store error (a retry, an ambiguous answer, a hand-over) and absorb; it is thrown again
+ * on its own, an unhandled error the test run reports.
+ */
+export function heardApart(listen: () => void): void {
+  try {
+    listen();
+  } catch (error) {
+    queueMicrotask(() => {
+      throw error;
+    });
+  }
 }
 
 /** What the history keeps of an error. */

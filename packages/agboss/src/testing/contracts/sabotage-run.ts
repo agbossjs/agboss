@@ -1,4 +1,4 @@
-import { relative } from "node:path";
+import { normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RunnerTask } from "vitest";
 import { lazyLoad } from "../../infrastructure/clock.js";
@@ -30,7 +30,7 @@ export interface SabotageCase {
 /** What a sabotage fixture's run reported. */
 export interface SabotageRun {
   readonly cases: readonly SabotageCase[];
-  /** Whether the run failed: a case failed (what a sabotage is for). */
+  /** Whether a case failed (what a sabotage is for); a hook or a file that failed rejects instead. */
   readonly isFailed: boolean;
   /** The cases of the outermost describe `suite` (`"lease contract (mine)"`) that failed. */
   failedIn(suite: string): readonly SabotageCase[];
@@ -40,7 +40,10 @@ export interface SabotageRun {
 export interface ConformanceSabotageOptions {
   /** The project's root (a path or a file URL): the fixture is resolved from it, `node_modules` too. */
   readonly root: string | URL;
-  /** The fixture files, relative to `root`: `tests/contracts/fixtures/sabotage.conformance-fixture.ts`. */
+  /**
+   * The fixture files, relative to `root`: `tests/contracts/fixtures/sabotage.conformance-fixture.ts`
+   * — each one file, which must run.
+   */
   readonly fixtures: readonly string[];
   /** Each case's bound, ms (vitest's `testTimeout`); default 120 000. */
   readonly testTimeout?: number;
@@ -71,6 +74,16 @@ function casesOf(task: RunnerTask, file: string, suites: readonly string[]): Sab
   ];
 }
 
+/** The errors of `task`'s suites themselves (a `beforeAll` that threw), each with its path. */
+function suiteErrorsOf(task: RunnerTask, path: string): LoadFailure[] {
+  if (task.type !== "suite") return [];
+  const own = (task.result?.errors ?? []).map((error) => ({
+    name: `${path} > ${task.name}`,
+    message: error.message,
+  }));
+  return [...own, ...task.tasks.flatMap((child) => suiteErrorsOf(child, `${path} > ${task.name}`))];
+}
+
 /** A file of the run that did not load (a syntax error, a throw while registering). */
 interface LoadFailure {
   readonly name: string;
@@ -80,7 +93,8 @@ interface LoadFailure {
 /**
  * Runs `options.fixtures` in a vitest of their own, quietly, and returns every case. Rejects —
  * never a run to assert on — when a fixture does not load (`StoreConformanceError` of a set it
- * refuses included: assert that with `storeConformance` itself) or the run has no case at all.
+ * refuses included: assert that with `storeConformance` itself), when a path names no file (each
+ * fixture is one file's path, relative to `root`, never a glob), or the run has no case at all.
  */
 export async function runConformanceSabotage(
   options: ConformanceSabotageOptions,
@@ -106,19 +120,34 @@ export async function runConformanceSabotage(
   });
   try {
     const files = vitest.state.getFiles();
+    // a file's own errors (it threw while registering, after some suites did) and a suite's (a
+    // hook that failed) are no sabotage caught: the cases they touch failed for another reason
     const failedToLoad: LoadFailure[] = files.flatMap((file) =>
-      file.tasks.length === 0 && file.result?.state === "fail"
+      (file.result?.errors ?? []).length > 0
         ? [
             {
               name: relative(root, file.filepath),
-              message: (file.result.errors ?? []).map((error) => error.message).join("; "),
+              message: (file.result?.errors ?? []).map((error) => error.message).join("; "),
             },
           ]
         : [],
     );
+    const hookFailures = files.flatMap((file) =>
+      file.tasks.flatMap((task) => suiteErrorsOf(task, relative(root, file.filepath))),
+    );
     if (failedToLoad.length > 0)
       throw new Error(
         `runConformanceSabotage: ${failedToLoad.map((one) => `${one.name} did not load: ${one.message}`).join("\n")}`,
+      );
+    if (hookFailures.length > 0)
+      throw new Error(
+        `runConformanceSabotage: a suite's hook failed — ${hookFailures.map((one) => `${one.name}: ${one.message}`).join("\n")}`,
+      );
+    const ran = new Set(files.map((file) => normalize(relative(root, file.filepath))));
+    const missing = options.fixtures.filter((fixture) => !ran.has(normalize(fixture)));
+    if (missing.length > 0)
+      throw new Error(
+        `runConformanceSabotage: ${missing.join(", ")} named no fixture file — check the fixtures' paths (each one a file, relative to root)`,
       );
     const cases = files.flatMap((file) =>
       file.tasks.flatMap((task) => casesOf(task, relative(root, file.filepath), [])),
@@ -127,7 +156,7 @@ export async function runConformanceSabotage(
       throw new Error(
         `runConformanceSabotage: ${options.fixtures.join(", ")} registered no case — check the fixtures' paths`,
       );
-    const isFailed = files.some((file) => file.result?.state === "fail");
+    const isFailed = cases.some((found) => found.state === "fail");
     return {
       cases,
       isFailed,

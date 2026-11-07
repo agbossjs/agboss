@@ -672,7 +672,7 @@ import { executionLeaseContract } from "@agboss/core/testing/contracts";
 
 executionLeaseContract({
   name: "PostgreSQL",
-  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.clock, seam.application),
+  instance: (context) => new PostgresExecutionLeaseRepository(pool, context.clock, context.application),
   reset: () => pool.query("TRUNCATE execution_leases"),
 });
 ```

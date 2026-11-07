@@ -28,35 +28,34 @@ const casesOf = (suite: string): readonly FixtureCase[] =>
 const TOTAL = SCENARIOS.length + SABOTAGES.length;
 
 describe("#831 AC2: the suite shows what it leaves out", () => {
-  it("one shard of a selection: the count first, the atomic case, then every scenario skipped with its reason", () => {
+  it("the count first, the atomic case, then every case — run, or skipped with its reason", () => {
     const cases = casesOf("fault suite (SQLite)");
+    const titleOf = (id: string): string | undefined =>
+      SCENARIOS.find((scenario) => scenario.id === id)?.title;
+    const of = (id: string): FixtureCase | undefined =>
+      cases.find((found) => found.name === titleOf(id));
 
     expect(cases.map((found) => found.name).slice(0, 2)).toEqual([
-      `runs 0 of ${String(TOTAL)} cases: 0 of ${String(SCENARIOS.length)} scenarios, 0 of 2 sabotages (selected by scenarios:, shard 2/2)`,
+      `runs 1 of ${String(TOTAL)} cases: 1 of ${String(SCENARIOS.length)} scenarios, 0 of 2 sabotages (selected by scenarios:, shard 2/2, sabotages: false)`,
       ATOMIC_FENCING_CASE,
     ]);
     expect(cases.slice(0, 2).map((found) => found.state)).toEqual(["pass", "pass"]);
-    const rest = cases.slice(2);
-    expect(rest).toHaveLength(TOTAL);
-    expect(rest.every((found) => found.state === "skip")).toBe(true);
-    expect(rest.find((found) => found.name === SCENARIOS[0]?.title)?.note).toBe(
-      "in another shard than 2/2",
+    expect(cases.slice(2)).toHaveLength(TOTAL);
+    expect(of("s02-sigkill-mid-step")?.state).toBe("pass");
+    expect(of("s01-sigterm-drains")).toMatchObject({
+      state: "skip",
+      note: "in another shard than 2/2",
+    });
+    expect(of("s03-crash-after-charge")).toMatchObject({
+      state: "skip",
+      note: "not selected: scenarios: names others",
+    });
+    const sabotages = cases.filter((found) => found.name.startsWith("sabotage "));
+    expect(sabotages.map((found) => found.name)).toEqual(
+      SABOTAGES.map((one) => `sabotage ${one.title}: fails effects-once`),
     );
-    expect(rest.find((found) => found.name === SCENARIOS[1]?.title)?.note).toBe(
-      "not selected: scenarios: names others",
-    );
-    expect(
-      rest.filter((found) => found.name.startsWith("sabotage ")).map((found) => found.name),
-    ).toEqual(SABOTAGES.map((one) => `sabotage ${one.title}: fails effects-once`));
-  });
-
-  it("sabotages: false: a selected sabotage is skipped, saying so", () => {
-    const sabotage = casesOf("fault suite (SQLite, no sabotages)").find(
-      (found) => found.name === `sabotage ${SABOTAGES[0]?.title ?? ""}: fails effects-once`,
-    );
-
-    expect(sabotage?.state).toBe("skip");
-    expect(sabotage?.note).toMatch(/^sabotages: false — /u);
+    expect(sabotages[0]?.note).toMatch(/^sabotages: false — /u);
+    expect(cases.filter((found) => found.state === "skip")).toHaveLength(TOTAL - 1);
   });
 });
 

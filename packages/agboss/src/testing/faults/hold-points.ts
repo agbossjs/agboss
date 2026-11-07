@@ -161,7 +161,15 @@ export class HoldPoints {
         },
         { once: true },
       );
-      for (const listener of [...this.#listeners]) listener(operation);
+      // a listener's throw is its own, never the held operation's (#831)
+      for (const listener of [...this.#listeners])
+        try {
+          listener(operation);
+        } catch (error) {
+          queueMicrotask(() => {
+            throw error;
+          });
+        }
     });
   }
 }

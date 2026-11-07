@@ -16,6 +16,7 @@ import {
   heldStoreState,
   reportHeldOperations,
   withHoldPoints,
+  type HeldOperationsReport,
 } from "../../../src/testing/faults/held-stores.js";
 import { HoldPhase, HoldPoints } from "../../../src/testing/faults/hold-points.js";
 import { OperationHistory, OperationPhase } from "../../../src/testing/faults/operation-history.js";
@@ -208,8 +209,55 @@ describe("#831: reportHeldOperations — a store's own process test hears its he
     expect(operations).toHaveLength(2);
   });
 
+  it("a listener that throws never changes the store's answer: its error is thrown apart", async () => {
+    const thrown: unknown[] = [];
+    const spy = vi.spyOn(globalThis, "queueMicrotask").mockImplementation((task) => {
+      try {
+        task();
+      } catch (error) {
+        thrown.push(error);
+      }
+    });
+    const leases = heldLeases(new InMemoryDatabase(), "instance-1");
+    const undo = reportHeldOperations({
+      onOperation: () => {
+        throw new Error("a failed expect");
+      },
+    });
+    try {
+      expect(await leases.acquire("default", "root-t", seconds(30))).toMatchObject({
+        holderInstanceId: "instance-1",
+      });
+      expect(thrown.map((error) => (error as Error).message)).toEqual([
+        "a failed expect",
+        "a failed expect",
+      ]);
+    } finally {
+      undo();
+      spy.mockRestore();
+    }
+  });
+
+  it("refuses a report that would hear nothing, an unknown key, and a second instance id while one names the history", () => {
+    expect(() => reportHeldOperations({})).toThrow(/would hear nothing/u);
+    expect(() =>
+      reportHeldOperations({ onOperations: () => undefined } as unknown as HeldOperationsReport),
+    ).toThrow(/onOperations — it takes instanceId, onOperation and onHeld/u);
+    const undo = reportHeldOperations({ instanceId: "a", onHeld: () => undefined });
+    try {
+      expect(() => reportHeldOperations({ instanceId: "b", onHeld: () => undefined })).toThrow(
+        /named by instance a already/u,
+      );
+      reportHeldOperations({ onHeld: () => undefined })();
+    } finally {
+      undo();
+    }
+    expect(heldStoreState.instanceId).toBe("instance-1");
+    reportHeldOperations({ instanceId: "b", onHeld: () => undefined })();
+  });
+
   it("without an instance id, the history's instance is left as it is", () => {
-    const undo = reportHeldOperations({});
+    const undo = reportHeldOperations({ onHeld: () => undefined });
     expect(heldStoreState.instanceId).toBe("instance-1");
     undo();
     expect(heldStoreState.instanceId).toBe("instance-1");

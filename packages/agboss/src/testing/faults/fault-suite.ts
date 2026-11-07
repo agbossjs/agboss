@@ -32,7 +32,13 @@ import type { Milliseconds } from "../../units/index.js";
  * set's module, `withHoldPoints`), where vitest cannot be loaded: there `faultSuite` is the only
  * thing missing.
  */
-const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch(() => undefined);
+let vitestError: unknown;
+const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch(
+  (error: unknown) => {
+    vitestError = error;
+    return undefined;
+  },
+);
 
 /** One shard of the suite's cases (#831): `{ index: 2, count: 3 }`, every 3rd from the 2nd. */
 export interface FaultShard {
@@ -122,6 +128,10 @@ function selectedIdsOf(
   all: readonly RunnableFaultScenario[],
 ): ReadonlySet<string> | undefined {
   if (ids === undefined) return undefined;
+  if (ids.length === 0)
+    throw new RangeError(
+      "faultSuite: scenarios: [] selects nothing — leave it out to run every case",
+    );
   const unknown = ids.filter((id) => !all.some((scenario) => scenario.id === id));
   if (unknown.length > 0)
     throw new RangeError(
@@ -164,7 +174,16 @@ export function faultSuitePlanOf(
       };
     return own;
   });
+  // a shard that runs nothing would be green: more shards than cases is refused (#831)
+  if (shard !== undefined && shard.count > position)
+    throw new RangeError(
+      `faultSuite: ${String(shard.count)} shards of ${String(position)} cases — some shard would run nothing`,
+    );
   const runs = cases.filter((one) => one.skipped === undefined);
+  if (runs.length === 0)
+    throw new RangeError(
+      "faultSuite: the options leave no case to run (sabotages: false with only sabotages selected)",
+    );
   const counted = (isSabotage: boolean): number =>
     runs.filter((one) => (one.sabotage !== undefined) === isSabotage).length;
   const how = [
@@ -193,15 +212,20 @@ export async function sabotaged(
   expect(error.invariants, `${sabotage.id}: failed, but not ${sabotage.violates}`).toContain(
     sabotage.violates,
   );
-  expect(error.violations.map((violation) => violation.message)).toContainEqual(
-    expect.stringMatching(sabotage.evidence),
-  );
+  // the evidence of its own invariant, never another's
+  expect(
+    error.violations
+      .filter((violation) => violation.invariant === sabotage.violates)
+      .map((violation) => violation.message),
+  ).toContainEqual(expect.stringMatching(sabotage.evidence));
 }
 
 /** Registers the fault suite on `options`' store set. */
 export function faultSuite(options: FaultSuiteOptions): void {
   if (vitest === undefined)
-    throw new Error("faultSuite registers vitest tests: call it in a vitest test file");
+    throw new Error("faultSuite registers vitest tests: call it in a vitest test file", {
+      cause: vitestError,
+    });
   const { afterEach, describe, expect, it } = vitest;
   const plan = faultSuitePlanOf(options);
   const timeout = options.timeout ?? Math.ceil(300_000 / Math.min(options.timeScale ?? 1, 5));
@@ -210,7 +234,8 @@ export function faultSuite(options: FaultSuiteOptions): void {
       killPods();
     });
     it(plan.summary, () => {
-      expect(plan.cases.length).toBe(SCENARIOS.length + SABOTAGES.length);
+      // the plan refuses options that run nothing; this case fails if one ever slipped through
+      expect(plan.cases.filter((one) => one.skipped === undefined).length).toBeGreaterThan(0);
     });
     it(
       ATOMIC_FENCING_CASE,
