@@ -15,6 +15,8 @@ export default defineConfig({
       "tests/infrastructure/a2a-task{.contract,-helpers}.test.ts",
       "tests/app/{execution-control,cancel-before-record,tree-control}.test.ts",
       "tests/a2a/a2a-task-{projection,units,retention}.test.ts",
+      // #844: a repaired task's spend, its memory update included
+      "tests/a2a/a2a-repair-memory-spend.test.ts",
       // #808: the server, over its JSON-RPC binding
       "tests/a2a/server/*.test.ts",
       // #810: the mesh end to end, a task file of before it

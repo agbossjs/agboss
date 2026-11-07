@@ -6744,6 +6744,7 @@ export interface ToolCallRemote {
     // (undocumented)
     readonly executionId: string;
     readonly mesh?: false;
+    readonly report?: false;
 }
 
 // @public
@@ -7940,23 +7941,23 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/a2a-task.repository.ts:58:3 - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-task.repository.ts:65:3 - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts:72:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:102:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:107:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/a2a-task.repository.ts:127:3 - (ae-undocumented) Missing documentation for "taskId".
-// src/infrastructure/a2a-task.repository.ts:128:3 - (ae-undocumented) Missing documentation for "savedAt".
-// src/infrastructure/a2a-task.repository.ts:135:3 - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-task.repository.ts:136:3 - (ae-undocumented) Missing documentation for "requestHash".
-// src/infrastructure/a2a-task.repository.ts:149:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
-// src/infrastructure/a2a-task.repository.ts:160:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts:161:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:162:3 - (ae-undocumented) Missing documentation for "contextId".
-// src/infrastructure/a2a-task.repository.ts:163:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:174:3 - (ae-undocumented) Missing documentation for "tasks".
-// src/infrastructure/a2a-task.repository.ts:175:3 - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts:185:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts:192:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts:216:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts:218:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/a2a-task.repository.ts:103:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:108:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/a2a-task.repository.ts:128:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/infrastructure/a2a-task.repository.ts:129:3 - (ae-undocumented) Missing documentation for "savedAt".
+// src/infrastructure/a2a-task.repository.ts:136:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts:137:3 - (ae-undocumented) Missing documentation for "requestHash".
+// src/infrastructure/a2a-task.repository.ts:150:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
+// src/infrastructure/a2a-task.repository.ts:161:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:162:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:163:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/infrastructure/a2a-task.repository.ts:164:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-task.repository.ts:175:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/infrastructure/a2a-task.repository.ts:176:3 - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts:186:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:193:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:217:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:219:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".

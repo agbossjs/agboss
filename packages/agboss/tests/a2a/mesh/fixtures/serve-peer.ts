@@ -11,6 +11,7 @@ import {
   PeerA2AExpose,
   PeerApplication,
   PeerCallerResolver,
+  type EndLosingPeerApplication,
   type KeylessPeerApplication,
   type StrictPeerApplication,
 } from "./peer/peer.application.js";
@@ -32,7 +33,8 @@ export async function servePeer(
   Peer:
     | typeof PeerApplication
     | typeof StrictPeerApplication
-    | typeof KeylessPeerApplication = PeerApplication,
+    | typeof KeylessPeerApplication
+    | typeof EndLosingPeerApplication = PeerApplication,
 ): Promise<ServedPeer> {
   peer.clock = clock;
   const app = await createApp(Peer, { env: "test" });

@@ -1827,7 +1827,9 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   MCP's receiver and the A2A server's), a loop refused before sending; `price` charged when no
   verified run report says more (the report must name the call's task). The mesh is on only when
   the agent echoes the extension in its answer's `A2A-Extensions` (#810, spec §4.6); a call without
-  it is said in the tool call's record (`remote: { application, executionId: <task>, mesh: false }`)
+  it is said in the tool call's record (`remote: { application, executionId: <task>, mesh: false }`;
+  a completed task of no run report it verifies is charged its price alone, recorded
+  `report: false`, #844)
   and `agboss describe` lists every `@A2AAgent` (`a2a agents`: `mesh: required` / `mesh: not
 guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-admission.ts`):
   the card declares the mesh extension (`params.idempotencyRetention` = `retention.a2aTasks`); a
@@ -1840,8 +1842,10 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   signed it, its origin, budget (`caller-budget`, an action's remote call passing its own too) and
   deadline; that task keeps the message's `bodyHash` (`A2ATaskRecord.meshBodyHash`) and, completed,
   carries the signed run report in `task.metadata[mesh-uri].report` (and on the stream's last
-  status update) — what it spent from its end event (`A2ATaskStatus.spentUsd`), none when read
-  repair completed it. What
+  status update) — what it spent from its end event (`A2ATaskStatus.spentUsd`) or, when that
+  event was lost and read repair completed it, from the tree's record — written after its agents'
+  memory update, so it is the end event's spend (#844: never the price alone for a missed end,
+  `tests/a2a/mesh/a2a-mesh-read-repair.test.ts`). What
   an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
 [Start], skills?, provider?, security? })` (`a2a/*.a2a-expose.ts`) listed in
   `@Application({ exposes })` with its `@McpExpose`s (`[application.expose-unknown-start]`,

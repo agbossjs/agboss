@@ -430,7 +430,7 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     levers.letGo?.();
     const paused = await call;
     const waiting = await states.executionStateOf(tree());
-    await first.resume(answerOf(paused, { approved: true }));
+    const resumed = await first.resume(answerOf(paused, { approved: true }));
     const finished = await states.executionStateOf(tree());
 
     expect(before).toEqual({ status: DurableExecutionStatus.NotStarted });
@@ -443,6 +443,8 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
       status: DurableExecutionStatus.Finished,
       finish: "receipt-workflow-finish",
       output: { text: "Done." },
+      // #844: what the tree spent, as its end said it — read from its records
+      spentUsd: resumed.spend.totalUsd,
     });
   });
 

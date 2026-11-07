@@ -84,8 +84,9 @@ export interface A2ATaskStatus {
    */
   readonly errorDetails?: unknown;
   /**
-   * What its execution spent in all, in USD (#810), kept once it completed: what a trusted caller's
-   * run report signs.
+   * What its execution spent in all, in USD (#810), kept once it completed — by its end event or,
+   * when that was missed, by read repair from its records (#844): what a trusted caller's run report
+   * signs.
    */
   readonly spentUsd?: number;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */

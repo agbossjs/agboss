@@ -242,6 +242,7 @@ describe("#824: a task's stream", () => {
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
+      spentUsd: 0,
     };
     finish();
     expect(await nextOf(stream)).toMatchObject({ payload: { $case: "artifactUpdate" } });
@@ -392,6 +393,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
+      spentUsd: 0,
     };
     finish();
     events.push(...(await restOf(stream)));

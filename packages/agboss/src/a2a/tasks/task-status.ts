@@ -52,20 +52,20 @@ export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus 
 }
 
 /**
- * A finish reached: `COMPLETED` with the finish and its output — and, when its end event said, what
- * the execution spent (#810: what a trusted caller's run report signs; a status repaired from the
- * records has none, so its caller is charged its contract price).
+ * A finish reached: `COMPLETED` with the finish and its output — and what the execution spent
+ * (#810: what a trusted caller's run report signs), from its end event or, repaired, from its
+ * records (#844: a missed end event never leaves its caller charged the contract price alone).
  */
 export const completedStatusOf = (
   finish: string,
   output: unknown,
-  spentUsd?: number,
+  spentUsd: number,
 ): A2ATaskStatus => ({
   state: A2ATaskState.Completed,
   pendingPauses: [],
   finish,
   output,
-  ...(spentUsd === undefined ? {} : { spentUsd }),
+  spentUsd,
 });
 
 /**
@@ -107,7 +107,7 @@ export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | u
     case DurableExecutionStatus.Paused:
       return pausedStatusOf(state.pending);
     case DurableExecutionStatus.Finished:
-      return completedStatusOf(state.finish, state.output);
+      return completedStatusOf(state.finish, state.output, state.spentUsd);
     case DurableExecutionStatus.Cancelled:
       return CANCELED;
     case DurableExecutionStatus.Failed:
