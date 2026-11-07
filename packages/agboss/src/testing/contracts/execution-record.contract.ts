@@ -7,7 +7,7 @@ import type { NewTern, TernOutcome } from "../../terns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { pauseAnswerCases } from "./pause-answer-log.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** An outcome with `status`. */
 const outcome = (status: ExecutionRecordStatus): TernOutcome => ({

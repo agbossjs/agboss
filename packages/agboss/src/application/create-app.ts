@@ -72,7 +72,7 @@ export interface InstanceSeams {
   readonly idempotencyTestKeys?: FingerprintKeys;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
   readonly observers?: readonly ExecutionObserver[];
-  /** A test's gate over the instance's lease (#471, `leases.stall`): its store and its timers. */
+  /** A test's gate over the instance's lease (#471, `leases.freeze`): its store and its timers. */
   readonly leaseGate?: ExecutionLeaseGate;
 }
 

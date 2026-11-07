@@ -33,9 +33,8 @@ const idleSumOf = (survivor: Collected | undefined): number =>
 
 const meters = instanceMeters(2);
 const pair = testWith(MetricsApplication, {
-  instances: 2,
   concurrency: TestConcurrency.Real,
-  meterProviders: meters.map((meter) => meter.provider),
+  instances: meters.map((meter) => ({ meterProvider: meter.provider })),
 });
 
 beforeEach(resetRemoteLog);

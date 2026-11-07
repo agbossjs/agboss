@@ -14,7 +14,7 @@ import { LEASE_TAKE_RACE_CASES } from "./execution-lease-take-races.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
 import { LEASE_YIELD_EDGE_CASES } from "./execution-lease-yield-edges.cases.js";
 import { LEASE_YIELD_CASES } from "./execution-lease-yield.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** A tree's lease for 30 s. */
 const LEASE = seconds(30);

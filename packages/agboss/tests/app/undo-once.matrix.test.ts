@@ -275,7 +275,7 @@ describe("#607: every automatic undo runs to effect once across takeovers", () =
             atUndo(at, freezes, async (instanceId) => {
               frozen.push(instanceId);
               const app = byId.get(instanceId);
-              if (app !== undefined) leases.stall(app);
+              if (app !== undefined) leases.freeze(app);
               await thawed;
             });
             if (each.isCancelled !== true) openGate();
@@ -288,7 +288,7 @@ describe("#607: every automatic undo runs to effect once across takeovers", () =
             thaw();
             openGate();
             await settle();
-            for (const app of apps) leases.resume(app);
+            for (const app of apps) leases.thaw(app);
             await call;
             await liveUntil(clock, () => false, 3);
             await settle();

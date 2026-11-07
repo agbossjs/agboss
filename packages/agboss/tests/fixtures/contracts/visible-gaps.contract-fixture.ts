@@ -2,7 +2,11 @@
 // set explored below the floor (or not at all), the contracts it does not claim, an optional method
 // its store lacks. tests/testing/contracts/visible-gaps.test.ts reads the cases.
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
-import { storeConformance } from "../../../src/testing/contracts/index.js";
+import {
+  childExecutionQueueContract,
+  StoreCapability,
+  storeConformance,
+} from "../../../src/testing/contracts/index.js";
 import { inMemoryStores } from "../../infrastructure/contracts/core-store-sets.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { NotifyingQueueRepository } from "./broken-stores.js";
@@ -41,11 +45,45 @@ let built = 0;
 storeConformance({
   name: "a queue watched on one instance only",
   stores: {
-    childExecutionQueue: inMemoryTarget(({ clock, application, database }) => {
-      built += 1;
-      return built % 2 === 1
-        ? new NotifyingQueueRepository(clock, application, database)
-        : new InMemoryChildExecutionQueueRepository(clock, application, database);
-    }),
+    childExecutionQueue: {
+      ...inMemoryTarget(({ clock, application, database }) => {
+        built += 1;
+        return built % 2 === 1
+          ? new NotifyingQueueRepository(clock, application, database)
+          : new InMemoryChildExecutionQueueRepository(clock, application, database);
+      }),
+      capabilities: [StoreCapability.WatchQueued],
+    },
   },
+});
+// #831: what the store declares decides — a watch it has but does not declare fails, a watch it
+// declares but lacks fails, a declared watch it has runs
+storeConformance({
+  name: "a queue with an undeclared watch",
+  stores: {
+    childExecutionQueue: inMemoryTarget(
+      ({ clock, application, database }) =>
+        new NotifyingQueueRepository(clock, application, database),
+    ),
+  },
+});
+storeConformance({
+  name: "a queue declaring a watch it lacks",
+  stores: {
+    childExecutionQueue: {
+      ...inMemoryTarget(
+        ({ clock, application, database }) =>
+          new InMemoryChildExecutionQueueRepository(clock, application, database),
+      ),
+      capabilities: [StoreCapability.WatchQueued],
+    },
+  },
+});
+childExecutionQueueContract({
+  ...inMemoryTarget(
+    ({ clock, application, database }) =>
+      new NotifyingQueueRepository(clock, application, database),
+  ),
+  name: "a queue declaring its watch",
+  capabilities: [StoreCapability.WatchQueued],
 });

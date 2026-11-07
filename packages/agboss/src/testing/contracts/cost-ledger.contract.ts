@@ -6,7 +6,7 @@ import { usd } from "../../units/index.js";
 import { applicationMonth, call, tenantDay } from "./cost-ledger-data.js";
 import { pruningCases } from "./cost-ledger-pruning.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
   {

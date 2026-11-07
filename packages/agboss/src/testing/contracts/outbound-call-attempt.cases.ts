@@ -6,7 +6,7 @@ import {
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf } from "./fenced-effect-data.js";
-import { recorded, type OutboundCallCase, type OutboundCallStores } from "./outbound-call-data.js";
+import { recorded, type OutboundCallCase, type OutboundCallTarget } from "./outbound-call-data.js";
 
 /**
  * The outbound-call contract's new attempts (#505): `markPending` is a compare-and-set — the intent
@@ -137,7 +137,7 @@ const staleAttemptRefused: OutboundCallCase = {
 };
 
 /** The new-attempt cases. */
-export const outboundAttemptCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundAttemptCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "new attempts",
   cases: [
     movedOnce,

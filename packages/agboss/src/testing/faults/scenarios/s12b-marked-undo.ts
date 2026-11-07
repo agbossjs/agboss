@@ -3,8 +3,8 @@ import { systemClock, waitOf } from "../../../infrastructure/clock.js";
 import { LeaseTakeoverReason } from "../../../infrastructure/execution-lease-event.repository.js";
 import { HoldPhase } from "../hold-points.js";
 import { StoreHoldPoint } from "../store-points.js";
-import type { FaultScenario } from "../scenario.js";
-import type { FaultWorld } from "../world.js";
+import type { RunnableFaultScenario } from "../scenario.js";
+import type { FaultCluster } from "../cluster.js";
 import type { FaultPod } from "../pod.js";
 import {
   eventsOf,
@@ -28,40 +28,40 @@ import {
 /** The family of every undo's done mark (`tree-points.ts`). */
 const DONE_MARK = "@agboss/compensated";
 
-async function markedUndo(world: FaultWorld): Promise<FaultPod> {
+async function markedUndo(cluster: FaultCluster): Promise<FaultPod> {
   const orderId = "o-12b";
-  const a = await world.pod("a");
-  const b = await world.pod("b");
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
   await holdStore(a, StoreHoldPoint.TreeSaveIfAbsent, DONE_MARK, { phase: HoldPhase.After });
-  const order = await startOrder(world, a, orderId, { decline: true });
-  const frozen = await heldAt(world, a, StoreHoldPoint.TreeSaveIfAbsent, DONE_MARK);
-  a.stop();
-  const takeover = await takenOverBy(world, b, order.rootExecutionId);
+  const order = await startOrder(cluster, a, orderId, { decline: true });
+  const frozen = await heldAt(cluster, a, StoreHoldPoint.TreeSaveIfAbsent, DONE_MARK);
+  a.freeze();
+  const takeover = await takenOverBy(cluster, b, order.rootExecutionId);
   expectThat(
-    world,
+    cluster,
     takeover.reason === LeaseTakeoverReason.Unwinding,
     `b's takeover was ${String(takeover.reason)}`,
   );
-  const end = await world.ended(order.rootExecutionId);
+  const end = await cluster.ended(order.rootExecutionId);
   expectThat(
-    world,
+    cluster,
     end.type === "failed" && end.pod === "b",
     `the declined tree ${end.type === "failed" ? "failed" : "ended"} on ${end.pod}`,
   );
-  a.cont();
+  a.thaw();
   await release(a, frozen);
   // a goes on past its lease: two leases of its time for whatever it would still do
-  await systemClock.sleep(waitOf((2 * EXECUTION_LEASE) / world.options.timeScale));
-  const released = eventsOf(world, "released").map((event) => event.pod);
+  await systemClock.sleep(waitOf((2 * EXECUTION_LEASE) / cluster.options.timeScale));
+  const released = eventsOf(cluster, "released").map((event) => event.pod);
   expectThat(
-    world,
+    cluster,
     released.join() === "a",
     `the reservation was to be released once, by a; it was on [${released.join(", ")}]`,
   );
   return b;
 }
 
-export const s12bMarkedUndo: FaultScenario = {
+export const s12bMarkedUndo: RunnableFaultScenario = {
   id: "s12b-marked-undo-not-again",
   title:
     "12b: a pod frozen once its undo is marked done — the next pod ends the tree without undoing it again; released once",

@@ -93,6 +93,14 @@ describe("#471 AC5: a unit runner's fence", () => {
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
 
+  it("#831: confirmNowFails: false is the default — confirmNow() resolves", async () => {
+    levers.confirmFirst = true;
+
+    await testAction(ReleaseAction, { fence: { confirmNowFails: false } })(message);
+
+    expect(seen.notified).toEqual(["test-execution:release-action:1"]);
+  });
+
   it("a refused write is the step's ExecutionFencedError, as in an execution", async () => {
     ledger.highest.set("default:test-execution", 2);
 

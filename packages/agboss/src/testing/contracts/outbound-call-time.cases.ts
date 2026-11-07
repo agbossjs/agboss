@@ -7,7 +7,7 @@ import {
   listedOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /**
@@ -118,7 +118,7 @@ const endingsKeep: OutboundCallCase = {
 };
 
 /** The time cases. */
-export const outboundTimeCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundTimeCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "times",
   cases: [firstAttempt, readNow, nextAttempt, takenOverAttempt, endingsKeep],
 });

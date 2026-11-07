@@ -63,13 +63,13 @@ describe("#685: counted once after a takeover", () => {
     await until(() => spendTree.holds === 1, "the child held on its worker");
     const worker = byName.get(spendTree.holders[0] ?? "");
     if (worker === undefined || worker === a) throw new Error("the child runs beside its tree");
-    leases.stall(worker);
+    leases.freeze(worker);
     for (let step = 0; step < 12 && spendTree.holds < 2; step += 1)
       await clock.advance(seconds(10));
     await until(() => spendTree.holds === 2, "the tree's instance reclaims the held child");
     release();
     const done = await call;
-    leases.resume(worker);
+    leases.thaw(worker);
 
     // the payment before the hold ran once, on the stalled worker
     const paid = sum(spendTree.paid);

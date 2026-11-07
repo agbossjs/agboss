@@ -55,7 +55,7 @@ async function takenOverAtHold(
   const a = instance(apps, 0);
   const call = rejectionOf(execute(a, start, { orderId: "o1" }));
   await until(() => holds() === 1, "the side path's hold on the first instance");
-  leases.stall(a);
+  leases.freeze(a);
   for (let step = 0; step < 24 && holds() < 2; step += 1) {
     await clock.advance(seconds(10));
     await settle();
@@ -63,7 +63,7 @@ async function takenOverAtHold(
   await until(() => holds() === 2, "the second instance runs the held visit again");
   release();
   await until(() => exemptions.ended.length > 0, "the new holder ended the tree");
-  leases.resume(a);
+  leases.thaw(a);
   const error = await call;
   await settle();
   return error;

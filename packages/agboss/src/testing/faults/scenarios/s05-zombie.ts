@@ -1,7 +1,7 @@
 import { OperationPhase } from "../operation-history.js";
 import { StoreHoldPoint } from "../store-points.js";
-import type { FaultScenario } from "../scenario.js";
-import type { FaultWorld } from "../world.js";
+import type { RunnableFaultScenario } from "../scenario.js";
+import type { FaultCluster } from "../cluster.js";
 import type { FaultPod } from "../pod.js";
 import {
   endedOn,
@@ -28,8 +28,13 @@ import {
 type ZombieWrite = StoreHoldPoint.FencedEffectWrite | StoreHoldPoint.OutboundSaveIfAbsent;
 
 /** How pod `pod`'s fenced write `point` of `key` ended, from the history. */
-function writeOutcome(world: FaultWorld, pod: FaultPod, key: string, point: ZombieWrite): string {
-  const write = world.history.events.find(
+function writeOutcome(
+  cluster: FaultCluster,
+  pod: FaultPod,
+  key: string,
+  point: ZombieWrite,
+): string {
+  const write = cluster.history.events.find(
     (event) =>
       event.phase === OperationPhase.Complete &&
       event.process === pod.name &&
@@ -44,77 +49,77 @@ function writeOutcome(world: FaultWorld, pod: FaultPod, key: string, point: Zomb
 
 /** Until pod `pod`'s fenced write `point` of `key` was answered. */
 const writeAnswered = (
-  world: FaultWorld,
+  cluster: FaultCluster,
   pod: FaultPod,
   key: string,
   point: ZombieWrite,
 ): Promise<unknown> =>
-  world.next(
+  cluster.next(
     `the answer to ${pod.name}'s ${point} of ${key}`,
-    () => writeOutcome(world, pod, key, point) !== "no answer",
+    () => writeOutcome(cluster, pod, key, point) !== "no answer",
   );
 
 /** Pod a frozen at its write `point`, b holding the tree; `zombieFirst`: b held at its own too. */
 async function zombie(
-  world: FaultWorld,
+  cluster: FaultCluster,
   orderId: string,
   zombieFirst: boolean,
   point: ZombieWrite = StoreHoldPoint.FencedEffectWrite,
 ): Promise<FaultPod> {
-  const a = await world.pod("a");
-  const b = await world.pod("b");
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
   await holdStore(a, point, undefined);
   if (zombieFirst) await holdStore(b, point, undefined);
-  const order = await startOrder(world, a, orderId);
+  const order = await startOrder(cluster, a, orderId);
   const key = order.rootExecutionId;
-  const frozen = await heldAt(world, a, point, key);
-  a.stop();
-  await takenOverBy(world, b, key);
+  const frozen = await heldAt(cluster, a, point, key);
+  a.freeze();
+  await takenOverBy(cluster, b, key);
   if (zombieFirst) {
-    const second = await heldAt(world, b, point, key);
-    a.cont();
+    const second = await heldAt(cluster, b, point, key);
+    a.thaw();
     await release(a, frozen);
-    await writeAnswered(world, a, key, point);
+    await writeAnswered(cluster, a, key, point);
     await release(b, second);
   } else {
-    await endedOn(world, key, b);
-    a.cont();
+    await endedOn(cluster, key, b);
+    a.thaw();
     await release(a, frozen);
-    await writeAnswered(world, a, key, point);
+    await writeAnswered(cluster, a, key, point);
   }
-  await world.ended(key);
-  const outcome = writeOutcome(world, a, key, point);
+  await cluster.ended(key);
+  const outcome = writeOutcome(cluster, a, key, point);
   expectThat(
-    world,
+    cluster,
     outcome === "ExecutionFencedError",
     `the zombie's write was to be refused (ExecutionFencedError); it was ${outcome}`,
   );
-  await world.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
+  await cluster.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
   expectThat(
-    world,
-    eventsOf(world, "released").length === 0,
+    cluster,
+    eventsOf(cluster, "released").length === 0,
     "the hand-over undid the reservation",
   );
   return b;
 }
 
-export const s05ZombieAfter: FaultScenario = {
+export const s05ZombieAfter: RunnableFaultScenario = {
   id: "s05-zombie-write-refused",
   title:
     "5: a frozen pod (SIGSTOP → SIGCONT) comes back after the new holder's charge — its stale write is refused, it hands over, nothing is undone",
-  run: (world) => zombie(world, "o-5", false),
+  run: (cluster) => zombie(cluster, "o-5", false),
 };
 
-export const s05ZombieFirst: FaultScenario = {
+export const s05ZombieFirst: RunnableFaultScenario = {
   id: "s05b-zombie-reaches-charge-first",
   title:
     "5b: the zombie reaches the charge before the new holder — refused by the store's lease check; the new holder charges once",
-  run: (world) => zombie(world, "o-5b", true),
+  run: (cluster) => zombie(cluster, "o-5b", true),
 };
 
-export const s05ZombiePaysFirst: FaultScenario = {
+export const s05ZombiePaysFirst: RunnableFaultScenario = {
   id: "s05c-zombie-reaches-payment-first",
   title:
     "5c: the zombie reaches the payment's intent before the new holder — refused by the outbound-call store's lease check; one payment",
-  run: (world) => zombie(world, "o-5c", true, StoreHoldPoint.OutboundSaveIfAbsent),
+  run: (cluster) => zombie(cluster, "o-5c", true, StoreHoldPoint.OutboundSaveIfAbsent),
 };

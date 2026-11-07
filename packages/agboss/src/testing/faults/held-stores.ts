@@ -7,7 +7,12 @@ import { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.r
 import { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
-import { HoldPhase, processHoldPoints, type HoldPoints } from "./hold-points.js";
+import {
+  HoldPhase,
+  processHoldPoints,
+  type HeldOperation,
+  type HoldPoints,
+} from "./hold-points.js";
 import {
   monotonicNow,
   OperationPhase,
@@ -32,27 +37,93 @@ import { TREE_METHODS } from "./tree-points.js";
  * after it answered (when a test armed a hold there), records the operation's invoke and complete
  * in the history, and refuses or hangs while the process's store outage lasts. The store's own
  * code runs as it is: listed in place of the store (`providers: [withHoldPoints(PgLeases), …]`),
- * it injects the same `deps` and declares the same `backend`. A store author writes no seam.
+ * it injects the same `deps` and declares the same `backend`. A store author writes no hook of
+ * their own: `reportHeldOperations` hears what the held stores do.
  */
 
-/** Where held stores send their holds, history and outage: the process's own, by default. */
-export interface HeldStoreSeam {
+/**
+ * Where this process's held stores send their holds, history and outage (internal): the process's
+ * hold points, the recorders of its history, its name and instance in the history, its outage.
+ */
+export interface HeldStoreState {
   points: HoldPoints;
-  recorder: OperationRecorder | undefined;
+  readonly recorders: Set<OperationRecorder>;
   /** The process's name in the history (a pod's), and its application instance once known. */
   process: string;
   instanceId: string;
   readonly outage: StoreOutage;
 }
 
-/** The seam of this process's held stores (the fault pod sets its recorder and names). */
-export const heldStoreSeam: HeldStoreSeam = {
+/** The state of this process's held stores (the fault pod adds its recorder and names it). */
+export const heldStoreState: HeldStoreState = {
   points: processHoldPoints,
-  recorder: undefined,
+  recorders: new Set(),
   process: `process-${String(process.pid)}`,
   instanceId: "",
   outage: new StoreOutage(),
 };
+
+/** What a store's own process test hears of this process's held stores (#831). */
+export interface HeldOperationsReport {
+  /** The instance the history names this process's operations by (its application's). */
+  readonly instanceId?: string;
+  /** Every held store operation's invoke and complete, as the history records it. */
+  readonly onOperation?: (event: OperationEvent) => void;
+  /** Every operation held at one of `processHoldPoints`' armed points. */
+  readonly onHeld?: (operation: HeldOperation) => void;
+}
+
+const REPORT_KEYS: ReadonlySet<string> = new Set(["instanceId", "onOperation", "onHeld"]);
+
+/** The instance id a live report names the history by, and that report (one at a time). */
+let naming: string | undefined;
+let namer: symbol | undefined;
+
+/**
+ * Reports this process's held operations (#831, in place of a mutable global): from now on
+ * `onOperation` hears every operation of a `withHoldPoints` store and `onHeld` every hold, and the
+ * history names them by `instanceId`. The returned function undoes it — both listeners removed,
+ * the instance id given back as it was.
+ */
+export function reportHeldOperations(report: HeldOperationsReport): () => void {
+  const unknown = Object.keys(report).filter((key) => !REPORT_KEYS.has(key));
+  if (unknown.length > 0)
+    throw new TypeError(
+      `reportHeldOperations: ${unknown.join(", ")} — it takes instanceId, onOperation and onHeld`,
+    );
+  if (report.onOperation === undefined && report.onHeld === undefined)
+    throw new TypeError(
+      "reportHeldOperations: give onOperation, onHeld or both — it would hear nothing",
+    );
+  if (report.instanceId !== undefined && naming !== undefined)
+    throw new TypeError(
+      `reportHeldOperations: the history is named by instance ${naming} already — undo that report first`,
+    );
+  const before = heldStoreState.instanceId;
+  const token = Symbol("report");
+  if (report.instanceId !== undefined) {
+    heldStoreState.instanceId = report.instanceId;
+    naming = report.instanceId;
+    namer = token;
+  }
+  const { onOperation, onHeld } = report;
+  const recorder: OperationRecorder | undefined =
+    onOperation === undefined ? undefined : { record: onOperation };
+  if (recorder !== undefined) heldStoreState.recorders.add(recorder);
+  const stopHeld = onHeld === undefined ? undefined : heldStoreState.points.onHeld(onHeld);
+  let isUndone = false;
+  return () => {
+    if (isUndone) return;
+    isUndone = true;
+    if (recorder !== undefined) heldStoreState.recorders.delete(recorder);
+    stopHeld?.();
+    if (namer === token) {
+      heldStoreState.instanceId = before;
+      naming = undefined;
+      namer = undefined;
+    }
+  };
+}
 
 /** The contracts with hold points, the methods of each. */
 const CONTRACTS: readonly (readonly [Class, Readonly<Record<string, StoreMethod>>])[] = [
@@ -72,13 +143,33 @@ export const heldMethodsOf = (store: Class): Readonly<Record<string, StoreMethod
 
 let operations = 0;
 
-/** Records one event of the operation `id` on the seam's recorder. */
+/** Records one event of the operation `id` on every recorder of the state. */
 function recorded(
-  seam: HeldStoreSeam,
+  state: HeldStoreState,
   event: Omit<OperationEvent, "process" | "instanceId" | "at">,
 ): void {
-  const { process, instanceId } = seam;
-  seam.recorder?.record({ ...event, process, instanceId, at: monotonicNow() });
+  const { process, instanceId } = state;
+  const full = { ...event, process, instanceId, at: monotonicNow() };
+  for (const recorder of [...state.recorders])
+    heardApart(() => {
+      recorder.record(full);
+    });
+}
+
+/**
+ * Runs a listener of the held stores apart from the store call (#831): what it throws — a failed
+ * `expect` in a test's `onOperation` — never becomes the store's answer, which the framework would
+ * read as a store error (a retry, an ambiguous answer, a hand-over) and absorb; it is thrown again
+ * on its own, an unhandled error the test run reports.
+ */
+export function heardApart(listen: () => void): void {
+  try {
+    listen();
+  } catch (error) {
+    queueMicrotask(() => {
+      throw error;
+    });
+  }
 }
 
 /** What the history keeps of an error. */
@@ -93,23 +184,23 @@ async function heldCall(
   args: readonly unknown[],
   call: () => Promise<unknown>,
 ): Promise<unknown> {
-  const seam = heldStoreSeam;
+  const state = heldStoreState;
   const key = method.keyOf(args);
-  await seam.outage.passed(method.point);
-  await seam.points.reach(method.point, HoldPhase.Before, key);
+  await state.outage.passed(method.point);
+  await state.points.reach(method.point, HoldPhase.Before, key);
   operations += 1;
-  const id = `${seam.process}#${String(operations)}`;
+  const id = `${state.process}#${String(operations)}`;
   const base = { id, operation: method.point, key };
-  recorded(seam, { ...base, phase: OperationPhase.Invoke, input: method.inputOf(args) });
+  recorded(state, { ...base, phase: OperationPhase.Invoke, input: method.inputOf(args) });
   let result: unknown;
   try {
     result = await call();
   } catch (error) {
-    recorded(seam, { ...base, phase: OperationPhase.Complete, error: errorFacts(error) });
+    recorded(state, { ...base, phase: OperationPhase.Complete, error: errorFacts(error) });
     throw error;
   }
-  recorded(seam, { ...base, phase: OperationPhase.Complete, output: method.outputOf(result) });
-  await seam.points.reach(method.point, HoldPhase.After, method.resultKeyOf?.(result) ?? key);
+  recorded(state, { ...base, phase: OperationPhase.Complete, output: method.outputOf(result) });
+  await state.points.reach(method.point, HoldPhase.After, method.resultKeyOf?.(result) ?? key);
   return result;
 }
 

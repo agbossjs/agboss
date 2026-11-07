@@ -3,7 +3,7 @@ import { applicationContextOf } from "../../../flow/context/application-context.
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
 import { TestStoreClock } from "../../store-clock.js";
-import type { ContractTarget, StoreSeam } from "../seam.js";
+import type { ContractTarget, StoreInstanceContext } from "../instance-context.js";
 import { trackedStore } from "../tracked-store.js";
 import { stepOf } from "./moves.js";
 import { Observer } from "./observer.js";
@@ -52,7 +52,7 @@ export class ExplorerRun {
     const run = new ExplorerRun(world, target);
     await target.reset?.();
     for (let instance = 1; instance <= world.instances; instance += 1) {
-      const built = await target.instance(run.#seamOf(instance));
+      const built = await target.instance(run.#instanceContextOf(instance));
       run.#built.push(built);
       run.stores.push(trackedStore(built, run.clock));
     }
@@ -109,7 +109,7 @@ export class ExplorerRun {
     for (const stores of this.#built) await this.target.close?.(stores);
   }
 
-  #seamOf(instance: number): StoreSeam {
+  #instanceContextOf(instance: number): StoreInstanceContext {
     const instanceId = `instance-${String(instance)}`;
     return {
       clock: new SkewedClock(this.clock, this.world.skewOf(instance)),

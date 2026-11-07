@@ -1,9 +1,9 @@
 import type { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../../units/index.js";
 import { ClockSkew } from "../../clock-skew.js";
-import type { FencedEffectStores } from "../fenced-effect-data.js";
-import type { OutboundCallStores } from "../outbound-call-data.js";
-import type { ContractTarget } from "../seam.js";
+import type { FencedEffectTarget } from "../fenced-effect-data.js";
+import type { OutboundCallTarget } from "../outbound-call-data.js";
+import type { ContractTarget } from "../instance-context.js";
 import {
   EXPLORED_LEASE,
   ExplorerWorldKind,
@@ -70,8 +70,8 @@ function mapped<TStore>(
   return {
     name: target.name,
     ...(target.reset === undefined ? {} : { reset: () => target.reset?.() }),
-    instance: async (seam) => {
-      const store = await target.instance(seam);
+    instance: async (context) => {
+      const store = await target.instance(context);
       const stores = storesOf(store);
       built.set(stores, store);
       return stores;
@@ -91,11 +91,11 @@ export const leaseTarget = (
 
 /** The outbound-call target as the explorer's stores (the lease world's and the call world's). */
 export const callTarget = (
-  target: ContractTarget<OutboundCallStores>,
+  target: ContractTarget<OutboundCallTarget>,
 ): ContractTarget<ExplorerStores> => mapped(target, ({ calls, leases }) => ({ calls, leases }));
 
 /** The fenced-effect target as the explorer's stores. */
 export const effectTarget = (
-  target: ContractTarget<FencedEffectStores<unknown>>,
+  target: ContractTarget<FencedEffectTarget<unknown>>,
 ): ContractTarget<ExplorerStores> =>
   mapped(target, ({ effects, leases, rows }) => ({ effects, leases, rows }));

@@ -5,7 +5,7 @@ import {
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 import {
   kindOnlyPausesOf,
   NINE,

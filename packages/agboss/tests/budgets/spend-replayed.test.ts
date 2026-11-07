@@ -50,7 +50,7 @@ describe("#727: a step run again after a takeover bills again and counts again",
     await until(() => ranPayOne() === 1, "a paid on its worker");
     const worker = byName.get(inFlight.where.get("a:pay-one") ?? "");
     if (worker === undefined) throw new Error("no worker ran a");
-    leases.stall(worker);
+    leases.freeze(worker);
     for (let step = 0; step < 12 && ranPayOne() < 2; step += 1) await clock.advance(seconds(10));
     await until(() => ranPayOne() === 2, "the other instance runs a's step again");
     release();
@@ -58,7 +58,7 @@ describe("#727: a step run again after a takeover bills again and counts again",
       () => undefined,
       (error: unknown) => error,
     );
-    leases.resume(worker);
+    leases.thaw(worker);
 
     // the step's $60 was paid twice — once per run — and both count: a's next step is held back
     expect(outcome).toMatchObject({

@@ -13,7 +13,7 @@ import { FingerprintPolicy } from "../../infrastructure/fenced-effect-key.js";
 import { effectKeyForTesting } from "./effect-key.js";
 
 /**
- * The seam of the fenced-effect contract (#500): what one instance's fenced-effect store works
+ * The target of the fenced-effect contract (#500): what one instance's fenced-effect store works
  * with — the lease store of the same database, whose leases it checks, and business rows written
  * in its transaction — and the data of its cases.
  */
@@ -33,7 +33,7 @@ export interface FencedEffectBusinessRows<TTransaction> {
  * One instance's stores on the backing database: the fenced-effect store under test, built with
  * the default `FencedEffectSettings` (64 KB), the lease store it reads, and the business rows.
  */
-export interface FencedEffectStores<TTransaction> {
+export interface FencedEffectTarget<TTransaction> {
   /** The store under test. */
   readonly effects: FencedEffectRepository<TTransaction>;
   /** The lease store of the same database: the cases take and release leases in it. */

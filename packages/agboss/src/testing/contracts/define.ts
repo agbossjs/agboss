@@ -10,7 +10,9 @@ import {
   type ContractCaseBody,
   type ContractTarget,
   type DatabaseTime,
-} from "./seam.js";
+} from "./instance-context.js";
+import { isStoreCapability, StoreCapability } from "./store-capability.js";
+import { StoreConformanceError } from "./store-conformance-check.js";
 
 /**
  * How a published contract suite (#481) is written: its cases as data, grouped as the core's own
@@ -26,37 +28,99 @@ export interface ContractCase<TStore> {
   readonly databaseTime?: DatabaseTime;
   /** A case only an atomic lease check passes (#543): behind the suite's fencing gate. */
   readonly isFencing?: boolean;
-  /** A case of an optional method (#799): skipped — never passed — for a store without it. */
-  readonly optional?: OptionalMethod<TStore>;
+  /**
+   * A case of an optional capability (#799, #831): run when the target declares it, skipped — never
+   * passed — when it does not and the store lacks it, failed when the two disagree.
+   */
+  readonly capability?: CapabilityCheck<TStore>;
 }
 
-/** An optional method of a store contract a case checks (`watchQueued`, #777). */
-export interface OptionalMethod<TStore> {
-  /** Its name, as the skipped case's reason says it. */
-  readonly name: string;
+/** An optional capability of a store contract a case checks (`watchQueued`, #777). */
+export interface CapabilityCheck<TStore> {
+  readonly capability: StoreCapability;
   /** Whether `store` has it. */
   readonly isPresent: (store: TStore) => boolean;
   /** What a store without it does instead, for the reason. */
   readonly without: string;
 }
 
+/** Each capability as a message names it (`StoreCapability.WatchQueued`). */
+const CAPABILITY_NAMES: Readonly<Record<StoreCapability, string>> = {
+  [StoreCapability.WatchQueued]: "StoreCapability.WatchQueued",
+};
+
+/** `StoreCapability.WatchQueued`, as a message names it. */
+const capabilityName = (capability: StoreCapability): string => CAPABILITY_NAMES[capability];
+
 /**
- * The body of a case of an optional method (#799): skipped with the reason when neither instance's
- * store has it, failed when only one has — a store either has the method or not —, else run.
+ * The body of a case of an optional capability (#831): what the target declares decides. Not
+ * declared — the store must not have it (else it fails: declare it), and the case is skipped with
+ * the reason; declared — both instances' stores must have it, and the case runs.
  */
-const optionalBody =
+const capabilityBody =
   <TStore>(
-    optional: OptionalMethod<TStore>,
+    check: CapabilityCheck<TStore>,
+    isDeclared: boolean,
     body: ContractCaseBody<TStore>,
     context: TestContext,
   ): ContractCaseBody<TStore> =>
   async (instances) => {
-    const present = [instances.first, instances.second].map(optional.isPresent);
-    if (present.every((isPresent) => !isPresent))
-      context.skip(`the store has no ${optional.name} (optional): ${optional.without}`);
-    expect(present, `${optional.name} on one instance's store only`).toEqual([true, true]);
+    const present = [instances.first, instances.second].map(check.isPresent);
+    const name = capabilityName(check.capability);
+    if (!isDeclared) {
+      expect(
+        present,
+        `[store-conformance.capability-not-declared] the store has ${check.capability} but does not declare it: give its entry capabilities: [${name}]`,
+      ).toEqual([false, false]);
+      context.skip(`the store does not declare ${name} (optional): ${check.without}`);
+    }
+    expect(
+      present,
+      `[store-conformance.capability-missing] the store declares ${name} but has no ${check.capability} on both instances' stores`,
+    ).toEqual([true, true]);
     await body(instances);
   };
+
+/**
+ * The capabilities `target` declares, checked against `contract`'s (#831): a list of
+ * `StoreCapability` values, each once, each one this contract's cases check — anything else would
+ * be a claim no case reads, so the file fails before any case runs (`StoreConformanceError`).
+ */
+function checkCapabilities<TStore>(
+  contract: string,
+  target: ContractTarget<TStore>,
+  groups: readonly ContractGroup<TStore>[],
+): void {
+  const declared: unknown = Reflect.get(target, "capabilities");
+  if (declared === undefined) return;
+  const known = new Set(
+    groups.flatMap((group) => group.cases.flatMap((one) => one.capability?.capability ?? [])),
+  );
+  const problems: string[] = [];
+  if (!Array.isArray(declared))
+    problems.push(
+      `[store-conformance.invalid-capabilities] ${contract} (${target.name}): capabilities is not a list of StoreCapability values`,
+    );
+  else {
+    const seen = new Set<unknown>();
+    for (const each of declared as unknown[]) {
+      if (seen.has(each))
+        problems.push(
+          `[store-conformance.invalid-capabilities] ${contract} (${target.name}): ${String(each)} declared twice`,
+        );
+      seen.add(each);
+      if (!isStoreCapability(each))
+        problems.push(
+          `[store-conformance.invalid-capabilities] ${contract} (${target.name}): ${typeof each === "string" ? JSON.stringify(each) : typeof each} is not a StoreCapability`,
+        );
+      else if (!known.has(each))
+        problems.push(
+          `[store-conformance.invalid-capabilities] ${contract} (${target.name}): ${capabilityName(each)} is not a capability of this contract${known.size === 0 ? " (it has none)" : `: ${[...known].map(capabilityName).join(", ")}`}`,
+        );
+    }
+  }
+  if (problems.length > 0) throw new StoreConformanceError(problems);
+}
 
 /** Cases registered together; with a `title`, inside a `describe` of their own. */
 export interface ContractGroup<TStore> {
@@ -88,13 +152,16 @@ const registerCases = <TStore>(
   for (const contractCase of group.cases) {
     const isGated =
       gate !== undefined && (group.isFencing === true || contractCase.isFencing === true);
-    const { run, databaseTime, optional } = contractCase;
-    if (!isGated && optional === undefined) {
+    const { run, databaseTime, capability } = contractCase;
+    if (!isGated && capability === undefined) {
       it(contractCase.name, withTarget(target, run, databaseTime));
       continue;
     }
+    const isDeclared =
+      capability !== undefined && (target.capabilities ?? []).includes(capability.capability);
     it(contractCase.name, (context) => {
-      const checked = optional === undefined ? run : optionalBody(optional, run, context);
+      const checked =
+        capability === undefined ? run : capabilityBody(capability, isDeclared, run, context);
       const body = isGated ? gatedBody(gate, checked, context) : checked;
       return withTarget(target, body, databaseTime)();
     });
@@ -112,6 +179,7 @@ export function registerContract<TStore>(
   ping: StorePing<TStore>,
   gate?: FencingGate<TStore>,
 ): void {
+  checkCapabilities(contract, target, groups);
   describe(`${contract} (${target.name})`, () => {
     for (const group of groups) {
       if (group.title === undefined) registerCases(target, group, gate);

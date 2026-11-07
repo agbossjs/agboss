@@ -6,7 +6,7 @@ import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf } from "./fenced-effect-data.js";
-import { recorded, type OutboundCallCase, type OutboundCallStores } from "./outbound-call-data.js";
+import { recorded, type OutboundCallCase, type OutboundCallTarget } from "./outbound-call-data.js";
 import { inTurn, PENDING, ROUNDS } from "./outbound-call-race.cases.js";
 
 /**
@@ -138,7 +138,7 @@ const stateRacingAcquire: OutboundCallCase = {
 };
 
 /** The races across leases. */
-export const outboundLeaseRaceCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundLeaseRaceCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "races across leases",
   isFencing: true,
   cases: [

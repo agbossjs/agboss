@@ -32,7 +32,7 @@ import { SqliteRateLimitRepository } from "../../../src/infrastructure/sqlite/sq
 import type { VirtualClock } from "../../../src/testing/clock.js";
 import { minutes, seconds } from "../../../src/units/index.js";
 import { storeTargets } from "../../infrastructure/contracts/store-kinds.js";
-import { withTarget } from "../../../src/testing/contracts/seam.js";
+import { withTarget } from "../../../src/testing/contracts/instance-context.js";
 
 const kinds = storeTargets<RateLimitRepository>(
   ({ clock, application, database }) =>

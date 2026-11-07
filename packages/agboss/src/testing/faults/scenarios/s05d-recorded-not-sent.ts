@@ -1,7 +1,7 @@
 import { HoldPhase } from "../hold-points.js";
 import { StoreHoldPoint } from "../store-points.js";
-import type { FaultScenario } from "../scenario.js";
-import type { FaultWorld } from "../world.js";
+import type { RunnableFaultScenario } from "../scenario.js";
+import type { FaultCluster } from "../cluster.js";
 import type { FaultPod } from "../pod.js";
 import {
   endedOn,
@@ -25,45 +25,45 @@ import {
  */
 
 /** The gateway's charge requests of `orderId`, by pod. */
-const chargesOf = (world: FaultWorld, orderId: string): readonly string[] =>
-  world.gateway.requests
+const chargesOf = (cluster: FaultCluster, orderId: string): readonly string[] =>
+  cluster.gateway.requests
     .filter((request) => request.orderId === orderId)
     .map((request) => request.pod);
 
-async function recordedNotSent(world: FaultWorld): Promise<FaultPod> {
+async function recordedNotSent(cluster: FaultCluster): Promise<FaultPod> {
   const orderId = "o-5d";
-  const a = await world.pod("a");
-  const b = await world.pod("b");
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
   await holdStore(a, StoreHoldPoint.OutboundSaveIfAbsent, undefined, { phase: HoldPhase.After });
-  const order = await startOrder(world, a, orderId);
+  const order = await startOrder(cluster, a, orderId);
   const key = order.rootExecutionId;
-  const frozen = await heldAt(world, a, StoreHoldPoint.OutboundSaveIfAbsent, key);
-  a.stop();
-  await takenOverBy(world, b, key);
-  await endedOn(world, key, b);
-  a.cont();
+  const frozen = await heldAt(cluster, a, StoreHoldPoint.OutboundSaveIfAbsent, key);
+  a.freeze();
+  await takenOverBy(cluster, b, key);
+  await endedOn(cluster, key, b);
+  a.thaw();
   await release(a, frozen);
-  await world.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
-  const charges = chargesOf(world, orderId);
+  await cluster.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
+  const charges = chargesOf(cluster, orderId);
   expectThat(
-    world,
+    cluster,
     charges.length === 1 && charges[0] === "b",
     `the payment was to reach the gateway once, from b; it did from [${charges.join(", ")}]`,
   );
   expectThat(
-    world,
-    eventsOf(world, "paid", a).length === 0,
+    cluster,
+    eventsOf(cluster, "paid", a).length === 0,
     "the zombie paid after its lease was taken over",
   );
   expectThat(
-    world,
-    eventsOf(world, "released").length === 0,
+    cluster,
+    eventsOf(cluster, "released").length === 0,
     "the hand-over undid the reservation",
   );
   return b;
 }
 
-export const s05ZombieRecordedNotSent: FaultScenario = {
+export const s05ZombieRecordedNotSent: RunnableFaultScenario = {
   id: "s05d-zombie-recorded-not-sent",
   title:
     "5d: a zombie frozen between its payment's intent and its send — the new holder reconciles and pays once; the zombie's send is refused",

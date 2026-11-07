@@ -81,7 +81,7 @@ export async function frozenAfterChildEnd(
 ): Promise<unknown> {
   await until(() => yieldSeen.runs.length === 1, "the child at its gate");
   endOnceSeen.onChildEnd = once(() => {
-    leases.stall(a);
+    leases.freeze(a);
   });
   openGate();
   await until(
@@ -91,7 +91,7 @@ export async function frozenAfterChildEnd(
   await liveFor(clock, 7);
   await until(rootEnded, "the tree ended where it was taken over");
   // the old holder thaws after the new holder finished
-  leases.resume(a);
+  leases.thaw(a);
   const error = await rejectionOf(call);
   await settle();
   return error;

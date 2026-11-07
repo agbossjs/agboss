@@ -8,7 +8,7 @@ import { ragConnectorContract } from "../../../src/testing/contracts/index.js";
 import { memoryTarget } from "../../fixtures/contracts/rag-connectors.js";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
-const FIXTURE = "rag-bites.contract-fixture.ts";
+const FIXTURE = "rag-sabotage.contract-fixture.ts";
 
 let run: FixtureRun;
 

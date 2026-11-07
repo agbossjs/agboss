@@ -16,7 +16,7 @@ import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { leaseEventKindCases } from "./execution-lease-event-kinds.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** A takeover of `root-1` at `at` (ISO 8601). */
 const takeover = (at: string, of: Partial<LeaseTakeoverRecord> = {}): LeaseTakeoverRecord => ({

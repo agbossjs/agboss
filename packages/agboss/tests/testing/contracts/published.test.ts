@@ -10,6 +10,8 @@ import ts from "typescript";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as contracts from "../../../src/testing/contracts/index.js";
 import { PING_CASE } from "../../../src/testing/contracts/define.js";
+import { VirtualClock } from "../../../src/testing/clock.js";
+import { TestStoreClock } from "../../../src/testing/store-clock.js";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
 const PACKAGE_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -82,22 +84,26 @@ describe("#481 AC1: the published entry", () => {
     for (const name of [
       ...Object.keys(SUITES),
       "ContractTarget",
-      "StoreSeam",
+      "StoreInstanceContext",
       "storeConformance",
       "StoreConformanceOptions",
-      "ConformanceStores",
+      "StoreSet",
       "StoreConformanceError",
     ]) {
       expect(report).toContain(name);
     }
   });
 
-  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), nothing else at run time", () => {
+  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), the capabilities and the clocks (#831), nothing else at run time", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
+    const kit = ["StoreCapability", "TestStoreClock", "VirtualClock", "runConformanceSabotage"];
     expect(Object.keys(contracts).sort()).toEqual(
-      [...named, "ragConnectorContract", "effectKeyForTesting"].sort(),
+      [...named, ...kit, "ragConnectorContract", "effectKeyForTesting"].sort(),
     );
-    for (const register of Object.values(contracts)) expect(register).toBeTypeOf("function");
+    for (const [name, value] of Object.entries(contracts))
+      if (name !== "StoreCapability") expect(value).toBeTypeOf("function");
+    expect(contracts.VirtualClock).toBe(VirtualClock);
+    expect(contracts.TestStoreClock).toBe(TestStoreClock);
   });
 
   it("@agboss/core/testing does not pull it in: no module of the suites in its module graph", () => {

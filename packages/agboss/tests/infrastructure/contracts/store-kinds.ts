@@ -11,7 +11,7 @@ import { resolveEnvironment } from "../../../src/environments/resolve.js";
 import type { Token } from "../../../src/components/injection.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
-import type { ContractTarget, StoreSeam } from "../../../src/testing/contracts/index.js";
+import type { ContractTarget, StoreInstanceContext } from "../../../src/testing/contracts/index.js";
 
 /**
  * The core's own stores as targets of the published contract suites (#481,
@@ -22,7 +22,7 @@ import type { ContractTarget, StoreSeam } from "../../../src/testing/contracts/i
  */
 
 /** What one of the core's stores is built from: the seam, and the backing store of its kind. */
-export interface InstanceSeam extends StoreSeam {
+export interface InstanceSeam extends StoreInstanceContext {
   /** The rows of the in-memory defaults, shared by the test's instances. */
   readonly database: InMemoryDatabase;
   /** This instance's own connection to the test's SQLite file. */

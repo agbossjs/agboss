@@ -4,7 +4,7 @@
  * renewal: confirmed → the after-renewal checks, anything else → lost), a fenced write stopping the
  * holder of its token, and the `yieldWhile` rule — the lease is yielded only while no other step of
  * the tree runs. Run against the in-memory and the SQLite lease store; the lease timers on a gated
- * clock (`LeaseGate`, what `leases.stall` uses), so `confirmedUntil` can pass without them.
+ * clock (`LeaseGate`, what `leases.freeze` uses), so `confirmedUntil` can pass without them.
  */
 import { describe, expect, it } from "vitest";
 import { executionLeasesOf, type HeldExecutionLease } from "../../src/app/execution-leases.js";
@@ -28,7 +28,7 @@ import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../src/app/lease-fence.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 
 /** How long a lease just confirmed is trusted (#533): the store's 30 s, less the safety margin. */
 const TRUSTED = EXECUTION_LEASE - LEASE_SAFETY_MARGIN;

@@ -3,7 +3,7 @@ import { MeterProvider, MetricReader, type MetricData } from "@opentelemetry/sdk
 
 /**
  * #485 — an in-memory OpenTelemetry reader (AC5): what a Prometheus scrape or an OTLP export reads,
- * collected on demand. One per instance (`testWith(App, { meterProviders })`).
+ * collected on demand. One per instance (`testWith(App, { instances: [{ meterProvider }] })`).
  */
 export class InMemoryMetricReader extends MetricReader {
   protected onForceFlush(): Promise<void> {

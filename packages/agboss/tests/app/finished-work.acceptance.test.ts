@@ -96,7 +96,7 @@ describe("#520 acceptance: the finish never landed — the look after the store 
       const call = execute(a, YieldOneWorkflowStart, item("gate"), { threadId: "thread-a" });
       await until(() => yieldSeen.runs.length === 1, "the child at its gate on B");
       const child = childOf(b);
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(1));
       await settle();
 
@@ -107,7 +107,7 @@ describe("#520 acceptance: the finish never landed — the look after the store 
       );
       // B's finish was only a release: the key is free to A's frozen ask
       expect(leaseRowOf(b, child.executionId)?.isFinished).toBeUndefined();
-      leases.resume(a);
+      leases.thaw(a);
       const done = await call;
       await settle();
 
@@ -128,14 +128,14 @@ describe("#520 acceptance: the root's window — the sweep's ask given the lease
       const [a, b] = await bothReady(apps);
       const call = execute(a, YieldCheckWorkflowStart, item("gate"));
       await until(() => yieldSeen.runs.length === 1, "the root's step at its gate on A");
-      leases.stall(b);
+      leases.freeze(b);
       // A is live meanwhile: its renewals reach the store in time (#534)
       await passLive(clock, seconds(30));
       await settle();
 
       openGate();
       const done = await call;
-      leases.resume(b);
+      leases.thaw(b);
       await settle();
       await passLive(clock, seconds(30));
       await settle();
@@ -162,7 +162,7 @@ describe("#520 acceptance: a compensated child — undone, then failed — is no
       const call = execute(a, UndoOneWorkflowStart, item("gate", "fail"), { threadId: "thread-a" });
       await until(() => yieldSeen.runs.length === 1, "the child at its gate on B");
       const child = childOf(b);
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(1));
       await settle();
 
@@ -171,7 +171,7 @@ describe("#520 acceptance: a compensated child — undone, then failed — is no
         () => statusOf(b, child) === ExecutionRecordStatus.Failed,
         "the child failed on B",
       );
-      leases.resume(a);
+      leases.thaw(a);
       const error = await rejectionOf(call);
       await settle();
 

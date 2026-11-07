@@ -25,8 +25,8 @@ import {
 } from "../../src/infrastructure/outbound-call.repository.js";
 import { outboundLeaseRaceCases } from "../../src/testing/contracts/outbound-call-lease.cases.js";
 import { outboundRaceCases } from "../../src/testing/contracts/outbound-call-race.cases.js";
-import type { OutboundCallStores } from "../../src/testing/contracts/index.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import type { OutboundCallTarget } from "../../src/testing/contracts/index.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 import { inMemoryTarget, type StoreFactory } from "./contracts/store-kinds.js";
 
 /** One real millisecond: the gap a network round trip leaves between a read and a write. */
@@ -50,7 +50,7 @@ type Lock = <T>(key: EffectKey, work: () => Promise<T>) => Promise<T>;
 
 /** A store that reads fenced, waits, then writes by row — no state, no fence at the write. */
 const naive =
-  (lock: Lock): StoreFactory<OutboundCallStores> =>
+  (lock: Lock): StoreFactory<OutboundCallTarget> =>
   (seam) => {
     const leases = new InMemoryExecutionLeaseRepository(
       seam.storeClock,
@@ -100,7 +100,7 @@ const naive =
  * A store whose `leaseStateOf` is a SELECT, a round trip, then the close as a conditional UPDATE —
  * `LeaseClosed` whatever the UPDATE matched: a renewal landing between them is missed.
  */
-const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
+const naiveLeaseState: StoreFactory<OutboundCallTarget> = (seam) => {
   const leases = new InMemoryExecutionLeaseRepository(
     seam.storeClock,
     seam.application,
@@ -130,7 +130,7 @@ const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
 
 const unlocked: Lock = (_key, work) => work();
 
-const core: StoreFactory<OutboundCallStores> = (seam) => {
+const core: StoreFactory<OutboundCallTarget> = (seam) => {
   const leases = new InMemoryExecutionLeaseRepository(
     seam.storeClock,
     seam.application,
@@ -143,7 +143,7 @@ const core: StoreFactory<OutboundCallStores> = (seam) => {
 };
 
 /** Whether the race case named like `pattern` fails on the stores `make` builds. */
-async function failsOn(make: StoreFactory<OutboundCallStores>, pattern: RegExp): Promise<boolean> {
+async function failsOn(make: StoreFactory<OutboundCallTarget>, pattern: RegExp): Promise<boolean> {
   const cases = [...outboundRaceCases().cases, ...outboundLeaseRaceCases().cases];
   const race = cases.find((contractCase) => pattern.test(contractCase.name));
   if (race === undefined) throw new Error(`no race case like ${String(pattern)}`);

@@ -9,7 +9,7 @@ import {
 } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import type {
   FencedEffectBusinessRows,
-  FencedEffectStores,
+  FencedEffectTarget,
 } from "../../../src/testing/contracts/index.js";
 import { sharedInMemory, type InstanceSeam, type StoreFactory } from "./store-kinds.js";
 
@@ -40,7 +40,7 @@ function inMemoryRowsOf(committed: string[], isAsync: boolean): InMemoryRows {
 
 /** The in-memory store over the test's database; `isAsync` → its writes wait before inserting. */
 export const inMemoryFencedEffects =
-  (isAsync: boolean): StoreFactory<FencedEffectStores<InMemoryFencedEffectTransaction>> =>
+  (isAsync: boolean): StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>> =>
   (seam: InstanceSeam) => {
     const leases = new InMemoryExecutionLeaseRepository(
       seam.storeClock,
@@ -62,7 +62,7 @@ export const inMemoryFencedEffects =
 const BUSINESS_ROWS = "CREATE TABLE IF NOT EXISTS contract_rows (row TEXT NOT NULL)";
 
 /** The SQLite store on this instance's connection to the test's file, with its lease store. */
-export const sqliteFencedEffects: StoreFactory<FencedEffectStores<DatabaseSync>> = (seam) => {
+export const sqliteFencedEffects: StoreFactory<FencedEffectTarget<DatabaseSync>> = (seam) => {
   const connection = seam.connection();
   connection.ensureSchema("contract_rows", BUSINESS_ROWS);
   return {

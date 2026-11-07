@@ -18,7 +18,7 @@ import type {
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { ClockSkew, SkewedClock } from "../../../src/testing/clock-skew.js";
-import type { ContractTarget } from "../../../src/testing/contracts/seam.js";
+import type { ContractTarget } from "../../../src/testing/contracts/instance-context.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 
 /** Whose clock the store decides expiry by. */

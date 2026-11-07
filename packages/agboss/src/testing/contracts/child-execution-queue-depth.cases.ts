@@ -6,7 +6,7 @@ import type {
 } from "../../infrastructure/child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 import { queuedChild as child } from "./queued-child.js";
 
 /**

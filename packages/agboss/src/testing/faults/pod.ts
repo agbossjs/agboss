@@ -34,7 +34,7 @@ export const POD_WAIT: Milliseconds = seconds(120);
 export interface PodLaunch {
   readonly name: string;
   /** The store set's module. */
-  readonly stores: string;
+  readonly storesModule: string;
   /** The database's address for this pod. */
   readonly databaseUrl: string;
   readonly timeScale: number;
@@ -196,7 +196,7 @@ export class FaultPod {
   }
 
   /** SIGTERM: the platform stops the pod; it drains as `app.close()` does. */
-  term(): void {
+  terminate(): void {
     this.child.kill("SIGTERM");
   }
 
@@ -206,13 +206,13 @@ export class FaultPod {
     return this.exited;
   }
 
-  /** SIGSTOP: frozen where it is — no timer, no renewal, no write — until `cont`. */
-  stop(): void {
+  /** SIGSTOP: frozen where it is — no timer, no renewal, no write — until `thaw`. */
+  freeze(): void {
     this.child.kill("SIGSTOP");
   }
 
   /** SIGCONT: it runs on from where it froze, its timers late. */
-  cont(): void {
+  thaw(): void {
     this.child.kill("SIGCONT");
   }
 
@@ -226,7 +226,7 @@ export class FaultPod {
 const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
   ...process.env,
   [POD_VARIABLES.name]: launch.name,
-  [POD_VARIABLES.stores]: launch.stores,
+  [POD_VARIABLES.stores]: launch.storesModule,
   [POD_VARIABLES.database]: launch.databaseUrl,
   [POD_VARIABLES.shutdownTimeout]: launch.shutdownTimeout?.toString() ?? "",
   [POD_VARIABLES.maxConcurrentSteps]: launch.maxConcurrentSteps?.toString() ?? "",

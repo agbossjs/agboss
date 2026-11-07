@@ -1,7 +1,7 @@
 /**
  * #533 item 1, AC1: the interleaving explorer catches each naive fencing store with a printed
  * minimal schedule (tests/fixtures/contracts/explorer-broken-stores.ts, run by
- * explorer-bites.contract-fixture.ts in a vitest of its own): the invariant each one breaks is named
+ * explorer-sabotage.contract-fixture.ts in a vitest of its own): the invariant each one breaks is named
  * in a failing case of its `interleavings (<name>)` suite, and a broken compare-and-set or finish
  * fails the race that forces its two orders (AC7). The core's own sets pass the same cases
  * (tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts).
@@ -9,7 +9,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
-const FIXTURE = "explorer-bites.contract-fixture.ts";
+const FIXTURE = "explorer-sabotage.contract-fixture.ts";
 
 let run: FixtureRun;
 

@@ -27,7 +27,7 @@ import { SqliteMeshRequestRepository } from "../../../src/infrastructure/sqlite/
 import { SqliteA2ATaskRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { SqliteRateLimitRepository } from "../../../src/infrastructure/sqlite/sqlite-rate-limit.repository.js";
-import type { ConformanceStores } from "../../../src/testing/contracts/index.js";
+import type { StoreSet } from "../../../src/testing/contracts/index.js";
 import { inMemoryFencedEffects, sqliteFencedEffects } from "./fenced-effect-stores.js";
 import { inMemoryOutboundCalls, sqliteOutboundCalls } from "./outbound-call-stores.js";
 import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
@@ -39,7 +39,7 @@ import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
  */
 
 /** Every in-memory store of the core. */
-export const inMemoryStores = (): ConformanceStores<InMemoryFencedEffectTransaction> => ({
+export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => ({
   a2aTask: inMemoryTarget(({ database }) => new InMemoryA2ATaskRepository(database)),
   checkpointSaver: inMemoryTarget((seam) =>
     sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
@@ -82,7 +82,7 @@ export const inMemoryStores = (): ConformanceStores<InMemoryFencedEffectTransact
 });
 
 /** Every SQLite store of the core. */
-export const sqliteStores = (): ConformanceStores<DatabaseSync> => ({
+export const sqliteStores = (): StoreSet<DatabaseSync> => ({
   a2aTask: sqliteTarget(({ connection }) => new SqliteA2ATaskRepository(connection())),
   checkpointSaver: sqliteTarget(({ connection }) => new SqliteCheckpointSaver(connection())),
   childExecutionQueue: sqliteTarget(

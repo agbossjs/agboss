@@ -9,12 +9,12 @@ import {
 import type { ContractCase } from "./define.js";
 
 /**
- * The seam of the outbound-call contract (#505): one instance's outbound-call store and the lease
+ * The target of the outbound-call contract (#505): one instance's outbound-call store and the lease
  * store of its database, whose leases it checks — and the data of the cases.
  */
 
 /** One instance's stores on the backing database. */
-export interface OutboundCallStores {
+export interface OutboundCallTarget {
   /** The store under test. */
   readonly calls: OutboundCallRepository;
   /** The lease store of the same database: the cases take and release leases in it. */
@@ -22,7 +22,7 @@ export interface OutboundCallStores {
 }
 
 /** One case of the contract. */
-export type OutboundCallCase = ContractCase<OutboundCallStores>;
+export type OutboundCallCase = ContractCase<OutboundCallTarget>;
 
 /** The intent of `key`'s call, about to be sent for the first time. */
 export const intentOf = (
@@ -44,7 +44,7 @@ export const intentOf = (
 
 /** Records `key`'s intent through `stores`; a case fails when the key had one. */
 export async function recorded(
-  stores: OutboundCallStores,
+  stores: OutboundCallTarget,
   key: EffectKey,
   overrides: Partial<OutboundCallIntent> = {},
 ): Promise<void> {
@@ -60,7 +60,7 @@ const MAX_PAGES = 100;
  * (none: the first) — the listing as a reader that follows `next` sees it.
  */
 export async function listedOf(
-  stores: OutboundCallStores,
+  stores: OutboundCallTarget,
   status: OutboundCallStatus = OutboundCallStatus.Pending,
   tenantId = "default",
   limit = 1000,

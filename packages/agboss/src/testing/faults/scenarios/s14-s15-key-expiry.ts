@@ -1,7 +1,7 @@
 import { FaultStepPoint } from "../fixture/pod-link.js";
 import { FaultPayment } from "../pod-protocol.js";
-import type { FaultScenario } from "../scenario.js";
-import type { FaultWorld } from "../world.js";
+import type { RunnableFaultScenario } from "../scenario.js";
+import type { FaultCluster } from "../cluster.js";
 import type { FaultPod } from "../pod.js";
 import {
   endedOn,
@@ -26,89 +26,93 @@ import {
  */
 
 /** 14 with `payment`: the default, or the sabotage that takes every error for a definite one. */
-async function ambiguousAnswer(world: FaultWorld, payment: FaultPayment): Promise<FaultPod> {
-  const a = await world.pod("a");
-  const b = await world.pod("b");
-  world.gateway.dropAnswer("o-14");
+async function ambiguousAnswer(cluster: FaultCluster, payment: FaultPayment): Promise<FaultPod> {
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
+  cluster.gateway.dropAnswer("o-14");
   await holdStep(a, FaultStepPoint.Release, "o-14");
-  const failed = await startOrder(world, a, "o-14", { fails: true, payment });
-  await heldStep(world, a, FaultStepPoint.Release, "o-14");
+  const failed = await startOrder(cluster, a, "o-14", { fails: true, payment });
+  await heldStep(cluster, a, FaultStepPoint.Release, "o-14");
   await a.kill();
-  await takenOverBy(world, b, failed.rootExecutionId);
-  const end = await world.ended(failed.rootExecutionId);
+  await takenOverBy(cluster, b, failed.rootExecutionId);
+  const end = await cluster.ended(failed.rootExecutionId);
   expectThat(
-    world,
+    cluster,
     end.type === "failed" && end.pod === "b",
     `the tree whose answer was lost ${end.type === "failed" ? "failed" : "ended"} on ${end.pod}`,
   );
-  world.gateway.forgetKeys();
-  const again = await startOrder(world, b, "o-14", { payment });
-  await endedOn(world, again.rootExecutionId, b);
-  const paid = eventsOf(world, "paid").map((event) => `${event.pod}:${String(event.status)}`);
-  expectThat(world, paid.join() === "b:reconciled", `the payment's outcomes: ${paid.join(", ")}`);
+  cluster.gateway.forgetKeys();
+  const again = await startOrder(cluster, b, "o-14", { payment });
+  await endedOn(cluster, again.rootExecutionId, b);
+  const paid = eventsOf(cluster, "paid").map((event) => `${event.pod}:${String(event.status)}`);
+  expectThat(cluster, paid.join() === "b:reconciled", `the payment's outcomes: ${paid.join(", ")}`);
   return b;
 }
 
-export const s14AmbiguousAnswer: FaultScenario = {
+export const s14AmbiguousAnswer: RunnableFaultScenario = {
   id: "s14-ambiguous-answer-reconciled",
   title:
     "14: the gateway charged and its answer was lost; killed in the undo, the key forgotten, the order paid again — reconciled, one payment",
-  run: (world) => ambiguousAnswer(world, FaultPayment.Lookup),
+  run: (cluster) => ambiguousAnswer(cluster, FaultPayment.Lookup),
 };
 
 /** 14's sabotage (#657 AC2): every error a definite failure, as before #657 — resent, two payments. */
-export const s14EveryErrorDefinite: FaultScenario = {
+export const s14EveryErrorDefinite: RunnableFaultScenario = {
   id: "s14-sabotage-every-error-definite",
   title: "14, sabotaged: every gateway error taken for a definite failure",
-  run: (world) => ambiguousAnswer(world, FaultPayment.EveryErrorDefinite),
+  run: (cluster) => ambiguousAnswer(cluster, FaultPayment.EveryErrorDefinite),
 };
 
 /** 15 with `payment`: the key's retention declared, or the sabotage that declares none. */
-async function keyExpired(world: FaultWorld, payment: FaultPayment): Promise<FaultPod> {
-  const a = await world.pod("a");
-  const b = await world.pod("b");
-  world.gateway.holdAnswer("o-15");
-  const reached = world.gateway.answerHeld("o-15");
-  const order = await startOrder(world, a, "o-15", { fails: true, payment });
+async function keyExpired(cluster: FaultCluster, payment: FaultPayment): Promise<FaultPod> {
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
+  cluster.gateway.holdAnswer("o-15");
+  const reached = cluster.gateway.answerHeld("o-15");
+  const order = await startOrder(cluster, a, "o-15", { fails: true, payment });
   await reached;
   await a.kill();
-  world.gateway.forgetKeys();
-  await takenOverBy(world, b, order.rootExecutionId);
-  const end = await world.ended(order.rootExecutionId);
+  cluster.gateway.forgetKeys();
+  await takenOverBy(cluster, b, order.rootExecutionId);
+  const end = await cluster.ended(order.rootExecutionId);
   expectThat(
-    world,
+    cluster,
     end.type === "failed" && end.pod === "b",
     `the tree whose key expired ${end.type === "failed" ? "failed" : "ended"} on ${end.pod}`,
   );
-  const told = eventsOf(world, "reconciling").map(
+  const told = eventsOf(cluster, "reconciling").map(
     (event) =>
       `${event.pod}:${String(event.attempt)}:${typeof event.keyAge}:${typeof event.attemptStartedAt}`,
   );
-  expectThat(world, told.join() === "b:1:number:string", `reconcile was told: ${told.join(", ")}`);
-  const failed = eventsOf(world, "pay-failed").map(
+  expectThat(
+    cluster,
+    told.join() === "b:1:number:string",
+    `reconcile was told: ${told.join(", ")}`,
+  );
+  const failed = eventsOf(cluster, "pay-failed").map(
     (event) => `${event.pod}:${String(event.error)}`,
   );
   expectThat(
-    world,
+    cluster,
     failed.join() === "b:OutboundCallUnreconciledError",
     `the payment failed: ${failed.join(", ")}`,
   );
   return b;
 }
 
-export const s15KeyExpired: FaultScenario = {
+export const s15KeyExpired: RunnableFaultScenario = {
   id: "s15-key-expired-not-resent",
   title:
     "15: killed with the answer in flight on a gateway with no lookup, the key expired — the next pod is told its age and sends nothing",
-  run: (world) => keyExpired(world, FaultPayment.ReplayOnly),
+  run: (cluster) => keyExpired(cluster, FaultPayment.ReplayOnly),
 };
 
 /**
  * 15's sabotage (#658, #795): the replay trusted as a lookup (`NotSentTrust.Lookup`, no retention) —
  * the replay of an expired key is a new charge, two payments.
  */
-export const s15TrustedAsLookup: FaultScenario = {
+export const s15TrustedAsLookup: RunnableFaultScenario = {
   id: "s15-sabotage-replay-trusted-as-lookup",
   title: "15, sabotaged: the gateway's key replay trusted as a lookup",
-  run: (world) => keyExpired(world, FaultPayment.ReplayOnlyTrustedAsLookup),
+  run: (cluster) => keyExpired(cluster, FaultPayment.ReplayOnlyTrustedAsLookup),
 };

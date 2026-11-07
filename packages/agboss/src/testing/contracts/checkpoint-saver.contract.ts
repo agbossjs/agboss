@@ -4,7 +4,7 @@ import { expect } from "vitest";
 import { pingCheckpointSaver } from "../../health/readiness-checks.js";
 import { registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** The options `list` takes. */
 type ListOptions = Parameters<BaseCheckpointSaver["list"]>[1];

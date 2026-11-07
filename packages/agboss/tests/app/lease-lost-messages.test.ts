@@ -18,9 +18,9 @@ import { seconds } from "../../src/units/index.js";
 import {
   keyOf,
   leaseOf,
-  type FencedEffectStores,
+  type FencedEffectTarget,
 } from "../../src/testing/contracts/fenced-effect-data.js";
-import { withTarget, type ContractTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget, type ContractTarget } from "../../src/testing/contracts/instance-context.js";
 import {
   inMemoryFencedEffects,
   sqliteFencedEffects,
@@ -64,7 +64,7 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
   });
 });
 
-type AnyStores = FencedEffectStores<unknown>;
+type AnyStores = FencedEffectTarget<unknown>;
 
 const TARGETS: readonly (readonly [string, () => ContractTarget<AnyStores>])[] = [
   ["in-memory", () => inMemoryTarget(inMemoryFencedEffects(false))],

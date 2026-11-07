@@ -50,7 +50,7 @@ export enum FaultStoreTime {
 }
 
 /** What a store set's module exports as `faultStores`. */
-export interface FaultStores<TTransaction = unknown> {
+export interface FaultStoreSet<TTransaction = unknown> {
   /**
    * Every store class, as `@Application({ providers })` lists them: the lease, fenced-effect,
    * outbound-call, lease-log, record, tree, history, child-queue and paused stores and the
@@ -73,11 +73,6 @@ export const FAULT_BUSINESS_ROWS = new InjectionToken<FaultBusinessRows>("fault-
 /** The name of the export a store set's module gives. */
 export const FAULT_STORES_EXPORT = "faultStores";
 
-/** Typed `faultStores` (a store set's module: `export const faultStores = defineFaultStores({ … })`). */
-export const defineFaultStores = <TTransaction>(
-  stores: FaultStores<TTransaction>,
-): FaultStores<TTransaction> => stores;
-
 /** A store set whose `storeTime` is missing or unknown (#799): its pods do not start. */
 export class FaultStoreTimeError extends Error {
   override name = "FaultStoreTimeError";
@@ -90,7 +85,7 @@ export class FaultStoreTimeError extends Error {
 }
 
 /** The set's declared store time; `FaultStoreTimeError` for none or an unknown one. */
-export function storeTimeOf(stores: FaultStores): FaultStoreTime {
+export function storeTimeOf(stores: FaultStoreSet): FaultStoreTime {
   const given: unknown = Reflect.get(stores, "storeTime");
   if (given === FaultStoreTime.Database || given === FaultStoreTime.Host) return given;
   throw new FaultStoreTimeError(given);
@@ -108,5 +103,5 @@ export const storeTimeScaleOf = (storeTime: FaultStoreTime, timeScale: number): 
  * `LeaseCheck.WithoutDoubleChargeProtection`): a set with any protects no payment, whatever its
  * scenarios show.
  */
-export const optedOutStoresOf = (stores: FaultStores): readonly string[] =>
+export const optedOutStoresOf = (stores: FaultStoreSet): readonly string[] =>
   stores.providers.filter((store) => optsOutOfLeaseCheck(store)).map((store) => store.name);

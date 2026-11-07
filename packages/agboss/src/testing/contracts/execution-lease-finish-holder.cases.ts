@@ -17,7 +17,7 @@ import type { FrameworkLog } from "../../infrastructure/logger.js";
 import { seconds } from "../../units/index.js";
 import type { VirtualClock } from "../clock.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 
 /** What each case below gets. */

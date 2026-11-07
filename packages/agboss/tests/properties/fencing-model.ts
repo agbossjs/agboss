@@ -14,7 +14,7 @@ import { effectKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.
 import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
 import { TEST_START, VirtualClock } from "../../src/testing/clock.js";
-import type { ContractTarget, OutboundCallStores } from "../../src/testing/contracts/index.js";
+import type { ContractTarget, OutboundCallTarget } from "../../src/testing/contracts/index.js";
 import {
   callClaimed,
   callEnded,
@@ -100,7 +100,7 @@ export const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
 /** The live world of one run: its clock, the two instances' stores, their leases, the model. */
 export interface PropertyWorld {
   readonly clock: VirtualClock;
-  readonly stores: readonly OutboundCallStores[];
+  readonly stores: readonly OutboundCallTarget[];
   readonly leases: Map<number, ExecutionLease>;
   state: FencingState;
 }
@@ -134,7 +134,7 @@ export async function instancesOn<TStore>(
 }
 
 /** A new world on `target`: reset, two instances built on the run's clock. */
-export async function worldOn(target: ContractTarget<OutboundCallStores>): Promise<PropertyWorld> {
+export async function worldOn(target: ContractTarget<OutboundCallTarget>): Promise<PropertyWorld> {
   const { clock, stores } = await instancesOn(target);
   return { clock, stores, leases: new Map(), state: EMPTY_FENCING_STATE };
 }
@@ -302,7 +302,7 @@ export async function ran(
 
 /** The first command whose store answer is not the model's, or nothing. */
 export async function firstDifference(
-  target: ContractTarget<OutboundCallStores>,
+  target: ContractTarget<OutboundCallTarget>,
   commands: readonly Command[],
 ): Promise<string | undefined> {
   const world = await worldOn(target);

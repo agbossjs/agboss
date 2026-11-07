@@ -145,10 +145,10 @@ export function callTool<TRole extends QuestionRoleClass>(role: TRole, args: NoI
 export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(...calls: TCalls): ToolCallsTurn<TCalls[number]["tool"]>;
 
 // @public
-export function callToolWithInvalidArguments<TInput extends object>(tool: ToolClass<TInput>, args: InvalidFields): InvalidToolCallTurn;
+export function callToolWithInvalidArguments<TTool extends ToolClass<never>>(tool: TTool, args: InvalidFields): InvalidToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 
 // @public
-export function callToolWithTruncatedArguments<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<DeepPartial<TInput>>): TruncatedToolCallTurn;
+export function callToolWithTruncatedArguments<TTool extends ToolClass<never>>(tool: TTool, args: NoInfer<DeepPartial<ToolInputOf_2<InstanceType<TTool>>>>): TruncatedToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 
 // @public
 export enum CassetteChange {
@@ -195,7 +195,7 @@ export class ClockSkew {
     andDrift(rate: number): ClockSkew;
     static behind(by: Milliseconds): ClockSkew;
     readonly drift: number;
-    static drift(rate: number): ClockSkew;
+    static drifting(rate: number): ClockSkew;
     static readonly none: ClockSkew;
     readonly offset: number;
 }
@@ -397,8 +397,8 @@ export interface FakeGatewayReceipt {
 }
 
 // @public (undocumented)
-export class FakeOutboundGateway {
-    constructor(options: FakeOutboundGatewayOptions);
+export class FakePaymentGateway {
+    constructor(options: FakePaymentGatewayOptions);
     // (undocumented)
     readonly capabilities: FakeGatewayCapabilities;
     charge(request: FakeGatewayCharge): Promise<FakeGatewayReceipt>;
@@ -408,7 +408,7 @@ export class FakeOutboundGateway {
 }
 
 // @public
-export interface FakeOutboundGatewayOptions {
+export interface FakePaymentGatewayOptions {
     // (undocumented)
     readonly capabilities?: Partial<FakeGatewayCapabilities>;
     // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
@@ -517,13 +517,12 @@ export interface InvalidAnswerTurn<TValue = unknown, TIsList extends boolean = b
 export type InvalidFields = Readonly<Record<string, unknown>>;
 
 // @public
-export interface InvalidToolCallTurn {
+export interface InvalidToolCallTurn<TName extends string = string> {
     // (undocumented)
     readonly args: Readonly<Record<string, unknown>>;
     // (undocumented)
     readonly kind: "invalid-tool-call";
-    // (undocumented)
-    readonly tool: string;
+    readonly tool: TName;
 }
 
 // @public
@@ -630,18 +629,6 @@ export interface OrderedStep {
 }
 
 // @public
-export function outboundGatewayChecklist(options: OutboundGatewayChecklistOptions): Promise<GatewayChecklistReport>;
-
-// @public
-export interface OutboundGatewayChecklistOptions {
-    readonly clock?: GatewayChecklistClock;
-    readonly keyPrefix?: string;
-    readonly lookup?: (idempotencyKey: string) => Promise<GatewayProbeReceipt | undefined>;
-    readonly requiredRetention?: Milliseconds;
-    readonly send: (charge: GatewayProbeCharge) => Promise<GatewayProbeReceipt>;
-}
-
-// @public
 export interface Override {
     // (undocumented)
     readonly replacement: Class;
@@ -665,6 +652,18 @@ export function override<T>(token: Class<T>, replacement: Class<T>): Override;
 export type PartialValues<TInput> = TInput extends GeneratedTypeError ? never : TInput extends unknown ? {
     readonly [TKey in keyof TInput]?: FieldPartial<TInput[TKey]>;
 } : never;
+
+// @public
+export function paymentGatewayChecklist(options: PaymentGatewayChecklistOptions): Promise<GatewayChecklistReport>;
+
+// @public
+export interface PaymentGatewayChecklistOptions {
+    readonly clock?: GatewayChecklistClock;
+    readonly keyPrefix?: string;
+    readonly lookup?: (idempotencyKey: string) => Promise<GatewayProbeReceipt | undefined>;
+    readonly requiredRetention?: Milliseconds;
+    readonly send: (charge: GatewayProbeCharge) => Promise<GatewayProbeReceipt>;
+}
 
 // @public
 export interface PiiRunner extends UnitClock {
@@ -960,7 +959,7 @@ export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted"
 // @public
 export interface TestFenceOptions {
     readonly confirmedUntil?: Date;
-    readonly confirmNowFails?: true | Error;
+    readonly confirmNowFails?: boolean | Error;
     readonly isLost?: boolean;
     readonly leaseExecutionId?: string;
     readonly token?: number;
@@ -968,6 +967,12 @@ export interface TestFenceOptions {
 
 // @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
+
+// @public
+export interface TestInstanceOptions {
+    readonly clockSkew?: ClockSkew;
+    readonly meterProvider?: MeterProvider;
+}
 
 // Warning: (ae-forgotten-export) The symbol "JudgeHandlerClass" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "JudgeReplyOf" needs to be exported by the entry point index.d.ts
@@ -977,8 +982,8 @@ export function testJudge<TJudge extends JudgeHandlerClass, TExecution extends E
 
 // @public
 export interface TestLeases {
-    resume(app: object): void;
-    stall(app: object): void;
+    freeze(app: TestApp): void;
+    thaw(app: TestApp): void;
 }
 
 // @public
@@ -1044,10 +1049,8 @@ export function testWith<TApplication extends Class>(application: ApplicationCla
 // @public
 export interface TestWithOptions extends EnvironmentSelection {
     readonly allowNetwork?: readonly string[];
-    readonly clockSkews?: readonly ClockSkew[];
     readonly concurrency?: TestConcurrency;
-    readonly instances?: number;
-    readonly meterProviders?: readonly MeterProvider[];
+    readonly instances?: number | readonly TestInstanceOptions[];
     readonly overrides?: readonly Override[];
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;
@@ -1153,12 +1156,11 @@ export interface ToolSlice<TInput, TOutput> {
 }
 
 // @public
-export interface TruncatedToolCallTurn {
+export interface TruncatedToolCallTurn<TName extends string = string> {
     // (undocumented)
     readonly kind: "truncated-tool-call";
     readonly text: string;
-    // (undocumented)
-    readonly tool: string;
+    readonly tool: TName;
 }
 
 // Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
@@ -1349,36 +1351,36 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:133:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/execution-context.ts:134:3 - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts:152:3 - (ae-undocumented) Missing documentation for "application".
-// src/testing/gateway/fake-outbound-gateway.ts:46:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/fake-outbound-gateway.ts:47:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-outbound-gateway.ts:54:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-outbound-gateway.ts:55:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/fake-outbound-gateway.ts:60:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/fake-outbound-gateway.ts:61:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/fake-outbound-gateway.ts:62:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-outbound-gateway.ts:65:3 - (ae-undocumented) Missing documentation for "firstReceipt".
-// src/testing/gateway/fake-outbound-gateway.ts:70:3 - (ae-undocumented) Missing documentation for "times".
-// src/testing/gateway/fake-outbound-gateway.ts:71:3 - (ae-undocumented) Missing documentation for "delay".
-// src/testing/gateway/fake-outbound-gateway.ts:76:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/gateway/fake-outbound-gateway.ts:77:3 - (ae-undocumented) Missing documentation for "capabilities".
-// src/testing/gateway/fake-outbound-gateway.ts:98:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/gateway/fake-outbound-gateway.ts:99:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/gateway/fake-outbound-gateway.ts:100:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/gateway/fake-outbound-gateway.ts:103:5 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/gateway/fake-outbound-gateway.ts:116:1 - (ae-undocumented) Missing documentation for "FakeOutboundGateway".
-// src/testing/gateway/fake-outbound-gateway.ts:117:3 - (ae-undocumented) Missing documentation for "capabilities".
-// src/testing/gateway/outbound-gateway-checklist.ts:25:1 - (ae-undocumented) Missing documentation for "GatewayCheckStatus".
-// src/testing/gateway/outbound-gateway-checklist.ts:26:3 - (ae-undocumented) Missing documentation for "Passed".
-// src/testing/gateway/outbound-gateway-checklist.ts:27:3 - (ae-undocumented) Missing documentation for "Failed".
-// src/testing/gateway/outbound-gateway-checklist.ts:34:3 - (ae-undocumented) Missing documentation for "requirement".
-// src/testing/gateway/outbound-gateway-checklist.ts:35:3 - (ae-undocumented) Missing documentation for "status".
-// src/testing/gateway/outbound-gateway-checklist.ts:36:3 - (ae-undocumented) Missing documentation for "evidence".
-// src/testing/gateway/outbound-gateway-checklist.ts:41:3 - (ae-undocumented) Missing documentation for "results".
-// src/testing/gateway/outbound-gateway-checklist.ts:48:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/outbound-gateway-checklist.ts:49:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/outbound-gateway-checklist.ts:54:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/outbound-gateway-checklist.ts:59:3 - (ae-undocumented) Missing documentation for "advance".
-// src/testing/invalid-turns.ts:61:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
+// src/testing/gateway/fake-payment-gateway.ts:46:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-payment-gateway.ts:47:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:54:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:55:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-payment-gateway.ts:60:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-payment-gateway.ts:61:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-payment-gateway.ts:62:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:65:3 - (ae-undocumented) Missing documentation for "firstReceipt".
+// src/testing/gateway/fake-payment-gateway.ts:70:3 - (ae-undocumented) Missing documentation for "times".
+// src/testing/gateway/fake-payment-gateway.ts:71:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/gateway/fake-payment-gateway.ts:76:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/gateway/fake-payment-gateway.ts:77:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/fake-payment-gateway.ts:98:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/gateway/fake-payment-gateway.ts:99:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/gateway/fake-payment-gateway.ts:100:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/gateway/fake-payment-gateway.ts:103:5 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/gateway/fake-payment-gateway.ts:116:1 - (ae-undocumented) Missing documentation for "FakePaymentGateway".
+// src/testing/gateway/fake-payment-gateway.ts:117:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/payment-gateway-checklist.ts:25:1 - (ae-undocumented) Missing documentation for "GatewayCheckStatus".
+// src/testing/gateway/payment-gateway-checklist.ts:26:3 - (ae-undocumented) Missing documentation for "Passed".
+// src/testing/gateway/payment-gateway-checklist.ts:27:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/testing/gateway/payment-gateway-checklist.ts:34:3 - (ae-undocumented) Missing documentation for "requirement".
+// src/testing/gateway/payment-gateway-checklist.ts:35:3 - (ae-undocumented) Missing documentation for "status".
+// src/testing/gateway/payment-gateway-checklist.ts:36:3 - (ae-undocumented) Missing documentation for "evidence".
+// src/testing/gateway/payment-gateway-checklist.ts:41:3 - (ae-undocumented) Missing documentation for "results".
+// src/testing/gateway/payment-gateway-checklist.ts:48:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/payment-gateway-checklist.ts:49:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/payment-gateway-checklist.ts:54:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/payment-gateway-checklist.ts:59:3 - (ae-undocumented) Missing documentation for "advance".
+// src/testing/invalid-turns.ts:64:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
@@ -1425,25 +1427,23 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:79:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/turns.ts:80:3 - (ae-undocumented) Missing documentation for "calls".
 // src/testing/turns.ts:88:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:89:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/turns.ts:90:3 - (ae-undocumented) Missing documentation for "args".
-// src/testing/turns.ts:98:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:99:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/turns.ts:109:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:110:3 - (ae-undocumented) Missing documentation for "dto".
-// src/testing/turns.ts:113:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:114:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
-// src/testing/turns.ts:119:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:120:3 - (ae-undocumented) Missing documentation for "targets".
-// src/testing/turns.ts:121:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:122:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
-// src/testing/turns.ts:127:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:128:3 - (ae-undocumented) Missing documentation for "answers".
-// src/testing/turns.ts:129:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:134:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:135:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/turns.ts:145:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:146:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/turns.ts:91:3 - (ae-undocumented) Missing documentation for "args".
+// src/testing/turns.ts:99:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:111:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:112:3 - (ae-undocumented) Missing documentation for "dto".
+// src/testing/turns.ts:115:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:116:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
+// src/testing/turns.ts:121:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:122:3 - (ae-undocumented) Missing documentation for "targets".
+// src/testing/turns.ts:123:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:124:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
+// src/testing/turns.ts:129:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:130:3 - (ae-undocumented) Missing documentation for "answers".
+// src/testing/turns.ts:131:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:136:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:137:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/turns.ts:147:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:148:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".

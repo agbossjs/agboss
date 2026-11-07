@@ -9,7 +9,7 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
@@ -21,7 +21,7 @@ import {
  */
 const writeAt = <TTransaction>(
   edge: ExpiryEdge,
-): ContractCase<FencedEffectStores<TTransaction>> => {
+): ContractCase<FencedEffectTarget<TTransaction>> => {
   const isRun = edge === ExpiryEdge.Before;
   return {
     name: `#534: a fenced write ${edge}, the lease not taken meanwhile, ${isRun ? "runs" : "is refused: nothing run, the key left for the next holder"}`,
@@ -66,7 +66,7 @@ const FIRST_WRITE_AT = seconds(29.998);
  */
 const replayAt = <TTransaction>(
   edge: ExpiryEdge,
-): ContractCase<FencedEffectStores<TTransaction>> => {
+): ContractCase<FencedEffectTarget<TTransaction>> => {
   const isReplayed = edge === ExpiryEdge.Before;
   return {
     name: `#534: a written key asked again by its holder ${edge} is ${isReplayed ? "Replayed" : "refused before the key is read: no replay past the lease"}`,
@@ -94,7 +94,7 @@ const replayAt = <TTransaction>(
 };
 
 /** A fenced write against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
-export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "the lease's expiry",
   isFencing: true,
   cases: [

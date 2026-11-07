@@ -625,7 +625,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
 - `@agboss/core/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
   `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers;
-  `+ @agboss/core/testing/vitest`: `agbossTest()`, the vitest preset)
+  `+ @agboss/core/testing/vitest`: `agbossVitest()`, the vitest preset)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
@@ -960,13 +960,13 @@ one choice question over the routes, options sorted so declaration order never c
 
 ## Testing
 
-A project's `vitest.config.ts` wraps its `test` options in `agbossTest()` (`@agboss/core/testing/vitest`, #497):
+A project's `vitest.config.ts` wraps its `test` options in `agbossVitest()` (`@agboss/core/testing/vitest`, #497):
 
 ```ts file=vitest.config.ts
 import { defineConfig } from "vitest/config";
-import { agbossTest } from "@agboss/core/testing/vitest";
+import { agbossVitest } from "@agboss/core/testing/vitest";
 
-export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
+export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts"] }) });
 ```
 
 It loads AGBoss through vite, in the test's own module graph (`server.deps.inline` gains
@@ -975,7 +975,7 @@ the application `workflowOf(W)` finds next to `W`, its environments, eval suites
 without their decorators and as a second set of classes. It also registers the matchers (`setupFiles`
 gains `@agboss/core/testing/setup`, once). Your own `setupFiles` and `server.deps.inline` are merged,
 never replaced; every other option passes through. Without it, `workflowOf(W)` fails with
-`TestSetupError`: `the application of <workflow> was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`
+`TestSetupError`: `the application of <workflow> was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`
 (the original error as its `cause`). `agboss create` writes this config.
 
 `testWith(Application)` (`@agboss/core/testing`) runs the whole application in each test — its real
@@ -1466,7 +1466,7 @@ from the public API alone; a fenced effect's call (#500) is a `FencedEffect` row
 `onFencedEffect` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
 `ChildPlacement.AnyInstance` children each hold a lease (and a token) of their own. Exactly-once
 holds only when the external system checks both atomically. A test freezes a writer with
-`testWith(App, { instances: 2 })` and `leases.stall(apps[0])` on the `VirtualClock`; a unit runner's
+`testWith(App, { instances: 2 })` and `leases.freeze(apps[0])` on the `VirtualClock`; a unit runner's
 step has a held lease (`fence: { token, isLost, confirmNowFails }`).
 
 **The fenced effect** (#500) does all of that in one call, for rows in the store's own database —

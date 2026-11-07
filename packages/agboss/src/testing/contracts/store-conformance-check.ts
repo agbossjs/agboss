@@ -137,7 +137,7 @@ function interleavingProblemsOf(set: ClaimedSet): string[] {
   });
 }
 
-/** Every key of `stores`, one per contract with a suite (`ConformanceStores`). */
+/** Every key of `stores`, one per contract with a suite (`StoreSet`). */
 export const CONTRACTS: readonly string[] = [
   "a2aTask",
   "checkpointSaver",

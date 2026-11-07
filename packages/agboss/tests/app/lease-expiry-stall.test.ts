@@ -62,10 +62,10 @@ describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly"
     await app.ready();
     const call = execute(app, ChargeWorkflowStart, { text: "order-7" });
     await frozenRuns(1);
-    leases.stall(app);
+    leases.freeze(app);
     await clock.advance(seconds(28.999));
 
-    leases.resume(app);
+    leases.thaw(app);
     await settle();
     letAllGo();
     await call;
@@ -83,10 +83,10 @@ describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly"
       const call = execute(app, ChargeWorkflowStart, { text: "order-7" });
       call.catch(() => undefined);
       await frozenRuns(1);
-      leases.stall(app);
+      leases.freeze(app);
       await clock.advance(stall);
 
-      leases.resume(app);
+      leases.thaw(app);
       await settle();
       letAllGo();
       const error = await rejectionOf(call);

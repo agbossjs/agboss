@@ -47,14 +47,14 @@ const SKEWS: readonly (readonly [string, ClockSkew, boolean])[] = [
   ["a lease behind", ClockSkew.behind(by(1)), false],
   ["10 leases ahead", ClockSkew.ahead(by(10)), true],
   ["10 leases behind", ClockSkew.behind(by(10)), false],
-  ["1 % fast", ClockSkew.drift(0.01), false],
-  ["1 % slow", ClockSkew.drift(-0.01), false],
+  ["1 % fast", ClockSkew.drifting(0.01), false],
+  ["1 % slow", ClockSkew.drifting(-0.01), false],
 ];
 
 describe.each(SKEWS)("#533 AC4: the other instance's clock %s", (_, skew, bitesOnCallerClock) => {
-  const clockSkews = [ClockSkew.none, skew];
-  const onStoreClock = testWith(SkewChargeApplication, { instances: 2, clockSkews });
-  const onCallerClock = testWith(CallerClockChargeApplication, { instances: 2, clockSkews });
+  const instances = [{}, { clockSkew: skew }];
+  const onStoreClock = testWith(SkewChargeApplication, { instances });
+  const onCallerClock = testWith(CallerClockChargeApplication, { instances });
 
   /** A sends the charge; the provider holds it unseen for a minute while both instances run on. */
   const inFlightForAMinute = async (

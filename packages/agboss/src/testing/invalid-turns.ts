@@ -1,5 +1,6 @@
 import type { DtoClass } from "../dto/types.js";
-import { toolNameOf, type ToolClass } from "./script.js";
+import type { ToolNameOf } from "../flow/generated-types.js";
+import { toolNameOf, type ToolClass, type ToolInputOf } from "./script.js";
 import type { DeepPartial } from "./script-types.js";
 import type {
   AnswerDetails,
@@ -21,12 +22,13 @@ export type InvalidFields = Readonly<Record<string, unknown>>;
 /**
  * The model calls a tool with arguments its input check refuses:
  * `callToolWithInvalidArguments(LookupOrderTool, { orderId: 7 })` — the tool never runs, the call is
- * recorded `ToolCallStatus.InvalidArguments` and the model reads why.
+ * recorded `ToolCallStatus.InvalidArguments` and the model reads why. The turn carries the tool's
+ * name, as `callTool`'s does (#679, #831): a tool the agent does not list does not compile.
  */
-export function callToolWithInvalidArguments<TInput extends object>(
-  tool: ToolClass<TInput>,
+export function callToolWithInvalidArguments<TTool extends ToolClass<never>>(
+  tool: TTool,
   args: InvalidFields,
-): InvalidToolCallTurn {
+): InvalidToolCallTurn<ToolNameOf<InstanceType<TTool>>> {
   return { kind: "invalid-tool-call", tool: toolNameOf(tool), args: { ...args } };
 }
 
@@ -40,11 +42,12 @@ const cutJson = (args: object): string => {
  * The model's call is cut at its output limit (`finish_reason: "length"`), its arguments no JSON:
  * `callToolWithTruncatedArguments(LookupOrderTool, { orderId: "7" })` sends `{"orderId":"7` — the
  * provider's `invalid_tool_calls`, recorded `ToolCallStatus.InvalidArguments`; the tool never runs.
+ * Typed like `callTool` (#679, #831): the tool's name in the turn, its input's fields in `args`.
  */
-export function callToolWithTruncatedArguments<TInput extends object>(
-  tool: ToolClass<TInput>,
-  args: NoInfer<DeepPartial<TInput>>,
-): TruncatedToolCallTurn {
+export function callToolWithTruncatedArguments<TTool extends ToolClass<never>>(
+  tool: TTool,
+  args: NoInfer<DeepPartial<ToolInputOf<InstanceType<TTool>>>>,
+): TruncatedToolCallTurn<ToolNameOf<InstanceType<TTool>>> {
   return { kind: "truncated-tool-call", tool: toolNameOf(tool), text: cutJson(args) };
 }
 

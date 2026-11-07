@@ -10,14 +10,14 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
 /** The fenced-effect contract's isolation, limits and housekeeping (#500). */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 /** 64 KB of text and the quotes around it: one byte above the default `maxResultSize`. */
 const OVERSIZED = "x".repeat(64 * 1024 - 1);
@@ -110,14 +110,14 @@ const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
 });
 
 export const isolationCases = <TTransaction>(): ContractGroup<
-  FencedEffectStores<TTransaction>
+  FencedEffectTarget<TTransaction>
 > => ({
   title: "isolation",
   cases: [namesApart<TTransaction>(), scopesApart<TTransaction>()],
 });
 
 export const housekeepingCases = <TTransaction>(): ContractGroup<
-  FencedEffectStores<TTransaction>
+  FencedEffectTarget<TTransaction>
 > => ({
   title: "limits and housekeeping",
   cases: [oversizedRefused<TTransaction>(), deletionFollowsClock<TTransaction>()],

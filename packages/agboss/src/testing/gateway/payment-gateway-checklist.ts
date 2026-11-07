@@ -4,7 +4,7 @@ import { hours, type Milliseconds } from "../../units/index.js";
 /**
  * The checklist a team runs against its payment gateway (#508; the Wiki's Payment-gateways page):
  * G1–G5 probed through the team's own adapter, each a result with its evidence — offline against
- * `FakeOutboundGateway`, by hand against the gateway's sandbox. G6 (late outcomes by webhook or a
+ * `FakePaymentGateway`, by hand against the gateway's sandbox. G6 (late outcomes by webhook or a
  * status API) is not probed: it needs the gateway's own events.
  */
 
@@ -60,7 +60,7 @@ export interface GatewayChecklistClock {
 }
 
 /** The team's adapter and what the checklist may use. */
-export interface OutboundGatewayChecklistOptions {
+export interface PaymentGatewayChecklistOptions {
   /** Charges through the adapter, the key sent as the gateway's idempotency key. */
   readonly send: (charge: GatewayProbeCharge) => Promise<GatewayProbeReceipt>;
   /** Finds a payment by the key it was made with; none → G2 fails. */
@@ -73,7 +73,7 @@ export interface OutboundGatewayChecklistOptions {
   readonly keyPrefix?: string;
 }
 
-type Probe = (options: OutboundGatewayChecklistOptions, key: string) => Promise<GatewayCheckResult>;
+type Probe = (options: PaymentGatewayChecklistOptions, key: string) => Promise<GatewayCheckResult>;
 
 const passed = (requirement: GatewayRequirement, evidence: string): GatewayCheckResult => ({
   requirement,
@@ -199,7 +199,7 @@ const PROBES: readonly (readonly [GatewayRequirement, Probe])[] = [
 /** Runs one probe; an error it did not expect fails its requirement, with the error as evidence. */
 async function checked(
   [requirement, probe]: readonly [GatewayRequirement, Probe],
-  options: OutboundGatewayChecklistOptions,
+  options: PaymentGatewayChecklistOptions,
 ): Promise<GatewayCheckResult> {
   const key = `${options.keyPrefix ?? "agboss-checklist"}-${requirement.toLowerCase()}`;
   try {
@@ -210,8 +210,8 @@ async function checked(
 }
 
 /** Probes G1–G5 through the adapter, one after the other, each on keys of its own. */
-export async function outboundGatewayChecklist(
-  options: OutboundGatewayChecklistOptions,
+export async function paymentGatewayChecklist(
+  options: PaymentGatewayChecklistOptions,
 ): Promise<GatewayChecklistReport> {
   const results: GatewayCheckResult[] = [];
   for (const entry of PROBES) results.push(await checked(entry, options));

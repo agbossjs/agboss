@@ -1,5 +1,5 @@
 import { systemClock } from "../../../infrastructure/clock.js";
-import type { ContractTarget } from "../seam.js";
+import type { ContractTarget } from "../instance-context.js";
 import { enabledActions, isSameAction } from "./enabled.js";
 import { ExplorerRun, describe, type RanStep } from "./run.js";
 import type { ExplorerAction, ExplorerStores, ExplorerViolation, ExplorerWorld } from "./types.js";

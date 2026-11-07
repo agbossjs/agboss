@@ -84,7 +84,7 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
 
       levers.letGo?.();
       await settle();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       const error = await rejectionOf(call);
       const rows = await instance(apps, 1).leaseEventsOf({ tenantId: "default", rootExecutionId });
 
@@ -134,7 +134,7 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
 
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await settle();
       levers.letGo?.();
       await rejectionOf(call);

@@ -64,7 +64,7 @@ export type ToolClass<TInput extends object> = Class<{
 }>;
 
 /** The input a tool's `run` takes: what `callTool(Tool, args)` checks `args` by. */
-type ToolInputOf<TInstance> = TInstance extends {
+export type ToolInputOf<TInstance> = TInstance extends {
   run(input: infer TInput extends object): Promise<unknown>;
 }
   ? TInput

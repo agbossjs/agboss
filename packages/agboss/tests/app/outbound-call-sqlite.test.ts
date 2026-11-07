@@ -65,7 +65,7 @@ describe("#505 AC1 on SQLite: two instances, one file", () => {
       const call = execute(a, ChargeWorkflowStart, { text: "order-7 alice@example.com" });
       call.catch(() => undefined);
       await frozenCharges(1);
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(31));
       await clock.advance(seconds(31));
       const [end] = await ends(1);
@@ -88,7 +88,7 @@ describe("#505 AC1 on SQLite: two instances, one file", () => {
       ).toEqual([OutboundCallEventOutcome.Recorded, OutboundCallEventOutcome.Reconciled]);
 
       letChargesGo();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
       expect(gateway.calls).toHaveLength(1);

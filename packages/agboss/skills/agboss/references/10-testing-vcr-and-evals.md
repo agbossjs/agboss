@@ -15,7 +15,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                   |
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
-`vitest.config.ts` wraps its `test` options in `agbossTest()` from `@agboss/core/testing/vitest`: AGBoss loaded
+`vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
 through vite, in the test's module graph (so `workflowOf(W)` loads the application next to `W` with its
 decorators), and the matchers registered. A project made by
 `npx agboss create` has three Vitest projects by file name, in `tests/` mirroring `src/`: `tests/**/*.test.ts`
@@ -629,10 +629,12 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
   retries, `Retry-After`, the recovery sweep, pause retention) without real waiting.
 - **Restarts and instances**: `await recoverApp()` closes the app and returns a new one over the same
   stores, clock and ids — a paused execution survives it; `testWith(App, { instances: 2 })` gives
-  `apps` (each its own container, one set of stores) for leases and cross-instance resumes;
-  `leases.stall(apps[0])` freezes that instance's lease (its store calls and lease timers) while its
+  `apps` (each its own container, one set of stores) for leases and cross-instance resumes —
+  `instances: [{}, { clockSkew: ClockSkew.ahead(seconds(300)), meterProvider }]` gives each its own
+  settings;
+  `leases.freeze(apps[0])` freezes that instance's lease (its store calls and lease timers) while its
   steps run on — `await clock.advance(seconds(31))` lets `apps[1]` take the tree over — and
-  `leases.resume(apps[0])` wakes it: a fenced write of the old token is refused. A unit runner's step
+  `leases.thaw(apps[0])` wakes it: a fenced write of the old token is refused. A unit runner's step
   fences with a held lease (token 1), set by `fence: { token, isLost, confirmNowFails }`.
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
   `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.

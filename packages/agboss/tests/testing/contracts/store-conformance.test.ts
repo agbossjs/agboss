@@ -10,12 +10,16 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  childExecutionQueueContract,
+  executionLeaseContract,
+  StoreCapability,
   storeConformance,
   StoreConformanceError,
-  type ConformanceStores,
+  type StoreSet,
   type InterleavingOptions,
   type LeftOutContract,
 } from "../../../src/testing/contracts/index.js";
+import { minutes } from "../../../src/units/index.js";
 import { checkStoreSet } from "../../../src/testing/contracts/store-conformance-check.js";
 
 /** A store that is never built: the checks read which keys a set gives, not what they build. */
@@ -42,14 +46,11 @@ const OTHERS = [
 ] as const;
 
 /** A set of `keys`, each store never built. */
-const setOf = (keys: readonly string[]): ConformanceStores =>
+const setOf = (keys: readonly string[]): StoreSet =>
   Object.fromEntries(keys.map((key) => [key, unbuilt]));
 
 /** What `storeConformance` threw for the set: its problems' codes, in order. */
-function refusalOf(
-  stores: ConformanceStores,
-  without?: readonly LeftOutContract[],
-): StoreConformanceError {
+function refusalOf(stores: StoreSet, without?: readonly LeftOutContract[]): StoreConformanceError {
   try {
     storeConformance({ name: "PostgreSQL", stores, ...(without === undefined ? {} : { without }) });
   } catch (error) {
@@ -225,7 +226,7 @@ describe("#526 AC2: an empty set", () => {
     ["no key", {}],
     ["every key undefined", Object.fromEntries(OTHERS.map((key) => [key, undefined]))],
   ])("%s: empty", (_case, stores) => {
-    expect(codesOf(refusalOf(stores as ConformanceStores))).toEqual(["store-conformance.empty"]);
+    expect(codesOf(refusalOf(stores as StoreSet))).toEqual(["store-conformance.empty"]);
   });
 });
 
@@ -295,7 +296,7 @@ describe("#799 AC3: an interleaving budget that is no budget is refused", () => 
   it.each([
     ["none", undefined],
     ["false", false],
-    ["a full budget", { depth: 4, walks: 20, walkDepth: 16, seed: 0, timeLimit: 60_000 }],
+    ["a full budget", { depth: 4, walks: 20, walkDepth: 16, seed: 0, timeLimit: minutes(1) }],
     ["a seed of its own", { seed: 777 }],
   ])("%s: accepted", (_case, interleavings) => {
     expect(() => {
@@ -316,5 +317,56 @@ describe("#799 AC3: the budget is validated as the explorer reads it", () => {
         interleavings: inherited,
       });
     }).toThrow(/invalid-interleavings\] "PostgreSQL" gives interleavings\.depth = 0/u);
+  });
+});
+
+describe("#831 AC5: a target's capabilities are StoreCapability values its contract checks", () => {
+  /** What the contract threw for `capabilities`: its problems. */
+  const capabilityRefusalOf = (
+    register: (capabilities: unknown) => void,
+    capabilities: unknown,
+  ): readonly string[] => {
+    try {
+      register(capabilities);
+    } catch (error) {
+      if (error instanceof StoreConformanceError) return error.problems;
+      throw error;
+    }
+    throw new Error("the contract registered the target: it should have refused it");
+  };
+  const queue = (capabilities: unknown): void => {
+    childExecutionQueueContract({
+      name: "Q",
+      instance: unbuilt,
+      capabilities: capabilities as readonly StoreCapability[],
+    });
+  };
+  const leases = (capabilities: unknown): void => {
+    executionLeaseContract({
+      name: "L",
+      instance: unbuilt,
+      capabilities: capabilities as readonly StoreCapability[],
+    });
+  };
+
+  it.each([
+    [queue, ["watchQueue"], /"watchQueue" is not a StoreCapability/u],
+    [
+      queue,
+      [StoreCapability.WatchQueued, StoreCapability.WatchQueued],
+      /watchQueued declared twice/u,
+    ],
+    [queue, StoreCapability.WatchQueued, /capabilities is not a list/u],
+    [
+      leases,
+      [StoreCapability.WatchQueued],
+      /StoreCapability\.WatchQueued is not a capability of this contract \(it has none\)/u,
+    ],
+  ] as const)("refused before any case: %#", (register, capabilities, problem) => {
+    const problems = capabilityRefusalOf(register, capabilities);
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/^\[store-conformance\.invalid-capabilities\] /u);
+    expect(problems[0]).toMatch(problem);
   });
 });

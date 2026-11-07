@@ -2,7 +2,7 @@ import type { PodEventFact } from "../facts.js";
 import { FaultStepPoint, stepPointOf } from "../fixture/pod-link.js";
 import type { FaultPod } from "../pod.js";
 import { FaultWorkflow } from "../pod-protocol.js";
-import type { FaultWorld } from "../world.js";
+import type { FaultCluster } from "../cluster.js";
 import { heldAt } from "./kit.js";
 
 /**
@@ -18,16 +18,16 @@ export interface StartedBatch {
 
 /** Starts a batch of `orderIds` on `pod`; resolves once a first child ran a step. */
 export async function startBatch(
-  world: FaultWorld,
+  cluster: FaultCluster,
   pod: FaultPod,
   orderIds: readonly string[],
 ): Promise<StartedBatch> {
-  await world.start(
+  await cluster.start(
     pod,
     FaultWorkflow.Batch,
     orderIds.map((orderId) => ({ orderId })),
   );
-  const first = await world.next(
+  const first = await cluster.next(
     "a first child's step",
     (event) => event.type === "step" && orderIds.includes(String(event.orderId)),
   );
@@ -42,10 +42,10 @@ export interface HeldChild {
 }
 
 /** The first child held at its charge on `pod`. */
-export async function heldChildOn(world: FaultWorld, pod: FaultPod): Promise<HeldChild> {
-  const held = await heldAt(world, pod, stepPointOf(FaultStepPoint.ChargeBefore));
+export async function heldChildOn(cluster: FaultCluster, pod: FaultPod): Promise<HeldChild> {
+  const held = await heldAt(cluster, pod, stepPointOf(FaultStepPoint.ChargeBefore));
   const orderId = String(held.key);
-  const step = await world.next(
+  const step = await cluster.next(
     `the charge step of ${orderId} on ${pod.name}`,
     (event) =>
       event.type === "step" &&
@@ -57,8 +57,8 @@ export async function heldChildOn(world: FaultWorld, pod: FaultPod): Promise<Hel
 }
 
 /** The pods each order's charge step ran on, in order. */
-export const chargePodsOf = (world: FaultWorld, orderId: string): readonly string[] =>
-  world.events
+export const chargePodsOf = (cluster: FaultCluster, orderId: string): readonly string[] =>
+  cluster.events
     .filter(
       (event) =>
         event.type === "step" &&

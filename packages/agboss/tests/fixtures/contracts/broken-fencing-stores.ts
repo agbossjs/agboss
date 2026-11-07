@@ -42,8 +42,8 @@ import {
   type OutboundCallLease,
 } from "../../../src/infrastructure/outbound-call.repository.js";
 import type {
-  FencedEffectStores,
-  OutboundCallStores,
+  FencedEffectTarget,
+  OutboundCallTarget,
 } from "../../../src/testing/contracts/index.js";
 import {
   sharedInMemory,
@@ -172,7 +172,7 @@ export class RowsOutsideEffects extends BrokenEffects {
 export const brokenEffects =
   (
     Effects: new (seam: InstanceSeam, results: Map<string, StoredResult>) => BrokenEffects,
-  ): StoreFactory<FencedEffectStores<BufferedTransaction>> =>
+  ): StoreFactory<FencedEffectTarget<BufferedTransaction>> =>
   (seam) => {
     const committed = sharedInMemory(seam, "broken-rows", (): string[] => []);
     return {
@@ -219,7 +219,7 @@ class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
   }
 }
 
-export const selectThenCloseCalls: StoreFactory<OutboundCallStores> = (seam) => ({
+export const selectThenCloseCalls: StoreFactory<OutboundCallTarget> = (seam) => ({
   calls: new SelectThenCloseCalls(seam),
   leases: new InMemoryExecutionLeaseRepository(seam.storeClock, seam.application, seam.database),
 });

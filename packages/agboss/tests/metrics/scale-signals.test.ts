@@ -47,15 +47,13 @@ function signalsOf(collections: readonly Collected[]): { idle: boolean; demand: 
 
 const cappedMeters = instanceMeters(2);
 const capped = testWith(MetricsApplication, {
-  instances: 2,
   concurrency: TestConcurrency.Real,
-  meterProviders: cappedMeters.map((meter) => meter.provider),
+  instances: cappedMeters.map((meter) => ({ meterProvider: meter.provider })),
 });
 const uncappedMeters = instanceMeters(2);
 const uncapped = testWith(UncappedMetricsApplication, {
-  instances: 2,
   concurrency: TestConcurrency.Real,
-  meterProviders: uncappedMeters.map((meter) => meter.provider),
+  instances: uncappedMeters.map((meter) => ({ meterProvider: meter.provider })),
 });
 
 beforeEach(resetRemoteLog);

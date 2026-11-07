@@ -3,7 +3,7 @@
  * at or past `expiresAt`, the way a hand-written store does — matching only the holder and the epoch
  * (the core's stores before #534), or comparing `expiresAt >= now` (PostgreSQL's before #534) — so
  * the boundary cases of the published suites are shown to bite. `naive-expiry.contract-fixture.ts`
- * runs them, `expiry-bites.test.ts` reads the failures.
+ * runs them, `expiry-sabotage.test.ts` reads the failures.
  */
 import { Clock } from "../../../src/infrastructure/clock.js";
 import {

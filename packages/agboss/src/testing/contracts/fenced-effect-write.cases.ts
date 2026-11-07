@@ -9,7 +9,7 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
@@ -19,7 +19,7 @@ import {
 const SHORT = seconds(30);
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 const unseenKeyRuns = <TTransaction>(): Case<TTransaction> => ({
   name: "AC1: an unseen key runs the write once and returns Ran with its result and token",
@@ -165,7 +165,7 @@ const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const writeCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const writeCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "writes and replays",
   cases: [
     unseenKeyRuns<TTransaction>(),
@@ -174,7 +174,7 @@ export const writeCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTr
   ],
 });
 
-export const refusalCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const refusalCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "refusals",
   isFencing: true,
   cases: [

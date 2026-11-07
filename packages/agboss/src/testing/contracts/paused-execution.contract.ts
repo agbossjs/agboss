@@ -8,7 +8,7 @@ import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
 import { QUESTION_PAUSE_CASES } from "./paused-execution-question.cases.js";
 import { PAUSE_RECORD_CASES, PAUSE_TRANSITION_CASES } from "./paused-execution-resolution.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 const BY_THREAD_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {

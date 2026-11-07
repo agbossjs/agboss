@@ -69,8 +69,32 @@ const isCi = (env: NodeJS.ProcessEnv): boolean =>
  * The mode a VCR test runs in: `AGBOSS_VCR_MODE` when set (it re-records tests that name their own
  * mode too), else the given one; REPLAY under `CI`; else AUTO.
  */
-export const vcrModeOf = (config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode =>
-  modeFromEnv(env) ?? config.mode ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
+export function vcrModeOf(config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode {
+  const configured = configuredModeOf(config);
+  return modeFromEnv(env) ?? configured ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
+}
+
+/** A value as a message shows it: a text quoted, a number, a flag or null as is, else its type. */
+const shownOf = (value: unknown): string =>
+  typeof value === "string"
+    ? JSON.stringify(value)
+    : typeof value === "number" || typeof value === "boolean" || value === null
+      ? String(value)
+      : typeof value;
+
+/**
+ * The test's own `vcr.mode` (#819): absent, or a member's value — anything else (a JavaScript
+ * caller's typo, a value read from JSON) is refused before any model is asked, whatever
+ * `AGBOSS_VCR_MODE` or `CI` say, never taken for a mode that records against real models.
+ */
+function configuredModeOf(config: VcrConfig): VcrMode | undefined {
+  const mode: unknown = Reflect.get(config, "mode");
+  if (mode === undefined) return undefined;
+  if (typeof mode === "string" && isVcrMode(mode)) return mode;
+  throw new TestSetupError(
+    `[vcr.unknown-mode] vcr.mode is ${shownOf(mode)}: one of ${[...MODES].join(", ")}`,
+  );
+}
 
 export const cassetteFileOf = (config: VcrConfig): string =>
   path.join(config.dir ?? "__snapshots__", `${config.cassetteName}.cassette.json`);

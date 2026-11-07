@@ -5,8 +5,8 @@ import { TestSetupError } from "./errors.js";
 /**
  * How one instance's clock is off (#533): its wall clock `offset` ms ahead (negative: behind) of the
  * test's time, and running `drift` faster (0.01 = 1 % fast, −0.01 = 1 % slow) — its wall time, its
- * monotonic time and its sleeps alike. `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
- * ClockSkew.ahead(seconds(300))] })`; the stores keep the test's own clock, as a database keeps its
+ * monotonic time and its sleeps alike. `testWith(App, { instances: [{}, {
+ * clockSkew: ClockSkew.ahead(seconds(300)) }] })`; the stores keep the test's own clock, as a database keeps its
  * own, so a skewed instance shows what its skew does to its leases.
  */
 export class ClockSkew {
@@ -35,7 +35,7 @@ export class ClockSkew {
   }
 
   /** A clock that runs `rate` faster (0.01) or slower (−0.01) than the test's. */
-  static drift(rate: number): ClockSkew {
+  static drifting(rate: number): ClockSkew {
     return new ClockSkew(0, rate);
   }
 

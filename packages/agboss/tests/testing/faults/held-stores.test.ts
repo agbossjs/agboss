@@ -13,8 +13,10 @@ import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-m
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
   heldMethodsOf,
-  heldStoreSeam,
+  heldStoreState,
+  reportHeldOperations,
   withHoldPoints,
+  type HeldOperationsReport,
 } from "../../../src/testing/faults/held-stores.js";
 import { HoldPhase, HoldPoints } from "../../../src/testing/faults/hold-points.js";
 import { OperationHistory, OperationPhase } from "../../../src/testing/faults/operation-history.js";
@@ -54,16 +56,19 @@ const settled = async (promise: Promise<unknown>): Promise<boolean> => {
 };
 
 const history = new OperationHistory();
+
+/** A report a JavaScript caller could pass, typed as one. */
+const untypedReport = (value: unknown): HeldOperationsReport => value as HeldOperationsReport;
 const points = new HoldPoints();
 
 afterEach(() => {
   points.releaseAll();
-  heldStoreSeam.outage.end();
+  heldStoreState.outage.end();
 });
-heldStoreSeam.points = points;
-heldStoreSeam.recorder = history;
-heldStoreSeam.process = "test";
-heldStoreSeam.instanceId = "instance-1";
+heldStoreState.points = points;
+heldStoreState.recorders.add(history);
+heldStoreState.process = "test";
+heldStoreState.instanceId = "instance-1";
 
 describe("#484 AC5: withHoldPoints — any store of a held contract, its operations held and recorded", () => {
   it("is a subclass of the store, of its deps, its backend and its name", () => {
@@ -142,11 +147,11 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
     const database = new InMemoryDatabase();
     const leases = heldLeases(database, "instance-1");
     const before = history.operations.length;
-    heldStoreSeam.outage.begin(StoreOutageMode.Refuse);
+    heldStoreState.outage.begin(StoreOutageMode.Refuse);
     await expect(leases.acquire("default", "root-3", seconds(30))).rejects.toThrow(
       StoreOutageError,
     );
-    heldStoreSeam.outage.end();
+    heldStoreState.outage.end();
     expect(history.operations.length).toBe(before);
     const lease = {
       tenantId: "default",
@@ -165,5 +170,99 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
       name: "RangeError",
       message: "the disk is full",
     });
+  });
+});
+
+describe("#831: reportHeldOperations — a store's own process test hears its held stores, and undoes it", () => {
+  it("names the instance, hears every operation and every hold; its undo stops both and gives the instance back", async () => {
+    const database = new InMemoryDatabase();
+    const leases = heldLeases(database, "instance-1");
+    const operations: string[] = [];
+    const holds: string[] = [];
+    const undo = reportHeldOperations({
+      instanceId: "pg-instance",
+      onOperation: (event) =>
+        operations.push(`${event.phase}:${event.operation}:${event.instanceId}`),
+      onHeld: (held) => holds.push(`${held.point}:${String(held.key)}`),
+    });
+
+    points.arm({ point: StoreHoldPoint.LeaseAcquire, key: "root-r" });
+    const taking = leases.acquire("default", "root-r", seconds(30));
+    expect(await settled(taking)).toBe(false);
+    points.releaseAll();
+    await taking;
+
+    expect(holds).toEqual(["lease.acquire:root-r"]);
+    expect(operations).toEqual([
+      "invoke:lease.acquire:pg-instance",
+      "complete:lease.acquire:pg-instance",
+    ]);
+    // the history the suite keeps hears them too: a reporter is one more recorder, not the only one
+    expect(history.operations.at(-1)?.invoke.instanceId).toBe("pg-instance");
+
+    undo();
+    undo();
+    expect(heldStoreState.instanceId).toBe("instance-1");
+    points.arm({ point: StoreHoldPoint.LeaseAcquire, key: "root-s" });
+    const again = leases.acquire("default", "root-s", seconds(30));
+    await settled(again);
+    points.releaseAll();
+    await again;
+    expect(holds).toHaveLength(1);
+    expect(operations).toHaveLength(2);
+  });
+
+  it("a listener that throws never changes the store's answer: its error is thrown apart", async () => {
+    const thrown: unknown[] = [];
+    const spy = vi.spyOn(globalThis, "queueMicrotask").mockImplementation((task) => {
+      try {
+        task();
+      } catch (error) {
+        thrown.push(error);
+      }
+    });
+    const leases = heldLeases(new InMemoryDatabase(), "instance-1");
+    const undo = reportHeldOperations({
+      onOperation: () => {
+        throw new Error("a failed expect");
+      },
+    });
+    try {
+      expect(await leases.acquire("default", "root-t", seconds(30))).toMatchObject({
+        holderInstanceId: "instance-1",
+      });
+      expect(thrown.map((error) => (error as Error).message)).toEqual([
+        "a failed expect",
+        "a failed expect",
+      ]);
+    } finally {
+      undo();
+      spy.mockRestore();
+    }
+  });
+
+  it("refuses a report that would hear nothing, an unknown key, and a second instance id while one names the history", () => {
+    expect(() => reportHeldOperations({})).toThrow(/would hear nothing/u);
+    expect(() => reportHeldOperations(untypedReport({ onOperations: () => undefined }))).toThrow(
+      /onOperations — it takes instanceId, onOperation and onHeld/u,
+    );
+    const undo = reportHeldOperations({ instanceId: "a", onHeld: () => undefined });
+    try {
+      expect(() => reportHeldOperations({ instanceId: "b", onHeld: () => undefined })).toThrow(
+        /named by instance a already/u,
+      );
+      reportHeldOperations({ onHeld: () => undefined })();
+    } finally {
+      undo();
+    }
+    expect(heldStoreState.instanceId).toBe("instance-1");
+    reportHeldOperations({ instanceId: "b", onHeld: () => undefined })();
+  });
+
+  it("without an instance id, the history's instance is left as it is", () => {
+    const undo = reportHeldOperations({ onHeld: () => undefined });
+    expect(heldStoreState.instanceId).toBe("instance-1");
+    undo();
+    expect(heldStoreState.instanceId).toBe("instance-1");
   });
 });

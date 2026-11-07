@@ -17,7 +17,7 @@ import {
   FAULT_STORES_EXPORT,
   optedOutStoresOf,
   storeTimeOf,
-  type FaultStores,
+  type FaultStoreSet,
 } from "./fault-stores.js";
 import {
   FAULT_IDEMPOTENCY_KEY_FIELD,
@@ -26,19 +26,21 @@ import {
 } from "./fixture/fault.application.js";
 import { secret } from "../../environments/secret.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
-import { heldStoreSeam } from "./held-stores.js";
+import { heldStoreState, reportHeldOperations } from "./held-stores.js";
 import { processHoldPoints } from "./hold-points.js";
 import { commandDone, type PodParts } from "./pod-control.js";
 import { POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
 
 /** The store set of the module at `path`. */
-async function storesOf(path: string): Promise<FaultStores> {
+async function storesOf(path: string): Promise<FaultStoreSet> {
   const url = path.startsWith("file:") ? path : pathToFileURL(path).href;
   const module = (await lazyLoad(import(url))) as Readonly<Record<string, unknown>>;
   const stores = module[FAULT_STORES_EXPORT];
   if (typeof stores !== "object" || stores === null)
-    throw new Error(`${path} exports no ${FAULT_STORES_EXPORT} (defineFaultStores({ … }))`);
-  return stores as FaultStores;
+    throw new Error(
+      `${path} exports no ${FAULT_STORES_EXPORT} (export const faultStores: FaultStoreSet = { … })`,
+    );
+  return stores as FaultStoreSet;
 }
 
 /** A whole number from the environment, when set. */
@@ -73,14 +75,14 @@ async function answer(parts: PodParts, message: ToPod): Promise<void> {
 
 const name = process.env[POD_VARIABLES.name] ?? "pod";
 connectPodLink({ send });
-heldStoreSeam.process = name;
-heldStoreSeam.recorder = {
-  record: (event) => {
+heldStoreState.process = name;
+reportHeldOperations({
+  onOperation: (event) => {
     send({ kind: "operation", event });
   },
-};
-processHoldPoints.onHeld((held) => {
-  sendToTest({ kind: "event", event: { ...held, type: "held" } });
+  onHeld: (held) => {
+    sendToTest({ kind: "event", event: { ...held, type: "held" } });
+  },
 });
 const stores = await storesOf(process.env[POD_VARIABLES.stores] ?? "");
 // #799: the time the history is read on is the set's own declaration — none, and the pod does not start
@@ -102,7 +104,7 @@ const loaded = {
 };
 process.env[FAULT_IDEMPOTENCY_KEY_VARIABLE] ??= "agboss-fault-suite-idempotency-key";
 const instanceId = `${name}-${String(process.pid)}`;
-heldStoreSeam.instanceId = instanceId;
+heldStoreState.instanceId = instanceId;
 const built = await buildApplication(
   assembled,
   { environmentName: "fault", environment: resolveEnvironment(loaded, process.env) },
@@ -119,7 +121,7 @@ void built.closed.then(() => {
 const parts: PodParts = {
   app: built.app,
   points: processHoldPoints,
-  seam: heldStoreSeam,
+  heldStores: heldStoreState,
   businessRows: stores.businessRows,
 };
 process.on("message", (message: ToPod) => {

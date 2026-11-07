@@ -43,7 +43,7 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
   Re-added in the same release with a flow step that asks it (#659, Added below).
 
-- **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
+- **`clock.advance` right after `app.execute` no longer races under `agbossVitest()`** (#646) — the
   first execution of a test file loads the core's lazy modules through vite's module runner, ~300
   turns of the event loop, and an execution of an app not built yet builds it first; `advance`
   waited one turn, so the time jumped before the execution reached its wait (05's step-slots test
@@ -173,6 +173,48 @@ index` (as before) — a running instance does not re-read a folder on its own.
 
 ### Changed — breaking for stores outside the core
 
+- **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
+  - `@agboss/core/testing/faults` publishes the suite and the hold points only (82 symbols → 27):
+    `faultSuite`, `FaultSuiteOptions`, `FaultShard`, `FaultStoreSet` (was `FaultStores`; no
+    `defineFaultStores`), `FaultStoreTime`, `FaultBusinessRows`, `FaultEnvironment`,
+    `FaultDatabase`, `FAULT_SCENARIOS` / `FAULT_SABOTAGE_SCENARIOS` (`FaultScenario`: id and title),
+    `FaultInvariant`, `FaultInvariantError`, `FaultViolation`, `withHoldPoints`, `StoreHoldPoint`,
+    `processHoldPoints` (`HoldPoints`, `HoldRequest`, `HoldPhase`, `HeldOperation`,
+    `StoreAnswerLostError`), `OperationPhase`, `OperationEvent` and `reportHeldOperations({
+instanceId, onOperation, onHeld })`, which returns its undo, in place of the writable
+    `heldStoreSeam`. The pods, the cluster (`FaultWorld` → `FaultCluster`, internal), the gateway,
+    the proxy, `ScaledClock`, `runFaultScenario` and the checkers are the suite's own;
+  - `faultSuite({ storesModule })` (was `stores`, a module's path) shards itself (`shard: { index,
+count } | "env"`, `AGBOSS_FAULT_SHARD=k/n`) and runs `FAULT_SABOTAGE_SCENARIOS` after the
+    scenarios, each passing only when it breaks its invariant (`sabotages: false` skips them,
+    visibly); its first case counts what runs, and every scenario it leaves out is a skipped case
+    with its reason; `timeout` is a `Milliseconds`;
+  - `storeConformance({ stores })` takes a `StoreSet` of `StoreEntry`s (were `ConformanceStores` /
+    `ConformanceStore`), each built from a `StoreInstanceContext` (was `StoreSeam`); the fencing
+    bundles are `FencedEffectTarget` / `OutboundCallTarget`; `InterleavingOptions.timeLimit` is a
+    `Milliseconds`. A store declares its optional capabilities — `childExecutionQueue: { instance,
+capabilities: [StoreCapability.WatchQueued] }`: a declared watch must pass its cases, an
+    undeclared one is skipped on a store without `watchQueued` and fails on a store that has it
+    (`[store-conformance.capability-not-declared]`). `VirtualClock`, `TestStoreClock` and
+    `StoreCapability` come from `@agboss/core/testing/contracts` too, with `runConformanceSabotage({
+root, fixtures })`, which runs a sabotage fixture in a vitest of its own and returns its cases
+    (a fixture that does not load, or no case at all, rejects);
+  - `@agboss/core/testing`: `leases.freeze(app)` / `leases.thaw(app)` take a `TestApp` (were
+    `stall` / `resume` of any object); `testWith(App, { instances: [{ clockSkew, meterProvider }] })`
+    (`TestInstanceOptions`) replaces `clockSkews` / `meterProviders`; `ClockSkew.drifting(rate)` (was
+    `drift`); `callToolWithInvalidArguments` / `callToolWithTruncatedArguments` are typed like
+    `callTool` (#679: a tool the agent does not list does not compile); `fence: { confirmNowFails }`
+    takes `boolean | Error`; `FakePaymentGateway` / `paymentGatewayChecklist` (were
+    `FakeOutboundGateway` / `outboundGatewayChecklist`); `agbossVitest()` (was `agbossTest()`,
+    `@agboss/core/testing/vitest`);
+  - `VcrConfig.mode` is validated (#819): an unknown mode is `[vcr.unknown-mode]` before any model
+    is asked, where it recorded against real models.
+
+  **Migration:** rename as above; in a store package's fault suite pass `storesModule`, `shard:
+"env"`, and drop your own shard helpers and sabotage test; give a child queue with `watchQueued`
+  `capabilities: [StoreCapability.WatchQueued]`; replace `heldStoreSeam` writes with
+  `reportHeldOperations`.
+
 - **The fencing contracts' statics, paging and helpers** (#825, from the 0.1.1 API review):
   - one `static store: StoreDescriptor = { backend, leaseCheck? }` on `ExecutionLeaseRepository`,
     `FencedEffectRepository`, `OutboundCallRepository` and `A2ATaskRepository` (#824's `static
@@ -199,7 +241,7 @@ status`) fail a store that pages by an offset, names its cursor by a row that ma
 
 - **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
   of the store author's suites:
-  - a fault store set declares the time its fencing stores decide by, `FaultStores.storeTime:
+  - a fault store set declares the time its fencing stores decide by, `FaultStoreSet.storeTime:
 FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/faults`), and
     the `linearizable` invariant reads the run's history on it — at 1 on a database's own clock,
     at the pods' `timeScale` on the host's. `FaultScenarioOptions.storeTimeScale` is removed: a
@@ -217,7 +259,7 @@ FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/
   - `store set (<name>)` lists every contract the set does not claim as a skipped case, `does not
 claim stores.<key>`; the child queue's two watch cases are skipped, with the reason, for a store
     without `watchQueued` — they passed — and fail for one with it on one instance only;
-  - `outboundGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
+  - `paymentGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
     skipped for lack of a clock is no longer a pass, and G5 passes only when the same amount
     under a fresh key goes through after the refusal — a gateway that is down refuses everything.
 
@@ -323,8 +365,8 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new; `TestStoreClock` in `@agboss/core/testing`) is the time a
   store decides by: a networked store's database time in production, the host's clock for in-memory
   and SQLite — and in `testWith` and the contract suites the test's clock, unskewed, injected through
-  the seam (`StoreSeam.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
-ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time, monotonic time and
+  the seam (`StoreInstanceContext.storeClock`). `testWith(App, { instances: [{}, {
+clockSkew: ClockSkew.ahead(seconds(300)) }] })` (new) skews an instance's clock — wall time, monotonic time and
   sleeps — over the test's. New contract cases run on real time with the other instance's clock off
   by ± lease/2, ± lease and ± 10 × lease: a store that decides by the caller's clock fails them.
   **Migration:** return `remaining` (`remainingOf(expiresAt, now)`, both on the store's clock) from
@@ -804,7 +846,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   them (SQLite adds the `yielded` column to an existing file).
 
 - **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
-  10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
+  10 s of real time — a run still frozen there (a step, a frozen lease, a wait on the
   `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,
   `@agboss/core/testing`) instead of hanging the run: vitest bounds no fixture's teardown.
 
@@ -812,11 +854,11 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   that writes values only for those versions (LangGraph's `PostgresSaver`) passes as it is (#511).
 
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
-  by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
+  by Node, outside vitest (no decorators). A vitest preset, `agbossVitest()` from
   `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the
   test's module graph, and registers the matchers; `agboss create` writes it. Without it
   `workflowOf(W)` throws `TestSetupError` naming the fix. An existing project changes one line:
-  `test: agbossTest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
+  `test: agbossVitest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
   packed packages in a project of their own (`npm run check:packed`) (#497).
 
 - **A tree's kept record is saved before its cleanup** (#699) — the history record
@@ -981,14 +1023,14 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
   reported with the longest order found and what could not follow it. `linearizabilityOf(history,
 { timeScale })` (`@agboss/core/testing/faults`) checks any history; the store set says
-  what its stores decide by (`FaultStores.storeTime`, #799: a database's own clock is read at 1). The history
+  what its stores decide by (`FaultStoreSet.storeTime`, #799: a database's own clock is read at 1). The history
   now keeps a lease's length, a claim's expected state and an ending's owner.
 
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
-  loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
+  loaded by the root): `faultSuite({ name, storesModule, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
   SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 20 scenarios (#533:
-  two of a pod whose clock is ten leases ahead or behind, `world.pod(name, { clockSkew })`)
+  two of a pod whose clock is ten leases ahead or behind)
   that each tree had one owner at a time, every child and every charge happened once, a hand-over
   undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
   points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations
@@ -1130,7 +1172,7 @@ export` already refused the same omission. In an application that declares a ten
   repeat it exactly, and refused — never one picked — when they differ: the model reads why, and the
   step's `AgentAnswerInvalidError` names "N different answers in one move".
 
-- **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
+- **No "Sourcemap … points to missing source files" under `agbossVitest()`** (#645) — `@agboss/core`
   and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
   inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
   trace inside the core named files that did not exist; now it names lines of the installed

@@ -158,15 +158,15 @@ describe("#480: the project comes ready for graphify", () => {
 });
 
 describe("#497 AC1: the project's vitest config uses the AGBoss preset", () => {
-  it("AC1: vitest.config.ts wraps its test options in agbossTest(), no raw setupFiles", () => {
+  it("AC1: vitest.config.ts wraps its test options in agbossVitest(), no raw setupFiles", () => {
     const config = content("vitest.config.ts");
 
-    expect(config).toContain('import { agbossTest } from "@agboss/core/testing/vitest";');
-    expect(config).toContain("test: agbossTest({");
+    expect(config).toContain('import { agbossVitest } from "@agboss/core/testing/vitest";');
+    expect(config).toContain("test: agbossVitest({");
     expect(config).not.toContain("setupFiles");
   });
 
-  it("AC1: agboss generate still reads the test patterns inside agbossTest() (#197)", () => {
+  it("AC1: agboss generate still reads the test patterns inside agbossVitest() (#197)", () => {
     const root = mkdtempSync(join(tmpdir(), "agboss-497-"));
     writeFileSync(join(root, "vitest.config.ts"), content("vitest.config.ts"));
 

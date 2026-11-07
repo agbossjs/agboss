@@ -14,12 +14,12 @@ import {
 } from "../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget, sqliteTarget } from "../infrastructure/contracts/store-kinds.js";
 import { commandArbitrary, firstDifference } from "./fencing-model.js";
-import type { ContractTarget, OutboundCallStores } from "../../src/testing/contracts/index.js";
+import type { ContractTarget, OutboundCallTarget } from "../../src/testing/contracts/index.js";
 
 const seed = seededProperties("outbound-call.property.test.ts");
 
 /** The property: every sequence's answers are the model's. */
-const matchesTheModel = (target: ContractTarget<OutboundCallStores>) =>
+const matchesTheModel = (target: ContractTarget<OutboundCallTarget>) =>
   fc.asyncProperty(
     fc.array(commandArbitrary, { minLength: 1, maxLength: 30 }),
     async (commands) => {

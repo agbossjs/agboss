@@ -1,5 +1,5 @@
 // Source maps of an installed package (#645): every `dist/**/*.js.map` names sources that exist in the
-// package (or carries their text), so vite — which reads them once AGBoss is inlined by agbossTest() —
+// package (or carries their text), so vite — which reads them once AGBoss is inlined by agbossVitest() —
 // prints no "points to missing source files", and a stack trace inside the core names a line that is
 // there to open.
 import { existsSync, readFileSync, readdirSync } from "node:fs";

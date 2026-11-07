@@ -1,17 +1,34 @@
 import type * as Vitest from "vitest";
+import type { TestContext } from "vitest";
 import { faultViolationsOf } from "./invariants/check.js";
+import { FaultInvariantError } from "./invariants/violations.js";
 import { ATOMIC_FENCING_CASE, checkAtomicFencing } from "./opt-out-check.js";
 import { killPods } from "./pod.js";
-import { runFaultScenario, type FaultScenario, type FaultScenarioOptions } from "./scenario.js";
-import { FAULT_SCENARIOS } from "./scenarios/index.js";
+import { faultSuitePlanOf, type FaultSuiteOptions } from "./fault-suite-plan.js";
+import { runFaultScenario } from "./scenario.js";
+import type { FaultSabotage } from "./scenarios/sabotages.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 
+export {
+  FAULT_SHARD_VARIABLE,
+  faultShardOf,
+  faultSuitePlanOf,
+  type FaultShard,
+  type FaultSuiteOptions,
+  type FaultSuitePlan,
+} from "./fault-suite-plan.js";
+
 /**
- * `faultSuite({ name, stores, database })` (#484 AC4): registers the fault scenarios with vitest
- * as `fault suite (<name>)`, one test each, run one after another (their pods spawned, killed and
- * frozen for real). Each resets the database, runs on fresh pods and checks every invariant;
- * every pod it started is killed at its end, whatever happened. Before them, one case fails a set
- * whose fenced-effect or outbound-call store opts out of the atomic lease check (#584).
+ * `faultSuite({ name, storesModule, database })` (#484 AC4): registers the fault scenarios with
+ * vitest as `fault suite (<name>)`, one test each, run one after another (their pods spawned,
+ * killed and frozen for real). Each resets the database, runs on fresh pods and checks every
+ * invariant; every pod it started is killed at its end, whatever happened. Before them, one case
+ * fails a set whose fenced-effect or outbound-call store opts out of the atomic lease check (#584).
+ * After them (#831) the sabotages: scenarios on the fixture's payment integration broken on
+ * purpose, each passing only when the invariant it breaks fails — the suite bites on this set too.
+ * What a run leaves out — a scenario `scenarios:` does not name, one of another shard, the
+ * sabotages turned off — is a skipped case with its reason, and the first case names the counts:
+ * nothing is left out without a trace.
  */
 
 /**
@@ -19,39 +36,55 @@ import { lazyLoad } from "../../infrastructure/clock.js";
  * set's module, `withHoldPoints`), where vitest cannot be loaded: there `faultSuite` is the only
  * thing missing.
  */
-const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch(() => undefined);
+let vitestError: unknown;
+const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch(
+  (error: unknown) => {
+    vitestError = error;
+    return undefined;
+  },
+);
 
-/** A store set under the fault suite. */
-export interface FaultSuiteOptions extends FaultScenarioOptions {
-  /** Shown in the suite's title: "PostgreSQL". */
-  readonly name: string;
-  /** The scenarios to run, by id (`s05-zombie-write-refused`); default every one. */
-  readonly scenarios?: readonly string[];
-  /** Each scenario's bound (real time, ms); default 5 minutes at the real clock, less when faster. */
-  readonly timeout?: number;
-}
-
-/** The scenarios `ids` select, in the suite's order; an unknown id is a `RangeError`. */
-export function selectedScenarios(ids: readonly string[] | undefined): readonly FaultScenario[] {
-  if (ids === undefined) return FAULT_SCENARIOS;
-  const unknown = ids.filter((id) => !FAULT_SCENARIOS.some((scenario) => scenario.id === id));
-  if (unknown.length > 0)
-    throw new RangeError(
-      `faultSuite: no scenario ${unknown.join(", ")} — the scenarios are ${FAULT_SCENARIOS.map((scenario) => scenario.id).join(", ")}`,
-    );
-  return FAULT_SCENARIOS.filter((scenario) => ids.includes(scenario.id));
+/** A sabotage's case: the scenario must fail, on its invariant, with its evidence. */
+export async function sabotaged(
+  sabotage: FaultSabotage,
+  options: FaultSuiteOptions,
+  expect: Vitest.ExpectStatic,
+): Promise<void> {
+  const failure: unknown = await runFaultScenario(sabotage, options).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  expect(failure, `${sabotage.id}: the sabotage passed — the suite does not bite`).toBeInstanceOf(
+    FaultInvariantError,
+  );
+  const error = failure as FaultInvariantError;
+  expect(error.invariants, `${sabotage.id}: failed, but not ${sabotage.violates}`).toContain(
+    sabotage.violates,
+  );
+  // the evidence of its own invariant, never another's
+  expect(
+    error.violations
+      .filter((violation) => violation.invariant === sabotage.violates)
+      .map((violation) => violation.message),
+  ).toContainEqual(expect.stringMatching(sabotage.evidence));
 }
 
 /** Registers the fault suite on `options`' store set. */
 export function faultSuite(options: FaultSuiteOptions): void {
   if (vitest === undefined)
-    throw new Error("faultSuite registers vitest tests: call it in a vitest test file");
+    throw new Error("faultSuite registers vitest tests: call it in a vitest test file", {
+      cause: vitestError,
+    });
   const { afterEach, describe, expect, it } = vitest;
-  const scenarios = selectedScenarios(options.scenarios);
+  const plan = faultSuitePlanOf(options);
   const timeout = options.timeout ?? Math.ceil(300_000 / Math.min(options.timeScale ?? 1, 5));
   describe.sequential(`fault suite (${options.name})`, () => {
     afterEach(() => {
       killPods();
+    });
+    it(plan.summary, () => {
+      // the plan refuses options that run nothing; this case fails if one ever slipped through
+      expect(plan.cases.filter((one) => one.skipped === undefined).length).toBeGreaterThan(0);
     });
     it(
       ATOMIC_FENCING_CASE,
@@ -60,15 +93,30 @@ export function faultSuite(options: FaultSuiteOptions): void {
       },
       timeout,
     );
-    for (const scenario of scenarios)
+    for (const { scenario, sabotage, skipped } of plan.cases) {
+      const title =
+        sabotage === undefined
+          ? scenario.title
+          : `sabotage ${scenario.title}: fails ${sabotage.violates}`;
+      if (skipped !== undefined) {
+        it(title, (context: TestContext) => {
+          context.skip(skipped);
+        });
+        continue;
+      }
       it(
-        scenario.title,
+        title,
         async () => {
+          if (sabotage !== undefined) {
+            await sabotaged(sabotage, options, expect);
+            return;
+          }
           const run = await runFaultScenario(scenario, options);
           // checked already (a failure names every violation); the assertion a test makes
           expect(faultViolationsOf(run)).toEqual([]);
         },
         timeout,
       );
+    }
   });
 }

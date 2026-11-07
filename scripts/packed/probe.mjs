@@ -4,7 +4,7 @@ export const PROJECT = "packed-probe";
 
 /** What `workflowOf` throws when the application is loaded outside vitest's module graph. */
 export const OUTSIDE_GRAPH =
-  "was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts";
+  "was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts";
 
 /**
  * AC1: `workflowOf` finds the application next to the workflow and assembles the workflow in it — its

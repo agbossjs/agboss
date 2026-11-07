@@ -63,7 +63,7 @@ jobs:
 
   # #497: the packed @agboss/core / @agboss/cli in a project of their own (an external dependency,
   # never the workspace link): `workflowOf`, `testWith`, `agboss describe` / `check` pass there, and
-  # without agbossTest() `workflowOf` fails with its TestSetupError. Not in `make check` (~2 min).
+  # without agbossVitest() `workflowOf` fails with its TestSetupError. Not in `make check` (~2 min).
   # #533 item 3, #626: mutation testing of the payment-relevant modules, one job per shard of
   # stryker.config.mjs (MUTATION_SHARD), each incremental (its last run's results cached): every
   # mutant killed or justified where it stands, else red. mutation-nightly.yml runs every shard cold.

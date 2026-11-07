@@ -145,7 +145,7 @@ export interface Infrastructure {
   readonly outboundCalls: OutboundCallRepository;
   /**
    * What the holders of leases take and renew them in, and their timers (the background renewal,
-   * the local expiry) sleep on — a test's `leases.stall` gate (#471); absent = `executionLeases` on
+   * the local expiry) sleep on — a test's `leases.freeze` gate (#471); absent = `executionLeases` on
    * `clock`. Readiness pings `executionLeases` itself.
    */
   readonly leasing?: Leasing;

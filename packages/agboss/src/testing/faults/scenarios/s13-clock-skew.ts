@@ -1,8 +1,8 @@
 import { EXECUTION_LEASE } from "../../../app/lease-fence.js";
 import { systemClock, waitOf } from "../../../infrastructure/clock.js";
 import { FaultStepPoint } from "../fixture/pod-link.js";
-import type { FaultScenario } from "../scenario.js";
-import type { FaultWorld } from "../world.js";
+import type { RunnableFaultScenario } from "../scenario.js";
+import type { FaultCluster } from "../cluster.js";
 import {
   endedOn,
   eventsOf,
@@ -25,49 +25,53 @@ import {
 const TEN_LEASES = 10 * EXECUTION_LEASE;
 
 /** Two sweep periods of the pods' time (30 s each), in real time. */
-const twoSweeps = (world: FaultWorld): Promise<void> =>
-  systemClock.sleep(waitOf((2 * EXECUTION_LEASE) / world.options.timeScale));
+const twoSweeps = (cluster: FaultCluster): Promise<void> =>
+  systemClock.sleep(waitOf((2 * EXECUTION_LEASE) / cluster.options.timeScale));
 
-export const s13ClockAhead: FaultScenario = {
+export const s13ClockAhead: RunnableFaultScenario = {
   id: "s13-clock-ahead",
   title:
     "13: a pod's clock ten leases ahead — it never takes the lease a live pod holds and renews; that pod charges once",
-  run: async (world) => {
-    const a = await world.pod("a");
+  run: async (cluster) => {
+    const a = await cluster.pod("a");
     await holdStep(a, FaultStepPoint.ChargeBefore, "o-13a");
-    const order = await startOrder(world, a, "o-13a");
-    const held = await heldStep(world, a, FaultStepPoint.ChargeBefore, "o-13a");
-    const b = await world.pod("b", { clockSkew: { offset: TEN_LEASES } });
+    const order = await startOrder(cluster, a, "o-13a");
+    const held = await heldStep(cluster, a, FaultStepPoint.ChargeBefore, "o-13a");
+    const b = await cluster.pod("b", { clockSkew: { offset: TEN_LEASES } });
     // b's sweeps look for the running tree while a holds it, renewing
-    await twoSweeps(world);
+    await twoSweeps(cluster);
     await release(a, held);
-    await endedOn(world, order.rootExecutionId, a);
-    const takeovers = eventsOf(world, "takeover", b);
-    expectThat(world, takeovers.length === 0, `b, ahead, took ${String(takeovers.length)} leases`);
-    const charges = eventsOf(world, "charged");
-    expectThat(world, charges.length === 1, `${String(charges.length)} charges, not one`);
+    await endedOn(cluster, order.rootExecutionId, a);
+    const takeovers = eventsOf(cluster, "takeover", b);
+    expectThat(
+      cluster,
+      takeovers.length === 0,
+      `b, ahead, took ${String(takeovers.length)} leases`,
+    );
+    const charges = eventsOf(cluster, "charged");
+    expectThat(cluster, charges.length === 1, `${String(charges.length)} charges, not one`);
     return a;
   },
 };
 
-export const s13ClockBehind: FaultScenario = {
+export const s13ClockBehind: RunnableFaultScenario = {
   id: "s13-clock-behind",
   title:
     "13: a pod's clock ten leases behind — it takes a frozen pod's tree over on time, from its last checkpoint",
-  run: async (world) => {
-    const a = await world.pod("a");
+  run: async (cluster) => {
+    const a = await cluster.pod("a");
     await holdStep(a, FaultStepPoint.ChargeBefore, "o-13b");
-    const order = await startOrder(world, a, "o-13b");
-    await heldStep(world, a, FaultStepPoint.ChargeBefore, "o-13b");
-    a.stop();
-    const b = await world.pod("b", { clockSkew: { offset: -TEN_LEASES } });
-    const takeover = await takenOverBy(world, b, order.rootExecutionId);
+    const order = await startOrder(cluster, a, "o-13b");
+    await heldStep(cluster, a, FaultStepPoint.ChargeBefore, "o-13b");
+    a.freeze();
+    const b = await cluster.pod("b", { clockSkew: { offset: -TEN_LEASES } });
+    const takeover = await takenOverBy(cluster, b, order.rootExecutionId);
     expectThat(
-      world,
+      cluster,
       takeover.previousHolderInstanceId === a.instanceId,
       `b took the tree over from ${String(takeover.previousHolderInstanceId)}, not from a`,
     );
-    await endedOn(world, order.rootExecutionId, b);
+    await endedOn(cluster, order.rootExecutionId, b);
     await a.kill();
     return b;
   },

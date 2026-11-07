@@ -1,7 +1,7 @@
 /**
  * Naive stores behind the payment-grade guarantees (#508, #505, #483 acceptance): each breaks one
  * guarantee the way a hand-written store would, so the published suites are shown to bite —
- * `naive-guarantees.contract-fixture.ts` runs them, `guarantees-bite.test.ts` reads the failures.
+ * `naive-guarantees.contract-fixture.ts` runs them, `guarantees-sabotage.test.ts` reads the failures.
  */
 import {
   accountKeyOf,

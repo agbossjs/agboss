@@ -7,7 +7,7 @@ import {
 } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseProxy, ProxyState } from "../../../src/testing/faults/database-proxy.js";
-import { tcpTargetOf } from "../../../src/testing/faults/world.js";
+import { tcpTargetOf } from "../../../src/testing/faults/cluster.js";
 
 /** An echo server: what the proxy stands in front of. */
 async function echoServer(): Promise<{ server: Server; port: number }> {
@@ -59,15 +59,15 @@ describe("#484 scenario 8: the database proxy pauses, drops and restores a pod's
     const through = await client(await proxy.start());
     through.socket.write("one");
     await until(() => through.read() === "one");
-    proxy.pause();
-    expect(proxy.state).toBe(ProxyState.Paused);
+    proxy.freeze();
+    expect(proxy.state).toBe(ProxyState.Frozen);
     through.socket.write("two");
     // the server answered nothing: a round trip of the server alone comes back first
     await roundTrip(port);
     expect(through.read()).toBe("one");
-    proxy.pause();
-    proxy.restore();
-    proxy.restore();
+    proxy.freeze();
+    proxy.reconnect();
+    proxy.reconnect();
     await until(() => through.read() === "onetwo");
     through.socket.destroy();
   });
@@ -83,7 +83,7 @@ describe("#484 scenario 8: the database proxy pauses, drops and restores a pod's
     await first.closed;
     const refused = await client(proxyPort);
     await refused.closed;
-    proxy.restore();
+    proxy.reconnect();
     await roundTrip(proxyPort);
   });
 
@@ -92,7 +92,7 @@ describe("#484 scenario 8: the database proxy pauses, drops and restores a pod's
     const proxy = new DatabaseProxy({ host: "127.0.0.1", port });
     open.push(server);
     const proxyPort = await proxy.start();
-    proxy.pause();
+    proxy.freeze();
     const late = await client(proxyPort);
     late.socket.write("late");
     await roundTrip(port);

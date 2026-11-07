@@ -3,7 +3,7 @@
  * store's clock) and how old the call's key is (`lookup.keyAge`, from its first attempt), and a call
  * that trusts its `notSent()` only as the key's replay (#795: `NotSentTrust.KeyReplay` with the
  * other system's `keyRetention`) never sends it again once the key, plus `attemptTimeout`, is past
- * it: `OutboundCallUnreconciledError`, nothing sent, the intent pending. On `FakeOutboundGateway`
+ * it: `OutboundCallUnreconciledError`, nothing sent, the intent pending. On `FakePaymentGateway`
  * with no lookup — a replay of the key its only way to learn an outcome — the clock past the
  * retention: one charge (AC1); the replay trusted as a lookup, two (the bite).
  */
@@ -24,8 +24,8 @@ import {
 import { ClockSkew, SkewedClock } from "../../src/testing/clock-skew.js";
 import {
   FakeGatewayFault,
-  FakeOutboundGateway,
-} from "../../src/testing/gateway/fake-outbound-gateway.js";
+  FakePaymentGateway,
+} from "../../src/testing/gateway/fake-payment-gateway.js";
 import { hours, minutes, type Milliseconds } from "../../src/units/index.js";
 import {
   gatewayCharge,
@@ -37,7 +37,7 @@ import {
 
 /** A gateway with no lookup, keeping keys a day: a replay of the key is how it tells an outcome. */
 const replayOnly = (frame: OutboundFrame) =>
-  new FakeOutboundGateway({
+  new FakePaymentGateway({
     clock: frame.clock,
     capabilities: { keyRetention: hours(24), lookupByKey: false },
   });
@@ -53,7 +53,7 @@ const replaying = (lookups: OutboundCallLookup[]) => (lookup: OutboundCallLookup
 };
 
 /** A charge left pending at the store's `now`: its answer dropped after the gateway charged. */
-async function leftPending(frame: OutboundFrame, gateway: FakeOutboundGateway): Promise<EffectKey> {
+async function leftPending(frame: OutboundFrame, gateway: FakePaymentGateway): Promise<EffectKey> {
   const { key } = await frame.keyIn("execution-1");
   gateway.injectFault(FakeGatewayFault.AnswerThenDrop);
   await rejectionOf(frame.send(key, gatewayCharge(gateway)));

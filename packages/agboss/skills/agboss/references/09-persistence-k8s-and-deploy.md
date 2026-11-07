@@ -300,8 +300,8 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 
 `createApp(App, { meterProvider })` publishes the instance's metrics through an OpenTelemetry
 `MeterProvider` the project builds (an SDK one with `@opentelemetry/exporter-prometheus` or an OTLP
-exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { meterProviders:
-[…] })` gives each instance its own, read with an in-memory `MetricReader`.
+exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { instances:
+[{ meterProvider }, …] })` gives each instance its own, read with an in-memory `MetricReader`.
 
 | Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |
@@ -651,7 +651,7 @@ sums a call's records with the core's `totalCost(records)` (root entry).
 It proves that with the core's own contract suites (#481), published as
 `@agboss/core/testing/contracts` — one function per contract (`executionLeaseContract`,
 `childExecutionQueueContract`, …, `checkpointSaverContract`), the very cases the in-memory and SQLite
-stores pass. A `ContractTarget` says how to build one instance's store from its `StoreSeam` (the
+stores pass. A `ContractTarget` says how to build one instance's store from its `StoreInstanceContext` (the
 suite's `VirtualClock`, `instanceId`, `application`), `reset()` empties the backing store before each
 case and `close(store)` runs after it; every case builds two instances on one backing store:
 
@@ -672,7 +672,7 @@ import { executionLeaseContract } from "@agboss/core/testing/contracts";
 
 executionLeaseContract({
   name: "PostgreSQL",
-  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.clock, seam.application),
+  instance: (context) => new PostgresExecutionLeaseRepository(pool, context.clock, context.application),
   reset: () => pool.query("TRUNCATE execution_leases"),
 });
 ```

@@ -12,16 +12,17 @@ import {
 import { TEST_START, VirtualClock } from "../clock.js";
 import { ClockSkew, SkewedClock } from "../clock-skew.js";
 import { TestStoreClock } from "../store-clock.js";
+import type { StoreCapability } from "./store-capability.js";
 import { trackedStore } from "./tracked-store.js";
 
 /**
- * The seam between a published contract suite (#481) and the store under test: what one
+ * What sits between a published contract suite (#481) and the store under test: what one
  * application instance's store is built from, how a target builds it, and the lifecycle of one
  * case — the suite's clock, an empty backing store, two instances on it, then their close.
  */
 
 /** What one instance's store is built from: the clocks and this instance's identity. */
-export interface StoreSeam {
+export interface StoreInstanceContext {
   /**
    * The instance's own clock: the suite's `VirtualClock` — or, in a case of the store's time as the
    * authority (#533), the real time skewed for this instance, which a store must not decide by.
@@ -45,11 +46,17 @@ export interface ContractTarget<TStore> {
   /** Shown in the suite title: "PostgreSQL". */
   readonly name: string;
   /** Builds one instance's store. Called twice per test (two instances on one backing store). */
-  instance(seam: StoreSeam): TStore | Promise<TStore>;
+  instance(context: StoreInstanceContext): TStore | Promise<TStore>;
   /** Before each test: an empty backing store (truncate, a new schema, a new file). */
   reset?(): void | Promise<void>;
   /** After each test, per built instance: close connections. */
   close?(store: TStore): void | Promise<void>;
+  /**
+   * The optional capabilities the store has (#831): `[StoreCapability.WatchQueued]` for a child
+   * queue with `watchQueued`. A declared one must pass its cases; one not declared is skipped
+   * on a store without it, and fails on a store that has it.
+   */
+  readonly capabilities?: readonly StoreCapability[];
 }
 
 /**
@@ -84,8 +91,12 @@ export interface DatabaseTime {
 /** The host's real time, the one clock a database-time case's stores share (#533). */
 const DATABASE_TIME: StoreClock = new DatabaseStoreClock(systemClock);
 
-/** The seam of `instanceId`, on the case's clock (or, in database time, on its skewed real clock). */
-const seamOf = (clock: VirtualClock, instanceId: string, time?: DatabaseTime): StoreSeam => ({
+/** The instance context of `instanceId`, on the case's clock (or, in database time, on its skewed real clock). */
+const instanceContextOf = (
+  clock: VirtualClock,
+  instanceId: string,
+  time?: DatabaseTime,
+): StoreInstanceContext => ({
   ...(time === undefined
     ? { clock, storeClock: new TestStoreClock(clock) }
     : {
@@ -130,7 +141,7 @@ async function buildInstances<TStore>(
   time: DatabaseTime | undefined,
 ): Promise<ContractInstances<TStore>> {
   const built = async (instanceId: string): Promise<TStore> => {
-    const store = await target.instance(seamOf(clock, instanceId, time));
+    const store = await target.instance(instanceContextOf(clock, instanceId, time));
     stores.push(store);
     // the case's clock waits for its calls: a networked store's round trip is more than one turn (#511)
     return trackedStore(store, clock);

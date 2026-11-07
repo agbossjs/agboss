@@ -2,13 +2,13 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
-import type { OutboundCallStores } from "../../../src/testing/contracts/index.js";
+import type { OutboundCallTarget } from "../../../src/testing/contracts/index.js";
 import type { StoreFactory } from "./store-kinds.js";
 
 /** The core's outbound-call stores as targets of the published outbound-call contract (#505). */
 
 /** The in-memory store over the test's database, beside the in-memory leases it checks. */
-export const inMemoryOutboundCalls: StoreFactory<OutboundCallStores> = (seam) => {
+export const inMemoryOutboundCalls: StoreFactory<OutboundCallTarget> = (seam) => {
   const leases = new InMemoryExecutionLeaseRepository(
     seam.storeClock,
     seam.application,
@@ -21,7 +21,7 @@ export const inMemoryOutboundCalls: StoreFactory<OutboundCallStores> = (seam) =>
 };
 
 /** The SQLite store on this instance's connection to the test's file, with its lease store. */
-export const sqliteOutboundCalls: StoreFactory<OutboundCallStores> = (seam) => {
+export const sqliteOutboundCalls: StoreFactory<OutboundCallTarget> = (seam) => {
   const connection = seam.connection();
   return {
     calls: new SqliteOutboundCallRepository(connection, seam.storeClock),

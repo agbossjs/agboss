@@ -210,7 +210,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
   // a transport built from this app reaches its trees by id (#807: an A2A server in a test)
   rememberExecutionControl(testApp, forwardedControlOf(readyApp));
-  // `leases.stall(app)` closes this instance's gate (#471)
+  // `leases.freeze(app)` closes this instance's gate (#471)
   rememberLeaseGate(testApp, gate);
   return testApp;
 }

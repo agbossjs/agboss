@@ -3,7 +3,7 @@ import type { RateLimitRepository } from "../../infrastructure/rate-limit.reposi
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { RATE_WINDOW_CASES } from "./rate-limit-window.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 const LEASE = seconds(30);
 

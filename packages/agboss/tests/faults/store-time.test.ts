@@ -1,19 +1,16 @@
 /**
- * #799 AC1 — a store set declares the time its fencing stores decide by (`FaultStores.storeTime`),
+ * #799 AC1 — a store set declares the time its fencing stores decide by (`FaultStoreSet.storeTime`),
  * and the fault suite reads the run's history on it: a set on its database's own clock is mapped at
  * 1 however fast the pods run, one on the host's clock at the pods' `timeScale`. A set without the
  * declaration — or with an unknown one — does not start its pods.
  */
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import {
-  FaultStoreTime,
-  FaultStoreTimeError,
-  runFaultScenario,
-  type FaultScenario,
-} from "../../src/testing/faults/index.js";
+import { FaultStoreTime } from "../../src/testing/faults/index.js";
+import { FaultStoreTimeError } from "../../src/testing/faults/fault-stores.js";
+import { runFaultScenario, type RunnableFaultScenario } from "../../src/testing/faults/scenario.js";
 import { storeTimeOf, storeTimeScaleOf } from "../../src/testing/faults/fault-stores.js";
-import { FaultWorld } from "../../src/testing/faults/world.js";
+import { FaultCluster } from "../../src/testing/faults/cluster.js";
 import { faultStores as sqlite } from "./sqlite.fault-stores.js";
 import { sqliteFaultTarget, SQLITE_TIME_SCALE } from "./sqlite-target.js";
 
@@ -21,10 +18,10 @@ const moduleOf = (name: string): string =>
   fileURLToPath(new URL(`./${name}.fault-stores.ts`, import.meta.url));
 
 /** A scenario that starts one pod and reads the facts with it: nothing ordered, nothing to break. */
-const ONE_POD: FaultScenario = {
+const ONE_POD: RunnableFaultScenario = {
   id: "s00-one-pod",
   title: "one pod, nothing ordered",
-  run: (world) => world.pod("a"),
+  run: (cluster) => cluster.pod("a"),
 };
 
 describe("#799 AC1: the history is read on the time the store set declares", () => {
@@ -48,11 +45,11 @@ describe("#799 AC1: the history is read on the time the store set declares", () 
   it("a pod reports the set's declaration", async () => {
     const target = sqliteFaultTarget(moduleOf("database-time"));
     await target.database.reset?.();
-    const world = new FaultWorld({ ...target, timeScale: SQLITE_TIME_SCALE });
+    const cluster = new FaultCluster({ ...target, timeScale: SQLITE_TIME_SCALE });
     try {
-      expect((await world.pod("a")).storeTime).toBe(FaultStoreTime.Database);
+      expect((await cluster.pod("a")).storeTime).toBe(FaultStoreTime.Database);
     } finally {
-      await world.close();
+      await cluster.close();
     }
   }, 60_000);
 });
@@ -79,11 +76,11 @@ describe("#799 AC1: a set that does not declare its store time is refused", () =
   it("its pod does not start, with the refusal; so the scenario fails", async () => {
     const target = sqliteFaultTarget(moduleOf("no-store-time"));
     await target.database.reset?.();
-    const world = new FaultWorld({ ...target, timeScale: SQLITE_TIME_SCALE });
+    const cluster = new FaultCluster({ ...target, timeScale: SQLITE_TIME_SCALE });
     try {
-      await expect(world.pod("a")).rejects.toThrow(/\[fault-suite\.store-time\]/u);
+      await expect(cluster.pod("a")).rejects.toThrow(/\[fault-suite\.store-time\]/u);
     } finally {
-      await world.close();
+      await cluster.close();
     }
     await expect(runFaultScenario(ONE_POD, target)).rejects.toThrow(/\[fault-suite\.store-time\]/u);
   }, 60_000);

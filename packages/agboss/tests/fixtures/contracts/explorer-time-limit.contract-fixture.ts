@@ -3,9 +3,10 @@
 import { registerInterleavings } from "../../../src/testing/contracts/explorer/register.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
+import type { Milliseconds } from "../../../src/units/index.js";
 
 registerInterleavings(
   "a search past its time limit",
   { outboundCall: inMemoryTarget(inMemoryOutboundCalls) },
-  { depth: 12, walks: 100_000, timeLimit: 1 },
+  { depth: 12, walks: 100_000, timeLimit: 1 as Milliseconds },
 );

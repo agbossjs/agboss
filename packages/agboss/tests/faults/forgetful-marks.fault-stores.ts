@@ -5,7 +5,7 @@ import {
   type ExecutionTree,
   type ExecutionTreeValue,
 } from "../../src/index.js";
-import { defineFaultStores } from "../../src/testing/faults/index.js";
+import type { FaultStoreSet } from "../../src/testing/faults/index.js";
 import { faultStores as sqlite } from "./sqlite.fault-stores.js";
 
 /**
@@ -24,9 +24,9 @@ export class ForgetfulSqliteExecutionTreeRepository extends SqliteExecutionTreeR
   }
 }
 
-export const faultStores = defineFaultStores({
+export const faultStores: FaultStoreSet = {
   ...sqlite,
   providers: sqlite.providers.map((store) =>
     store === SqliteExecutionTreeRepository ? ForgetfulSqliteExecutionTreeRepository : store,
   ),
-});
+};

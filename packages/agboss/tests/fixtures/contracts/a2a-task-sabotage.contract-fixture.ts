@@ -1,5 +1,5 @@
 // #807 — the A2A task contract run on the sound in-memory store and on one broken way per rule;
-// tests/testing/contracts/a2a-task-bites.test.ts reads which cases each fails.
+// tests/testing/contracts/a2a-task-sabotage.test.ts reads which cases each fails.
 import {
   A2ATaskSaveStatus,
   firstA2AMessageOf,

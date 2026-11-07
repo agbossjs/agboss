@@ -5,7 +5,7 @@ import type {
 } from "../../infrastructure/execution-lease.repository.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 
 /** What each case below gets. */
 type Instances = ContractInstances<ExecutionLeaseRepository>;

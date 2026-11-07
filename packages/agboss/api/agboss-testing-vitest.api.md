@@ -7,7 +7,7 @@
 import type { ViteUserConfig } from 'vitest/config';
 
 // @public
-export function agbossTest(test?: VitestTestOptions): VitestTestOptions;
+export function agbossVitest(test?: VitestTestOptions): VitestTestOptions;
 
 // @public
 export type VitestTestOptions = NonNullable<ViteUserConfig["test"]>;

@@ -6,15 +6,15 @@ import { outboundKeyTextCases } from "./outbound-call-key-text.cases.js";
 import { outboundLeaseRaceCases } from "./outbound-call-lease.cases.js";
 import { outboundBusinessKeyCases } from "./outbound-call-business.cases.js";
 import { outboundRaceCases } from "./outbound-call-race.cases.js";
-import type { OutboundCallStores } from "./outbound-call-data.js";
+import type { OutboundCallTarget } from "./outbound-call-data.js";
 import { outboundListingCases, outboundRefusalCases } from "./outbound-call-refusal.cases.js";
 import { outboundPagingCases } from "./outbound-call-paging.cases.js";
 import { outboundTextCases } from "./outbound-call-text.cases.js";
 import { outboundTimeCases } from "./outbound-call-time.cases.js";
 import { outboundWriteCases } from "./outbound-call-write.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
-export type { OutboundCallStores } from "./outbound-call-data.js";
+export type { OutboundCallTarget } from "./outbound-call-data.js";
 
 /**
  * `OutboundCallRepository` (#505): the intents of calls that leave the system, one per key — saved
@@ -30,7 +30,7 @@ export type { OutboundCallStores } from "./outbound-call-data.js";
  * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
  */
 export function outboundCallContract(
-  target: ContractTarget<OutboundCallStores>,
+  target: ContractTarget<OutboundCallTarget>,
   options: FencingContractOptions = {},
 ): void {
   registerOutboundCallContract(target, optOutOf(options, true));
@@ -38,7 +38,7 @@ export function outboundCallContract(
 
 /** The outbound-call suite, its opt-out shown by it or (`storeConformance`) by the set's suite. */
 export function registerOutboundCallContract(
-  target: ContractTarget<OutboundCallStores>,
+  target: ContractTarget<OutboundCallTarget>,
   optOut: OptOut,
 ): void {
   registerContract(

@@ -1,4 +1,5 @@
-import type { FaultScenario } from "../scenario.js";
+import type { FaultScenario, RunnableFaultScenario } from "../scenario.js";
+import { SABOTAGES } from "./sabotages.js";
 import { s01Drains, s01TakenOver } from "./s01-sigterm.js";
 import { s02Kill } from "./s02-kill.js";
 import { s03FencedEffect, s03Payment } from "./s03-crash-after-effect.js";
@@ -17,7 +18,7 @@ import { s14AmbiguousAnswer, s15KeyExpired } from "./s14-s15-key-expiry.js";
 import { s16ClaimAnswerLost } from "./s16-claim-answer-lost.js";
 
 /** Every fault scenario, in the suite's order (#484). */
-export const FAULT_SCENARIOS: readonly FaultScenario[] = [
+export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s01Drains,
   s01TakenOver,
   s02Kill,
@@ -45,3 +46,20 @@ export const FAULT_SCENARIOS: readonly FaultScenario[] = [
   s15KeyExpired,
   s16ClaimAnswerLost,
 ];
+
+/** A scenario's name only (#831): what the suite runs stays its own. */
+const named = ({ id, title }: FaultScenario): FaultScenario => Object.freeze({ id, title });
+
+/**
+ * Every fault scenario `faultSuite` runs, in its order (#484): each one's id (what `scenarios:`
+ * selects) and title.
+ */
+export const FAULT_SCENARIOS: readonly FaultScenario[] = Object.freeze(SCENARIOS.map(named));
+
+/**
+ * The sabotages `faultSuite` runs after them (#657, #658, #831): scenarios on the fixture's payment
+ * integration broken on purpose, each passing only when it charges twice.
+ */
+export const FAULT_SABOTAGE_SCENARIOS: readonly FaultScenario[] = Object.freeze(
+  SABOTAGES.map(named),
+);

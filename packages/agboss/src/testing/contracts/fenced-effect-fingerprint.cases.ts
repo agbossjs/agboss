@@ -7,7 +7,7 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
@@ -18,7 +18,7 @@ import {
  * calls in flight on one instance, one with `""` and one with none, are not joined.
  */
 
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 /** `null`: no fingerprint; `""`: the empty one. */
 type Fingerprint = "" | null;
@@ -136,7 +136,7 @@ const racingApart = <TTransaction>(): Case<TTransaction> => ({
 
 /** The empty-fingerprint cases. */
 export const fingerprintCases = <TTransaction>(): ContractGroup<
-  FencedEffectStores<TTransaction>
+  FencedEffectTarget<TTransaction>
 > => ({
   title: "an empty fingerprint is not none",
   cases: [

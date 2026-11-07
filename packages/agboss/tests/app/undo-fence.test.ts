@@ -65,7 +65,7 @@ describe("#605 / #640: a holder held past its lease before its undo action undoe
         openGate();
         const call = rejectionOf(execute(a, start, item("gate", "fail"), { threadId: "t" }));
         await until(() => undoStartGate.held.length === 1, `the old holder's undo held ${at}`);
-        leases.stall(a);
+        leases.freeze(a);
         const isTakenOver = (): boolean =>
           takeoversSeen.some((each) => each.previous === old && each.holder !== old);
         for (let step = 0; step < 24 && rootFailures().length === 0; step += 1) {
@@ -75,7 +75,7 @@ describe("#605 / #640: a holder held past its lease before its undo action undoe
         await until(() => rootFailures().length > 0, "the new holder undid and failed the tree");
         await settle();
         undoStartGate.release();
-        leases.resume(a);
+        leases.thaw(a);
         const error = await call;
         await settle();
 
@@ -116,7 +116,7 @@ describe("#605 AC1: a holder that lost the tree while its step ran undoes nothin
       const old = [...byId].find(([, each]) => each === a)?.[0];
       const call = rejectionOf(execute(a, start, item("gate", "fail"), { threadId: "thread-u" }));
       await until(() => yieldSeen.runs.length === 1, "the old holder's step at its gate");
-      leases.stall(a);
+      leases.freeze(a);
       const isTakenOver = (): boolean =>
         takeoversSeen.some((each) => each.previous === old && each.holder !== old);
       for (let step = 0; step < 12 && !isTakenOver(); step += 1) await clock.advance(seconds(10));
@@ -127,7 +127,7 @@ describe("#605 AC1: a holder that lost the tree while its step ran undoes nothin
         await clock.advance(seconds(10));
       await until(() => rootFailures().length > 0, "the tree failed where it was taken over");
       await settle();
-      leases.resume(a);
+      leases.thaw(a);
       const error = await call;
       await settle();
 

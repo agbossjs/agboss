@@ -1,7 +1,7 @@
 import { registerContract } from "./define.js";
 import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-gate.js";
 import { businessKeyCases } from "./fenced-effect-business.cases.js";
-import type { FencedEffectStores } from "./fenced-effect-data.js";
+import type { FencedEffectTarget } from "./fenced-effect-data.js";
 import { expiryCases } from "./fenced-effect-expiry.cases.js";
 import { fingerprintCases } from "./fenced-effect-fingerprint.cases.js";
 import { keyTextCases } from "./fenced-effect-key-text.cases.js";
@@ -10,9 +10,9 @@ import { concurrencyCases, rollbackCases } from "./fenced-effect-rollback.cases.
 import { textCases } from "./fenced-effect-text.cases.js";
 import { refusalCases, writeCases } from "./fenced-effect-write.cases.js";
 import { zombieCases } from "./fenced-effect-zombie.cases.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
-export type { FencedEffectBusinessRows, FencedEffectStores } from "./fenced-effect-data.js";
+export type { FencedEffectBusinessRows, FencedEffectTarget } from "./fenced-effect-data.js";
 
 /**
  * `FencedEffectRepository` (#500): one protected write per key, in one transaction with the checks —
@@ -27,7 +27,7 @@ export type { FencedEffectBusinessRows, FencedEffectStores } from "./fenced-effe
  * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
  */
 export function fencedEffectContract<TTransaction>(
-  target: ContractTarget<FencedEffectStores<TTransaction>>,
+  target: ContractTarget<FencedEffectTarget<TTransaction>>,
   options: FencingContractOptions = {},
 ): void {
   registerFencedEffectContract(target, optOutOf(options, true));
@@ -35,7 +35,7 @@ export function fencedEffectContract<TTransaction>(
 
 /** The fenced-effect suite, its opt-out shown by it or (`storeConformance`) by the set's suite. */
 export function registerFencedEffectContract<TTransaction>(
-  target: ContractTarget<FencedEffectStores<TTransaction>>,
+  target: ContractTarget<FencedEffectTarget<TTransaction>>,
   optOut: OptOut,
 ): void {
   registerContract(

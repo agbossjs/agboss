@@ -26,12 +26,8 @@
  */
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import {
-  FaultInvariant,
-  FaultInvariantError,
-  runFaultScenario,
-  type FaultScenario,
-} from "../../src/testing/faults/index.js";
+import { FaultInvariant, FaultInvariantError } from "../../src/testing/faults/index.js";
+import { runFaultScenario, type RunnableFaultScenario } from "../../src/testing/faults/scenario.js";
 import {
   s05ZombieFirst,
   s05ZombiePaysFirst,
@@ -63,7 +59,7 @@ const releasing = sqliteFaultTarget(
 
 /** What `scenario` failed with on `target`; the test fails when it passed. */
 async function failureOf(
-  scenario: FaultScenario,
+  scenario: RunnableFaultScenario,
   target: typeof unfenced,
 ): Promise<FaultInvariantError> {
   const error: unknown = await runFaultScenario(scenario, target).then(

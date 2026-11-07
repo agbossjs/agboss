@@ -11,7 +11,7 @@ import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures(["a2a-task-bites.contract-fixture.ts"]);
+  run = await runContractFixtures(["a2a-task-sabotage.contract-fixture.ts"]);
 }, 120_000);
 
 const casesOf = (target: string) =>

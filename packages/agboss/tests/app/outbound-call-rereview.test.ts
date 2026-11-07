@@ -503,7 +503,7 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
       const start = clock.now().getTime();
       // renewed at 10 s, A's lease runs to 40 s; then stalled: it expires between two sweeps (30, 60)
       await advancedTo(clock, start + seconds(10));
-      leases.stall(a);
+      leases.freeze(a);
       // the sweep at 30 s finds it held; none runs again before 60 s
       await advancedTo(clock, start + seconds(31));
       await advancedTo(clock, start + seconds(41));
@@ -549,7 +549,7 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
         OutboundCallSendStatus.Sent,
         OutboundCallSendStatus.Replayed,
       ]);
-      leases.resume(a);
+      leases.thaw(a);
       letLedgerGo();
       await settle();
     },

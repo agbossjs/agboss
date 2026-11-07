@@ -2,7 +2,7 @@ import type { ExecutionLeaseRepository } from "../infrastructure/execution-lease
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
 
-/** What a test's `leases.stall` puts around one instance's lease (#471): its store and its timers. */
+/** What a test's `leases.freeze` puts around one instance's lease (#471): its store and its timers. */
 export interface ExecutionLeaseGate {
   repositoryOf(repository: ExecutionLeaseRepository): ExecutionLeaseRepository;
   clockOf(clock: Clock): Clock;

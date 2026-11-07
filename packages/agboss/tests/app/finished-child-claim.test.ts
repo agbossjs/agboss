@@ -1,7 +1,7 @@
 /**
  * #520 — a stale instance never takes the lease of an `AnyInstance` child another instance already
  * finished. A's parent waits for its child on B; A's reclaim of the child, asked while B still runs
- * it, freezes at A's lease store (`leases.stall`); B ends the child — answered, failed or cancelled
+ * it, freezes at A's lease store (`leases.freeze`); B ends the child — answered, failed or cancelled
  * — and finishes its lease; A resumes. Before the fix A took the free lease of the finished child
  * (and kept it, renewed) and wrote a `RemoteChild` takeover for it.
  */
@@ -60,7 +60,7 @@ async function frozenReclaim(
   const call = execute(a, YieldOneWorkflowStart, item("gate", outcome), { threadId: "thread-a" });
   await until(() => yieldSeen.runs.length === 1, "the child at its gate on B");
   const child = childOf(b);
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(1));
   await settle();
   return { a, b, call, child };
@@ -71,7 +71,7 @@ async function resumed(
   { a, call }: FrozenReclaim,
   leases: TestLeases,
 ): Promise<{ readonly done: unknown; readonly error: unknown }> {
-  leases.resume(a);
+  leases.thaw(a);
   const error = await rejectionOf(call);
   const done = error === undefined ? await call : undefined;
   await settle();

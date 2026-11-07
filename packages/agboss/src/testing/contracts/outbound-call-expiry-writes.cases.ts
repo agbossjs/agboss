@@ -7,7 +7,7 @@ import { OutboundCallStatus } from "../../infrastructure/outbound-call.repositor
 import { seconds } from "../../units/index.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";
 import { keyOf, leaseOf } from "./fenced-effect-data.js";
-import { recorded, type OutboundCallCase, type OutboundCallStores } from "./outbound-call-data.js";
+import { recorded, type OutboundCallCase, type OutboundCallTarget } from "./outbound-call-data.js";
 
 /** The lease of the cases below: 30 s, so its expiry is reached in a case. */
 const LEASE = seconds(30);
@@ -17,7 +17,7 @@ const FAILURE = { name: "PaymentDeclinedError", code: "PaymentDeclinedError", me
 /** One fenced call of the holder on an intent it recorded at the take. */
 interface IntentWrite {
   readonly name: string;
-  readonly call: (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>;
+  readonly call: (stores: OutboundCallTarget, key: EffectKey) => Promise<unknown>;
 }
 
 const INTENT_WRITES: readonly IntentWrite[] = [
@@ -74,13 +74,13 @@ const intentWriteAt = (write: IntentWrite, edge: ExpiryEdge): OutboundCallCase =
 };
 
 /** Whether the holder renewed `lease`: `false` or nothing is a refusal, whatever else it answers. */
-const isRenewed = async (stores: OutboundCallStores, lease: ExecutionLease): Promise<boolean> => {
+const isRenewed = async (stores: OutboundCallTarget, lease: ExecutionLease): Promise<boolean> => {
   const answer: unknown = await stores.leases.renew(lease, LEASE);
   return answer !== false && answer !== undefined;
 };
 
 /** The state of `stores`' view of `lease`. */
-const stateOf = (stores: OutboundCallStores, lease: ExecutionLease) =>
+const stateOf = (stores: OutboundCallTarget, lease: ExecutionLease) =>
   stores.calls.leaseStateOf({
     tenantId: lease.tenantId,
     leaseExecutionId: lease.rootExecutionId,
