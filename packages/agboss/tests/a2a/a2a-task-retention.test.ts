@@ -1,6 +1,6 @@
 /**
- * #807 AC5: the recovery sweep removes finished A2A tasks after `@Application({ a2a: {
- * taskRetention } })` — `hours(24)` by default — on the application's Clock, with their messages;
+ * #807 AC5: the recovery sweep removes finished A2A tasks after `@Application({ retention: {
+ * a2aTasks } })` — `hours(24)` by default — on the application's Clock, with their messages;
  * an unfinished task is never removed.
  */
 import { describe, expect } from "vitest";

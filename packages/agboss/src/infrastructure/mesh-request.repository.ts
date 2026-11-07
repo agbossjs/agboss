@@ -6,8 +6,8 @@ import type { InMemoryDatabase } from "./in-memory-database.js";
  * Infrastructure (#398 PR 2, Q8): the answers of trusted mesh requests by their idempotency key —
  * scoped by the receiver's tenant and the authenticated peer (a key guessed by another caller finds
  * nothing). A request whose key is already here gets the same answer without running again, or —
- * while the first runs — a refusal (`mesh.request-in-progress`). Kept `@Application({ mesh: {
- * idempotencyRetention } })` (default `minutes(30)`), then removed by the recovery sweep on the
+ * while the first runs — a refusal (`mesh.request-in-progress`). Kept `@Application({ retention: {
+ * meshAnswers } })` (default `minutes(30)`), then removed by the recovery sweep on the
  * `Clock`. Listed only in `@Application({ providers })`; the built-in default is in memory, and
  * `SqliteMeshRequestRepository` shares the answers between instances on one file.
  */

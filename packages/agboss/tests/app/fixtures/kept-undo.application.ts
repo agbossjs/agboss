@@ -18,7 +18,7 @@ import {
 } from "../../flow/runtime/fixtures/unwind.workflow.js";
 
 /**
- * #635 — every way a root's tree ends undone, its history kept (`executionRecordRetention`): a
+ * #635 — every way a root's tree ends undone, its history kept (`retention.executionRecords`): a
  * pass's own failure, a failed undo, a cancel, a side path's undo before the failure, a failed
  * per-item child, a paused tree cancelled — and a lease store whose instances a test can kill, so
  * the pass that fails can be the new holder's.

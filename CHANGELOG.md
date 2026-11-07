@@ -30,7 +30,9 @@ costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each 
     `[application.retention-invalid]`, replaces `[application.ledger-entry-retention-invalid]` and the
     retention halves of `[application.fenced-effects-invalid]` / `[application.outbound-calls-invalid]`:
     every retention a positive, finite duration, the fencing ones (`fencedEffects`, `outboundCalls`,
-    `costLedgerEntries`) above the lease, and a key it does not know is refused, never ignored.
+    `costLedgerEntries`) above the lease, none above a century, a key it does not know refused —
+    and a retention set where it was before (a JavaScript caller, a cast) is refused naming where it
+    goes now, never dropped for the default.
     Sizes and timeouts stay with their feature. A store's own `FencedEffectSettings` takes
     `FencedEffectSettingsOptions` (`{ maxResultSize?, retention? }`).
   - **Environment fields are made by helpers** — `EnvironmentField.secret()`, `.text()`,
@@ -43,8 +45,8 @@ costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each 
     naming where it goes.
   - **`AppDeps`, `createAppDeps`, `AppDepsOptions`, `McpConnect`, `GraphDeps` and
     `ExecutionObserverManager` (with `EventMask`, `ObserverFailure`) left the root** (and the
-    deprecated `/core`): they are `@agboss/core/internal`. `agboss migrate imports` points
-    `ObserverManager` there.
+    deprecated `/core`): they are `@agboss/core/internal`, with no public replacement
+    (`agboss migrate imports` no longer moves `ObserverManager`).
   - **Units have one home, `@agboss/core/units`** (`Usd`, `Milliseconds`, `Bytes` and their makers):
     the root no longer exports `Usd` and `Milliseconds`.
 

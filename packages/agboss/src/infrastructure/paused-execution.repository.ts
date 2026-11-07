@@ -29,7 +29,7 @@ export {
  *   the channel is asked; a resume finds it by `(tenantId, pauseId)` anywhere in the tree and turns
  *   it from `Pending` to `Resolved` with its decision, atomically — of two concurrent resumes of
  *   one pause exactly one does (Q58). A resolved record (`Taken`, `Cancelled`) is kept for
- *   `@Application({ pauseRecordRetention })` after it was resolved — a late answer gets
+ *   `@Application({ retention: { pauseRecords } })` after it was resolved — a late answer gets
  *   `NotPausedError` — then removed by the recovery sweep (`deleteResolvedBefore`, #267 S107).
  *
  * One per application, listed only in `@Application({ providers })`; the built-in default is in
@@ -121,7 +121,7 @@ export abstract class PausedExecutionRepository {
 
   /**
    * Removes every `Taken` and `Cancelled` pause of every tenant resolved before `cutoff` (the
-   * recovery sweep, `now - pauseRecordRetention`); `Pending` and `Resolved` ones are never removed.
+   * recovery sweep, `now - retention.pauseRecords`); `Pending` and `Resolved` ones are never removed.
    */
   abstract deleteResolvedBefore(cutoff: Date): Promise<void>;
 }

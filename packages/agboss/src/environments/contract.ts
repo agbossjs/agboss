@@ -42,8 +42,21 @@ interface FieldSpec {
 const made = new WeakMap<object, FieldSpec>();
 
 const fieldOf =
-  (type: EnvironmentFieldType) =>
+  (type: EnvironmentFieldType, maker: string) =>
   (options: EnvironmentFieldOptions = {}): EnvironmentField => {
+    // a JavaScript caller's typo (`{ optinal: true }`, `optional: "yes"`) is named, never read as required
+    const given: unknown = options;
+    const keys = typeof given === "object" && given !== null ? Object.keys(given) : undefined;
+    const optional = (given as { optional?: unknown } | null)?.optional;
+    if (
+      keys === undefined ||
+      keys.some((key) => key !== "optional") ||
+      (optional !== undefined && typeof optional !== "boolean")
+    ) {
+      throw new ComponentError(
+        `EnvironmentField.${maker}(${JSON.stringify(given) ?? String(given)}): its options are { optional?: boolean } — EnvironmentField.${maker}({ optional: true })`,
+      );
+    }
     const field = Object.freeze({});
     made.set(field, { type, isOptional: options.optional === true });
     return field as EnvironmentField;
@@ -57,13 +70,13 @@ const fieldOf =
  */
 export const EnvironmentField = Object.freeze({
   /** A text field (`env("X")`). */
-  text: fieldOf(EnvironmentFieldType.Text),
+  text: fieldOf(EnvironmentFieldType.Text, "text"),
   /** A whole-number field (`env.integer("X")`). */
-  integer: fieldOf(EnvironmentFieldType.Integer),
+  integer: fieldOf(EnvironmentFieldType.Integer, "integer"),
   /** A boolean field (`env.flag("X")`). */
-  flag: fieldOf(EnvironmentFieldType.Flag),
+  flag: fieldOf(EnvironmentFieldType.Flag, "flag"),
   /** A `Secret` field (`secret("X")`). */
-  secret: fieldOf(EnvironmentFieldType.Secret),
+  secret: fieldOf(EnvironmentFieldType.Secret, "secret"),
 });
 
 /** The fields a class declares, by name: `{ postgresUrl: EnvironmentField.secret() }`. */
@@ -102,10 +115,15 @@ function requirementOf(
       `${where}: "${field}" is not a field name — a field of the environment contract is a camelCase identifier (postgresUrl)`,
     );
   }
+  if (typeof value === "function") {
+    throw new ComponentError(
+      `${where}: ${field} is a helper, not a field — call it: EnvironmentField.text(), .integer(), .flag() or .secret()`,
+    );
+  }
   const spec = typeof value === "object" && value !== null ? made.get(value) : undefined;
   if (spec === undefined) {
     throw new ComponentError(
-      `${where}: ${field} is ${typeof value === "string" ? `"${value}"` : String(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret()`,
+      `${where}: ${field} is ${typeof value === "string" ? `"${value}"` : String(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret() (a store with its own copy of @agboss/core makes fields this one does not know: list the core as a peer dependency)`,
     );
   }
   return { field, type: spec.type, isOptional: spec.isOptional };
@@ -115,7 +133,7 @@ function requirementOf(
 export function declareEnvironmentFields(implementation: Class, fields: EnvironmentFields): void {
   if (typeof fields !== "object" || (fields as unknown) === null) {
     throw new ComponentError(
-      `@Injectable({ environmentFields }) of ${implementation.name}: ${String(fields)} is not an object of fields`,
+      `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}: ${String(fields)} is not an object of fields`,
     );
   }
   requireEnvironmentFields(

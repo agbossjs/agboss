@@ -40,7 +40,7 @@ export interface WarningSources {
    * start; `agboss check` from `@Application({ piiKeyField })` not being set.
    */
   readonly isPiiKeyOfInstance?: boolean;
-  /** `@Application({ executionRecordRetention })` (#401): root executions are kept when it is set. */
+  /** `@Application({ retention: { executionRecords } })` (#401): root executions are kept when it is set. */
   readonly executionRecordRetention?: number | undefined;
   /** The application's own PII policies (#644: a policy makes tokens, so the key matters). */
   readonly piiPolicies?: readonly Class[];
@@ -75,7 +75,7 @@ function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning
 const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
   code: "application.in-memory-execution-history",
   message:
-    "in-memory execution history: executionRecordRetention keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
+    "in-memory execution history: retention.executionRecords keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
 };
 
 const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {

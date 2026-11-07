@@ -252,6 +252,27 @@ describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider 
     );
   });
 
+  it.each([null, "prod", new Map([["env", "prod"]])])(
+    "options that are not an object of the four (%s) are refused",
+    async (options) => {
+      await expect(createApp(CodeReviewApplication, options as never)).rejects.toThrow(
+        /createApp takes an object of env, profile, profileRoot, meterProvider — not/,
+      );
+    },
+  );
+
+  it("an inherited or a symbol key is refused too: no seam reaches the build", async () => {
+    const inherited: object = Object.create({ gateway: createScriptedGateway(new ScriptBook()) });
+    await expect(createApp(CodeReviewApplication, inherited as never)).rejects.toThrow(
+      /createApp takes an object of env/,
+    );
+    await expect(
+      createApp(CodeReviewApplication, { [Symbol("seam")]: true } as never),
+    ).rejects.toThrow(
+      /createApp takes only env, profile, profileRoot, meterProvider — not Symbol\(seam\)/,
+    );
+  });
+
   it("the internal build path takes the seams: what testWith and the CLI use", async () => {
     const app = await createAppWith(CodeReviewApplication, offline(new ScriptBook()));
 

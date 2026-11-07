@@ -1,6 +1,6 @@
 /**
- * #771 — `@Application({ ledgerEntryRetention })`: how long the ledger's entries are kept, checked
- * at assembly (`[application.ledger-entry-retention-invalid]`: above the lease's 30 s) and read by
+ * #771 — `@Application({ retention: { costLedgerEntries } })`: how long the ledger's entries are kept, checked
+ * at assembly (`[application.retention-invalid]`: above the lease's 30 s) and read by
  * the recovery sweep, which prunes the entries made before `now − retention` on the `Clock` — the
  * counters never.
  */

@@ -255,21 +255,44 @@ export async function createApp<TApplication extends Class>(
 }
 
 /** The four options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
-const APP_OPTIONS: ReadonlySet<string> = new Set([
+const APP_OPTIONS: readonly (keyof AppOptions)[] = [
   "env",
   "profile",
   "profileRoot",
   "meterProvider",
-]);
+];
 
-function productionOptionsOf(options: AppOptions): AppOptions {
-  const unknown = Object.keys(options).filter((key) => !APP_OPTIONS.has(key));
-  if (unknown.length > 0) {
+const REFUSED = "infrastructure and settings go in @Application({ … }), test seams in testWith";
+
+/**
+ * `createApp`'s options as a fresh object of its four keys only — so no seam reaches the build
+ * through an inherited, a non-enumerable or a symbol key either.
+ */
+function productionOptionsOf(options: unknown): AppOptions {
+  const isPlain =
+    typeof options === "object" &&
+    options !== null &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(options) as object | null);
+  if (!isPlain) {
     throw new TypeError(
-      `createApp takes only ${[...APP_OPTIONS].join(", ")} — not ${unknown.join(", ")}: infrastructure and settings go in @Application({ … }), test seams in testWith`,
+      `createApp takes an object of ${APP_OPTIONS.join(", ")} — not ${typeof options === "string" ? `"${options}"` : String(options)}: ${REFUSED}`,
     );
   }
-  return options;
+  const unknown = Reflect.ownKeys(options)
+    .filter((key) => typeof key !== "string" || !(APP_OPTIONS as readonly string[]).includes(key))
+    .map(String);
+  if (unknown.length > 0) {
+    throw new TypeError(
+      `createApp takes only ${APP_OPTIONS.join(", ")} — not ${unknown.join(", ")}: ${REFUSED}`,
+    );
+  }
+  const given = options as AppOptions;
+  return {
+    ...(given.env === undefined ? {} : { env: given.env }),
+    ...(given.profile === undefined ? {} : { profile: given.profile }),
+    ...(given.profileRoot === undefined ? {} : { profileRoot: given.profileRoot }),
+    ...(given.meterProvider === undefined ? {} : { meterProvider: given.meterProvider }),
+  };
 }
 
 /**

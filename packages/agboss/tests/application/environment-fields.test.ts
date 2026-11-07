@@ -230,6 +230,21 @@ describe("#834 AC3: environment fields are made by EnvironmentField's helpers, t
     },
   );
 
+  it.each([{ optinal: true }, { optional: "yes" }, null])(
+    "a helper's options %o are named, never read as a required field",
+    (options) => {
+      expect(() => EnvironmentField.text(options as never)).toThrow(
+        "its options are { optional?: boolean } — EnvironmentField.text({ optional: true })",
+      );
+    },
+  );
+
+  it("the helper itself, not called, is named as such", () => {
+    expect(() => declared({ postgresUrl: EnvironmentField.secret })).toThrow(
+      "postgresUrl is a helper, not a field — call it: EnvironmentField.text(), .integer(), .flag() or .secret()",
+    );
+  });
+
   it("environmentFields that is not an object is refused", () => {
     expect(() => declared(null)).toThrow(/environmentFields \}\) of Reader: null is not an object/);
   });

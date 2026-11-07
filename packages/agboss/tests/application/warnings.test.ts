@@ -99,7 +99,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
 });
 
 describe("#401 PR 1: kept execution history in memory warns", () => {
-  it("executionRecordRetention on the built-in in-memory store: the history's warning", async () => {
+  it("retention.executionRecords on the built-in in-memory store: the history's warning", async () => {
     const assembled = await applicationOf(HistoryDeskApplication);
 
     expect(assemblyWarningsOf(assembled).map((warning) => warning.code)).toContain(
@@ -107,7 +107,7 @@ describe("#401 PR 1: kept execution history in memory warns", () => {
     );
   });
 
-  it("no executionRecordRetention, or SqliteExecutionHistoryRepository listed: none", async () => {
+  it("no retention.executionRecords, or SqliteExecutionHistoryRepository listed: none", async () => {
     const plain = await applicationOf(NoteLoggedApplication);
     const listed = await applicationOf(HistoryDeskApplication);
     const sqlite = assemblyWarningsOf({

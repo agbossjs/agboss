@@ -134,11 +134,19 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
   };
 }
 
+/**
+ * The longest retention: a century. Longer, `now − retention` leaves what a `Date` holds and every
+ * sweep's removal fails (or, in memory, removes nothing) — "forever" is not a duration.
+ */
+const MAX_RETENTION = hours(24 * 365 * 100);
+
 /** What is wrong with one retention, or `undefined`. */
 function retentionProblem(field: keyof RetentionOptions, value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
     return `is ${String(value)}, not a positive duration`;
+  if (value > MAX_RETENTION)
+    return `is ${String(value)} ms, above a century (${String(MAX_RETENTION)} ms) — a cutoff a date cannot hold`;
   if (ABOVE_THE_LEASE.has(field) && value <= EXECUTION_LEASE)
     return `is ${String(value)} ms, not above the lease's ${String(EXECUTION_LEASE)} ms`;
   return undefined;
@@ -154,8 +162,7 @@ export function retentionViolations(application: string, options: unknown): Rule
   if (options === undefined) return [];
   const fail = (text: string): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${HINT}`, [application]);
-  if (typeof options !== "object" || options === null || Array.isArray(options))
-    return [fail(` is ${String(options)}, not an object of retentions`)];
+  if (!isPlainObject(options)) return [fail(` is ${String(options)}, not an object of retentions`)];
   const known = new Set<string>(RETENTION_FIELDS);
   const given = options as Readonly<Record<string, unknown>>;
   return [
@@ -167,4 +174,58 @@ export function retentionViolations(application: string, options: unknown): Rule
       return problem === undefined ? [] : [fail(`.${field} ${problem}`)];
     }),
   ];
+}
+
+/** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */
+const isPlainObject = (value: unknown): value is object =>
+  typeof value === "object" &&
+  value !== null &&
+  [Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null);
+
+/** A retention option of before #834, where it was and where it is now. */
+interface MovedRetention {
+  /** The option holding it (`fencedEffects`), or none for one of `@Application` itself. */
+  readonly within?: string;
+  readonly key: string;
+  readonly now: keyof RetentionOptions;
+}
+
+const MOVED: readonly MovedRetention[] = [
+  { key: "pauseRecordRetention", now: "pauseRecords" },
+  { key: "executionRecordRetention", now: "executionRecords" },
+  { key: "leaseEventRetention", now: "leaseEvents" },
+  { key: "ledgerEntryRetention", now: "costLedgerEntries" },
+  { within: "fencedEffects", key: "retention", now: "fencedEffects" },
+  { within: "outboundCalls", key: "retention", now: "outboundCalls" },
+  { within: "mesh", key: "idempotencyRetention", now: "meshAnswers" },
+  { within: "a2a", key: "taskRetention", now: "a2aTasks" },
+];
+
+/**
+ * A retention set where it was before #834 (a JavaScript caller, a cast, an options object not
+ * written as a literal): refused naming where it goes now — never dropped for the default, which
+ * would keep execution records, intents or mesh answers shorter than asked.
+ */
+export function movedRetentionViolations(application: string, options: object): RuleViolation[] {
+  const given = options as Readonly<Record<string, unknown>>;
+  const found = MOVED.flatMap(({ within, key, now }) => {
+    const holder = within === undefined ? given : given[within];
+    if (typeof holder !== "object" || holder === null || !(key in holder)) return [];
+    const where = within === undefined ? key : `${within}.${key}`;
+    return [
+      violation(
+        "application.retention-invalid",
+        `its ${where} is gone — @Application({ retention: { ${now} } }) sets it now`,
+        [application],
+      ),
+    ];
+  });
+  // an `a2a` without its retention is gone too: the option held nothing else
+  const a2a = given.a2a;
+  const isBareA2A =
+    a2a !== undefined && !(typeof a2a === "object" && a2a !== null && "taskRetention" in a2a);
+  if (!isBareA2A) return found;
+  const gone =
+    "its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })";
+  return [...found, violation("application.retention-invalid", gone, [application])];
 }

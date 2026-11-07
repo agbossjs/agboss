@@ -1,4 +1,4 @@
-import { retentionViolations } from "./retention.js";
+import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations } from "../budgets/budget-rules.js";
 import type { Class, Provider } from "../components/injection.js";
@@ -198,6 +198,7 @@ export function applicationRuleViolations(
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
+    ...movedRetentionViolations(options.name, options),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
     ...storeDescriptorViolations(options.name, options.providers ?? []),
     ...storeBackendViolations(options.name, options.providers ?? []),

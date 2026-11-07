@@ -70,15 +70,13 @@ describe("migrateImports (#195)", () => {
   it("#261: the observer and cancel names follow executions; the local name is kept", () => {
     const after = migrate(
       [
-        'import { ObserverManager, WorkflowCancelledError, type WorkflowObserver } from "@agboss/core";',
+        'import { WorkflowCancelledError, type WorkflowObserver } from "@agboss/core";',
         'import { type WorkflowObserver as Seen } from "@agboss/core/core";',
       ].join("\n"),
     );
 
     expect(after.text).toBe(
       [
-        // #834: the manager is internal
-        'import { ExecutionObserverManager as ObserverManager } from "@agboss/core/internal";',
         'import { ExecutionCancelledError as WorkflowCancelledError, type ExecutionObserver as WorkflowObserver, type ExecutionObserver as Seen } from "@agboss/core";',
       ].join("\n"),
     );
@@ -126,7 +124,7 @@ describe("migrateImports (#195)", () => {
     );
     // `core.Router` was the engine type: a namespace use of a renamed name needs a look by hand
     expect(after.warnings).toEqual([
-      'src/x.ts:4: "@agboss/core/core" as a whole — renamed or moved there: Router, WorkflowObserver, ObserverManager, WorkflowCancelledError; check them by hand',
+      'src/x.ts:4: "@agboss/core/core" as a whole — renamed or moved there: Router, WorkflowObserver, WorkflowCancelledError; check them by hand',
     ]);
   });
 

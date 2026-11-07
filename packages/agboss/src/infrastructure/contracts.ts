@@ -133,7 +133,7 @@ export interface Infrastructure {
   readonly meshRequests: MeshRequestRepository;
   /** The A2A tasks the application serves (#807): one per root execution, ever. */
   readonly a2aTasks: A2ATaskRepository;
-  /** The kept root executions (#401 PR 1): written only with `executionRecordRetention`. */
+  /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
   readonly childQueue: ChildExecutionQueueRepository;

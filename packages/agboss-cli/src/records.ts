@@ -23,7 +23,7 @@ import { checkedTenantOption, CliError, usageError } from "./cli/errors.js";
  * [--until <date>] [--env <name>]` (#401 PR 1): the application's kept root executions — its
  * `ExecutionHistoryRepository`, opened without running anything — as JSON Lines, one masked record
  * per line (`kind: "agboss.execution-record"`), oldest start first. A tenant is always named, or all
- * of them explicitly; an application that keeps none (no `executionRecordRetention`) is
+ * of them explicitly; an application that keeps none (no `retention.executionRecords`) is
  * `records.not-kept`.
  */
 

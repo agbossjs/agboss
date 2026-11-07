@@ -1,5 +1,5 @@
 /**
- * #771 — the ledger's entries are pruned by the recovery sweep after `ledgerEntryRetention`, and a
+ * #771 — the ledger's entries are pruned by the recovery sweep after `retention.costLedgerEntries`, and a
  * write of one the ledger may have pruned is refused, never counted again: a lost answer retried
  * within the retention counts once; one retried after the sweep pruned its entry fails the pass's
  * reads with `CostLedgerEntryExpiredError` and the ledger still holds the spend once.

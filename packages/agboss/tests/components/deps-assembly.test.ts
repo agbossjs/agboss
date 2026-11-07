@@ -3,8 +3,8 @@
  * undecorated provider class, a tool shadowing a RAG search tool; a raw `useValue` literal is a
  * compile error.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import {
   Channel,
   InputGuardrail,
@@ -115,8 +115,8 @@ class PolicedAgent {}
 @Agent({ name: "judged-agent", description: "d", model: "test/j", judges: [NeedsJudge] })
 class JudgedAgent {}
 
-const assemble = (application: Parameters<typeof createApp>[0]) =>
-  createApp(application, offline());
+const assemble = (application: Parameters<typeof createAppWith>[0]) =>
+  createAppWith(application, offline());
 
 describe("#183 AC2: a missing provider fails at assembly, naming the consumer and the token", () => {
   it.each([

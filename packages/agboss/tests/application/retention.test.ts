@@ -28,7 +28,7 @@ beforeEach(() => {
   resetFencedEffect();
 });
 
-const assembledWith = (retention: unknown) => {
+const assembledWith = (retention: unknown, others: Readonly<Record<string, unknown>> = {}) => {
   @Application({
     name: "retention-application",
     version: "1.0.0",
@@ -39,6 +39,7 @@ const assembledWith = (retention: unknown) => {
     providers: [InMemoryFencedEffectRepository],
     // a JavaScript caller's value: what the type would refuse, the assembly refuses too
     ...(retention === undefined ? {} : { retention: retention as RetentionOptions }),
+    ...(others as object),
   })
   class RetentionApplication {}
   return applicationOf(RetentionApplication);
@@ -109,6 +110,55 @@ describe("#834 AC2: [application.retention-invalid]", () => {
     await expect(assembly).rejects.toThrow(
       /retention\.outboundCalls is 1000 ms, not above the lease's 30000 ms — @Application\(\{ retention: \{/,
     );
+  });
+});
+
+describe("#834 AC2: a retention set where it was before is refused, never dropped for the default", () => {
+  it.each([
+    [{ pauseRecordRetention: hours(1) }, "pauseRecordRetention", "pauseRecords"],
+    [{ executionRecordRetention: hours(720) }, "executionRecordRetention", "executionRecords"],
+    [{ leaseEventRetention: hours(1) }, "leaseEventRetention", "leaseEvents"],
+    [{ ledgerEntryRetention: hours(72) }, "ledgerEntryRetention", "costLedgerEntries"],
+    [{ fencedEffects: { retention: hours(48) } }, "fencedEffects.retention", "fencedEffects"],
+    [{ outboundCalls: { retention: hours(720) } }, "outboundCalls.retention", "outboundCalls"],
+    [{ mesh: { idempotencyRetention: hours(6) } }, "mesh.idempotencyRetention", "meshAnswers"],
+    [{ a2a: { taskRetention: hours(1) } }, "a2a.taskRetention", "a2aTasks"],
+  ])("%o: its %s is gone, naming retention.%s", async (others, where, now) => {
+    await expect(assembledWith(undefined, others)).rejects.toThrow(
+      `[application.retention-invalid] its ${where} is gone — @Application({ retention: { ${now} } }) sets it now`,
+    );
+  });
+
+  it("an a2a option without its retention is gone too", async () => {
+    await expect(assembledWith(undefined, { a2a: {} })).rejects.toThrow(
+      "[application.retention-invalid] its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })",
+    );
+  });
+
+  it("beyond a century is not a duration a cutoff can hold", async () => {
+    await expect(assembledWith({ executionRecords: Number.MAX_SAFE_INTEGER })).rejects.toThrow(
+      /retention\.executionRecords is 9007199254740991 ms, above a century \(3153600000000 ms\)/,
+    );
+    await expect(assembledWith({ executionRecords: hours(24 * 365 * 100) })).resolves.toMatchObject(
+      {
+        executionRecordRetention: hours(24 * 365 * 100),
+      },
+    );
+  });
+
+  it("executionRecords of 0 is refused, not read as unset", async () => {
+    await expect(assembledWith({ executionRecords: 0 })).rejects.toThrow(
+      "its retention.executionRecords is 0, not a positive duration",
+    );
+  });
+
+  it("a Map or a class instance keeps no retentions: refused, not all defaults", async () => {
+    await expect(assembledWith(new Map([["fencedEffects", hours(48)]]))).rejects.toThrow(
+      /its retention is .*, not an object of retentions/,
+    );
+    await expect(assembledWith(Object.create(null) as object)).resolves.toMatchObject({
+      pauseRecordRetention: hours(24),
+    });
   });
 });
 

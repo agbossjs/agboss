@@ -22,7 +22,7 @@ import { ContactPiiPolicy } from "../../pii/pii.fixture.js";
 import { SensitiveWorkflow, ShopExecutionContext } from "../../pii/sensitive.fixture.js";
 
 /**
- * #401 PR 1 — applications that keep their root executions' history (`executionRecordRetention`):
+ * #401 PR 1 — applications that keep their root executions' history (`retention.executionRecords`):
  * the refunds desk (#396's), the treasury (#267's), whose payouts pause for an approval, and the
  * shop whose execution's `userId` is marked `sensitive` (#120's).
  */

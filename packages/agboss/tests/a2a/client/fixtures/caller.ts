@@ -1,3 +1,4 @@
+import { createAppWith } from "../../../../src/application/create-app.js";
 import { A2AAgent, A2AClient, type A2AMesh, type A2ATarget } from "../../../../src/a2a/index.js";
 import {
   Agent,
@@ -9,7 +10,6 @@ import {
   type ToolHandler,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { createApp } from "../../../../src/application/create-app.js";
 import type { App } from "../../../../src/app/types.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import type { ToolClass } from "../../../../src/testing/index.js";
@@ -161,7 +161,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     spec.signing === undefined
       ? {}
       : { env: "signing", processEnv: meshEnvOf(spec.signing.own, spec.signing.peer) };
-  const app = await createApp(CallerApplication, { ...offline(book), ...signing });
+  const app = await createAppWith(CallerApplication, { ...offline(book), ...signing });
   const ask = (question: string) => {
     book
       .scriptOf(`agent:${name}-desk-agent`)

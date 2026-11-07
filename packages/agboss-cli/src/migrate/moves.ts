@@ -24,10 +24,12 @@ const FrameworkPackage = z.object({
 const specifierOf = (name: string, subpath: string): string =>
   subpath === "." ? name : `${name}/${subpath.replace(/^\.\//, "")}`;
 
-/** #261 PR 6: the observers and the cancel error are named after executions. */
+/**
+ * #261 PR 6: the observers and the cancel error are named after executions. The observers' manager
+ * (`ObserverManager`, then `ExecutionObserverManager`) is internal since #834: no public name to move to.
+ */
 const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
   WorkflowObserver: { entry: "@agboss/core", name: "ExecutionObserver" },
-  ObserverManager: { entry: "@agboss/core/internal", name: "ExecutionObserverManager" },
   WorkflowCancelledError: { entry: "@agboss/core", name: "ExecutionCancelledError" },
 };
 
