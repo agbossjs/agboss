@@ -124,7 +124,6 @@ function signedOf(
 ): {
   message: Message;
   serviceParameters: Record<string, string>;
-  isMeshed: boolean;
   bodyHash: string | undefined;
 } {
   const message = messageOf(call, messageId);
@@ -138,7 +137,6 @@ function signedOf(
   return {
     message: { ...message, metadata: Object.keys(metadata).length === 0 ? undefined : metadata },
     serviceParameters: { ...signed.serviceParameters },
-    isMeshed: Object.keys(signed.metadata).length > 0,
     bodyHash: signed.bodyHash,
   };
 }
@@ -191,14 +189,12 @@ export async function sentOf(
   } finally {
     isEchoed = call.meshEchoOf?.(messageId);
   }
-  // the envelope rode, and the agent says it activated the mesh: an agent that does not echo it
-  // gave none of its guarantees — the call is unmeshed, said in its peer and its step record
-  const isMeshed = signed.isMeshed && isEchoed === true;
-  const facts: AcceptFacts = {
-    ...(isMeshed && signed.bodyHash !== undefined ? { bodyHash: signed.bodyHash } : {}),
-    acceptedAt: call.clock.now().toISOString(),
-  };
-  return { answer, result: resultOf(call.agent, answer, isMeshed, facts) };
+  // the envelope rode (it binds a body hash), and the agent says it activated the mesh: an agent
+  // that does not echo it gave none of its guarantees — unmeshed, said in its peer and step record
+  const bodyHash = isEchoed === true ? signed.bodyHash : undefined;
+  const acceptedAt = call.clock.now().toISOString();
+  const facts: AcceptFacts = bodyHash === undefined ? { acceptedAt } : { bodyHash, acceptedAt };
+  return { answer, result: resultOf(call.agent, answer, bodyHash !== undefined, facts) };
 }
 
 /** An accepted answer from what was stored. */

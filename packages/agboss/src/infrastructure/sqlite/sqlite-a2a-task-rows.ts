@@ -51,8 +51,8 @@ const TaskRow = z.object({
   accepted_at: isoTime(),
   status_at: isoTime(),
   caller_peer: z.string().nullable(),
-  // a file of before #810 has no such column: read as none
-  mesh_body_hash: z.string().nullable().optional(),
+  // added on open to a file of before #810 (its rows' none)
+  mesh_body_hash: z.string().nullable(),
 });
 
 const MessageRow = z.object({
@@ -106,9 +106,7 @@ export const taskOf = (row: unknown): A2ATaskRecord => {
     acceptedAt: new Date(parsed.accepted_at),
     statusAt: new Date(parsed.status_at),
     ...(parsed.caller_peer === null ? {} : { callerPeer: parsed.caller_peer }),
-    ...(parsed.mesh_body_hash === null || parsed.mesh_body_hash === undefined
-      ? {}
-      : { meshBodyHash: parsed.mesh_body_hash }),
+    ...(parsed.mesh_body_hash === null ? {} : { meshBodyHash: parsed.mesh_body_hash }),
   };
 };
 

@@ -4,18 +4,16 @@
  * `SendMessage` that asked for it, and says of that message whether its answer echoed it.
  */
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null;
+/** A field of a JSON value; `undefined` for anything but an object (a primitive has no fields). */
+const fieldOf = (value: unknown, name: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
 
 /** The header that asks for extensions, and echoes the ones a call activated (spec §4.6). */
 const EXTENSIONS_HEADER = "a2a-extensions";
 
-/** The extensions a header value names. */
-const extensionsOf = (value: string | null): readonly string[] =>
-  (value ?? "")
-    .split(",")
-    .map((uri) => uri.trim())
-    .filter((uri) => uri !== "");
+/** Whether a header value names `uri` among its comma-separated extensions. */
+const namesExtension = (value: string | null, uri: string): boolean =>
+  value?.split(",").some((named) => named.trim() === uri) === true;
 
 /**
  * What a JSON-RPC send asked of one extension and how the agent answered (#810): the message's id,
@@ -26,35 +24,36 @@ export interface ExtensionEcho {
   readonly isEchoed: boolean;
 }
 
-/** The `messageId` of a JSON-RPC `SendMessage` body; `undefined` for anything else. */
-function sentMessageIdOf(init: RequestInit | undefined): string | undefined {
-  if (typeof init?.body !== "string") return undefined;
+/** A body's JSON; `undefined` for one that is none. */
+function jsonOf(body: unknown): unknown {
   try {
-    const body: unknown = JSON.parse(init.body);
-    if (!isRecord(body) || body.method !== "SendMessage" || !isRecord(body.params))
-      return undefined;
-    const message = body.params.message;
-    return isRecord(message) && typeof message.messageId === "string"
-      ? message.messageId
-      : undefined;
+    return JSON.parse(String(body)) as unknown;
+    // Stryker disable next-line BlockStatement: an empty catch answers the same `undefined`
   } catch {
-    return undefined;
+    return undefined; // no JSON body: no send of a message
   }
 }
 
-/** Says, of a send that asked for `uri`, whether its answer echoed it. */
+/** The `messageId` of a JSON-RPC `SendMessage` body; `undefined` for anything else. */
+function sentMessageIdOf(body: unknown): string | undefined {
+  const sent = jsonOf(body);
+  const messageId = fieldOf(fieldOf(fieldOf(sent, "params"), "message"), "messageId");
+  return fieldOf(sent, "method") === "SendMessage" && typeof messageId === "string"
+    ? messageId
+    : undefined;
+}
+
+/** Says, of a send whose request asked for `uri` (its headers, its body), whether its answer echoed it. */
 export function observeEcho(
   uri: string,
-  headers: Headers,
-  init: RequestInit | undefined,
+  request: { readonly headers: Headers; readonly body: unknown },
   response: Response,
   onEcho: (echo: ExtensionEcho) => void,
 ): void {
-  if (!extensionsOf(headers.get(EXTENSIONS_HEADER)).includes(uri)) return;
-  const messageId = sentMessageIdOf(init);
+  if (!namesExtension(request.headers.get(EXTENSIONS_HEADER), uri)) return;
+  const messageId = sentMessageIdOf(request.body);
   if (messageId === undefined) return;
-  const isEchoed = extensionsOf(response.headers.get(EXTENSIONS_HEADER)).includes(uri);
-  onEcho({ messageId, isEchoed });
+  onEcho({ messageId, isEchoed: namesExtension(response.headers.get(EXTENSIONS_HEADER), uri) });
 }
 
 /** What a client's fetch reports of the extension it watches (#810: the mesh's echo). */

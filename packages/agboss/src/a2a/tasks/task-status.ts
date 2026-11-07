@@ -3,7 +3,6 @@ import { DurableExecutionStatus, type DurableExecutionState } from "../../app/ex
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
 import type { PendingPause } from "../../pause/types.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
-import { meshLimitBodyOf } from "../../mesh/mesh-wire.js";
 
 /**
  * An execution's state as its A2A task's status (#807, design §3 and §4.1.7) — one mapping for the
@@ -74,16 +73,13 @@ export const completedStatusOf = (
  * a chain past its `maxMeshHops` — `REJECTED` with the limit's code, its fixed text and its facts
  * (the entry, the chain, the limit), which the AGBoss client rebuilds into the same error.
  */
-export function rejectedStatusOf(limit: MeshLimitError): A2ATaskStatus {
-  const body = meshLimitBodyOf(limit);
-  return {
-    state: A2ATaskState.Rejected,
-    pendingPauses: [],
-    errorCode: limit.code,
-    message: `the task was rejected: ${limit.code}`,
-    ...(body === undefined ? {} : { errorDetails: body.details }),
-  };
-}
+export const rejectedStatusOf = (limit: MeshLimitError): A2ATaskStatus => ({
+  state: A2ATaskState.Rejected,
+  pendingPauses: [],
+  errorCode: limit.code,
+  message: `the task was rejected: ${limit.code}`,
+  errorDetails: limit.details ?? {},
+});
 
 const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
 

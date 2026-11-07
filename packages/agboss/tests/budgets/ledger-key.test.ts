@@ -13,6 +13,7 @@ import {
 } from "../../src/budgets/execution-budgets.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
+import { BudgetExceededError } from "../../src/graph/limits.js";
 import { VirtualClock } from "../../src/testing/index.js";
 
 const NOW = new Date("2026-11-04T12:00:00.000Z");
@@ -38,7 +39,9 @@ const spentOf = (ledger: InMemoryCostLedgerRepository, clock: VirtualClock) =>
 
 describe("#810: a spend of its own identity counts once across passes", () => {
   it("the price written by pass 1, then by pass 2 with the excess: 1 + 2, never 1 + 1 + 2", async () => {
-    const [ledger, clock] = [new InMemoryCostLedgerRepository(), new VirtualClock(NOW)];
+    // the pass runs a minute after the spend was first made: the entry keeps its own date
+    const ledger = new InMemoryCostLedgerRepository();
+    const clock = new VirtualClock(new Date(NOW.getTime() + 60_000));
     const first = passOf(ledger, clock);
     const [price] = first.tally([keyed(1, "a2a:m-1:price")]);
     await first.settled();
@@ -77,5 +80,38 @@ describe("#810: a spend of its own identity counts once across passes", () => {
     await passOf(ledger, clock).record([keyed(1, "a2a:m-1:price")]);
 
     expect(await spentOf(ledger, clock)).toBeCloseTo(1);
+  });
+
+  it("the pass counts its own keyed spend once: never taken in again as written elsewhere", async () => {
+    const [ledger, clock] = [new InMemoryCostLedgerRepository(), new VirtualClock(NOW)];
+    const pass = passOf(ledger, clock);
+    const [kept] = pass.tally([keyed(1, "a2a:m-1:price")]);
+    await pass.settled();
+    // the step's end records what it tallied: in the ledger already, counted once
+    await pass.record(kept === undefined ? [] : [kept]);
+    await pass.refresh();
+
+    expect(pass.remaining()).toBeCloseTo(99);
+    expect(() => {
+      pass.check(kept === undefined ? [] : [kept], []);
+    }).not.toThrow();
+    expect(await spentOf(ledger, clock)).toBeCloseTo(1);
+  });
+
+  it("a breach names what the execution spent once: its keyed spend not counted twice", async () => {
+    const [ledger, clock] = [new InMemoryCostLedgerRepository(), new VirtualClock(NOW)];
+    const tight = { ...budget, maxSpend: 1 };
+    const pass = new BudgetMeter([tight], ledger, clock, 0);
+    const [kept] = pass.tally([keyed(1.5, "a2a:m-1:price")]);
+    await pass.settled();
+
+    let thrown: unknown;
+    try {
+      pass.check(kept === undefined ? [] : [kept], []);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(BudgetExceededError);
+    expect((thrown as BudgetExceededError).spentUsd).toBeCloseTo(1.5);
   });
 });

@@ -37,6 +37,8 @@ export const PEER_APPLICATION = "peer-application";
 export const CALLER_TOKEN = "caller";
 /** A caller the resolver knows, but as no mesh peer: its envelope is a claim only. */
 export const STRANGER_TOKEN = "stranger";
+/** A caller the resolver authenticates as another mesh peer than the envelope's issuer. */
+export const OTHER_PEER_TOKEN = "other-peer";
 
 /**
  * What the peer's runs do and saw (reset with `resetPeer`): what each answer costs, a gate an
@@ -89,6 +91,11 @@ export class PeerCallerResolver implements A2ACallerResolver<Class> {
       });
     if (token === STRANGER_TOKEN)
       return A2ACallerResolution.resolved<Class>({ ownerId: "stranger" });
+    if (token === OTHER_PEER_TOKEN)
+      return A2ACallerResolution.resolved<Class>({
+        ownerId: "other-application",
+        peer: "other-application",
+      });
     return A2ACallerResolution.unauthenticated({ reason: "no token" });
   }
 }

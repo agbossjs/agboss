@@ -30,14 +30,18 @@ import { meshBodyHashOf, meshEnvelopeTextOf } from "../a2a-mesh-message.js";
  * unsigned claim: its chain is checked, nothing of it trusted.
  */
 
+/** A trusted request's facts: the peer that signed its envelope, its message's `bodyHash`. */
+export interface A2ATrustedMesh {
+  readonly peer: string;
+  readonly bodyHash: string;
+}
+
 /** What a request's mesh is once its envelope held: read before the resolver, trusted after it. */
 export interface A2ARequestMesh {
-  /** The envelope it carried (a claim unless `trustedPeer` is set). */
+  /** The envelope it carried (a claim unless `trusted`). */
   readonly envelope: MeshEnvelope | undefined;
-  /** `meshBodyHashOf` of the message as decoded: what a run report binds; none without one. */
-  readonly bodyHash: string | undefined;
-  /** The issuer whose signature verified, when it is the peer the resolver authenticated. */
-  readonly trustedPeer: string | undefined;
+  /** Set when the issuer whose signature verified is the peer the resolver authenticated. */
+  readonly trusted: A2ATrustedMesh | undefined;
   /** The caller's `traceparent` header. */
   readonly traceparent: string | undefined;
 }
@@ -47,16 +51,16 @@ export type A2AMeshVerdict =
   | {
       readonly isAdmitted: true;
       readonly envelope: MeshEnvelope | undefined;
-      readonly bodyHash: string | undefined;
-      /** The issuer whose signature, replay window and body hash all held. */
-      readonly verifiedIssuer: string | undefined;
+      /** The issuer whose signature, replay window and body hash all held, with that hash. */
+      readonly verified: { readonly issuer: string; readonly bodyHash: string } | undefined;
     }
   | { readonly isAdmitted: false; readonly code: MeshRefusalCode };
 
+type Admitted = Extract<A2AMeshVerdict, { readonly isAdmitted: true }>;
+
 const HTTP_UNAUTHORIZED = 401;
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const NO_ENVELOPE: Admitted = { isAdmitted: true, envelope: undefined, verified: undefined };
 
 /** The operations whose message may carry an envelope. */
 const MESSAGE_OPERATIONS: ReadonlySet<A2AOperation> = new Set([
@@ -64,32 +68,39 @@ const MESSAGE_OPERATIONS: ReadonlySet<A2AOperation> = new Set([
   A2AOperation.SendStreamingMessage,
 ]);
 
-/** The message of a send's body as the transport decodes it, back in its wire JSON. */
+/**
+ * The message of a send's body as the transport decodes it, back in its wire JSON; none for a send
+ * with no message (the handler answers it `-32602`). The body is an admitted one: an object whose
+ * `params` the transport's decoder read (`a2a-admitted.ts`).
+ */
 function wireMessageOf(body: unknown): unknown {
-  const params = isRecord(body) ? body.params : undefined;
-  if (!isRecord(params)) return undefined;
-  const message = SendMessageRequest.fromJSON(params).message;
+  const { message } = SendMessageRequest.fromJSON(Reflect.get(Object(body), "params"));
   return message === undefined ? undefined : Message.toJSON(message);
 }
 
-/** Why a signed envelope of a known issuer is refused; `undefined` when it holds or is no such one. */
-function signedRefusalOf(
+/**
+ * A known issuer's signed envelope, verified: its signature, its replay window, the message's
+ * `bodyHash` — a refusal's code, or the issuer it verified; neither for an unsigned envelope or an
+ * issuer the application does not know (a claim).
+ */
+function verifiedOf(
   settings: MeshSettings,
   read: ReadEnvelope,
   bodyHash: string,
-): MeshRefusalCode | undefined {
-  const key = read.signed === undefined ? undefined : settings.keys.peers.get(read.envelope.issuer);
+): MeshRefusalCode | Admitted["verified"] {
+  const { issuer } = read.envelope;
+  const key = read.signed === undefined ? undefined : settings.keys.peers.get(issuer);
   if (key === undefined) return undefined;
-  return (
+  const refusal =
     signatureRefusalOf(read, key, settings.clock.now()) ??
-    (read.envelope.bodyHash === bodyHash ? undefined : MeshRefusalCode.BodyMismatch)
-  );
+    (read.envelope.bodyHash === bodyHash ? undefined : MeshRefusalCode.BodyMismatch);
+  return refusal ?? { issuer, bodyHash };
 }
 
 /**
- * Checks the envelope of one admitted request of `application` (the receiver's own name, the
- * audience it must be addressed to). A request of another operation, or with no message, carries
- * none: admitted as it is.
+ * Checks the envelope of one admitted request (`settings.application`, the receiver's own name, is
+ * the audience it must be addressed to). A request of another operation, or with no message,
+ * carries none: admitted as it is.
  */
 export function admitA2AMesh(
   settings: MeshSettings,
@@ -97,28 +108,15 @@ export function admitA2AMesh(
   body: unknown,
 ): A2AMeshVerdict {
   const message = MESSAGE_OPERATIONS.has(operation) ? wireMessageOf(body) : undefined;
-  if (message === undefined)
-    return {
-      isAdmitted: true,
-      envelope: undefined,
-      bodyHash: undefined,
-      verifiedIssuer: undefined,
-    };
-  const bodyHash = meshBodyHashOf(message);
   const read = readMeshEnvelope(meshEnvelopeTextOf(message));
-  if (read === undefined)
-    return { isAdmitted: true, envelope: undefined, bodyHash, verifiedIssuer: undefined };
+  if (read === undefined) return NO_ENVELOPE;
   // the audience first, whoever signed it (#809 security): an envelope for someone else never runs
-  const refusal =
-    audienceRefusalOf(read, settings.application) ?? signedRefusalOf(settings, read, bodyHash);
-  if (refusal !== undefined) return { isAdmitted: false, code: refusal };
-  const isVerified = read.signed !== undefined && settings.keys.peers.has(read.envelope.issuer);
-  return {
-    isAdmitted: true,
-    envelope: read.envelope,
-    bodyHash,
-    verifiedIssuer: isVerified ? read.envelope.issuer : undefined,
-  };
+  const misaddressed = audienceRefusalOf(read, settings.application);
+  if (misaddressed !== undefined) return { isAdmitted: false, code: misaddressed };
+  const verified = verifiedOf(settings, read, meshBodyHashOf(message));
+  return typeof verified === "string"
+    ? { isAdmitted: false, code: verified }
+    : { isAdmitted: true, envelope: read.envelope, verified };
 }
 
 /** The request's envelope as checked; `undefined` once refused (`401 { code, error }`). */
@@ -127,7 +125,7 @@ export function admittedMeshOf(
   operation: A2AOperation,
   body: unknown,
   res: ServerResponse,
-): Extract<A2AMeshVerdict, { readonly isAdmitted: true }> | undefined {
+): Admitted | undefined {
   const verdict = admitA2AMesh(settings, operation, body);
   if (verdict.isAdmitted) return verdict;
   writeRejection(res, HTTP_UNAUTHORIZED, {
@@ -141,20 +139,19 @@ export function admittedMeshOf(
  * The request's mesh once the resolver answered: trusted only when the peer it authenticated is the
  * envelope's verified issuer (#398 PR 2).
  */
-export const requestMeshOf = (
-  verdict: Extract<A2AMeshVerdict, { readonly isAdmitted: true }>,
+export function requestMeshOf(
+  verdict: Admitted,
   peer: string | undefined,
   traceparent: string | undefined,
-): A2ARequestMesh => ({
-  envelope: verdict.envelope,
-  bodyHash: verdict.bodyHash,
-  trustedPeer:
-    peer !== undefined && verdict.verifiedIssuer === peer ? verdict.verifiedIssuer : undefined,
-  traceparent,
-});
+): A2ARequestMesh {
+  const { verified } = verdict;
+  const trusted =
+    verified === undefined || verified.issuer !== peer
+      ? undefined
+      : { peer: verified.issuer, bodyHash: verified.bodyHash };
+  return { envelope: verdict.envelope, trusted, traceparent };
+}
 
 /** What the request's execution runs with: its chain, its trace, a trusted caller's claims. */
-export const inboundMeshOfA2A = (mesh: A2ARequestMesh | undefined): InboundMesh | undefined =>
-  mesh === undefined
-    ? undefined
-    : inboundMeshOfRequest(mesh.envelope, mesh.traceparent, mesh.trustedPeer);
+export const inboundMeshOfA2A = (mesh: A2ARequestMesh): InboundMesh | undefined =>
+  inboundMeshOfRequest(mesh.envelope, mesh.traceparent, mesh.trusted?.peer);

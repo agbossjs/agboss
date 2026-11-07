@@ -252,6 +252,18 @@ describe("the message and the request one SendMessage sends", () => {
     expect(unechoed).toMatchObject({ mesh: false });
     expect(unechoed).not.toHaveProperty("bodyHash");
     expect((await sent()).result).toMatchObject({ mesh: false });
+    // echoed, but no envelope rode (nothing signed): not meshed
+    const bare = await sentOf(
+      callOf({ client: clientAnswering(taskOf()).client, meshEchoOf: () => true }),
+      "m",
+    );
+    expect(bare.result).toStrictEqual({
+      kind: "task",
+      taskId: expect.any(String),
+      contextId: expect.any(String),
+      mesh: false,
+      acceptedAt: new Date(0).toISOString(),
+    });
   });
 
   it("a failure is translated: codes only, the signal's reason when it ended the call", async () => {

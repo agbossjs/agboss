@@ -148,11 +148,11 @@ function meshLimitOf(
 
 /** What a task keeps of its caller: the peer the resolver named, a trusted message's body hash. */
 function meshFieldsOf(caller: A2ARequestCaller): Pick<NewA2ATask, "callerPeer" | "meshBodyHash"> {
-  const { trustedPeer, bodyHash } = caller.mesh;
+  const { trusted } = caller.mesh;
   const { peer } = caller.caller;
   return {
     ...(peer === undefined ? {} : { callerPeer: peer }),
-    ...(trustedPeer === undefined || bodyHash === undefined ? {} : { meshBodyHash: bodyHash }),
+    ...(trusted === undefined ? {} : { meshBodyHash: trusted.bodyHash }),
   };
 }
 

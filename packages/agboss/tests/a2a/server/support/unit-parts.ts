@@ -32,8 +32,7 @@ import type { MeshSettings } from "../../../../src/mesh/mesh-settings.js";
 /** A request that carried no envelope (#810). */
 export const NO_MESH: A2ARequestMesh = {
   envelope: undefined,
-  bodyHash: "sha256:none",
-  trustedPeer: undefined,
+  trusted: undefined,
   traceparent: undefined,
 };
 

@@ -23,6 +23,8 @@ import { CALLER_KEYS, STRANGER_KEYS } from "./fixtures/keys.js";
 import {
   CALLER_TOKEN,
   KeylessPeerApplication,
+  OTHER_PEER_TOKEN,
+  STRANGER_TOKEN,
   peer,
   PEER_APPLICATION,
   resetPeer,
@@ -131,6 +133,46 @@ async function sent(
 
 const taskOf = (answer: Answer): Record<string, unknown> =>
   (answer.body.result as { task: Record<string, unknown> }).task;
+
+/** One raw JSON-RPC call of `method` to the served peer, as `token`: its result. */
+async function called(
+  peerServed: ServedPeer,
+  method: string,
+  params: unknown,
+  token = CALLER_TOKEN,
+): Promise<Record<string, unknown>> {
+  const response = await fetch(`${peerServed.origin}/a2a`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "a2a-version": "1.0",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method, params }),
+  });
+  return (await response.json()) as Record<string, unknown>;
+}
+
+/** The task of an accepted message once it completed, as `GetTask` shows it to `token`. */
+async function completed(
+  peerServed: ServedPeer,
+  answer: Answer,
+  token = CALLER_TOKEN,
+): Promise<{ readonly metadata?: Record<string, unknown> }> {
+  const id = taskOf(answer).id;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const read = await called(peerServed, "GetTask", { id }, token);
+    const task = read.result as { status: { state: string }; metadata?: Record<string, unknown> };
+    if (task.status.state === "TASK_STATE_COMPLETED") return task;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`task ${String(id)} never completed`);
+}
+
+/** Whether a task's metadata carries a run report. */
+const hasReport = (task: { readonly metadata?: Record<string, unknown> }): boolean =>
+  typeof (task.metadata?.[A2A_MESH_EXTENSION] as { report?: unknown } | undefined)?.report ===
+  "string";
 
 describe("#810 AC6: the audience is checked first, against the application's own name", () => {
   it("AC6: a signed envelope with no audience is 401 mesh.audience-missing; nothing runs", async () => {
@@ -283,5 +325,65 @@ describe("#810 AC1: a refused chain is a REJECTED task with the limit's facts", 
     expect(meshLimitErrorOf(facts)).toBeInstanceOf(MeshLoopDetectedError);
     expect(taskOf(again).id).toBe(task.id);
     expect(peer.runs).toEqual([]);
+  });
+});
+
+describe("#810: what is trusted — the resolver's peer that signed it, nothing else", () => {
+  it("the peer that signed it: its completed task carries the signed run report", async () => {
+    const one = await servePeer(clock);
+    served.push(one);
+    const message = messageOf("m-trusted");
+
+    const answer = await sent(one, withEnvelope(message, envelopeOf(message)));
+
+    expect(hasReport(await completed(one, answer))).toBe(true);
+  });
+
+  it("an unsigned envelope naming a known issuer is a claim: it runs, untrusted — no report", async () => {
+    const one = await servePeer(clock);
+    served.push(one);
+    const message = messageOf("m-unsigned");
+
+    const answer = await sent(one, withEnvelope(message, envelopeOf(message, { key: null })));
+
+    expect(answer.status).toBe(200);
+    expect(hasReport(await completed(one, answer))).toBe(false);
+  });
+
+  it("a signed envelope of an issuer the peer does not know is a claim: it runs, untrusted", async () => {
+    const one = await servePeer(clock);
+    served.push(one);
+    const message = messageOf("m-unknown-issuer");
+    const envelope = envelopeOf(message, {
+      issuer: "stranger-application",
+      key: STRANGER_KEYS.privateKey,
+    });
+
+    const answer = await sent(one, withEnvelope(message, envelope));
+
+    expect(answer.status).toBe(200);
+    expect(hasReport(await completed(one, answer))).toBe(false);
+  });
+
+  it("a valid envelope sent by a caller of no peer, or of another peer: untrusted — no report", async () => {
+    const one = await servePeer(clock);
+    served.push(one);
+    const first = messageOf("m-stranger");
+    const second = messageOf("m-other");
+
+    const stranger = await sent(one, withEnvelope(first, envelopeOf(first)), STRANGER_TOKEN);
+    const other = await sent(one, withEnvelope(second, envelopeOf(second)), OTHER_PEER_TOKEN);
+
+    expect(hasReport(await completed(one, stranger, STRANGER_TOKEN))).toBe(false);
+    expect(hasReport(await completed(one, other, OTHER_PEER_TOKEN))).toBe(false);
+  });
+
+  it("a send with no message is -32602, never a failure of the check", async () => {
+    const one = await servePeer(clock);
+    served.push(one);
+
+    const read = await called(one, "SendMessage", {});
+
+    expect(read.error).toMatchObject({ code: -32602 });
   });
 });

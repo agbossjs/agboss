@@ -224,7 +224,8 @@ export class BudgetMeter implements BudgetCheck {
       const marked = {
         ...record,
         isRecordedElsewhere: true,
-        ledgerId: ledgerKey === undefined ? this.#ids.mint() : this.#ids.keep(ledgerKey.id),
+        // an id of no pass: one any pass may have written — the ledger adds it once, its reads hold it
+        ledgerId: ledgerKey?.id ?? this.#ids.mint(),
         // its entry's date (#771): a write of it retried after the ledger pruned it is refused
         madeAt: ledgerKey?.madeAt ?? this.clock.now().toISOString(),
       };
