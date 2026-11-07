@@ -72,6 +72,9 @@ function factsOf(
     tenant: tenantOfExecution(runtime, contexts.tenant),
     values: contexts.execution,
     lease: sites.lease,
+    // #825: an undo makes business keys as its step did — their handle and their fingerprint
+    correlationKey: checkpoint.piiKey ?? own.pii?.fieldKey,
+    fingerprintKeys: own.fingerprintKeys,
   });
 }
 

@@ -132,6 +132,27 @@ describe("#633: undoSiteOf", () => {
     expect(site.reason).toBe(CompensationReason.ExecutionCancelled);
   });
 
+  it("#825: the keys its business keys are made with — the execution's PII key, else the application's; the idempotency keys", () => {
+    const fingerprintKeys = { current: "k1", previous: "k0" };
+    const own = { ...sitesOf({ pii: { fieldKey: "app-pii-key" }, fingerprintKeys } as never) };
+    const withPiiKey = {
+      ...own,
+      checkpoint: { ...own.checkpoint, piiKey: "execution-pii-key" } as never,
+    };
+
+    expect(undoSiteOf(own, entryOf("k")).execution).toMatchObject({
+      correlationKey: "app-pii-key",
+      fingerprintKeys,
+    });
+    expect(undoSiteOf(withPiiKey, entryOf("k")).execution).toMatchObject({
+      correlationKey: "execution-pii-key",
+    });
+    expect(undoSiteOf(sitesOf(), entryOf("k")).execution).toMatchObject({
+      correlationKey: undefined,
+      fingerprintKeys: undefined,
+    });
+  });
+
   it("a descendant on its own workflow, its version; one of no namespace on the root's", () => {
     const sites = sitesOf();
 

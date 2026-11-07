@@ -75,6 +75,9 @@ function factsOf(site: ChildUnwindSite): ExecutionFacts {
     ...(run.tree === undefined ? {} : { parent: run.tree.parent, itemIndex: run.tree.itemIndex }),
     // the lease its parent's node runs under (#471): the child's undo fences with it
     ...(run.lease === undefined ? {} : { lease: run.lease }),
+    // #825: its business keys' handle and fingerprint, as its parent's step makes them
+    ...(run.correlationKey === undefined ? {} : { correlationKey: run.correlationKey }),
+    ...(run.fingerprintKeys === undefined ? {} : { fingerprintKeys: run.fingerprintKeys }),
   });
 }
 
