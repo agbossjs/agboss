@@ -212,7 +212,7 @@ describe("#834 AC3: environment fields are made by EnvironmentField's helpers, t
     // @ts-expect-error — a field is made by EnvironmentField's helpers only
     const literal: EnvironmentField = { type: "Secret", isOptional: false };
     expect(() => declared({ postgresUrl: literal })).toThrow(
-      "@Injectable({ environmentFields }) of Reader: postgresUrl is [object Object], not a field made by EnvironmentField.text(), .integer(), .flag() or .secret()",
+      "@Injectable({ environmentFields }) of Reader: postgresUrl is an object, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret()",
     );
     // the 0.1.0-era enum value of a JavaScript caller
     expect(() => declared({ postgresUrl: "secret" })).toThrow(

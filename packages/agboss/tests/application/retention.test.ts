@@ -64,14 +64,17 @@ describe("#834 AC1: one retention group", () => {
 });
 
 describe("#834 AC2: [application.retention-invalid]", () => {
-  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, "1h"])(
-    "a pauseRecords of %s fails assembly",
-    async (value) => {
-      await expect(assembledWith({ pauseRecords: value })).rejects.toThrow(
-        `[application.retention-invalid] its retention.pauseRecords is ${String(value)}, not a positive duration`,
-      );
-    },
-  );
+  it.each([
+    [0, "0"],
+    [-1, "-1"],
+    [Number.NaN, "NaN"],
+    [Number.POSITIVE_INFINITY, "Infinity"],
+    ["1h", '"1h"'],
+  ])("a pauseRecords of %s fails assembly", async (value, shown) => {
+    await expect(assembledWith({ pauseRecords: value })).rejects.toThrow(
+      `[application.retention-invalid] its retention.pauseRecords is ${shown}, not a positive duration`,
+    );
+  });
 
   it.each(["fencedEffects", "outboundCalls", "costLedgerEntries"])(
     "%s at the lease fails assembly: a mark, an intent or an entry would go before a zombie's write",
