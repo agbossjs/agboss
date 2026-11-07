@@ -516,5 +516,5 @@ order and file encoding change neither the request nor its fingerprint (#125).
 
 Tests never reach a provider: `testWith` scripts every model ([Testing](Testing)); a scripted answer
 on a model without a price reports its cost the way a provider would. Provider code is tested with a
-stub `fetch` (`createAppDeps(bundle, { providerFetch })`). Scripted models answer above the
+stub `fetch` (the internal build path's `providerFetch`, `@agboss/core/internal`). Scripted models answer above the
 providers, so `rateLimitPolicy` and the breaker do not slow a `testWith` test down.

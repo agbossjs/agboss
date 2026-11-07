@@ -359,7 +359,7 @@ weekend, an operator's retry, a customer paying again the next day.
 
 - **Wrong:** rely on the gateway's key alone: past its retention, a repeat is a new charge.
 - **AGBoss:**
-  - A `Completed` intent replays the stored receipt for `outboundCalls.retention` (default
+  - A `Completed` intent replays the stored receipt for `retention.outboundCalls` (default
     `hours(168)`), and nothing reaches the gateway.
   - A `Pending` intent is never removed, and is reconciled by lookup.
   - **An error of unknown outcome is never resent blindly** (#657): a 5xx, a reset connection, the

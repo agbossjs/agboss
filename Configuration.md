@@ -203,7 +203,7 @@ startup. See [Mcp](Mcp).
 | `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |
 | `maxTaskDuration?` | every task's execution deadline (a task outlives its request)                                    |
 
-Tasks are kept `@Application({ a2a: { taskRetention } })` after they end (default `hours(24)`). See
+Tasks are kept `@Application({ retention: { a2aTasks } })` after they end (default `hours(24)`). See
 [A2A](A2A#2-serving--a2ahttplistenerapp-options).
 
 ## Agents
@@ -234,6 +234,53 @@ A `@Compaction` class (`compactions/*.compaction.ts`): its `strategy` (`SummaryQ
 the recovery loop) — the only place they are listed; each has its own `timeout`
 ([Health checks](Health-checks)). `[health.not-a-health-check]`, `[health.duplicate-name]` and
 `[name.kind-suffix]` (`-health-check`) at assembly.
+
+## `retention` — how long each kind of row is kept (#834)
+
+One group, the only place a retention is set; the recovery sweep removes each kind past its own on
+the application's `Clock`:
+
+<!-- snippet-context
+import { Application } from "@agboss/core";
+import { hours, minutes } from "@agboss/core/units";
+export class AppEnvironment {}
+export class ClaimsWorkflow {} // a @Workflow of its own
+-->
+
+```ts
+@Application({
+  name: "claims-application",
+  version: "1.0.0",
+  environment: AppEnvironment,
+  workflows: [ClaimsWorkflow],
+  retention: {
+    pauseRecords: hours(24), // a resolved pause record (default hours(24))
+    executionRecords: hours(24 * 30), // each root execution's history (unset: nothing kept)
+    leaseEvents: hours(24), // the lease log (default hours(24))
+    costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
+    fencedEffects: hours(24), // fenced effects' results and marks (default hours(24))
+    outboundCalls: hours(168), // ended outbound calls (default hours(168))
+    meshAnswers: minutes(30), // trusted mesh requests' answers (default minutes(30))
+    a2aTasks: hours(24), // finished A2A tasks (default hours(24))
+  },
+})
+export class ClaimsApplication {}
+```
+
+Each is a positive, finite duration; `fencedEffects`, `outboundCalls` and `costLedgerEntries` are
+above the lease's 30 s (a mark, an intent or an entry removed sooner would let a zombie's late or
+retried write through); a key it does not know is a typo, never a default — all
+`[application.retention-invalid]`, every problem at once, before anything starts. Sizes and timeouts
+stay with their feature: `fencedEffects: { maxResultSize }`, `outboundCalls: { maxPayloadSize,
+attemptTimeout }`.
+
+## `createApp` options (#834)
+
+`createApp(App, { env, profile, profileRoot, meterProvider })` — nothing else: infrastructure is
+`@Application({ providers })`, settings are `@Application` options, and a `MeterProvider` is a
+runtime object, so it comes here. The seams a test or a tool replaces (the process environment, the
+model gateway, the providers' HTTP client, MCP transports) belong to the internal build path that
+`testWith` and the CLI use; a JavaScript caller's other key is refused, naming where it goes.
 
 ## Environments
 

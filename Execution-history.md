@@ -5,7 +5,7 @@ PR 1). Nothing is kept unless the application says how long; then each root exec
 kept in the `ExecutionHistoryRepository` — masked like its traces — and the recovery sweep removes it
 once it ended longer ago than that. `agboss records export` writes it as JSON Lines.
 
-## Keeping it: `executionRecordRetention`
+## Keeping it: `retention.executionRecords`
 
 <!-- snippet-context
 import { Application, Injectable, SqliteExecutionHistoryRepository, SqliteExecutionRecordRepository } from "@agboss/core";
@@ -24,7 +24,7 @@ export class AppEnvironment {
   environment: AppEnvironment, // its sqlitePath: the file of the SQLite stores
   workflows: [DeskWorkflow],
   providers: [SqliteExecutionRecordRepository, SqliteExecutionHistoryRepository],
-  executionRecordRetention: hours(24 * 30), // unset → nothing is kept (the default)
+  retention: { executionRecords: hours(24 * 30) }, // unset → nothing is kept (the default)
 })
 export class DeskApplication {}
 ```
@@ -39,7 +39,7 @@ export class DeskApplication {}
   `Clock` at the root's start) and the contexts are in the tree's state. A save that fails is a
   warning in the log (`execution-history.failed`), never the execution's failure.
 - **Removed** by the recovery sweep (every 30 s, on the `Clock`) once it ended longer ago than
-  `executionRecordRetention`; a record still paused is never removed.
+  `retention.executionRecords`; a record still paused is never removed.
 - On the built-in in-memory store it warns **`[application.in-memory-execution-history]`** — each
   instance keeps its own, another instance and `agboss records export` do not see them, a restart
   loses them (an error under `agboss check --strict`). `SqliteExecutionHistoryRepository` keeps it in
@@ -106,7 +106,7 @@ records: 1284 executions (acme) → hub/records/acme.jsonl
 - A tenant is always named (`--tenant <id>`) or every tenant explicitly (`--all-tenants`): neither or
   both is `records.tenant-required` (exit 2). `--since` / `--until` take an ISO 8601 date or time —
   records started in `[since, until)` — another value is `usage.option-value` (exit 2). An application
-  without `executionRecordRetention` is `records.not-kept` (exit 3).
+  without `retention.executionRecords` is `records.not-kept` (exit 3).
 - `--json`: `result = { records, tenantId, file }`, `created: [<file>]`.
 
 ## Into an eval case: `agboss generate eval-case`

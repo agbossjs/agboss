@@ -151,7 +151,7 @@ protocolVersion: "1.0" }`.
   the fields and the schema in the error's `metadata`); a file part is `-32005`. Its `contextId` is
   the task's thread (the caller's own, or one minted).
 - **One task is one root execution**, under the task's id, kept in `A2ATaskRepository`
-  (`@Application({ a2a: { taskRetention } })`). The same `messageId` from the same tenant and owner
+  (`@Application({ retention: { a2aTasks } })`). The same `messageId` from the same tenant and owner
   gets the same task — never a second run, on any instance; with other content it is `-32602`. A
   task whose start was lost (a crash right after it was accepted) is started by the resend, under
   the same id, once.
@@ -389,6 +389,7 @@ public key a plain text field (SPKI, `-----BEGIN PUBLIC KEY-----`) — it is pub
 
 <!-- snippet-context
 import { Application, type Secret } from "@agboss/core";
+import { minutes } from "@agboss/core/units";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
@@ -408,8 +409,8 @@ export class BillingEnvironment {
   mesh: {
     signingKey: "meshSigningKey",
     peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
-    // idempotencyRetention: minutes(30) — how long a trusted request's answer is kept
   },
+  retention: { meshAnswers: minutes(30) }, // how long a trusted request's answer is kept
 })
 export class BillingApplication {}
 ```

@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the application's configuration has one shape (#834)
+
+From the 0.1.1 API review (G2); the surface is not published yet, so no aliases.
+
+- **Changed — breaking**: one `@Application({ retention: { pauseRecords, executionRecords,
+  leaseEvents, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks } })` replaces
+  `pauseRecordRetention`, `executionRecordRetention`, `leaseEventRetention`, `ledgerEntryRetention`,
+  `fencedEffects.retention`, `outboundCalls.retention`, `mesh.idempotencyRetention` and
+  `a2a.taskRetention`; defaults unchanged. `[application.retention-invalid]` replaces
+  `[application.ledger-entry-retention-invalid]` and covers them all (an unknown key too).
+  [Configuration](Configuration#retention--how-long-each-kind-of-row-is-kept-834).
+- **Changed — breaking**: `EnvironmentField.secret()`, `.text()`, `.integer()`, `.flag()` (each
+  `({ optional: true })`) replace the enum's eight values. [Environments](Environments).
+- **Changed — breaking**: `createApp(App, { env, profile, profileRoot, meterProvider })` only; the
+  seams are the internal build path's. `AppDeps`, `createAppDeps`, `AppDepsOptions`, `McpConnect`,
+  `GraphDeps` and `ExecutionObserverManager` are `@agboss/core/internal`; `Usd` and `Milliseconds`
+  come from `@agboss/core/units` only.
+
 ## Unreleased — 0.1.1: the testing surface, reviewed (#831)
 
 From the 0.1.1 API review (G9); every name below is new in 0.1.1, so no aliases.

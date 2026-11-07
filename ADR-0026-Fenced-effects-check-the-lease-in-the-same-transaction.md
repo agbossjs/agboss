@@ -37,7 +37,7 @@ mark still at its own token and writes. Only the lease itself knows that another
   of statements on one connection shared by every store, and they do not nest. An asynchronous
   work rolls back with `FencedEffectAsyncWorkError`. PostgreSQL (#482) may wait: one client per
   transaction.
-- **Limits are settings, not code:** `@Application({ fencedEffects: { maxResultSize, retention } })`,
+- **Limits are settings, not code:** `@Application({ fencedEffects: { maxResultSize }, retention: { fencedEffects } })`,
   64 KB and 24 h by default; the recovery sweep removes rows past the retention, never when a tree
   ends.
 - **One published contract suite** (`fencedEffectContract`) that the in-memory, SQLite and

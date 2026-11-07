@@ -493,7 +493,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   (`fenced-effect.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
   receipt, not a document.
 - **Retention:** results and marks are removed by the recovery sweep once older than
-  `fencedEffects.retention` (default `hours(24)`; above the lease's 30 s, else
+  `retention.fencedEffects` (default `hours(24)`; above the lease's 30 s, else
   `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
 - **One transactional backend (#526):** the store checks the lease in its own transaction, so it
   and the application's lease store are on one backend — each declares it in `static store:
@@ -654,7 +654,7 @@ same on every attempt, replay and holder.
   `lookup.idempotencyKey`, which is not personal data. A step with no mask while the application
   lists PII policies is refused before anything is stored (`OutboundCallUnmaskedError`,
   `outbound-call.unmasked`); a failure's text is stored `[redacted]` there.
-- **Limits:** `@Application({ outboundCalls: { maxPayloadSize, retention } })` — a stored request or
+- **Limits:** `@Application({ outboundCalls: { maxPayloadSize }, retention: { outboundCalls } })` — a stored request or
   result above `maxPayloadSize` (default `kilobytes(64)`) is `OutboundCallPayloadTooLargeError`
   (`outbound-call.payload-too-large`): a request is neither recorded nor sent; a result leaves the
   intent pending, so the next attempt reconciles it. `Completed` and `Failed` intents are removed by
@@ -983,7 +983,7 @@ export class RecoveryCounter implements OnExecutionResume {
 
 **The same sweep keeps the pause records small** (#267 S107): at each look it removes, across
 tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
-`@Application({ pauseRecordRetention })` ago — default `hours(24)` —
+`@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
 through `PausedExecutionRepository.deleteResolvedBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
 the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
 taken or withdrawn pause gets `NotPausedError`, after it `UnknownPauseError`; a `Pending` pause is
@@ -1084,7 +1084,7 @@ A kept execution ([Execution history](Execution-history)) carries its tree's row
 it was saved, `ExecutionHistoryRecord.leaseEvents`, and so does its line of `agboss records export`.
 
 The rows carry identities and tokens only — never a payload — masked like observer events. They are
-**always written**, whatever `executionRecordRetention` says, before the observers hear of them, and
+**always written**, whatever `retention.executionRecords` says, before the observers hear of them, and
 read while the tree runs, from any instance, through the public API:
 
 <!-- snippet-context
@@ -1099,7 +1099,7 @@ const takeovers = rows.filter((row) => row.kind === "takeover");
 ```
 
 Another tenant's tree has none. The recovery sweep removes the rows older than
-`@Application({ leaseEventRetention })` (default `hours(24)`, on the `Clock`). A lease log that
+`@Application({ retention: { leaseEvents } })` (default `hours(24)`, on the `Clock`). A lease log that
 cannot write is a warning (`lease-event.failed`) and never reaches the takeover.
 
 ## Cancelling from any instance
@@ -1442,8 +1442,8 @@ import { ApplicationContext, EnvironmentField, Injectable } from "@agboss/core";
 @Injectable({
   deps: [ApplicationContext],
   environmentFields: {
-    postgresUrl: EnvironmentField.Secret,
-    postgresPoolSize: EnvironmentField.OptionalInteger,
+    postgresUrl: EnvironmentField.secret(),
+    postgresPoolSize: EnvironmentField.integer({ optional: true }),
   },
 })
 export class PostgresConnection {

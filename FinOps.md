@@ -258,7 +258,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   record an earlier pass kept that reaches a later one from a durable state (a takeover's restored
   writes, an agent's loop continued from its checkpoint). Entries are not kept for ever (#771):
   each is dated by its record's `madeAt`, and the recovery sweep prunes those made longer ago than
-  `@Application({ ledgerEntryRetention })` (default `hours(24)`) — see
+  `@Application({ retention: { costLedgerEntries } })` (default `hours(24)`) — see
   [Pruning the entries](#pruning-the-entries-771). A step **run again** after a crash or a
   takeover makes its spend again — its model calls are billed again, its services paid again — and
   that counts again, under the later pass's ids: the budget errs high, never low. A service you pay
@@ -389,9 +389,9 @@ day counters dropped).
 An entry exists so that a write retried after its answer was lost counts once. Only the pass that
 made a spend ever writes its entry — its own write and its retries, at its next read of the counters
 or checkpoint; every other pass only counts a marked record, never writes it — so an entry is needed
-while that pass may still retry. The ledger keeps entries `@Application({ ledgerEntryRetention })`
+while that pass may still retry. The ledger keeps entries `@Application({ retention: { costLedgerEntries } })`
 after they were made (default `hours(24)`, above the lease's 30 s —
-`[application.ledger-entry-retention-invalid]`); every look of the recovery sweep calls
+`[application.retention-invalid]`); every look of the recovery sweep calls
 `deleteEntriesByMadeAtBefore(now − retention)` on the `Clock`. A prune never touches a counter.
 
 The prune raises the store's **pruning mark** to its cutoff (never lowers it) and removes the
@@ -419,7 +419,7 @@ the schema (SQLite, PostgreSQL migration `0023`) or in the transaction that crea
 every save closed, nothing added: `PostgresLedgerMarkMissingError`
 (`postgres.ledger-mark-missing`), `MongoLedgerMarkMissingError` (`mongodb.ledger-mark-missing`, a
 prune deletes nothing either; a restart never seeds it again). Each message is the remedy: put the
-mark back no lower than any prune's cutoff (`now − ledgerEntryRetention`). Keep it when you prune
+mark back no lower than any prune's cutoff (`now − retention.costLedgerEntries`). Keep it when you prune
 or empty the entries by hand.
 
 ### Tests

@@ -82,8 +82,10 @@ export class AuditApplication {}
   sqlitePath: string in AppEnvironment (read by SqliteConnection)` (the SQLite implementations come
   with #265).
 - **A class declares the fields it reads (#511)**: `@Injectable({ environmentFields: { postgresUrl:
-  EnvironmentField.Secret, postgresPoolSize: EnvironmentField.OptionalInteger } })` — `Text`,
-  `Integer`, `Flag`, `Secret` and their `Optional…` forms. At assembly every class the application
+  EnvironmentField.secret(), postgresPoolSize: EnvironmentField.integer({ optional: true }) } })` —
+  `EnvironmentField.text()`, `.integer()`, `.flag()`, `.secret()`, each `({ optional: true })` for an
+  optional one (#834: the only makers — a literal does not compile, and a value they did not make or
+  a key that is not a camelCase field name is refused when `@Injectable` runs). At assembly every class the application
   or a workflow lists in `providers`, and every class their `deps` reach, is checked: a required
   field the contract lacks is `[environment.missing-field]` naming the listed class and the one that
   reads it; an optional one may be absent; one field declared with two types by two classes is

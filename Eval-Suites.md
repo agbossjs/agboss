@@ -405,7 +405,7 @@ the application's `eval-suites/`), then comes back to the run with *Saved as the
 
 The application is `package.json`'s (`"agboss": { "application" }`) or `--application <path>`, its
 stores opened on `--env <name>` (default `dev`) — nothing is built or run. The history is there
-only with `@Application({ executionRecordRetention })` ([Execution history](Execution-history)):
+only with `@Application({ retention: { executionRecords } })` ([Execution history](Execution-history)):
 without it — and without an application, or with one that does not load, or for a suite the project
 does not have — the run says why in place of the button, and the labels still work.
 
@@ -597,7 +597,7 @@ agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from-exe
 ```
 
 A failure seen in production is the best next case. With the application keeping its executions
-([Execution history](Execution-history), `@Application({ executionRecordRetention })`), `generate
+([Execution history](Execution-history), `@Application({ retention: { executionRecords } })`), `generate
 eval-case` reads one from the store — it runs nothing and calls no model — and adds one `evalCase({ …
 })` to the suite's `cases`:
 

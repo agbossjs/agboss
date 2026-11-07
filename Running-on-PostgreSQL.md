@@ -63,8 +63,8 @@ export const environment: AppEnvironment = {
   environment: AppEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  executionRecordRetention: hours(24 * 30), // 30 days
-  ledgerEntryRetention: hours(24), // the ledger's entries (#771): the default, pruned by the sweep
+  retention: { executionRecords: hours(24 * 30) }, // 30 days
+  retention: { costLedgerEntries: hours(24) }, // the ledger's entries (#771): the default, pruned by the sweep
   providers: [
     PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
     PostgresChildExecutionQueueRepository, // ChildPlacement.AnyInstance children

@@ -160,10 +160,10 @@ the run step by step.
 | `maxConcurrentSteps` | the pod's capacity; the autoscaler's target per pod | [Autoscaling](Autoscaling) |
 | `postgresPoolSize` | 5–10; pods × it < `max_connections` | R6 |
 | `piiKeyField`, `idempotencyKeyField` | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
-| `fencedEffects.retention` | 24 h (the default); longer than any retry of a step | [Guarantees](Guarantees) A12 |
+| `retention.fencedEffects` | 24 h (the default); longer than any retry of a step | [Guarantees](Guarantees) A12 |
 | `outboundCalls.attemptTimeout` | 2 min (the default); above the other system's own timeout | [Guarantees](Guarantees) A6 |
-| `leaseEventRetention` | 24 h (the default) | the lease log an operator and a verification read |
-| `executionRecordRetention` | set, when anyone reads the history | `agboss records export` |
+| `retention.leaseEvents` | 24 h (the default) | the lease log an operator and a verification read |
+| `retention.executionRecords` | set, when anyone reads the history | `agboss records export` |
 | Scale-in | stabilization 300 s, one pod per minute | a lull does not kill pods about to get work |
 
 ## Kubernetes-like platforms

@@ -133,7 +133,7 @@ npm test
   `eval/failure-taxonomy.yaml`): κ, the confusion per labeler and the judge's `length` / `quotesTool`
   metrics over the disagreements. `npm run eval` rewrites the baseline (relabel after). `agboss eval
   score` is not part of it: it scores with Jev, which needs OpenRouter.
-  The desk keeps each execution 30 days (`executionRecordRetention`, [Execution history](Execution-history),
+  The desk keeps each execution 30 days (`retention.executionRecords`, [Execution history](Execution-history),
   #401) in `.agboss/desk-offline.sqlite` on `--env offline`: `npm run records:check` runs it once,
   exports the kept records (`agboss records export --tenant default --out .agboss/records/desk.jsonl`)
   and drafts an eval case from the newest (`agboss generate eval-case lookup-from-history --suite

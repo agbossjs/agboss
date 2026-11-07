@@ -132,7 +132,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
 | `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
-| `ExecutionHistoryRepository` | each root execution's history, masked, only with `@Application({ executionRecordRetention })` (#401, [Execution history](Execution-history)) | in memory |
+| `ExecutionHistoryRepository` | each root execution's history, masked, only with `@Application({ retention: { executionRecords } })` (#401, [Execution history](Execution-history)) | in memory |
 | `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyInstance`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333)) | in memory |
 
 **Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —

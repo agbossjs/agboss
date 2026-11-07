@@ -394,7 +394,7 @@ value for the steps after it. Everything else is a pause like an approval's:
   interpreter → `ReplyInterpreterMissingError`). Who answers is `answeredBy`, checked as above.
 - Exactly one answer wins (`NotPausedError` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
-  (its channel's `withdraw` told); `pauseRecordRetention` and `result.record.pauses` as for any
+  (its channel's `withdraw` told); `retention.pauseRecords` and `result.record.pauses` as for any
   pause — the record's `kind` is `PauseKind.Question` (stored, never inferred), its step the
   question's (`component.kind: "question"`, no `callId`).
 - The step is code, no model: no step slot, not one of `maxSteps`; the execution's budgets are
@@ -493,7 +493,7 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 | `Cancelled`       | `app.cancel`, or its tree ended before an answer                       | `Cancelled` |
 
 **Retention** (#267 S107): a resolved record (`Taken`, `Cancelled`) is kept
-`@Application({ pauseRecordRetention })` after it was resolved — default `hours(24)` — and then
+`@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
 removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
 `PausedExecutionRepository.deleteResolvedBefore(cutoff)`. Within the window a late answer gets
 `NotPausedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
