@@ -37,14 +37,19 @@ export const NO_MESH: A2ARequestMesh = {
   traceparent: undefined,
 };
 
+export const NINE = new Date("2026-01-05T09:00:00.000Z");
+
 /** The served application's mesh settings: its name, its hop limit, no keys. */
-export const UNIT_MESH = {
+export const UNIT_MESH: MeshSettings = {
   application: "unit-application",
   maxMeshHops: 8,
-  keys: { peers: new Map(), signingKey: undefined },
-} as unknown as MeshSettings;
-
-export const NINE = new Date("2026-01-05T09:00:00.000Z");
+  keys: { peers: new Map() },
+  clock: new VirtualClock(NINE),
+  idempotencyRetention: 0,
+  a2aTaskRetention: 0,
+  exposes: [],
+  contracts: () => Promise.reject(new Error("no contracts in a unit test")),
+};
 export const SUBMITTED: A2ATaskStatus = { state: A2ATaskState.Submitted, pendingPauses: [] };
 export const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] };
 
