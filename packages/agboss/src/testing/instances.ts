@@ -57,4 +57,3 @@ export function testInstancesOf(options: TestWithOptions): readonly TestInstance
     return instance;
   });
 }
-
