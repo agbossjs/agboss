@@ -9,7 +9,7 @@ import {
   CASE_LEASE,
   keyOf,
   leaseOf,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type Receipt,
 } from "./fenced-effect-data.js";
 
@@ -26,7 +26,7 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 /** How long the work waits for the hand-over before it ends (real time: a bounded race, #523). */
 const HAND_OVER_WAIT = 500 as Milliseconds;
@@ -39,7 +39,7 @@ interface Seen {
 
 /** The holder's write: its row, then the hand-over started and waited for, a bounded while. */
 function writingThroughHandOver<TTransaction>(
-  stores: { first: FencedEffectStores<TTransaction>; second: FencedEffectStores<TTransaction> },
+  stores: { first: FencedEffectTarget<TTransaction>; second: FencedEffectTarget<TTransaction> },
   lease: ExecutionLease,
   seen: Seen,
 ): FencedEffectWork<TTransaction, Receipt> {

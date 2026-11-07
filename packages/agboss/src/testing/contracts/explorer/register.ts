@@ -1,9 +1,9 @@
 import { describe, expect, it, type TestContext } from "vitest";
 import { isOptedOutStore, optedOutRefusal, OPTED_OUT_REASON } from "../fencing-gate.js";
-import type { FencedEffectStores } from "../fenced-effect-data.js";
-import type { OutboundCallStores } from "../outbound-call-data.js";
+import type { FencedEffectTarget } from "../fenced-effect-data.js";
+import type { OutboundCallTarget } from "../outbound-call-data.js";
 import type { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
-import type { ContractTarget } from "../seam.js";
+import type { ContractTarget } from "../instance-context.js";
 import { LEASE_RACES, raced, type ForcedRace } from "./races.js";
 import { CALL_RACES, EFFECT_RACES } from "./store-races.js";
 import { ExplorerRun } from "./run.js";
@@ -56,8 +56,8 @@ interface RegisterOptions extends InterleavingOptions {
  */
 export interface InterleavingTargets {
   readonly executionLease?: ContractTarget<ExecutionLeaseRepository> | undefined;
-  readonly fencedEffect?: ContractTarget<FencedEffectStores<unknown>> | undefined;
-  readonly outboundCall?: ContractTarget<OutboundCallStores> | undefined;
+  readonly fencedEffect?: ContractTarget<FencedEffectTarget<unknown>> | undefined;
+  readonly outboundCall?: ContractTarget<OutboundCallTarget> | undefined;
 }
 
 /** One explored world and the stores it runs on. */

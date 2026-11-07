@@ -1,6 +1,6 @@
 /**
  * #645 — the packed packages' source maps. Vite reads every `dist/**\/*.js.map` of a core that
- * agbossTest() inlines; a map whose sources are not in the tarball prints "points to missing source
+ * agbossVitest() inlines; a map whose sources are not in the tarball prints "points to missing source
  * files" (~700 lines per `npm test` of a new project) and a stack trace names files that do not
  * exist. AC1 / AC2: every map of what `npm pack` ships names sources the tarball ships too. AC3: the
  * checks `npm run check:packed` runs on the installed project (`scripts/packed/source-maps.mjs`).

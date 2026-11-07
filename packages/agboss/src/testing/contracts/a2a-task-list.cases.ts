@@ -6,7 +6,7 @@ import {
   type A2ATaskRepository,
 } from "../../infrastructure/a2a-task.repository.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 import {
   at,
   WORKING,

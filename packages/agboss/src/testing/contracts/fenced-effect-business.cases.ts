@@ -10,7 +10,7 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
@@ -20,7 +20,7 @@ import {
  * token is refused even where the business key has a result, two instances racing write once.
  */
 
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
   name: "#508: one business key from two executions (two scopes) runs once; the second replays it, naming the first",
@@ -204,7 +204,7 @@ const stepKeysApart = <TTransaction>(): Case<TTransaction> => ({
 
 /** The business-key cases. */
 export const businessKeyCases = <TTransaction>(): ContractGroup<
-  FencedEffectStores<TTransaction>
+  FencedEffectTarget<TTransaction>
 > => ({
   title: "business keys",
   cases: [

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   storeConformance,
   StoreConformanceError,
-  type ConformanceStores,
+  type StoreSet,
   type LeftOutContract,
 } from "../../../src/testing/contracts/index.js";
 import { checkStoreSet } from "../../../src/testing/contracts/store-conformance-check.js";
@@ -24,11 +24,11 @@ const FENCING = ["executionLease", "fencedEffect", "outboundCall", "executionLea
 const setOf = (
   keys: readonly string[],
   extra: Record<string, unknown> = {},
-): ConformanceStores => ({ ...Object.fromEntries(keys.map((key) => [key, unbuilt])), ...extra });
+): StoreSet => ({ ...Object.fromEntries(keys.map((key) => [key, unbuilt])), ...extra });
 
 /** The problems `storeConformance` refuses the set with (a set it took would register suites). */
 function problemsOf(
-  stores: ConformanceStores,
+  stores: StoreSet,
   without?: readonly LeftOutContract[],
 ): readonly string[] {
   try {

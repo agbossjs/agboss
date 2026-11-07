@@ -10,13 +10,13 @@ import {
   intentOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /** Every method a key enters an outbound-call store through. */
 const KEYED_METHODS: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
+  (stores: OutboundCallTarget, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   ["saveIfAbsent", (stores, key) => stores.calls.saveIfAbsent(key, intentOf(key))],
@@ -84,7 +84,7 @@ const refusedByHand: OutboundCallCase = {
 };
 
 /** The key-text cases of the outbound-call contract (#538). */
-export const outboundKeyTextCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundKeyTextCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "the text of a business key",
   cases: [roundTrip, refusedByHand],
 });

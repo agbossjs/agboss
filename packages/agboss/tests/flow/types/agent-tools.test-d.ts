@@ -1,6 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { AgentToolNamesOf, ToolNameOf } from "../../../src/flow/generated-types.js";
-import { callTool, callTools, replyWith } from "../../../src/testing/index.js";
+import {
+  callTool,
+  callTools,
+  callToolWithInvalidArguments,
+  callToolWithTruncatedArguments,
+  replyWith,
+} from "../../../src/testing/index.js";
 import type { TurnFor } from "../../../src/testing/script-types.js";
 import { BookBedTool, FreeBedsTool } from "../fixtures/clinic.fixture.js";
 import { RefundCardTool, RefundClerkAgent } from "../fixtures/refunds.fixture.js";
@@ -38,5 +44,31 @@ describe("#679 AC1: an agent's tool calls are typed by the tools it lists", () =
     // @ts-expect-error — free-beds-tool is not one of refund-clerk-agent's tools
     const refused: ClerkTurn = other;
     expectTypeOf(refused).not.toBeNever();
+  });
+});
+
+describe("#831: an invalid or truncated call is typed like callTool (#679)", () => {
+  it("of a tool the agent lists: one of its turns", () => {
+    expectTypeOf(callToolWithInvalidArguments(RefundCardTool, { orderId: 7 })).toExtend<ClerkTurn>();
+    expectTypeOf(callToolWithTruncatedArguments(RefundCardTool, { orderId: "A-1" })).toExtend<ClerkTurn>();
+    expectTypeOf(
+      callToolWithInvalidArguments(RefundCardTool, {}).tool,
+    ).toEqualTypeOf<"refund-card-tool">();
+  });
+
+  it("of a tool it does not list: does not compile", () => {
+    const invalid = callToolWithInvalidArguments(FreeBedsTool, { ward: 7 });
+    const truncated = callToolWithTruncatedArguments(FreeBedsTool, { ward: "icu" });
+
+    expectTypeOf(invalid).not.toExtend<ClerkTurn>();
+    expectTypeOf(truncated).not.toExtend<ClerkTurn>();
+    // @ts-expect-error — free-beds-tool is not one of refund-clerk-agent's tools
+    const refused: ClerkTurn = invalid;
+    expectTypeOf(refused).not.toBeNever();
+  });
+
+  it("a truncated call's arguments are the tool's input's fields", () => {
+    // @ts-expect-error — `ward` is no field of refund-card-tool's input
+    callToolWithTruncatedArguments(RefundCardTool, { ward: "icu" });
   });
 });

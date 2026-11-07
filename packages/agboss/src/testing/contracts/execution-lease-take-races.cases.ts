@@ -5,7 +5,7 @@ import type {
 } from "../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 
 /**
  * Two takes of one free lease at once (#695): a tree never leased, one whose lease was released,

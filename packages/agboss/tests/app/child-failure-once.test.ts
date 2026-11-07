@@ -75,10 +75,10 @@ describe("#596 AC1: a child whose failure was announced does not finish after a 
       });
       endOnceSeen.onRecovered = once((instanceId) => {
         const taker = byId.get(instanceId);
-        if (taker !== undefined) leases.stall(taker);
+        if (taker !== undefined) leases.freeze(taker);
       });
       const error = await frozenAfterChildEnd(a, { clock, leases }, call);
-      for (const each of apps) leases.resume(each);
+      for (const each of apps) leases.thaw(each);
       await settle();
 
       const { childEnds, childErrors, rootEnds, rootErrors } = heard();

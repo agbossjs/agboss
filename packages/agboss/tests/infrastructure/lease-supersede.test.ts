@@ -13,7 +13,7 @@ import type { ExecutionLeaseRepository } from "../../src/infrastructure/executio
 import type { FencedEffectRepository } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";
 import { keyOf, leaseOf } from "../../src/testing/contracts/fenced-effect-data.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 import { seconds } from "../../src/units/index.js";
 import { inMemoryFencedEffects, sqliteFencedEffects } from "./contracts/fenced-effect-stores.js";
 import { inMemoryOutboundCalls, sqliteOutboundCalls } from "./contracts/outbound-call-stores.js";

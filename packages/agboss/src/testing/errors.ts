@@ -87,7 +87,7 @@ export class StaleCassetteError extends TestFailure {
 
 /**
  * A test's app did not close within its bound of real time (#509): an execution still running — a
- * frozen step, a stalled lease, a wait on the `VirtualClock` nobody advances — would keep the
+ * frozen step, a frozen lease, a wait on the `VirtualClock` nobody advances — would keep the
  * test's teardown waiting forever, and vitest bounds no fixture's teardown.
  */
 export class AppCloseTimeoutError extends TestFailure {
@@ -97,7 +97,7 @@ export class AppCloseTimeoutError extends TestFailure {
     super(
       "test.close-timeout",
       `instance ${String(instance)} of the test's application did not close within ${String(timeout)} ms ` +
-        "of real time — an execution still runs (a frozen step, a stalled lease, a wait on the " +
+        "of real time — an execution still runs (a frozen step, a frozen lease, a wait on the " +
         "VirtualClock nobody advances); the test's own failure, if any, is the cause",
     );
   }

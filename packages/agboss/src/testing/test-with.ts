@@ -2,7 +2,7 @@ import { test, type Mocked, type TestAPI, type TestContext } from "vitest";
 import type { ApplicationClass } from "../application/types.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
-import { TestEnvironment, type TestWithOptions } from "./environment.js";
+import { TestEnvironment, testInstancesOf, type TestWithOptions } from "./environment.js";
 import type { McpStub } from "./mcp-stubs.js";
 import { blockNetwork } from "./network-guard.js";
 import type { ModelScript } from "./script-book.js";
@@ -68,21 +68,15 @@ export interface WorkflowFixtures {
    */
   readonly a2aServer: A2AServerFixture;
   /**
-   * A frozen process (#471): `leases.stall(apps[0])` stops that instance's lease store calls and
-   * lease timers while its step code runs on, `leases.resume(apps[0])` lets them go — with
+   * A frozen process (#471): `leases.freeze(apps[0])` stops that instance's lease store calls and
+   * lease timers while its step code runs on, `leases.thaw(apps[0])` lets them go — with
    * `clock.advance(seconds(31))` between, another instance takes the lease over.
    */
   readonly leases: TestLeases;
 }
 
-/** How many app instances the test runs: a whole number ≥ 1 (default 1). */
-function instancesOf(options: TestWithOptions): number {
-  const count = options.instances ?? 1;
-  if (!Number.isInteger(count) || count < 1) {
-    throw new TestSetupError(`instances: ${String(count)} — a whole number ≥ 1`);
-  }
-  return count;
-}
+/** How many app instances the test runs (#831: a count, or one entry per instance). */
+const instancesOf = (options: TestWithOptions): number => testInstancesOf(options).length;
 
 /**
  * The test's environment, the network blocked around it; its apps closed after the test. A test

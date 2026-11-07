@@ -62,7 +62,7 @@ async function killedBeforeTheAnswer(
   const call = execute(a, ChargeWorkflowStart, { text: "order-7" });
   call.catch(() => undefined);
   await frozenCharges(1);
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   await clock.advance(seconds(31));
   await settle();
@@ -90,7 +90,7 @@ describe("#505 AC1: killed before the answer — reconciled, never sent again", 
 
       // A's answer arrives at last: its completion write is refused — a hand-over, nothing sent
       letChargesGo();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
       expect(gateway.calls).toHaveLength(1);

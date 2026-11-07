@@ -14,7 +14,7 @@ import "../polyfills/symbol-metadata.js";
 import "./vitest-types.js";
 
 export { testWith, type WorkflowFixtures } from "./test-with.js";
-export type { TestWithOptions } from "./environment.js";
+export type { TestInstanceOptions, TestWithOptions } from "./environment.js";
 export type { TestApp } from "./test-app.js";
 export type { A2AServerFixture, A2ATestServer } from "./a2a-server.js";
 export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.js";
@@ -77,26 +77,26 @@ export {
   FakeGatewayError,
   FakeGatewayErrorKind,
   FakeGatewayFault,
-  FakeOutboundGateway,
+  FakePaymentGateway,
   FULL_GATEWAY_CAPABILITIES,
   type FakeGatewayCapabilities,
   type FakeGatewayCharge,
   type FakeGatewayFaultOptions,
   type FakeGatewayPayment,
   type FakeGatewayReceipt,
-  type FakeOutboundGatewayOptions,
-} from "./gateway/fake-outbound-gateway.js";
+  type FakePaymentGatewayOptions,
+} from "./gateway/fake-payment-gateway.js";
 export {
   GatewayCheckStatus,
   GatewayRequirement,
-  outboundGatewayChecklist,
+  paymentGatewayChecklist,
   type GatewayChecklistClock,
   type GatewayChecklistReport,
   type GatewayCheckResult,
   type GatewayProbeCharge,
   type GatewayProbeReceipt,
-  type OutboundGatewayChecklistOptions,
-} from "./gateway/outbound-gateway-checklist.js";
+  type PaymentGatewayChecklistOptions,
+} from "./gateway/payment-gateway-checklist.js";
 export type { TestLeases } from "./leases.js";
 export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";

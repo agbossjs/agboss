@@ -69,7 +69,7 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
       const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
       call.catch(() => undefined);
       await frozenRuns(1);
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(31));
       // the new holder is live: its renewals reach the store in time (#534)
       await passLive(clock, seconds(31));
@@ -83,7 +83,7 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
       ]);
 
       letAllGo();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
       expect(charges()).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
       const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
       call.catch(() => undefined);
       await frozenRuns(1);
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(31));
       // the new holder is live: its renewals reach the store in time (#534)
       await passLive(clock, seconds(31));
@@ -109,7 +109,7 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
 
       zombie?.();
       await settle();
-      leases.resume(a);
+      leases.thaw(a);
       const error = await rejectionOf(call);
       const afterZombie = charges();
       holder?.();

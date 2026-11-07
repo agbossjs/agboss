@@ -9,7 +9,7 @@ import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
-import { SkewedClock, type ClockSkew } from "./clock-skew.js";
+import { ClockSkew, SkewedClock } from "./clock-skew.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { TestStoreClock } from "./store-clock.js";
 import type { Milliseconds } from "../units/index.js";
@@ -39,6 +39,56 @@ function branchSchedulerOf(
   return branchScheduler === undefined ? {} : { branchScheduler };
 }
 
+/** One instance of a test (#831): its own settings, `apps[i]`'s in `instances[i]`. */
+export interface TestInstanceOptions {
+  /**
+   * The instance's clock skew (#533; default `ClockSkew.none`): its wall clock ahead or behind,
+   * running fast or slow — while the stores decide by the test's clock, as by a database's own.
+   */
+  readonly clockSkew?: ClockSkew;
+  /**
+   * The instance's OpenTelemetry `MeterProvider` (#485; default none: no metrics on it): read it
+   * with an in-memory reader, `await reader.collect()`.
+   */
+  readonly meterProvider?: MeterProvider;
+}
+
+/** The keys a `TestInstanceOptions` may have: another is a typo the test would silently ignore. */
+const INSTANCE_OPTION_KEYS: ReadonlySet<string> = new Set(["clockSkew", "meterProvider"]);
+
+/**
+ * The test's instances, one entry each (#831): `instances` as a count of plain ones (a whole number
+ * ≥ 1, default 1) or as given — a non-empty list of objects with no key but `clockSkew` and
+ * `meterProvider`; anything else is a `TestSetupError`.
+ */
+export function testInstancesOf(options: TestWithOptions): readonly TestInstanceOptions[] {
+  const instances: unknown = options.instances ?? 1;
+  if (typeof instances === "number") {
+    if (!Number.isInteger(instances) || instances < 1)
+      throw new TestSetupError(`instances: ${String(instances)} — a whole number ≥ 1`);
+    return Array.from({ length: instances }, () => ({}));
+  }
+  if (!Array.isArray(instances) || instances.length === 0)
+    throw new TestSetupError(
+      "instances: a whole number ≥ 1, or a non-empty list of { clockSkew?, meterProvider? }",
+    );
+  return instances.map((instance: unknown, at) => {
+    if (typeof instance !== "object" || instance === null)
+      throw new TestSetupError(`instances[${String(at)}]: not an object`);
+    const unknown = Object.keys(instance).filter((key) => !INSTANCE_OPTION_KEYS.has(key));
+    if (unknown.length > 0)
+      throw new TestSetupError(
+        `instances[${String(at)}]: ${unknown.join(", ")} — an instance takes clockSkew and meterProvider only`,
+      );
+    const { clockSkew } = instance as TestInstanceOptions;
+    if (clockSkew !== undefined && !(clockSkew instanceof ClockSkew))
+      throw new TestSetupError(
+        `instances[${String(at)}].clockSkew: not a ClockSkew (ClockSkew.ahead(…), .behind(…), .drifting(…))`,
+      );
+    return instance as TestInstanceOptions;
+  });
+}
+
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
  * test never falls back to dev's values, and fails without `test.environment.ts`).
@@ -54,23 +104,13 @@ export interface TestWithOptions extends EnvironmentSelection {
    */
   readonly vcr?: VcrConfig;
   /**
-   * How many application instances the test runs (default 1): `apps[0]` (= `app`) … `apps[n-1]`,
-   * each with its own container and instance id, over one set of stores and one clock — so a
-   * lease, a pause resumed on the other instance or a rate-limit slot is tested across instances.
+   * The application instances the test runs (default 1): `apps[0]` (= `app`) … `apps[n-1]`, each
+   * with its own container and instance id, over one set of stores and one clock — so a lease, a
+   * pause resumed on the other instance or a rate-limit slot is tested across instances. A number
+   * of plain instances, or one `TestInstanceOptions` per instance (#831: `instances: [{}, {
+   * clockSkew: ClockSkew.ahead(seconds(300)) }]`), each instance's settings in its own entry.
    */
-  readonly instances?: number;
-  /**
-   * Each instance's clock skew (#533), by instance (`clockSkews[0]` is `apps[0]`'s; a missing one
-   * is `ClockSkew.none`): its wall clock ahead or behind, running fast or slow — while the stores
-   * decide by the test's clock, as by a database's own.
-   */
-  readonly clockSkews?: readonly ClockSkew[];
-  /**
-   * Each instance's OpenTelemetry `MeterProvider` (#485), by instance like `clockSkews`
-   * (`meterProviders[0]` is `apps[0]`'s; a missing one = no metrics on that instance): read it
-   * with an in-memory reader, `await reader.collect()`.
-   */
-  readonly meterProviders?: readonly MeterProvider[];
+  readonly instances?: number | readonly TestInstanceOptions[];
   /**
    * How parallel branches run (#262 S33): `TestConcurrency.Sequential` (default — one at a time,
    * in listed / item order), `TestConcurrency.Real`, or `TestConcurrency.inOrder([step(A), …])`.
@@ -124,10 +164,8 @@ export class TestEnvironment {
   readonly #options: BuildOptions;
   /** The PII key of its instances when the application sets none (#334). */
   readonly #piiTestKey: string | undefined;
-  /** Each instance's clock skew, by instance (#533). */
-  readonly #skews: readonly ClockSkew[];
-  /** Each instance's meter provider, by instance (#485). */
-  readonly #meterProviders: readonly MeterProvider[];
+  /** Each instance's own settings (#831): its clock skew (#533), its meter provider (#485). */
+  readonly #instances: readonly TestInstanceOptions[];
   #reused: ReadonlyMap<Class, unknown> = new Map();
   readonly #beforeClose: (() => void)[] = [];
   /** The app being built: instances are built one after the other, the first one's stores kept. */
@@ -149,8 +187,7 @@ export class TestEnvironment {
     }
     this.#servers = mcpServersOf(assembled);
     this.#piiTestKey = testPiiKeyOf(options);
-    this.#skews = options.clockSkews ?? [];
-    this.#meterProviders = options.meterProviders ?? [];
+    this.#instances = testInstancesOf(options);
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     this.#options = {
@@ -219,13 +256,13 @@ export class TestEnvironment {
 
   /** The build options of the instance built `index`-th: its meter provider (#485), if any. */
   #optionsOf(index: number): BuildOptions {
-    const meterProvider = this.#meterProviders[index];
+    const meterProvider = this.#instances[index]?.meterProvider;
     return meterProvider === undefined ? this.#options : { ...this.#options, meterProvider };
   }
 
-  /** The clock of the instance built `index`-th: the test's, skewed as `clockSkews` says (#533). */
+  /** The clock of the instance built `index`-th: the test's, skewed as its `clockSkew` says (#533). */
   #instanceClock(index: number): Clock {
-    const skew = this.#skews[index];
+    const skew = this.#instances[index]?.clockSkew;
     return skew === undefined ? this.clock : new SkewedClock(this.clock, skew);
   }
 
@@ -251,7 +288,7 @@ export class TestEnvironment {
     return this.mcp.stubOf<TServer>(name);
   }
 
-  /** Runs `work` first when the test's apps close (a stalled lease resumed, #471). */
+  /** Runs `work` first when the test's apps close (a frozen lease thawed, #471). */
   onClose(work: () => void): void {
     this.#beforeClose.push(work);
   }

@@ -4,9 +4,9 @@
  * ```ts
  * // vitest.config.ts
  * import { defineConfig } from "vitest/config";
- * import { agbossTest } from "@agboss/core/testing/vitest";
+ * import { agbossVitest } from "@agboss/core/testing/vitest";
  *
- * export default defineConfig({ test: agbossTest({ include: ["tests/**\/*.test.ts"] }) });
+ * export default defineConfig({ test: agbossVitest({ include: ["tests/**\/*.test.ts"] }) });
  * ```
  *
  * Installed from npm, `@agboss/core` is an external dependency of vitest: Node loads it, and every
@@ -52,7 +52,7 @@ function withCoreInlined(given: InlinedDependencies | undefined): InlinedDepende
  * `server.deps.inline` are merged with the user's, never replaced, and calling it twice adds
  * nothing twice.
  */
-export function agbossTest(test: VitestTestOptions = {}): VitestTestOptions {
+export function agbossVitest(test: VitestTestOptions = {}): VitestTestOptions {
   const server = test.server ?? {};
   return {
     ...test,

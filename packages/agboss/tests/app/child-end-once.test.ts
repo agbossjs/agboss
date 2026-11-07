@@ -118,10 +118,10 @@ describe("#562: a parent recovered twice", () => {
         // the first instance to take the tree over freezes too, before its step is checkpointed
         endOnceSeen.onRecovered = once((instanceId) => {
           const taker = byId.get(instanceId);
-          if (taker !== undefined) leases.stall(taker);
+          if (taker !== undefined) leases.freeze(taker);
         });
         const error = await frozenAfterChildEnd(a, { clock, leases }, call);
-        for (const each of apps) leases.resume(each);
+        for (const each of apps) leases.thaw(each);
         await settle();
 
         const { childEnds, rootEnds } = heard();
@@ -182,14 +182,14 @@ describe("#562: a cancel the worker finds first", () => {
     // the child runs on b (ready first); a's holder misses the request while frozen
     expect(yieldSeen.runs).toMatchObject([{ instanceId: "instance-1" }]);
     const child = childOf(a);
-    leases.stall(a);
+    leases.freeze(a);
     expect(await b.cancel("thread-r", { tenantId: "default" })).toEqual({ cancelled: true });
     await clock.advance(seconds(10));
     await until(
       () => statusOf(a, child) === ExecutionRecordStatus.Failed,
       "the worker stopped the child, its row completed",
     );
-    leases.resume(a);
+    leases.thaw(a);
     await call;
     await clock.advance(seconds(10));
     await settle();
@@ -217,7 +217,7 @@ describe("#562: the window between a child's durable end and its announcement (a
         await readyAll(apps);
         const thaw = gateOf();
         atChildEnd(at, async () => {
-          leases.stall(a);
+          leases.freeze(a);
           await thaw.opened;
         });
         const input = item("gate", outcome);
@@ -233,7 +233,7 @@ describe("#562: the window between a child's durable end and its announcement (a
         // its lease store and timers still frozen: only its own fence (#533) can stop it
         thaw.open();
         await settle();
-        leases.resume(a);
+        leases.thaw(a);
         const error = await call;
         await settle();
 

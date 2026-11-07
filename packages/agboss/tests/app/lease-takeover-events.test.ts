@@ -105,7 +105,7 @@ describe("#501 AC1: a takeover is told and kept", () => {
       expect(fromZombie).toEqual(rows);
       // regression: the recovery itself is unchanged
       expect(recovery.resumes).toEqual([{ reason: ResumeReason.Recovered, decision: undefined }]);
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
   );
@@ -120,7 +120,7 @@ describe("#501 AC1: a takeover is told and kept", () => {
         [],
       );
       expect(await b.leaseEventsOf({ tenantId: "default", rootExecutionId: "nope" })).toEqual([]);
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
   );
@@ -208,7 +208,7 @@ describe("#501: what never reaches the takeover", () => {
       expect(leaseSeen.takeovers).toHaveLength(1);
       expect(recovery.ends).toHaveLength(1);
       expect(logged.map((entry) => entry.code)).toContain("observer.failed");
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
   );
@@ -227,7 +227,7 @@ describe("#501: what never reaches the takeover", () => {
           rootExecutionId: zombieRoot(),
         }),
       ).toEqual([]);
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
   );
@@ -245,7 +245,7 @@ describe("#501: what never reaches the takeover", () => {
       });
       expect(leaseSeen.takeovers[0]).not.toHaveProperty("previousHolderInstanceId");
       expect(leaseSeen.takeovers[0]).not.toHaveProperty("previousToken");
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
   );

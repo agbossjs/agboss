@@ -1,5 +1,5 @@
 /**
- * #500 AC2 — a zombie reaches the fenced effect: its lease stalled (`leases.stall`), the other
+ * #500 AC2 — a zombie reaches the fenced effect: its lease stalled (`leases.freeze`), the other
  * instance took it over under token 2. The zombie's call is refused (`ExecutionFencedError`) before
  * its key is looked up — nothing written, the new holder's receipt never returned — whether the new
  * holder wrote first or not yet. A hand-over (#471): no `.onError` side path, no failed record, no
@@ -51,7 +51,7 @@ async function stalledBeforeEffect(
   const call = execute(a, ChargeWorkflowStart, { text: "order-7" });
   call.catch(() => undefined);
   await frozenRuns(1);
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   // the new holder is live: its renewals reach the store in time (#534)
   await passLive(clock, seconds(31));
@@ -70,7 +70,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
       // the zombie wakes inside its step, before its lease timers fire
       letAllGo();
       await settle();
-      leases.resume(a);
+      leases.thaw(a);
       const error = await rejectionOf(call);
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
@@ -96,7 +96,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
 
       zombie?.();
       await settle();
-      leases.resume(a);
+      leases.thaw(a);
       const error = await rejectionOf(call);
       expect(book.charges).toEqual([]);
       holder?.();

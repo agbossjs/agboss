@@ -6,7 +6,7 @@ import {
 } from "../../infrastructure/a2a-task.repository.js";
 import { PauseKind } from "../../pause/types.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { at, SUBMITTED, WORKING, COMPLETED, newTask, keyOf, saved } from "./a2a-task-data.js";
 

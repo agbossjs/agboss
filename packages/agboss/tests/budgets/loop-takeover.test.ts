@@ -72,13 +72,13 @@ describe("#727: a takeover in the middle of an agent's loop", () => {
     await until(() => loopTakeover.holds.length === 1, "the tool holds on the child's worker");
     const worker = byName.get(loopTakeover.holds[0] ?? "");
     if (worker === undefined) throw new Error("no worker ran the tool");
-    leases.stall(worker);
+    leases.freeze(worker);
     for (let step = 0; step < 12 && loopTakeover.holds.length < 2; step += 1)
       await clock.advance(seconds(10));
     await until(() => loopTakeover.holds.length === 2, "the other instance runs the tool again");
     const done = await call;
     release();
-    leases.resume(worker);
+    leases.thaw(worker);
 
     expect(done.spend.totalUsd).toBe(30);
     const ledger = app.resolve(CostLedgerRepository);

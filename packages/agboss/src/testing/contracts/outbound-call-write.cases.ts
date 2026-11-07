@@ -7,7 +7,7 @@ import {
   intentOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /** The outbound-call contract's writes (#505): record, read back, complete, fail, send again. */
@@ -162,7 +162,7 @@ const raceOneSave: OutboundCallCase = {
 };
 
 /** The writes and reads of one key. */
-export const outboundWriteCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundWriteCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "writes",
   cases: [
     savedThenFound,

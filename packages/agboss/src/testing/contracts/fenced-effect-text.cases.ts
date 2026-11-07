@@ -8,7 +8,7 @@ import {
   keyOf,
   leaseOf,
   type FencedEffectBusinessRows,
-  type FencedEffectStores,
+  type FencedEffectTarget,
 } from "./fenced-effect-data.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 
@@ -33,7 +33,7 @@ const writingNul =
   };
 
 /** The texts of a result: as the write gave them, and replayed the same. */
-export const textCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "texts as they were handed over",
   cases: [
     {

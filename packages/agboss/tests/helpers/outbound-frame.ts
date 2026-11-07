@@ -23,7 +23,7 @@ import {
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import type { FakeOutboundGateway } from "../../src/testing/gateway/fake-outbound-gateway.js";
+import type { FakePaymentGateway } from "../../src/testing/gateway/fake-payment-gateway.js";
 import { hours } from "../../src/units/index.js";
 import { testFrame } from "./frame.js";
 import { Logger, type LogEntry } from "../../src/infrastructure/logger.js";
@@ -149,7 +149,7 @@ export interface GatewayPaymentReceipt {
  * made (its books), not its key store — as a lookup by the merchant reference is.
  */
 export const byReference =
-  (gateway: FakeOutboundGateway) =>
+  (gateway: FakePaymentGateway) =>
   (lookup: OutboundCallLookup): OutboundCallReconciliation<GatewayPaymentReceipt> => {
     const found = gateway.payments.find(
       (payment) => payment.idempotencyKey === lookup.idempotencyKey,
@@ -161,7 +161,7 @@ export const byReference =
 
 /** A charge of 10 at `gateway`, reconciled by reference, with `extra` options over it. */
 export const gatewayCharge = (
-  gateway: FakeOutboundGateway,
+  gateway: FakePaymentGateway,
   extra: Partial<OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt>> = {},
 ): OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt> => ({
   target: "gateway",

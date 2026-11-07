@@ -27,7 +27,7 @@ import {
 const meter = instanceMeter();
 const test = testWith(ClaimRoomApplication, {
   concurrency: TestConcurrency.Real,
-  meterProviders: [meter.provider],
+  instances: [{ meterProvider: meter.provider }],
 });
 
 beforeEach(resetRoomLog);

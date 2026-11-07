@@ -12,7 +12,7 @@ import {
   isTimed,
   LEASE_AUTHORITY_CASES,
 } from "../../../src/testing/contracts/execution-lease-authority.cases.js";
-import { withTarget, type StoreSeam } from "../../../src/testing/contracts/seam.js";
+import { withTarget, type StoreInstanceContext } from "../../../src/testing/contracts/instance-context.js";
 import {
   LeaseTable,
   MapExecutionLeaseRepository,
@@ -70,7 +70,7 @@ function frozenTarget(isOnCallerClock: boolean, ms: number, at: number) {
     reset: () => {
       table = new LeaseTable();
     },
-    instance: (seam: StoreSeam): ExecutionLeaseRepository => {
+    instance: (seam: StoreInstanceContext): ExecutionLeaseRepository => {
       const clock = isOnCallerClock ? seam.clock : seam.storeClock;
       const store = new MapExecutionLeaseRepository(table, clock, seam.application);
       if (seam.instanceId !== "instance-2") return store;
@@ -126,7 +126,7 @@ describe("#762: a stalled attempt decides nothing", () => {
       reset: () => {
         table = new LeaseTable();
       },
-      instance: (seam: StoreSeam): ExecutionLeaseRepository => {
+      instance: (seam: StoreInstanceContext): ExecutionLeaseRepository => {
         const store = new MapExecutionLeaseRepository(table, seam.storeClock, seam.application);
         const acquire = store.acquire.bind(store);
         if (seam.instanceId === "instance-2")

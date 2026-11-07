@@ -18,20 +18,21 @@ import { executionLeaseEventContract } from "./execution-lease-event.contract.js
 import { executionLeaseContract } from "./execution-lease.contract.js";
 import { executionRecordContract } from "./execution-record.contract.js";
 import { executionTreeContract } from "./execution-tree.contract.js";
-import type { FencedEffectStores } from "./fenced-effect-data.js";
+import type { FencedEffectTarget } from "./fenced-effect-data.js";
 import { registerFencedEffectContract } from "./fenced-effect.contract.js";
 import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
 import { a2aTaskContract } from "./a2a-task.contract.js";
-import type { OutboundCallStores } from "./outbound-call-data.js";
+import type { OutboundCallTarget } from "./outbound-call-data.js";
 import { registerOutboundCallContract } from "./outbound-call.contract.js";
 import { pausedExecutionContract } from "./paused-execution.contract.js";
 import { rateLimitContract } from "./rate-limit.contract.js";
-import type { ContractTarget, StoreSeam } from "./seam.js";
+import type { ContractTarget, StoreInstanceContext } from "./instance-context.js";
 import { checkStoreSet, type LeftOutContract } from "./store-conformance-check.js";
 import { registerInterleavings, type InterleavingOptions } from "./explorer/register.js";
 import { registerInterleavingsOff } from "./explorer/floor.js";
 import { registerStoreSet } from "./store-set.cases.js";
+import type { StoreCapability } from "./store-capability.js";
 
 /**
  * `storeConformance` (#526): one call that runs every contract a store set claims — the same
@@ -43,26 +44,26 @@ import { registerStoreSet } from "./store-set.cases.js";
  */
 
 /** One store of the set: how one instance builds it, and optionally its own reset and close. */
-export type ConformanceStore<TStore> =
-  ((seam: StoreSeam) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;
+export type StoreEntry<TStore> =
+  ((context: StoreInstanceContext) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;
 
 /** The stores a set claims, by contract: give each one the set has. */
-export interface ConformanceStores<TTransaction = unknown> {
-  readonly checkpointSaver?: ConformanceStore<BaseCheckpointSaver>;
-  readonly childExecutionQueue?: ConformanceStore<ChildExecutionQueueRepository>;
-  readonly costLedger?: ConformanceStore<CostLedgerRepository>;
-  readonly executionHistory?: ConformanceStore<ExecutionHistoryRepository>;
-  readonly executionLease?: ConformanceStore<ExecutionLeaseRepository>;
-  readonly executionLeaseEvent?: ConformanceStore<ExecutionLeaseEventRepository>;
-  readonly executionRecord?: ConformanceStore<ExecutionRecordRepository>;
-  readonly executionTree?: ConformanceStore<ExecutionTreeRepository>;
-  readonly fencedEffect?: ConformanceStore<FencedEffectStores<TTransaction>>;
-  readonly meshRequest?: ConformanceStore<MeshRequestRepository>;
+export interface StoreSet<TTransaction = unknown> {
+  readonly checkpointSaver?: StoreEntry<BaseCheckpointSaver>;
+  readonly childExecutionQueue?: StoreEntry<ChildExecutionQueueRepository>;
+  readonly costLedger?: StoreEntry<CostLedgerRepository>;
+  readonly executionHistory?: StoreEntry<ExecutionHistoryRepository>;
+  readonly executionLease?: StoreEntry<ExecutionLeaseRepository>;
+  readonly executionLeaseEvent?: StoreEntry<ExecutionLeaseEventRepository>;
+  readonly executionRecord?: StoreEntry<ExecutionRecordRepository>;
+  readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
+  readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
+  readonly meshRequest?: StoreEntry<MeshRequestRepository>;
   /** The A2A tasks (#807). */
-  readonly a2aTask?: ConformanceStore<A2ATaskRepository>;
-  readonly outboundCall?: ConformanceStore<OutboundCallStores>;
-  readonly pausedExecution?: ConformanceStore<PausedExecutionRepository>;
-  readonly rateLimit?: ConformanceStore<RateLimitRepository>;
+  readonly a2aTask?: StoreEntry<A2ATaskRepository>;
+  readonly outboundCall?: StoreEntry<OutboundCallTarget>;
+  readonly pausedExecution?: StoreEntry<PausedExecutionRepository>;
+  readonly rateLimit?: StoreEntry<RateLimitRepository>;
 }
 
 /** A store set under test. */
@@ -71,7 +72,7 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
   readonly name: string;
   /** Before each test of a store without a reset of its own: an empty backing store. */
   reset?(): void | Promise<void>;
-  readonly stores: ConformanceStores<TTransaction>;
+  readonly stores: StoreSet<TTransaction>;
   /**
    * The fencing contracts a set with a lease store has no store of — a set of coordination stores
    * (leases, rate limits, the queue on Redis) says `["fencedEffect", "outboundCall"]`; an
@@ -103,23 +104,28 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
 /** The target `storeConformance` hands a contract: the set's name, the store's own reset or the set's. */
 function targetOf<TStore>(
   options: StoreConformanceOptions,
-  store: ConformanceStore<TStore>,
+  store: StoreEntry<TStore>,
 ): ContractTarget<TStore> {
   const own = typeof store === "function" ? { instance: store } : store;
   const reset = own.reset === undefined ? options.reset?.bind(options) : own.reset.bind(own);
   const close = own.close?.bind(own);
+  const capabilities: unknown = Reflect.get(own, "capabilities");
   return {
     name: options.name,
-    instance: (seam) => own.instance(seam),
+    instance: (context) => own.instance(context),
     ...(reset === undefined ? {} : { reset }),
     ...(close === undefined ? {} : { close }),
+    // as given: the contract checks it (#831)
+    ...(capabilities === undefined
+      ? {}
+      : { capabilities: capabilities as readonly StoreCapability[] }),
   };
 }
 
 /** Registers one contract's suite when the set gives its store. */
 const each = <TStore>(
   options: StoreConformanceOptions,
-  store: ConformanceStore<TStore> | undefined,
+  store: StoreEntry<TStore> | undefined,
   register: (target: ContractTarget<TStore>) => void,
 ): ContractTarget<TStore> | undefined => {
   if (store === undefined) return undefined;

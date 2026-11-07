@@ -113,7 +113,7 @@ describe("#471 AC3: a stalled writer is refused after another instance took the 
       // the process wakes: its step writes before its held lease timers fire
       levers.letGo?.();
       await settle();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await settle();
       const error = await rejectionOf(call);
 
@@ -132,7 +132,7 @@ describe("#471 AC3: a stalled writer is refused after another instance took the 
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
 
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await settle();
       levers.letGo?.();
       const error = await rejectionOf(call);
@@ -266,7 +266,7 @@ describe("#471 AC4: the token across passes; a replayed write is deduplicated", 
       const call = execute(a, ReleaseWorkflowStart, { text: "v1" });
       call.catch(() => undefined);
       await frozen;
-      leases.stall(a);
+      leases.freeze(a);
 
       await clock.advance(seconds(31));
       await clock.advance(seconds(31));
@@ -277,7 +277,7 @@ describe("#471 AC4: the token across passes; a replayed write is deduplicated", 
       expect(seen.fences[0]?.idempotencyKey).toBe(seen.fences[1]?.idempotencyKey);
       expect(ledger.rows.map((row) => row.token)).toEqual([1]);
       expect(ledger.highest.get(seen.fences[0]?.scopeKey ?? "")).toBe(2);
-      leases.resume(a);
+      leases.thaw(a);
       levers.letGo?.();
       await expect(call).rejects.toThrow(ExecutionLeaseLostError);
     },

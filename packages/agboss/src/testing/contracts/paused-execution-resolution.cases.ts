@@ -6,7 +6,7 @@ import {
 } from "../../infrastructure/paused-execution.repository.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 
 /** What each case below gets. */
 type Instances = ContractInstances<PausedExecutionRepository>;

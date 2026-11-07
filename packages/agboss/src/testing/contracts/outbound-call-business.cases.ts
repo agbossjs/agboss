@@ -12,7 +12,7 @@ import {
   intentOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /**
@@ -94,7 +94,7 @@ const tenantsApart: OutboundCallCase = {
 const { Live, Ended, LeaseClosed } = OutboundCallLeaseState;
 
 /** `stores`' state of the lease of `executionId` at `token`. */
-const stateAt = (stores: OutboundCallStores, executionId: string, token: number) =>
+const stateAt = (stores: OutboundCallTarget, executionId: string, token: number) =>
   stores.calls.leaseStateOf({ tenantId: "default", leaseExecutionId: executionId, token: token });
 
 const liveLease: OutboundCallCase = {
@@ -129,7 +129,7 @@ const expiredLease: OutboundCallCase = {
 /** What the holder of a closed lease still tries at its token: each must be refused. */
 const HOLDER_WRITES: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
+  (stores: OutboundCallTarget, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   ["saveIfAbsent", (stores, key) => stores.calls.saveIfAbsent(key, intentOf(key))],
@@ -219,7 +219,7 @@ const closedLease: OutboundCallCase = {
 };
 
 /** The business-key cases. */
-export const outboundBusinessKeyCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundBusinessKeyCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "business keys",
   cases: [
     oneAcrossExecutions,

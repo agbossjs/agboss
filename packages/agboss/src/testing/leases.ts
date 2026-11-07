@@ -7,21 +7,22 @@ import {
 import { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import { TestSetupError } from "./errors.js";
+import type { TestApp } from "./test-app.js";
 
 /**
- * A frozen process, in a test (#471): `leases.stall(app)` stops that instance's lease — its store
+ * A frozen process, in a test (#471): `leases.freeze(app)` stops that instance's lease — its store
  * calls (taking, renewing, releasing, whatever `ExecutionLeaseRepository` the application lists) and
  * its lease timers (the background renewal and the local expiry, on the test's shared
  * `VirtualClock`) — while its step code keeps running, as a process under `SIGSTOP` that is not
- * scheduled; `leases.resume(app)` lets them go, the timers held meanwhile firing at once, as after
+ * scheduled; `leases.thaw(app)` lets them go, the timers held meanwhile firing at once, as after
  * `SIGCONT`. With `clock.advance(seconds(31))` in between another instance takes the lease, so the
- * stalled one's next write meets a newer token (`executionContext.fence`).
+ * frozen one's next write meets a newer token (`executionContext.fence`).
  */
 export interface TestLeases {
-  /** Stops the lease store calls and the lease timers of `app`'s instance until `resume(app)`. */
-  stall(app: object): void;
+  /** Stops the lease store calls and the lease timers of `app`'s instance until `thaw(app)`. */
+  freeze(app: TestApp): void;
   /** Lets `app`'s instance's lease go on: what waited runs now. */
-  resume(app: object): void;
+  thaw(app: TestApp): void;
 }
 
 /** One instance's gate: open, or closed until `open()`. */
@@ -75,7 +76,7 @@ const abortOf = (signal: AbortSignal): Promise<void> =>
     );
   });
 
-/** The instance's lease store behind its gate: every call waits while the instance is stalled. */
+/** The instance's lease store behind its gate: every call waits while the instance is frozen. */
 class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
   constructor(
     private readonly repository: ExecutionLeaseRepository,
@@ -135,7 +136,7 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 }
 
-/** The clock the instance's lease timers sleep on: a sleep that ends while stalled waits for resume. */
+/** The clock the instance's lease timers sleep on: a sleep that ends while frozen waits for thaw. */
 class GatedClock extends Clock {
   constructor(
     private readonly clock: Clock,
@@ -162,8 +163,8 @@ class GatedClock extends Clock {
 const gates = new WeakMap<object, LeaseGate>();
 
 /**
- * The `leases` fixture of a test: its stalled instances resumed at its end — and before the
- * environment closes its apps, which a stalled instance would keep waiting for its lease store.
+ * The `leases` fixture of a test: its frozen instances thawed at its end — and before the
+ * environment closes its apps, which a frozen instance would keep waiting for its lease store.
  */
 export async function withTestLeases(
   environment: { onClose: (work: () => void) => void },
@@ -178,7 +179,7 @@ export async function withTestLeases(
   }
 }
 
-/** Keeps a test app's gate (made with it), for `leases.stall(app)`. */
+/** Keeps a test app's gate (made with it), for `leases.freeze(app)`. */
 export function rememberLeaseGate(app: object, gate: LeaseGate): void {
   gates.set(app, gate);
 }
@@ -191,26 +192,26 @@ const gateOf = (app: object, call: string): LeaseGate => {
 };
 
 /**
- * The `leases` fixture of one test, and its end: every instance it stalled resumed, so the test's
- * apps close (a stalled instance would wait for its lease store forever).
+ * The `leases` fixture of one test, and its end: every instance it froze thawed, so the test's
+ * apps close (a frozen instance would wait for its lease store forever).
  */
 export function testLeasesOf(): { readonly leases: TestLeases; readonly end: () => void } {
-  const stalled = new Set<LeaseGate>();
+  const frozen = new Set<LeaseGate>();
   const leases: TestLeases = Object.freeze({
-    stall: (app: object): void => {
-      const gate = gateOf(app, "stall");
-      stalled.add(gate);
+    freeze: (app: TestApp): void => {
+      const gate = gateOf(app, "freeze");
+      frozen.add(gate);
       gate.close();
     },
-    resume: (app: object): void => {
-      const gate = gateOf(app, "resume");
-      stalled.delete(gate);
+    thaw: (app: TestApp): void => {
+      const gate = gateOf(app, "thaw");
+      frozen.delete(gate);
       gate.open();
     },
   });
   const end = (): void => {
-    for (const gate of stalled) gate.open();
-    stalled.clear();
+    for (const gate of frozen) gate.open();
+    frozen.clear();
   };
   return { leases, end };
 }

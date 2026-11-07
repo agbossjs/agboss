@@ -5,7 +5,7 @@
 // that @agboss/core is installed and not linked, then runs there:
 //   - positive: the project's tests (`npm test`) plus a `workflowOf` test with no setup file loading
 //     the application (AC1, AC5), `agboss describe` and `agboss check` (AC2);
-//   - negative: the same test under a plain vitest config, without agbossTest() — it must fail with
+//   - negative: the same test under a plain vitest config, without agbossVitest() — it must fail with
 //     workflowOf's TestSetupError (AC4: the error, and proof that this job catches a regression);
 //   - #791: neither install holds a package of FORBIDDEN_PACKAGES (`extract-zip`), and `agboss
 //     studio` from the packed CLI serves the project's graphs on the LangGraph server, then stops.
@@ -157,7 +157,7 @@ function positive(project) {
 function negative(project) {
   writeFileSync(join(project, "vitest.config.ts"), PLAIN_VITEST_CONFIG);
   const output = run(
-    "negative: workflowOf without agbossTest()",
+    "negative: workflowOf without agbossVitest()",
     binOf(project, "vitest"),
     ["run", WORKFLOW_OF_TEST_FILE],
     project,

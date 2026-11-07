@@ -84,9 +84,10 @@ export interface ToolCallsTurn<TName extends string = string> {
  * A call of one of the agent's tools with arguments its input check refuses (#395 PR 3):
  * `callToolWithInvalidArguments(LookupOrderTool, { orderId: 7 })`.
  */
-export interface InvalidToolCallTurn {
+export interface InvalidToolCallTurn<TName extends string = string> {
   readonly kind: "invalid-tool-call";
-  readonly tool: string;
+  /** The tool's name (#679, #831): a tool the agent does not list does not compile. */
+  readonly tool: TName;
   readonly args: Readonly<Record<string, unknown>>;
 }
 
@@ -94,9 +95,10 @@ export interface InvalidToolCallTurn {
  * A call cut at the output limit, its arguments no JSON (#395 PR 3) — the provider's
  * `invalid_tool_calls`: `callToolWithTruncatedArguments(LookupOrderTool, { orderId: "7" })`.
  */
-export interface TruncatedToolCallTurn {
+export interface TruncatedToolCallTurn<TName extends string = string> {
   readonly kind: "truncated-tool-call";
-  readonly tool: string;
+  /** The tool's name (#679, #831): a tool the agent does not list does not compile. */
+  readonly tool: TName;
   /** The arguments as sent: cut JSON. */
   readonly text: string;
 }

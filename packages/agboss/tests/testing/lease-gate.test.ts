@@ -1,12 +1,13 @@
 /**
- * #471 — the gate behind `leases.stall` / `resume`: closed and opened (twice is once), its wait
+ * #471 — the gate behind `leases.freeze` / `thaw`: closed and opened (twice is once), its wait
  * ended by a signal, a gated store's `ping()` held like its other calls, and the fixture refusing an
  * app it does not know and opening every gate it closed at the test's end.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { TestSetupError } from "../../src/testing/errors.js";
 import { LeaseGate, rememberLeaseGate, testLeasesOf } from "../../src/testing/leases.js";
+import type { TestApp } from "../../src/testing/test-app.js";
 
 const settled = async (): Promise<void> => {
   for (let tick = 0; tick < 5; tick += 1) await new Promise((resolve) => setImmediate(resolve));
@@ -90,41 +91,51 @@ describe("#471: LeaseGate", () => {
 });
 
 describe("#471: the leases fixture", () => {
-  it.each(["stall", "resume"] as const)("%s(app) of an app it does not know is refused", (call) => {
+  it.each(["freeze", "thaw"] as const)("%s(app) of an app it does not know is refused", (call) => {
     const { leases } = testLeasesOf();
+    const stranger = {} as TestApp;
 
     expect(() => {
-      leases[call]({});
+      leases[call](stranger);
     }).toThrow(TestSetupError);
     expect(() => {
-      leases[call]({});
+      leases[call](stranger);
     }).toThrow(`leases.${call}(app): not an app of this test (use app or apps[i])`);
   });
 
-  it("stall closes the app's gate, resume opens it", () => {
+  it("#831: freeze and thaw take a test app — any other object does not compile", () => {
     const { leases } = testLeasesOf();
-    const app = {};
+    expectTypeOf(leases.freeze).parameter(0).toEqualTypeOf<TestApp>();
+    expectTypeOf(leases.thaw).parameter(0).toEqualTypeOf<TestApp>();
+    // @ts-expect-error -- a store, a clock or `{}` is no app of the test
+    expect(() => leases.freeze({})).toThrow(TestSetupError);
+    expect(Object.keys(leases).sort()).toEqual(["freeze", "thaw"]);
+  });
+
+  it("freeze closes the app's gate, thaw opens it", () => {
+    const { leases } = testLeasesOf();
+    const app = {} as TestApp;
     const gate = new LeaseGate();
     rememberLeaseGate(app, gate);
 
-    leases.stall(app);
+    leases.freeze(app);
     expect(gate.isClosed).toBe(true);
-    leases.resume(app);
+    leases.thaw(app);
     expect(gate.isClosed).toBe(false);
   });
 
-  it("its end opens every gate still stalled, and only those it stalled", () => {
+  it("its end opens every gate still frozen, and only those it froze", () => {
     const { leases, end } = testLeasesOf();
-    const [first, second, other] = [{}, {}, {}];
+    const [first, second, other] = [{}, {}, {}] as [TestApp, TestApp, TestApp];
     const gates = [new LeaseGate(), new LeaseGate(), new LeaseGate()];
     rememberLeaseGate(first, gates[0] ?? new LeaseGate());
     rememberLeaseGate(second, gates[1] ?? new LeaseGate());
     rememberLeaseGate(other, gates[2] ?? new LeaseGate());
     gates[2]?.close();
-    leases.stall(first);
-    leases.stall(second);
-    leases.resume(second);
-    leases.stall(second);
+    leases.freeze(first);
+    leases.freeze(second);
+    leases.thaw(second);
+    leases.freeze(second);
 
     end();
 

@@ -2,7 +2,7 @@ import { expect } from "vitest";
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase } from "./define.js";
-import type { ContractInstances } from "./seam.js";
+import type { ContractInstances } from "./instance-context.js";
 
 /**
  * An execution's identity (#591): `saveExecutionIdIfAbsent` keeps every id handed out — a root, a

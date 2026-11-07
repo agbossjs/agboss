@@ -20,12 +20,12 @@ import { untilSettled } from "./support/runs.js";
 const capped = instanceMeter();
 const cappedTest = testWith(MetricsApplication, {
   concurrency: TestConcurrency.Real,
-  meterProviders: [capped.provider],
+  instances: [{ meterProvider: capped.provider }],
 });
 const uncapped = instanceMeter();
 const uncappedTest = testWith(UncappedMetricsApplication, {
   concurrency: TestConcurrency.Real,
-  meterProviders: [uncapped.provider],
+  instances: [{ meterProvider: uncapped.provider }],
 });
 
 beforeEach(resetRemoteLog);

@@ -122,7 +122,9 @@ describe("#799 AC5: what a set does not check is skipped, never passed", () => {
     const watch = queue.filter((found) => WATCH_CASES.includes(found.name));
 
     expect(watch.map((found) => found.state)).toEqual(["skip", "skip"]);
-    expect(watch[0]?.note).toMatch(/the store has no watchQueued \(optional\)/u);
+    expect(watch[0]?.note).toMatch(
+      /the store does not declare StoreCapability\.WatchQueued \(optional\): a child queued on another instance waits for the sweep/u,
+    );
     // the queue's other cases ran
     expect(queue.filter((found) => found.state === "pass").length).toBeGreaterThan(5);
   });
@@ -132,6 +134,37 @@ describe("#799 AC5: what a set does not check is skipped, never passed", () => {
     const watch = queue.filter((found) => WATCH_CASES.includes(found.name));
 
     expect(watch.map((found) => found.state)).toEqual(["fail", "fail"]);
-    expect(watch[0]?.errors[0]).toMatch(/watchQueued on one instance's store only/u);
+    expect(watch[0]?.errors[0]).toMatch(/\[store-conformance\.capability-missing\]/u);
+  });
+});
+
+describe("#831 AC5: a store declares its capabilities — the suite reads the claim, not the shape", () => {
+  const watchOf = (suite: string): readonly FixtureCase[] =>
+    casesOf(suite).filter((found) => WATCH_CASES.includes(found.name));
+
+  it("declared and present: the watch cases run and pass", () => {
+    expect(
+      watchOf("child execution queue contract (a queue declaring its watch)").map(
+        (found) => found.state,
+      ),
+    ).toEqual(["pass", "pass"]);
+  });
+
+  it("present but not declared: the watch cases fail, saying to declare it", () => {
+    const watch = watchOf("child execution queue contract (a queue with an undeclared watch)");
+
+    expect(watch.map((found) => found.state)).toEqual(["fail", "fail"]);
+    expect(watch[0]?.errors[0]).toMatch(
+      /\[store-conformance\.capability-not-declared\] the store has watchQueued but does not declare it: give its entry capabilities: \[StoreCapability\.WatchQueued\]/u,
+    );
+  });
+
+  it("declared but absent: the watch cases fail", () => {
+    const watch = watchOf("child execution queue contract (a queue declaring a watch it lacks)");
+
+    expect(watch.map((found) => found.state)).toEqual(["fail", "fail"]);
+    expect(watch[0]?.errors[0]).toMatch(
+      /\[store-conformance\.capability-missing\] the store declares StoreCapability\.WatchQueued but has no watchQueued/u,
+    );
   });
 });

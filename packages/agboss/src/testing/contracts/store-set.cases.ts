@@ -5,10 +5,10 @@ import {
   optsOutOfLeaseCheck,
   type ExecutionLeaseRepository,
 } from "../../infrastructure/execution-lease.repository.js";
-import type { FencedEffectStores } from "./fenced-effect-data.js";
+import type { FencedEffectTarget } from "./fenced-effect-data.js";
 import { isOptedOutStore, OPTED_OUT_REASON, optedOutRefusal } from "./fencing-gate.js";
-import type { OutboundCallStores } from "./outbound-call-data.js";
-import { withTarget, type ContractTarget } from "./seam.js";
+import type { OutboundCallTarget } from "./outbound-call-data.js";
+import { withTarget, type ContractTarget } from "./instance-context.js";
 import { CONTRACTS } from "./store-conformance-check.js";
 import { belowFloorOf, FLOOR_TEXT } from "./explorer/floor.js";
 import type { InterleavingOptions } from "./explorer/register.js";
@@ -31,8 +31,8 @@ import type { InterleavingOptions } from "./explorer/register.js";
 /** The fencing targets of a set, as `storeConformance` builds them. */
 export interface FencingTargets {
   readonly executionLease?: ContractTarget<ExecutionLeaseRepository> | undefined;
-  readonly fencedEffect?: ContractTarget<FencedEffectStores<unknown>> | undefined;
-  readonly outboundCall?: ContractTarget<OutboundCallStores> | undefined;
+  readonly fencedEffect?: ContractTarget<FencedEffectTarget<unknown>> | undefined;
+  readonly outboundCall?: ContractTarget<OutboundCallTarget> | undefined;
 }
 
 const classOf = (store: object): Class => store.constructor as Class;

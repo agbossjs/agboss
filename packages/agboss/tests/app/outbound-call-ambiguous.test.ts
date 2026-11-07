@@ -2,7 +2,7 @@
  * #657 — an error `send` throws is a failure only when the call says it is definite
  * (`isDefiniteFailure`); every other one — a 5xx after the gateway charged, a reset connection, the
  * SDK's own timeout — leaves the intent `Pending`, so the next call asks `reconcile` before anything
- * is sent again, as after a crash. On `FakeOutboundGateway` with a key retention: an answer dropped
+ * is sent again, as after a crash. On `FakePaymentGateway` with a key retention: an answer dropped
  * after the charge, the key forgotten, the order paid again — one payment (AC1); today's rule (every
  * error a failure, resent) charges twice (AC2).
  */
@@ -17,8 +17,8 @@ import {
   FakeGatewayError,
   FakeGatewayErrorKind,
   FakeGatewayFault,
-  FakeOutboundGateway,
-} from "../../src/testing/gateway/fake-outbound-gateway.js";
+  FakePaymentGateway,
+} from "../../src/testing/gateway/fake-payment-gateway.js";
 import { hours } from "../../src/units/index.js";
 import {
   gatewayCharge,
@@ -30,7 +30,7 @@ import {
 
 /** The gateway keeps keys a day; its books (what `reconcile` reads by reference) forever. */
 const gatewayOn = (frame: OutboundFrame) =>
-  new FakeOutboundGateway({ clock: frame.clock, capabilities: { keyRetention: hours(24) } });
+  new FakePaymentGateway({ clock: frame.clock, capabilities: { keyRetention: hours(24) } });
 
 /** Whether the gateway's error says it processed nothing: its definite failure. */
 const isUnavailable = (error: unknown): boolean =>

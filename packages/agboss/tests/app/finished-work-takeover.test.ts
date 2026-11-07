@@ -62,14 +62,14 @@ describe("#520: the recovery sweep of a frozen instance and a finished root", ()
     await until(() => yieldSeen.runs.length === 1, "the root's step at its gate on A");
 
     // B freezes; its sweep lists the root still running and asks for its lease at the frozen store
-    leases.stall(b);
+    leases.freeze(b);
     // A is live meanwhile: its renewals reach the store in time (#534)
     await passLive(clock, seconds(30));
     await settle();
     // A finishes the tree and releases its lease, then B goes on
     openGate();
     const done = await call;
-    leases.resume(b);
+    leases.thaw(b);
     await settle();
 
     expect(done).toFinishWith(YieldCheckedWorkflowFinish, { name: "gate" });

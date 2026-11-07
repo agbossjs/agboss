@@ -9,7 +9,7 @@ import {
   intentOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /**
@@ -134,7 +134,7 @@ const writeRacingTakeover: OutboundCallCase = {
 };
 
 /** The race cases. */
-export const outboundRaceCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundRaceCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "races",
   cases: [
     movesRaced,

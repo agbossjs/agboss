@@ -6,7 +6,7 @@ import type {
 } from "../../infrastructure/mesh-request.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 const key: MeshRequestKey = {
   tenantId: "default",

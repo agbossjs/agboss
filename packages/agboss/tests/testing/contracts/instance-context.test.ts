@@ -8,14 +8,14 @@ import { describe, expect, it } from "vitest";
 import {
   withTarget,
   type ContractTarget,
-  type StoreSeam,
-} from "../../../src/testing/contracts/seam.js";
+  type StoreInstanceContext,
+} from "../../../src/testing/contracts/instance-context.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
 
 /** A store of the tests below: which instance built it. */
 interface Built {
-  readonly seam: StoreSeam;
+  readonly seam: StoreInstanceContext;
 }
 
 /** A target that logs what the lifecycle calls, with `overrides` over it. */
@@ -58,7 +58,7 @@ describe("#481: one case's lifecycle", () => {
   });
 
   it("both seams share the suite's VirtualClock at 2026-01-05T09:00:00Z; each has its own identity", async () => {
-    const seen: StoreSeam[] = [];
+    const seen: StoreInstanceContext[] = [];
 
     await withTarget(loggingTarget([]), async ({ clock, first, second }) => {
       seen.push(first.seam, second.seam);

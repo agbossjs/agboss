@@ -112,8 +112,8 @@ type AgentTurnFor<TSelf> =
   | ReplyTurn
   | ToolCallTurn<AgentToolNamesOf<TSelf>>
   | ToolCallsTurn<AgentToolNamesOf<TSelf>>
-  | InvalidToolCallTurn
-  | TruncatedToolCallTurn
+  | InvalidToolCallTurn<AgentToolNamesOf<TSelf>>
+  | TruncatedToolCallTurn<AgentToolNamesOf<TSelf>>
   | FailureTurn
   | WaitTurn
   | AnswerFor<ProducerOutputOf<TSelf>>

@@ -11,7 +11,7 @@ import { QUEUE_DEPTH_CASES } from "./child-execution-queue-depth.cases.js";
 import { QUEUE_WATCH_CASES } from "./child-execution-queue-watch.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { queuedChild as child } from "./queued-child.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** The queued child `c-1`, failed by its claimer. */
 const FAILED = { status: ExecutionRecordStatus.Failed, failure: '{"name":"E"}' } as const;

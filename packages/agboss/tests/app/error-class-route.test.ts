@@ -42,13 +42,13 @@ const DECLINES = [
 async function frozenAfterDecline(a: TestApp, { clock, leases }: Fixtures, call: Promise<unknown>) {
   await until(() => routeSeen.runs.length === 1, "the child at its gate");
   routeSeen.onChildError = once(() => {
-    leases.stall(a);
+    leases.freeze(a);
   });
   routeSeen.gate.open();
   await until(() => routeSeen.errors.some((each) => each.isChild), "the child's failure heard");
   await liveFor(clock, 7);
   await until(() => routeSeen.finishes.length > 0, "the tree ended where it was taken over");
-  leases.resume(a);
+  leases.thaw(a);
   const error = await rejectionOf(call);
   await settle();
   return error;

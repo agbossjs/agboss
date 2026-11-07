@@ -13,7 +13,7 @@ import {
   type OutboundCallClaim,
   type OutboundCallState,
 } from "../../src/infrastructure/outbound-call.repository.js";
-import type { OutboundCallStores } from "../../src/testing/contracts/index.js";
+import type { OutboundCallTarget } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, type InstanceSeam } from "../infrastructure/contracts/store-kinds.js";
 import { commandArbitrary, firstDifference } from "./fencing-model.js";
 
@@ -48,7 +48,7 @@ const target = (
     leases: InMemoryExecutionLeaseRepository,
   ) => InMemoryOutboundCallRepository,
 ) =>
-  inMemoryTarget((seam): OutboundCallStores => {
+  inMemoryTarget((seam): OutboundCallTarget => {
     const leases = new InMemoryExecutionLeaseRepository(
       seam.storeClock,
       seam.application,

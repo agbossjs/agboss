@@ -20,9 +20,10 @@ export interface TestFenceOptions {
   readonly isLost?: boolean;
   /**
    * Only `confirmNow()` rejects (a store error before an irreversible call): with
-   * `ExecutionLeaseLostError` when `true`, else the error given.
+   * `ExecutionLeaseLostError` when `true`, the error given when an `Error`; `false` (the default)
+   * resolves.
    */
-  readonly confirmNowFails?: true | Error;
+  readonly confirmNowFails?: boolean | Error;
 }
 
 /** Where a unit test's fence stands: its tenant, its execution and the clock of its runner. */
@@ -52,7 +53,7 @@ export function testFenceLeaseOf(options: TestFenceOptions, site: TestFenceSite)
     confirmNow: (): Promise<void> => {
       if (options.isLost === true) return Promise.reject(lost());
       const fails = options.confirmNowFails;
-      if (fails === undefined) return Promise.resolve();
+      if (fails === undefined || fails === false) return Promise.resolve();
       return Promise.reject(fails === true ? lost() : fails);
     },
     enterStep: (): Promise<() => void> => Promise.resolve(() => undefined),

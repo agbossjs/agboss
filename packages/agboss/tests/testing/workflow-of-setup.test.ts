@@ -1,6 +1,6 @@
 /**
  * #497 — `workflowOf(W)` finds W's application next to its file. When that file comes from outside
- * the test's module graph (installed from npm without `agbossTest()`: Node imports it, without
+ * the test's module graph (installed from npm without `agbossVitest()`: Node imports it, without
  * decorators, or in a second graph), it throws `TestSetupError` naming the fix instead of an obscure
  * syntax error or a workflow silently assembled without its application. Here the failures are
  * real: an application file whose import throws, and one listing another class of W's name.
@@ -14,7 +14,7 @@ import { FoundProbeWorkflow } from "../fixtures/outside-graph/found/found.workfl
 import { TwinProbeWorkflow } from "../fixtures/outside-graph/twin/twin.workflow.js";
 
 const outsideGraph = (workflow: string): string =>
-  `the application of ${workflow} was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`;
+  `the application of ${workflow} was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`;
 
 describe("AC4: workflowOf names the vitest preset when the application is outside the graph", () => {
   it("AC4: an application file that fails to import is a TestSetupError, its error the cause", async () => {

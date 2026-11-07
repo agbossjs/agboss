@@ -7,7 +7,7 @@ import {
   intentOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /** The outbound-call contract's texts (#521 AC4): what the framework hands over comes back as it was. */
@@ -47,7 +47,7 @@ const failureMessage: OutboundCallCase = {
 };
 
 /** The texts of one key. */
-export const outboundTextCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundTextCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "texts as they were handed over",
   cases: [requestAndResult, failureMessage],
 });

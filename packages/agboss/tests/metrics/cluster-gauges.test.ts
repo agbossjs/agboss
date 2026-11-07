@@ -32,13 +32,12 @@ const OLDEST = "agboss.cluster.children.oldest_queued_seconds";
 
 const three = instanceMeters(3);
 const threeInstances = testWith(MetricsApplication, {
-  instances: 3,
   concurrency: TestConcurrency.Real,
-  meterProviders: three.map((meter) => meter.provider),
+  instances: three.map((meter) => ({ meterProvider: meter.provider })),
 });
 const failing = instanceMeters(1);
 const failingStore = testWith(LoggedMetricsApplication, {
-  meterProviders: failing.map((meter) => meter.provider),
+  instances: failing.map((meter) => ({ meterProvider: meter.provider })),
 });
 
 beforeEach(() => {

@@ -71,10 +71,10 @@ async function frozen(
   if (apps.length > 2)
     endOnceSeen.onRecovered = once((instanceId) => {
       const taker = byId.get(instanceId);
-      if (taker !== undefined) fixtures.leases.stall(taker);
+      if (taker !== undefined) fixtures.leases.freeze(taker);
     });
   const error = await frozenAfterChildEnd(a, fixtures, call);
-  for (const each of apps) fixtures.leases.resume(each);
+  for (const each of apps) fixtures.leases.thaw(each);
   await settle();
   return error;
 }

@@ -1,5 +1,5 @@
 /**
- * #508 — `FakeOutboundGateway`, the in-process gateway of the testing entry: each capability of
+ * #508 — `FakePaymentGateway`, the in-process gateway of the testing entry: each capability of
  * the Payment-gateways page on and off (G1 keys, G2 lookup, G3 retention, G4 first response, G5
  * conflict), each fault (answer-then-drop, fail-before-processing, slow), on the test's clock.
  */
@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   FakeGatewayErrorKind,
   FakeGatewayFault,
-  FakeOutboundGateway,
+  FakePaymentGateway,
   FULL_GATEWAY_CAPABILITIES,
   VirtualClock,
   type FakeGatewayCapabilities,
@@ -18,7 +18,7 @@ const charge = { amount: 100, idempotencyKey: "order-7" };
 
 const gatewayWith = (capabilities: Partial<FakeGatewayCapabilities> = {}) => {
   const clock = new VirtualClock();
-  return { clock, gateway: new FakeOutboundGateway({ clock, capabilities }) };
+  return { clock, gateway: new FakePaymentGateway({ clock, capabilities }) };
 };
 
 describe("#508: the capabilities, on", () => {

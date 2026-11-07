@@ -20,12 +20,12 @@ import {
   keyOf,
   leaseOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
 } from "../../src/testing/contracts/fenced-effect-data.js";
-import type { ContractTarget } from "../../src/testing/contracts/seam.js";
+import type { ContractTarget } from "../../src/testing/contracts/instance-context.js";
 import { bytesOf } from "../../src/testing/contracts/key-text-data.js";
 import { intentOf } from "../../src/testing/contracts/outbound-call-data.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 import { inMemoryFencedEffects, sqliteFencedEffects } from "./contracts/fenced-effect-stores.js";
 import { inMemoryOutboundCalls, sqliteOutboundCalls } from "./contracts/outbound-call-stores.js";
 import { inMemoryTarget, sqliteTarget } from "./contracts/store-kinds.js";
@@ -282,7 +282,7 @@ describe.each(CALL_TARGETS)("#538 AC2: outbound-call intents (%s)", (_kind, targ
 
 /** The fenced-effect property on `target`'s stores, whatever their transaction. */
 function effectsProperty<TTransaction>(
-  target: ContractTarget<FencedEffectStores<TTransaction>>,
+  target: ContractTarget<FencedEffectTarget<TTransaction>>,
   numRuns: number,
 ): () => Promise<void> {
   return withTarget(target, async ({ first, second }) => {

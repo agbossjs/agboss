@@ -44,7 +44,7 @@ export async function takenOver(
   const call = execute(a, ReleaseWorkflowStart, { text: "v1" });
   call.catch(() => undefined);
   await frozen;
-  leases.stall(a);
+  leases.freeze(a);
   // A's timers do not fire: its lease neither renews nor expires here, B's sweep takes it
   await clock.advance(seconds(31));
   await clock.advance(seconds(31));

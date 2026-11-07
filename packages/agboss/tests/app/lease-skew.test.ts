@@ -60,26 +60,26 @@ const SCENARIOS: readonly Scenario[] = [
   ]),
   {
     name: "the holder 1 % slow",
-    holder: ClockSkew.drift(-0.01),
+    holder: ClockSkew.drifting(-0.01),
     taker: ClockSkew.none,
     breaks: TWO_HOLDERS,
   },
   {
     name: "the holder 1 % fast",
-    holder: ClockSkew.drift(0.01),
+    holder: ClockSkew.drifting(0.01),
     taker: ClockSkew.none,
     breaks: LATE,
   },
   {
     name: "the taker 1 % fast",
     holder: ClockSkew.none,
-    taker: ClockSkew.drift(0.01),
+    taker: ClockSkew.drifting(0.01),
     breaks: TWO_HOLDERS,
   },
   {
     name: "the taker 1 % slow",
     holder: ClockSkew.none,
-    taker: ClockSkew.drift(-0.01),
+    taker: ClockSkew.drifting(-0.01),
     breaks: LATE,
   },
 ];
@@ -102,7 +102,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
   });
 
   it("bites: a holder 1 % slow with no safety margin outlives its lease on the store's clock", async () => {
-    const holder = ClockSkew.drift(-0.01);
+    const holder = ClockSkew.drifting(-0.01);
     const run = await runSkew(target, {
       holder,
       taker: ClockSkew.none,
@@ -172,7 +172,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
 
   it("each answer of the holder's store 5 s on its way back: the fence counts from the request, one live holder", async () => {
     const run = await runSkew(target, {
-      holder: ClockSkew.drift(-0.01),
+      holder: ClockSkew.drifting(-0.01),
       taker: ClockSkew.none,
       time: StoreTime.Store,
       answerDelay: seconds(5),

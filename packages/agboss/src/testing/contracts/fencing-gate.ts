@@ -1,7 +1,7 @@
 import type { TestContext } from "vitest";
 import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.repository.js";
 import { StoreConformanceError } from "./store-conformance-check.js";
-import type { ContractCaseBody, ContractInstances } from "./seam.js";
+import type { ContractCaseBody, ContractInstances } from "./instance-context.js";
 
 /**
  * The opt-out in the contract suites (#543): a fencing store that declares

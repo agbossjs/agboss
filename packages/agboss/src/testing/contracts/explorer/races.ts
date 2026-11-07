@@ -1,6 +1,6 @@
 import type { ExecutionLease } from "../../../infrastructure/execution-lease.repository.js";
 import { ClockSkew } from "../../clock-skew.js";
-import type { ContractTarget } from "../seam.js";
+import type { ContractTarget } from "../instance-context.js";
 import { ExplorerRun, isFenced } from "./run.js";
 import {
   EXPLORED_LEASE,

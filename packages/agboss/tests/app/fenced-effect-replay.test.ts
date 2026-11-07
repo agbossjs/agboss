@@ -61,7 +61,7 @@ describe("#500 AC1: one call charges once", () => {
       call.catch(() => undefined);
       await frozenRuns(1);
       // A charged and froze before its checkpoint; B's sweep takes the lease over (token 2)
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(31));
       await clock.advance(seconds(31));
       const [end] = await ends(1);
@@ -75,7 +75,7 @@ describe("#500 AC1: one call charges once", () => {
 
       // A wakes: its checkpoint write finds the lease lost — a hand-over, nothing charged again
       letAllGo();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
       expect(book.charges).toHaveLength(1);

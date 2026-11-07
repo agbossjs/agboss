@@ -1,7 +1,7 @@
 /**
  * #471 AC2, AC5 — fencing over real stores: the external ledger in SQLite (its own file, each
  * instance its own connection) checks `token >= highest` by `scopeKey` and the idempotency key in
- * one transaction; `leases.stall` freezes an instance whatever lease store the application lists —
+ * one transaction; `leases.freeze` freezes an instance whatever lease store the application lists —
  * AGBoss's SQLite stores on one file, or a project's own `ExecutionLeaseRepository`.
  */
 import { mkdtempSync, rmSync } from "node:fs";
@@ -91,7 +91,7 @@ describe.each([
 
       levers.letGo?.();
       await settle();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       const error = await rejectionOf(call);
 
       expect(error).toBeInstanceOf(ExecutionFencedError);

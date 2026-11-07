@@ -25,7 +25,7 @@ import {
   checkInMemoryFence,
   raiseInMemoryMark,
 } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import type { FencedEffectStores } from "../../../src/testing/contracts/index.js";
+import type { FencedEffectTarget } from "../../../src/testing/contracts/index.js";
 import {
   sharedInMemory,
   type InstanceSeam,
@@ -116,7 +116,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
 }
 
 /** The store set of one instance on the unlocked-check effects, its rows inserted asynchronously. */
-export const unlockedCheckEffects: StoreFactory<FencedEffectStores<DeferredTransaction>> = (
+export const unlockedCheckEffects: StoreFactory<FencedEffectTarget<DeferredTransaction>> = (
   seam,
 ) => {
   const committed = sharedInMemory(seam, "unlocked-rows", (): string[] => []);

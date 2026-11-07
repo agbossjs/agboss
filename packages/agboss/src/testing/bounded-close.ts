@@ -4,7 +4,7 @@ import { AppCloseTimeoutError } from "./errors.js";
 
 /**
  * How long a test's teardown waits, in real time, for one app to close (#509). Closing waits for
- * the executions still running; one that never ends — its step frozen, its lease stalled, its
+ * the executions still running; one that never ends — its step frozen, its lease frozen, its
  * shutdown timeout on a `VirtualClock` nobody advances once the test is over — would hang the run:
  * vitest bounds a test's body, never a fixture's teardown.
  */

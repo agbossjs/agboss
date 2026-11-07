@@ -109,7 +109,7 @@ async function zombie(
   const call = execute(a, ChargeWorkflowStart, { text: "order-7" });
   call.catch(() => undefined);
   await frozenRuns(1);
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   await clock.advance(seconds(31));
   await ends(1);
@@ -127,7 +127,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
       letAllGo();
       await settle();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       const error = await rejectionOf(call);
       const rows = await rootOf(instance(apps, 1), ROOT);
 
@@ -191,7 +191,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
       letAllGo();
       await settle();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await rejectionOf(call);
       const afterWaking = verdictOf(await rootOf(instance(apps, 1), ROOT));
 
@@ -229,7 +229,7 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
       expect(rows[2]).toMatchObject({ holderInstanceId: "instance-2", token: 2, writtenToken: 1 });
       expect(book.charges).toHaveLength(1);
       letAllGo();
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       await settle();
       await rejectionOf(call);
     },

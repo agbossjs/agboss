@@ -135,7 +135,7 @@ describe("#516 AC2: the holder dies while the parent waits", () => {
     const call = execute(a, YieldOneWorkflowStart, item("gate"));
     await until(() => yieldSeen.runs.length === 1, "the child at its gate");
 
-    leases.stall(a);
+    leases.freeze(a);
     await liveFor(clock, 7);
     await until(
       () => logged.some((entry) => entry.code === "execution.recovered"),
@@ -143,7 +143,7 @@ describe("#516 AC2: the holder dies while the parent waits", () => {
     );
     openGate();
     await until(() => rootsOf(yieldSeen.ends).length === 1, "the recovered tree's end");
-    leases.resume(a);
+    leases.thaw(a);
 
     await expect(call).rejects.toBeInstanceOf(ExecutionLeaseLostError);
     const [root] = rootsOf(yieldSeen.starts);

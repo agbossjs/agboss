@@ -30,7 +30,7 @@ import {
  * #471 AC2, AC5 — the release on other stores: the external ledger in its own SQLite file (each
  * instance its own connection, the fence check and the idempotency key in one `BEGIN IMMEDIATE`
  * transaction — the reference SQL of Wiki → Several-instances), and AGBoss's own stores on SQLite or
- * on a project's own lease store. `leases.stall` works on any of them: it wraps the contract.
+ * on a project's own lease store. `leases.freeze` works on any of them: it wraps the contract.
  */
 
 /** The external ledger's file of the current test (set by the test). */

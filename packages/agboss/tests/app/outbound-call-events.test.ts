@@ -77,7 +77,7 @@ async function recovered(
   await b.ready();
   execute(a, ChargeWorkflowStart, { text: "order-7" }).catch(() => undefined);
   await freeze();
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   await clock.advance(seconds(31));
   await settle();

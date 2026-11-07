@@ -43,7 +43,7 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   approval). Ask through an approval role (`approves`), a changed call through `overrideArguments`.
   Re-added in the same release with a flow step that asks it (#659, Added below).
 
-- **`clock.advance` right after `app.execute` no longer races under `agbossTest()`** (#646) — the
+- **`clock.advance` right after `app.execute` no longer races under `agbossVitest()`** (#646) — the
   first execution of a test file loads the core's lazy modules through vite's module runner, ~300
   turns of the event loop, and an execution of an app not built yet builds it first; `advance`
   waited one turn, so the time jumped before the execution reached its wait (05's step-slots test
@@ -217,7 +217,7 @@ FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/
   - `store set (<name>)` lists every contract the set does not claim as a skipped case, `does not
 claim stores.<key>`; the child queue's two watch cases are skipped, with the reason, for a store
     without `watchQueued` — they passed — and fail for one with it on one instance only;
-  - `outboundGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
+  - `paymentGatewayChecklist`'s `isPassed` means every requirement was probed and passed: G3
     skipped for lack of a clock is no longer a pass, and G5 passes only when the same amount
     under a fresh key goes through after the refusal — a gateway that is down refuses everything.
 
@@ -323,7 +323,7 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new; `TestStoreClock` in `@agboss/core/testing`) is the time a
   store decides by: a networked store's database time in production, the host's clock for in-memory
   and SQLite — and in `testWith` and the contract suites the test's clock, unskewed, injected through
-  the seam (`StoreSeam.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
+  the seam (`StoreInstanceContext.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
 ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time, monotonic time and
   sleeps — over the test's. New contract cases run on real time with the other instance's clock off
   by ± lease/2, ± lease and ± 10 × lease: a store that decides by the caller's clock fails them.
@@ -804,7 +804,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   them (SQLite adds the `yielded` column to an existing file).
 
 - **A test that hangs fails fast** (#509): `testWith` bounds each app's close at the end of a test to
-  10 s of real time — a run still frozen there (a step, a stalled lease, a wait on the
+  10 s of real time — a run still frozen there (a step, a frozen lease, a wait on the
   `VirtualClock` nobody advances) fails the test with `AppCloseTimeoutError` (`test.close-timeout`,
   `@agboss/core/testing`) instead of hanging the run: vitest bounds no fixture's teardown.
 
@@ -812,11 +812,11 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   that writes values only for those versions (LangGraph's `PostgresSaver`) passes as it is (#511).
 
 - **`workflowOf(W)` on the package installed from npm** — the application next to `W` was imported
-  by Node, outside vitest (no decorators). A vitest preset, `agbossTest()` from
+  by Node, outside vitest (no decorators). A vitest preset, `agbossVitest()` from
   `@agboss/core/testing/vitest`, loads AGBoss and every file it loads by path through vite, in the
   test's module graph, and registers the matchers; `agboss create` writes it. Without it
   `workflowOf(W)` throws `TestSetupError` naming the fix. An existing project changes one line:
-  `test: agbossTest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
+  `test: agbossVitest({ … })` in `vitest.config.ts` (the `setupFiles` entry may go). CI checks the
   packed packages in a project of their own (`npm run check:packed`) (#497).
 
 - **A tree's kept record is saved before its cleanup** (#699) — the history record
@@ -1129,7 +1129,7 @@ export` already refused the same omission. In an application that declares a ten
   repeat it exactly, and refused — never one picked — when they differ: the model reads why, and the
   step's `AgentAnswerInvalidError` names "N different answers in one move".
 
-- **No "Sourcemap … points to missing source files" under `agbossTest()`** (#645) — `@agboss/core`
+- **No "Sourcemap … points to missing source files" under `agbossVitest()`** (#645) — `@agboss/core`
   and `@agboss/cli` ship their `src/` beside `dist/`, so the source maps vite reads once the core is
   inlined find their TypeScript: a new project's `npm test` printed ~700 such lines, and a stack
   trace inside the core named files that did not exist; now it names lines of the installed

@@ -60,10 +60,10 @@ const BOUNDED: Readonly<Record<string, readonly string[]>> = {
 };
 
 const meter = instanceMeter();
-const metered = testWith(MetricsApplication, { meterProviders: [meter.provider] });
+const metered = testWith(MetricsApplication, { instances: [{ meterProvider: meter.provider }] });
 const unmetered = testWith(MetricsApplication);
 const closing = instanceMeter();
-const closed = testWith(MetricsApplication, { meterProviders: [closing.provider] });
+const closed = testWith(MetricsApplication, { instances: [{ meterProvider: closing.provider }] });
 
 beforeEach(resetRemoteLog);
 afterEach(() => {

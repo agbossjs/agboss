@@ -20,8 +20,8 @@ import type { Milliseconds } from "../../../src/units/index.js";
 import { Clock, type StoreClock } from "../../../src/infrastructure/clock.js";
 import type {
   ContractTarget,
-  FencedEffectStores,
-  OutboundCallStores,
+  FencedEffectTarget,
+  OutboundCallTarget,
 } from "../../../src/testing/contracts/index.js";
 import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryTarget, type InstanceSeam } from "../../infrastructure/contracts/store-kinds.js";
@@ -96,16 +96,16 @@ const callsOn = (
   callsOf: (
     seam: InstanceSeam,
     leases: InMemoryExecutionLeaseRepository,
-  ) => OutboundCallStores["calls"] = (seam, leases) =>
+  ) => OutboundCallTarget["calls"] = (seam, leases) =>
     new InMemoryOutboundCallRepository(seam.storeClock, seam.database, leases),
-): ContractTarget<OutboundCallStores> =>
+): ContractTarget<OutboundCallTarget> =>
   inMemoryTarget((seam) => {
     const leases = leasesOf(seam);
     return { calls: callsOf(seam, leases), leases };
   });
 
 /** The broken outbound-call targets (the lease world and the call worlds run on them). */
-export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<OutboundCallStores>>> = {
+export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<OutboundCallTarget>>> = {
   "leases on the caller's clock": callsOn(
     (seam) => new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database),
   ),
@@ -156,7 +156,7 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
 
 /** The broken fenced-effect targets. */
 export const BROKEN_EFFECT_TARGETS: Readonly<
-  Record<string, ContractTarget<FencedEffectStores<unknown>>>
+  Record<string, ContractTarget<FencedEffectTarget<unknown>>>
 > = {
   "effects that trust the current lease's token": inMemoryTarget((seam) => {
     const stores = inMemoryFencedEffects(false)(seam);

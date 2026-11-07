@@ -15,7 +15,7 @@ import { TestSetupError } from "./errors.js";
 
 const outsideGraph = (workflow: Class, cause?: unknown): TestSetupError =>
   new TestSetupError(
-    `the application of ${nameOf(workflow)} was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`,
+    `the application of ${nameOf(workflow)} was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`,
     cause === undefined ? undefined : { cause },
   );
 

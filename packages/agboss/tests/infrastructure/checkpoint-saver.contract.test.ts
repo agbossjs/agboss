@@ -7,7 +7,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 import { sqliteTarget } from "./contracts/store-kinds.js";
 
 const sqlite = sqliteTarget<BaseCheckpointSaver>(

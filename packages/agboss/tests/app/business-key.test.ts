@@ -357,7 +357,7 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
       dying.catch(() => undefined);
       await frozenCharges(1);
       // A recorded the intent and froze before sending; B's sweep takes the tree over
-      leases.stall(a);
+      leases.freeze(a);
       await clock.advance(seconds(31));
       await clock.advance(seconds(31));
       const [end] = await ends(1);
@@ -367,7 +367,7 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
       ]);
       expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
       expect(end?.output).toEqual({ chargeId: "ch-42-1" });
-      leases.resume(a);
+      leases.thaw(a);
     },
   );
 });

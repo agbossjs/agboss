@@ -1,12 +1,12 @@
 import { Clock, systemClock } from "../../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
-import { FakeOutboundGateway } from "../gateway/fake-outbound-gateway.js";
+import { FakePaymentGateway } from "../gateway/fake-payment-gateway.js";
 import type { GatewayPaymentFact, GatewayRequest } from "./facts.js";
 import type { FaultPod } from "./pod.js";
 import type { GatewayCall } from "./pod-protocol.js";
 
 /**
- * The payment gateway of a fault run (#484): one `FakeOutboundGateway` in the test's process,
+ * The payment gateway of a fault run (#484): one `FakePaymentGateway` in the test's process,
  * every capability on (G1–G5), called by the pods over their control channels. Every charge that
  * reaches it is kept (`requests`), every payment it made (`payments`). `holdAnswer(orderId)`
  * makes it process the next charge of that order and keep its answer back — the pod waits, its
@@ -47,7 +47,7 @@ interface HeldAnswer {
 export class FaultGateway {
   readonly requests: GatewayRequest[] = [];
   readonly #clock = new GatewayClock();
-  readonly #gateway = new FakeOutboundGateway({ clock: this.#clock });
+  readonly #gateway = new FakePaymentGateway({ clock: this.#clock });
   readonly #holds = new Set<string>();
   readonly #drops = new Set<string>();
   readonly #held: HeldAnswer[] = [];

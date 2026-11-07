@@ -9,7 +9,7 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 import { handOverDuringWrite } from "./fenced-effect-hand-over.cases.js";
@@ -24,7 +24,7 @@ import { ROUNDS } from "./outbound-call-race.cases.js";
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 /** Names a store must refuse: a ':', empty, above 100, a '.' first. */
 const BAD_NAMES = ["charge:twice", "", "x".repeat(101), ".charge"];
@@ -109,7 +109,7 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The key built by hand and the zombie. */
-export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "a key built by hand, a zombie",
   cases: [
     badNameRefused<TTransaction>(),

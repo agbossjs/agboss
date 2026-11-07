@@ -21,8 +21,7 @@ const HANDED_OVER = "agboss.instance.steps.handed_over";
 
 const meters = instanceMeters(2);
 const two = testWith(LeaseEventsApplication, {
-  instances: 2,
-  meterProviders: meters.map((meter) => meter.provider),
+  instances: meters.map((meter) => ({ meterProvider: meter.provider })),
 });
 
 beforeEach(() => {
@@ -48,7 +47,7 @@ describe("#485 AC3: takeovers count where they happen", () => {
       expect(valueOf(await collect(taker), TAKEOVERS, recovered)).toBe(1);
       expect((await collect(zombie)).get(TAKEOVERS)).toBeUndefined();
       // the zombie, let go, is refused at its write: a hand-over on its own instance only
-      leases.resume(instance(apps, 0));
+      leases.thaw(instance(apps, 0));
       levers.letGo?.();
       await settle();
       await rejectionOf(call);

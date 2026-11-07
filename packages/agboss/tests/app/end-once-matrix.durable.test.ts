@@ -265,7 +265,7 @@ describe("#596/#597 acceptance: the holder freezes around a write that makes an 
         atDurable(window.at, async (index) => {
           const app = apps[index];
           frozen = [...byId].find(([, each]) => each === app)?.[0] ?? "unknown";
-          if (app !== undefined) leases.stall(app);
+          if (app !== undefined) leases.freeze(app);
           await thawed;
         });
         const call = rejectionOf(execute(a, window.start, window.input, { threadId: "thread-d" }));
@@ -281,7 +281,7 @@ describe("#596/#597 acceptance: the holder freezes around a write that makes an 
         await until(rootEnded, "the tree ended where it was taken over");
         thaw();
         await settle();
-        for (const each of apps) leases.resume(each);
+        for (const each of apps) leases.thaw(each);
         const error = await call;
         await liveUntil(clock, () => false, 2);
         await settle();

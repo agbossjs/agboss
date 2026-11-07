@@ -1,14 +1,14 @@
 /**
- * #508 AC5 — `outboundGatewayChecklist` probes G1–G5 through an adapter: against a full
- * `FakeOutboundGateway` every requirement passes; with one capability off its requirement fails
+ * #508 AC5 — `paymentGatewayChecklist` probes G1–G5 through an adapter: against a full
+ * `FakePaymentGateway` every requirement passes; with one capability off its requirement fails
  * visibly, its evidence saying what it costs (no lookup: reconciliation cannot work).
  */
 import { describe, expect, it } from "vitest";
 import {
-  FakeOutboundGateway,
+  FakePaymentGateway,
   GatewayCheckStatus,
   GatewayRequirement,
-  outboundGatewayChecklist,
+  paymentGatewayChecklist,
   VirtualClock,
   type FakeGatewayCapabilities,
   type GatewayChecklistReport,
@@ -18,8 +18,8 @@ import { hours, seconds } from "../../src/units/index.js";
 /** The checklist against a fake with `capabilities`, through an adapter of the fake's own calls. */
 function checklistOn(capabilities: Partial<FakeGatewayCapabilities> = {}, withClock = true) {
   const clock = new VirtualClock();
-  const gateway = new FakeOutboundGateway({ clock, capabilities });
-  return outboundGatewayChecklist({
+  const gateway = new FakePaymentGateway({ clock, capabilities });
+  return paymentGatewayChecklist({
     send: (charge) => gateway.charge(charge),
     ...(gateway.capabilities.lookupByKey ? { lookup: (key: string) => gateway.lookup(key) } : {}),
     ...(withClock ? { clock } : {}),
@@ -124,7 +124,7 @@ describe("#508 AC5: the checklist against the fake gateway, offline", () => {
   });
 
   it("a gateway that fails a probe fails that requirement with the error as evidence", async () => {
-    const report = await outboundGatewayChecklist({
+    const report = await paymentGatewayChecklist({
       send: () => Promise.reject(new Error("sandbox is down")),
       lookup: () => Promise.resolve(undefined),
     });
@@ -138,7 +138,7 @@ describe("#508 AC5: the checklist against the fake gateway, offline", () => {
   });
 
   it("a lookup that finds a payment for a key never sent fails G2", async () => {
-    const report = await outboundGatewayChecklist({
+    const report = await paymentGatewayChecklist({
       send: () => Promise.resolve({ paymentId: "pay-1" }),
       lookup: () => Promise.resolve({ paymentId: "pay-1" }),
       requiredRetention: hours(1),
@@ -155,9 +155,9 @@ describe("#508 AC5: the checklist against the fake gateway, offline", () => {
 describe("#799 AC4: G5 passes only on a refusal of the changed request itself", () => {
   it("a gateway that fails every call after the first under a key — down, not refusing — fails G5", async () => {
     const clock = new VirtualClock();
-    const gateway = new FakeOutboundGateway({ clock });
+    const gateway = new FakePaymentGateway({ clock });
     const seen = new Set<string>();
-    const report = await outboundGatewayChecklist({
+    const report = await paymentGatewayChecklist({
       send: (charge) => {
         if (charge.idempotencyKey.endsWith("-g5") && seen.has("g5"))
           return Promise.reject(new Error("503 sandbox unavailable"));

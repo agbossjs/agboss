@@ -60,7 +60,7 @@ describe("#597 AC1: the root's holder freezes right after its end became durable
           thaw = resolve;
         });
         atRootEnd(at, async () => {
-          leases.stall(a);
+          leases.freeze(a);
           await thawed;
         });
         const call = rejectionOf(
@@ -75,7 +75,7 @@ describe("#597 AC1: the root's holder freezes right after its end became durable
         await until(() => heardOf().length > 0, "the root's end heard");
         thaw();
         await settle();
-        leases.resume(a);
+        leases.thaw(a);
         const error = await call;
         await settle();
 

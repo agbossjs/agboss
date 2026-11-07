@@ -7,14 +7,14 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
 /** The fenced-effect contract's rollback and concurrency (#500 AC3). */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
   name: "a throwing write rolls its business row back, its error rethrown as it is; the next call runs it",
@@ -113,13 +113,13 @@ const joinedGetsError = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const rollbackCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const rollbackCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "rollback",
   cases: [throwingWriteRollsBack<TTransaction>(), rowSeenAfterCommit<TTransaction>()],
 });
 
 export const concurrencyCases = <TTransaction>(): ContractGroup<
-  FencedEffectStores<TTransaction>
+  FencedEffectTarget<TTransaction>
 > => ({
   title: "concurrency",
   cases: [

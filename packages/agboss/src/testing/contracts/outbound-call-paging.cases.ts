@@ -8,7 +8,7 @@ import {
   listedOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /**
@@ -26,7 +26,7 @@ const namesOf = (calls: readonly OutboundCallRecord[]): readonly string[] =>
   calls.map((call) => call.name);
 
 /** One page of the tenant's pending calls. */
-const pageOf = (stores: OutboundCallStores, limit: number, after?: string) =>
+const pageOf = (stores: OutboundCallTarget, limit: number, after?: string) =>
   stores.calls.findAllByTenantIdAndStatus({ tenantId: "default", status: PENDING, limit, after });
 
 const pagesCoverOnce: OutboundCallCase = {
@@ -138,7 +138,7 @@ const limitChecked: OutboundCallCase = {
 };
 
 /** The paged listing by status (#825). */
-export const outboundPagingCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundPagingCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "paged listing by status",
   cases: [
     pagesCoverOnce,

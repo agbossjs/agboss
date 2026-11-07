@@ -12,7 +12,7 @@ import {
   listedOf,
   recorded,
   type OutboundCallCase,
-  type OutboundCallStores,
+  type OutboundCallTarget,
 } from "./outbound-call-data.js";
 
 /**
@@ -24,7 +24,7 @@ import {
 /** Each fenced method, called with `key`. */
 const FENCED_CALLS: readonly (readonly [
   string,
-  (stores: OutboundCallStores, key: EffectKey) => Promise<unknown>,
+  (stores: OutboundCallTarget, key: EffectKey) => Promise<unknown>,
 ])[] = [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   [
@@ -181,13 +181,13 @@ const badNameRefused: OutboundCallCase = {
 };
 
 /** The fencing refusals. */
-export const outboundRefusalCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundRefusalCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "refusals",
   cases: [...FENCED_CALLS.map(staleTokenRefused), releasedRefused, expiredRefused, badNameRefused],
 });
 
 /** The listings and the retention. */
-export const outboundListingCases = (): ContractGroup<OutboundCallStores> => ({
+export const outboundListingCases = (): ContractGroup<OutboundCallTarget> => ({
   title: "listings and retention",
   cases: [listedByTree, listedByStatus, retentionKeepsPending],
 });

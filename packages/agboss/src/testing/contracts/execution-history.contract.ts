@@ -8,7 +8,7 @@ import {
 } from "../../infrastructure/execution-history.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import type { ContractTarget } from "./seam.js";
+import type { ContractTarget } from "./instance-context.js";
 
 /** A record of the desk's execution — ended at 09:00:05 unless it rests paused. */
 const recordOf = (

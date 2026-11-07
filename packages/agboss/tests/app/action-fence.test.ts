@@ -65,7 +65,7 @@ async function heldPastItsLease(
     }),
   );
   await until(() => actionGate.held.length === 1, `the old holder held in ${site.action}`);
-  leases.stall(a);
+  leases.freeze(a);
   for (let step = 0; step < 24 && !isDone(); step += 1) {
     await clock.advance(seconds(10));
     await settle();
@@ -73,7 +73,7 @@ async function heldPastItsLease(
   await until(isDone, "the new holder ran the action");
   await settle();
   actionGate.release();
-  leases.resume(a);
+  leases.thaw(a);
   const error = await call;
   await settle();
   return { error, old };

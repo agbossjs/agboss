@@ -20,7 +20,7 @@ import { LeaseGate } from "../../src/testing/leases.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
-import { withTarget } from "../../src/testing/contracts/seam.js";
+import { withTarget } from "../../src/testing/contracts/instance-context.js";
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ clock, application, database }) =>

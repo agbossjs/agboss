@@ -9,13 +9,13 @@ import {
   leaseOf,
   rejectionOf,
   writing,
-  type FencedEffectStores,
+  type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
 import { REFUSED_BUSINESS_KEYS, ROUND_TRIP_KEYS } from "./key-text-data.js";
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectStores<TTransaction>>;
+type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 
 /** `#538`: every accepted key is its own row, replayed with its own result, on the other instance too. */
 const ownRows = <TTransaction>(): Case<TTransaction> => ({
@@ -75,7 +75,7 @@ const refusedByHand = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The key-text cases of the fenced-effect contract (#538). */
-export const keyTextCases = <TTransaction>(): ContractGroup<FencedEffectStores<TTransaction>> => ({
+export const keyTextCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
   title: "the text of a business key",
   cases: [ownRows<TTransaction>(), refusedByHand<TTransaction>()],
 });

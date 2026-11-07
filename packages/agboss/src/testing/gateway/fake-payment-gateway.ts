@@ -3,7 +3,7 @@ import { hours, seconds, type Milliseconds } from "../../units/index.js";
 
 /**
  * A payment gateway in the test's process (#508): what a team's adapter is checked against offline
- * (`outboundGatewayChecklist`), each capability of the Wiki's Payment-gateways page a switch, and
+ * (`paymentGatewayChecklist`), each capability of the Wiki's Payment-gateways page a switch, and
  * the faults that make an outbound call's outcome unknown. Time is the given `Clock` (a test's
  * `VirtualClock`): a key's retention and a slow answer move only with it.
  */
@@ -72,7 +72,7 @@ export interface FakeGatewayFaultOptions {
 }
 
 /** What the gateway is built with. */
-export interface FakeOutboundGatewayOptions {
+export interface FakePaymentGatewayOptions {
   readonly clock: Clock;
   readonly capabilities?: Partial<FakeGatewayCapabilities>;
 }
@@ -113,14 +113,14 @@ interface PendingFault {
   readonly delay: Milliseconds;
 }
 
-export class FakeOutboundGateway {
+export class FakePaymentGateway {
   readonly capabilities: FakeGatewayCapabilities;
   readonly #clock: Clock;
   readonly #payments: FakeGatewayPayment[] = [];
   readonly #answers = new Map<string, number>();
   readonly #faults: PendingFault[] = [];
 
-  constructor(options: FakeOutboundGatewayOptions) {
+  constructor(options: FakePaymentGatewayOptions) {
     this.#clock = options.clock;
     this.capabilities = Object.freeze({ ...FULL_GATEWAY_CAPABILITIES, ...options.capabilities });
   }

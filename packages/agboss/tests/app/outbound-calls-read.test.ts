@@ -55,7 +55,7 @@ async function stalledHolder(
   const call = execute(a, ChargeWorkflowStart, { text: "order-7" });
   call.catch(() => undefined);
   await frozenRuns(1);
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   // the new holder is live: its renewals reach the store in time (#534)
   await passLive(clock, seconds(31));
@@ -151,7 +151,7 @@ describe("#505 AC5: a zombie can neither record nor send", () => {
       await ends(1);
 
       letRunsGo();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
 
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
@@ -174,7 +174,7 @@ describe("#505 AC5: a zombie can neither record nor send", () => {
       const [zombie, newHolder] = runs.frozen.splice(0);
 
       zombie?.();
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       const refused = await rejectionOf(call);
       const recordedByZombie = await instance(apps, 1).outboundCallsOf(TREE);

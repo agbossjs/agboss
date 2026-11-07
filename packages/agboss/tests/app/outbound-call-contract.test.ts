@@ -28,8 +28,8 @@ import { stateOf } from "../../src/app/outbound-call-business.js";
 import { untilReached } from "../helpers/reached.js";
 import {
   FakeGatewayFault,
-  FakeOutboundGateway,
-} from "../../src/testing/gateway/fake-outbound-gateway.js";
+  FakePaymentGateway,
+} from "../../src/testing/gateway/fake-payment-gateway.js";
 import { hours, minutes, type Milliseconds } from "../../src/units/index.js";
 import {
   gatewayCharge,
@@ -45,13 +45,13 @@ type ChargeOptions = OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymen
 
 /** A gateway with no lookup, keeping keys a day: a replay of the key is how it tells an outcome. */
 const replayOnly = (frame: OutboundFrame) =>
-  new FakeOutboundGateway({
+  new FakePaymentGateway({
     clock: frame.clock,
     capabilities: { keyRetention: hours(24), lookupByKey: false },
   });
 
 /** A charge left pending, its answer dropped after the gateway charged, and the clock `age` on. */
-async function pendingFor(frame: OutboundFrame, gateway: FakeOutboundGateway, age: Milliseconds) {
+async function pendingFor(frame: OutboundFrame, gateway: FakePaymentGateway, age: Milliseconds) {
   const { key } = await frame.keyIn("execution-1");
   gateway.injectFault(FakeGatewayFault.AnswerThenDrop);
   await rejectionOf(frame.send(key, gatewayCharge(gateway)));
@@ -61,7 +61,7 @@ async function pendingFor(frame: OutboundFrame, gateway: FakeOutboundGateway, ag
 
 describe("#795 AC1: the notSent trust is required", () => {
   it("leaving notSent out, or a KeyReplay without its keyRetention, does not compile", () => {
-    const gateway = new FakeOutboundGateway({ clock: outboundFrame().clock });
+    const gateway = new FakePaymentGateway({ clock: outboundFrame().clock });
     const { notSent: _, ...withoutTrust } = gatewayCharge(gateway);
 
     // @ts-expect-error — no notSent: the author must say how far a notSent() is trusted
@@ -140,7 +140,7 @@ describe("#795 AC1: the notSent trust is required", () => {
     "a JavaScript caller with %s is refused: nothing recorded, nothing sent",
     async (_, notSent, problem) => {
       const frame = outboundFrame();
-      const gateway = new FakeOutboundGateway({ clock: frame.clock });
+      const gateway = new FakePaymentGateway({ clock: frame.clock });
       const { key } = await frame.keyIn("execution-1");
       // a JavaScript caller's options: anything at all where the trust goes
       const options: ChargeOptions = { ...gatewayCharge(gateway), notSent: notSent as never };
@@ -164,7 +164,7 @@ describe("#795 AC1: the notSent trust is required", () => {
 
   it("a KeyReplay with the smallest positive keyRetention is one: sent", async () => {
     const frame = outboundFrame();
-    const gateway = new FakeOutboundGateway({ clock: frame.clock });
+    const gateway = new FakePaymentGateway({ clock: frame.clock });
     const { key } = await frame.keyIn("execution-1");
     const notSent = { trust: KeyReplay, keyRetention: 1 as Milliseconds } as const;
 
@@ -175,7 +175,7 @@ describe("#795 AC1: the notSent trust is required", () => {
 
   it("Lookup: the lookup is authoritative — a notSent() days later is sent again under the key", async () => {
     const frame = outboundFrame();
-    const gateway = new FakeOutboundGateway({ clock: frame.clock });
+    const gateway = new FakePaymentGateway({ clock: frame.clock });
     const key = await pendingFor(frame, gateway, hours(72));
     const notSent = () => OutboundCallReconciliation.notSent();
 
@@ -323,7 +323,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
   it("a definite failure answered after a newer attempt took over: OutboundCallSupersededError, the decline its cause", async () => {
     TakenOverOutboundCallRepository.isUnreadable = false;
     const frame = outboundFrame({ store: TakenOverOutboundCallRepository });
-    const gateway = new FakeOutboundGateway({ clock: frame.clock });
+    const gateway = new FakePaymentGateway({ clock: frame.clock });
     const { key } = await frame.keyIn("execution-1");
     const declined = new Error("card declined");
     const options = gatewayCharge(gateway, {
@@ -345,7 +345,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
   it("a call joined to a superseded one shares its error: nothing sent again, one charge", async () => {
     TakenOverOutboundCallRepository.isUnreadable = false;
     const frame = outboundFrame({ store: TakenOverOutboundCallRepository });
-    const gateway = new FakeOutboundGateway({ clock: frame.clock });
+    const gateway = new FakePaymentGateway({ clock: frame.clock });
     const { key } = await frame.keyIn("execution-1");
     let answer = (): void => undefined;
     const answered = new Promise<void>((resolve) => {
@@ -372,7 +372,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
   it("the report's read of the newer attempt fails: named on the log by its code, the error thrown all the same", async () => {
     TakenOverOutboundCallRepository.isUnreadable = true;
     const frame = outboundFrame({ store: TakenOverOutboundCallRepository });
-    const gateway = new FakeOutboundGateway({ clock: frame.clock });
+    const gateway = new FakePaymentGateway({ clock: frame.clock });
     const { key } = await frame.keyIn("execution-1");
 
     const failed = await rejectionOf(frame.send(key, gatewayCharge(gateway)));
