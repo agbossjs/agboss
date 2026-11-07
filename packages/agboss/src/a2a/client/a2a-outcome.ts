@@ -1,5 +1,6 @@
 import { TaskState, type Message, type Task, type TaskStatus } from "@a2a-js/sdk";
 import type { DtoClass } from "../../dto/types.js";
+import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { answerPartsOf, rawOutputOf } from "./a2a-parts.js";
@@ -47,6 +48,17 @@ function meshFailureOf(status: TaskStatus): { readonly code: unknown; readonly d
   const read = (key: string): unknown =>
     typeof entry === "object" && entry !== null ? Reflect.get(entry, key) : undefined;
   return { code: read("code"), details: read("details") };
+}
+
+/**
+ * The mesh limit an AGBoss agent refused a task with before anything ran (#849): a `REJECTED` task
+ * whose status names a loop or the hop limit, with its facts (`rejectedStatusOf`); else `undefined`
+ * — any other REJECTED task, or any other state, is no refusal.
+ */
+export function meshRefusalOf(task: Task): MeshLimitError | undefined {
+  const { status } = task;
+  if (status?.state !== TaskState.TASK_STATE_REJECTED) return undefined;
+  return meshLimitErrorOf(meshFailureOf(status));
 }
 
 /**

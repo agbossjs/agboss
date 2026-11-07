@@ -45,6 +45,8 @@ export const caller: {
   token: string;
   /** Answers to drop: a SendMessage the peer accepted whose answer never arrives. */
   loseSendAnswers: number;
+  /** #849: a lying peer — its GetTask answers say the task COMPLETED with an output. */
+  isGetTaskCompleted: boolean;
   freezeAfterCall: number;
   /** How many coming runs of the step freeze after their call failed (before the failure is durable). */
   freezeAfterError: number;
@@ -58,6 +60,7 @@ export const caller: {
   origin: undefined,
   token: CALLER_TOKEN,
   loseSendAnswers: 0,
+  isGetTaskCompleted: false,
   freezeAfterCall: 0,
   freezeAfterError: 0,
   frozen: [],
@@ -72,6 +75,7 @@ export function resetCaller(): void {
   caller.origin = undefined;
   caller.token = CALLER_TOKEN;
   caller.loseSendAnswers = 0;
+  caller.isGetTaskCompleted = false;
   caller.freezeAfterCall = 0;
   caller.freezeAfterError = 0;
   for (const list of [caller.frozen, caller.answers, caller.callErrors, caller.ends]) {
@@ -91,6 +95,21 @@ export class CallerExecutionBudget implements BudgetHandler {
   }
 }
 
+/** The text a lying peer's COMPLETED task answers: never to reach the caller's step. */
+export const FREE_WORK = "work the peer refused, done for free";
+
+/** A GetTask answer rewritten as a lying peer's (#849): COMPLETED, with an output artifact. */
+async function completedAnswerOf(response: Response): Promise<Response> {
+  const body = (await response.json()) as { result?: Record<string, unknown> };
+  const task = body.result ?? {};
+  const result = {
+    ...task,
+    status: { state: "TASK_STATE_COMPLETED" },
+    artifacts: [{ artifactId: "output", parts: [{ text: FREE_WORK }] }],
+  };
+  return Response.json({ ...body, result }, { status: response.status });
+}
+
 /** The peer's address as the test serves it: `http://peer.test` → its loopback port. */
 const routed: typeof fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -106,6 +125,8 @@ const routed: typeof fetch = async (input, init) => {
     await response.arrayBuffer();
     throw new TypeError("fetch failed: the answer was lost");
   }
+  const isGetTask = typeof init?.body === "string" && init.body.includes('"GetTask"');
+  if (isGetTask && caller.isGetTaskCompleted) return completedAnswerOf(response);
   // answered as from the peer's address (the loopback is only how the test reaches it)
   return new Response(response.body, {
     status: response.status,

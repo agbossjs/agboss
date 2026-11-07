@@ -6,7 +6,13 @@
 import { describe, expect, it } from "vitest";
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/index.js";
 import { observeEcho, type ExtensionEcho } from "../../../src/a2a/client/a2a-echo.js";
-import { acceptedOf, type Accepted } from "../../../src/a2a/client/a2a-message.js";
+import {
+  acceptedOf,
+  sentOf,
+  type AcceptCall,
+  type Accepted,
+} from "../../../src/a2a/client/a2a-message.js";
+import { Role, TaskState, type Task } from "@a2a-js/sdk";
 import {
   chargedOf,
   recordRefused,
@@ -100,6 +106,74 @@ describe("#810: what an accept stores to charge the same on every pass", () => {
     expect(acceptedOf(task, undefined, false, "m-1").isRefused).toBe(false);
     const message = { kind: "message", message: '{"messageId":"r-1"}', mesh: false } as const;
     expect(acceptedOf(message, undefined, false, "m-1").isRefused).toBe(false);
+  });
+});
+
+describe("#849: only an AGBoss agent's mesh limit at the accept is a refusal", () => {
+  const NOW = new Date("2026-11-04T12:00:00.000Z");
+  const limit = {
+    code: "limit.hops",
+    details: {
+      entry: { application: "peer-application", start: "ask-workflow-start" },
+      chain: [
+        { application: "caller-application", start: "caller-workflow-start", executionId: "e-1" },
+      ],
+      maxMeshHops: 1,
+    },
+  };
+  const rejected = (metadata: unknown): Task => ({
+    id: "t-1",
+    contextId: "c-1",
+    status: {
+      state: TaskState.TASK_STATE_REJECTED,
+      message: {
+        messageId: "refusal",
+        contextId: "c-1",
+        taskId: "t-1",
+        role: Role.ROLE_AGENT,
+        parts: [],
+        metadata: { [URI]: metadata },
+        extensions: [],
+        referenceTaskIds: [],
+      },
+      timestamp: NOW.toISOString(),
+    },
+    artifacts: [],
+    history: [],
+    metadata: undefined,
+  });
+  const callOf = (answer: Task, kind: A2APeerKind, isEchoed: boolean): AcceptCall => ({
+    agent: "peer-a2a-agent",
+    url: "http://peer.test/a2a",
+    peer:
+      kind === A2APeerKind.AGBoss
+        ? { kind, idempotencyRetention: hours(1), mesh: true }
+        : { kind, idempotencyRetention: undefined, mesh: false },
+    client: {
+      sendMessage: () => Promise.resolve(answer),
+      getTask: () => Promise.reject(new Error("no read")),
+    },
+    clock: { now: () => NOW, sleep: () => Promise.resolve() },
+    parts: [],
+    skill: undefined,
+    contextId: undefined,
+    taskId: undefined,
+    key: undefined,
+    sign: () => ({ metadata: {}, serviceParameters: {}, bodyHash: "sha256:b" }),
+    meshEchoOf: () => isEchoed,
+    signal: undefined,
+  });
+  const refusedOf = async (answer: Task, kind: A2APeerKind, isEchoed = true) =>
+    (await sentOf(callOf(answer, kind, isEchoed), "m-1")).result.refused;
+
+  it("an AGBoss agent the mesh rode to, REJECTED with its limit: refused", async () => {
+    expect(await refusedOf(rejected(limit), A2APeerKind.AGBoss)).toBe(true);
+  });
+
+  it("a foreign agent's REJECTED, an unmeshed call's, one with no mesh limit: charged as accepted", async () => {
+    expect(await refusedOf(rejected(limit), A2APeerKind.Foreign)).toBeUndefined();
+    expect(await refusedOf(rejected(limit), A2APeerKind.AGBoss, false)).toBeUndefined();
+    expect(await refusedOf(rejected({ code: "internal" }), A2APeerKind.AGBoss)).toBeUndefined();
   });
 });
 

@@ -21,8 +21,10 @@ import {
   caller,
   CallerApplication,
   CallerWorkflowStart,
+  PRICE,
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
+import { A2AProtocolError } from "../../../src/a2a/index.js";
 import { HopsLimitExceededError } from "../../../src/index.js";
 import { peer, resetPeer, StrictPeerApplication } from "./fixtures/peer/peer.application.js";
 import { executionSpentOf, servePeer, type ServedPeer } from "./fixtures/serve-peer.js";
@@ -194,6 +196,30 @@ describe("#849: a call the peer REJECTED charges nothing, a takeover's replay of
       await settle();
       expect(await rejectionOf(call)).toBeDefined();
       expect(await executionSpentOf(b, ROOT)).toBe(0);
+    },
+    30_000,
+  );
+
+  two(
+    "a stored refusal the peer now contradicts (its task COMPLETED) on B's replay: charged the price, no output",
+    async ({ apps, clock, leases }) => {
+      caller.freezeAfterError = 1;
+      const { a, b } = await started(apps, StrictPeerApplication);
+      await untilReached(() => caller.frozen.length === 1, "A frozen after its refused call");
+      await settle();
+      expect(await executionSpentOf(b, ROOT)).toBe(0);
+
+      caller.isGetTaskCompleted = true; // the peer lies from now on
+      await takenOverByB(clock, leases, a);
+      await untilReached(
+        () => caller.callErrors.some((error) => error instanceof A2AProtocolError),
+        "B's replay finds the refusal contradicted",
+      );
+      await settle();
+
+      expect(caller.sends).toHaveLength(1); // B replayed the accept: nothing sent again
+      expect(caller.answers).toEqual([]);
+      expect(await executionSpentOf(b, ROOT)).toBeCloseTo(PRICE);
     },
     30_000,
   );

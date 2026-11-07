@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { Message, Part, Role, TaskState, type SendMessageRequest, type Task } from "@a2a-js/sdk";
+import { Message, Part, Role, type SendMessageRequest, type Task } from "@a2a-js/sdk";
 import type { Client } from "@a2a-js/sdk/client";
 import type { Clock } from "../../infrastructure/clock.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import type { A2ARemotePeer } from "./a2a-card.js";
+import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
+import { meshRefusalOf } from "./a2a-outcome.js";
 import {
   A2AClientOperation,
   A2ARemoteCallError,
@@ -178,9 +179,16 @@ function resultOf(
   return { kind: "task", taskId, contextId, mesh, ...facts };
 }
 
-/** A task the agent refused as it accepted it (#849): `REJECTED` — nothing ran under it. */
-const isRefusedAnswer = (answer: Task | Message): boolean =>
-  !("messageId" in answer) && answer.status?.state === TaskState.TASK_STATE_REJECTED;
+/**
+ * A task the agent refused as it accepted it (#849): only an AGBoss agent the mesh rode to, whose
+ * task is `REJECTED` with a mesh limit (a loop, the hop limit) — refused before anything ran there.
+ * Any other REJECTED answer (a foreign agent's may come after work) is charged as accepted.
+ */
+const isRefusedAnswer = (call: AcceptCall, answer: Task | Message, isMeshed: boolean): boolean =>
+  call.peer.kind === A2APeerKind.AGBoss &&
+  isMeshed &&
+  !("messageId" in answer) &&
+  meshRefusalOf(answer) !== undefined;
 
 /** One `SendMessage`, its answer as stored; an error translated (codes only). */
 export async function sentOf(
@@ -208,7 +216,7 @@ export async function sentOf(
   const facts: AcceptFacts = {
     ...(bodyHash === undefined ? {} : { bodyHash }),
     acceptedAt,
-    ...(isRefusedAnswer(answer) ? { refused: true } : {}),
+    ...(isRefusedAnswer(call, answer, bodyHash !== undefined) ? { refused: true } : {}),
   };
   return { answer, result: resultOf(call.agent, answer, bodyHash !== undefined, facts) };
 }

@@ -196,7 +196,12 @@ export function workingThen(): AgentScript {
   };
 }
 
+/** The id of the task a mesh receiver refuses. */
+const REFUSED_TASK_ID = "task-refused";
+
 export class SdkAgent {
+  /** The last task the mesh receiver refused, as it keeps it. */
+  #refusedTask: unknown;
   readonly received: ReceivedRequest[] = [];
   /** Tasks held working by `workingThen()`, by id. */
   readonly held = new Map<
@@ -359,6 +364,15 @@ export class SdkAgent {
     }
     const refused = this.#meshRefusal(body);
     if (refused !== undefined) return Response.json(refused, { headers: this.#echoOf(headers) });
+    // a task it refused is kept as refused, as an AGBoss agent keeps it (#849: the client reads it)
+    const params = (raw as { readonly params?: { readonly id?: unknown } }).params;
+    if (
+      body.method === "GetTask" &&
+      params?.id === REFUSED_TASK_ID &&
+      this.#refusedTask !== undefined
+    ) {
+      return Response.json({ jsonrpc: "2.0", id: body.id, result: this.#refusedTask });
+    }
     const context = new ServerCallContext({ requestedVersion: headers["a2a-version"] ?? "1.0" });
     const answer =
       this.#dedupe(body) ?? (await this.#transport.handle(raw as Record<string, unknown>, context));
@@ -426,7 +440,7 @@ export class SdkAgent {
       metadata: { [A2A_MESH_EXTENSION]: { code: limit.code, details: limit.details } },
     };
     const task = {
-      id: "task-refused",
+      id: REFUSED_TASK_ID,
       contextId: "ctx-refused",
       status: {
         state: "TASK_STATE_REJECTED",
@@ -434,6 +448,7 @@ export class SdkAgent {
         timestamp: new Date(0).toISOString(),
       },
     };
+    this.#refusedTask = task;
     return { jsonrpc: "2.0", id: body.id, result: { task } };
   }
 
