@@ -25,6 +25,9 @@ import {
 
 const test = testWith(LeaseApplication, { instances: 2 });
 
+/** Options a JavaScript caller could pass, typed as `TestWithOptions`. */
+const untypedOptions = (value: unknown): TestWithOptions => value as TestWithOptions;
+
 describe("testWith(App, { instances: 2 })", () => {
   test("apps[0] is app; both share the stores and the clock", async ({
     app,
@@ -79,15 +82,13 @@ describe("#831 AC3: instances: [{ clockSkew, meterProvider }] — one entry per 
       [1.5, /a whole number ≥ 1/u],
     ] as const;
     for (const [instances, message] of refused)
-      expect(() =>
-        testInstancesOf({ instances: instances as unknown as TestWithOptions["instances"] }),
-      ).toThrow(message);
+      expect(() => testInstancesOf(untypedOptions({ instances }))).toThrow(message);
     expect(testInstancesOf({})).toEqual([{}]);
     // the parallel arrays of before, from JavaScript or a built options object: refused, never ignored
     for (const removed of ["clockSkews", "meterProviders"])
-      expect(() =>
-        testInstancesOf({ instances: 2, [removed]: [] } as unknown as TestWithOptions),
-      ).toThrow(new RegExp(`^${removed}: no such option`, "u"));
+      expect(() => testInstancesOf(untypedOptions({ instances: 2, [removed]: [] }))).toThrow(
+        new RegExp(`^${removed}: no such option`, "u"),
+      );
     expect(testInstancesOf({ instances: 3 })).toEqual([{}, {}, {}]);
   });
 

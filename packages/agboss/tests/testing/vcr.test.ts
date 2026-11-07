@@ -37,6 +37,9 @@ import { execute } from "../helpers/flow.js";
 const dir = mkdtempSync(join(tmpdir(), "vcr-"));
 const cassette = { cassetteName: "desk-order", dir };
 const file = cassetteFileOf(cassette);
+
+/** A mode a JavaScript caller or a JSON file could give, typed as one. */
+const untypedMode = (value: unknown): VcrMode => value as VcrMode;
 const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
 let recorded: ExecutionOutput;
 
@@ -118,9 +121,7 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
   it("#819 AC1: an unknown vcr.mode is refused, naming the modes — under CI, AGBOSS_VCR_MODE or neither", () => {
     for (const mode of ["replay", "PLAYBACK", "", 1, null])
       for (const env of [{}, { CI: "true" }, { AGBOSS_VCR_MODE: "REPLAY" }])
-        expect(() =>
-          vcrModeOf({ cassetteName: "x", mode: mode as unknown as VcrMode }, env),
-        ).toThrow(
+        expect(() => vcrModeOf({ cassetteName: "x", mode: untypedMode(mode) }, env)).toThrow(
           /^\[vcr\.unknown-mode\] vcr\.mode is .*: one of RECORD, REPLAY, AUTO, RECORD_STALE$/u,
         );
   });
@@ -128,7 +129,7 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
   it("#819 AC1: a test app with an unknown vcr.mode fails to build — before any model is asked", async () => {
     await expect(
       TestEnvironment.of(DeskApplication, {
-        vcr: { cassetteName: "unknown-mode", dir, mode: "RECORDING" as unknown as VcrMode },
+        vcr: { cassetteName: "unknown-mode", dir, mode: untypedMode("RECORDING") },
       }),
     ).rejects.toThrow(/\[vcr\.unknown-mode\]/u);
     expect(existsSync(cassetteFileOf({ cassetteName: "unknown-mode", dir }))).toBe(false);

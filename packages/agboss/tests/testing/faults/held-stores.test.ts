@@ -56,6 +56,9 @@ const settled = async (promise: Promise<unknown>): Promise<boolean> => {
 };
 
 const history = new OperationHistory();
+
+/** A report a JavaScript caller could pass, typed as one. */
+const untypedReport = (value: unknown): HeldOperationsReport => value as HeldOperationsReport;
 const points = new HoldPoints();
 
 afterEach(() => {
@@ -240,9 +243,9 @@ describe("#831: reportHeldOperations — a store's own process test hears its he
 
   it("refuses a report that would hear nothing, an unknown key, and a second instance id while one names the history", () => {
     expect(() => reportHeldOperations({})).toThrow(/would hear nothing/u);
-    expect(() =>
-      reportHeldOperations({ onOperations: () => undefined } as unknown as HeldOperationsReport),
-    ).toThrow(/onOperations — it takes instanceId, onOperation and onHeld/u);
+    expect(() => reportHeldOperations(untypedReport({ onOperations: () => undefined }))).toThrow(
+      /onOperations — it takes instanceId, onOperation and onHeld/u,
+    );
     const undo = reportHeldOperations({ instanceId: "a", onHeld: () => undefined });
     try {
       expect(() => reportHeldOperations({ instanceId: "b", onHeld: () => undefined })).toThrow(
