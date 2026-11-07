@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
@@ -8,6 +9,7 @@ import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf, rejectionOf } from "./fenced-effect-data.js";
 import {
   intentOf,
+  listedOf,
   recorded,
   type OutboundCallCase,
   type OutboundCallStores,
@@ -27,7 +29,8 @@ const FENCED_CALLS: readonly (readonly [
   ["findByKey", (stores, key) => stores.calls.findByKey(key)],
   [
     "saveIfAbsent",
-    (stores, key) => stores.calls.saveIfAbsent({ ...key, name: "other" }, intentOf(key)),
+    (stores, key) =>
+      stores.calls.saveIfAbsent(effectKeyForTesting(key, { name: "other" }), intentOf(key)),
   ],
   [
     "markPending",
@@ -81,9 +84,7 @@ const releasedRefused: OutboundCallCase = {
     );
 
     expect(refused).toBeInstanceOf(ExecutionFencedError);
-    expect(
-      await first.calls.findAllByTenantIdAndStatus("default", OutboundCallStatus.Pending),
-    ).toEqual([]);
+    expect(await listedOf(first)).toEqual([]);
   },
 };
 
@@ -130,20 +131,12 @@ const listedByStatus: OutboundCallCase = {
       message: "no",
     });
 
-    const pending = await first.calls.findAllByTenantIdAndStatus(
-      "default",
-      OutboundCallStatus.Pending,
-    );
-    const failed = await first.calls.findAllByTenantIdAndStatus(
-      "default",
-      OutboundCallStatus.Failed,
-    );
+    const pending = await listedOf(first);
+    const failed = await listedOf(first, OutboundCallStatus.Failed);
 
     expect(pending.map((call) => call.name)).toEqual(["pending"]);
     expect(failed.map((call) => call.name)).toEqual(["failed"]);
-    expect(
-      await first.calls.findAllByTenantIdAndStatus("acme", OutboundCallStatus.Pending),
-    ).toEqual([]);
+    expect(await listedOf(first, OutboundCallStatus.Pending, "acme")).toEqual([]);
   },
 };
 
@@ -172,7 +165,7 @@ const badNameRefused: OutboundCallCase = {
   run: async ({ first }) => {
     const lease = await leaseOf(first);
     for (const name of ["charge:twice", "", "x".repeat(101)]) {
-      const key = { ...keyOf(lease), name };
+      const key = effectKeyForTesting(keyOf(lease), { name });
       const calls = [
         first.calls.findByKey(key),
         first.calls.saveIfAbsent(key, intentOf(key)),

@@ -101,7 +101,8 @@ export class UnkeyedApplication {}
   name: "misnamed-key-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  pseudonymKey: "piiKey",
+  // @ts-expect-error #825: a field the contract lacks (or a text one) does not compile — the runtime rule is a JavaScript caller's
+  piiKeyField: "piiKey",
   workflows: [KeyedWorkflow],
   budgets: TEST_BUDGETS,
 })

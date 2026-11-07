@@ -1,5 +1,5 @@
 /**
- * #778: `@Application({ pseudonymKey })` under `testWith` — the application's key field gets the
+ * #778: `@Application({ piiKeyField })` under `testWith` — the application's key field gets the
  * test's fixed key when the test process does not set its variable; a test that sets it keeps its
  * own; production still refuses to start without it.
  */

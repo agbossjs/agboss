@@ -74,7 +74,7 @@ function tasksText(tasks: Class, backend: string | undefined, reason: Implementa
 /** What to list in place of the task store. */
 function fixOf(leases: string | undefined): string {
   if (leases === undefined)
-    return `declare the lease store's backend (static backend = "postgres") and list an A2A task store on it`;
+    return `declare the lease store's backend (static store = { backend: "postgres" }) and list an A2A task store on it`;
   const kind = kindOf(leases);
   if (kind === "redis")
     return "list an A2A task store on a durable backend (PostgresA2ATaskRepository, MongoA2ATaskRepository) in @Application({ providers }): Redis keeps no A2A tasks";

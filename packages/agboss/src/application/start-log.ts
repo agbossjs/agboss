@@ -37,7 +37,7 @@ export interface WarningSources {
   readonly workflows: readonly AssembledWorkflow[];
   /**
    * Whether PII tokens are made with a key of the instance (#120 S94): an instance knows it from its
-   * start; `agboss check` from `@Application({ pseudonymKey })` not being set.
+   * start; `agboss check` from `@Application({ piiKeyField })` not being set.
    */
   readonly isPiiKeyOfInstance?: boolean;
   /** `@Application({ executionRecordRetention })` (#401): root executions are kept when it is set. */
@@ -87,7 +87,7 @@ const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
 const PII_INSTANCE_KEY: AssemblyWarning = {
   code: "application.pii-instance-key",
   message:
-    "no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey",
+    "no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
 };
 
 /** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */

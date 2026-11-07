@@ -1,3 +1,4 @@
+import type { BusinessKeyWriterUse } from "./components/container/fenced-reach.js";
 import type { JudgeInstance } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
@@ -90,6 +91,12 @@ export interface AssembledWorkflow<TName extends string = string> {
   /** Per tool: its constructor dependencies as a tree, e.g. `JobFitJudge (ROUTER_FACTORY), JOB_SEARCH`. */
   readonly toolDependencies?: Readonly<Record<string, string>>;
   /** Its compactions (#120 PR 3): every one in use, with its prompt, and each reader's. */
+  /**
+   * A component of the workflow that can make a business key (#825: it reaches `OutboundCalls` or a
+   * fenced-effect store), and what it reaches; absent = none — its application then needs no
+   * idempotency key for it.
+   */
+  readonly businessKeyWriter?: BusinessKeyWriterUse;
   readonly compactions?: AssembledCompactions;
   /** The channels its tools name (#267), by name, created by the application's container. */
   readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;

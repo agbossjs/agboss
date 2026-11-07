@@ -13,6 +13,7 @@ import { createApp } from "../../../../src/application/create-app.js";
 import type { App } from "../../../../src/app/types.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import type { ToolClass } from "../../../../src/testing/index.js";
+import type { Class } from "../../../../src/components/injection.js";
 import { callTool, replyWith } from "../../../../src/testing/index.js";
 import { ScriptBook } from "../../../../src/testing/script-book.js";
 import type { Milliseconds, Usd } from "../../../../src/units/index.js";
@@ -144,10 +145,11 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   })
   class CallerWorkflow {}
 
+  const environment: Class = spec.signing === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
     version: "1.0.0",
-    environment: spec.signing === undefined ? EmptyEnvironment : MeshEnvironment,
+    environment,
     workflows: [CallerWorkflow],
     budgets: TEST_BUDGETS,
     ...(spec.signing === undefined ? {} : { mesh: meshOf("peer-application") }),

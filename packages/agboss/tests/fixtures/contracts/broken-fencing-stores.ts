@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * Deliberately broken fencing stores (#526 AC3, AC6): each gets one thing wrong the way a port to
  * another database does, and `storeConformance` must catch it — a fenced effect whose lease check
@@ -75,7 +76,7 @@ interface StoredResult {
 
 /** What both broken effect stores share: the seam, the results of the test, the replay. */
 abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction> {
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
     protected readonly seam: InstanceSeam,
@@ -213,8 +214,8 @@ class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
     if (read.lease.expiresAt > this.seam.storeClock.now()) return OutboundCallLeaseState.Live;
     await roundTrip();
     const row = rows.get(key);
-    if (row !== undefined) rows.set(key, { ...row, released: true, isSuperseded: true });
-    return OutboundCallLeaseState.Superseded;
+    if (row !== undefined) rows.set(key, { ...row, released: true, isClosedByCheck: true });
+    return OutboundCallLeaseState.LeaseClosed;
   }
 }
 
@@ -224,7 +225,7 @@ export const selectThenCloseCalls: StoreFactory<OutboundCallStores> = (seam) => 
 });
 
 /** The #508 fields the row schema before it has no column for. */
-const LOST = new Set(["supersededBy", "supersededLease", "replayedFrom"]);
+const LOST = new Set(["supersededBy", "closedLease", "replayedFrom"]);
 
 /** The outcomes of the lease log's row schema before #508. */
 const OLD_OUTCOMES = new Set<string>([
@@ -258,21 +259,23 @@ export class PreSupersedeLeaseLog extends InMemoryExecutionLeaseEventRepository 
 
 /** A fenced-effect store on another backend than the leases it checks. */
 export class ElsewhereEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "redis";
+  static override readonly store: StoreDescriptor = { backend: "redis" };
 }
 
 /** An outbound-call store that declares no backend. */
 export class UndeclaredCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 /** An outbound-call store that opts out of the atomic lease check: not compared. */
 export class UncheckedCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "redis";
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: "redis",
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 /** A lease store that declares no backend. */
 export class UndeclaredLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }

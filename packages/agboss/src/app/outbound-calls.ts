@@ -1,24 +1,32 @@
+import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import { Injectable } from "../components/decorators.js";
 import { AGBossError } from "../core/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
-import { checkedBusinessKey, checkedEffectName } from "../infrastructure/fenced-effect-key.js";
+import { assertBusinessKey, assertEffectName } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
-import type { EffectKey, JsonResult } from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey, OutboundCallKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-import { Clock, SystemClock, lazyLoad } from "../infrastructure/clock.js";
-import { frameworkLogOf, Logger, SilentLogger } from "../infrastructure/logger.js";
-import { checkedNotSentTrust } from "./outbound-call-contract.js";
+import { Clock, lazyLoad } from "../infrastructure/clock.js";
+import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
+import { callKeyErrorOf, checkedNotSentTrust } from "./outbound-call-contract.js";
 import type { LiveCall } from "./outbound-call-parts.js";
 import type {
   OutboundCallInFlightErrorOptions,
   OutboundCallSendOptions,
   OutboundCallOutcome,
   OutboundCallPayloadTooLargeErrorOptions,
-  OutboundCallUnknownOptions,
   OutboundCallUnreconciledErrorOptions,
 } from "./outbound-call-types.js";
 
+export {
+  isReconciliation,
+  OutboundCallReconciliation,
+  OutboundCallVerdict,
+  type CompletedReconciliation,
+  type NotSentReconciliation,
+  type UnknownReconciliation,
+} from "./outbound-call-reconciliation.js";
 export type {
   OutboundCall,
   OutboundCallInFlightErrorOptions,
@@ -38,7 +46,7 @@ export type {
  */
 
 /** How a call got its result. */
-export enum OutboundCallOutcomeStatus {
+export enum OutboundCallSendStatus {
   /** Sent now, and answered. */
   Sent = "sent",
   /**
@@ -55,65 +63,6 @@ export enum OutboundCallOutcomeStatus {
   Joined = "joined",
 }
 
-/** What `reconcile` found. */
-export enum OutboundCallVerdict {
-  /** It happened: here is its result. */
-  Completed = "completed",
-  /**
-   * It never arrived — or the other system replays its key (#658): send it, with the same key;
-   * refused past a `KeyReplay`'s `keyRetention`.
-   */
-  NotSent = "not-sent",
-  /** The other system cannot say: the step fails, the intent stays pending. */
-  Unknown = "unknown",
-}
-
-/**
- * The answer of `reconcile` (#505): built only with `completed(result)`, `notSent()` or
- * `unknown({ reason })` — nominal, a plain object is not one.
- */
-export class OutboundCallReconciliation<TResult> {
-  /** Nominal: a plain `{ verdict }` object is not a verdict. */
-  declare private readonly built: true;
-  readonly verdict: OutboundCallVerdict;
-  /** The other system's result (`Completed`). */
-  readonly result: TResult | undefined;
-  /** Why it cannot say (`Unknown`); empty for the others. */
-  readonly reason: string;
-
-  private constructor(verdict: OutboundCallVerdict, result?: TResult, reason = "") {
-    this.verdict = verdict;
-    this.result = result;
-    this.reason = reason;
-    Object.freeze(this);
-  }
-
-  /** The call happened: the step goes on with `result` (stored, `Reconciled`), nothing is sent. */
-  static completed<TResult>(
-    result: TResult & JsonResult<TResult>,
-  ): OutboundCallReconciliation<TResult> {
-    return new OutboundCallReconciliation<TResult>(OutboundCallVerdict.Completed, result);
-  }
-
-  /**
-   * The call never arrived (or the other system replays its key): it is sent once more, with the
-   * same key and the next attempt — unless the key is past a `KeyReplay`'s `keyRetention` (#658):
-   * `OutboundCallUnreconciledError`, nothing sent.
-   */
-  static notSent(): OutboundCallReconciliation<never> {
-    return new OutboundCallReconciliation<never>(OutboundCallVerdict.NotSent);
-  }
-
-  /** Nobody can say: `OutboundCallUnreconciledError`, the intent pending for an operator. */
-  static unknown(options: OutboundCallUnknownOptions): OutboundCallReconciliation<never> {
-    return new OutboundCallReconciliation<never>(
-      OutboundCallVerdict.Unknown,
-      undefined,
-      options.reason,
-    );
-  }
-}
-
 /**
  * The application's calls that leave the system (#505): a core service a component injects
  * (`deps: [ExecutionContext, OutboundCalls]`), over the listed `OutboundCallRepository`.
@@ -128,10 +77,19 @@ export class OutboundCalls {
   constructor(
     private readonly repository: OutboundCallRepository,
     private readonly settings: OutboundCallSettings,
-    // the instance's log (#508), names and ids only; built by hand (a test), it logs nothing
-    private readonly logger: Logger = new SilentLogger(),
-    private readonly clock: Clock = new SystemClock(),
-  ) {}
+    // the instance's log (#508), names and ids only — said by whoever builds it (#825), never silent by default
+    private readonly logger: Logger,
+    // the application's clock (#825): a call's attempt and its key's age, never the wall clock by default
+    private readonly clock: Clock,
+  ) {
+    // #825: said by whoever builds it — a JavaScript caller's missing logger or clock is refused
+    // (an object: `agboss check` builds the contracts' own classes, never called)
+    const given: readonly unknown[] = [logger, clock];
+    if (given.some((part) => typeof part !== "object" || part === null))
+      throw new TypeError(
+        "new OutboundCalls(repository, settings, logger, clock): a Logger and a Clock are required",
+      );
+  }
 
   /**
    * Sends the call of `key` (`effectKeyOf(executionContext, name)`) at most once per
@@ -143,12 +101,14 @@ export class OutboundCalls {
    * (`InvalidNotSentTrustError`, #795), is refused before anything is recorded or sent.
    */
   async send<TRequest, TResult>(
-    key: EffectKey,
+    key: EffectKey | OutboundCallKey,
     options: OutboundCallSendOptions<TRequest, TResult>,
   ): Promise<OutboundCallOutcome<TResult>> {
     // a key built by hand is checked as effectKeyOf checks it (#508, #538): nothing recorded or sent
-    checkedEffectName(key.name);
-    checkedBusinessKey(key);
+    assertEffectName(key.name);
+    assertBusinessKey(key);
+    // #825: a key effectKeyOf made, and a call's fingerprint is its request — never None
+    callKeyErrorOf(key);
     // #795: how far a notSent() is trusted, said and valid — a JavaScript caller's too; the
     // checked copy is the one the protocol reads (`options` as given is the caller's, live)
     const { notSent, ...given } = options; // read once: a getter is never asked again
@@ -168,11 +128,14 @@ export class OutboundCalls {
   }
 }
 
+// #825: a component that reaches OutboundCalls can send under a business key
+markBusinessKeyWriter(OutboundCalls);
+
 /**
  * An intent left pending could not be reconciled (#505): `reconcile` said `unknown`, threw (its
  * error the `cause`), gave no verdict, or said `notSent()` for a key past its `KeyReplay`'s
  * `keyRetention` (#658: a resend could be a new call). Nothing was sent; the intent stays `Pending`, listed by
- * `app.pendingOutboundCalls` for an operator. A `StepFailedError`: `.onError(…)` may take it.
+ * `app.pendingOutboundCallsOf` for an operator. A `StepFailedError`: `.onError(…)` may take it.
  */
 export class OutboundCallUnreconciledError extends StepFailedError {
   static override readonly code: string = "outbound-call.unreconciled";
@@ -186,7 +149,7 @@ export class OutboundCallUnreconciledError extends StepFailedError {
   constructor(options: OutboundCallUnreconciledErrorOptions, cause?: unknown) {
     const { name, target, operation, idempotencyKey, reason } = options;
     super(
-      `outbound call "${name}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled: ${reason} — nothing was sent; an operator decides (app.pendingOutboundCalls)`,
+      `outbound call "${name}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled: ${reason} — nothing was sent; an operator decides (app.pendingOutboundCallsOf)`,
       [],
       cause,
       stepCoordinatesOf(name, ComponentKind.Action),

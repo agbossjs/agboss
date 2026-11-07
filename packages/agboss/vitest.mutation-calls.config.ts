@@ -11,7 +11,7 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
-      "tests/app/{business-key*,key-text*,*-key-text*,fenced-effect*,outbound-call*,outbound-calls-read}.test.ts",
+      "tests/app/{business-key*,key-text*,*-key-text*,fenced-effect*,outbound-call*,outbound-calls-read,fingerprint-required,idempotency-key-rotation,pending-calls-paging}.test.ts",
       "tests/infrastructure/{key-text*,fenced-key-helpers,fenced-key-identity,minted-id-key-text,fenced-effect-join-fingerprint,outbound-call-naive-store,store-conformance.in-memory,in-memory-store-edges}.test.ts",
       "tests/properties/*.property.test.ts",
     ],

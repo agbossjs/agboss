@@ -82,8 +82,10 @@ export interface ApplicationStart {
 // @public
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
+// Warning: (ae-forgotten-export) The symbol "AssembledKeyFields" needs to be exported by the entry point internal.d.ts
+//
 // @public
-export interface AssembledApplication {
+export interface AssembledApplication extends AssembledKeyFields {
     readonly a2aTaskRetention: Milliseconds;
     // (undocumented)
     readonly application: Class;
@@ -117,7 +119,6 @@ export interface AssembledApplication {
     readonly piiPolicies: readonly Class[];
     // Warning: (ae-forgotten-export) The symbol "Provider" needs to be exported by the entry point internal.d.ts
     readonly providers: readonly Provider[];
-    readonly pseudonymKey?: string;
     readonly shutdownTimeout: Milliseconds;
     readonly source?: string;
     // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point internal.d.ts
@@ -1357,16 +1358,16 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
-// src/application/assemble.ts:50:3 - (ae-undocumented) Missing documentation for "application".
-// src/application/assemble.ts:51:3 - (ae-undocumented) Missing documentation for "name".
-// src/application/assemble.ts:52:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/assemble.ts:61:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:96:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:237:1 - (ae-undocumented) Missing documentation for "applicationOf".
-// src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "app".
-// src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "assembled".
-// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "workflows".
-// src/application/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "infrastructure".
+// src/application/assemble.ts:55:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:56:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:57:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:66:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:101:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:232:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "app".
+// src/application/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "assembled".
+// src/application/create-app.ts:41:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/application/create-app.ts:42:3 - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts:20:3 - (ae-undocumented) Missing documentation for "history".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".

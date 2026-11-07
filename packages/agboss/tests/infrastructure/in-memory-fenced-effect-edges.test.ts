@@ -6,6 +6,7 @@
  * no origin; the entry checks run in their order (name, business key, the key's shape) and a key's
  * join is its own; a result of exactly `maxResultSize` bytes is stored.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
@@ -184,7 +185,10 @@ describe("#533: the scope's mark and the sweep", () => {
 describe("#533: the base class's entry checks", () => {
   it("the name first: a bad name and a bad business key is InvalidFencedEffectNameError", async () => {
     const { leases, effects } = storesOn();
-    const key = { ...keyOf(await held(leases)), name: "no spaces", businessKey: "a\u0001b" };
+    const key = effectKeyForTesting(keyOf(await held(leases)), {
+      name: "no spaces",
+      businessKey: "a\u0001b",
+    });
 
     await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toBeInstanceOf(
       InvalidFencedEffectNameError,
@@ -193,7 +197,10 @@ describe("#533: the base class's entry checks", () => {
 
   it("then the business key: a bad one with a bad scope is InvalidBusinessKeyError", async () => {
     const { leases, effects } = storesOn();
-    const key = { ...keyOf(await held(leases)), scopeKey: "other:scope", businessKey: "a\u0001b" };
+    const key = effectKeyForTesting(keyOf(await held(leases)), {
+      scopeKey: "other:scope",
+      businessKey: "a\u0001b",
+    });
 
     await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toBeInstanceOf(
       InvalidBusinessKeyError,
@@ -202,7 +209,7 @@ describe("#533: the base class's entry checks", () => {
 
   it("a key whose scope does not match its parts is an InvalidFencedEffectKeyError", async () => {
     const { leases, effects } = storesOn();
-    const key = { ...keyOf(await held(leases)), scopeKey: "other:scope" };
+    const key = effectKeyForTesting(keyOf(await held(leases)), { scopeKey: "other:scope" });
 
     await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toMatchObject({
       name: "InvalidFencedEffectKeyError",
@@ -216,7 +223,7 @@ describe("#533: the base class's entry checks", () => {
     await leases.release(first);
     const lease = await held(leases);
     // "charge" at token 12 and "charge1" at token 2 read alike without a separator between the parts
-    const stale = { ...keyOf(lease, "charge"), token: 12 };
+    const stale = effectKeyForTesting(keyOf(lease, "charge"), { token: 12 });
 
     const [refused, ran] = await Promise.allSettled([
       effects.saveResultIfAbsent(stale, () => ({ receipt: "stale" })),

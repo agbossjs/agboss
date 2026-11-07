@@ -8,7 +8,7 @@ import { PiiEnvironment } from "./environments/app.environment.js";
   name: "keyed-application",
   version: "1.0.0",
   environment: PiiEnvironment,
-  pseudonymKey: "piiPseudonymKey",
+  piiKeyField: "piiPseudonymKey",
   workflows: [KeyedWorkflow],
   budgets: TEST_BUDGETS,
 })

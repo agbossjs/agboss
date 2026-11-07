@@ -12,14 +12,14 @@ import type { AssembledApplication } from "./assemble.js";
 export interface ApplicationPiiKey {
   readonly key: string;
   /**
-   * No `pseudonymKey` set and none needed: a key of this instance (its logs and traces), each root
+   * No `piiKeyField` set and none needed: a key of this instance (its logs and traces), each root
    * execution's tokens on a key of its own (#334) — `[application.pii-instance-key]`.
    */
   readonly isInstanceKey: boolean;
 }
 
 /**
- * The application's PII key (#120): its `pseudonymKey` field, the test's key under `testWith`, else
+ * The application's PII key (#120): its `piiKeyField`, the test's key under `testWith`, else
  * a key of the instance (S94: the start goes on, with a warning) — unless a policy needs the
  * application's, which fails the start.
  */
@@ -31,7 +31,7 @@ export function applicationPiiKeyOf(
   const key = applicationPseudonymKeyOf({
     ...source,
     application: assembled.name,
-    field: assembled.pseudonymKey,
+    field: assembled.piiKeyField,
     policies,
   });
   return key === undefined

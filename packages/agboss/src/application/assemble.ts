@@ -12,6 +12,11 @@ import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
+import {
+  idempotencyKeyViolations,
+  keyFieldsOf,
+  type AssembledKeyFields,
+} from "./assembled-keys.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
@@ -46,7 +51,7 @@ const meshOptionsOf = (
  */
 
 /** An assembled application: what `createApp` and `testWith` build an app instance from. */
-export interface AssembledApplication {
+export interface AssembledApplication extends AssembledKeyFields {
   readonly application: Class;
   readonly name: string;
   readonly version: string;
@@ -96,8 +101,6 @@ export interface AssembledApplication {
   readonly executionContext: ExecutionContextClass;
   /** `@Application({ piiPolicies })` (#120): every workflow's, and what its own log is masked by. */
   readonly piiPolicies: readonly Class[];
-  /** `@Application({ pseudonymKey })` (#120): the environment field of its PII key. */
-  readonly pseudonymKey?: string;
 }
 
 /** How long a resolved pause record is kept by default (#267 S107): a late answer is told apart a day. */
@@ -186,14 +189,6 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
   if (all.length > 0) throw new ApplicationRuleError(all);
 }
 
-/** Its PII settings (#120): the policies of every workflow and the field of its key. */
-const piiOptionsOf = (
-  options: ApplicationOptions,
-): Pick<AssembledApplication, "piiPolicies" | "pseudonymKey"> => ({
-  piiPolicies: options.piiPolicies ?? [],
-  ...(options.pseudonymKey === undefined ? {} : { pseudonymKey: options.pseudonymKey }),
-});
-
 /** What the application lists besides its workflows, each list empty when it lists none. */
 const listedOf = (
   options: ApplicationOptions,
@@ -248,7 +243,8 @@ export async function applicationOf(
   const modules = [applicationModule(options), ...workflowModules(all)];
   const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
-  throwIfAny([...own, ...crossWorkflowViolations(assembled)], errors);
+  const keys = idempotencyKeyViolations(options, assembled);
+  throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys], errors);
   return {
     application,
     name: options.name,
@@ -272,6 +268,6 @@ export async function applicationOf(
       : { maxConcurrentSteps: options.maxConcurrentSteps }),
     ...meshOptionsOf(options),
     ...declaredContextsOf(options),
-    ...piiOptionsOf(options),
+    ...keyFieldsOf(options),
   };
 }

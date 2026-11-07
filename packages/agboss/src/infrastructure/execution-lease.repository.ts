@@ -90,7 +90,7 @@ export const remainingOf = (expiresAt: Date, now: Date): Milliseconds =>
 
 /**
  * How a fenced-effect or an outbound-call store checks the lease against its write (#526):
- * `static leaseCheck` of the store.
+ * `leaseCheck` of the store.s `static store`.
  */
 export enum LeaseCheck {
   /**
@@ -108,6 +108,30 @@ export enum LeaseCheck {
 }
 
 /**
+ * What a store class declares about its rows (#526, #825: `static store`, one descriptor in place of
+ * separate statics) — read by assembly, `storeConformance` and the unit runners.
+ */
+export interface StoreDescriptor {
+  /**
+   * The backend the store's rows live in: `"<kind>"` or `"<kind>:<database>"` — `"postgres"`,
+   * `"postgres:billing"` for a second database of one kind. Two stores share one transactional
+   * backend exactly when they declare the same text: a listed fenced-effect or outbound-call store
+   * checks the lease in its own transaction, so its `backend` must be its lease store's
+   * (`[application.store-backend-mismatch]`, `[application.store-backend-undeclared]`); a unit
+   * runner holds its lease in the lease store of that backend. `undefined`: undeclared.
+   */
+  readonly backend: string | undefined;
+  /**
+   * How a fenced-effect or an outbound-call store checks the lease against its write: `Atomic` (the
+   * default when absent, checked at assembly) or the opt-out `WithoutDoubleChargeProtection`, which
+   * names what is lost. A lease store has no lease to check: it leaves it out.
+   */
+  readonly leaseCheck?: LeaseCheck;
+}
+
+export { optsOutOfLeaseCheck, storeDescriptorOf } from "./store-descriptor.js";
+
+/**
  * Infrastructure (#265, Q58): one lease per execution tree, keyed by `(tenantId,
  * rootExecutionId)` — atomic and lease-based, so a lease expires by itself when its holder dies.
  * Listed only in `@Application({ providers })`; the built-in default is in memory. Your own
@@ -117,14 +141,11 @@ export enum LeaseCheck {
  */
 export abstract class ExecutionLeaseRepository {
   /**
-   * The backend the store's rows live in (#526): `"<kind>"` or `"<kind>:<database>"` —
-   * `"postgres"`, `"postgres:billing"` for a second database of one kind. Two stores share one
-   * transactional backend exactly when they declare the same text: a listed fenced-effect or
-   * outbound-call store checks the lease in its own transaction, so its `backend` must be its lease
-   * store's (`[application.store-backend-mismatch]`, `[application.store-backend-undeclared]`).
-   * Unset: undeclared.
+   * Where the store's rows live (#526, #825): `{ backend }` — `"postgres"`, `"postgres:billing"`;
+   * a fenced-effect or outbound-call store on the same backend checks its leases in its own
+   * transaction. `{ backend: undefined }`: undeclared.
    */
-  static readonly backend: string | undefined = undefined;
+  static readonly store: StoreDescriptor = { backend: undefined };
 
   /**
    * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
@@ -221,7 +242,7 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  */
 @Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
     private readonly clock: Pick<StoreClock, "now">,
@@ -261,7 +282,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       // held is false here: a stored lease not released has expired; a superseded one had (#508)
       ...takenOverFromOf(
         stored?.lease,
-        stored?.released === false || stored?.isSuperseded === true,
+        stored?.released === false || stored?.isClosedByCheck === true,
       ),
     };
     this.database.executionLeases.set(key, { lease: taken, released: false });

@@ -8,7 +8,6 @@ import {
 import {
   Action,
   Agent,
-  EmptyEnvironment,
   ExecutionContext,
   InMemoryFencedEffectRepository,
   NotSentTrust,
@@ -19,7 +18,7 @@ import {
   WorkflowStart,
   effectKeyOf,
   type FencedEffectStatus,
-  type OutboundCallOutcomeStatus,
+  type OutboundCallSendStatus,
   type Produced,
   type ToolHandler,
 } from "../../../src/index.js";
@@ -29,6 +28,7 @@ import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { start } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #508 — an order charged under its business key `order:<id>`, whatever step, execution or thread
@@ -40,7 +40,7 @@ import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 export const ledger = {
   charges: [] as { readonly orderId: string; readonly amountUsd: number }[],
   effects: [] as FencedEffectStatus[],
-  outbound: [] as OutboundCallOutcomeStatus[],
+  outbound: [] as OutboundCallSendStatus[],
   /** How many coming outbound charges freeze before they are sent; the frozen gates. */
   freeze: 0,
   frozen: [] as (() => void)[],
@@ -358,7 +358,8 @@ export class SendChargesWorkflow {}
 @Application({
   name: "business-key-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

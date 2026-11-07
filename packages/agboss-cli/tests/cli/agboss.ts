@@ -62,9 +62,9 @@ export const envelope = (call: AgbossCall): Record<string, unknown> =>
 /** The checks `agboss check` runs on every workflow (#261: the application's warnings too). */
 export const CHECKS_RUN = "assembly, environment, application, prompts, types";
 
-/** The assembly warning of an application without `pseudonymKey` (#120 S94), as printed. */
+/** The assembly warning of an application without `piiKeyField` (#120 S94), as printed. */
 export const piiKeyWarning = (file: string): string =>
-  `warning: ${file} application.pii-instance-key no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey\n`;
+  `warning: ${file} application.pii-instance-key no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField\n`;
 
 /** The assembly warning of an application on the built-in in-memory cost ledger (#261), as printed. */
 export const ledgerWarning = (file: string): string =>

@@ -40,6 +40,7 @@ import { gateway, PaymentGateway, resetGateway } from "./fixtures/payment-gatewa
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 const test = testWith(OutboundCallChildrenApplication);
 
@@ -102,7 +103,8 @@ describe("#505: no mask where policies exist — fail closed", () => {
     @Application({
       name: "no-pii-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
+      environment: IdempotencyKeyEnvironment,
+      idempotencyKeyField: "idempotencyKey",
       workflows: [ChargeWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -152,7 +154,8 @@ class MaskedChargeWorkflow {}
 @Application({
   name: "workflow-policy-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [MaskedChargeWorkflow],
   budgets: TEST_BUDGETS,
 })

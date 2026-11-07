@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * #543 — stores that opt out of the atomic lease check: one that really reads the lease outside
  * its write's transaction (check, then write — what the opt-out says), beside the atomic one with
@@ -8,6 +9,8 @@ import { CheckThenWriteEffects } from "./broken-fencing-stores.js";
 
 /** Check, then write, and saying so: the opt-out's honest store. */
 export class OptedOutCheckThenWriteEffects extends CheckThenWriteEffects {
-  static override readonly backend: string | undefined = "redis";
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: "redis",
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }

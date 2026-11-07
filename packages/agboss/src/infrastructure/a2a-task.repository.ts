@@ -2,6 +2,7 @@ import { AGBossError } from "../core/errors.js";
 import type { PauseKind } from "../pause/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { Expiry } from "./expiry.js";
+import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /**
  * Infrastructure (#807, A2A v1.0 design §4.1.6): the A2A tasks an application serves. One row per
@@ -175,12 +176,12 @@ export class InvalidA2APageTokenError extends AGBossError {
 
 export abstract class A2ATaskRepository {
   /**
-   * The backend the store's rows live in (#824, as `ExecutionLeaseRepository.backend`):
+   * The backend the store's rows live in (#824, #825: as `ExecutionLeaseRepository.store`):
    * `"<kind>"` or `"<kind>:<database>"`. An application that serves A2A on leases its instances
    * share keeps its tasks where they share them too — on its lease store's backend, or another no
    * single host owns — else assembly refuses it (`[a2a.task-store-not-shared]`). Unset: undeclared.
    */
-  static readonly backend: string | undefined = undefined;
+  static readonly store: StoreDescriptor = { backend: undefined };
 
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;

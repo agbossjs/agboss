@@ -1,7 +1,7 @@
 /**
  * #261 AC14 — assembly warnings: tenant or application budgets on the built-in in-memory cost ledger,
  * and pauses possible with the built-in in-memory paused executions or checkpoints; #120 S94 — PII
- * tokens on a key of the instance (no `pseudonymKey`). In `app.warnings` and the start log; errors
+ * tokens on a key of the instance (no `piiKeyField`). In `app.warnings` and the start log; errors
  * under `agboss check --strict` (the CLI's tests); silent in tests (`testWith`).
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -34,7 +34,7 @@ const LEDGER =
 const PAUSES =
   "[application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart";
 const PII_KEY =
-  "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey";
+  "[application.pii-instance-key] no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField";
 
 const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
@@ -60,7 +60,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     ]);
   });
 
-  it("durable stores listed: none of the stores' (the PII key's stays: no pseudonymKey)", async () => {
+  it("durable stores listed: none of the stores' (the PII key's stays: no piiKeyField)", async () => {
     const app = await createApp(DurableLoggedApplication, offline);
     await app.close();
 
@@ -146,7 +146,7 @@ describe("#120 S94: no application key → a key of the instance, and a warning"
       );
   });
 
-  it("pseudonymKey set: no warning", async () => {
+  it("piiKeyField set: no warning", async () => {
     const processEnv = { PII_APP_KEY: "k", PII_TEST_PSEUDONYM_KEY: "own" };
     const app = await createApp(KeyedApplication, { ...offline, processEnv });
     await app.close();

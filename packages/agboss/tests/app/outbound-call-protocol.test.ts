@@ -1,3 +1,5 @@
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #505 — the protocol of a call that leaves the system, edge by edge, in a unit runner: the action
  * of the application test on the built-in in-memory store, its lease the runner's. A second run of
@@ -15,7 +17,7 @@ import {
   ExecutionLeaseLostError,
   InMemoryOutboundCallRepository,
   NotSentTrust,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallReconciliation,
   OutboundCallSettings,
   OutboundCallStatus,
@@ -39,6 +41,7 @@ import {
   PaymentGateway,
   resetGateway,
 } from "./fixtures/payment-gateway.js";
+import { isReconciliation } from "../../src/app/outbound-call-reconciliation.js";
 
 beforeEach(() => {
   resetGateway();
@@ -51,14 +54,14 @@ const order = { message: { value: { text: "order-1" } } } as never;
 const KEY = "test-execution:charge-order-action:1:charge";
 
 /** A key of a lease scope, made by hand outside any step. */
-const KEY_PARTS = {
+const KEY_PARTS = effectKeyForTesting({
   scopeKey: "default:execution-1",
   tenantId: "default",
   leaseExecutionId: "execution-1",
   token: 1,
   idempotencyKey: "execution-1:charge-action:1",
   name: "charge",
-};
+});
 
 /** A runner whose first run's call is left pending: frozen at the provider, its timeout fired. */
 async function leftPending(side: "before" | "after") {
@@ -230,8 +233,8 @@ describe("#505: what the protocol refuses", () => {
     await run(order);
 
     expect(runs.outcomes).toEqual([
-      { status: OutboundCallOutcomeStatus.Sent, attempt: 1 },
-      { status: OutboundCallOutcomeStatus.Joined, attempt: 1 },
+      { status: OutboundCallSendStatus.Sent, attempt: 1 },
+      { status: OutboundCallSendStatus.Joined, attempt: 1 },
     ]);
     expect(gateway.calls).toHaveLength(1);
   });
@@ -255,6 +258,8 @@ describe("#505: what the protocol refuses", () => {
     const outboundCalls = new OutboundCalls(
       store,
       new OutboundCallSettings({ requiresMask: false }),
+      new SilentLogger(),
+      clock,
     );
 
     const refused = outboundCalls.send(KEY_PARTS, {
@@ -267,28 +272,31 @@ describe("#505: what the protocol refuses", () => {
     });
 
     await expect(refused).rejects.toBeInstanceOf(ExecutionContextUnavailableError);
-    expect(await store.findAllByTenantIdAndStatus("default", OutboundCallStatus.Pending)).toEqual(
-      [],
-    );
+    expect(
+      (
+        await store.findAllByTenantIdAndStatus({
+          tenantId: "default",
+          status: OutboundCallStatus.Pending,
+          limit: 1000,
+        })
+      ).calls,
+    ).toEqual([]);
   });
 
   it("a verdict is built only by its factories", () => {
     const completed = OutboundCallReconciliation.completed({ chargeId: "ch-1" });
-    const shape = { verdict: OutboundCallVerdict.Completed, result: undefined, reason: "" };
+    const shape = { verdict: OutboundCallVerdict.Completed, result: { chargeId: "ch-1" } };
     // @ts-expect-error — a plain object is not a verdict: it is nominal
     const plain: OutboundCallReconciliation<{ chargeId: string }> = shape;
 
-    expect(completed).toMatchObject({
-      verdict: "completed",
-      result: { chargeId: "ch-1" },
-      reason: "",
-    });
+    expect(completed).toEqual({ verdict: "completed", result: { chargeId: "ch-1" } });
     expect(OutboundCallReconciliation.notSent()).toMatchObject({ verdict: "not-sent" });
     expect(OutboundCallReconciliation.unknown({ reason: "why" })).toMatchObject({
       verdict: "unknown",
       reason: "why",
     });
     expect(Object.isFrozen(completed)).toBe(true);
-    expect(plain).not.toBeInstanceOf(OutboundCallReconciliation);
+    expect(isReconciliation(plain)).toBe(false);
+    expect(isReconciliation(completed)).toBe(true);
   });
 });

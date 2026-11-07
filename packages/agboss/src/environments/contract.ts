@@ -86,6 +86,17 @@ function requirementsOf(cls: Class): readonly EnvironmentFieldRequirement[] {
   return found;
 }
 
+/** The `Secret` fields the classes read (#825: the keys an application's key fields must not share). */
+export const secretFieldsReadBy = (readers: readonly Class[]): readonly string[] => [
+  ...new Set(
+    readers.flatMap((reader) =>
+      requirementsOf(reader)
+        .filter((required) => required.type === EnvironmentFieldType.Secret)
+        .map((required) => required.field),
+    ),
+  ),
+];
+
 /** The contract's own fields: a declared field is an own property of an instance (class fields). */
 const instanceOf = (contract: Class): Readonly<Record<string, unknown>> => {
   const instance: unknown = Reflect.construct(contract, []);

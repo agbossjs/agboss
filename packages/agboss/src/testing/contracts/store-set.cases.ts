@@ -2,7 +2,7 @@ import { describe, expect, it, type TestContext } from "vitest";
 import { backendOf } from "../../application/implementations.js";
 import type { Class } from "../../components/injection.js";
 import {
-  LeaseCheck,
+  optsOutOfLeaseCheck,
   type ExecutionLeaseRepository,
 } from "../../infrastructure/execution-lease.repository.js";
 import type { FencedEffectStores } from "./fenced-effect-data.js";
@@ -15,7 +15,7 @@ import type { InterleavingOptions } from "./explorer/register.js";
 
 /**
  * The cases of `store set (<name>)` (#526): what assembly will check of the set's classes, checked
- * here first — each fencing store declares `static backend`, and a fenced-effect or outbound-call
+ * here first — each fencing store declares its `static store` backend, and a fenced-effect or outbound-call
  * store is on the backend of the lease store it checks (or declares the opt-out
  * `LeaseCheck.WithoutDoubleChargeProtection`), so the set assembles beside its own leases. The lease
  * store it checks is the set's `executionLease` (#542): the fencing store is compared with it, and
@@ -37,18 +37,17 @@ export interface FencingTargets {
 
 const classOf = (store: object): Class => store.constructor as Class;
 
-/** `store`'s class declares a backend: `static backend`, a non-empty text. */
+/** `store`'s class declares a backend: its `static store`'s `backend`, a non-empty text. */
 function expectDeclared(store: object, what: string): void {
   const backend = backendOf(classOf(store));
-  expect(backend, `${classOf(store).name}, ${what}, declares no static backend`).toBeTypeOf(
+  expect(backend, `${classOf(store).name}, ${what}, declares no backend (static store)`).toBeTypeOf(
     "string",
   );
 }
 
 /** `store` is on the backend of `leases`, unless it opts out of the atomic lease check. */
 function expectOneBackend(store: object, leases: object): void {
-  if (Reflect.get(classOf(store), "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection)
-    return;
+  if (optsOutOfLeaseCheck(classOf(store))) return;
   expectDeclared(store, "a fencing store");
   expectDeclared(leases, "the lease store it checks");
   expect(
@@ -74,8 +73,7 @@ async function storeClassOf<TStore extends object>(target: ContractTarget<TStore
  */
 function expectSetBackend(store: object, leases: object, setLeases: Class): void {
   const theirs = backendOf(setLeases);
-  const isOptedOut =
-    Reflect.get(classOf(store), "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection;
+  const isOptedOut = optsOutOfLeaseCheck(classOf(store));
   if (!isOptedOut)
     expect(
       backendOf(classOf(store)),
@@ -211,7 +209,7 @@ export function registerStoreSet(
     const { executionLease, fencedEffect, outboundCall } = targets;
     if (executionLease !== undefined)
       it(
-        "the lease store declares its backend (static backend)",
+        "the lease store declares its backend (static store)",
         withTarget(executionLease, ({ first }) => {
           expectDeclared(first, "the lease store");
           return Promise.resolve();

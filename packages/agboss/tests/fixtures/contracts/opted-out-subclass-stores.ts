@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * #543 acceptance — an opt-out that comes from the class chain: a store inheriting its parent's
  * `LeaseCheck.WithoutDoubleChargeProtection` without restating it is opted out (the gate and assembly
@@ -9,8 +10,10 @@ import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outb
 
 /** The parent that opts out. */
 export class OptedOutParentCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "redis";
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: "redis",
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 /** Opted out only through its parent: it says nothing itself. */
@@ -18,6 +21,8 @@ export class InheritedOptOutCalls extends OptedOutParentCalls {}
 
 /** An opted-out parent's subclass that restates the atomic check, on the core's in-memory backend. */
 export class RestatedAtomicCalls extends OptedOutParentCalls {
-  static override readonly backend: string | undefined = InMemoryOutboundCallRepository.backend;
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
+  static override readonly store: StoreDescriptor = {
+    backend: InMemoryOutboundCallRepository.store.backend,
+    leaseCheck: LeaseCheck.Atomic,
+  };
 }

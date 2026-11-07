@@ -92,9 +92,11 @@ describe("#481 AC1: the published entry", () => {
     }
   });
 
-  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), nothing else at run time", () => {
+  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), nothing else at run time", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
-    expect(Object.keys(contracts).sort()).toEqual([...named, "ragConnectorContract"].sort());
+    expect(Object.keys(contracts).sort()).toEqual(
+      [...named, "ragConnectorContract", "effectKeyForTesting"].sort(),
+    );
     for (const register of Object.values(contracts)) expect(register).toBeTypeOf("function");
   });
 

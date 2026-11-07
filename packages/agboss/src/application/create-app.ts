@@ -27,10 +27,12 @@ import { observersOf } from "./observers.js";
 import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
+import { applicationIdempotencyKeysOf } from "./idempotency-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -66,6 +68,8 @@ export interface InstanceSeams {
    * #334); absent = a key of the instance, one per root execution — what production does.
    */
   readonly piiTestKey?: string;
+  /** The idempotency keys of a key field with no value (#825, `testWith`); absent = the start fails. */
+  readonly idempotencyTestKeys?: FingerprintKeys;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
   readonly observers?: readonly ExecutionObserver[];
   /** A test's gate over the instance's lease (#471, `leases.stall`): its store and its timers. */
@@ -158,6 +162,12 @@ async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
   for (const workflow of built) await workflow.app.close();
 }
 
+/** The budgets every workflow of the application counts against. */
+const budgetsOf = (assembled: AssembledApplication) => ({
+  budgets: assembled.budgets,
+  applicationName: assembled.name,
+});
+
 /**
  * Builds an assembled application into one instance: one container for the application (its
  * infrastructure first, then every workflow's components), then `onInit` → `onStart` of every
@@ -177,7 +187,7 @@ export async function buildApplication(
   const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
   const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
-  const { database, reused: instances, quiet, storeClock } = seams;
+  const { database, reused: instances, quiet, storeClock, idempotencyTestKeys: testKeys } = seams;
   const shared = applicationContainerOf(
     {
       ...sources,
@@ -203,8 +213,9 @@ export async function buildApplication(
   const { observer, leaseEvents } = await observersOf(seen, { ...container, onCreate }, options);
   const common = { infrastructure, created, leaseEvents, ...instance };
   try {
-    const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
-    const parts = { ...common, contexts, budgets, observer, piiKey };
+    // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
+    const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);
+    const parts = { ...common, contexts, observer, piiKey, budgets: budgetsOf(assembled), ...keys };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
     await startAll(created, workflows);

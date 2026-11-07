@@ -2,14 +2,13 @@
  * #508 — the re-review of the outbound-call protocol, one scenario per finding: a send that never
  * returns bounds close, cancel and the other instance's wait; a result not stored is never replayed
  * as one; a live attempt blocks a yield; nothing read or exported carries a fingerprint; a
- * Superseded attempt is logged on the instance's log; a joined call is told apart by `instanceof`
+ * AttemptSuperseded attempt is logged on the instance's log; a joined call is told apart by `instanceof`
  * alone.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeaseAttempts } from "../../src/app/lease-yields.js";
 import { DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
-  EmptyEnvironment,
   ExecutionCancelledError,
   ExecutionLeaseEventKind,
   LeaseTakeoverReason,
@@ -23,7 +22,7 @@ import {
   type EffectKey,
   Logger,
   OutboundCallRepository,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallResultNotStoredError,
   OutboundCallStatus,
 } from "../../src/index.js";
@@ -70,6 +69,7 @@ import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 import { untilReached } from "../helpers/reached.js";
 import { passLive } from "../helpers/live-time.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 const overrides = [override(Logger, RecordingLogger)];
 const test = testWith(BusinessKeyApplication, { overrides });
@@ -100,7 +100,8 @@ function settledFlag(promise: Promise<unknown>): () => boolean {
 @Application({
   name: "kept-business-key-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,
@@ -230,9 +231,9 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
       });
       expect(rows).toContainEqual(
         expect.objectContaining({
-          outcome: OutboundCallEventOutcome.LeaseSuperseded,
+          outcome: OutboundCallEventOutcome.LeaseClosed,
           executionId: settledByB.executionId,
-          supersededLease: {
+          closedLease: {
             rootExecutionId: "execution-1",
             leaseExecutionId: "execution-1",
             token: 1,
@@ -240,7 +241,7 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
         }),
       );
       expect(logged).toContainEqual(
-        expect.objectContaining({ level: "warn", code: "outbound-call.lease-superseded" }),
+        expect.objectContaining({ level: "warn", code: "outbound-call.lease-closed" }),
       );
     },
   );
@@ -261,7 +262,7 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
       const replayed = await execute(b, SendChargeStart, charge);
 
       expect(gateway.calls).toHaveLength(2);
-      expect(ledger.outbound.at(-1)).toBe(OutboundCallOutcomeStatus.Replayed);
+      expect(ledger.outbound.at(-1)).toBe(OutboundCallSendStatus.Replayed);
       expect(replayed.output).toEqual({ chargeId: "ch-42-1" });
       expect(logged).toContainEqual(
         expect.objectContaining({
@@ -325,7 +326,7 @@ describe("#508 re-review MEDIUM4: a fingerprint is kept in the store's row only"
       const pending = execute(app, SendChargeStart, charge, { threadId: "thread-pending" });
       pending.catch(() => undefined);
       await frozenLedger(1);
-      const whilePending = await app.pendingOutboundCalls({ tenantId: "default" });
+      const whilePending = (await app.pendingOutboundCallsOf({ tenantId: "default" })).calls;
       letLedgerGo();
       const result = await pending;
       const tree = { tenantId: "default", rootExecutionId: result.executionId };
@@ -377,7 +378,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   }
 }
 
-describe("#508 re-review LOW/MEDIUM6: a Superseded attempt is logged on the instance's log", () => {
+describe("#508 re-review LOW/MEDIUM6: a AttemptSuperseded attempt is logged on the instance's log", () => {
   it("with no lease log (a unit runner): the error is logged all the same, naming the newer attempt", async () => {
     const run = testAction(ChargeOrderAction, {
       overrides: [
@@ -463,7 +464,7 @@ describe("#508 re-review LOW: a joined call", () => {
   it("makes its own call when the first ended with an error of its own (not the other system's), a string too", async () => {
     const { run } = joiningRun(rejectedWith("handed over"), false);
     const made = {
-      status: OutboundCallOutcomeStatus.Sent,
+      status: OutboundCallSendStatus.Sent,
       result: 1,
       attempt: 1,
       idempotencyKey: "k",
@@ -474,7 +475,7 @@ describe("#508 re-review LOW: a joined call", () => {
 
   it("leaves no abort listener on its step's signal once it joined", async () => {
     const first = {
-      status: OutboundCallOutcomeStatus.Sent,
+      status: OutboundCallSendStatus.Sent,
       result: 1,
       attempt: 1,
       idempotencyKey: "k",
@@ -536,8 +537,8 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
       });
       expect(rowsOfB).toContainEqual(
         expect.objectContaining({
-          outcome: OutboundCallEventOutcome.LeaseSuperseded,
-          supersededLease: {
+          outcome: OutboundCallEventOutcome.LeaseClosed,
+          closedLease: {
             rootExecutionId: "execution-1",
             leaseExecutionId: "execution-1",
             token: 1,
@@ -545,8 +546,8 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
         }),
       );
       expect(ledger.outbound).toEqual([
-        OutboundCallOutcomeStatus.Sent,
-        OutboundCallOutcomeStatus.Replayed,
+        OutboundCallSendStatus.Sent,
+        OutboundCallSendStatus.Replayed,
       ]);
       leases.resume(a);
       letLedgerGo();

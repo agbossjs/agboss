@@ -16,7 +16,7 @@ export {
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
   type OutboundCallEventRecord,
-  type OutboundCallSupersededLease,
+  type OutboundCallClosedLease,
   type LeaseEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
@@ -42,26 +42,46 @@ export { SqliteRateLimitRepository } from "../infrastructure/sqlite/sqlite-rate-
 export { SqliteFencedEffectRepository } from "../infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export { SqliteOutboundCallRepository } from "../infrastructure/sqlite/sqlite-outbound-call.repository.js";
 export { SqliteChildExecutionQueueRepository } from "../infrastructure/sqlite/sqlite-child-execution-queue.repository.js";
+// the Secret fields of an environment contract a key field names (#825)
+export type { SecretFieldOf } from "../application/application.js";
+// what a store class declares (#526, #825): its backend and how it checks the lease
+export type { StoreDescriptor } from "../infrastructure/execution-lease.repository.js";
+export type { EffectKeyMark, OutboundCallKeyMark } from "../infrastructure/effect-key.js";
 // the fenced effect (#500): the contract, its key and outcome, the in-memory store, its settings
 export {
   effectKeyOf,
   FencedEffectRepository,
   FencedEffectStatus,
+  FingerprintNotJsonError,
+  FingerprintPolicy,
+  FingerprintRequiredError,
+  IdempotencyKeyMissingError,
+  type BusinessKeyOptions,
   type EffectKey,
+  type EffectKeyFields,
   type EffectKeyOptions,
+  type FingerprintKeys,
+  type FingerprintedKeyOptions,
+  type OutboundCallKey,
+  type OutboundCallKeyOptions,
+  type UnfingerprintedKeyOptions,
   type FencedEffectOrigin,
   type FencedEffectOutcome,
   type FencedEffectWork,
   type JsonPrimitive,
-  type JsonResult,
+  type JsonValue,
 } from "../infrastructure/fenced-effect.repository.js";
 // the rules of a key a store outside the core keeps with the core's own helpers (#526 AC5): the
 // name rule, the business key's text (#538), the replay and conflict rule, where its row is, the
 // record of an outbound call's intent
 export {
-  checkedBusinessKey,
-  checkedEffectName,
+  assertBusinessKey,
+  assertEffectName,
   effectKeyIdentityOf,
+  fingerprintErrorOf,
+  FingerprintProblem,
+  isKeyFingerprint,
+  type FingerprintRequiredErrorOptions,
   pendingOutboundCallOf,
   replayedFromOf,
   storedKeyFactsOf,
@@ -114,8 +134,10 @@ export {
   type OutboundCallFailure,
   type OutboundCallIntent,
   type OutboundCallLease,
+  type OutboundCallPage,
   type OutboundCallRecord,
   type OutboundCallState,
+  type OutboundCallStatusQuery,
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
@@ -126,11 +148,14 @@ export type {
   OutboundCallNotSent,
 } from "../app/outbound-call-types.js";
 export {
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
   OutboundCalls,
   OutboundCallVerdict,
+  type CompletedReconciliation,
+  type NotSentReconciliation,
+  type UnknownReconciliation,
   type OutboundCall,
   type OutboundCallLookup,
   type OutboundCallSendOptions,

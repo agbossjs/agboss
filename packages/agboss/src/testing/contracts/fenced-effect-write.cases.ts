@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
@@ -149,11 +150,10 @@ const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
     const lease = await leaseOf(first);
-    const stranger = {
-      ...keyOf(lease),
+    const stranger = effectKeyForTesting(keyOf(lease), {
       leaseExecutionId: "execution-9",
       scopeKey: "default:execution-9",
-    };
+    });
 
     const refused = await rejectionOf(
       first.effects.saveResultIfAbsent(stranger, writing(first.rows, "r1", count)),

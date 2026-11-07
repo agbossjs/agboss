@@ -16,7 +16,7 @@ import {
   FencedEffectStoreMismatchError,
   InMemoryOutboundCallRepository,
   OutboundCallEventOutcome,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallStatus,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
@@ -71,7 +71,7 @@ describe("#505 AC1 on SQLite: two instances, one file", () => {
       const [end] = await ends(1);
 
       expect(end?.output).toEqual({ chargeId: "ch-order-7-1" });
-      expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Reconciled, attempt: 1 }]);
+      expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Reconciled, attempt: 1 }]);
       expect(gateway.calls).toHaveLength(1);
       expect(await b.outboundCallsOf(TREE)).toEqual([
         expect.objectContaining({
@@ -101,6 +101,7 @@ const assembledWith = (providers: readonly Provider[]) => {
     name: "outbound-stores-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],

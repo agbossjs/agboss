@@ -259,9 +259,9 @@ describe("#533 item 5: the linearizability checker", () => {
         .op(StoreHoldPoint.LeaseRenew, "a", lease("a", 1), 30_000, 10, 100);
     const sound = renewed()
       .op(StoreHoldPoint.LeaseAcquire, "b", TREE, null, 30_050, 30_060)
-      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "superseded", 30_070, 30_080);
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "lease-closed", 30_070, 30_080);
     const refusedAfterExpired = renewed()
-      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "superseded", 30_070, 30_080)
+      .op(StoreHoldPoint.OutboundLeaseStateOf, "a", stateOf(1), "lease-closed", 30_070, 30_080)
       .op(StoreHoldPoint.LeaseAcquire, "b", TREE, null, 30_090, 30_095);
 
     expect(failures(sound)).toEqual([]);

@@ -4,7 +4,6 @@ import {
   Action,
   Budget,
   BudgetScope,
-  EmptyEnvironment,
   ExecutionContext,
   FencedEffectRepository,
   FencedEffectStatus,
@@ -22,6 +21,7 @@ import { usd, type Usd } from "../../../src/units/index.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import { start, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #500 — an order charged through the fenced effect: the charge action writes its charge row in
@@ -255,7 +255,8 @@ export class DoubleChargeWorkflow {}
 @Application({
   name: "fenced-effect-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

@@ -1,3 +1,5 @@
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #626 — what each error of a call that leaves the system says and carries, each field found by a
  * mutant that lived: its name, code, message, details, usage (none: no model ran) and the step it
@@ -42,7 +44,7 @@ describe("#626: the outbound call's errors", () => {
       name: "OutboundCallUnreconciledError",
       code: "outbound-call.unreconciled",
       message:
-        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled: the lookup timed out — nothing was sent; an operator decides (app.pendingOutboundCalls)',
+        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled: the lookup timed out — nothing was sent; an operator decides (app.pendingOutboundCallsOf)',
       call: "charge",
       target: "payments",
       operation: "charge",
@@ -131,14 +133,14 @@ describe("#626: the outbound call's errors", () => {
 });
 
 describe("#626: send checks a key built by hand first", () => {
-  const KEY = {
+  const KEY = effectKeyForTesting({
     scopeKey: "default:execution-1",
     tenantId: "default",
     leaseExecutionId: "execution-1",
     token: 1,
     idempotencyKey: "execution-1:charge-action:1",
     name: "charge",
-  };
+  });
 
   function outboundCalls() {
     const [clock, database] = [new VirtualClock(), new InMemoryDatabase()];
@@ -150,6 +152,8 @@ describe("#626: send checks a key built by hand first", () => {
     return new OutboundCalls(
       new InMemoryOutboundCallRepository(clock, database, leases),
       new OutboundCallSettings({ requiresMask: false }),
+      new SilentLogger(),
+      clock,
     );
   }
 
@@ -163,14 +167,14 @@ describe("#626: send checks a key built by hand first", () => {
   };
 
   it("an invalid name is refused before anything else — even outside a step", async () => {
-    await expect(outboundCalls().send({ ...KEY, name: "a:b" }, options)).rejects.toBeInstanceOf(
-      InvalidFencedEffectNameError,
-    );
+    await expect(
+      outboundCalls().send(effectKeyForTesting(KEY, { name: "a:b" }), options),
+    ).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
   });
 
   it("an invalid business key is refused before anything else — even outside a step", async () => {
     await expect(
-      outboundCalls().send({ ...KEY, businessKey: "order:\u200b42" }, options),
+      outboundCalls().send(effectKeyForTesting(KEY, { businessKey: "order:\u200b42" }), options),
     ).rejects.toBeInstanceOf(InvalidBusinessKeyError);
   });
 });

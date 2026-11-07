@@ -1,6 +1,16 @@
-import { fingerprintOf, IdempotencyKeyConflictError } from "../infrastructure/fenced-effect-key.js";
+import { issuedKey } from "../infrastructure/issued-keys.js";
+import {
+  fingerprintsOf,
+  IdempotencyKeyConflictError,
+  isKeyFingerprint,
+} from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
-import type { EffectKey, FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
+import type {
+  EffectKey,
+  EffectKeyFields,
+  FencedEffectOrigin,
+  OutboundCallKey,
+} from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
@@ -16,11 +26,16 @@ import { OutboundCallInFlightError } from "./outbound-calls.js";
  * conflict, never a replay; a pending call a live holder owns is in flight, never reconciled here.
  */
 
-/** The key with its fingerprint: the request's, when a business key names none. */
-export const keyedByRequest = (key: EffectKey, request: unknown): EffectKey =>
-  key.businessKey === undefined || key.fingerprint !== undefined
-    ? key
-    : { ...key, fingerprint: fingerprintOf(request) };
+/**
+ * The key with its fingerprint (#825): the request's — under the application's idempotency key, and
+ * its previous one during a rotation — when a business key names none (`OutboundCalls.send` refuses
+ * `FingerprintPolicy.None` before: a call's request is always its fingerprint).
+ */
+export function keyedByRequest(key: EffectKey | OutboundCallKey, request: unknown): EffectKey {
+  if (key.businessKey === undefined || key.fingerprint !== undefined) return key as EffectKey;
+  const fields: EffectKeyFields = key;
+  return issuedKey({ ...fields, ...fingerprintsOf(request, key.name) }) as EffectKey;
+}
 
 /**
  * The idempotency key sent with the call: the step's key and the name — or, with a business key,
@@ -39,7 +54,7 @@ export const callKeyOf = (key: EffectKey): string =>
  * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
  * when this instance is sending under it now, whatever the key; under a business key also while
  * the lease that wrote it is live on another instance (released only once its attempts settled,
- * never yielded under one); one expired is closed by the check (`leaseStateOf`: `Superseded`, what
+ * never yielded under one); one expired is closed by the check (`leaseStateOf`: `LeaseClosed`, what
  * the caller tells), so its holder writes nothing under it again, and the attempt is reconciled here. The lease this step runs under
  * is this instance's: an attempt it wrote whose owner is not sending here has ended. One that ended
  * is reconciled by whoever wins the compare-and-set.
@@ -49,7 +64,8 @@ export async function checkedCall<TRequest, TResult>(
   found: OutboundCallRecord,
 ): Promise<OutboundCallLeaseState | undefined> {
   const { key, options } = run;
-  if (key.businessKey !== undefined && found.fingerprint !== key.fingerprint)
+  // #825: the current idempotency key's fingerprint, or the previous one's during a rotation
+  if (key.businessKey !== undefined && !isKeyFingerprint(key, found.fingerprint))
     throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
   if (found.status !== OutboundCallStatus.Pending) return undefined;
   const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });

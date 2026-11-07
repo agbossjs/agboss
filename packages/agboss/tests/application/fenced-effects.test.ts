@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
-  EmptyEnvironment,
   FencedEffectRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
@@ -27,6 +26,7 @@ import {
   ChargeWorkflowStart,
   resetFencedEffect,
 } from "../app/fixtures/fenced-effect.workflow.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetLogged();
@@ -38,7 +38,8 @@ const assembledWith = (fencedEffects: FencedEffectOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
+    environment: IdempotencyKeyEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [InMemoryFencedEffectRepository],
@@ -79,7 +80,8 @@ describe("#500: @Application({ fencedEffects }) at assembly", () => {
 @Application({
   name: "small-fenced-effect-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

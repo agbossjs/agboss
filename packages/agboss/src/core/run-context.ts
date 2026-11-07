@@ -1,3 +1,4 @@
+import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -39,8 +40,11 @@ export interface RunContext {
    * unless the execution has a key of its own (#334).
    */
   readonly correlationKey?: string | undefined;
-  /** The application's own PII key, when it sets one (#508): what a fingerprint is keyed by. */
-  readonly fingerprintKey?: string | undefined;
+  /**
+   * The application's idempotency keys (#825, `idempotencyKeyField` and the previous one): what a
+   * business key's fingerprint is keyed by. None without `idempotencyKeyField`.
+   */
+  readonly fingerprintKeys?: FingerprintKeys | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */

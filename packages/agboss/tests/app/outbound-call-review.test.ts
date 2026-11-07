@@ -1,6 +1,6 @@
 /**
  * #508 — the concurrency review of the outbound-call protocol, one scenario per finding: a lease
- * stays open while an attempt under it is in flight; a lost completion is `Superseded`, never a
+ * stays open while an attempt under it is in flight; a lost completion is `OutboundCallSupersededError`, never a
  * silent `Sent`; a live owner is never reconciled, whatever the key; a joined call never takes on
  * the first call's own hand-over or cancel; an answered call always ends `Completed`; what a
  * business key derives is keyed; the key sent out is unambiguous.
@@ -17,7 +17,7 @@ import {
   Injectable,
   InMemoryOutboundCallRepository,
   OutboundCallInFlightError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallRepository,
   OutboundCallStatus,
   OutboundCallSupersededError,
@@ -48,6 +48,7 @@ import {
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import { frozenCharges, gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 import { untilReached } from "../helpers/reached.js";
+import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 
 const test = testWith(BusinessKeyApplication);
 const two = testWith(BusinessKeyApplication, { instances: 2 });
@@ -93,7 +94,7 @@ describe("#508 review 1a: a lease stays open while an attempt under it is in fli
       const later = await execute(b, SendChargeStart, charge);
 
       expect(gateway.calls).toHaveLength(1);
-      expect(ledger.outbound.at(-1)).toBe(OutboundCallOutcomeStatus.Replayed);
+      expect(ledger.outbound.at(-1)).toBe(OutboundCallSendStatus.Replayed);
       expect(later.output).toEqual({ chargeId: "ch-42-1" });
     },
   );
@@ -197,9 +198,12 @@ describe("#508 review 6: what a business key derives is keyed", () => {
       .resolve(OutboundCallRepository)
       .findAllByTenantIdAndRootExecutionId("default", result.executionId);
     const text = `fingerprint\u0000${stableJson(charge)}`;
-    const subkey = keyedDigestOf(TEST_PSEUDONYM_KEY, FINGERPRINT_LABEL);
+    const subkey = keyedDigestOf(TEST_IDEMPOTENCY_KEY, FINGERPRINT_LABEL);
+    const underPiiKey = keyedDigestOf(keyedDigestOf(TEST_PSEUDONYM_KEY, FINGERPRINT_LABEL), text);
 
     expect(call?.fingerprint).toBe(keyedDigestOf(subkey, text));
+    // #825: the idempotency key's, never the PII key's
+    expect(call?.fingerprint).not.toBe(underPiiKey);
     expect(call?.fingerprint).not.toBe(
       createHash("sha256").update(stableJson(charge)).digest("hex"),
     );

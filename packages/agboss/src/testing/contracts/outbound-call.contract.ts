@@ -8,6 +8,7 @@ import { outboundBusinessKeyCases } from "./outbound-call-business.cases.js";
 import { outboundRaceCases } from "./outbound-call-race.cases.js";
 import type { OutboundCallStores } from "./outbound-call-data.js";
 import { outboundListingCases, outboundRefusalCases } from "./outbound-call-refusal.cases.js";
+import { outboundPagingCases } from "./outbound-call-paging.cases.js";
 import { outboundTextCases } from "./outbound-call-text.cases.js";
 import { outboundTimeCases } from "./outbound-call-time.cases.js";
 import { outboundWriteCases } from "./outbound-call-write.cases.js";
@@ -47,6 +48,7 @@ export function registerOutboundCallContract(
       outboundWriteCases(),
       outboundRefusalCases(),
       outboundListingCases(),
+      outboundPagingCases(),
       outboundAttemptCases(),
       outboundTextCases(),
       outboundBusinessKeyCases(),

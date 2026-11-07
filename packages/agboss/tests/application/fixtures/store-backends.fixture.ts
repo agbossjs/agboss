@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * #526 — stores on every backend a test pairs: the core's own (in-memory, SQLite) and stores of
  * other backends ("postgres", a second PostgreSQL database "postgres:billing", "redis"), stores that
@@ -34,103 +35,111 @@ const CALL_DEPS = { deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] 
 
 @Injectable(LEASE_DEPS)
 export class PostgresLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable(LEASE_DEPS)
 export class BillingLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "postgres:billing";
+  static override readonly store: StoreDescriptor = { backend: "postgres:billing" };
 }
 
 @Injectable(LEASE_DEPS)
 export class RedisLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "redis";
+  static override readonly store: StoreDescriptor = { backend: "redis" };
 }
 
 @Injectable(LEASE_DEPS)
 export class UndeclaredLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 @Injectable(LEASE_DEPS)
 export class EmptyLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "";
+  static override readonly store: StoreDescriptor = { backend: "" };
 }
 
 @Injectable(EFFECT_DEPS)
 export class PostgresEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable(EFFECT_DEPS)
 export class BillingEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "postgres:billing";
+  static override readonly store: StoreDescriptor = { backend: "postgres:billing" };
 }
 
 @Injectable(EFFECT_DEPS)
 export class RedisEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "redis";
+  static override readonly store: StoreDescriptor = { backend: "redis" };
 }
 
 @Injectable(EFFECT_DEPS)
 export class UndeclaredEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 @Injectable(EFFECT_DEPS)
 export class EmptyEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "";
+  static override readonly store: StoreDescriptor = { backend: "" };
 }
 
 /** The opt-out with no backend at all: a store that checks a lease kept elsewhere. */
 @Injectable(EFFECT_DEPS)
 export class UncheckedEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = undefined;
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: undefined,
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 /** The opt-out on a declared backend: not compared with the lease store's either. */
 @Injectable(EFFECT_DEPS)
 export class UncheckedRedisEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "redis";
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: "redis",
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 @Injectable(CALL_DEPS)
 export class PostgresCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable(CALL_DEPS)
 export class BillingCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "postgres:billing";
+  static override readonly store: StoreDescriptor = { backend: "postgres:billing" };
 }
 
 @Injectable(CALL_DEPS)
 export class RedisCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "redis";
+  static override readonly store: StoreDescriptor = { backend: "redis" };
 }
 
 @Injectable(CALL_DEPS)
 export class UndeclaredCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 @Injectable(CALL_DEPS)
 export class EmptyCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "";
+  static override readonly store: StoreDescriptor = { backend: "" };
 }
 
 @Injectable(CALL_DEPS)
 export class UncheckedCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = undefined;
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: undefined,
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 @Injectable(CALL_DEPS)
 export class UncheckedRedisCalls extends InMemoryOutboundCallRepository {
-  static override readonly backend: string | undefined = "redis";
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    backend: "redis",
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }
 
 /** A lease store of a pairing: listed, or none (the in-memory default). */
@@ -208,6 +217,7 @@ export function storesApplication(providers: readonly Provider[]): Class {
     name: "stores-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers,

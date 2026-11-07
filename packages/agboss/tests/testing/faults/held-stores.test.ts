@@ -72,7 +72,7 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
       Object.prototype.isPrototypeOf.call(SqliteExecutionLeaseRepository.prototype, Held.prototype),
     ).toBe(true);
     expect(depsOf(Held)).toEqual(depsOf(SqliteExecutionLeaseRepository));
-    expect(Held.backend).toBe("sqlite");
+    expect(Held.store.backend).toBe("sqlite");
     expect(Held.name).toBe("HeldSqliteExecutionLeaseRepository");
   });
 

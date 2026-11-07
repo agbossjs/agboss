@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment, OutboundCallPayloadTooLargeError } from "../../src/index.js";
+import { OutboundCallPayloadTooLargeError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { kilobytes, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -17,6 +17,7 @@ import {
   resetRuns,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetGateway();
@@ -27,7 +28,8 @@ beforeEach(() => {
 @Application({
   name: "edge-outbound-call-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

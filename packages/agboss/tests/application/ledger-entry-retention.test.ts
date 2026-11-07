@@ -7,16 +7,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import {
-  CostLedgerRepository,
-  EmptyEnvironment,
-  InMemoryFencedEffectRepository,
-} from "../../src/index.js";
+import { CostLedgerRepository, InMemoryFencedEffectRepository } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ChargeWorkflow } from "../app/fixtures/fenced-effect.workflow.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetLogged();
@@ -26,7 +23,8 @@ const assembledWith = (ledgerEntryRetention?: Milliseconds) => {
   @Application({
     name: "ledger-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
+    environment: IdempotencyKeyEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [InMemoryFencedEffectRepository],
@@ -58,7 +56,8 @@ describe("#771: @Application({ ledgerEntryRetention }) at assembly", () => {
 @Application({
   name: "short-ledger-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InMemoryFencedEffectRepository, RecordingLogger],

@@ -84,9 +84,9 @@ describe("#807: the A2A task stores' helpers", () => {
 
   it("#824: each store declares its backend; the contract leaves it undeclared", () => {
     expect([
-      A2ATaskRepository.backend,
-      InMemoryA2ATaskRepository.backend,
-      SqliteA2ATaskRepository.backend,
+      A2ATaskRepository.store.backend,
+      InMemoryA2ATaskRepository.store.backend,
+      SqliteA2ATaskRepository.store.backend,
     ]).toEqual([undefined, "in-memory", "sqlite"]);
   });
 

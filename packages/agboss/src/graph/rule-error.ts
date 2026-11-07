@@ -86,6 +86,11 @@ export type RuleCode =
   | "application.fenced-effects-invalid"
   | "application.store-backend-mismatch"
   | "application.store-backend-undeclared"
+  // a listed store's static store that is no StoreDescriptor (#825)
+  | "application.store-descriptor-invalid"
+  | "application.idempotency-key-required"
+  | "application.idempotency-key-shared"
+  | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
   | "a2a.task-store-not-shared"
   | "application.outbound-calls-invalid"

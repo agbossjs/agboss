@@ -5,7 +5,7 @@
  * or past its confirmation.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Class } from "../../../src/components/injection.js";
+import type { StoreDescriptor } from "../../../src/index.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -73,20 +73,22 @@ describe("#500: a unit runner's fenced effect", () => {
   });
 });
 
-/** A project's store that names no lease store: the runner has nowhere to hold its lease. */
+/** A project's store that declares no backend: the runner has no lease store to hold its lease in. */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 class UnleasedFencedEffectRepository extends InMemoryFencedEffectRepository {
-  static override readonly leaseRepository: Class | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
-/** A service that is no lease store. */
-@Injectable()
-class NotALeaseStore {}
-
-/** A project's store that names a class that is no lease store. */
+/** A project's store on a backend the runner has no lease store of, and the test lists none. */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
-  static override readonly leaseRepository: Class | undefined = NotALeaseStore;
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
+}
+
+/** A project's own store on the in-memory backend: the runner finds its lease store by it (#825). */
+@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+class OwnInMemoryFencedEffectRepository extends InMemoryFencedEffectRepository {
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 }
 
 const writeOnce = (store: InMemoryFencedEffectRepository, executionContext: ExecutionContext) =>
@@ -126,10 +128,35 @@ class MisdeclaredChargeAction {
   }
 }
 
+@Action({
+  name: "own-store-charge-action",
+  description: "Charges through a project's own in-memory store",
+  input: { message: WorkflowStartTextDto },
+  deps: [ExecutionContext, OwnInMemoryFencedEffectRepository],
+})
+class OwnStoreChargeAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly store: OwnInMemoryFencedEffectRepository,
+  ) {}
+
+  async execute(): Promise<void> {
+    await writeOnce(this.store, this.executionContext);
+  }
+}
+
+describe("#825: the runner finds a store's lease store by its backend", () => {
+  it("a project's store on the in-memory backend: its lease held there, its effect runs", async () => {
+    const run = testAction(OwnStoreChargeAction);
+
+    await expect(run(order)).resolves.toMatchObject({ output: undefined });
+  });
+});
+
 describe("#500: a store whose lease store the runner cannot find", () => {
   it.each([
-    ["names none", UnleasedChargeAction],
-    ["names a class that is no lease store", MisdeclaredChargeAction],
+    ["declares no backend", UnleasedChargeAction],
+    ["is on a backend of no lease store the runner has", MisdeclaredChargeAction],
   ])("%s: the runner holds no lease for it, so its effect is refused", async (_case, action) => {
     const run = testAction(action);
 

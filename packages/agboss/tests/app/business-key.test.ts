@@ -13,7 +13,7 @@ import {
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
   OutboundCallInFlightError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallUnreconciledError,
   ToolCallStatus,
 } from "../../src/index.js";
@@ -153,10 +153,7 @@ describe("#508 AC2: two executions on two threads", () => {
     expect(gateway.calls).toHaveLength(1);
     expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A42:charge");
     expect(second.output).toEqual(first.output);
-    expect(ledger.outbound).toEqual([
-      OutboundCallOutcomeStatus.Sent,
-      OutboundCallOutcomeStatus.Replayed,
-    ]);
+    expect(ledger.outbound).toEqual([OutboundCallSendStatus.Sent, OutboundCallSendStatus.Replayed]);
     const calls = await app.outboundCallsOf({
       tenantId: "default",
       rootExecutionId: first.executionId,
@@ -242,10 +239,7 @@ describe("#508: a pending call under a business key", () => {
     letLedgerGo();
 
     expect((await second).output).toEqual((await first).output);
-    expect(ledger.outbound).toEqual([
-      OutboundCallOutcomeStatus.Sent,
-      OutboundCallOutcomeStatus.Joined,
-    ]);
+    expect(ledger.outbound).toEqual([OutboundCallSendStatus.Sent, OutboundCallSendStatus.Joined]);
     expect(gateway.calls).toHaveLength(1);
   });
 
@@ -285,7 +279,7 @@ describe("#508: a pending call under a business key", () => {
 
     const second = await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
-    expect(ledger.outbound).toEqual([OutboundCallOutcomeStatus.Sent]);
+    expect(ledger.outbound).toEqual([OutboundCallSendStatus.Sent]);
     expect(gateway.lookups).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 1 }]);
     expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
     expect(second.output).toEqual({ chargeId: "ch-42-1" });
@@ -327,8 +321,8 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
 
       expect(gateway.calls).toHaveLength(1);
       expect([...ledger.outbound].sort()).toEqual([
-        OutboundCallOutcomeStatus.Joined,
-        OutboundCallOutcomeStatus.Sent,
+        OutboundCallSendStatus.Joined,
+        OutboundCallSendStatus.Sent,
       ]);
       expect(result.toolCalls.map((call) => call.output)).toEqual([
         { chargeId: "ch-42-1" },
@@ -346,8 +340,8 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
 
       expect(gateway.calls).toHaveLength(1);
       expect([...ledger.outbound].sort()).toEqual([
-        OutboundCallOutcomeStatus.Joined,
-        OutboundCallOutcomeStatus.Sent,
+        OutboundCallSendStatus.Joined,
+        OutboundCallSendStatus.Sent,
       ]);
       expect(result.output).toEqual({ chargeIds: "ch-42-1, ch-42-1" });
     },
@@ -425,9 +419,9 @@ describe("#508: two instances racing on one business key", () => {
 
       expect(gateway.calls.map((call) => call.attempt)).toEqual([1, 2]);
       expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).not.toHaveLength(0);
-      expect(ledger.outbound.filter((status) => status === OutboundCallOutcomeStatus.Sent)).toEqual(
-        [OutboundCallOutcomeStatus.Sent],
-      );
+      expect(ledger.outbound.filter((status) => status === OutboundCallSendStatus.Sent)).toEqual([
+        OutboundCallSendStatus.Sent,
+      ]);
     },
   );
 });

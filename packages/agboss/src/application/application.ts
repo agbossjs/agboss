@@ -1,3 +1,4 @@
+import type { Secret } from "../environments/secret.js";
 import type {
   FencedEffectOptions,
   OutboundCallOptions,
@@ -32,7 +33,7 @@ export interface A2AApplicationOptions {
  * its model providers, #266)
  * and every budget of the application. Its `environments/` folder is next to its file.
  */
-export interface ApplicationOptions {
+export interface ApplicationOptions<TEnvironment = unknown> {
   /** Ends with `-application` (`job-scout-application`). */
   readonly name: string;
   /** The release version (each workflow's own `version` is its behaviour version). */
@@ -159,7 +160,7 @@ export interface ApplicationOptions {
    * application file exports `const environment: AppEnvironment = { … }`. An application with no
    * settings declares `EmptyEnvironment` (a contract without fields) and needs no environment file.
    */
-  readonly environment: Class;
+  readonly environment: Class<TEnvironment>;
   /**
    * The project's tenant level (#261): a subclass of `TenantContext` with DTO field decorators
    * (`config/context.config.ts`). Its fields are then required at every `app.execute(…, { tenant })`;
@@ -203,20 +204,53 @@ export interface ApplicationOptions {
   readonly uncompactedTurns?: UncompactedTurns;
   /**
    * The application's PII key (#120): names a `Secret` field of the environment
-   * (`pseudonymKey: "piiPseudonymKey"` with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`). Tokens of
+   * (`piiKeyField: "piiPseudonymKey"` with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`). Tokens of
    * `sensitive` fields, of a project's own detectors and of any policy without its own
    * `pseudonymKey` are made with it, so one value is one token on every instance. A policy's own key
    * wins; a policy that needs this one when it is not set fails the start, naming the field. Not set
    * and not needed → a key made per root execution (kept in its checkpoint, #334) and the warning
-   * `[application.pii-instance-key]`.
+   * `[application.pii-instance-key]`. Only a `Secret` field of the contract compiles (#825), and one
+   * that is also another key — a model provider's `apiKey`, the mesh's `signingKey`, an idempotency
+   * key, a `Secret` a listed class reads — is `[application.pii-key-shared]`: rotating that key
+   * would change every token.
    */
-  readonly pseudonymKey?: string;
+  readonly piiKeyField?: SecretFieldOf<TEnvironment>;
+  /**
+   * The application's idempotency key (#825): names a `Secret` field of the environment used only
+   * for business-key fingerprints — `HMAC(HMAC(key, "agboss/fingerprint/v1"), canonical JSON)` of what
+   * a fenced effect or a call under a business key does — the same on every instance, never
+   * guessable from a stored row. Required as soon as the application can make a business key (a
+   * component reaches `OutboundCalls` or a fenced-effect store through its `deps`:
+   * `[application.idempotency-key-required]`); never the PII key or a provider's
+   * (`[application.idempotency-key-shared]`). `testWith` gives it a test key when its variable is not set.
+   */
+  readonly idempotencyKeyField?: SecretFieldOf<TEnvironment>;
+  /**
+   * The idempotency key the application rotates from (#825): while named, a fingerprint is compared
+   * under both keys — a call recorded before the rotation and retried after it is recognised, never
+   * a conflict — and stored under `idempotencyKeyField`'s. Remove it once no intent recorded under
+   * it can be retried: what is left of it is then a conflict (fail closed), never a second call.
+   */
+  readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
   /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).
    */
   readonly defaults?: WorkflowDefaults;
 }
+
+/**
+ * The `Secret` fields of an environment contract (#825): what `piiKeyField`,
+ * `idempotencyKeyField` and `previousIdempotencyKeyField` may name — a typo or a text field does not
+ * compile. Any text where the contract is not known.
+ */
+export type SecretFieldOf<TEnvironment> = unknown extends TEnvironment
+  ? string
+  : {
+      [TField in keyof TEnvironment & string]-?: NonNullable<TEnvironment[TField]> extends Secret
+        ? TField
+        : never;
+    }[keyof TEnvironment & string];
 
 /** What `@Application` recorded: its options and the file it is declared in. */
 export interface ApplicationDeclaration {
@@ -229,10 +263,15 @@ const applications = new WeakMap<Class, ApplicationDeclaration>();
 /** The applications that list each workflow, as they are declared (loaded modules only). */
 const listedIn = new WeakMap<Class, Class[]>();
 
-export function Application(options: ApplicationOptions) {
+export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    applications.set(value, source === undefined ? { options } : { options, source });
+    // kept as the application's options: the contract's field types are a compile-time check only
+    const declared = options as ApplicationOptions;
+    applications.set(
+      value,
+      source === undefined ? { options: declared } : { options: declared, source },
+    );
     // a child workflow belongs to its parents' application, listed or not (#263)
     for (const workflow of withChildWorkflows(options.workflows))
       listedIn.set(workflow, [...(listedIn.get(workflow) ?? []), value]);

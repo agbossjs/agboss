@@ -52,14 +52,14 @@ export enum OutboundCallEventOutcome {
    * Answered after a newer attempt took the intent over (#508): two attempts reached the other
    * system — its answer not stored, an error in the log.
    */
-  Superseded = "superseded",
+  AttemptSuperseded = "attempt-superseded",
   /** The same call was being made by this instance: its outcome shared, nothing sent again. */
   Joined = "joined",
   /**
    * Found pending under another execution's lease that had expired (#508): that lease closed now
-   * (`supersededLease`), so its holder writes nothing under it again — the call is reconciled here.
+   * (`closedLease`), so its holder writes nothing under it again — the call is reconciled here.
    */
-  LeaseSuperseded = "lease-superseded",
+  LeaseClosed = "lease-closed",
 }
 
 /** The state of the lease that wrote a pending intent, as `leaseStateOf` finds it (#508). */
@@ -69,7 +69,7 @@ export enum OutboundCallLeaseState {
   /** Released, or its token moved on: the attempt's owner is gone. */
   Ended = "ended",
   /** Expired at the token, closed by the check now: the owner is gone, and fenced from here on. */
-  Superseded = "superseded",
+  LeaseClosed = "lease-closed",
 }
 
 /** How one call of a fenced effect (#500) went, as the lease log keeps it. */
@@ -205,19 +205,19 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   /** A business key's replay of a call another step or execution made (#508): that step. */
   readonly replayedFrom?: FencedEffectOrigin;
   /**
-   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * The newer attempt that took the intent over while this one was in flight (#508, `AttemptSuperseded`):
    * both reached the other system.
    */
   readonly supersededBy?: number;
   /**
-   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * The lease of another execution this call closed (#508, `LeaseClosed`): it had expired with
    * this intent's attempt pending under it — the token it was held at, never one nobody held.
    */
-  readonly supersededLease?: OutboundCallSupersededLease;
+  readonly closedLease?: OutboundCallClosedLease;
 }
 
 /** A lease an outbound call closed (#508): its tree, its execution and the token it was held at. */
-export interface OutboundCallSupersededLease {
+export interface OutboundCallClosedLease {
   readonly rootExecutionId: string;
   readonly leaseExecutionId: string;
   readonly token: number;
@@ -226,6 +226,31 @@ export interface OutboundCallSupersededLease {
 /** One row of the lease log. */
 export type ExecutionLeaseEventRecord =
   LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+
+/** The outcomes a row written before #825 names by their old values. */
+const RENAMED_OUTCOMES: Readonly<Record<string, OutboundCallEventOutcome>> = {
+  superseded: OutboundCallEventOutcome.AttemptSuperseded,
+  "lease-superseded": OutboundCallEventOutcome.LeaseClosed,
+};
+
+/**
+ * A row of the lease log as this version names it (#825, the migration of rows written before):
+ * an outbound call's `superseded` is `attempt-superseded`, its `lease-superseded` is `lease-closed`
+ * and its `supersededLease` is `closedLease`. Every other row, and a row already current, as it is.
+ */
+export function currentLeaseEventOf(record: ExecutionLeaseEventRecord): ExecutionLeaseEventRecord {
+  if (record.kind !== ExecutionLeaseEventKind.OutboundCall) return record;
+  const { supersededLease, ...rest } = record as OutboundCallEventRecord & {
+    readonly supersededLease?: OutboundCallClosedLease;
+  };
+  // #554: the table's own keys only — an outcome named "constructor" is no old name
+  const outcome = Object.hasOwn(RENAMED_OUTCOMES, record.outcome)
+    ? (RENAMED_OUTCOMES[record.outcome] ?? record.outcome)
+    : record.outcome;
+  if (supersededLease === undefined && outcome === record.outcome) return record;
+  const closed = supersededLease === undefined ? {} : { closedLease: supersededLease };
+  return { ...rest, outcome, ...closed };
+}
 
 export abstract class ExecutionLeaseEventRepository {
   /** Whether the store answers (#300): one fast round trip. */

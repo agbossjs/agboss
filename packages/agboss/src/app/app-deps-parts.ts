@@ -107,6 +107,8 @@ export interface TreeParts {
   readonly compensation?: CompensationParts | undefined;
   /** The instance's queue of children on any instance (#333 PR 2). */
   readonly remoteChildren?: RemoteChildren | undefined;
+  /** The application's idempotency keys (#825): its steps' business-key fingerprints. */
+  readonly fingerprintKeys?: GraphDeps<string>["fingerprintKeys"];
 }
 
 /**
@@ -115,10 +117,16 @@ export interface TreeParts {
  */
 export const treeDepsOf = (
   { idGenerator, executionLeases }: Pick<Infrastructure, "idGenerator" | "executionLeases">,
-  { childDepsOf, stepSlots, stepEntries, compensation, remoteChildren }: TreeParts,
+  { childDepsOf, stepSlots, stepEntries, compensation, remoteChildren, fingerprintKeys }: TreeParts,
 ): Pick<
   GraphDeps<string>,
-  "childDepsOf" | "executionIds" | "stepSlots" | "stepEntries" | "compensation" | "remoteChildren"
+  | "childDepsOf"
+  | "executionIds"
+  | "stepSlots"
+  | "stepEntries"
+  | "compensation"
+  | "remoteChildren"
+  | "fingerprintKeys"
 > => ({
   executionIds: executionIdsOf(idGenerator, executionLeases),
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
@@ -126,6 +134,8 @@ export const treeDepsOf = (
   ...(stepEntries === undefined ? {} : { stepEntries }),
   ...(compensation === undefined ? {} : { compensation }),
   ...(remoteChildren === undefined ? {} : { remoteChildren }),
+  // what its steps' business-key fingerprints are keyed by (#825)
+  ...(fingerprintKeys === undefined ? {} : { fingerprintKeys }),
 });
 
 /** Stores the config snapshot of this version; warns when the version already had other content. */

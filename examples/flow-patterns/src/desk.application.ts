@@ -32,7 +32,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   name: "desk-application",
   version: "1.0.0",
   environment: AppEnvironment,
-  pseudonymKey: "piiPseudonymKey",
+  piiKeyField: "piiPseudonymKey",
   workflows: [DeskWorkflow],
   exposes: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],

@@ -5,6 +5,7 @@
  * the sweep removes the marks too, a key made by hand is checked, and the store refuses to run
  * beside another lease store (`FencedEffectStoreMismatchError`).
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -168,10 +169,13 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
     const { leases, effects } = storesOn();
     let runs = 0;
 
-    const call = effects.saveResultIfAbsent({ ...keyOf(await held(leases)), name: "" }, () => {
-      runs += 1;
-      return null;
-    });
+    const call = effects.saveResultIfAbsent(
+      effectKeyForTesting(keyOf(await held(leases)), { name: "" }),
+      () => {
+        runs += 1;
+        return null;
+      },
+    );
 
     await expect(call).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
     expect(runs).toBe(0);
@@ -187,10 +191,13 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       const { leases, effects } = storesOn();
       let runs = 0;
 
-      const call = effects.saveResultIfAbsent({ ...keyOf(await held(leases)), ...change }, () => {
-        runs += 1;
-        return null;
-      });
+      const call = effects.saveResultIfAbsent(
+        effectKeyForTesting(keyOf(await held(leases)), { ...change }),
+        () => {
+          runs += 1;
+          return null;
+        },
+      );
 
       await expect(call).rejects.toThrow(message);
       await expect(call).rejects.toBeInstanceOf(TypeError);

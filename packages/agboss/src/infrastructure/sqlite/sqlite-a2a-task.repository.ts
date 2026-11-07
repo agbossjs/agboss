@@ -26,6 +26,7 @@ import {
 } from "./sqlite-a2a-task-rows.js";
 import { sqliteA2ATaskPageOf } from "./sqlite-a2a-task-pages.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import type { StoreDescriptor } from "../execution-lease.repository.js";
 
 /**
  * `A2ATaskRepository` on the application's SQLite file (#807): a task row and a row per accepted
@@ -36,7 +37,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteA2ATaskRepository extends A2ATaskRepository {
-  static override readonly backend: string | undefined = "sqlite";
+  static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(private readonly connection: SqliteConnection) {
     super();

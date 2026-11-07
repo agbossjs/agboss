@@ -34,6 +34,8 @@
         // loaded by path: the applications `workflowOf` finds next to a workflow (#497)
         "tests/fixtures/outside-graph/**/*.application.ts",
         "tests/**/fixtures/**/*.environment.ts",
+        // loaded by path: the environment of the applications a test folder's own files declare (#825)
+        "tests/*/environments/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
         // loaded by path: the eval suites `agboss eval run` and `agboss check` find (#396)

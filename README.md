@@ -364,8 +364,8 @@ The schema is created by the package's versioned migrations, run before the new 
 `npx agboss-postgres migrate --url "$DATABASE_URL"` (a Kubernetes Job), or `postgresMigrateOnStart:
 true` for a single instance; a second run changes nothing, and an instance never starts on a
 database older or newer than its package (`PostgresSchemaMissingError`, `PostgresSchemaTooNewError`).
-The lease, fenced-effect and outbound-call stores must be on one database (`static backend =
-"postgres"`, else `[application.store-backend-mismatch]` at assembly); every pod's pool counts
+The lease, fenced-effect and outbound-call stores must be on one database (`static store = {
+backend: "postgres" }`, else `[application.store-backend-mismatch]` at assembly); every pod's pool counts
 against the server's `max_connections`; a lease's expiry is decided by the database's own
 `clock_timestamp()`, so the pods' clocks may disagree. Wiki → Running-on-PostgreSQL has the whole
 setup, its limits and how the stores are proved (`storeConformance` and `faultSuite` against a
@@ -1478,7 +1478,7 @@ written before, the stored result comes back (`FencedEffectStatus.Replayed`) and
 else `work` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
 of one instance gets the first's result (`Joined`); a throwing `work` rolls everything back. The
 built-in store is in memory; `SqliteFencedEffectRepository` (listed with
-`SqliteExecutionLeaseRepository`: the stores declare one `static backend`, else
+`SqliteExecutionLeaseRepository`: the stores declare one backend in `static store`, else
 `[application.store-backend-mismatch]`, #526) gives `work` the
 connection's `DatabaseSync` and runs it synchronously — a returned promise rolls back with
 `FencedEffectAsyncWorkError`:
@@ -1712,7 +1712,7 @@ event. The startup warnings (`app.warnings`) include the **assembly warnings**: 
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
 built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
-tokens made with a key of each execution because `@Application({ pseudonymKey })` is not set
+tokens made with a key of each execution because `@Application({ piiKeyField })` is not set
 (`[application.pii-instance-key]`: one value gets another token in each execution) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
@@ -1921,7 +1921,7 @@ Assembly checks the lists: `[pii.conflicting-rules]` (two policies with differen
 kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
 `[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
 Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
-start). The application's own key, `@Application({ pseudonymKey: "piiPseudonymKey" })`, names a
+start). The application's own key, `@Application({ piiKeyField: "piiPseudonymKey" })`, names a
 `Secret` field of its environment (`piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`, like a model
 provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
 its own — so one value is one token on every instance, and logs and traces from several machines

@@ -16,6 +16,7 @@ import {
   OutboundCalls,
   effectKeyOf,
   type OutboundCallRecord,
+  type EffectKey,
   type EffectKeyOptions,
   type Produced,
 } from "../../src/index.js";
@@ -23,6 +24,7 @@ import { testAction } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { ChargeReceiptDto } from "./fixtures/outbound-call.workflow.js";
 import { gateway, letChargesGo, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
+import { lookupKeyOf } from "../helpers/outbound-frame.js";
 
 /** What the next run charges, and under which key. */
 const next = {
@@ -59,7 +61,8 @@ class KeyedChargeAction {
       notSent: { trust: NotSentTrust.Lookup },
       reconcile: (call) => this.paymentGateway.reconcile(call),
     });
-    next.found.push(await this.repository.findByKey(key));
+    // the store is read by the key's identity — under a business key, with a fingerprint (#825)
+    next.found.push(await this.repository.findByKey(lookupKeyOf(key)));
     return { chargeId: outcome.result.chargeId };
   }
 }

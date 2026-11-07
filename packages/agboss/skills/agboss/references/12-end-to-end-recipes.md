@@ -1931,7 +1931,7 @@ import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
     SqliteRateLimitRepository,
   ],
   piiPolicies: [ApplicantPiiPolicy], // every agent and router of every workflow
-  pseudonymKey: "piiPseudonymKey",
+  piiKeyField: "piiPseudonymKey",
   guardrails: [OutOfScopeGuardrail],
   healthChecks: [FundsLedgerHealthCheck],
   maxConcurrentSteps: 32,

@@ -99,7 +99,7 @@ describe.each(withCalls)(
         const { tenantId, rootExecutionId } = TREE;
         const closed = { tenantId, leaseExecutionId: rootExecutionId, token: lease.token ?? 0 };
 
-        expect(await second.calls.leaseStateOf(closed)).toBe(OutboundCallLeaseState.Superseded);
+        expect(await second.calls.leaseStateOf(closed)).toBe(OutboundCallLeaseState.LeaseClosed);
         await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
 
         expect(lease.signal.aborted).toBe(true);

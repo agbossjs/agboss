@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   type OutboundCall,
   type OutboundCallOutcome,
   type OutboundCallSendOptions,
@@ -156,8 +156,8 @@ export async function acceptedThrough(call: AcceptCall, runtime: AcceptRuntime):
       notSent: notSentOf(call.peer),
     });
     const isNew =
-      outcome.status === OutboundCallOutcomeStatus.Sent ||
-      outcome.status === OutboundCallOutcomeStatus.Reconciled;
+      outcome.status === OutboundCallSendStatus.Sent ||
+      outcome.status === OutboundCallSendStatus.Reconciled;
     return acceptedOf(outcome.result, answer, isNew, messageIdFor(outcome.idempotencyKey));
   });
 }

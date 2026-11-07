@@ -43,13 +43,14 @@ import { A2ANetworkError } from "../../../src/a2a/client/a2a-transport.js";
 import { isDefiniteSendFailure } from "../../../src/a2a/client/a2a-wire-errors.js";
 import { NotSentTrust } from "../../../src/app/outbound-call-contract.js";
 import {
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   type OutboundCall,
   type OutboundCallOutcome,
   type OutboundCallSendOptions,
 } from "../../../src/app/outbound-calls.js";
 import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { hours, type Milliseconds } from "../../../src/units/index.js";
+import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
 const MESH = "https://agboss.dev/a2a/mesh/v1";
@@ -375,7 +376,7 @@ describe("outside an execution: sent directly", () => {
 });
 
 /** A fake `OutboundCalls`: each `send` gives the next scripted outcome, or runs the call's `send`. */
-function outboundCallsScripted(...steps: ("send" | OutboundCallOutcomeStatus | Error)[]) {
+function outboundCallsScripted(...steps: ("send" | OutboundCallSendStatus | Error)[]) {
   const seen: {
     readonly key: EffectKey;
     readonly options: OutboundCallSendOptions<AcceptRequest, AcceptResult>;
@@ -400,7 +401,7 @@ function outboundCallsScripted(...steps: ("send" | OutboundCallOutcomeStatus | E
         signal: new AbortController().signal,
       };
       const result = step === "send" ? await options.send(call) : replayed;
-      const status = step === "send" ? OutboundCallOutcomeStatus.Sent : step;
+      const status = step === "send" ? OutboundCallSendStatus.Sent : step;
       const outcome: OutboundCallOutcome<AcceptResult> = {
         status,
         result,
@@ -418,14 +419,15 @@ const runtimeOf = (
   frame: object = {},
 ): AcceptRuntime => ({
   outboundCalls,
-  keyOf: (name): EffectKey => ({
-    scopeKey: "acme:root-1",
-    tenantId: "acme",
-    leaseExecutionId: "root-1",
-    token: 1,
-    idempotencyKey: "root-1:step:1",
-    name,
-  }),
+  keyOf: (name): EffectKey =>
+    effectKeyForTesting({
+      scopeKey: "acme:root-1",
+      tenantId: "acme",
+      leaseExecutionId: "root-1",
+      token: 1,
+      idempotencyKey: "root-1:step:1",
+      name,
+    }),
   tenantId: "acme",
   frame,
 });
@@ -488,9 +490,9 @@ describe("inside an execution: through OutboundCalls", () => {
 
   it("sent or reconciled is new; replayed or joined is not", async () => {
     for (const [status, isNew] of [
-      [OutboundCallOutcomeStatus.Reconciled, true],
-      [OutboundCallOutcomeStatus.Replayed, false],
-      [OutboundCallOutcomeStatus.Joined, false],
+      [OutboundCallSendStatus.Reconciled, true],
+      [OutboundCallSendStatus.Replayed, false],
+      [OutboundCallSendStatus.Joined, false],
     ] as const) {
       const { outboundCalls } = outboundCallsScripted(status);
       const accepted = await acceptedThrough(callOf(), runtimeOf(outboundCalls));

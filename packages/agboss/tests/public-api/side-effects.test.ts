@@ -76,9 +76,12 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * default and the execution-control seams — the SQLite store is in `@agboss/core/a2a`, the
  * projection and the tree reads load on first use); 1,510 at #795 for the outbound-call contract's
  * module; 1,511 at #824 for the assembly rule that keeps an application's A2A tasks where its
- * instances share them, `[a2a.task-store-not-shared]`.
+ * instances share them, `[a2a.task-store-not-shared]`; 1,523 at #825, after #809, for the business
+ * keys' fingerprints and idempotency keys, the keys the framework made, the paged listing, the
+ * reconciliation's verdicts, the key fields' and the store descriptors' rules (each its own module
+ * under the line limits).
  */
-const MODULE_BUDGET = 1_511;
+const MODULE_BUDGET = 1_523;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

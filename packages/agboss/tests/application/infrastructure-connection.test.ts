@@ -22,7 +22,7 @@ import {
   ApplicationContext,
   Clock,
   Injectable,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallStatus,
   SqliteConnection,
   Workflow,
@@ -69,7 +69,7 @@ describe("#526 AC8: OutboundCalls on SQLite without SqliteConnection listed", ()
       await execute(app, ChargeWorkflowStart, { text: "order-7 alice@example.com" });
 
       expect(gateway.calls).toHaveLength(1);
-      expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Sent, attempt: 1 }]);
+      expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Sent, attempt: 1 }]);
       expect(await app.outboundCallsOf(TREE)).toEqual([
         expect.objectContaining({ status: OutboundCallStatus.Completed, token: 1 }),
       ]);
@@ -197,6 +197,7 @@ const applicationReading = (dependency: object, providers: readonly object[]) =>
     name: "reading-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [workflowReading(dependency) as typeof ConnectionlessEffectApplication],
     budgets: TEST_BUDGETS,
     providers: providers as readonly (typeof OrderLedger)[],

@@ -1,7 +1,7 @@
+import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   InMemoryFencedEffectRepository,
   Injectable,
@@ -19,11 +19,13 @@ import {
   type OnExecutionError,
   type OnExecutionRejected,
   type Produced,
+  FingerprintPolicy,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #538 acceptance — where a refused key could leak: an action that keys a fenced effect by the
@@ -75,8 +77,10 @@ export class KeyedEffectAction {
   ) {}
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
+    // the key's text is what this fixture is about: its work is the same whatever the key (#825)
     const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: input.message.value.text,
+      fingerprintPolicy: FingerprintPolicy.None,
     });
     await this.fencedEffects.saveResultIfAbsent(key, () => {
       echoSeen.ran += 1;
@@ -101,7 +105,7 @@ export class HandKeyedSendAction {
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
     const valid = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
-    const byHand = { ...valid, businessKey: input.message.value.text };
+    const byHand = effectKeyForTesting(valid, { businessKey: input.message.value.text });
     await this.outboundCalls.send(byHand, {
       target: "payments",
       operation: "charge",
@@ -174,7 +178,8 @@ export class HandKeyedWorkflow {}
 @Application({
   name: "key-echo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [KeyedEffectWorkflow, HandKeyedWorkflow],
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
   budgets: TEST_BUDGETS,

@@ -96,7 +96,7 @@ describe("#120: a missing application key", () => {
 
     expect(failure).toBeInstanceOf(Error);
     expect((failure as Error).message).toBe(
-      'unkeyed-application: employee-token-pii-policy, app-key-pii-policy make tokens with the application\'s PII key — set @Application({ pseudonymKey: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment',
+      'unkeyed-application: employee-token-pii-policy, app-key-pii-policy make tokens with the application\'s PII key — set @Application({ piiKeyField: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment',
     );
   });
 
@@ -107,7 +107,7 @@ describe("#120: a missing application key", () => {
     expect((failure as GraphRuleError).violations).toContainEqual(
       expect.objectContaining({
         code: "environment.missing-field",
-        message: "@Application pseudonymKey needs piiKey: Secret in EmptyEnvironment",
+        message: "@Application piiKeyField needs piiKey: Secret in EmptyEnvironment",
       }),
     );
   });

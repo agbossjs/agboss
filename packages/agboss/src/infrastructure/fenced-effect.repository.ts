@@ -1,13 +1,16 @@
+import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import { fencedErrorOf } from "../app/handed-over.js";
 import { scopeKeyOf } from "../app/lease-lost.js";
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
-import type { Class } from "../components/injection.js";
-import { LeaseCheck } from "./execution-lease.repository.js";
+import type { EffectKey, FencedEffectOrigin } from "./effect-key.js";
+import { LeaseCheck, type StoreDescriptor } from "./execution-lease.repository.js";
+import { isIssuedKey } from "./issued-keys.js";
 import {
   businessKeyErrorOf,
   effectKeyIdentityOf,
+  fingerprintErrorOf,
   InvalidFencedEffectNameError,
   isEffectName,
 } from "./fenced-effect-key.js";
@@ -32,57 +35,13 @@ export type JsonPrimitive = string | number | boolean | null;
  * fields); a function, `undefined`, a `Date` or a `Map` is `never`, so a write returning one does
  * not compile.
  */
-export type JsonResult<T> = T extends JsonPrimitive
+export type JsonValue<T> = T extends JsonPrimitive
   ? T
   : T extends (...args: never[]) => unknown
     ? never
     : T extends object
-      ? { readonly [K in keyof T]: JsonResult<T[K]> }
+      ? { readonly [K in keyof T]: JsonValue<T[K]> }
       : never;
-
-/** The identity of one protected write: the lease scope and token it runs under, the step, a name. */
-export interface EffectKey {
-  /** `executionContext.fence.scopeKey`: the lease scope, the key of its high-water mark. */
-  readonly scopeKey: string;
-  readonly tenantId: string;
-  /** The execution whose lease the step runs under (`executionContext.fence.leaseExecutionId`). */
-  readonly leaseExecutionId: string;
-  /** The lease's epoch the step holds (`executionContext.fence.token`). */
-  readonly token: number;
-  /** The step's `executionContext.step.idempotencyKey`: the same when the step runs again. */
-  readonly idempotencyKey: string;
-  /** Which effect of the step: `"charge"`, `"notify-ledger"` — several in one step are apart. */
-  readonly name: string;
-  /**
-   * A business identity (#508, `"order:42"`): the effect is then one per tenant, name and business
-   * key — deduplicated across tool calls, visits, executions and threads — instead of one per step.
-   * Fencing is the caller's lease as always. A key's text (#538, `KeyTextRule`): validated by
-   * `effectKeyOf`, `OutboundCalls.send` and every store's entry (`InvalidBusinessKeyError`).
-   */
-  readonly businessKey?: string;
-  /**
-   * What the effect does, as a hash (SHA-256 of canonical JSON): another one under the same
-   * business key is `IdempotencyKeyConflictError`, never a replay. Any text is a fingerprint, the
-   * empty one too (#574): `""` and none are two requests — refused against each other, in flight or
-   * stored, so a store keeps `""` as `""`, never as `NULL`.
-   */
-  readonly fingerprint?: string;
-  /** The step that made the key: what a replay from another step or execution names. */
-  readonly origin?: FencedEffectOrigin;
-  /**
-   * The business key's handle (#508): 12 hex characters of its HMAC-SHA256 under the execution's PII
-   * key — what an error shows instead of the key, to match it with the caller's own log. None where
-   * no key is available (a key made by hand, outside an execution): an error then shows none.
-   */
-  readonly businessKeyHash?: string;
-}
-
-/** A step, as a replay from another one names it (#508). */
-export interface FencedEffectOrigin {
-  readonly executionId: string;
-  readonly nodeId: string;
-  readonly visitNumber: number;
-}
 
 /** How a call got its result. */
 export enum FencedEffectStatus {
@@ -112,12 +71,16 @@ export interface FencedEffectOutcome<TResult> {
  */
 export type FencedEffectWork<TTransaction, TResult> = (
   transaction: TTransaction,
-) => (TResult & JsonResult<TResult>) | Promise<TResult & JsonResult<TResult>>;
+) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 /** A key made by hand that is not one of a lease scope. */
 class InvalidFencedEffectKeyError extends TypeError {
   override name = "InvalidFencedEffectKeyError";
 }
+
+/** Why a key made by hand is refused (#825). */
+const UNISSUED_KEY =
+  "not a fenced effect key: make it with effectKeyOf(executionContext, name, …) — a copy or an object built by hand is no key (effectKeyForTesting in a store's tests)";
 
 /** Why a key cannot be one: its scope does not match its parts, no name, no token. */
 function keyProblemOf(key: EffectKey): string | undefined {
@@ -151,25 +114,13 @@ const joinKeyOf = (key: EffectKey): string =>
  */
 export abstract class FencedEffectRepository<TTransaction> {
   /**
-   * The lease store whose leases the store checks in its transaction — the one of its database
-   * (`SqliteExecutionLeaseRepository` for the SQLite store): a unit runner (`testAction`,
-   * `testTool`) holds its lease there. Assembly checks `backend`, not this.
+   * Where the store's rows live and how it checks the lease against its write (#526, #825): its
+   * `backend` must be the application's lease store's — its write and the lease check are one
+   * transaction (a unit runner holds its lease in the lease store of that backend). `backend`
+   * undefined: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
+   * store opts out with `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
    */
-  static readonly leaseRepository: Class | undefined = undefined;
-
-  /**
-   * The backend the store's rows live in (#526, as `ExecutionLeaseRepository.backend`): listed, it
-   * must be the application's lease store's — its write and the lease check are one transaction.
-   * Unset: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
-   * store opts out with `leaseCheck`.
-   */
-  static readonly backend: string | undefined = undefined;
-
-  /**
-   * How the store checks the lease against its write (#526): `LeaseCheck.Atomic` (checked at
-   * assembly), or the opt-out `LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
-   */
-  static readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
+  static readonly store: StoreDescriptor = { backend: undefined, leaseCheck: LeaseCheck.Atomic };
 
   constructor(
     /** `@Application({ fencedEffects })`: the largest result, how long rows are kept. */
@@ -191,12 +142,21 @@ export abstract class FencedEffectRepository<TTransaction> {
     key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
+    // #825: no key at all from JavaScript is refused as one effectKeyOf did not make, not a throw
+    const given: unknown = key;
+    if (typeof given !== "object" || given === null)
+      return Promise.reject(new InvalidFencedEffectKeyError(UNISSUED_KEY));
     // the name first, as every store checks it at its entry (#508, #526 AC7)
     if (!isEffectName(key.name))
       return Promise.reject(new InvalidFencedEffectNameError(key.name.length));
     // the business key's text (#538): its own error, naming the rule, never the key
     const invalidKey = businessKeyErrorOf(key);
     if (invalidKey !== undefined) return Promise.reject(invalidKey);
+    // #825: a fenced effect under a business key says what it does, or says on purpose it does not
+    const unfingerprinted = fingerprintErrorOf(key);
+    if (unfingerprinted !== undefined) return Promise.reject(unfingerprinted);
+    // #825: a key effectKeyOf made — a copy or a hand-built object from JavaScript is refused
+    if (!isIssuedKey(key)) return Promise.reject(new InvalidFencedEffectKeyError(UNISSUED_KEY));
     const problem = keyProblemOf(key);
     if (problem !== undefined)
       return Promise.reject(new InvalidFencedEffectKeyError(`not a fenced effect key: ${problem}`));
@@ -253,6 +213,9 @@ export abstract class FencedEffectRepository<TTransaction> {
     return text;
   }
 }
+
+// #825: a component that reaches any fenced-effect store can write under a business key
+markBusinessKeyWriter(FencedEffectRepository);
 
 /** How the lease log names each outcome of a call. */
 const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutcome>> = {
@@ -320,12 +283,27 @@ const joinedOutcome = (outcome: FencedEffectOutcome<unknown>): FencedEffectOutco
   token: outcome.token,
 });
 
+export type {
+  EffectKey,
+  EffectKeyFields,
+  FencedEffectOrigin,
+  OutboundCallKey,
+} from "./effect-key.js";
 export {
   effectKeyOf,
+  FingerprintNotJsonError,
+  FingerprintPolicy,
+  FingerprintRequiredError,
   IdempotencyKeyConflictError,
+  IdempotencyKeyMissingError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
+  type BusinessKeyOptions,
   type EffectKeyOptions,
+  type FingerprintedKeyOptions,
+  type FingerprintKeys,
+  type UnfingerprintedKeyOptions,
+  type OutboundCallKeyOptions,
   type IdempotencyKeyConflictErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-key.js";

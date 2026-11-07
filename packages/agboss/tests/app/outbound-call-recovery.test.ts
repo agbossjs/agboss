@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseLostError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallStatus,
 } from "../../src/index.js";
 import type { TestApp, TestLeases, VirtualClock } from "../../src/testing/index.js";
@@ -80,7 +80,7 @@ describe("#505 AC1: killed before the answer — reconciled, never sent again", 
 
       expect(gateway.calls).toEqual([{ idempotencyKey: KEY, attempt: 1 }]);
       expect(gateway.lookups).toEqual([{ idempotencyKey: KEY, attempt: 1 }]);
-      expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Reconciled, attempt: 1 }]);
+      expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Reconciled, attempt: 1 }]);
       expect(end?.output).toEqual({ chargeId: "ch-order-7-1" });
       const [record] = await instance(apps, 1).outboundCallsOf({
         tenantId: "default",
@@ -120,7 +120,7 @@ describe("#505 AC2: the provider never got it — sent once more", () => {
         { idempotencyKey: KEY, attempt: 2 },
       ]);
       expect(gateway.charges.size).toBe(1);
-      expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Sent, attempt: 2 }]);
+      expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Sent, attempt: 2 }]);
       expect(end?.output).toEqual({ chargeId: "ch-order-7-1" });
     },
   );
@@ -138,7 +138,8 @@ describe("#505 AC3: nobody can say — a defined error, the intent pending", () 
 
       // the side path of OutboundCallUnreconciledError took it: the error is the defined one
       expect(end?.finish).toBe("unreconciled-workflow-finish");
-      const pending = await instance(apps, 1).pendingOutboundCalls({ tenantId: "default" });
+      const pending = (await instance(apps, 1).pendingOutboundCallsOf({ tenantId: "default" }))
+        .calls;
       expect(pending).toEqual([
         expect.objectContaining({ idempotencyKey: KEY, status: OutboundCallStatus.Pending }),
       ]);
@@ -157,7 +158,9 @@ describe("#505 AC3: nobody can say — a defined error, the intent pending", () 
       const [end] = await ends(1);
 
       expect(end?.finish).toBe("unreconciled-workflow-finish");
-      expect(await instance(apps, 1).pendingOutboundCalls({ tenantId: "default" })).toHaveLength(1);
+      expect(
+        (await instance(apps, 1).pendingOutboundCallsOf({ tenantId: "default" })).calls,
+      ).toHaveLength(1);
       expect(gateway.calls).toHaveLength(1);
     },
   );

@@ -6,6 +6,7 @@
  * under an expired lease nobody took, a released one, one never taken, and after another
  * instance's take.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import {
   ExecutionLeaseLostError,
@@ -110,11 +111,10 @@ describe.each(TARGETS)(
 
     it("under a lease never taken: the lease is over, no other instance named", async () => {
       await withTarget(target(), async ({ first }) => {
-        const key = {
-          ...keyOf(await leaseOf(first, "execution-1", seconds(30))),
+        const key = effectKeyForTesting(keyOf(await leaseOf(first, "execution-1", seconds(30))), {
           leaseExecutionId: "execution-9",
           scopeKey: "default:execution-9",
-        };
+        });
 
         const error = await refusalOf(first, key);
 

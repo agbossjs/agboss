@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
@@ -34,8 +35,8 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
     const lease = await leaseOf(first);
     const count: WriteCount = { runs: 0 };
     for (const name of BAD_NAMES) {
-      const valid = { ...keyOf(lease), name };
-      const stale = { ...valid, token: lease.leaseEpoch + 7 };
+      const valid = effectKeyForTesting(keyOf(lease), { name });
+      const stale = effectKeyForTesting(valid, { token: lease.leaseEpoch + 7 });
       for (const key of [valid, stale])
         expect(
           await rejectionOf(

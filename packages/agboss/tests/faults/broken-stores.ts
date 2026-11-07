@@ -1,3 +1,5 @@
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import {
   Clock,
@@ -57,7 +59,7 @@ export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepo
     work: FencedEffectWork<DatabaseSync, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
-    return super.runInTransaction({ ...key, token }, work);
+    return super.runInTransaction(effectKeyForTesting(key, { token }), work);
   }
 }
 
@@ -93,12 +95,15 @@ export class UnfencedSqliteOutboundCallRepository extends SqliteOutboundCallRepo
 
   override saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
-    return super.saveIfAbsent({ ...key, token }, intent);
+    return super.saveIfAbsent(effectKeyForTesting(key, { token }), intent);
   }
 }
 
 /** #584: a fenced-effect store that declares the opt-out — atomic underneath, honest in its claim. */
 @Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class OptedOutSqliteFencedEffectRepository extends SqliteFencedEffectRepository {
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.WithoutDoubleChargeProtection;
+  static override readonly store: StoreDescriptor = {
+    ...SqliteFencedEffectRepository.store,
+    leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+  };
 }

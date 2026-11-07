@@ -1,5 +1,5 @@
 /**
- * #508 final check — a lease an outbound call's check closed (`leaseStateOf` → `Superseded`): its
+ * #508 final check — a lease an outbound call's check closed (`leaseStateOf` → `LeaseClosed`): its
  * epoch unchanged, safety rests on the `released` mark alone. On the in-memory and SQLite stores
  * together — the lease store, the outbound-call store and the fenced-effect store of one database —
  * the holder's fenced-effect write at its token is refused like any other of its writes, nothing
@@ -56,7 +56,7 @@ describe.each(storeTargets(inMemory, sqlite))(
           return "late";
         });
 
-        expect(closed).toBe(OutboundCallLeaseState.Superseded);
+        expect(closed).toBe(OutboundCallLeaseState.LeaseClosed);
         await expect(write).rejects.toBeInstanceOf(ExecutionFencedError);
         expect(isRun).toBe(false);
       }),

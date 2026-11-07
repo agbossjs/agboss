@@ -3,7 +3,12 @@ import { OutboundCallStatus } from "../../infrastructure/outbound-call.repositor
 import { minutes, seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { keyOf, leaseOf } from "./fenced-effect-data.js";
-import { recorded, type OutboundCallCase, type OutboundCallStores } from "./outbound-call-data.js";
+import {
+  listedOf,
+  recorded,
+  type OutboundCallCase,
+  type OutboundCallStores,
+} from "./outbound-call-data.js";
 
 /**
  * The outbound-call contract's times (#658): what a `reconcile` is told of a pending attempt — when
@@ -41,10 +46,7 @@ const readNow: OutboundCallCase = {
 
     expect(early?.readAt).toBe(new Date(clock.now().getTime() - seconds(11)).toISOString());
     expect(late?.readAt).toBe(clock.now().toISOString());
-    const [listed] = await first.calls.findAllByTenantIdAndStatus(
-      "default",
-      OutboundCallStatus.Pending,
-    );
+    const [listed] = await listedOf(first);
     expect(listed?.firstAttemptStartedAt).toBe(early?.firstAttemptStartedAt);
   },
 };

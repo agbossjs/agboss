@@ -711,8 +711,6 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> extends Built
 export class SqliteA2ATaskRepository extends A2ATaskRepository {
     // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
     constructor(connection: SqliteConnection);
-    // (undocumented)
-    static readonly backend: string | undefined;
     // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -746,6 +744,10 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     //
     // (undocumented)
     saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    static readonly store: StoreDescriptor;
 }
 
 export { Task }
@@ -870,16 +872,16 @@ export { TaskState }
 // src/a2a/types.ts:36:3 - (ae-undocumented) Missing documentation for "status".
 // src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "finish".
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:39:3 - (ae-undocumented) Missing documentation for "backend".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:47:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:51:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:80:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:90:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:99:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:103:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:107:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:135:3 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:139:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:40:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:48:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:52:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:81:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:91:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:104:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:108:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:136:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:140:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 
 // (No @packageDocumentation comment for this package)
 

@@ -29,15 +29,16 @@ import {
   OwnInMemoryA2ATasks,
   ReleaseA2AExpose,
 } from "./fixtures/a2a-task-stores.fixture.js";
+import type { StoreDescriptor } from "../../src/index.js";
 
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 class CassandraLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "cassandra";
+  static override readonly store: StoreDescriptor = { backend: "cassandra" };
 }
 
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 class OtherFileA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "sqlite:other";
+  static override readonly store: StoreDescriptor = { backend: "sqlite:other" };
 }
 
 @A2AExpose({
@@ -93,7 +94,7 @@ describe("#824 AC3: the rule's refusals, word for word", () => {
 
   it("an undeclared lease backend, one the core names no store of, a second database", () => {
     expect(messageOf([UndeclaredLeases])).toEqual([
-      `${SERVES} UndeclaredLeases, which declares no backend, but keeps its A2A tasks in InMemoryA2ATaskRepository (backend "in-memory", the built-in default: none listed), each instance's own: ${RESENT} — declare the lease store's backend (static backend = "postgres") and list an A2A task store on it`,
+      `${SERVES} UndeclaredLeases, which declares no backend, but keeps its A2A tasks in InMemoryA2ATaskRepository (backend "in-memory", the built-in default: none listed), each instance's own: ${RESENT} — declare the lease store's backend (static store = { backend: "postgres" }) and list an A2A task store on it`,
     ]);
     expect(messageOf([CassandraLeases])[0]).toMatch(
       / — list an A2A task store declaring backend "cassandra" in @Application\(\{ providers \}\)$/u,

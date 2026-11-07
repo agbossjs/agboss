@@ -1,7 +1,6 @@
 import {
   ApplicationContext,
   Clock,
-  EmptyEnvironment,
   Injectable,
   type ExecutionLease,
   type ExecutionLeaseTakeoverEvent,
@@ -39,6 +38,7 @@ import {
   ReleaseWorkflow,
   ToolEndLog,
 } from "./fence.workflow.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyInstance` child
@@ -127,7 +127,8 @@ const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow,
 @Application({
   name: "lease-events-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
   budgets: TEST_BUDGETS,
@@ -137,7 +138,8 @@ export class LeaseEventsApplication {}
 @Application({
   name: "throwing-lease-observer-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [ThrowingLeaseObserver, RecoveryLog, ToolEndLog, LeaseEventObserver],
   providers: [RecordingLogger],
@@ -148,7 +150,8 @@ export class ThrowingLeaseObserverApplication {}
 @Application({
   name: "silent-takeover-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
   providers: [SilentTakeoverLeaseRepository],
@@ -159,7 +162,8 @@ export class SilentTakeoverApplication {}
 @Application({
   name: "down-lease-log-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
   providers: [DownLeaseEventRepository, RecordingLogger],
@@ -170,7 +174,8 @@ export class DownLeaseLogApplication {}
 @Application({
   name: "kept-lease-events-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
   executionRecordRetention: hours(24),
@@ -182,7 +187,8 @@ export class KeptLeaseEventsApplication {}
 @Application({
   name: "fenced-effect-events-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog, LeaseEventObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
@@ -193,7 +199,8 @@ export class FencedEffectEventsApplication {}
 @Application({
   name: "throwing-fenced-effect-observer-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [ThrowingLeaseObserver, RecoveryLog, LeaseEventObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

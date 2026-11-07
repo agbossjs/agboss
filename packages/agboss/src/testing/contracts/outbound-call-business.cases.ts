@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
@@ -21,11 +22,8 @@ import {
  */
 
 /** `lease`'s step key under business key `order:42`. */
-const businessKeyOf = (lease: ExecutionLease): EffectKey => ({
-  ...keyOf(lease),
-  businessKey: "order:42",
-  fingerprint: "fingerprint-a",
-});
+const businessKeyOf = (lease: ExecutionLease): EffectKey =>
+  effectKeyForTesting(keyOf(lease), { businessKey: "order:42", fingerprint: "fingerprint-a" });
 
 const oneAcrossExecutions: OutboundCallCase = {
   name: "#508: a business key's intent is one row: another execution's key finds it, with its business key, fingerprint and holder, and cannot save a second",
@@ -93,7 +91,7 @@ const tenantsApart: OutboundCallCase = {
   },
 };
 
-const { Live, Ended, Superseded } = OutboundCallLeaseState;
+const { Live, Ended, LeaseClosed } = OutboundCallLeaseState;
 
 /** `stores`' state of the lease of `executionId` at `token`. */
 const stateAt = (stores: OutboundCallStores, executionId: string, token: number) =>
@@ -110,13 +108,13 @@ const liveLease: OutboundCallCase = {
 };
 
 const expiredLease: OutboundCallCase = {
-  name: "#508: leaseStateOf closes an expired lease at its token — Superseded once, then Ended; the next take is the very next token, taken over from the holder at the token it held",
+  name: "#508: leaseStateOf closes an expired lease at its token — LeaseClosed once, then Ended; the next take is the very next token, taken over from the holder at the token it held",
   isFencing: true,
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));
 
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Superseded);
+    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
     expect(await stateAt(first, "execution-1", lease.leaseEpoch)).toBe(Ended);
     const taken = await leaseOf(second, "execution-1");
     expect(taken.leaseEpoch).toBe(lease.leaseEpoch + 1);
@@ -160,7 +158,7 @@ const supersededHolderRefused: OutboundCallCase = {
     const key = businessKeyOf(lease);
     await recorded(first, key);
     await clock.advance(seconds(31));
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Superseded);
+    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
 
     expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();
     for (const [, call] of HOLDER_WRITES)
@@ -183,7 +181,7 @@ const supersededYieldRefused: OutboundCallCase = {
     expect(await first.leases.yield(lease)).toBe(true);
     await clock.advance(seconds(31));
 
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Superseded);
+    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
     expect(await first.leases.reclaim(lease, seconds(30))).toBeUndefined();
     expect(await first.leases.yield(lease)).toBe(false);
     expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();

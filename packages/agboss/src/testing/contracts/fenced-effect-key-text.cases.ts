@@ -1,3 +1,5 @@
+import { FingerprintPolicy } from "../../infrastructure/fenced-effect-key.js";
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { InvalidBusinessKeyError } from "../../infrastructure/fenced-effect-key.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
@@ -21,7 +23,9 @@ const ownRows = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     const lease = await leaseOf(first);
-    const keyed = (businessKey: string) => ({ ...keyOf(lease), businessKey });
+    // #825: a fenced effect under a business key says what it does — here: the same, by its key
+    const keyed = (businessKey: string) =>
+      effectKeyForTesting(keyOf(lease), { businessKey, fingerprintPolicy: FingerprintPolicy.None });
 
     for (const [index, businessKey] of ROUND_TRIP_KEYS.entries()) {
       const ran = await first.effects.saveResultIfAbsent(
@@ -57,7 +61,7 @@ const refusedByHand = <TTransaction>(): Case<TTransaction> => ({
     for (const [rule, businessKey] of REFUSED_BUSINESS_KEYS) {
       const refused = await rejectionOf(
         first.effects.saveResultIfAbsent(
-          { ...keyOf(lease), businessKey },
+          effectKeyForTesting(keyOf(lease), { businessKey, fingerprint: "f" }),
           writing(first.rows, "r1", count),
         ),
       );

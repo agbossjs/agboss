@@ -4,7 +4,7 @@ import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type {
   OutboundCallEventOutcome,
-  OutboundCallSupersededLease,
+  OutboundCallClosedLease,
 } from "../infrastructure/execution-lease-event.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -24,7 +24,7 @@ import {
   type OutboundCallLookup,
   type OutboundCallSendOptions,
   type OutboundCallOutcome,
-  type OutboundCallOutcomeStatus,
+  type OutboundCallSendStatus,
   OutboundCallPart,
 } from "./outbound-calls.js";
 
@@ -197,7 +197,7 @@ export const lookupOf = <TRequest, TResult>(
 /** An outcome of the call: `result` a copy the step owns (JSON in, JSON out). */
 export const outcomeOf = <TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
-  status: OutboundCallOutcomeStatus,
+  status: OutboundCallSendStatus,
   result: unknown,
   attempt: number,
 ): OutboundCallOutcome<TResult> => ({
@@ -213,7 +213,7 @@ export const outcomeOf = <TRequest, TResult>(
 export interface OutboundCallMoveFacts {
   readonly replayedFrom?: FencedEffectOrigin | undefined;
   readonly supersededBy?: number | undefined;
-  readonly supersededLease?: OutboundCallSupersededLease | undefined;
+  readonly closedLease?: OutboundCallClosedLease | undefined;
 }
 
 /** Tells the lease log and `onOutboundCall` of a move of the call (#505): never its payload. */

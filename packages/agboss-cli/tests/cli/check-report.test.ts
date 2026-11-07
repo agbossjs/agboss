@@ -76,6 +76,7 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
       OPENROUTER_API_KEY: "sk-or-not-printed",
       AGBOSS_SQLITE_PATH: ":memory:",
       PII_PSEUDONYM_KEY: "pii-key-not-printed",
+      IDEMPOTENCY_KEY: "idempotency-key-not-printed",
     });
 
     expect(call.code).toBe(0);
@@ -93,16 +94,18 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     );
     expect(call.stdout).toContain(
       [
-        "dev environment needs 4 process variables:",
+        "dev environment needs 5 process variables:",
         "  OPENROUTER_API_KEY   secret",
         "  OPENROUTER_BASE_URL  value, optional",
         "  AGBOSS_SQLITE_PATH   value, has a default",
         "  PII_PSEUDONYM_KEY    secret",
+        "  IDEMPOTENCY_KEY      secret",
         "",
       ].join("\n"),
     );
     expect(call.stdout).not.toContain("sk-or-not-printed");
     expect(call.stdout).not.toContain("pii-key-not-printed");
+    expect(call.stdout).not.toContain("idempotency-key-not-printed");
     expect(call.stdout).not.toContain(":memory:");
     expect(call.stdout).not.toContain(".agboss/flow-patterns.sqlite");
   });
@@ -121,6 +124,7 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
               { variable: "OPENROUTER_BASE_URL", use: "value", optional: true },
               { variable: "AGBOSS_SQLITE_PATH", use: "value", required: false, optional: false },
               { variable: "PII_PSEUDONYM_KEY", use: "secret", required: true },
+              { variable: "IDEMPOTENCY_KEY", use: "secret", required: true },
             ],
           },
         },

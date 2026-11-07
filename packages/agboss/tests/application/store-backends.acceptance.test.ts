@@ -1,5 +1,5 @@
 /**
- * #526 acceptance — how a store declares its backend, at assembly: a `static get backend()` is
+ * #526 acceptance — how a store declares its backend, at assembly (#825: `static store`): a `static get store()` is
  * read like a field (one computed from the environment works), one that throws fails assembly
  * rather than passing; a backend that is not a text, or one declared on the instance instead of the
  * class, is no declaration; backends are compared as exact text ("Postgres" is not "postgres"). A
@@ -21,6 +21,7 @@ import {
   Injectable,
   LeaseCheck,
   SqliteConnection,
+  type StoreDescriptor,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
@@ -39,14 +40,14 @@ const configured = { backend: "postgres" };
 
 @Injectable(EFFECT_DEPS)
 class ComputedEffects extends InMemoryFencedEffectRepository {
-  static override get backend(): string | undefined {
-    return configured.backend;
+  static override get store(): StoreDescriptor {
+    return { backend: configured.backend };
   }
 }
 
 @Injectable(EFFECT_DEPS)
 class ThrowingEffects extends InMemoryFencedEffectRepository {
-  static override get backend(): string | undefined {
+  static override get store(): StoreDescriptor {
     throw new Error("the backend's setting is not readable");
   }
 }
@@ -54,22 +55,22 @@ class ThrowingEffects extends InMemoryFencedEffectRepository {
 @Injectable(EFFECT_DEPS)
 class NumberEffects extends InMemoryFencedEffectRepository {}
 // what a JavaScript project may declare: a number where the type says text
-Reflect.defineProperty(NumberEffects, "backend", { value: 5 });
+Reflect.defineProperty(NumberEffects, "store", { value: { backend: 5 } });
 
 @Injectable(EFFECT_DEPS)
 class InstanceFieldEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = undefined;
-  readonly backend = "postgres";
+  static override readonly store: StoreDescriptor = { backend: undefined };
+  readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable(EFFECT_DEPS)
 class CapitalisedEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "Postgres";
+  static override readonly store: StoreDescriptor = { backend: "Postgres" };
 }
 
 @Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
 class RedeclaredSqliteEffects extends SqliteFencedEffectRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
@@ -80,7 +81,10 @@ class InheritedOptOut extends UncheckedEffects {}
 
 @Injectable(EFFECT_DEPS)
 class OptedBackIn extends UncheckedEffects {
-  static override readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
+  static override readonly store: StoreDescriptor = {
+    ...UncheckedEffects.store,
+    leaseCheck: LeaseCheck.Atomic,
+  };
 }
 
 /** `[code] message` of each rule violation assembling `providers` reports; `[]` when it assembles. */
@@ -113,24 +117,31 @@ describe("#526 acceptance: a backend declared by a getter", () => {
     ]);
   });
 
-  it("that throws fails assembly with its error — never an application that assembles", async () => {
-    await expect(
-      applicationOf(storesApplication([ThrowingEffects, PostgresLeases])),
-    ).rejects.toThrow("the backend's setting is not readable");
+  it("that throws fails assembly, named — never an application that assembles (#825: a rule, not the getter's error)", async () => {
+    expect(await violationsOf([ThrowingEffects, PostgresLeases])).toContainEqual(
+      expect.stringMatching(
+        /^\[application\.store-descriptor-invalid\] ThrowingEffects's static store throws when it is read/u,
+      ),
+    );
   });
 });
 
 describe("#526 acceptance: what is no declaration, and what is another backend", () => {
-  it.each([
-    ["a number", NumberEffects],
-    ["a field of the instance, not of the class", InstanceFieldEffects],
-  ] as const)("a backend that is %s is undeclared, named", async (_what, Store) => {
-    expect(await violationsOf([Store, PostgresLeases])).toEqual([
+  it("a backend that is a field of the instance, not of the class, is undeclared, named", async () => {
+    expect(await violationsOf([InstanceFieldEffects, PostgresLeases])).toEqual([
       expect.stringMatching(
-        new RegExp(
-          `^\\[application\\.store-backend-undeclared\\] ${Store.name} declares no backend`,
-          "u",
-        ),
+        /^\[application\.store-backend-undeclared\] InstanceFieldEffects declares no backend/u,
+      ),
+    ]);
+  });
+
+  it("a backend that is a number is no descriptor (#825), and undeclared, both named", async () => {
+    expect(await violationsOf([NumberEffects, PostgresLeases])).toEqual([
+      expect.stringMatching(
+        /^\[application\.store-descriptor-invalid\] NumberEffects's static store names a backend that is no text \(number\)/u,
+      ),
+      expect.stringMatching(
+        /^\[application\.store-backend-undeclared\] NumberEffects declares no backend/u,
       ),
     ]);
   });

@@ -9,6 +9,8 @@ import type {
   FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
 import { hours, type Milliseconds } from "../../units/index.js";
+import { FingerprintPolicy } from "../../infrastructure/fenced-effect-key.js";
+import { effectKeyForTesting } from "./effect-key.js";
 
 /**
  * The seam of the fenced-effect contract (#500): what one instance's fenced-effect store works
@@ -76,29 +78,30 @@ export const keyOf = (
   lease: ExecutionLease,
   name = "charge",
   idempotencyKey = `${lease.rootExecutionId}:charge-action:1`,
-): EffectKey => ({
-  scopeKey: scopeKeyOf(lease.tenantId, lease.rootExecutionId),
-  tenantId: lease.tenantId,
-  leaseExecutionId: lease.rootExecutionId,
-  token: lease.leaseEpoch,
-  idempotencyKey,
-  name,
-});
+): EffectKey =>
+  effectKeyForTesting({
+    scopeKey: scopeKeyOf(lease.tenantId, lease.rootExecutionId),
+    tenantId: lease.tenantId,
+    leaseExecutionId: lease.rootExecutionId,
+    token: lease.leaseEpoch,
+    idempotencyKey,
+    name,
+  });
 
 /**
- * The key of `lease`'s step under business key `order:42`, with `fingerprint` (`null`: none — the
- * empty text is a fingerprint, #574).
+ * The key of `lease`'s step under business key `order:42`, with `fingerprint` (`null`: none, said
+ * with `FingerprintPolicy.None` as a fenced effect must, #825 — the empty text is a fingerprint, #574).
  */
 export const businessKeyOf = (
   lease: ExecutionLease,
   fingerprint: string | null = "fingerprint-a",
   step = `${lease.rootExecutionId}:charge-action:1`,
-): EffectKey => ({
-  ...keyOf(lease, "charge", step),
-  businessKey: "order:42",
-  ...(fingerprint === null ? {} : { fingerprint }),
-  origin: { executionId: lease.rootExecutionId, nodeId: "charge-action", visitNumber: 1 },
-});
+): EffectKey =>
+  effectKeyForTesting(keyOf(lease, "charge", step), {
+    businessKey: "order:42",
+    ...(fingerprint === null ? { fingerprintPolicy: FingerprintPolicy.None } : { fingerprint }),
+    origin: { executionId: lease.rootExecutionId, nodeId: "charge-action", visitNumber: 1 },
+  });
 
 /** A write that inserts `row` and gives its receipt, counted in `count`. */
 export const writing =

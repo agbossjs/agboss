@@ -1,7 +1,7 @@
 /**
  * #533 item 3 — the SQLite store's check of a lease that wrote a pending outbound call
  * (`sqliteLeaseStateOf`, #508), on a temporary file: `Live` while the lease is held at that token,
- * `Ended` once released, at another token or for a key with no lease, and `Superseded` once — the
+ * `Ended` once released, at another token or for a key with no lease, and `LeaseClosed` once — the
  * check closes an expired lease itself, and a second check finds it ended.
  */
 import { describe, expect, it } from "vitest";
@@ -66,13 +66,13 @@ describe("#533: sqliteLeaseStateOf", () => {
     expect(stateOf("execution-9", 1)).toBe(OutboundCallLeaseState.Ended);
   });
 
-  it("Superseded once, at its expiry: the check closes it, and the next check finds it ended", async () => {
+  it("LeaseClosed once, at its expiry: the check closes it, and the next check finds it ended", async () => {
     const { clock, leases, stateOf } = sqliteLeases();
     await heldIn(leases);
     await clock.advance(seconds(30));
 
     const states = [stateOf("execution-1", 1), stateOf("execution-1", 1)];
 
-    expect(states).toEqual([OutboundCallLeaseState.Superseded, OutboundCallLeaseState.Ended]);
+    expect(states).toEqual([OutboundCallLeaseState.LeaseClosed, OutboundCallLeaseState.Ended]);
   });
 });

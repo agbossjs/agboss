@@ -41,20 +41,20 @@ const recordAt = (edge: ExpiryEdge): OutboundCallCase => {
 
 /**
  * `leaseStateOf` at `edge` (#534): `Live` 1 ms before the expiry; at the expiry and after it the
- * lease is over — `Superseded` (closed by the check), then `Ended`, and its holder's renewal refused.
+ * lease is over — `LeaseClosed` (closed by the check), then `Ended`, and its holder's renewal refused.
  */
 const stateAtEdge = (edge: ExpiryEdge): OutboundCallCase => {
   const isLive = edge === ExpiryEdge.Before;
   return {
-    name: `#534: leaseStateOf ${edge} is ${isLive ? "Live" : "Superseded, then Ended: the lease is over, its holder's renewal refused"}`,
+    name: `#534: leaseStateOf ${edge} is ${isLive ? "Live" : "LeaseClosed, then Ended: the lease is over, its holder's renewal refused"}`,
     run: async ({ clock, first, second }) => {
       const lease = await leaseOf(first, "execution-1", seconds(30));
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
 
       const state = await stateAt(second, lease.leaseEpoch);
 
-      const { Live, Superseded, Ended } = OutboundCallLeaseState;
-      expect(state).toBe(isLive ? Live : Superseded);
+      const { Live, LeaseClosed, Ended } = OutboundCallLeaseState;
+      expect(state).toBe(isLive ? Live : LeaseClosed);
       expect(await stateAt(second, lease.leaseEpoch)).toBe(isLive ? Live : Ended);
       expect(await first.leases.renew(lease, seconds(30))).toBe(isLive ? seconds(30) : undefined);
     },

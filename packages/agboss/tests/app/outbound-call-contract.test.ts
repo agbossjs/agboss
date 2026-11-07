@@ -13,7 +13,7 @@ import {
   InvalidNotSentTrustError,
   NotSentTrust,
   OutboundCallEventOutcome,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallReconciliation,
   OutboundCallSettings,
   OutboundCallSupersededError,
@@ -38,6 +38,7 @@ import {
   type GatewayChargeRequest,
   type GatewayPaymentReceipt,
   type OutboundFrame,
+  lookupKeyOf,
 } from "../helpers/outbound-frame.js";
 
 type ChargeOptions = OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt>;
@@ -156,7 +157,7 @@ describe("#795 AC1: the notSent trust is required", () => {
         message: `outbound call "charge" was refused: ${problem} — notSent: { trust: NotSentTrust.Lookup } or { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }; nothing was recorded or sent`,
       });
       expect(gateway.payments).toEqual([]);
-      expect(await frame.store.findByKey(key)).toBeUndefined();
+      expect(await frame.store.findByKey(lookupKeyOf(key))).toBeUndefined();
       expect(frame.reports).toEqual([]);
     },
   );
@@ -168,7 +169,7 @@ describe("#795 AC1: the notSent trust is required", () => {
     const notSent = { trust: KeyReplay, keyRetention: 1 as Milliseconds } as const;
 
     expect(await frame.send(key, gatewayCharge(gateway, { notSent }))).toMatchObject({
-      status: OutboundCallOutcomeStatus.Sent,
+      status: OutboundCallSendStatus.Sent,
     });
   });
 
@@ -180,7 +181,7 @@ describe("#795 AC1: the notSent trust is required", () => {
 
     const outcome = await frame.send(key, gatewayCharge(gateway, { reconcile: notSent }));
 
-    expect(outcome).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
   });
 
   it("KeyReplay: the same notSent() past the key's retention is refused — one payment, the bite of a fail-open default", async () => {
@@ -216,7 +217,7 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
   it("is a StepFailedError with a literal code; Superseded is no outcome status", () => {
     expectTypeOf(OutboundCallSupersededError.code).toEqualTypeOf<"outbound-call.superseded">();
     expect(OutboundCallSupersededError.code).toBe("outbound-call.superseded");
-    expect(Object.values(OutboundCallOutcomeStatus)).not.toContain("superseded");
+    expect(Object.values(OutboundCallSendStatus)).not.toContain("superseded");
     const error = new OutboundCallSupersededError({
       name: "charge",
       target: "payments",
@@ -338,7 +339,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
       "outbound-call.superseded",
       'outbound call "charge" (charge on gateway) attempt 1 was answered after attempt 2 took its intent over: both reached gateway — check it there',
     ]);
-    expect(frame.reports.at(-1)?.outcome).toBe(OutboundCallEventOutcome.Superseded);
+    expect(frame.reports.at(-1)?.outcome).toBe(OutboundCallEventOutcome.AttemptSuperseded);
   });
 
   it("a call joined to a superseded one shares its error: nothing sent again, one charge", async () => {

@@ -8,11 +8,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
-import {
-  declaredFieldsOf,
-  environmentRuleViolations,
-  readingClassesOf,
-} from "../environments/contract.js";
+import { environmentRuleViolations, readingClassesOf } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import {
   providerBreakerViolations,
@@ -34,7 +30,9 @@ import {
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
 import { storeBackendViolations } from "./implementations.js";
+import { storeDescriptorViolations } from "./store-descriptor-rule.js";
 import { a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
+import { keyFieldViolations } from "./key-field-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -109,7 +107,7 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
 const isClass = (provider: Provider): provider is Class => !("provide" in provider);
 
 /** The classes the application and its workflows list in `providers` (#511: what reads the environment). */
-const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
+export const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
   ...(options.providers ?? []).filter(isClass),
   ...withChildWorkflows(options.workflows)
     .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
@@ -153,22 +151,6 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   });
 }
 
-/** `pseudonymKey` names a field the environment contract declares (#120). */
-function pseudonymKeyFieldViolations(options: ApplicationOptions): RuleViolation[] {
-  const field = options.pseudonymKey;
-  if (field === undefined) return [];
-  const contract = (options as Partial<ApplicationOptions>).environment;
-  if (contract !== undefined && declaredFieldsOf(contract).includes(field)) return [];
-  const where = contract?.name ?? "the environment contract";
-  return [
-    violation(
-      "environment.missing-field",
-      `@Application pseudonymKey needs ${field}: Secret in ${where}`,
-      [options.name],
-    ),
-  ];
-}
-
 /** `maxConcurrentSteps` is a whole number of steps from 1 (#332): 0 would stop the instance. */
 function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
   const value = options.maxConcurrentSteps;
@@ -208,7 +190,8 @@ export function applicationRuleViolations(
       options.environment,
       readingClassesOf(listedClassesOf(options), depsOf),
     ),
-    ...pseudonymKeyFieldViolations(options),
+    // #825: the key fields — declared, Secret, none shared with another key
+    ...keyFieldViolations(options, listedClassesOf(options)),
     ...healthCheckRuleViolations(options),
     ...stepCapViolations(options),
     ...meshHopsViolations(options),
@@ -216,6 +199,7 @@ export function applicationRuleViolations(
     ...outboundCallsViolations(options.name, options.outboundCalls),
     ...ledgerEntryRetentionViolations(options.name, options.ledgerEntryRetention),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
+    ...storeDescriptorViolations(options.name, options.providers ?? []),
     ...storeBackendViolations(options.name, options.providers ?? []),
     // an application serving A2A on shared leases keeps its tasks shared too (#824)
     ...a2aTaskStoreViolations(options),

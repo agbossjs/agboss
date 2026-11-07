@@ -5,7 +5,8 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
-  LeaseCheck,
+  optsOutOfLeaseCheck,
+  storeDescriptorOf,
 } from "../infrastructure/execution-lease.repository.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
@@ -86,7 +87,7 @@ export function isInMemory(choices: readonly ImplementationChoice[], contract: C
 /**
  * One transactional backend (#526), checked at assembly from the declarations only: a listed
  * fenced-effect or outbound-call store checks the lease in its own transaction, so it and the
- * application's lease store declare one `static backend`; its violations name the classes, the
+ * application.s lease store declare one `static store` backend; its violations name the classes, the
  * backends and a fix on the fencing store's own backend (#539); two listed stores of one fencing
  * contract, or of the lease contract, are named too (#539) — and every violation is reported at once.
  */
@@ -126,7 +127,7 @@ const CORE_LEASE_STORES: Readonly<Record<string, string>> = {
 };
 
 /** How a class declares the backend it is on. */
-const HOW = 'static backend = "postgres"';
+const HOW = 'static store = { backend: "postgres" }';
 
 /** Whether `cls` is `base` or extends it. */
 const isOrExtends = (cls: Class, base: Class): boolean =>
@@ -137,14 +138,13 @@ const uniqueClasses = (providers: readonly Provider[]): readonly Class[] => [
   ...new Set(providers.flatMap((provider) => (typeof provider === "function" ? [provider] : []))),
 ];
 
-/** The declared backend of a store class (#526): its non-empty `static backend`, else none. */
+/** The declared backend of a store class (#526, #825): its `static store`'s non-empty `backend`, else none. */
 export const backendOf = (cls: Class): string | undefined => {
-  const backend: unknown = Reflect.get(cls, "backend");
-  return typeof backend === "string" && backend !== "" ? backend : undefined;
+  const { backend } = storeDescriptorOf(cls);
+  return backend === "" ? undefined : backend;
 };
 
-const isOptedOut = (store: Class): boolean =>
-  Reflect.get(store, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection;
+const isOptedOut = (store: Class): boolean => optsOutOfLeaseCheck(store);
 
 /** `a lease store declaring backend "sqlite" (SqliteExecutionLeaseRepository)`: one to list. */
 const storeOn = (
@@ -188,7 +188,7 @@ function pairViolations(
     found.push(violation("application.store-backend-undeclared", message, [application]));
   if (own === undefined)
     undeclared(
-      `${store.name} declares no backend: ${kind} checks its leases in its own transaction, so it and its lease store declare the database they are in (${HOW}) and assembly checks it is one — or it opts out with static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection, losing that protection`,
+      `${store.name} declares no backend: ${kind} checks its leases in its own transaction, so it and its lease store declare the database they are in (${HOW}) and assembly checks it is one — or it opts out with static store = { backend, leaseCheck: LeaseCheck.WithoutDoubleChargeProtection }, losing that protection`,
     );
   if (theirs === undefined)
     undeclared(

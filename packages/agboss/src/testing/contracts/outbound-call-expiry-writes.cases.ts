@@ -89,12 +89,12 @@ const stateOf = (stores: OutboundCallStores, lease: ExecutionLease) =>
 
 /**
  * `leaseStateOf` of a yielded lease (#516: still its holder's) at `edge`: `Live` 1 ms before the
- * expiry, `Superseded` at it and after it (#534) — and its holder's reclaim then refused.
+ * expiry, `LeaseClosed` at it and after it (#534) — and its holder's reclaim then refused.
  */
 const yieldedStateAt = (edge: ExpiryEdge): OutboundCallCase => {
   const isLive = edge === ExpiryEdge.Before;
   return {
-    name: `#534: leaseStateOf of a yielded lease ${edge} is ${isLive ? "Live" : "Superseded: its holder's reclaim refused"}`,
+    name: `#534: leaseStateOf of a yielded lease ${edge} is ${isLive ? "Live" : "LeaseClosed: its holder's reclaim refused"}`,
     run: async ({ clock, first, second }) => {
       const lease = await leaseOf(first, "execution-1", LEASE);
       expect(await first.leases.yield(lease)).toBe(true);
@@ -103,7 +103,7 @@ const yieldedStateAt = (edge: ExpiryEdge): OutboundCallCase => {
       const state = await stateOf(second, lease);
       const reclaimed = await first.leases.reclaim(lease, LEASE);
 
-      expect(state).toBe(isLive ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Superseded);
+      expect(state).toBe(isLive ? OutboundCallLeaseState.Live : OutboundCallLeaseState.LeaseClosed);
       expect(reclaimed !== undefined).toBe(isLive);
     },
   };
@@ -112,12 +112,12 @@ const yieldedStateAt = (edge: ExpiryEdge): OutboundCallCase => {
 /**
  * `leaseStateOf` and the holder's renewal started at once at `edge`, in both orders: never both
  * win — 1 ms before the expiry the renewal stands and the lease is `Live`; at it and after it the
- * renewal is refused and the check closes the lease (`Superseded`, #534).
+ * renewal is refused and the check closes the lease (`LeaseClosed`, #534).
  */
 const stateRacingRenewalAt = (edge: ExpiryEdge, isCheckFirst: boolean): OutboundCallCase => {
   const isLive = edge === ExpiryEdge.Before;
   return {
-    name: `#534: leaseStateOf racing the holder's renewal ${edge} (${isCheckFirst ? "the check" : "the renewal"} started first): ${isLive ? "renewed and Live" : "refused and Superseded"}`,
+    name: `#534: leaseStateOf racing the holder's renewal ${edge} (${isCheckFirst ? "the check" : "the renewal"} started first): ${isLive ? "renewed and Live" : "refused and LeaseClosed"}`,
     run: async ({ clock, first, second }) => {
       const lease = await leaseOf(first, "execution-1", LEASE);
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
@@ -129,7 +129,7 @@ const stateRacingRenewalAt = (edge: ExpiryEdge, isCheckFirst: boolean): Outbound
           );
 
       expect(wasRenewed).toBe(isLive);
-      expect(state).toBe(isLive ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Superseded);
+      expect(state).toBe(isLive ? OutboundCallLeaseState.Live : OutboundCallLeaseState.LeaseClosed);
     },
   };
 };

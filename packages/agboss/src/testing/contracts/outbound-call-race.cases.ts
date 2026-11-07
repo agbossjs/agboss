@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
@@ -30,10 +31,8 @@ export const PENDING = { status: OutboundCallStatus.Pending, attempt: 1, attempt
 const FAILURE = { name: "PaymentDeclinedError", code: "PaymentDeclinedError", message: "declined" };
 
 /** Round `round`'s key of `name` under the lease the case holds. */
-const roundKey = (key: EffectKey, round: number): EffectKey => ({
-  ...key,
-  name: `charge-${String(round)}`,
-});
+const roundKey = (key: EffectKey, round: number): EffectKey =>
+  effectKeyForTesting(key, { name: `charge-${String(round)}` });
 
 const movesRaced: OutboundCallCase = {
   name: "#508: two instances moving one pending intent from one read, round after round: exactly one wins each time",
@@ -61,7 +60,9 @@ const savesRaced: OutboundCallCase = {
     const other = keyOf(await leaseOf(second, "execution-2"));
     for (let round = 0; round < ROUNDS; round += 1) {
       const businessKey = `order:${String(round)}`;
-      const [a, b] = [one, other].map((key) => ({ ...key, businessKey, fingerprint: "f" }));
+      const [a, b] = [one, other].map((key) =>
+        effectKeyForTesting(key, { businessKey, fingerprint: "f" }),
+      );
       if (a === undefined || b === undefined) throw new Error("two keys expected");
 
       const saves = await inTurn(
