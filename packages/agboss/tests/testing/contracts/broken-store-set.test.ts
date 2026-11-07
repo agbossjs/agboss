@@ -36,17 +36,17 @@ const SEEN_AFTER_COMMIT =
   "a business row is seen by another instance only once the effect committed";
 const TOO_LARGE = "a result above maxResultSize is refused and its write rolled back";
 const RENEWAL_RACE =
-  "#508: leaseStateOf of an expired lease racing its holder's renewal, round after round: renewed and Live, or Superseded and not renewable — never both";
+  "#508: leaseStateOf of an expired lease racing its holder's renewal, round after round: renewed and Live, or LeaseClosed and not renewable — never both";
 const TAKE_RACE =
   "#508: leaseStateOf of an expired lease racing another instance's take, round after round: the old token is not Live, the take stands and is held";
 const KIND_CASES = [
   "#526 AC6: every row kind, reason, site, outcome and status the core writes is read back as it was, in the order saved",
-  "#508: a lease-superseded row keeps the lease it closed (supersededLease)",
+  "#508: a lease-closed row keeps the lease it closed (closedLease)",
   "#508: a superseded row keeps the attempt that took the intent over (supersededBy)",
   "#508: a business key's replay keeps the step it replayed (replayedFrom), on a fenced-effect row and an outbound-call row",
 ];
 const STORE_SET_CASES = [
-  "the lease store declares its backend (static backend)",
+  "the lease store declares its backend (static store)",
   "the fenced-effect store is on the backend of the lease store it checks, or opts out",
   "the outbound-call store is on the backend of the lease store it checks, or opts out",
 ];
@@ -165,11 +165,15 @@ describe("#526 AC1, AC2: the store set's cases", () => {
       .filter((found) => found.file === BACKENDS && found.state === "fail")
       .map((found) => found.errors.join("\n"));
 
-    expect(errors[0]).toContain("UndeclaredLeases, the lease store, declares no static backend");
+    expect(errors[0]).toContain(
+      "UndeclaredLeases, the lease store, declares no backend (static store)",
+    );
     expect(errors[1]).toContain(
       "ElsewhereEffects checks the leases of InMemoryExecutionLeaseRepository in its own transaction: one backend",
     );
-    expect(errors[2]).toContain("UndeclaredCalls, a fencing store, declares no static backend");
+    expect(errors[2]).toContain(
+      "UndeclaredCalls, a fencing store, declares no backend (static store)",
+    );
   });
 
   it("a store that opts out of the atomic lease check, accepted (#543): nothing fails, its line skipped, the opt-out shown", () => {

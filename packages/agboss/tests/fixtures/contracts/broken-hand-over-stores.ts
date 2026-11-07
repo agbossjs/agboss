@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * A fenced-effect store whose lease check takes no lock and is not made again at its commit
  * (#695) — the way a port to a database whose transactions read without locking (MongoDB: a read
@@ -48,7 +49,7 @@ interface Stored {
 const queues = new WeakMap<object, Map<string, Promise<unknown>>>();
 
 export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransaction> {
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
     private readonly seam: InstanceSeam,

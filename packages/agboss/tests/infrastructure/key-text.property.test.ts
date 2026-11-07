@@ -5,12 +5,14 @@
  * outbound call's intent, a fenced effect's result). And for any text at all: refused exactly when
  * a rule says so, with an error that is the rule's own, never the text.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import {
-  checkedBusinessKey,
+  assertBusinessKey,
   FencedEffectStatus,
+  FingerprintPolicy,
   InvalidBusinessKeyError,
   type EffectKey,
 } from "../../src/index.js";
@@ -140,7 +142,7 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
         const rule = keyTextRuleOf(text);
         const error = ((): unknown => {
           try {
-            checkedBusinessKey({ name: "charge", businessKey: text });
+            assertBusinessKey({ name: "charge", businessKey: text });
             return undefined;
           } catch (thrown) {
             return thrown;
@@ -257,10 +259,11 @@ describe.each(CALL_TARGETS)("#538 AC2: outbound-call intents (%s)", (_kind, targ
         fc.asyncProperty(distinctKeys, async (keys) => {
           round += 1;
           const lease = await leaseOf(first, `execution-${String(round)}`);
-          const keyed = (businessKey: string): EffectKey => ({
-            ...keyOf(lease, `charge-${String(round)}`),
-            businessKey,
-          });
+          const keyed = (businessKey: string): EffectKey =>
+            effectKeyForTesting(keyOf(lease, `charge-${String(round)}`), {
+              businessKey,
+              fingerprint: "f",
+            });
           for (const [index, businessKey] of keys.entries()) {
             const intent = intentOf(keyed(businessKey), { request: JSON.stringify({ index }) });
             expect(await first.calls.saveIfAbsent(keyed(businessKey), intent)).toBe(true);
@@ -288,10 +291,11 @@ function effectsProperty<TTransaction>(
       fc.asyncProperty(distinctKeys, async (keys) => {
         round += 1;
         const lease = await leaseOf(first, `execution-${String(round)}`);
-        const keyed = (businessKey: string): EffectKey => ({
-          ...keyOf(lease, `charge-${String(round)}`),
-          businessKey,
-        });
+        const keyed = (businessKey: string): EffectKey =>
+          effectKeyForTesting(keyOf(lease, `charge-${String(round)}`), {
+            businessKey,
+            fingerprintPolicy: FingerprintPolicy.None,
+          });
         const count = { runs: 0 };
         for (const [index, businessKey] of keys.entries()) {
           const ran = await first.effects.saveResultIfAbsent(
@@ -349,7 +353,9 @@ describe("#538 AC2: the property bites a store that folds a business key", () =>
             round += 1;
             const lease = await leaseOf(first, `execution-${String(round)}`);
             for (const businessKey of keys) {
-              const key = { ...keyOf(lease, `charge-${String(round)}`), businessKey };
+              const key = effectKeyForTesting(keyOf(lease, `charge-${String(round)}`), {
+                businessKey,
+              });
               expect(await first.calls.saveIfAbsent(key, intentOf(key))).toBe(true);
             }
           }),

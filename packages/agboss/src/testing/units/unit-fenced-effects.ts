@@ -1,10 +1,11 @@
 import type { Container } from "../../components/container/container.js";
 import type { Class, Token } from "../../components/injection.js";
 import type { FrameLease } from "../../flow/context/frame.js";
-import type { Clock } from "../../infrastructure/clock.js";
+import { lazyLoad, type Clock } from "../../infrastructure/clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
+  storeDescriptorOf,
 } from "../../infrastructure/execution-lease.repository.js";
 import { OutboundCalls } from "../../app/outbound-calls.js";
 import {
@@ -24,7 +25,7 @@ import type { TestFenceOptions } from "../fence.js";
 /**
  * The fenced effects of a unit runner (#500): the built-in in-memory store on a database of the
  * runner's own, and — for every fenced-effect store the runner's container creates, the SQLite one
- * too — the runner's lease in the lease store that store reads (`static leaseRepository`): the
+ * too — the runner's lease in the lease store of that store's backend (#825: `static store`): the
  * fence's token, held until its `confirmedUntil`, released when the options say it was lost. So
  * `testAction` / `testTool` run a component's `saveResultIfAbsent` as a step of a held lease does.
  * The same for the calls that leave the system (#505): `OutboundCalls` over the in-memory
@@ -70,11 +71,8 @@ export class UnitFencedEffects {
   /** Writes the runner's lease into the lease store of every store created since the last call. */
   async hold(container: Container): Promise<void> {
     for (const store of this.#created.splice(0)) {
-      const leaseRepository: unknown = Reflect.get(store.constructor, "leaseRepository");
-      // a store of its own declares the lease store it reads, a class (`static leaseRepository`)
-      const leases =
-        typeof leaseRepository === "function" ? container.get(leaseRepository as Class) : undefined;
-      if (leases instanceof ExecutionLeaseRepository && !this.#held.has(leases)) {
+      const leases = await leaseStoreOf(container, storeDescriptorOf(store.constructor).backend);
+      if (leases !== undefined && !this.#held.has(leases)) {
         this.#held.add(leases);
         await this.#holdIn(leases);
       }
@@ -96,4 +94,28 @@ export class UnitFencedEffects {
     const held = await leases.acquire(tenantId, leaseExecutionId, length);
     if (held !== undefined && this.fence.isLost === true) await leases.release(held);
   }
+}
+
+/**
+ * The lease store a fencing store on `backend` reads (#825): the runner's own when it is on that
+ * backend (the in-memory default, or one the test lists), else the core's lease store of that
+ * backend (SQLite's); none for a backend the core has no lease store of and the test lists none —
+ * that store's calls are then fenced, as an unheld lease is.
+ */
+async function leaseStoreOf(
+  container: Container,
+  backend: string | undefined,
+): Promise<ExecutionLeaseRepository | undefined> {
+  if (backend === undefined) return undefined;
+  const runners = container.get(ExecutionLeaseRepository);
+  if (
+    runners instanceof ExecutionLeaseRepository &&
+    storeDescriptorOf(runners.constructor).backend === backend
+  )
+    return runners;
+  if (backend !== "sqlite") return undefined;
+  const { SqliteExecutionLeaseRepository } = await lazyLoad(
+    import("../../infrastructure/sqlite/sqlite-execution-lease.repository.js"),
+  );
+  return container.get(SqliteExecutionLeaseRepository) as ExecutionLeaseRepository;
 }

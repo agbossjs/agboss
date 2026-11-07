@@ -9,7 +9,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
-  EmptyEnvironment,
   OutboundCallPayloadTooLargeError,
   OutboundCallRepository,
   OutboundCallSettings,
@@ -36,6 +35,7 @@ import {
   resetRuns,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
+import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetLogged();
@@ -50,7 +50,8 @@ const assembledWith = (outboundCalls: OutboundCallOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
+    environment: IdempotencyKeyEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     outboundCalls,
@@ -111,7 +112,8 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
 @Application({
   name: "small-outbound-call-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
@@ -143,7 +145,7 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
       const result = await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
       expect(result.output).toMatchObject({ chargeId: expect.stringContaining("ch-order-1-1") });
-      expect(await app.pendingOutboundCalls({ tenantId: "default" })).toEqual([]);
+      expect((await app.pendingOutboundCallsOf({ tenantId: "default" })).calls).toEqual([]);
       const [call] = await app.outboundCallsOf({
         tenantId: "default",
         rootExecutionId: result.executionId,

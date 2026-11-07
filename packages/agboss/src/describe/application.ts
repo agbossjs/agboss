@@ -114,12 +114,12 @@ function modelProvidersOfApplication(
 /**
  * The assembly warnings of an application (`agboss check`, errors under `--strict`): its budgets on
  * an in-memory ledger, its pauses in memory, PII tokens on a key of the instance (no
- * `pseudonymKey`, #120 S94).
+ * `piiKeyField`, #120 S94).
  */
 export const applicationWarningsOf = (
   assembled: AssembledApplication,
 ): readonly AssemblyWarning[] =>
-  assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: assembled.pseudonymKey === undefined });
+  assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: assembled.piiKeyField === undefined });
 
 /** The application, described from its assembly. */
 export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication {

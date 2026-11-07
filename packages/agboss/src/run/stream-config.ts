@@ -32,7 +32,11 @@ export interface RunIdentity {
 const runContextOf = (
   identity: RunIdentity,
   options: AgentExecutionOptions,
-  { lease, pii }: Pick<AgentExecutionDeps<string>, "lease" | "pii">,
+  {
+    lease,
+    pii,
+    fingerprintKeys,
+  }: Pick<AgentExecutionDeps<string>, "lease" | "pii" | "fingerprintKeys">,
 ): RunContext => ({
   ...newRunContext({
     lease,
@@ -47,18 +51,17 @@ const runContextOf = (
   observability: pii?.observability,
   // what a business key's handle in an error is keyed by (#508)
   ...piiKeysOf(pii),
+  // what a business key's fingerprint is keyed by (#825): the application's idempotency keys
+  fingerprintKeys,
 });
 
 /**
- * The keys a run's steps derive from its PII key (#508): a business key's handle (the field key)
- * and a fingerprint's (the application's own key only — the same on every instance).
+ * The key a run's steps derive from its PII key (#508): a business key's handle (the field key). A
+ * fingerprint is never keyed by it (#825: the application's idempotency key, `fingerprintKeys`).
  */
 export const piiKeysOf = (
-  pii: Pick<PiiRuntime, "fieldKey" | "isInstanceKey"> | undefined,
-): Pick<RunContext, "correlationKey" | "fingerprintKey"> => ({
-  correlationKey: pii?.fieldKey,
-  ...(pii === undefined || pii.isInstanceKey ? {} : { fingerprintKey: pii.fieldKey }),
-});
+  pii: Pick<PiiRuntime, "fieldKey"> | undefined,
+): Pick<RunContext, "correlationKey"> => ({ correlationKey: pii?.fieldKey });
 
 /** What the internal `run.input` holds: the start's input when it is an object (not a list). */
 function objectInput(input: unknown): Readonly<Record<string, unknown>> | undefined {

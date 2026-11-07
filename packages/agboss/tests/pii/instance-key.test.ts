@@ -1,5 +1,5 @@
 /**
- * #334: without `@Application({ pseudonymKey })` each root execution makes its field tokens with a
+ * #334: without `@Application({ piiKeyField })` each root execution makes its field tokens with a
  * key of its own, kept in its checkpoint and handed to its children — a pause resumed, or a crash
  * recovered, on another instance gives one value the same token; the application's key (or the
  * test's) changes nothing and puts no key in the checkpoint.

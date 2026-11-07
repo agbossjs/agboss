@@ -1,14 +1,14 @@
+import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { AGBossError } from "../../core/errors.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { Injectable } from "../../components/decorators.js";
-import type { Class } from "../../components/injection.js";
-import { StoreClock, type Clock } from "../clock.js";
+import { StoreClock } from "../clock.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
-  checkedBusinessKey,
-  checkedEffectName,
+  assertBusinessKey,
+  assertEffectName,
   replayedFromOf,
   storedKeyFactsOf,
   type StoredKeyFacts,
@@ -21,10 +21,8 @@ import {
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import {
-  EXECUTION_LEASES_SCHEMA,
-  SqliteExecutionLeaseRepository,
-} from "./sqlite-execution-lease.repository.js";
+import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
+import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
 
 /** The scopes' marks and the results (#500); the marks are every fenced store's of the file. */
 export const FENCED_EFFECTS_SCHEMA = `
@@ -109,12 +107,11 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
-  static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
-  static override readonly backend: string | undefined = "sqlite";
+  static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly clock: Pick<Clock, "now">,
+    private readonly clock: Pick<StoreClock, "now">,
     settings: FencedEffectSettings,
   ) {
     super(settings);
@@ -190,8 +187,10 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
  * `ExecutionFencedError`, a hand-over.
  */
 export function checkSqliteFence(database: DatabaseSync, key: EffectKey, now: number): void {
-  checkedEffectName(key.name);
-  checkedBusinessKey(key);
+  assertEffectName(key.name);
+  assertBusinessKey(key);
+  // #825: in the transaction every store of the core runs, whatever its entry was overridden with
+  assertFingerprintDecided(key);
   const { scopeKey, token } = key;
   const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;

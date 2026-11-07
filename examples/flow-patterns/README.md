@@ -120,6 +120,7 @@ Add the model key and the PII key to the same `.env` (repo root):
 ```bash
 OPENROUTER_API_KEY=sk-or-...
 PII_PSEUDONYM_KEY=any-long-random-text # the application's PII key: required by `dev`
+IDEMPOTENCY_KEY=another-long-random-text # its idempotency key (#825): business-key fingerprints, required by `dev`
 # OPENROUTER_BASE_URL=...             # optional: a proxy or a local OpenAI-compatible server
 ```
 

@@ -186,11 +186,13 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class MeshA2AExpose {}
 
+  // one of two contracts, as the spec says: the decorator's field types are the union's
+  const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
     exposes: [MeshA2AExpose],
     version: "1.0.0",
-    environment: spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment,
+    environment,
     workflows: [MeshWorkflow],
     budgets: TEST_BUDGETS,
     observers: [StartObserver],

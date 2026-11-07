@@ -94,6 +94,12 @@ export interface ContractTarget<TStore> {
 // @public
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "EffectKeyFields" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "EffectKey" needs to be exported by the entry point index.d.ts
+//
+// @public
+export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
+
 // @public
 export function executionHistoryContract(target: ContractTarget<ExecutionHistoryRepository>): void;
 

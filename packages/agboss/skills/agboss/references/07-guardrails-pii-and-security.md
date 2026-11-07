@@ -415,7 +415,7 @@ import { ClinicEnvironment } from "./environments/app.environment.js";
   version: "1.0.0",
   environment: ClinicEnvironment,
   executionContext: ClinicExecutionContext, // execute(…, { execution: { locale } })
-  pseudonymKey: "piiPseudonymKey", // names the Secret field of the environment
+  piiKeyField: "piiPseudonymKey", // names the Secret field of the environment
   workflows: [ClinicWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   guardrails: [NoDiagnosisGuardrail], // every agent of every workflow
@@ -444,7 +444,7 @@ How PII masking works — the **model boundary** (S38):
   format (`PersonName`, `StreetAddress`, `DateOfBirth`, `PassportNumber`, …) need
   `detectWithModel: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
   is not the JSON asked for fails closed (`PiiDetectionFailedError`).
-- **The key**: a policy's own `pseudonymKey: secret("…")`, else `@Application({ pseudonymKey })`.
+- **The key**: a policy's own `pseudonymKey: secret("…")`, else `@Application({ piiKeyField })`.
   Neither → a key per root execution and the warning `[application.pii-instance-key]`.
 
 Actions: `PiiAction.replaceWithKind()` → `<israeli-id>`; `replacePart({ keepLast: 4 })` /
@@ -494,7 +494,7 @@ uses.
 
 In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
-asserts it. A `pseudonymKey` whose variable is unset gets a fixed test key.
+asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `pseudonymKey` whose variable is unset gets a fixed test key.
 
 ## Rule codes
 
@@ -512,7 +512,7 @@ asserts it. A `pseudonymKey` whose variable is unset gets a fixed test key.
 | `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                |
 | `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `blockWithRefusal()` without `refusal(kind)` / a `refusal` nobody uses            |
 | `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind       |
-| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ pseudonymKey })`  |
+| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`   |
 
 ## Pitfalls
 

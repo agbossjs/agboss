@@ -8,7 +8,7 @@ import type { OutboundCallLease } from "./outbound-call-record.js";
  * The state of a lease that wrote a pending outbound call (#508), loaded on the first check — in
  * memory and on SQLite. Live while `expiresAt > now`, the one boundary of every lease check (#534); an
  * expired one (`now >= expiresAt`) is closed by the check itself, in the same atomic step:
- * released at its token — marked superseded (in memory `isSuperseded`, on SQLite `released = 2`), so
+ * released at its token — marked closed by a check (in memory `isClosedByCheck`, on SQLite `released = 2`), so
  * the next take still names its holder and token (`takenOverFrom`) — and its holder can neither
  * renew it nor write under it again.
  */
@@ -27,13 +27,13 @@ export function inMemoryLeaseStateOf(
   if (row === undefined || row.released || row.lease.leaseEpoch !== lease.token)
     return OutboundCallLeaseState.Ended;
   if (row.lease.expiresAt > now) return OutboundCallLeaseState.Live;
-  database.executionLeases.set(key, { ...row, released: true, isSuperseded: true });
-  return OutboundCallLeaseState.Superseded;
+  database.executionLeases.set(key, { ...row, released: true, isClosedByCheck: true });
+  return OutboundCallLeaseState.LeaseClosed;
 }
 
 /**
  * The SQLite store's `leaseStateOf`: the close is one conditional `UPDATE` (still at `token`, not
- * released, expired) — one row changed is `Superseded`; else the row read after it says `Live` (a
+ * released, expired) — one row changed is `LeaseClosed`; else the row read after it says `Live` (a
  * renewal landed first) or `Ended`.
  */
 export function sqliteLeaseStateOf(
@@ -47,7 +47,7 @@ export function sqliteLeaseStateOf(
       "UPDATE execution_leases SET released = 2 WHERE tenant_id = ? AND root_execution_id = ? AND lease_epoch = ? AND released = 0 AND expires_at <= ?",
     )
     .run(tenantId, leaseExecutionId, token, now.getTime());
-  if (closed.changes === 1) return OutboundCallLeaseState.Superseded;
+  if (closed.changes === 1) return OutboundCallLeaseState.LeaseClosed;
   const row = database
     .prepare(
       "SELECT lease_epoch, released FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?",

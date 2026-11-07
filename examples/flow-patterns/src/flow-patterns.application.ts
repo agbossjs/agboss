@@ -69,7 +69,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
   name: "flow-patterns-application",
   version: "1.0.0",
   environment: AppEnvironment,
-  pseudonymKey: "piiPseudonymKey", // one PII token per value on every instance (#120)
+  piiKeyField: "piiPseudonymKey", // one PII token per value on every instance (#120)
+  idempotencyKeyField: "idempotencyKey", // the credit desk's business-key fingerprints (#825)
   workflows: [
     OfferWorkflow,
     CreditWorkflow,

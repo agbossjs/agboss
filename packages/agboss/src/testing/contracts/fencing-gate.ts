@@ -1,5 +1,5 @@
 import type { TestContext } from "vitest";
-import { LeaseCheck } from "../../infrastructure/execution-lease.repository.js";
+import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.repository.js";
 import { StoreConformanceError } from "./store-conformance-check.js";
 import type { ContractCaseBody, ContractInstances } from "./seam.js";
 
@@ -69,8 +69,7 @@ export interface FencingContractOptions {
 }
 
 /** Whether `store`'s class declares the opt-out. */
-export const isOptedOutStore = (store: object): boolean =>
-  Reflect.get(store.constructor, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection;
+export const isOptedOutStore = (store: object): boolean => optsOutOfLeaseCheck(store.constructor);
 
 /** The refusal of an opted-out store the call did not accept, naming it. */
 export const optedOutRefusal = (store: object): StoreConformanceError =>

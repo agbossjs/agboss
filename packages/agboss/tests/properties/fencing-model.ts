@@ -4,6 +4,7 @@
  * run on the store and on the sequential model (`src/testing/contracts/models/`), its two answers
  * compared.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { scopeKeyOf } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
@@ -145,7 +146,7 @@ function keyOf(
 ): { readonly key: EffectKey; readonly facts: CallKeyFacts } {
   const lease = world.leases.get(instance);
   const leaseTree = lease?.rootExecutionId ?? TREES[0];
-  const key: EffectKey = {
+  const key: EffectKey = effectKeyForTesting({
     scopeKey: scopeKeyOf(TENANT, leaseTree),
     tenantId: TENANT,
     leaseExecutionId: leaseTree,
@@ -154,7 +155,7 @@ function keyOf(
     name: "charge",
     businessKey: "order:1",
     fingerprint: "f",
-  };
+  });
   const facts = {
     tree: treeOf(TENANT, leaseTree),
     token: key.token,

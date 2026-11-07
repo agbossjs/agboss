@@ -56,6 +56,10 @@ import {
 } from "../../../src/a2a/client/a2a-parts.js";
 import { A2APeerKind } from "../../../src/a2a/client/a2a-card.js";
 
+/** A verdict's field, whatever its kind (#825: the reconciliation is a union by verdict). */
+const fieldOf = (verdict: object, field: "reason" | "result"): unknown =>
+  Reflect.get(verdict, field);
+
 const protocol = (fields: { readonly rpcCode?: number; readonly httpStatus?: number }) =>
   new A2AProtocolError({ agent: "a", operation: A2AClientOperation.SendMessage, ...fields });
 const protocolRpc = (rpcCode: number) => protocol({ rpcCode });
@@ -645,7 +649,7 @@ describe("the remaining edges, one by one", () => {
     };
     for (const storedRequest of ["null", "7", '"text"']) {
       const verdict = await reconciliationOf(call, { storedRequest }, "m");
-      expect(verdict.reason).toMatch(/agent changed/u);
+      expect(fieldOf(verdict, "reason")).toMatch(/agent changed/u);
     }
   });
 

@@ -44,7 +44,7 @@ const reads = (app: TestApp, tenantId: string) =>
   [
     ["leaseEventsOf", () => app.leaseEventsOf({ tenantId, rootExecutionId: "execution-1" })],
     ["outboundCallsOf", () => app.outboundCallsOf({ tenantId, rootExecutionId: "execution-1" })],
-    ["pendingOutboundCalls", () => app.pendingOutboundCalls({ tenantId })],
+    ["pendingOutboundCallsOf", async () => (await app.pendingOutboundCallsOf({ tenantId })).calls],
   ] as const;
 
 const rejectionOf = (call: () => Promise<unknown>): Promise<unknown> =>
@@ -66,7 +66,7 @@ describe("#552 acceptance: a tenant id at the operator's reads", () => {
       );
       call.catch(() => undefined);
       await frozenCharges(1);
-      expect(await app.pendingOutboundCalls({ tenantId: REPLACED })).toEqual([
+      expect((await app.pendingOutboundCallsOf({ tenantId: REPLACED })).calls).toEqual([
         expect.objectContaining({ status: OutboundCallStatus.Pending }),
       ]);
 

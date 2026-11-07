@@ -1,8 +1,8 @@
-import type { FencedEffectOrigin, JsonResult } from "../infrastructure/fenced-effect.repository.js";
+import type { FencedEffectOrigin, JsonValue } from "../infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../units/index.js";
 import type { NotSentTrust } from "./outbound-call-contract.js";
 import type {
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallPart,
   OutboundCallReconciliation,
 } from "./outbound-calls.js";
@@ -64,11 +64,11 @@ export interface OutboundCallSendOptions<TRequest, TResult> {
   /** What it does there: `"charge"`. */
   readonly operation: string;
   /** Plain JSON: `send` gets it as it is; it is stored masked by the PII policies. */
-  readonly request: TRequest & JsonResult<TRequest>;
+  readonly request: TRequest & JsonValue<TRequest>;
   /** Sends the call (with `call.idempotencyKey`); its answer is the result, plain JSON. */
   readonly send: (
     call: OutboundCall<TRequest>,
-  ) => Promise<TResult & JsonResult<TResult>> | (TResult & JsonResult<TResult>);
+  ) => Promise<TResult & JsonValue<TResult>> | (TResult & JsonValue<TResult>);
   /**
    * Asked only for an intent left pending — the process died, or lost its lease, before the
    * answer, or `send` threw an error of unknown outcome: what happened, from the other system,
@@ -125,7 +125,7 @@ export interface NotSentByKeyReplay {
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */
 export interface OutboundCallOutcome<TResult> {
-  readonly status: OutboundCallOutcomeStatus;
+  readonly status: OutboundCallSendStatus;
   readonly result: TResult;
   readonly attempt: number;
   readonly idempotencyKey: string;

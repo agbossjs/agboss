@@ -162,7 +162,7 @@ describe("#261 M1: describe shows the application", () => {
 
     expect(lines).toContain("observers TellAuditObserver");
     expect(describedApplicationOf(tellApplication).warnings).toEqual([
-      "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey",
+      "[application.pii-instance-key] no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
     ]);
     expect(lines.filter((line) => line.startsWith("warning ")).length).toBeLessThanOrEqual(1);
   });

@@ -3,7 +3,7 @@ import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repo
 import type {
   FencedEffectEventOutcome,
   OutboundCallEventOutcome,
-  OutboundCallSupersededLease,
+  OutboundCallClosedLease,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -131,15 +131,15 @@ export interface OutboundCallEvent extends NodeEvent {
   /** A business key's replay of a call another step or execution made (#508): that step. */
   readonly replayedFrom?: FencedEffectOrigin;
   /**
-   * The newer attempt that took the intent over while this one was in flight (#508, `Superseded`):
+   * The newer attempt that took the intent over while this one was in flight (#508, `AttemptSuperseded`):
    * both reached the other system.
    */
   readonly supersededBy?: number;
   /**
-   * The lease of another execution this call closed (#508, `LeaseSuperseded`): it had expired with
+   * The lease of another execution this call closed (#508, `LeaseClosed`): it had expired with
    * this intent's attempt pending under it — the token it was held at, never one nobody held.
    */
-  readonly supersededLease?: OutboundCallSupersededLease;
+  readonly closedLease?: OutboundCallClosedLease;
 }
 
 /**

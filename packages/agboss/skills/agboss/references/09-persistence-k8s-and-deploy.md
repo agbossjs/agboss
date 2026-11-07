@@ -352,13 +352,23 @@ Autoscaling.
   when `reconcile` reads the other system's own records, `{ trust: NotSentTrust.KeyReplay,
 keyRetention: hours(24) }` when its `notSent()` relies on the key's replay. An attempt answered
   after a newer one took it over fails the step with `OutboundCallSupersededError`.
+  `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` pages what waits for an operator
+  (`{ calls, next? }`, #825).
+- **Business keys (#508, #825).** `effectKeyOf(executionContext, "charge", { businessKey:
+"order:42", fingerprint: { amountUsd } })` — one effect per tenant, name and business key, another
+  fingerprint a conflict; a fenced effect needs `fingerprint` or `fingerprintPolicy:
+FingerprintPolicy.None` (a compile error without), `{ businessKey }` alone is a call's key (its
+  request the fingerprint). The fingerprint is keyed by `@Application({ idempotencyKeyField })` — a
+  `Secret` of its own, required where business keys can be made; rotate it with
+  `previousIdempotencyKeyField` (compared under both, stored under the current one) and drop the
+  previous field once nothing recorded under it can be retried.
 - **Any instance answers.** A pause made on one instance is resumed on another; `app.cancel` reaches
   the tree on whichever instance moves it.
 - **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,
   `[limits.max-concurrent-steps-invalid]`; unset → no cap) bounds the agent, router and action steps
   one instance runs at once over every tree and tenant — a queue, never an error; readiness is
   `Degraded` while every slot is busy, and the recovery sweep starts at most its free slots' worth.
-- **PII tokens** are the same on every instance only with `@Application({ pseudonymKey })` (reference 07).
+- **PII tokens** are the same on every instance only with `@Application({ piiKeyField })` (reference 07).
 
 ## A graceful stop
 

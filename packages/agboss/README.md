@@ -1376,7 +1376,7 @@ event. The startup warnings (`app.warnings`) include the **assembly warnings**: 
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
 built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
-tokens made with a key of each execution because `@Application({ pseudonymKey })` is not set
+tokens made with a key of each execution because `@Application({ piiKeyField })` is not set
 (`[application.pii-instance-key]`: one value gets another token in each execution) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
@@ -1583,7 +1583,7 @@ Assembly checks the lists: `[pii.conflicting-rules]` (two policies with differen
 kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
 `[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
 Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
-start). The application's own key, `@Application({ pseudonymKey: "piiPseudonymKey" })`, names a
+start). The application's own key, `@Application({ piiKeyField: "piiPseudonymKey" })`, names a
 `Secret` field of its environment (`piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`, like a model
 provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
 its own — so one value is one token on every instance, and logs and traces from several machines

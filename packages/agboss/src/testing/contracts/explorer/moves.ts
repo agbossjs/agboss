@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "../effect-key.js";
 import { scopeKeyOf } from "../../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../../infrastructure/execution-lease-event.repository.js";
 import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
@@ -31,19 +32,20 @@ async function checked(run: ExplorerRun, instance: number, tree: string): Promis
     leaseExecutionId: tree,
     token,
   });
-  if (state === OutboundCallLeaseState.Superseded) run.observer.superseded(tree, token);
+  if (state === OutboundCallLeaseState.LeaseClosed) run.observer.superseded(tree, token);
   return `epoch ${String(token)} → ${state}`;
 }
 
 /** The step's fenced effect key on `tree` at `token`: one step, whoever runs it. */
-export const effectKeyOf = (tree: string, token: number): EffectKey => ({
-  scopeKey: scopeKeyOf(EXPLORED_TENANT, tree),
-  tenantId: EXPLORED_TENANT,
-  leaseExecutionId: tree,
-  token,
-  idempotencyKey: `${tree}:charge-action:1`,
-  name: "charge",
-});
+export const effectKeyOf = (tree: string, token: number): EffectKey =>
+  effectKeyForTesting({
+    scopeKey: scopeKeyOf(EXPLORED_TENANT, tree),
+    tenantId: EXPLORED_TENANT,
+    leaseExecutionId: tree,
+    token,
+    idempotencyKey: `${tree}:charge-action:1`,
+    name: "charge",
+  });
 
 /** The fenced effect of `instance` at the last token it held on `tree`. */
 async function written(run: ExplorerRun, instance: number, tree: string): Promise<string> {

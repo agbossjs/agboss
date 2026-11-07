@@ -15,6 +15,7 @@ import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
 import { runInFrame, type FrameSpec } from "../../flow/context/frame.js";
+import { TEST_IDEMPOTENCY_KEY } from "../../application/idempotency-key.js";
 import { tenantOfExecution, type RuntimeContexts } from "../../flow/context/runtime-contexts.js";
 import {
   executionFieldsOf,
@@ -219,6 +220,8 @@ export class UnitSite {
         tenant: tenantOfExecution(this.contexts, this.#tenant),
         values: this.#execution,
         lease: this.#lease,
+        // a business key's fingerprint under the test's idempotency key (#825), as testWith gives it
+        fingerprintKeys: UNIT_FINGERPRINT_KEYS,
       }),
       step: testStepOf(UNIT_EXECUTION, {
         component: frame.component,
@@ -227,3 +230,6 @@ export class UnitSite {
     };
   }
 }
+
+/** The idempotency keys of a unit runner's steps (#825): the test key, no rotation. */
+const UNIT_FINGERPRINT_KEYS = Object.freeze({ current: TEST_IDEMPOTENCY_KEY });

@@ -18,8 +18,8 @@ import type { ContractCase, ContractGroup } from "./define.js";
 /**
  * The lease log's rows, every kind the core writes (#526 AC6, found by agbossjs/postgres#8): each
  * takeover reason, hand-over reason and site, fenced-effect and outbound-call outcome and status,
- * with every optional field and without — the #508 ones above all (`lease-superseded` and
- * `superseded`, `supersededLease`, `supersededBy`, `replayedFrom`). A store on a row schema of
+ * with every optional field and without — the #508 ones above all (`lease-closed` and
+ * `superseded`, `closedLease`, `supersededBy`, `replayedFrom`). A store on a row schema of
  * before them rejects or loses them; it passes the cases above, and fails these.
  */
 
@@ -85,9 +85,9 @@ const STATUS_OF: Readonly<Record<OutboundCallEventOutcome, OutboundCallStatus>> 
   [OutboundCallEventOutcome.Unknown]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Failed]: OutboundCallStatus.Failed,
   [OutboundCallEventOutcome.Ambiguous]: OutboundCallStatus.Pending,
-  [OutboundCallEventOutcome.Superseded]: OutboundCallStatus.Pending,
+  [OutboundCallEventOutcome.AttemptSuperseded]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Joined]: OutboundCallStatus.Completed,
-  [OutboundCallEventOutcome.LeaseSuperseded]: OutboundCallStatus.Completed,
+  [OutboundCallEventOutcome.LeaseClosed]: OutboundCallStatus.Completed,
 };
 
 /** An outbound-call row of `outcome`, with the fields that outcome carries (#508). */
@@ -102,9 +102,9 @@ const callRow = (outcome: OutboundCallEventOutcome): OutboundCallEventRecord => 
   outcome,
   step: STEP,
   ...(outcome === OutboundCallEventOutcome.Replayed ? { replayedFrom: OTHER_STEP } : {}),
-  ...(outcome === OutboundCallEventOutcome.Superseded ? { supersededBy: 3 } : {}),
-  ...(outcome === OutboundCallEventOutcome.LeaseSuperseded
-    ? { supersededLease: { rootExecutionId: "root-0", leaseExecutionId: "root-0", token: 4 } }
+  ...(outcome === OutboundCallEventOutcome.AttemptSuperseded ? { supersededBy: 3 } : {}),
+  ...(outcome === OutboundCallEventOutcome.LeaseClosed
+    ? { closedLease: { rootExecutionId: "root-0", leaseExecutionId: "root-0", token: 4 } }
     : {}),
 });
 
@@ -131,9 +131,9 @@ const KIND_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] = [
     },
   },
   {
-    name: "#508: a lease-superseded row keeps the lease it closed (supersededLease)",
+    name: "#508: a lease-closed row keeps the lease it closed (closedLease)",
     run: async ({ first, second }) => {
-      const row = callRow(OutboundCallEventOutcome.LeaseSuperseded);
+      const row = callRow(OutboundCallEventOutcome.LeaseClosed);
 
       expect(await roundTrip(first, second, [row])).toEqual([row]);
     },
@@ -141,7 +141,7 @@ const KIND_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] = [
   {
     name: "#508: a superseded row keeps the attempt that took the intent over (supersededBy)",
     run: async ({ first, second }) => {
-      const row = callRow(OutboundCallEventOutcome.Superseded);
+      const row = callRow(OutboundCallEventOutcome.AttemptSuperseded);
 
       expect(await roundTrip(first, second, [row])).toEqual([row]);
     },

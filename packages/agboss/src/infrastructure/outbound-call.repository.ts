@@ -1,18 +1,21 @@
-import type { Class } from "../components/injection.js";
+import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
+import type { StoreDescriptor } from "./execution-lease.repository.js";
 import type { EffectKey } from "./fenced-effect.repository.js";
 import { Injectable } from "../components/decorators.js";
-import { StoreClock, type Clock, lazyLoad } from "./clock.js";
-import {
-  ExecutionLeaseRepository,
-  InMemoryExecutionLeaseRepository,
-  LeaseCheck,
-} from "./execution-lease.repository.js";
+import { StoreClock, lazyLoad } from "./clock.js";
+import { ExecutionLeaseRepository, LeaseCheck } from "./execution-lease.repository.js";
 import {
   checkInMemoryFence,
   inMemoryLeaseMismatch,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
 import { effectKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
+import {
+  inMemoryPageOf,
+  nextPlaceIn,
+  type OutboundCallPage,
+  type OutboundCallStatusQuery,
+} from "./outbound-call-pages.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
@@ -52,6 +55,12 @@ export enum OutboundCallStatus {
   Failed = "failed",
 }
 
+export {
+  DEFAULT_OUTBOUND_CALL_PAGE,
+  MAX_OUTBOUND_CALL_PAGE,
+  type OutboundCallPage,
+  type OutboundCallStatusQuery,
+} from "./outbound-call-pages.js";
 export type {
   OutboundCallClaim,
   OutboundCallLease,
@@ -75,24 +84,13 @@ export type {
  */
 export abstract class OutboundCallRepository {
   /**
-   * The lease store whose leases the store checks — the one of its database: a unit runner holds
-   * its lease there. Assembly checks `backend`, not this.
+   * Where the store's rows live and how it checks the lease against its write (#526, #825): its
+   * `backend` must be the application's lease store's — its write and the lease check are one
+   * transaction (a unit runner holds its lease in the lease store of that backend). `backend`
+   * undefined: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
+   * store opts out with `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
    */
-  static readonly leaseRepository: Class | undefined = undefined;
-
-  /**
-   * The backend the store's rows live in (#526, as `ExecutionLeaseRepository.backend`): listed, it
-   * must be the application's lease store's — its write and the lease check are one transaction.
-   * Unset: undeclared, which fails assembly (`[application.store-backend-undeclared]`) unless the
-   * store opts out with `leaseCheck`.
-   */
-  static readonly backend: string | undefined = undefined;
-
-  /**
-   * How the store checks the lease against its write (#526): `LeaseCheck.Atomic` (checked at
-   * assembly), or the opt-out `LeaseCheck.WithoutDoubleChargeProtection`, which names what is lost.
-   */
-  static readonly leaseCheck: LeaseCheck = LeaseCheck.Atomic;
+  static readonly store: StoreDescriptor = { backend: undefined, leaseCheck: LeaseCheck.Atomic };
 
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
@@ -135,11 +133,15 @@ export abstract class OutboundCallRepository {
     rootExecutionId: string,
   ): Promise<readonly OutboundCallRecord[]>;
 
-  /** A tenant's calls in `status`, in the order recorded (`Pending`: what waits for reconciliation). */
-  abstract findAllByTenantIdAndStatus(
-    tenantId: string,
-    status: OutboundCallStatus,
-  ): Promise<readonly OutboundCallRecord[]>;
+  /**
+   * A page of a tenant's calls in `status` (#825), in the store's record order (`Pending`: what waits
+   * for reconciliation): at most `limit`, those after the cursor `after` (none → from the first), and
+   * `next` — the cursor of the page's last call — when more may follow. Keyset paging on an immutable
+   * order of the store's own, never an offset: a call in `status` for the whole read is listed
+   * exactly once, whatever is recorded or leaves the status between pages; none is listed twice.
+   * `after` is the store's own opaque text, given back as it was handed out.
+   */
+  abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
 
   /** Removes the `Completed` and `Failed` intents that ended before `cutoff`; never a `Pending` one. */
   abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
@@ -149,11 +151,11 @@ export abstract class OutboundCallRepository {
    * `Live` — held at `token`, not expired: a pending attempt written under it on another instance is
    * in flight (its holder releases the lease only once its attempts settled, or stops renewing it
    * past their `attemptTimeout`, and never yields it under one); `Ended` — released, or its token
-   * moved on: its owner is gone; `Superseded` — expired at `token`, and closed by this check: released
+   * moved on: its owner is gone; `LeaseClosed` — expired at `token`, and closed by this check: released
    * at `token`, so its holder can neither renew it nor write under it again (what it sends late is
    * fenced) — marked closed by a check, not by its holder, so the next take of its tree is a takeover
    * from that holder at that token (`takenOverFrom`). A late renewal and this check never
-   * both win: the lease is renewed and `Live`, or `Superseded` and not renewable.
+   * both win: the lease is renewed and `Live`, or `LeaseClosed` and not renewable.
    */
   abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
 }
@@ -165,11 +167,10 @@ export abstract class OutboundCallRepository {
  */
 @Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
-  static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
-    private readonly clock: Pick<Clock, "now">,
+    private readonly clock: Pick<StoreClock, "now">,
     private readonly database: InMemoryDatabase,
     private readonly leases: ExecutionLeaseRepository,
   ) {
@@ -207,6 +208,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
         row,
         structuredClone(pendingOutboundCallOf(key, intent, this.clock.now())),
       );
+      // its place in the record order (#825): after every intent recorded before it, never reused
+      this.database.outboundCallOrder.set(row, nextPlaceIn(this.database));
       return true;
     });
   }
@@ -221,12 +224,15 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
-  markCompleted(key: EffectKey, owner: string, result: string): Promise<boolean> {
-    return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
+  markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
+    return this.#ended(key, attemptOwner, { status: OutboundCallStatus.Completed, result });
   }
 
-  markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
-    return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
+  markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean> {
+    return this.#ended(key, attemptOwner, {
+      status: OutboundCallStatus.Failed,
+      failure: { ...failure },
+    });
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
@@ -245,11 +251,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     );
   }
 
-  findAllByTenantIdAndStatus(
-    tenantId: string,
-    status: OutboundCallStatus,
-  ): Promise<readonly OutboundCallRecord[]> {
-    return this.#where((row) => row.tenantId === tenantId && row.status === status);
+  findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage> {
+    return inMemoryPageOf(this.database, query);
   }
 
   async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
@@ -261,8 +264,10 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     const before = cutoff.getTime();
     for (const [row, found] of this.database.outboundCalls)
       // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
-      if (new Date(found.endedAt ?? Number.NaN).getTime() < before)
+      if (new Date(found.endedAt ?? Number.NaN).getTime() < before) {
         this.database.outboundCalls.delete(row);
+        this.database.outboundCallOrder.delete(row);
+      }
     return Promise.resolve();
   }
 
@@ -302,3 +307,6 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     });
   }
 }
+
+// #825: a component that reaches the store itself writes under business keys as OutboundCalls does
+markBusinessKeyWriter(OutboundCallRepository);

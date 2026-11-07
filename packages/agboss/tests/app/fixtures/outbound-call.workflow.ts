@@ -1,7 +1,6 @@
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   Injectable,
   NotSentTrust,
@@ -18,7 +17,7 @@ import {
   pii,
   type OnOutboundCall,
   type OutboundCallEvent,
-  type OutboundCallOutcomeStatus,
+  type OutboundCallSendStatus,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -28,6 +27,7 @@ import { start, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { isDeclined, PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
 import { untilReached } from "../../helpers/reached.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #505 — an order charged through `OutboundCalls`: the action has no table or retry logic of its
@@ -37,7 +37,7 @@ import { untilReached } from "../../helpers/reached.js";
 
 /** What the runs of the action saw: each outcome, the frozen runs. */
 export const runs = {
-  outcomes: [] as { readonly status: OutboundCallOutcomeStatus; readonly attempt: number }[],
+  outcomes: [] as { readonly status: OutboundCallSendStatus; readonly attempt: number }[],
   /** How many coming runs freeze before their call, and after it (before the step's checkpoint). */
   freezeBefore: 0,
   freezeAfter: 0,
@@ -244,7 +244,8 @@ export class ChargeAndNotifyWorkflow {}
 @Application({
   name: "outbound-call-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -276,7 +277,8 @@ export class KeptChargeWorkflow {}
 @Application({
   name: "kept-outbound-call-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [KeptChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,

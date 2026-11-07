@@ -19,7 +19,12 @@ import {
   storeTimeOf,
   type FaultStores,
 } from "./fault-stores.js";
-import { faultApplicationOf } from "./fixture/fault.application.js";
+import {
+  FAULT_IDEMPOTENCY_KEY_FIELD,
+  FAULT_IDEMPOTENCY_KEY_VARIABLE,
+  faultApplicationOf,
+} from "./fixture/fault.application.js";
+import { secret } from "../../environments/secret.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
 import { heldStoreSeam } from "./held-stores.js";
 import { processHoldPoints } from "./hold-points.js";
@@ -89,8 +94,13 @@ const assembled = await applicationOf(application);
 const loaded = {
   name: "fault",
   contract: stores.environment.contract.name,
-  values: stores.environment.values,
+  // #825: the fixture's idempotency key beside the set's values — one key for every pod of a run
+  values: {
+    ...stores.environment.values,
+    [FAULT_IDEMPOTENCY_KEY_FIELD]: secret(FAULT_IDEMPOTENCY_KEY_VARIABLE),
+  },
 };
+process.env[FAULT_IDEMPOTENCY_KEY_VARIABLE] ??= "agboss-fault-suite-idempotency-key";
 const instanceId = `${name}-${String(process.pid)}`;
 heldStoreSeam.instanceId = instanceId;
 const built = await buildApplication(

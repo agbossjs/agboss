@@ -16,7 +16,7 @@ import {
   type CallRun,
 } from "./outbound-call-parts.js";
 import {
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallResultNotStoredError,
   OutboundCallUnreconciledError,
   type OutboundCallOutcome,
@@ -30,7 +30,7 @@ import {
 
 /**
  * Attempt `attempt` was answered after a newer one took the intent over (#508): both reached the
- * other system. Told as `Superseded`, naming the newer attempt when the intent can still be read —
+ * other system. Told as `AttemptSuperseded`, naming the newer attempt when the intent can still be read —
  * else "unknown", never a guess — and logged as an error on the instance's log, lease or none. The
  * newer attempt, `undefined` when unknown (#795: `OutboundCallSupersededError.supersededBy`).
  */
@@ -46,7 +46,7 @@ export async function superseded<TRequest, TResult>(
   });
   const newer = found === undefined || found.attempt === attempt ? undefined : found.attempt;
   const status = found?.status ?? OutboundCallStatus.Pending;
-  told(run, OutboundCallEventOutcome.Superseded, [status, attempt], { supersededBy: newer });
+  told(run, OutboundCallEventOutcome.AttemptSuperseded, [status, attempt], { supersededBy: newer });
   const { name } = run.key;
   const { operation, target } = run.options;
   const by =
@@ -102,20 +102,20 @@ export async function fencedEnd<TRequest, TResult>(
 
 /**
  * `found` was pending under another execution's lease, expired and closed by this call's check
- * (#508): told `LeaseSuperseded`, naming that lease and the token it was held at, and logged as a
+ * (#508): told `LeaseClosed`, naming that lease and the token it was held at, and logged as a
  * warning — its holder writes nothing under it again; what it still sends is fenced.
  */
-export function leaseSuperseded<TRequest, TResult>(
+export function leaseClosed<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): void {
   const { rootExecutionId, leaseExecutionId, token } = found;
-  const supersededLease = { rootExecutionId, leaseExecutionId, token };
+  const closedLease = { rootExecutionId, leaseExecutionId, token };
   const moved = [found.status, found.attempt] as const;
-  told(run, OutboundCallEventOutcome.LeaseSuperseded, moved, { supersededLease });
+  told(run, OutboundCallEventOutcome.LeaseClosed, moved, { closedLease });
   const { operation, target } = run.options;
   const text = `outbound call "${run.key.name}" (${operation} on ${target}) attempt ${String(found.attempt)} was pending under the lease of execution ${leaseExecutionId} at token ${String(token)}, expired: closed, the call is reconciled here — a send of it still hung may reach ${target} too, deduplicated only by call.idempotencyKey`;
-  run.parts.log.warn("outbound-call.lease-superseded", text, subjectOf(run));
+  run.parts.log.warn("outbound-call.lease-closed", text, subjectOf(run));
 }
 
 /**
@@ -153,6 +153,6 @@ export function replayed<TRequest, TResult>(
   const replayedFrom = replayedFromOf(run.key, found);
   const moved = [OutboundCallStatus.Completed, found.attempt] as const;
   told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });
-  const outcome = outcomeOf(run, OutboundCallOutcomeStatus.Replayed, stored, found.attempt);
+  const outcome = outcomeOf(run, OutboundCallSendStatus.Replayed, stored, found.attempt);
   return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
 }

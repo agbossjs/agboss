@@ -5,28 +5,33 @@
  * when it is another step; an operator's read shows a business key by its handle, or by its name
  * alone; the conflict and the key errors say what they say.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
+import { FingerprintNotJsonError } from "../../src/index.js";
 import { runInFrame, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   BUSINESS_KEY_HANDLE_LABEL,
   businessKeyHashOf,
   FINGERPRINT_LABEL,
   effectKeyOf,
-  fingerprintOf,
+  fingerprintsOf,
   IdempotencyKeyConflictError,
+  IdempotencyKeyMissingError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
   replayedFromOf,
   shownCallOf,
 } from "../../src/infrastructure/fenced-effect-key.js";
-import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallRecord } from "../../src/infrastructure/outbound-call.repository.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
-import { stableJson, versionOf } from "../../src/terns/versions.js";
+import { stableJson } from "../../src/terns/versions.js";
 import { testFrame } from "../helpers/frame.js";
 
 /** A step's frame with the execution's keys as given. */
-const frameWith = (keys: { correlationKey?: string; fingerprintKey?: string }): FrameSpec => {
+const frameWith = (keys: {
+  correlationKey?: string;
+  fingerprintKeys?: { current: string; previous?: string };
+}): FrameSpec => {
   const frame = testFrame();
   return { ...frame, execution: { ...frame.execution, ...keys } };
 };
@@ -39,7 +44,7 @@ const TEXT = `fingerprint\u0000${stableJson(REQUEST)}`;
 
 /** A business key's step key, made by `executionId`'s step `nodeId` at visit `visitNumber`. */
 const keyMadeBy = (origin: { executionId: string; nodeId: string; visitNumber: number }) =>
-  ({
+  effectKeyForTesting({
     scopeKey: "default:execution-1",
     tenantId: "default",
     leaseExecutionId: "execution-1",
@@ -48,7 +53,7 @@ const keyMadeBy = (origin: { executionId: string; nodeId: string; visitNumber: n
     name: "charge",
     businessKey: "order:42",
     origin,
-  }) satisfies EffectKey;
+  });
 
 const ORIGIN = { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 };
 
@@ -58,19 +63,62 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     expect(BUSINESS_KEY_HANDLE_LABEL).toBe("agboss/business-key-handle/v1");
   });
 
-  it("outside a step a fingerprint is the labelled SHA-256 of the canonical JSON", () => {
-    expect(fingerprintOf(REQUEST)).toBe(versionOf(`agboss/fingerprint/v1\u0000${TEXT}`));
-    expect(fingerprintOf({ currency: "EUR", amount: 10 })).toBe(fingerprintOf(REQUEST));
+  it("#825: outside a step, or in one without an idempotency key, a fingerprint is IdempotencyKeyMissingError — never an unkeyed digest", async () => {
+    expect(() => fingerprintsOf(REQUEST, "charge")).toThrow(IdempotencyKeyMissingError);
+    await expect(inFrame(frameWith({}), () => fingerprintsOf(REQUEST, "charge"))).rejects.toThrow(
+      IdempotencyKeyMissingError,
+    );
+    await expect(
+      inFrame(frameWith({ correlationKey: "pii-key" }), () => fingerprintsOf(REQUEST, "charge")),
+    ).rejects.toMatchObject({ code: "fenced-effect.idempotency-key-missing", effect: "charge" });
   });
 
-  it("in a step with the application's key it is an HMAC under the label's subkey", async () => {
-    const fingerprint = await inFrame(frameWith({ fingerprintKey: "app-key" }), () =>
-      fingerprintOf(REQUEST),
+  it("in a step with the application's idempotency key it is an HMAC under the label's subkey — never the PII key's", async () => {
+    const frame = frameWith({ correlationKey: "pii-key", fingerprintKeys: { current: "app-key" } });
+    const fingerprints = await inFrame(frame, () => fingerprintsOf(REQUEST, "charge"));
+    const reordered = await inFrame(frame, () =>
+      fingerprintsOf({ currency: "EUR", amount: 10 }, "charge"),
     );
 
-    expect(fingerprint).toBe(
-      keyedDigestOf(keyedDigestOf("app-key", "agboss/fingerprint/v1"), TEXT),
-    );
+    expect(fingerprints).toEqual({
+      fingerprint: keyedDigestOf(keyedDigestOf("app-key", "agboss/fingerprint/v1"), TEXT),
+    });
+    expect(reordered).toEqual(fingerprints);
+  });
+
+  it("#825: during a rotation the previous key's fingerprint comes too — matched, never stored", async () => {
+    const frame = frameWith({ fingerprintKeys: { current: "new-key", previous: "old-key" } });
+    const fingerprints = await inFrame(frame, () => fingerprintsOf(REQUEST, "charge"));
+
+    expect(fingerprints).toEqual({
+      fingerprint: keyedDigestOf(keyedDigestOf("new-key", "agboss/fingerprint/v1"), TEXT),
+      previousFingerprint: keyedDigestOf(keyedDigestOf("old-key", "agboss/fingerprint/v1"), TEXT),
+    });
+  });
+
+  it("#825: a fingerprint that is not plain JSON — a DTO instance, a Date — is FingerprintNotJsonError naming the effect, never the value", async () => {
+    class ChargeDto {
+      amount = 10;
+    }
+    const frame = frameWith({ fingerprintKeys: { current: "app-key" } });
+
+    for (const value of [new ChargeDto(), { at: new Date(0) }]) {
+      const refused = await inFrame(frame, () => {
+        try {
+          return fingerprintsOf(value, "charge");
+        } catch (error) {
+          return error;
+        }
+      });
+      expect(refused).toBeInstanceOf(FingerprintNotJsonError);
+      expect(refused).toMatchObject({
+        code: "fenced-effect.fingerprint-not-json",
+        effect: "charge",
+      });
+      expect((refused as Error).message).toMatch(
+        /^the fingerprint of "charge" is not plain JSON at /u,
+      );
+    }
   });
 
   it("a handle is 12 hex of an HMAC under the PII key's labelled subkey; none outside a step or without a key", async () => {
@@ -123,7 +171,7 @@ describe("#626: a replay names another step, never its own", () => {
     const { origin: _origin, ...noStep } = key;
 
     expect(replayedFromOf(key, { origin: ORIGIN })).toBeUndefined();
-    expect(replayedFromOf(noStep, { origin: ORIGIN })).toEqual(ORIGIN);
+    expect(replayedFromOf(effectKeyForTesting(noStep), { origin: ORIGIN })).toEqual(ORIGIN);
   });
 });
 

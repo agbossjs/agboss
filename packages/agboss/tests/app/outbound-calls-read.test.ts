@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseLostError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallStatus,
 } from "../../src/index.js";
 import type { TestApp, TestLeases, VirtualClock } from "../../src/testing/index.js";
@@ -70,7 +70,7 @@ describe("#505 AC4: the calls that left the system, for an operator", () => {
     const result = await execute(app, ChargeWorkflowStart, { text: "order-7" });
 
     expect(result.output).toEqual({ chargeId: "ch-order-7-1" });
-    expect(runs.outcomes).toEqual([{ status: OutboundCallOutcomeStatus.Sent, attempt: 1 }]);
+    expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Sent, attempt: 1 }]);
     expect(gateway.calls).toEqual([
       { idempotencyKey: "execution-1:charge-order-action:1:charge", attempt: 1 },
     ]);
@@ -101,7 +101,7 @@ describe("#505 AC4: the calls that left the system, for an operator", () => {
         idempotencyKey: "execution-1:charge-and-notify-action:1:receipt-mail",
       }),
     ]);
-    expect(await app.pendingOutboundCalls({ tenantId: "default" })).toEqual([]);
+    expect((await app.pendingOutboundCallsOf({ tenantId: "default" })).calls).toEqual([]);
   });
 
   test("AC4: another tenant's tree, or another root, has no calls", async ({ app }) => {
@@ -132,8 +132,8 @@ describe("#505: a step run again after its call completed", () => {
       const [end] = await ends(1);
 
       expect(runs.outcomes).toEqual([
-        { status: OutboundCallOutcomeStatus.Sent, attempt: 1 },
-        { status: OutboundCallOutcomeStatus.Replayed, attempt: 1 },
+        { status: OutboundCallSendStatus.Sent, attempt: 1 },
+        { status: OutboundCallSendStatus.Replayed, attempt: 1 },
       ]);
       expect(gateway.calls).toHaveLength(1);
       expect(gateway.lookups).toEqual([]);

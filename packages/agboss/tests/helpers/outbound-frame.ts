@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import type { OutboundCallReport } from "../../src/app/lease-events.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -10,6 +11,7 @@ import {
   OutboundCalls,
   type Clock,
   type EffectKey,
+  type OutboundCallKey,
   type OutboundCallLookup,
   type OutboundCallSendOptions,
   type OutboundCallOutcome,
@@ -25,6 +27,7 @@ import type { FakeOutboundGateway } from "../../src/testing/gateway/fake-outboun
 import { hours } from "../../src/units/index.js";
 import { testFrame } from "./frame.js";
 import { Logger, type LogEntry } from "../../src/infrastructure/logger.js";
+import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 
 /**
  * #657, #658 — `OutboundCalls` in a step's frame made by hand over the in-memory stores, on a test's
@@ -99,7 +102,9 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
     },
   };
   const base = testFrame();
-  const frame: FrameSpec = { ...base, execution: { ...base.execution, lease } };
+  // an application's frame carries its idempotency keys (#825): a business key's fingerprint
+  const fingerprintKeys = { current: TEST_IDEMPOTENCY_KEY };
+  const frame: FrameSpec = { ...base, execution: { ...base.execution, lease, fingerprintKeys } };
   const origin = { executionId: base.execution.executionId, nodeId: "pay-action", visitNumber: 1 };
   const logger = new KeptLogger();
   const settings = options.settings ?? new OutboundCallSettings({ requiresMask: false });
@@ -109,7 +114,7 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const keyIn = async (executionId: string, businessKey = "order:42"): Promise<KeyedLease> => {
     const taken = await leases.acquire("default", executionId, LONG_LEASE);
     if (taken === undefined) throw new Error(`the lease of ${executionId} is held`);
-    return { lease: taken, key: { ...keyOf(taken), origin, businessKey } };
+    return { lease: taken, key: effectKeyForTesting(keyOf(taken), { origin, businessKey }) };
   };
   /** `calls.send` in the step's frame. */
   const send = <TRequest, TResult>(
@@ -170,3 +175,12 @@ export const gatewayCharge = (
   reconcile: byReference(gateway),
   ...extra,
 });
+
+/**
+ * `key` as a test reads the store by it (#825): the store is asked under a business key only with a
+ * fingerprint — `send` gives it the request's — and a lookup by the business key ignores which.
+ */
+export const lookupKeyOf = (key: EffectKey | OutboundCallKey): EffectKey =>
+  key.businessKey === undefined || key.fingerprint !== undefined
+    ? (key as EffectKey)
+    : effectKeyForTesting(key, { fingerprint: "a lookup" });

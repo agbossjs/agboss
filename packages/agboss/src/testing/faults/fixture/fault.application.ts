@@ -67,7 +67,9 @@ export function faultApplicationOf(stores: FaultStores, settings: FaultPodSettin
   return Application({
     name: "fault-application",
     version: "1.0.0",
-    environment: stores.environment.contract,
+    environment: faultEnvironmentOf(stores.environment.contract),
+    // #825: the fenced charge and the payment are under business keys: one key for every pod
+    idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
     workflows: [FaultOrderWorkflow, FaultBatchWorkflow],
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
@@ -82,6 +84,29 @@ export function faultApplicationOf(stores: FaultStores, settings: FaultPodSettin
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
     ],
   })(faultApplicationClass());
+}
+
+/** The field of the fixture's idempotency key (#825), beside the store set's own fields. */
+export const FAULT_IDEMPOTENCY_KEY_FIELD = "faultIdempotencyKey";
+
+/** The variable every pod reads its idempotency key from — the same in every pod of a run. */
+export const FAULT_IDEMPOTENCY_KEY_VARIABLE = "AGBOSS_FAULT_IDEMPOTENCY_KEY";
+
+const environments = new WeakMap<Class, Class>();
+
+/**
+ * The store set's environment contract with the fixture's idempotency key (#825): a store set
+ * declares only its own fields; the fixture adds the one its business keys need.
+ */
+export function faultEnvironmentOf(contract: Class): Class {
+  const known = environments.get(contract);
+  if (known !== undefined) return known;
+  const base = contract as new () => object;
+  class FaultEnvironment extends base {
+    faultIdempotencyKey: unknown = undefined;
+  }
+  environments.set(contract, FaultEnvironment);
+  return FaultEnvironment;
 }
 
 /** A new class for the application to decorate (one per pod). */

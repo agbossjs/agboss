@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   OutboundCallEventOutcome,
   OutboundCallInFlightError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallStatus,
 } from "../../src/index.js";
 import {
@@ -25,6 +25,7 @@ import {
   outboundFrame,
   rejectionOf,
   type OutboundFrame,
+  lookupKeyOf,
 } from "../helpers/outbound-frame.js";
 
 /** The gateway keeps keys a day; its books (what `reconcile` reads by reference) forever. */
@@ -37,10 +38,13 @@ const isUnavailable = (error: unknown): boolean =>
 
 /** The intent of `order:42`, as the store keeps it. */
 const intentOf = async (frame: OutboundFrame) => {
-  const [found] = await frame.store.findAllByTenantIdAndStatus(
-    "default",
-    OutboundCallStatus.Pending,
-  );
+  const [found] = (
+    await frame.store.findAllByTenantIdAndStatus({
+      tenantId: "default",
+      status: OutboundCallStatus.Pending,
+      limit: 1000,
+    })
+  ).calls;
   return found;
 };
 
@@ -60,7 +64,7 @@ describe("#657 AC1: an error of unknown outcome is reconciled, never resent blin
     const second = await frame.keyIn("execution-2");
     const outcome = await frame.send(second.key, gatewayCharge(gateway));
 
-    expect(outcome).toMatchObject({ status: OutboundCallOutcomeStatus.Reconciled, attempt: 1 });
+    expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Reconciled, attempt: 1 });
     expect(gateway.payments).toHaveLength(1);
     expect(outcome.result).toEqual({ paymentId: gateway.payments[0]?.paymentId });
   });
@@ -74,7 +78,7 @@ describe("#657 AC1: an error of unknown outcome is reconciled, never resent blin
 
     const again = await frame.send(key, gatewayCharge(gateway));
 
-    expect(again.status).toBe(OutboundCallOutcomeStatus.Reconciled);
+    expect(again.status).toBe(OutboundCallSendStatus.Reconciled);
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -87,7 +91,7 @@ describe("#657 AC1: an error of unknown outcome is reconciled, never resent blin
 
     const again = await frame.send(key, gatewayCharge(gateway));
 
-    expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(frame.reports.map((report) => report.outcome)).toEqual([
       OutboundCallEventOutcome.Recorded,
       OutboundCallEventOutcome.Ambiguous,
@@ -128,7 +132,7 @@ describe("#657 AC2: the bite — every error taken for a failure, as before #657
 
     const outcome = await frame.send(second.key, asBefore);
 
-    expect(outcome).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(gateway.payments).toHaveLength(2);
   });
 });
@@ -208,13 +212,13 @@ describe("#657: what counts as definite — only a true from isDefiniteFailure",
 
     const error = await rejectionOf(frame.send(key, options));
     expect(seen).toEqual([error]);
-    expect(await frame.store.findByKey(key)).toMatchObject({
+    expect(await frame.store.findByKey(lookupKeyOf(key))).toMatchObject({
       status: OutboundCallStatus.Failed,
       failure: { name: "FakeGatewayError", code: "fake-gateway" },
     });
     const again = await frame.send(key, options);
 
-    expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect([lookups, gateway.payments.length]).toEqual([0, 1]);
   });
 });
@@ -233,7 +237,7 @@ describe("#657: an intent left pending by an error, under a business key", () =>
     const after = await frame.send(second.key, gatewayCharge(gateway));
 
     expect(refused).toBeInstanceOf(OutboundCallInFlightError);
-    expect(after.status).toBe(OutboundCallOutcomeStatus.Reconciled);
+    expect(after.status).toBe(OutboundCallSendStatus.Reconciled);
     expect(gateway.payments).toHaveLength(1);
   });
 

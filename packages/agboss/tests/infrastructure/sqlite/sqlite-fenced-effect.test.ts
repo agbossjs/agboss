@@ -4,6 +4,7 @@
  * rejection not left unhandled), the scope's mark refuses a lower token even when the lease's epoch
  * matches it, the sweep removes the marks too, and the store creates the leases' table it reads.
  */
+import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
@@ -109,8 +110,8 @@ describe("#500: SqliteFencedEffectRepository", () => {
       new VirtualClock(),
       new FencedEffectSettings(),
     );
-    const key = {
-      ...keyOf({
+    const key = effectKeyForTesting(
+      keyOf({
         tenantId: "default",
         rootExecutionId: "e1",
         holderInstanceId: "i",
@@ -118,7 +119,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
         expiresAt: new Date(0),
         remaining: seconds(30),
       }),
-    };
+    );
 
     await expect(effects.saveResultIfAbsent(key, () => null)).rejects.toMatchObject({
       observedToken: undefined,

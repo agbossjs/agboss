@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
@@ -73,7 +74,7 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "sqlite";
+  static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
     private readonly connection: SqliteConnection,

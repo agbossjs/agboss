@@ -121,6 +121,7 @@ export class SqliteChargeWorkflow {}
   name: "sqlite-fenced-effect-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [
@@ -142,6 +143,7 @@ export class SqliteFencedEffectApplication {}
   name: "unlisted-fenced-effect-store-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [DoubleChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SqliteExecutionLeaseRepository, SqliteConnection],

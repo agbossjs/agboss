@@ -64,6 +64,10 @@ const SHARDS = {
       "src/infrastructure/in-memory-fenced-effect.repository.ts",
       "src/infrastructure/outbound-call.repository.ts",
       "src/infrastructure/outbound-call-changes.ts",
+      // #825: the paged listing's keyset, the in-memory record order
+      "src/infrastructure/outbound-call-pages.ts",
+      // #825: a store's static store, read as declared
+      "src/infrastructure/store-descriptor.ts",
       "src/infrastructure/clock.ts",
       "src/app/held-lease.ts",
       "src/app/lease-fence.ts",
@@ -80,6 +84,9 @@ const SHARDS = {
       "src/infrastructure/sqlite/sqlite-execution-lease.repository.ts",
       "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
+      "src/infrastructure/sqlite/sqlite-outbound-call-pages.ts",
+      // #825: the table's declared seq, and its upgrade
+      "src/infrastructure/sqlite/sqlite-outbound-call-schema.ts",
     ],
   },
   // the business-key identity (fingerprints, conflicts, the key's text rules: #538, #547, #556, #574,
@@ -88,11 +95,18 @@ const SHARDS = {
     configFile: "vitest.mutation-calls.config.ts",
     mutate: [
       "src/infrastructure/fenced-effect-key.ts",
+      // #825: the fingerprint decision and its idempotency keys, the keys the framework made, the
+      // key's errors moved out of fenced-effect-key.ts
+      "src/infrastructure/fenced-effect-fingerprint.ts",
+      "src/infrastructure/fenced-effect-errors.ts",
+      "src/infrastructure/issued-keys.ts",
       // `keyTextRuleOf` and its rules, not the error classes around them
       keyTextRulesOf("src/core/errors.ts"),
       "src/app/outbound-calls.ts",
       // #795: how far a notSent() is trusted, and the superseded attempt's error
       "src/app/outbound-call-contract.ts",
+      // #825: the reconciliation's verdicts, moved out of outbound-calls.ts
+      "src/app/outbound-call-reconciliation.ts",
       "src/app/outbound-call-join.ts",
       "src/app/outbound-call-business.ts",
       "src/app/outbound-call-endings.ts",

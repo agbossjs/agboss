@@ -7,6 +7,7 @@
  * `IdempotencyKeyConflictError` for another, and `Joined` for a call of the same instance in flight.
  * Seeds are logged (FC_SEED replays a run).
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { scopeKeyOf } from "../../src/app/lease-lost.js";
@@ -14,7 +15,7 @@ import { callKeyOf } from "../../src/app/outbound-call-business.js";
 import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
   effectKeyIdentityOf,
-  fingerprintOf,
+  fingerprintsUnder,
   IdempotencyKeyConflictError,
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
@@ -32,6 +33,10 @@ import { rewritingKeys, stepOnly } from "../fixtures/contracts/naive-guarantees.
 
 const seed = seededProperties("business-key.property.test.ts");
 
+/** A value's fingerprint under a fixed idempotency key (#825). */
+const fingerprintOf = (value: unknown): string =>
+  fingerprintsUnder({ current: "property-key" }, value).fingerprint;
+
 /** A key's text the rules accept (#538). */
 const keyText = fc
   .string({ minLength: 1, maxLength: 12, unit: "grapheme" })
@@ -39,15 +44,16 @@ const keyText = fc
 const name = fc.stringMatching(/^[A-Za-z0-9._-]{1,8}$/u).filter((text) => !text.startsWith("."));
 
 /** A key of `tenantId`, `businessKey` and `effect` (the rest fixed). */
-const keyWith = (tenantId: string, businessKey: string, effect: string): EffectKey => ({
-  scopeKey: scopeKeyOf(tenantId, "tree-1"),
-  tenantId,
-  leaseExecutionId: "tree-1",
-  token: 1,
-  idempotencyKey: "tree-1:charge-action:1",
-  name: effect,
-  businessKey,
-});
+const keyWith = (tenantId: string, businessKey: string, effect: string): EffectKey =>
+  effectKeyForTesting({
+    scopeKey: scopeKeyOf(tenantId, "tree-1"),
+    tenantId,
+    leaseExecutionId: "tree-1",
+    token: 1,
+    idempotencyKey: "tree-1:charge-action:1",
+    name: effect,
+    businessKey,
+  });
 
 /** The keys of `value` in another order. */
 function shuffled(value: unknown, order: number): unknown {
@@ -154,15 +160,14 @@ async function outcomesOf(
     const lease = leases[call.execution - 1];
     if (lease === undefined) throw new Error("no lease");
     const tree = `tree-${String(call.execution)}`;
-    const key: EffectKey = {
-      ...keyWith("default", "order:1", "charge"),
+    const key: EffectKey = effectKeyForTesting(keyWith("default", "order:1", "charge"), {
       scopeKey: scopeKeyOf("default", tree),
       leaseExecutionId: tree,
       token: lease.leaseEpoch,
       idempotencyKey: `${tree}:charge-action:1`,
       fingerprint: fingerprintOf({ request: call.request }),
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },
-    };
+    });
     expected.push(expectedOf(call, first));
     const write = (): Promise<FencedEffectOutcome<{ request: string }>> =>
       stores.effects.saveResultIfAbsent(key, (transaction) => {

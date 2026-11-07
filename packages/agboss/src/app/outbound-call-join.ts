@@ -6,7 +6,7 @@ import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-even
 import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { outcomeOf, told, type CallRun, type LiveCall } from "./outbound-call-parts.js";
-import { OutboundCallOutcomeStatus, type OutboundCallOutcome } from "./outbound-calls.js";
+import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-calls.js";
 
 /**
  * The calls this instance is making now (#505, #508): a second call of one key — two tool calls,
@@ -35,7 +35,7 @@ async function joinedTo<TRequest, TResult>(
   const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
-  return outcomeOf(run, OutboundCallOutcomeStatus.Joined, first.result, first.attempt);
+  return outcomeOf(run, OutboundCallSendStatus.Joined, first.result, first.attempt);
 }
 
 /**

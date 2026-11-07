@@ -13,7 +13,7 @@ import {
   InvalidNotSentTrustError,
   NotSentTrust,
   OutboundCallEventOutcome,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallReconciliation,
   OutboundCallStatus,
   OutboundCallUnreconciledError,
@@ -32,6 +32,7 @@ import {
   outboundFrame,
   rejectionOf,
   type OutboundFrame,
+  lookupKeyOf,
 } from "../helpers/outbound-frame.js";
 
 /** A gateway with no lookup, keeping keys a day: a replay of the key is how it tells an outcome. */
@@ -120,7 +121,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
   it("1 ms inside: age + attemptTimeout below the retention — sent again, the gateway replays it (one payment)", async () => {
     const { outcome, gateway } = await resendAt((RETENTION - MARGIN - 1) as Milliseconds);
 
-    expect(outcome).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -132,7 +133,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
       /notSent\(\), but the key was first sent 86280000 ms ago; gateway keeps keys for 86400000 ms \(keyRetention\), and a resend may take 120000 ms to arrive \(attemptTimeout\)/u,
     );
     expect(gateway.payments).toHaveLength(1);
-    expect(await frame.store.findByKey(key)).toMatchObject({
+    expect(await frame.store.findByKey(lookupKeyOf(key))).toMatchObject({
       status: OutboundCallStatus.Pending,
       attempt: 1,
     });
@@ -145,7 +146,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
 
     expect(declared.outcome).toBeInstanceOf(OutboundCallUnreconciledError);
     expect(declared.gateway.payments).toHaveLength(1);
-    expect(undeclared.outcome).toMatchObject({ status: OutboundCallOutcomeStatus.Sent });
+    expect(undeclared.outcome).toMatchObject({ status: OutboundCallSendStatus.Sent });
     expect(undeclared.gateway.payments).toHaveLength(2);
   });
 
@@ -209,7 +210,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     await frame.clock.advance(hours(48));
 
     expect(await frame.send(key, options)).toMatchObject({
-      status: OutboundCallOutcomeStatus.Sent,
+      status: OutboundCallSendStatus.Sent,
     });
     expect(gateway.payments).toHaveLength(1);
   });
@@ -279,6 +280,6 @@ describe("#658: an intent whose times were not recorded", () => {
     expect((refused as OutboundCallUnreconciledError).reason).toMatch(
       /when the key was first sent is not recorded/u,
     );
-    expect(sent.status).toBe(OutboundCallOutcomeStatus.Sent);
+    expect(sent.status).toBe(OutboundCallSendStatus.Sent);
   });
 });

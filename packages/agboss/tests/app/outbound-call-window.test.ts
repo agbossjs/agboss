@@ -13,11 +13,12 @@ import {
   InMemoryOutboundCallRepository,
   Injectable,
   NotSentTrust,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallRepository,
   OutboundCalls,
   effectKeyOf,
   type EffectKey,
+  type OutboundCallKey,
   type OutboundCallIntent,
 } from "../../src/index.js";
 import { Clock } from "../../src/infrastructure/clock.js";
@@ -54,9 +55,13 @@ class GatedOutboundCallRepository extends InMemoryOutboundCallRepository {
 }
 
 /** What the second call of the action got. */
-const seen = { statuses: [] as OutboundCallOutcomeStatus[] };
+const seen = { statuses: [] as OutboundCallSendStatus[] };
 
-const charge = (outboundCalls: OutboundCalls, gatewayOf: PaymentGateway, key: EffectKey) =>
+const charge = (
+  outboundCalls: OutboundCalls,
+  gatewayOf: PaymentGateway,
+  key: EffectKey | OutboundCallKey,
+) =>
   outboundCalls.send(key, {
     target: "payments",
     operation: "charge",
@@ -130,10 +135,7 @@ describe("#508: the window between recording an intent and sending it", () => {
 
     await run(order);
 
-    expect(seen.statuses).toEqual([
-      OutboundCallOutcomeStatus.Sent,
-      OutboundCallOutcomeStatus.Joined,
-    ]);
+    expect(seen.statuses).toEqual([OutboundCallSendStatus.Sent, OutboundCallSendStatus.Joined]);
     expect(gateway.calls).toHaveLength(1);
   });
 

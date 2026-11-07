@@ -7,7 +7,7 @@ import { isCustomPolicy } from "./pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "./policy-checks.js";
 
 /**
- * The application's PII key (#120, `@Application({ pseudonymKey })`): a `Secret` field of its
+ * The application's PII key (#120, `@Application({ piiKeyField })`): a `Secret` field of its
  * environment, read when the app starts — the same on every instance, so one value is one token
  * on every machine. A policy that makes tokens without its own key needs it; when it is not set
  * the start fails, naming the field. Without a need and without a key, `sensitive` fields use a
@@ -54,17 +54,30 @@ function keyValueOf(source: ApplicationKeySource, field: string): string | undef
   return isResolvedSecret(value) ? value.reveal() : variableIn(source.env, variableOfSecret(value));
 }
 
+/** The start's error for `piiKeyField` naming a field with no `Secret`, or one whose variable is unset. */
+function namedKeyMissing(source: ApplicationKeySource, field: string): EnvironmentError {
+  const option = `@Application({ piiKeyField: "${field}" })`;
+  return Reflect.get(source.environment, field) instanceof Secret
+    ? new EnvironmentError(
+        EnvironmentErrorCode.MissingVariables,
+        `${source.application}: ${option} has no value — set ${field}: secret("…") in the environment and its variable`,
+      )
+    : new EnvironmentError(
+        EnvironmentErrorCode.InvalidValue,
+        `${source.application}: ${option} names no Secret — set ${field}: secret("…") in the environment`,
+      );
+}
+
 /** The application's key; none when it sets none and nothing needs one. */
 export function applicationPseudonymKeyOf(source: ApplicationKeySource): string | undefined {
   const key = source.field === undefined ? undefined : keyValueOf(source, source.field);
   if (key !== undefined) return key;
   if (source.fallback !== undefined) return source.fallback;
+  // #825: a named field without a value fails the start — never a silent key of the instance
+  if (source.field !== undefined) throw namedKeyMissing(source, source.field);
   const needing = policiesNeedingTheKey(source.policies);
   if (needing.length === 0) return undefined;
-  const fix =
-    source.field === undefined
-      ? `set @Application({ pseudonymKey: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment`
-      : `the environment has no ${source.field} — set ${source.field}: secret("…")`;
+  const fix = `set @Application({ piiKeyField: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment`;
   throw new EnvironmentError(
     EnvironmentErrorCode.MissingVariables,
     `${source.application}: ${needing.join(", ")} make tokens with the application's PII key — ${fix}`,

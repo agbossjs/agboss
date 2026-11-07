@@ -175,7 +175,7 @@ export const LEASE_RACES: readonly ForcedRace[] = [
     first: (run) => stateOf(run, 1),
     second: acquireBy2,
     firstWins: ({ first, second }) =>
-      Promise.resolve(expectEqual("leaseStateOf", first, "superseded") ?? expectTake(second, 2)),
+      Promise.resolve(expectEqual("leaseStateOf", first, "lease-closed") ?? expectTake(second, 2)),
     secondWins: ({ first, second }) =>
       Promise.resolve(expectEqual("leaseStateOf", first, "ended") ?? expectTake(second, 2)),
   },
@@ -188,7 +188,7 @@ export const LEASE_RACES: readonly ForcedRace[] = [
     firstWins: async ({ second }, run) =>
       expectEqual("leaseStateOf", second, "ended") ?? expectTake(await acquireBy2(run), undefined),
     secondWins: async ({ second }, run) =>
-      expectEqual("leaseStateOf", second, "superseded") ??
+      expectEqual("leaseStateOf", second, "lease-closed") ??
       expectTake(await acquireBy2(run), undefined),
   },
 ];

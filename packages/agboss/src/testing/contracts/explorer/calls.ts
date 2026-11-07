@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "../effect-key.js";
 import { scopeKeyOf } from "../../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../../infrastructure/execution-lease-event.repository.js";
 import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
@@ -42,16 +43,17 @@ export type CallPhase =
   | { readonly phase: "done" };
 
 /** The key of `tree`'s call at `token`, under the explored business key. */
-export const callKeyOf = (tree: string, token: number): EffectKey => ({
-  scopeKey: scopeKeyOf(EXPLORED_TENANT, tree),
-  tenantId: EXPLORED_TENANT,
-  leaseExecutionId: tree,
-  token,
-  idempotencyKey: `${tree}:charge-action:1`,
-  name: "charge",
-  businessKey: EXPLORED_BUSINESS_KEY,
-  fingerprint: "explored-charge",
-});
+export const callKeyOf = (tree: string, token: number): EffectKey =>
+  effectKeyForTesting({
+    scopeKey: scopeKeyOf(EXPLORED_TENANT, tree),
+    tenantId: EXPLORED_TENANT,
+    leaseExecutionId: tree,
+    token,
+    idempotencyKey: `${tree}:charge-action:1`,
+    name: "charge",
+    businessKey: EXPLORED_BUSINESS_KEY,
+    fingerprint: "explored-charge",
+  });
 
 /** What a call step needs: its stores, the observer, the time, its own name and a fresh owner. */
 export interface CallStep {
@@ -151,7 +153,7 @@ async function checked(step: CallStep, found: OutboundCallRecord): Promise<CallO
     token: found.token,
   };
   const state = await step.calls.leaseStateOf(lease);
-  if (state === OutboundCallLeaseState.Superseded)
+  if (state === OutboundCallLeaseState.LeaseClosed)
     step.observer.superseded(found.leaseExecutionId, found.token);
   const label = `leaseStateOf(${found.leaseExecutionId} at ${String(found.token)}): ${state}`;
   if (state === OutboundCallLeaseState.Live)

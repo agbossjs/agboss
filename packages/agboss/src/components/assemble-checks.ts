@@ -10,8 +10,15 @@ import { channelComponentClassesOf } from "./channel-parts.js";
 import { channelNameOf } from "../channels/discovery.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/in-memory-database.js";
+import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import type { Mcp } from "./assemble-tools.js";
 import { checkGraph } from "./container/graph-check.js";
+import { depsOf } from "./container/container.js";
+import {
+  businessKeyWriterUseOf,
+  rememberBusinessKeyWriter,
+  tokenClassesOf,
+} from "./container/fenced-reach.js";
 import type { Token } from "./injection.js";
 import { CORE_TOKENS, rememberServers } from "./runtime.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
@@ -202,6 +209,19 @@ const coreTokensOf = (mcp: Mcp, contexts: readonly Token[]): readonly Token[] =>
   ...mcp.instances.keys(),
 ];
 
+/**
+ * The services the application and its workflows list (#825): the classes a component reaching an
+ * abstract token is given — never infrastructure, which a component reaches through its `deps`.
+ */
+const listedServicesOf = (modules: readonly ProviderModule[]): readonly Class[] =>
+  modules.flatMap((module) =>
+    module.providers.flatMap((provider) =>
+      typeof provider === "function" && infrastructureContractOf(provider) === undefined
+        ? [provider]
+        : [],
+    ),
+  );
+
 /** Every component's dependencies checked against the providers; the MCP servers kept. */
 export function checkComponents(
   bundle: WorkflowMeta,
@@ -214,4 +234,8 @@ export function checkComponents(
 ): void {
   checkGraph(parts.components, parts.modules, coreTokensOf(parts.mcp, parts.contexts));
   rememberServers(bundle, parts.mcp.instances);
+  // #825: a component that can make a business key — its application names an idempotency key
+  const roots = [...parts.components, ...listedServicesOf(parts.modules)];
+  const classesOf = tokenClassesOf(parts.modules.flatMap((module) => module.providers));
+  rememberBusinessKeyWriter(bundle, businessKeyWriterUseOf(roots, depsOf, classesOf));
 }

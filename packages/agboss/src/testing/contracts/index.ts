@@ -32,6 +32,7 @@ export { executionTreeContract } from "./execution-tree.contract.js";
 export { meshRequestContract } from "./mesh-request.contract.js";
 export { a2aTaskContract } from "./a2a-task.contract.js";
 export { outboundCallContract, type OutboundCallStores } from "./outbound-call.contract.js";
+export { effectKeyForTesting } from "./effect-key.js";
 export { pausedExecutionContract } from "./paused-execution.contract.js";
 export { rateLimitContract } from "./rate-limit.contract.js";
 export {

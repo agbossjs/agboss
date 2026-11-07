@@ -140,7 +140,7 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
     });
   });
 
-  it("#120 S94: no pseudonymKey — [application.pii-instance-key] printed, an error under --strict", async () => {
+  it("#120 S94: no piiKeyField — [application.pii-instance-key] printed, an error under --strict", async () => {
     const warned = await agboss(["check", "--application", WORKFLOW], CWD);
     const strict = await agboss(["check", "--strict", "--application", WORKFLOW, "--json"], CWD);
 

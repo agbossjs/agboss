@@ -1,3 +1,5 @@
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #533 item 3 — the protocol of a call that leaves the system (#505), move by move, in a step's
  * frame made by hand over the in-memory stores: what each move tells the lease (`recordOutboundCall`
@@ -17,7 +19,7 @@ import {
   NotSentTrust,
   OutboundCallEventOutcome,
   OutboundCallInFlightError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallReconciliation,
   OutboundCallSettings,
   OutboundCallStatus,
@@ -32,6 +34,7 @@ import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
+import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 
 /** How the store under the protocol misbehaves, when it does. */
 const storeScript = { isRecordedElsewhere: false, isResultDropped: false };
@@ -55,6 +58,8 @@ class ScriptedOutboundCallRepository extends InMemoryOutboundCallRepository {
     return dropped;
   }
 }
+
+const TEST_KEYS = { current: TEST_IDEMPOTENCY_KEY };
 
 /** The stores of one instance, a step's frame under a lease that keeps what it is told. */
 function callsInFrame() {
@@ -84,7 +89,8 @@ function callsInFrame() {
   const base = testFrame();
   const frameUnder = (frameLease: FrameLease | undefined): FrameSpec => ({
     ...base,
-    execution: { ...base.execution, lease: frameLease },
+    // an application's frame carries its idempotency keys (#825): a business key's fingerprint
+    execution: { ...base.execution, lease: frameLease, fingerprintKeys: TEST_KEYS },
   });
   const origin = {
     executionId: base.execution.executionId,
@@ -94,10 +100,15 @@ function callsInFrame() {
   const keyIn = async (executionId: string): Promise<EffectKey> => {
     const taken = await leases.acquire("default", executionId, hours(1));
     if (taken === undefined) throw new Error("the lease is held");
-    return { ...keyOf(taken), origin };
+    return effectKeyForTesting(keyOf(taken), { origin });
   };
   return {
-    calls: new OutboundCalls(store, new OutboundCallSettings({ requiresMask: false })),
+    calls: new OutboundCalls(
+      store,
+      new OutboundCallSettings({ requiresMask: false }),
+      new SilentLogger(),
+      clock,
+    ),
     reports,
     keyIn,
     recording: frameUnder(lease),
@@ -158,7 +169,7 @@ describe("#533: the moves of a call, told to its lease", () => {
 
     const again = await runInFrame(recording, () => calls.send(key, options));
 
-    expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Sent, OutboundCallStatus.Completed, 2],
     ]);
@@ -177,7 +188,7 @@ describe("#533: the moves of a call, told to its lease", () => {
     );
     const again = await runInFrame(recording, () => calls.send(key, options));
 
-    expect(again).toMatchObject({ status: OutboundCallOutcomeStatus.Sent, attempt: 2 });
+    expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Recorded, OutboundCallStatus.Pending, 1],
       [OutboundCallEventOutcome.Ambiguous, OutboundCallStatus.Pending, 1],
@@ -213,7 +224,7 @@ describe("#533: the moves of a call, told to its lease", () => {
 
     const replay = await runInFrame(recording, () => calls.send(key, options));
 
-    expect(replay).toMatchObject({ status: OutboundCallOutcomeStatus.Replayed, result: null });
+    expect(replay).toMatchObject({ status: OutboundCallSendStatus.Replayed, result: null });
   });
 });
 
@@ -227,7 +238,7 @@ describe("#533: which replay names the step that made the call", () => {
 
     const replay = await runInFrame(recording, () => calls.send(key, options));
 
-    expect(replay.status).toBe(OutboundCallOutcomeStatus.Replayed);
+    expect(replay.status).toBe(OutboundCallSendStatus.Replayed);
     expect(Object.keys(replay)).not.toContain("replayedFrom");
     expect(Object.keys(reports[0] ?? {})).not.toContain("replayedFrom");
   });
@@ -235,16 +246,19 @@ describe("#533: which replay names the step that made the call", () => {
   it("a business key's replay from another step names the step that made it, in the outcome and the move", async () => {
     const { calls, reports, keyIn, recording } = callsInFrame();
     const { options } = provider();
-    const made = { ...(await keyIn("execution-1")), businessKey: "order:42" };
+    const made = effectKeyForTesting(await keyIn("execution-1"), { businessKey: "order:42" });
     await runInFrame(recording, () => calls.send(made, options));
     reports.length = 0;
     const elsewhere = { executionId: "execution-2", nodeId: "charge-action", visitNumber: 1 };
-    const again = { ...(await keyIn("execution-2")), businessKey: "order:42", origin: elsewhere };
+    const again = effectKeyForTesting(await keyIn("execution-2"), {
+      businessKey: "order:42",
+      origin: elsewhere,
+    });
 
     const replay = await runInFrame(recording, () => calls.send(again, options));
 
     expect(replay).toMatchObject({
-      status: OutboundCallOutcomeStatus.Replayed,
+      status: OutboundCallSendStatus.Replayed,
       replayedFrom: made.origin,
     });
     expect(reports).toMatchObject([
@@ -261,7 +275,7 @@ describe("#533: where a call is sent from", () => {
 
     const outcome = await runInFrame(unleased, () => calls.send(key, options));
 
-    expect(outcome.status).toBe(OutboundCallOutcomeStatus.Sent);
+    expect(outcome.status).toBe(OutboundCallSendStatus.Sent);
     expect(sent).toEqual([1]);
   });
 

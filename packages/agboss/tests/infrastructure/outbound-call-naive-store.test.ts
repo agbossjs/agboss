@@ -98,7 +98,7 @@ const naive =
 
 /**
  * A store whose `leaseStateOf` is a SELECT, a round trip, then the close as a conditional UPDATE —
- * `Superseded` whatever the UPDATE matched: a renewal landing between them is missed.
+ * `LeaseClosed` whatever the UPDATE matched: a renewal landing between them is missed.
  */
 const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
   const leases = new InMemoryExecutionLeaseRepository(
@@ -122,7 +122,7 @@ const naiveLeaseState: StoreFactory<OutboundCallStores> = (seam) => {
         row.lease.leaseEpoch === token &&
         row.lease.expiresAt <= seam.storeClock.now();
       if (isStillExpired) rows.set(key, { ...row, released: true });
-      return OutboundCallLeaseState.Superseded;
+      return OutboundCallLeaseState.LeaseClosed;
     }
   }
   return { calls: new SelectThenUpdate(seam.storeClock, seam.database, leases), leases };

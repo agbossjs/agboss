@@ -53,7 +53,9 @@ class QueuedChildError extends Error {
 interface ChildRunSite {
   readonly signal: AbortSignal;
   readonly lease: HeldExecutionLease;
-  readonly pii: Pick<PiiRuntime, "observability" | "fieldKey" | "isInstanceKey"> | undefined;
+  readonly pii: Pick<PiiRuntime, "observability" | "fieldKey"> | undefined;
+  /** The application's idempotency keys (#825): its steps' fingerprints. */
+  readonly fingerprintKeys: GraphDeps<string>["fingerprintKeys"];
 }
 
 /** The child's run context on this instance: its parents rebuilt, the worker's signal. */
@@ -62,7 +64,7 @@ function runContextOf(
   row: QueuedChildExecution,
   registry: ChildRegistry,
   deps: AppDeps,
-  { signal, lease, pii }: ChildRunSite,
+  { signal, lease, pii, fingerprintKeys }: ChildRunSite,
 ): RunContext {
   const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   const values = run.initial.contexts;
@@ -85,6 +87,7 @@ function runContextOf(
     // what its steps store is masked by its own workflow's policies (#505)
     observability: pii?.observability,
     ...piiKeysOf(pii),
+    fingerprintKeys,
   };
 }
 
@@ -222,7 +225,8 @@ export async function runQueuedChild(
     const run = await decodedRun(parts.serde, row.run);
     claimed = { deps: childDeps, row, run };
     // its steps store what they store masked by the child workflow's own policies (#505)
-    const site = { signal, lease, pii: rawChildDeps.pii };
+    const { pii, fingerprintKeys } = rawChildDeps;
+    const site = { signal, lease, pii, fingerprintKeys };
     const context = runContextOf(run, row, parts.registry, rootDeps, site);
     const { rests, last } = await streamed(childDeps, rootDeps, row, run, context);
     if (rests) return { end: { status: ExecutionRecordStatus.Paused } };

@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 /**
  * #500, #526 — the fenced-effect store and the lease store are on one backend: a listed store's
  * `static backend` must be the application's lease store's (listed, else the in-memory default),
@@ -42,8 +43,7 @@ sqliteFilePerTest();
 /** A project's own store that declares no backend (#526: it fails assembly). */
 @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
 class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
-  static override readonly leaseRepository = undefined;
-  static override readonly backend = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 const assembledWith = (providers: readonly Provider[]) => {
@@ -51,6 +51,7 @@ const assembledWith = (providers: readonly Provider[]) => {
     name: "stores-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
+    idempotencyKeyField: "idempotencyKey",
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],
@@ -94,6 +95,7 @@ describe("#500, #526: the fenced-effect store beside its lease store", () => {
       name: "own-store-application",
       version: "1.0.0",
       environment: SqliteTestEnvironment,
+      idempotencyKeyField: "idempotencyKey",
       workflows: [ReleaseWorkflow],
       budgets: TEST_BUDGETS,
       providers: [OwnFencedEffectRepository, SqliteExecutionLeaseRepository, SqliteConnection],
@@ -103,7 +105,7 @@ describe("#500, #526: the fenced-effect store beside its lease store", () => {
     await expect(applicationOf(OwnStoreApplication)).rejects.toThrow(
       "[application.store-backend-undeclared] OwnFencedEffectRepository declares no backend",
     );
-    expect(FencedEffectRepository.backend).toBeUndefined();
+    expect(FencedEffectRepository.store.backend).toBeUndefined();
   });
 });
 

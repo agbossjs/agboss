@@ -19,12 +19,16 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
 /**
  * The PII policies and guardrails of an application under `testWith` (#120): a model detection and
  * a guardrail are scripted like any model (`mockLlm(ContactPiiPolicy)`,
- * `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`), and a `pseudonymKey`
+ * `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`), and a `piiKeyField`
  * whose variable the test process does not set gets a fixed test key — tests never need a real
  * secret.
  */
 
 import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
+import {
+  TEST_IDEMPOTENCY_KEY,
+  TEST_PREVIOUS_IDEMPOTENCY_KEY,
+} from "../application/idempotency-key.js";
 import type { TestWithOptions } from "./environment.js";
 
 /** The options of tests whose instances make PII tokens on keys of their own (#334). */
@@ -32,7 +36,7 @@ const INSTANCE_KEYED = new WeakSet<TestWithOptions>();
 
 /**
  * Internal (#334, not in `@agboss/core/testing`): `testWith(App, withInstancePiiKeys({ instances: 2 }))` —
- * an application without `pseudonymKey` runs on a key of each instance, as in production, instead
+ * an application without `piiKeyField` runs on a key of each instance, as in production, instead
  * of the test's fixed key: the framework's own tests of keys per execution across instances.
  */
 export function withInstancePiiKeys(options: TestWithOptions): TestWithOptions {
@@ -57,21 +61,46 @@ export function piiScriptKeyOf(target: Class, assembled: AssembledApplication): 
   return piiPolicyKeyOf(meta.name);
 }
 
-/** The variable of the application's key field (#778): its `secret("…")` in the loaded environment. */
-function applicationKeyVariablesOf(
-  assembled: AssembledApplication,
+/** The variable of a key field (#778): its `secret("…")` in the loaded environment, unresolved. */
+function keyVariablesOf(
+  field: string | undefined,
   loaded: LoadedEnvironment | undefined,
 ): readonly string[] {
-  const field = assembled.pseudonymKey;
   const values = loaded?.values;
   if (field === undefined || typeof values !== "object" || values === null) return [];
   const value: unknown = Reflect.get(values, field);
   return value instanceof Secret && !isResolvedSecret(value) ? [variableOfSecret(value)] : [];
 }
 
+/** The variable of the application's key field (#778): its `secret("…")` in the loaded environment. */
+const applicationKeyVariablesOf = (
+  assembled: AssembledApplication,
+  loaded: LoadedEnvironment | undefined,
+): readonly string[] => keyVariablesOf(assembled.piiKeyField, loaded);
+
+/**
+ * The idempotency key variables the test process does not set (#825), with the test keys: the
+ * current field's `TEST_IDEMPOTENCY_KEY`, the previous one's another — as #778 gives the PII key.
+ */
+function testIdempotencyKeys(
+  assembled: AssembledApplication,
+  processEnv: NodeJS.ProcessEnv,
+  loaded: LoadedEnvironment | undefined,
+): Record<string, string> {
+  const keyed = [
+    ...keyVariablesOf(assembled.idempotencyKeyField, loaded).map(
+      (v) => [v, TEST_IDEMPOTENCY_KEY] as const,
+    ),
+    ...keyVariablesOf(assembled.previousIdempotencyKeyField, loaded).map(
+      (v) => [v, TEST_PREVIOUS_IDEMPOTENCY_KEY] as const,
+    ),
+  ];
+  return Object.fromEntries(keyed.filter(([variable]) => (processEnv[variable] ?? "") === ""));
+}
+
 /**
  * The process variables of the PII keys the test process does not set, with the test key: the
- * policies' own and the application's `pseudonymKey` field's (#778) — a test that sets one keeps it.
+ * policies' own and the application's `piiKeyField`'s (#778) — a test that sets one keeps it.
  */
 export function testPseudonymKeys(
   assembled: AssembledApplication,
@@ -108,7 +137,11 @@ export async function testKeyedEnvironmentOf(
 ): Promise<TestKeyedEnvironment> {
   const owner = environmentOwnerOf(assembled);
   const loaded = await selectedEnvironment(owner, selection.env, TEST_DEFAULT_ENVIRONMENT);
-  const keyed = { ...processEnv, ...testPseudonymKeys(assembled, processEnv, loaded) };
+  const keyed = {
+    ...processEnv,
+    ...testPseudonymKeys(assembled, processEnv, loaded),
+    ...testIdempotencyKeys(assembled, processEnv, loaded),
+  };
   return { named: namedEnvironmentOf(loaded, keyed), processEnv: keyed };
 }
 

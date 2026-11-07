@@ -173,6 +173,30 @@ index` (as before) — a running instance does not re-read a folder on its own.
 
 ### Changed — breaking for stores outside the core
 
+- **The fencing contracts' statics, paging and helpers** (#825, from the 0.1.1 API review):
+  - one `static store: StoreDescriptor = { backend, leaseCheck? }` on `ExecutionLeaseRepository`,
+    `FencedEffectRepository`, `OutboundCallRepository` and `A2ATaskRepository` (#824's `static
+backend`) replaces `static backend`, `static leaseCheck` and `static leaseRepository`
+    (`leaseCheck` absent is `LeaseCheck.Atomic`); one that is no descriptor — a backend that is no
+    text, an unknown `leaseCheck`, a getter that throws — is `[application.store-descriptor-invalid]`
+    at assembly, never read as undeclared or atomic; a unit runner finds a store's lease store by its
+    `backend` — the runner's own, a listed one, or the core's SQLite one;
+  - `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` → `OutboundCallPage { calls,
+next? }`: keyset paging on an immutable order of the store's own (the core's SQLite store a
+    declared `seq INTEGER PRIMARY KEY AUTOINCREMENT`, which a `VACUUM` or a restore keeps — a file
+    written before is rebuilt with it), an opaque cursor, `next` absent on the last page, a limit
+    that is no whole number from 1 a `RangeError` — the new conformance cases (`paged listing by
+status`) fail a store that pages by an offset, names its cursor by a row that may be removed or
+    takes any limit;
+  - `checkedEffectName` / `checkedBusinessKey` → `assertEffectName` / `assertBusinessKey`;
+    `fingerprintErrorOf` beside them, and `replayedFromOf` matches the previous idempotency key's
+    fingerprint during a rotation (a store passes the row's facts as before); keys are made with
+    `effectKeyForTesting(fields, changes?)` (a key is not spread: `effectKeyForTesting(key, { token })`);
+    `markCompleted` / `markFailed`'s parameter is `attemptOwner`; the core's
+    fencing stores take `Pick<StoreClock, "now">`.
+    **Migration:** `static store = { backend: "postgres" }` in place of the three statics; page
+    `findAllByTenantIdAndStatus`; `OutboundCallLeaseState.LeaseClosed` for `Superseded`.
+
 - **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
   of the store author's suites:
   - a fault store set declares the time its fencing stores decide by, `FaultStores.storeTime:
@@ -244,17 +268,17 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   opted-out store adds `acceptWithoutDoubleChargeProtection: true`.
 
 - **One transactional backend, checked at assembly** (#526) — `ExecutionLeaseRepository`,
-  `FencedEffectRepository` and `OutboundCallRepository` declare `static backend` (`"in-memory"`,
+  `FencedEffectRepository` and `OutboundCallRepository` declare `static store = { backend }` (#825; `"in-memory"`,
   `"sqlite"`; `"postgres"`, `"postgres:billing"` for a store of your own): a listed fenced-effect or
   outbound-call store and the application's lease store must declare the same one —
   `[application.store-backend-mismatch]` names both classes and backends, a store that declares none
   fails `[application.store-backend-undeclared]` (it used to be skipped). The explicit opt-out
-  `static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection` is not checked and warns
+  `static store = { backend, leaseCheck: LeaseCheck.WithoutDoubleChargeProtection }` is not checked and warns
   `[application.lease-check-not-atomic]` (an error under `agboss check --strict`). Rate limits, the
   child queue and the lease log may be on any backend. `[application.fenced-effect-lease-store]` is
-  gone; `static leaseRepository` now only tells unit runners where to hold their lease. **Migration:**
-  add `static override readonly backend = "<your backend>"` to your lease, fenced-effect and
-  outbound-call stores.
+  gone; unit runners find a store's lease store by its backend (#825). **Migration:** add
+  `static override readonly store: StoreDescriptor = { backend: "<your backend>" }` to your lease,
+  fenced-effect and outbound-call stores.
 
 - **A lease is over at its expiry, for its holder too** (#534) — a lease is live while
   `expiresAt > now`, and only then: at `now >= expiresAt` `renew` (held or yielded) and `yield` are
@@ -323,7 +347,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 - **`storeConformance`** (#526) in `@agboss/core/testing/contracts` — one call runs every contract a
   store set claims (`stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, … }`)
-  and the `store set (<name>)` cases (each fencing store declares its `static backend`, one with its
+  and the `store set (<name>)` cases (each fencing store declares its `static store` backend, one with its
   lease store's); a set with a lease store that leaves a fencing contract out throws
   `StoreConformanceError` unless `without` says it has none. New contract cases, which a store
   outside the core must pass: every lease-log row kind and #508 field read back as it was, a
@@ -401,6 +425,72 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
 
 ### Fixed — guarantees and safety
 
+- **A business key's fingerprint is required, and keyed by an idempotency secret of its own** (#825,
+  from the 0.1.1 API review, G1b and G5) — under a business key a fenced effect without a
+  `fingerprint` had none, so two effects with the same business key and other work (a charge and a
+  refund of `order:42`) silently replayed each other; and every fingerprint was keyed by the PII key
+  (`pseudonymKey`), with no rotation and an unkeyed SHA-256 without one:
+  - `effectKeyOf(executionContext, name, { businessKey, fingerprint })` — or `fingerprintPolicy:
+FingerprintPolicy.None`, the explicit opt-out for work the business key fixes by itself — for a
+    fenced effect; `{ businessKey }` alone is an `OutboundCallKey`, which only `OutboundCalls.send`
+    takes (its request is its fingerprint, as before). A fenced effect under a business key without
+    either does not compile; a JavaScript caller or a cast is refused before any transaction
+    (`FingerprintRequiredError`, `fenced-effect.fingerprint-required`, `reason`: `FingerprintProblem.Missing`
+    / `Contradictory`; `fingerprintErrorOf` for a store of your own) — at the store's entry and again
+    in the core stores' own transaction, so a subclass's entry cannot skip it; `OutboundCalls.send`
+    refuses `FingerprintPolicy.None` (a call's request is its fingerprint); a fingerprint that is not
+    plain JSON (a DTO instance, a `Date`) is `FingerprintNotJsonError`
+    (`fenced-effect.fingerprint-not-json`, naming the effect and the path, never the value);
+  - `EffectKey` and `OutboundCallKey` are marked by a private member, which an object literal and a
+    spread lack: `effectKeyOf` is the only maker for an application, a forged key (`{ ...key, token:
+key.token + 1 }`, `{ ...key, fingerprint }`) does not compile, and a key the framework did not
+    make (a JavaScript caller's, a cast) is refused at run time before anything runs; a store's or a
+    contract's tests make one with `effectKeyForTesting(fields, changes?)`
+    (`@agboss/core/testing/contracts`; `EffectKeyFields` its fields);
+  - `@Application({ idempotencyKeyField })` names a `Secret` field used only for business-key
+    fingerprints (`HMAC(HMAC(key, "agboss/fingerprint/v1"), canonical JSON)`) — required once a
+    component or a listed service reaches `OutboundCalls`, a fenced-effect store or the outbound-call
+    store through its `deps` (an abstract dependency by the listed class it is given, an
+    `InjectionToken` by its value's class)
+    (`[application.idempotency-key-required]`), never an unkeyed digest (a key made without it is
+    `IdempotencyKeyMissingError`, `fenced-effect.idempotency-key-missing`). `previousIdempotencyKeyField`
+    rotates it: fingerprints are compared under both keys (`EffectKey.previousFingerprint`, never
+    stored, `isKeyFingerprint`) and stored under the current one, so an intent recorded before the
+    rotation and retried during it replays or is reconciled — no conflict, no second call — and once
+    the previous key is removed what was stored under it fails closed (a conflict, nothing sent);
+    `testWith` and the unit runners give a key field with no value a test key — the test
+    environment may leave it out —, as #778 does the PII key;
+  - `pseudonymKey` is `piiKeyField`, typed as a `Secret` field of the environment contract
+    (`SecretFieldOf<TEnvironment>`: a typo or a text field does not compile; the idempotency fields
+    too); a key field that is also a model provider's `apiKey` (the built-ins' `openRouterApiKey`
+    when none is listed), the mesh's `signingKey`, a `Secret` a listed class reads or another key
+    field is `[application.pii-key-shared]` / `[application.idempotency-key-shared]`, and a key
+    field whose `Secret` reads another key's variable fails the start, naming both fields; a named
+    key field without a value fails the start, naming it (a named `piiKeyField` too — it no longer
+    falls back to a key of the instance), and one that holds no `Secret` too.
+    **Migration:** a fenced effect under a business key names its `fingerprint` (or
+    `fingerprintPolicy: FingerprintPolicy.None`); `pseudonymKey` → `piiKeyField`; an application that
+    uses business keys adds `idempotencyKey?: Secret` to its contract, `idempotencyKey:
+secret("IDEMPOTENCY_KEY")` to each environment it runs on (not `test`) and `@Application({ idempotencyKeyField:
+"idempotencyKey" })` (business keys are new in 0.1.1: no released row is keyed otherwise).
+
+- **Reads and names of the outbound-call surface** (#825, from the 0.1.1 API review) —
+  `app.pendingOutboundCalls(tenant)` returned every pending intent of a tenant at once; it is
+  `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` → `OutboundCallPage { calls, next? }`
+  (default 100, at most 1000, `dto.invalid` otherwise — a cursor the store never gave too; the store
+  itself refuses a limit that is no whole number from 1 with a `RangeError`), keyset-paged on the store's record order: a
+  call pending for the whole read is listed exactly once, whatever is recorded, ends or is pruned
+  between pages. `OutboundCalls(repository, settings, logger, clock)` takes every parameter (it
+  logged nothing and ran on the wall clock when built by hand; a JavaScript caller's missing one is a `TypeError`), and a logger that throws is said once on the process (`process.emitWarning`, `AGBOSS_LOGGER_FAILED`), never swallowed in silence); `OutboundCallReconciliation` is a
+  union by `verdict` (`CompletedReconciliation { result }`, `NotSentReconciliation`,
+  `UnknownReconciliation { reason }`), still built only by `completed` / `notSent` / `unknown`.
+  Names: `JsonResult` → `JsonValue`; `OutboundCallOutcomeStatus` → `OutboundCallSendStatus`; the three
+  meanings of "superseded" apart — `OutboundCallLeaseState.Superseded` → `LeaseClosed`
+  (`lease-closed`), the lease log's `OutboundCallEventOutcome.Superseded` → `AttemptSuperseded`
+  (`attempt-superseded`) and `LeaseSuperseded` → `LeaseClosed` with `closedLease`
+  (`OutboundCallClosedLease`, was `supersededLease`), the warning `outbound-call.lease-closed`; rows
+  written before are read with the new names (`app.leaseEventsOf`, kept records).
+
 - **The outbound-call contract fails closed** (#795, from the 0.1.1 API review) — three defaults
   that failed open and two names that misled, changed before the surface is published:
   - every `OutboundCalls.send` says how far its `notSent()` is trusted, a required `notSent`:
@@ -414,7 +504,7 @@ ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time
     fails the step with `OutboundCallSupersededError` (`outbound-call.superseded`, a
     `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy`),
     never a normal outcome; `OutboundCallOutcomeStatus.Superseded` is removed (the lease log's
-    `OutboundCallEventOutcome.Superseded` stays);
+    outcome stays, named `OutboundCallEventOutcome.AttemptSuperseded` by #825);
   - `new OutboundCallSettings({ …, requiresMask })` takes one options bag whose `requiresMask` is
     required (`OutboundCallSettingsOptions`), where a positional boolean defaulted to `false`; a
     JavaScript caller without it gets `true`;
@@ -816,7 +906,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 ### Added
 
 - **A2A tasks shared by the instances, or no start** (#824) — `A2ATaskRepository` declares its
-  `static backend` (the in-memory store `"in-memory"`, `SqliteA2ATaskRepository` `"sqlite"`;
+  backend (`static store = { backend }` since #825; the in-memory store `"in-memory"`, `SqliteA2ATaskRepository` `"sqlite"`;
   `PostgresA2ATaskRepository` in `@agboss/postgres` and `MongoA2ATaskRepository` in
   `@agboss/mongodb` share them on those databases). An application that serves A2A (`@A2AExpose`)
   on a lease store its instances share keeps its tasks where they share them too, else it does not

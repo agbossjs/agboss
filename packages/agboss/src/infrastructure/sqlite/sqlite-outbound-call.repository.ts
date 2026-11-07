@@ -1,12 +1,14 @@
+import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { z } from "zod";
 import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
 import { Injectable } from "../../components/decorators.js";
-import type { Class } from "../../components/injection.js";
-import { StoreClock, type Clock, lazyLoad } from "../clock.js";
+import { StoreClock, lazyLoad } from "../clock.js";
 import type { EffectKey } from "../fenced-effect.repository.js";
 import {
   OutboundCallRepository,
   OutboundCallStatus,
+  type OutboundCallPage,
+  type OutboundCallStatusQuery,
   type OutboundCallLease,
   type OutboundCallFailure,
   type OutboundCallIntent,
@@ -16,28 +18,19 @@ import {
   type OutboundCallState,
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
-import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
 import {
-  EXECUTION_LEASES_SCHEMA,
-  SqliteExecutionLeaseRepository,
-} from "./sqlite-execution-lease.repository.js";
+  OUTBOUND_CALL_COLUMNS,
+  OUTBOUND_CALLS_SCHEMA,
+  upgradeOutboundCallsSeq,
+} from "./sqlite-outbound-call-schema.js";
+import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
   RAISE_MARK,
 } from "./sqlite-fenced-effect.repository.js";
-
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS outbound_calls (
-  scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
-  tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, status TEXT NOT NULL,
-  ended_at INTEGER, record TEXT NOT NULL, business_key TEXT);
-CREATE UNIQUE INDEX IF NOT EXISTS outbound_calls_by_step
-  ON outbound_calls (scope_key, idempotency_key, name) WHERE business_key IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS outbound_calls_by_business_key
-  ON outbound_calls (tenant_id, name, business_key) WHERE business_key IS NOT NULL;
-CREATE INDEX IF NOT EXISTS outbound_calls_by_tree ON outbound_calls (tenant_id, root_execution_id);
-CREATE INDEX IF NOT EXISTS outbound_calls_by_status ON outbound_calls (tenant_id, status);`;
 
 const RecordRow = z.object({ record: z.string() });
 
@@ -68,17 +61,17 @@ const recordOf = (row: unknown): OutboundCallRecord =>
  */
 @Injectable({ deps: [SqliteConnection, StoreClock] })
 export class SqliteOutboundCallRepository extends OutboundCallRepository {
-  static override readonly leaseRepository: Class | undefined = SqliteExecutionLeaseRepository;
-  static override readonly backend: string | undefined = "sqlite";
+  static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly clock: Pick<Clock, "now">,
+    private readonly clock: Pick<StoreClock, "now">,
   ) {
     super();
     connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
     connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
-    connection.ensureSchema("outbound_calls", SCHEMA);
+    upgradeOutboundCallsSeq(connection);
+    connection.ensureSchema("outbound_calls", OUTBOUND_CALLS_SCHEMA);
   }
 
   /**
@@ -108,7 +101,9 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return this.#fenced(key, () => {
       const record = pendingOutboundCallOf(key, intent, this.clock.now());
       const { changes } = this.connection.database
-        .prepare("INSERT OR IGNORE INTO outbound_calls VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)")
+        .prepare(
+          `INSERT OR IGNORE INTO outbound_calls (${OUTBOUND_CALL_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        )
         .run(
           key.scopeKey,
           key.idempotencyKey,
@@ -134,12 +129,15 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt));
   }
 
-  markCompleted(key: EffectKey, owner: string, result: string): Promise<boolean> {
-    return this.#ended(key, owner, { status: OutboundCallStatus.Completed, result });
+  markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
+    return this.#ended(key, attemptOwner, { status: OutboundCallStatus.Completed, result });
   }
 
-  markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure): Promise<boolean> {
-    return this.#ended(key, owner, { status: OutboundCallStatus.Failed, failure: { ...failure } });
+  markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean> {
+    return this.#ended(key, attemptOwner, {
+      status: OutboundCallStatus.Failed,
+      failure: { ...failure },
+    });
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
@@ -155,22 +153,19 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   ): Promise<readonly OutboundCallRecord[]> {
     const rows = this.connection.database
       .prepare(
-        "SELECT record FROM outbound_calls WHERE tenant_id = ? AND root_execution_id = ? ORDER BY rowid",
+        "SELECT record FROM outbound_calls WHERE tenant_id = ? AND root_execution_id = ? ORDER BY seq",
       )
       .all(tenantId, rootExecutionId);
     return Promise.resolve(rows.map(recordOf));
   }
 
-  findAllByTenantIdAndStatus(
-    tenantId: string,
-    status: OutboundCallStatus,
-  ): Promise<readonly OutboundCallRecord[]> {
-    const rows = this.connection.database
-      .prepare(
-        "SELECT record FROM outbound_calls WHERE tenant_id = ? AND status = ? ORDER BY rowid",
-      )
-      .all(tenantId, status);
-    return Promise.resolve(rows.map(recordOf));
+  /**
+   * A page of a tenant's calls in `status` (#825): keyset on `seq`, the row's declared rowid — kept
+   * while it lives, through a `VACUUM` or a restore, and never given again. The cursor is the page's
+   * last `seq`, as text.
+   */
+  findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage> {
+    return sqlitePageOf(this.connection.database, query, recordOf);
   }
 
   async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {

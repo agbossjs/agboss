@@ -14,45 +14,46 @@ import { ApplicationContext, Clock, Injectable } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { ReleaseWorkflow, ReleaseWorkflowStart } from "../../app/fixtures/fence.workflow.js";
+import type { StoreDescriptor } from "../../../src/index.js";
 
 const TASK_DEPS = { deps: [IN_MEMORY_DATABASE] } as const;
 const LEASE_DEPS = { deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 
 @Injectable(TASK_DEPS)
 export class PostgresA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "postgres";
+  static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 @Injectable(TASK_DEPS)
 export class BillingA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "postgres:billing";
+  static override readonly store: StoreDescriptor = { backend: "postgres:billing" };
 }
 
 @Injectable(TASK_DEPS)
 export class MongoA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "mongodb";
+  static override readonly store: StoreDescriptor = { backend: "mongodb" };
 }
 
 @Injectable(TASK_DEPS)
 export class UndeclaredA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = undefined;
+  static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 @Injectable(TASK_DEPS)
 export class EmptyA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "";
+  static override readonly store: StoreDescriptor = { backend: "" };
 }
 
 /** A backend no rule knows: shared or not, assembly cannot tell — refused beside other leases. */
 @Injectable(TASK_DEPS)
 export class LmdbA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "lmdb";
+  static override readonly store: StoreDescriptor = { backend: "lmdb" };
 }
 
 /** A known kind, written in another case: not the kind it looks like. */
 @Injectable(TASK_DEPS)
 export class CapitalSqliteA2ATasks extends InMemoryA2ATaskRepository {
-  static override readonly backend: string | undefined = "SQLite";
+  static override readonly store: StoreDescriptor = { backend: "SQLite" };
 }
 
 /** A project's own in-memory subclass: still each instance's own memory. */
@@ -61,7 +62,7 @@ export class OwnInMemoryA2ATasks extends InMemoryA2ATaskRepository {}
 
 @Injectable(LEASE_DEPS)
 export class MongoLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "mongodb";
+  static override readonly store: StoreDescriptor = { backend: "mongodb" };
 }
 
 @A2AExpose({

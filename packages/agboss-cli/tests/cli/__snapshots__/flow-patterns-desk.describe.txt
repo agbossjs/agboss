@@ -35,6 +35,7 @@ environment dev
   openRouterBaseUrl = <unset OPENROUTER_BASE_URL, optional>
   sqlitePath = ".agboss/flow-patterns.sqlite"
   piiPseudonymKey = <missing PII_PSEUDONYM_KEY>
+  idempotencyKey = <missing IDEMPOTENCY_KEY>
 
 desk-workflow 1.0.0 · config <hash>
 guardrails

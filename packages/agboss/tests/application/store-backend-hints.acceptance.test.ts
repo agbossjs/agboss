@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 /**
  * #539 acceptance — the corners of the store-backend errors the handoff's tables leave open:
  * - a backend that is one of the core's kinds on another database (`sqlite:reports`) is offered no
@@ -40,22 +41,22 @@ const EFFECT_DEPS = {
 
 @Injectable(EFFECT_DEPS)
 class ReportsEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "sqlite:reports";
+  static override readonly store: StoreDescriptor = { backend: "sqlite:reports" };
 }
 
 @Injectable(LEASE_DEPS)
 class ReportsLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "sqlite:reports";
+  static override readonly store: StoreDescriptor = { backend: "sqlite:reports" };
 }
 
 @Injectable(EFFECT_DEPS)
 class ConstructorEffects extends InMemoryFencedEffectRepository {
-  static override readonly backend: string | undefined = "constructor";
+  static override readonly store: StoreDescriptor = { backend: "constructor" };
 }
 
 @Injectable(LEASE_DEPS)
 class ToStringLeases extends InMemoryExecutionLeaseRepository {
-  static override readonly backend: string | undefined = "toString";
+  static override readonly store: StoreDescriptor = { backend: "toString" };
 }
 
 @Injectable(EFFECT_DEPS)

@@ -28,6 +28,7 @@ import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from 
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
+import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
 
 /** The app option of a test's branch schedule: none for `TestConcurrency.Real`. */
 function branchSchedulerOf(
@@ -202,6 +203,8 @@ export class TestEnvironment {
         idGenerator: this.idGenerator,
         quiet: true,
         ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
+        // #825: a key field with no value in the test's environment gets the test's keys
+        idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS,
         observers: [this.mocks.actions],
         ...(leaseGate === undefined ? {} : { leaseGate }),
       };

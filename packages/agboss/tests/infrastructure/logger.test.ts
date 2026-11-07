@@ -107,4 +107,22 @@ describe("frameworkLogOf", () => {
       log.error("app.close-failed", "boom");
     }).not.toThrow();
   });
+
+  it("#825: a logger that throws is said on the process, once per logger — its class and the code, never the line", () => {
+    const warned = vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
+    try {
+      const log = frameworkLogOf(new ThrowingLogger(), new VirtualClock());
+      log.error("app.close-failed", "card 4242 declined");
+      log.warn("recovery.failed", "again");
+
+      expect(warned.mock.calls).toEqual([
+        [
+          'the framework\'s Logger (ThrowingLogger) threw Error writing "app.close-failed": its entries are lost while it throws — said once',
+          { code: "AGBOSS_LOGGER_FAILED" },
+        ],
+      ]);
+    } finally {
+      warned.mockRestore();
+    }
+  });
 });

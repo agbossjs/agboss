@@ -1,8 +1,9 @@
+import { SilentLogger } from "../../../src/infrastructure/logger.js";
+import { SystemClock } from "../../../src/infrastructure/clock.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   NotSentTrust,
   OutboundCallReconciliation,
@@ -22,6 +23,7 @@ import { start } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import { PaymentGateway } from "./payment-gateway.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #505 — an outbound call made by a child workflow, run in its parent's step (`ParentInstance`) or
@@ -90,6 +92,8 @@ export class UnmaskedChargeAction {
     const masked = new OutboundCalls(
       this.repository,
       new OutboundCallSettings({ requiresMask: true }),
+      new SilentLogger(),
+      new SystemClock(),
     );
     const key = effectKeyOf(this.executionContext, "charge");
     try {
@@ -103,10 +107,13 @@ export class UnmaskedChargeAction {
       });
     } finally {
       const tenantId = this.executionContext.tenant.tenantId;
-      const pending = await this.repository.findAllByTenantIdAndStatus(
+      const status = OutboundCallStatus.Pending;
+      const page = await this.repository.findAllByTenantIdAndStatus({
         tenantId,
-        OutboundCallStatus.Pending,
-      );
+        status,
+        limit: 1000,
+      });
+      const pending = page.calls;
       unmasked.pendingAfter.push(pending.length);
     }
   }
@@ -193,7 +200,8 @@ export class FarChargeWorkflow {}
 @Application({
   name: "outbound-call-children-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: IdempotencyKeyEnvironment,
+  idempotencyKeyField: "idempotencyKey",
   workflows: [NearChargeWorkflow, FarChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

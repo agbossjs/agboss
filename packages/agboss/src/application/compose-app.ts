@@ -8,7 +8,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
-import { tenantRead, treeRead } from "../flow/context/context-values.js";
+import { treeRead } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { GracefulStop } from "./graceful-stop.js";
@@ -21,10 +21,8 @@ import type {
 import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
-import {
-  OutboundCallStatus,
-  type OutboundCallRepository,
-} from "../infrastructure/outbound-call.repository.js";
+import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+import { leaseEventsIn, pendingCallsOf } from "./instance-reads.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
@@ -64,14 +62,18 @@ export interface InstanceSurface {
   readonly warnings: readonly string[];
   /** `app.leaseEventsOf` (#501): the instance's lease log. */
   readonly leaseEvents: ExecutionLeaseEventRepository;
-  /** `app.outboundCallsOf` / `app.pendingOutboundCalls` (#505): the instance's outbound calls. */
+  /** `app.outboundCallsOf` / `app.pendingOutboundCallsOf` (#505): the instance's outbound calls. */
   readonly outboundCalls: OutboundCallRepository;
 }
 
 /** What an operator reads of the instance: its probes, its lease log, its outbound calls. */
 type InstanceReads = Pick<
   App,
-  "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCalls"
+  | "checkLiveness"
+  | "checkReadiness"
+  | "leaseEventsOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCallsOf"
 >;
 
 const instanceReadsOf = ({
@@ -83,10 +85,8 @@ const instanceReadsOf = ({
   checkReadiness: () => health.checkReadiness(),
   // #568, #580: a tenant id and a root execution id are keys' text here too — on UTF-8 stores
   // t\uD800 would read t\uFFFD's rows
-  leaseEventsOf: ({ tenantId, rootExecutionId }) =>
-    treeRead({ tenantId, rootExecutionId }, () =>
-      leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId, rootExecutionId),
-    ),
+  // rows written before #825 read with this version's names
+  leaseEventsOf: (tree) => treeRead(tree, () => leaseEventsIn(leaseEvents, tree)),
   // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
   outboundCallsOf: ({ tenantId, rootExecutionId }) =>
     treeRead({ tenantId, rootExecutionId }, async () =>
@@ -94,12 +94,8 @@ const instanceReadsOf = ({
         shownCallOf,
       ),
     ),
-  pendingOutboundCalls: ({ tenantId }) =>
-    tenantRead(tenantId, async () =>
-      (await outboundCalls.findAllByTenantIdAndStatus(tenantId, OutboundCallStatus.Pending)).map(
-        shownCallOf,
-      ),
-    ),
+  // #825: a page at a time, by the store's cursor — never every pending call of a tenant at once
+  pendingOutboundCallsOf: (query) => pendingCallsOf(outboundCalls, query),
 });
 
 export function composeApp(

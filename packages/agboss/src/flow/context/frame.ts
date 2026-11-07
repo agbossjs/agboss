@@ -1,3 +1,4 @@
+import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { Milliseconds } from "../../units/index.js";
@@ -67,10 +68,11 @@ export interface ExecutionFacts {
    */
   readonly correlationKey?: string | undefined;
   /**
-   * The application's `pseudonymKey` (#508): what a business key's fingerprint is keyed by — the
-   * same on every instance. None without one.
+   * The application's idempotency keys (#825, `@Application({ idempotencyKeyField,
+   * previousIdempotencyKeyField })`): what a business key's fingerprint is keyed by — the same on
+   * every instance, and nothing else is keyed by them. None without `idempotencyKeyField`.
    */
-  readonly fingerprintKey?: string | undefined;
+  readonly fingerprintKeys?: FingerprintKeys | undefined;
 }
 
 /**

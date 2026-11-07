@@ -1,3 +1,4 @@
+import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 /**
  * #554 acceptance — a backend named like any member every object has (each own property of
  * `Object.prototype`: `constructor`, `toString`, `__proto__`, `hasOwnProperty`, `valueOf`, …) is only
@@ -33,7 +34,7 @@ const MEMBER_NAMES = Object.getOwnPropertyNames(Object.prototype);
 function effectsOn(backend: string): Class {
   @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
   class MemberEffects extends InMemoryFencedEffectRepository {
-    static override readonly backend: string | undefined = backend;
+    static override readonly store: StoreDescriptor = { backend: backend };
   }
   return MemberEffects;
 }
@@ -42,7 +43,7 @@ function effectsOn(backend: string): Class {
 function callsOn(backend: string): Class {
   @Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
   class MemberCalls extends InMemoryOutboundCallRepository {
-    static override readonly backend: string | undefined = backend;
+    static override readonly store: StoreDescriptor = { backend: backend };
   }
   return MemberCalls;
 }
@@ -51,7 +52,7 @@ function callsOn(backend: string): Class {
 function leasesOn(backend: string): Class {
   @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
   class MemberLeases extends InMemoryExecutionLeaseRepository {
-    static override readonly backend: string | undefined = backend;
+    static override readonly store: StoreDescriptor = { backend: backend };
   }
   return MemberLeases;
 }

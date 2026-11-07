@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { InvalidBusinessKeyError } from "../../infrastructure/fenced-effect-key.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
@@ -40,7 +41,8 @@ const roundTrip: OutboundCallCase = {
   name: "#538: business keys of many scripts — CJK, Cyrillic, Hebrew, emoji, astral, 200 code units — come back byte for byte, on the other instance, each its own intent",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
-    const keyed = (businessKey: string): EffectKey => ({ ...keyOf(lease), businessKey });
+    const keyed = (businessKey: string): EffectKey =>
+      effectKeyForTesting(keyOf(lease), { businessKey, fingerprint: "f" });
 
     for (const businessKey of ROUND_TRIP_KEYS) await recorded(first, keyed(businessKey));
     for (const businessKey of ROUND_TRIP_KEYS) {
@@ -63,7 +65,9 @@ const refusedByHand: OutboundCallCase = {
 
     for (const [rule, businessKey] of REFUSED_BUSINESS_KEYS) {
       for (const [method, call] of KEYED_METHODS) {
-        const refused = await rejectionOf(call(first, { ...keyOf(lease), businessKey }));
+        const refused = await rejectionOf(
+          call(first, effectKeyForTesting(keyOf(lease), { businessKey, fingerprint: "f" })),
+        );
         expect({ method, rule, isRefused: refused instanceof InvalidBusinessKeyError }).toEqual({
           method,
           rule,

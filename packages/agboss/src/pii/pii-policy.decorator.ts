@@ -62,7 +62,7 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
   readonly detectWithModel?: string;
   /**
    * The HMAC key of its `replaceWithToken()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
-   * starts; absent → the application's (`@Application({ pseudonymKey })`).
+   * starts; absent → the application's (`@Application({ piiKeyField })`).
    */
   readonly pseudonymKey?: Secret;
   /** Constructor dependencies (a `PiiRefusal` class's services), in order. */

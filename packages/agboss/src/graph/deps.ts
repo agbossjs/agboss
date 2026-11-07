@@ -1,3 +1,4 @@
+import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 import type { FrameLease } from "../flow/context/frame.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { AgentPrompts, AgentsConfigOf } from "../config/types.js";
@@ -52,6 +53,11 @@ export interface GraphDeps<TName extends string> {
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The PII policies at each agent's and router's model (#120); absent = none. */
   readonly pii?: PiiRuntime;
+  /**
+   * The application's idempotency keys (#825): what its steps' business-key fingerprints are keyed
+   * by; absent = none named (a business key's fingerprint is then `IdempotencyKeyMissingError`).
+   */
+  readonly fingerprintKeys?: FingerprintKeys | undefined;
   /** The guardrails of each agent and model router (#120); absent = none. */
   readonly guardrails?: GuardrailRuntime;
   /** The tool interceptors of each agent's tool calls (#384); absent = none. */

@@ -18,7 +18,10 @@ import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionLeaseEventRecord } from "../infrastructure/execution-lease-event.repository.js";
-import type { OutboundCallRecord } from "../infrastructure/outbound-call.repository.js";
+import type {
+  OutboundCallPage,
+  OutboundCallRecord,
+} from "../infrastructure/outbound-call.repository.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
@@ -288,17 +291,25 @@ export interface App {
    * none.
    */
   outboundCallsOf(tree: LeaseEventsQuery): Promise<readonly OutboundCallRecord[]>;
-  /** A tenant's calls left pending (#505): what waits for reconciliation, or for an operator. */
-  pendingOutboundCalls(tenant: OutboundCallsQuery): Promise<readonly OutboundCallRecord[]>;
+  /**
+   * A page of a tenant's calls left pending (#505, #825): what waits for reconciliation, or for an
+   * operator — at most `limit` (default 100, at most 1000), from the cursor `after` (a page's
+   * `next`), in the order recorded. A call pending for the whole read is listed exactly once.
+   */
+  pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
 }
 
-/** Whose pending calls `app.pendingOutboundCalls` reads: a tenant's. */
-export interface OutboundCallsQuery {
+/** Which pending calls `app.pendingOutboundCallsOf` reads (#825): a tenant's, a page of them. */
+export interface PendingOutboundCallsQuery {
   readonly tenantId: string;
+  /** How many at most: a whole number from 1 to 1000; default 100. */
+  readonly limit?: number;
+  /** The `next` of the page before; none → from the first. */
+  readonly after?: string;
 }
 
 /** Which tree `app.leaseEventsOf` and `app.outboundCallsOf` read: the tenant's root execution. */
@@ -313,5 +324,9 @@ export interface LeaseEventsQuery {
  */
 export type WorkflowApp = Omit<
   App,
-  "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCalls"
+  | "checkLiveness"
+  | "checkReadiness"
+  | "leaseEventsOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCallsOf"
 >;

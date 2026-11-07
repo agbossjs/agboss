@@ -100,7 +100,7 @@ export class Observer {
     if (isFinished) truth.finished = true;
   }
 
-  /** A check closed `tree`'s lease at `epoch` (`Superseded`). */
+  /** A check closed `tree`'s lease at `epoch` (`LeaseClosed`). */
   superseded(tree: string, epoch: number): void {
     const truth = this.trees.get(tree);
     if (truth?.epoch !== epoch) return;
@@ -190,7 +190,7 @@ function staleProblemOf(
   if (token < truth.epoch) return `epoch ${String(truth.epoch)} superseded it`;
   if (token > truth.epoch) return `epoch ${String(token)} was never granted`;
   if (truth.finished) return "its lease was finished";
-  if (truth.superseded) return "a check closed its lease (Superseded)";
+  if (truth.superseded) return "a check closed its lease (LeaseClosed)";
   if (truth.released) return "its lease was released";
   if (now >= truth.expiresAt) return `its lease ended ${String(now - truth.expiresAt)} ms before`;
   return undefined;

@@ -1,15 +1,16 @@
 /**
  * #526 AC5 — the rules of a fenced key, exported by `@agboss/core` so a store outside the core
  * (agbossjs/postgres, a Redis or a MongoDB store) keeps them with the core's own code instead of a
- * copy: the name rule (`checkedEffectName`), the replay and conflict rule (`replayedFromOf`, which
+ * copy: the name rule (`assertEffectName`), the replay and conflict rule (`replayedFromOf`, which
  * takes a row's `null`s and checks a stored step), what a row keeps (`storedKeyFactsOf`), where a
  * key's row is (`effectKeyIdentityOf`) and the record of an outbound call's intent
  * (`pendingOutboundCallOf`). The core's own stores use the same functions.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import {
-  checkedEffectName,
+  assertEffectName,
   effectKeyIdentityOf,
   IdempotencyKeyConflictError,
   InvalidFencedEffectNameError,
@@ -22,7 +23,7 @@ import {
   type StoredKeyFacts,
 } from "../../src/index.js";
 
-const STEP: EffectKey = {
+const STEP: EffectKey = effectKeyForTesting({
   scopeKey: "default:root-1",
   tenantId: "default",
   leaseExecutionId: "root-1",
@@ -30,20 +31,19 @@ const STEP: EffectKey = {
   idempotencyKey: "root-1:charge-action:1",
   name: "charge",
   origin: { executionId: "root-1", nodeId: "charge-action", visitNumber: 1 },
-};
+});
 
-const BUSINESS: EffectKey = {
-  ...STEP,
+const BUSINESS: EffectKey = effectKeyForTesting(STEP, {
   businessKey: "order:42",
   fingerprint: "f-10",
   businessKeyHash: "a1b2c3d4e5f6",
-};
+});
 
 const OTHER_STEP = { executionId: "root-2", nodeId: "charge-action", visitNumber: 3 };
 
 describe("#526 AC5: the helpers are on the root entry", () => {
   it.each([
-    "checkedEffectName",
+    "assertEffectName",
     "effectKeyIdentityOf",
     "pendingOutboundCallOf",
     "replayedFromOf",
@@ -54,12 +54,12 @@ describe("#526 AC5: the helpers are on the root entry", () => {
   });
 });
 
-describe("#526 AC5: checkedEffectName — the name rule", () => {
+describe("#526 AC5: assertEffectName — the name rule", () => {
   it.each(["charge", "a", "Charge.v2", "x-1_2", "9lives", "x".repeat(100)])(
     "%s is a name",
     (name) => {
       expect(() => {
-        checkedEffectName(name);
+        assertEffectName(name);
       }).not.toThrow();
     },
   );
@@ -78,7 +78,7 @@ describe("#526 AC5: checkedEffectName — the name rule", () => {
   ])("%j is refused (%s): InvalidFencedEffectNameError with its length, never the name", (name) => {
     let thrown: unknown;
     try {
-      checkedEffectName(name);
+      assertEffectName(name);
     } catch (error) {
       thrown = error;
     }
@@ -131,7 +131,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
   );
 
   it("a key without a fingerprint replays a row with none — a null column is none", () => {
-    const bare = { ...BUSINESS, fingerprint: undefined };
+    const bare = effectKeyForTesting(BUSINESS, { fingerprint: undefined });
 
     expect(replayedFromOf(bare, { fingerprint: null, origin: OTHER_STEP })).toEqual(OTHER_STEP);
     expect(replayedFromOf(bare, {})).toBeUndefined();
@@ -165,7 +165,7 @@ describe("#526 AC5: storedKeyFactsOf — what a row keeps", () => {
   });
 
   it("nothing a key does not have — absent, never undefined", () => {
-    const facts = storedKeyFactsOf({ ...STEP, origin: undefined });
+    const facts = storedKeyFactsOf(effectKeyForTesting(STEP, { origin: undefined }));
 
     expect(facts).toEqual({});
     expect(Object.keys(facts)).toEqual([]);
@@ -175,7 +175,9 @@ describe("#526 AC5: storedKeyFactsOf — what a row keeps", () => {
     const stored = JSON.parse(JSON.stringify(storedKeyFactsOf(BUSINESS))) as StoredKeyFacts;
 
     expect(replayedFromOf(BUSINESS, stored)).toBeUndefined();
-    expect(replayedFromOf({ ...BUSINESS, origin: OTHER_STEP }, stored)).toEqual(BUSINESS.origin);
+    expect(replayedFromOf(effectKeyForTesting(BUSINESS, { origin: OTHER_STEP }), stored)).toEqual(
+      BUSINESS.origin,
+    );
   });
 });
 
@@ -191,24 +193,21 @@ describe("#526 AC5: effectKeyIdentityOf — where a key's row is", () => {
 
     expect(identity).toBe("business\u0000default\u0000charge\u0000order:42");
     expect(
-      effectKeyIdentityOf({
-        ...BUSINESS,
-        scopeKey: "default:root-9",
-        token: 7,
-        origin: OTHER_STEP,
-      }),
+      effectKeyIdentityOf(
+        effectKeyForTesting(BUSINESS, { scopeKey: "default:root-9", token: 7, origin: OTHER_STEP }),
+      ),
     ).toBe(identity);
   });
 
   it("another name, tenant or business key is another row; a step's key never meets a business key's", () => {
     const rows = new Set([
       effectKeyIdentityOf(STEP),
-      effectKeyIdentityOf({ ...STEP, name: "refund" }),
-      effectKeyIdentityOf({ ...STEP, idempotencyKey: "root-1:charge-action:2" }),
+      effectKeyIdentityOf(effectKeyForTesting(STEP, { name: "refund" })),
+      effectKeyIdentityOf(effectKeyForTesting(STEP, { idempotencyKey: "root-1:charge-action:2" })),
       effectKeyIdentityOf(BUSINESS),
-      effectKeyIdentityOf({ ...BUSINESS, tenantId: "acme" }),
-      effectKeyIdentityOf({ ...BUSINESS, businessKey: "order:43" }),
-      effectKeyIdentityOf({ ...BUSINESS, name: "refund" }),
+      effectKeyIdentityOf(effectKeyForTesting(BUSINESS, { tenantId: "acme" })),
+      effectKeyIdentityOf(effectKeyForTesting(BUSINESS, { businessKey: "order:43" })),
+      effectKeyIdentityOf(effectKeyForTesting(BUSINESS, { name: "refund" })),
     ]);
 
     expect(rows.size).toBe(7);

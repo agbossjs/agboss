@@ -4,6 +4,7 @@
  * with the step that made it; a write that fails by itself is no outcome — its error rises as it is;
  * a frame with no lease (a reply interpreter's) tells nothing and the write still runs.
  */
+import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import type { FencedEffectReport } from "../../src/app/lease-events.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
@@ -66,11 +67,12 @@ function effectsInFrame() {
 }
 
 /** `key` of a business identity, made by step `executionId`. */
-const businessKeyOf = (key: EffectKey, executionId: string): EffectKey => ({
-  ...key,
-  businessKey: "order:42",
-  origin: { executionId, nodeId: "charge-action", visitNumber: 1 },
-});
+const businessKeyOf = (key: EffectKey, executionId: string): EffectKey =>
+  effectKeyForTesting(key, {
+    businessKey: "order:42",
+    fingerprint: "a receipt for order 42",
+    origin: { executionId, nodeId: "charge-action", visitNumber: 1 },
+  });
 
 describe("#533: a fenced effect's call, told to its lease", () => {
   it("a step's own write: Ran, told with its written token and no replayedFrom", async () => {

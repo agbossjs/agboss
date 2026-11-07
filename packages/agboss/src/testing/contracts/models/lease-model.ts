@@ -172,14 +172,14 @@ export function leaseStateAt(
   tree: string,
   token: number,
   now: number,
-): ModelStep<"live" | "ended" | "superseded"> {
+): ModelStep<"live" | "ended" | "lease-closed"> {
   const stored = state.leases[tree];
   if (stored === undefined || stored.released || stored.epoch !== token)
     return { state, answer: "ended" };
   if (isLive(stored, now)) return { state, answer: "live" };
   return {
     state: withLease(state, tree, { ...stored, released: true, superseded: true }),
-    answer: "superseded",
+    answer: "lease-closed",
   };
 }
 

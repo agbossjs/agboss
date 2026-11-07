@@ -101,7 +101,21 @@ export type LogMask = (message: string) => string;
 
 const unmaskedLine: LogMask = (message) => message;
 
-/** The framework's log over a `Logger`; a logger that throws is ignored. */
+/** The loggers whose failure the process was told of (#825): once each. */
+const failedLoggers = new WeakSet<Logger>();
+
+/** Tells the process, once per logger, that it threw: its class and the entry's code, never the line. */
+function warnLoggerFailed(logger: Logger, code: string, error: unknown): void {
+  if (failedLoggers.has(logger)) return;
+  failedLoggers.add(logger);
+  const reason = error instanceof Error ? error.name : typeof error;
+  process.emitWarning(
+    `the framework's Logger (${logger.constructor.name}) threw ${reason} writing "${code}": its entries are lost while it throws — said once`,
+    { code: "AGBOSS_LOGGER_FAILED" },
+  );
+}
+
+/** The framework's log over a `Logger`; a logger that throws is skipped, and the process told once. */
 export function frameworkLogOf(
   logger: Logger,
   clock: Clock,
@@ -110,8 +124,10 @@ export function frameworkLogOf(
   const write = (level: LogLevel, code: string, message: string, subject: LogSubject): void => {
     try {
       logger.write({ level, code, message: mask(message), time: clock.now(), ...idsOf(subject) });
-    } catch {
-      // the log is best effort: an execution never fails because its logger did
+    } catch (error) {
+      // the log is best effort: an execution never fails because its logger did — but it is said,
+      // once per logger, on the process (#825), never swallowed in silence
+      warnLoggerFailed(logger, code, error);
     }
   };
   return {

@@ -13,12 +13,12 @@ import {
 } from "../../src/app/outbound-call-business.js";
 import {
   fencedEnd,
-  leaseSuperseded,
+  leaseClosed,
   superseded,
   unreconciledOf,
 } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
-import { OutboundCallOutcomeStatus } from "../../src/app/outbound-calls.js";
+import { OutboundCallSendStatus } from "../../src/app/outbound-calls.js";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
 import {
   OutboundCallEventOutcome,
@@ -129,7 +129,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 
     expect(movedOf(moves)).toEqual([
       {
-        outcome: OutboundCallEventOutcome.Superseded,
+        outcome: OutboundCallEventOutcome.AttemptSuperseded,
         status: OutboundCallStatus.Completed,
         attempt: 1,
         supersededBy: 3,
@@ -146,7 +146,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 
     expect(movedOf(moves)).toEqual([
       {
-        outcome: OutboundCallEventOutcome.Superseded,
+        outcome: OutboundCallEventOutcome.AttemptSuperseded,
         status: OutboundCallStatus.Pending,
         attempt: 1,
       },
@@ -161,7 +161,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 
     expect(movedOf(moves)).toEqual([
       {
-        outcome: OutboundCallEventOutcome.Superseded,
+        outcome: OutboundCallEventOutcome.AttemptSuperseded,
         status: OutboundCallStatus.Pending,
         attempt: 2,
       },
@@ -226,14 +226,14 @@ describe("#626: a lease closed by a call's check", () => {
       token: 7,
     } as never;
 
-    leaseSuperseded(run, found);
+    leaseClosed(run, found);
 
     expect(moves).toEqual([
       expect.objectContaining({
-        outcome: OutboundCallEventOutcome.LeaseSuperseded,
+        outcome: OutboundCallEventOutcome.LeaseClosed,
         status: OutboundCallStatus.Pending,
         attempt: 4,
-        supersededLease: {
+        closedLease: {
           rootExecutionId: "execution-9",
           leaseExecutionId: "execution-9",
           token: 7,
@@ -243,7 +243,7 @@ describe("#626: a lease closed by a call's check", () => {
     expect(entries).toEqual([
       {
         level: "warn",
-        code: "outbound-call.lease-superseded",
+        code: "outbound-call.lease-closed",
         message:
           'outbound call "charge" (charge on payments) attempt 4 was pending under the lease of execution execution-9 at token 7, expired: closed, the call is reconciled here — a send of it still hung may reach payments too, deduplicated only by call.idempotencyKey',
       },
@@ -282,7 +282,7 @@ function deferred<TValue>() {
   return { promise, resolve };
 }
 
-const SENT = { status: OutboundCallOutcomeStatus.Sent, result: 1, attempt: 2, idempotencyKey: "k" };
+const SENT = { status: OutboundCallSendStatus.Sent, result: 1, attempt: 2, idempotencyKey: "k" };
 
 describe("#626: a call this instance is making, joined and left", () => {
   it("a joiner whose step was already aborted is refused at once, never handed the first's outcome", async () => {
@@ -323,7 +323,7 @@ describe("#626: a call this instance is making, joined and left", () => {
     sending.resolve(SENT);
 
     await expect(joined).resolves.toMatchObject({
-      status: OutboundCallOutcomeStatus.Joined,
+      status: OutboundCallSendStatus.Joined,
       attempt: 2,
     });
     expect(joiner.moves).toEqual([

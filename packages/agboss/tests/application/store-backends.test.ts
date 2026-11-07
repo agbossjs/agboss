@@ -1,3 +1,7 @@
+import {
+  optsOutOfLeaseCheck,
+  storeDescriptorOf,
+} from "../../src/infrastructure/execution-lease.repository.js";
 /**
  * #526 AC1 — one transactional backend, checked at assembly: a listed fenced-effect or
  * outbound-call store and the application's lease store (listed, else the in-memory default)
@@ -123,9 +127,9 @@ describe("#526 AC1: the pairings of both fencing stores at once", () => {
 const MISMATCH_EFFECT =
   '[application.store-backend-mismatch] PostgresEffects (backend "postgres") checks its leases in its own transaction, but the application\'s leases are in RedisLeases (backend "redis"): a lease taken over meanwhile would not stop its write — list it with a lease store declaring backend "postgres", or list a fenced-effect store declaring backend "redis" in its place';
 const UNDECLARED_STORE =
-  '[application.store-backend-undeclared] UndeclaredCalls declares no backend: an outbound-call store checks its leases in its own transaction, so it and its lease store declare the database they are in (static backend = "postgres") and assembly checks it is one — or it opts out with static leaseCheck = LeaseCheck.WithoutDoubleChargeProtection, losing that protection';
+  '[application.store-backend-undeclared] UndeclaredCalls declares no backend: an outbound-call store checks its leases in its own transaction, so it and its lease store declare the database they are in (static store = { backend: "postgres" }) and assembly checks it is one — or it opts out with static store = { backend, leaseCheck: LeaseCheck.WithoutDoubleChargeProtection }, losing that protection';
 const UNDECLARED_LEASES =
-  '[application.store-backend-undeclared] UndeclaredLeases declares no backend: PostgresEffects, a fenced-effect store, checks the application\'s leases in its own transaction, so the lease store declares the database it is in (static backend = "postgres")';
+  '[application.store-backend-undeclared] UndeclaredLeases declares no backend: PostgresEffects, a fenced-effect store, checks the application\'s leases in its own transaction, so the lease store declares the database it is in (static store = { backend: "postgres" })';
 
 describe("#526 AC1: the messages", () => {
   it("a mismatch names both classes and both backends, and what to do", async () => {
@@ -189,13 +193,13 @@ describe("#526 AC1: the built-in stores declare their backends", () => {
     [SqliteFencedEffectRepository, "sqlite"],
     [SqliteOutboundCallRepository, "sqlite"],
   ] as const)("%o declares %s", (store: Class, backend) => {
-    expect(Reflect.get(store, "backend")).toBe(backend);
+    expect(storeDescriptorOf(store).backend).toBe(backend);
   });
 
   it("the contracts declare none: a store of a project declares its own", () => {
-    expect(ExecutionLeaseRepository.backend).toBeUndefined();
-    expect(FencedEffectRepository.backend).toBeUndefined();
-    expect(OutboundCallRepository.backend).toBeUndefined();
+    expect(ExecutionLeaseRepository.store.backend).toBeUndefined();
+    expect(FencedEffectRepository.store.backend).toBeUndefined();
+    expect(OutboundCallRepository.store.backend).toBeUndefined();
   });
 
   it("every fencing store checks atomically unless it says otherwise", () => {
@@ -207,7 +211,7 @@ describe("#526 AC1: the built-in stores declare their backends", () => {
       SqliteFencedEffectRepository,
       SqliteOutboundCallRepository,
     ])
-      expect(store.leaseCheck).toBe(LeaseCheck.Atomic);
+      expect(optsOutOfLeaseCheck(store)).toBe(false);
   });
 
   it("the opt-out's value names what it loses", () => {

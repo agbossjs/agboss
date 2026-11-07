@@ -17,6 +17,7 @@ import {
 } from "./a2a-task.repository.js";
 import { a2aMessageRowOf, a2aPageOf, a2aTaskRowOf, byNewestStatus } from "./a2a-task-pages.js";
 import { IN_MEMORY_DATABASE, type InMemoryDatabase } from "./in-memory-database.js";
+import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /** A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). */
 const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
@@ -25,7 +26,7 @@ const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
 /** The built-in default: the tasks in this instance's memory, a copy of each in and out. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class InMemoryA2ATaskRepository extends A2ATaskRepository {
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(private readonly database: InMemoryDatabase) {
     super();

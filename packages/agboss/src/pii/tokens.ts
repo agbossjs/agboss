@@ -8,7 +8,7 @@ import { createHmac, randomBytes } from "node:crypto";
  */
 
 /**
- * A new random key for field tokens: an instance's when the application sets no `pseudonymKey`
+ * A new random key for field tokens: an instance's when the application sets no `piiKeyField`
  * (#120 S94), and each root execution's then (#334).
  */
 export const newPiiKey = (): string => randomBytes(32).toString("hex");

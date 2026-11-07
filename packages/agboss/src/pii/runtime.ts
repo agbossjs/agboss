@@ -32,7 +32,7 @@ export interface PiiRuntime {
   /** The key of the tokens of `sensitive` fields. */
   readonly fieldKey: string;
   /**
-   * Whether `fieldKey` is the instance's own (no `pseudonymKey`, S94): each root execution then
+   * Whether `fieldKey` is the instance's own (no `piiKeyField`, S94): each root execution then
    * makes its field tokens with a key of its own, kept in its state (#334).
    */
   readonly isInstanceKey: boolean;
@@ -46,7 +46,7 @@ export interface PiiRuntimeParts {
   readonly detectionOf: (policy: string, model: string) => ModelDetection;
   readonly contexts: Pick<RuntimeContexts, "tenantContext" | "executionContext">;
   /**
-   * The application's key (`@Application({ pseudonymKey })`, #120): tokens no policy key covers —
+   * The application's key (`@Application({ piiKeyField })`, #120): tokens no policy key covers —
    * sensitive fields, a project's detectors, a policy without its own key.
    */
   readonly fieldKey: string;

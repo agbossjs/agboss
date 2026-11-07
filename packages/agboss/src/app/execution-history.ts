@@ -1,5 +1,6 @@
 import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
+import { currentLeaseEventOf } from "../infrastructure/execution-lease-event.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { buildCostReport } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
@@ -206,7 +207,10 @@ async function maskedRecordOf(
       record.tenantId,
       record.executionId,
     );
-  return leaseEvents === undefined ? masked : { ...masked, leaseEvents };
+  // rows written before #825 kept with this version's names
+  return leaseEvents === undefined
+    ? masked
+    : { ...masked, leaseEvents: leaseEvents.map(currentLeaseEventOf) };
 }
 
 /** Saves the tree's record as it stands now, when the application keeps its history. */

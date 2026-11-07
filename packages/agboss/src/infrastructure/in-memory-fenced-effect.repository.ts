@@ -1,6 +1,6 @@
+import type { StoreDescriptor } from "./execution-lease.repository.js";
 import { ExecutionFencedError } from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
-import type { Class } from "../components/injection.js";
 import { AGBossError } from "../core/errors.js";
 import { StoreClock, type Clock } from "./clock.js";
 import {
@@ -16,14 +16,15 @@ import {
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
 import {
-  checkedBusinessKey,
-  checkedEffectName,
+  assertBusinessKey,
+  assertEffectName,
   effectKeyIdentityOf,
   replayedFromOf,
   storedKeyFactsOf,
 } from "./fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
+import { assertFingerprintDecided } from "./fenced-effect-fingerprint.js";
 
 /** Applies a committed transaction's writes, in order (module-private: only the store commits). */
 let applyWrites: (transaction: InMemoryFencedEffectTransaction) => void;
@@ -57,11 +58,10 @@ export class InMemoryFencedEffectTransaction {
   deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
 })
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
-  static override readonly leaseRepository: Class | undefined = InMemoryExecutionLeaseRepository;
-  static override readonly backend: string | undefined = "in-memory";
+  static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
-    private readonly clock: Pick<Clock, "now">,
+    private readonly clock: Pick<StoreClock, "now">,
     private readonly database: InMemoryDatabase,
     settings: FencedEffectSettings,
     private readonly leases: ExecutionLeaseRepository,
@@ -157,8 +157,10 @@ export function checkInMemoryFence(
   clock: Pick<Clock, "now">,
   key: EffectKey,
 ): void {
-  checkedEffectName(key.name);
-  checkedBusinessKey(key);
+  assertEffectName(key.name);
+  assertBusinessKey(key);
+  // #825: in the transaction every store of the core runs, whatever its entry was overridden with
+  assertFingerprintDecided(key);
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))

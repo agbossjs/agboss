@@ -50,6 +50,13 @@ export class InMemoryDatabase {
   readonly executionLeaseEvents: ExecutionLeaseEventRecord[] = [];
   /** The intents of calls that leave the system (#505), by scope, idempotency key and name, in the order recorded. */
   readonly outboundCalls = new Map<string, OutboundCallRecord>();
+  /**
+   * Each intent's place in the record order (#825: what a page's cursor names), by its row key — a
+   * number counted up, never reused, so a pruned intent leaves no gap a cursor could fall into.
+   */
+  readonly outboundCallOrder = new Map<string, number>();
+  /** The highest place given in that order (#825): counted up here, never given again. */
+  readonly outboundCallPlaces = { highest: 0 };
 }
 
 /** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */
@@ -82,7 +89,7 @@ export interface ExecutionLeaseRow {
    * Released by an outbound call's check, expired at its epoch (#508), not by its holder: the next
    * take is a takeover from that holder and epoch (`takenOverFrom`), as of an expired lease.
    */
-  readonly isSuperseded?: boolean;
+  readonly isClosedByCheck?: boolean;
   /** Finished by its holder (#520): the work under it is over, no `acquire` gets it again. */
   readonly isFinished?: boolean;
 }

@@ -1,6 +1,6 @@
 import type { App } from "../../app/types.js";
 import { InjectionToken, type Class } from "../../components/injection.js";
-import { LeaseCheck } from "../../infrastructure/execution-lease.repository.js";
+import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.repository.js";
 
 /**
  * The store set a fault suite runs on (#484 AC4): what a store author's module exports as
@@ -109,8 +109,4 @@ export const storeTimeScaleOf = (storeTime: FaultStoreTime, timeScale: number): 
  * scenarios show.
  */
 export const optedOutStoresOf = (stores: FaultStores): readonly string[] =>
-  stores.providers
-    .filter(
-      (store) => Reflect.get(store, "leaseCheck") === LeaseCheck.WithoutDoubleChargeProtection,
-    )
-    .map((store) => store.name);
+  stores.providers.filter((store) => optsOutOfLeaseCheck(store)).map((store) => store.name);

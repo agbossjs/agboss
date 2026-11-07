@@ -1,3 +1,9 @@
+import {
+  FingerprintProblem,
+  FingerprintRequiredError,
+} from "../infrastructure/fenced-effect-key.js";
+import { isIssuedKey } from "../infrastructure/issued-keys.js";
+import type { EffectKey, OutboundCallKey } from "../infrastructure/fenced-effect.repository.js";
 import { AGBossError } from "../core/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
@@ -142,4 +148,21 @@ export class OutboundCallSupersededError extends StepFailedError {
     this.attempt = attempt;
     this.supersededBy = supersededBy;
   }
+}
+
+/**
+ * A key `OutboundCalls.send` refuses (#825), thrown: one effectKeyOf did not make (a copy, an object
+ * built by hand), or one that says a `fingerprintPolicy` — a call's request is always its
+ * fingerprint, so another request under its business key is a conflict, and a policy says nothing.
+ */
+export function callKeyErrorOf(key: EffectKey | OutboundCallKey): void {
+  if (!isIssuedKey(key))
+    throw new TypeError(
+      "OutboundCalls.send: not a key effectKeyOf made — a copy or an object built by hand is no key",
+    );
+  if (key.fingerprintPolicy !== undefined)
+    throw new FingerprintRequiredError({
+      name: key.name,
+      reason: FingerprintProblem.Contradictory,
+    });
 }

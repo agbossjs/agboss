@@ -83,11 +83,12 @@ describe("#807: the A2A task stores' helpers", () => {
   });
 
   it("#824: each store declares its backend; the contract leaves it undeclared", () => {
+    // #825: each one's whole descriptor, the contract's naming its backend as undeclared
     expect([
-      A2ATaskRepository.backend,
-      InMemoryA2ATaskRepository.backend,
-      SqliteA2ATaskRepository.backend,
-    ]).toEqual([undefined, "in-memory", "sqlite"]);
+      A2ATaskRepository.store,
+      InMemoryA2ATaskRepository.store,
+      SqliteA2ATaskRepository.store,
+    ]).toStrictEqual([{ backend: undefined }, { backend: "in-memory" }, { backend: "sqlite" }]);
   });
 
   it("both stores answer ping() with a promise; the SQLite one is a SQLite implementation", async () => {

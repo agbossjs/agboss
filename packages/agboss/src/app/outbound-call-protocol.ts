@@ -4,7 +4,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
-import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
+import type { EffectKey, OutboundCallKey } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,
@@ -22,9 +22,9 @@ import {
 } from "./outbound-call-parts.js";
 import {
   OutboundCallInFlightError,
-  OutboundCallOutcomeStatus,
+  OutboundCallSendStatus,
   OutboundCallPart,
-  OutboundCallReconciliation,
+  isReconciliation,
   OutboundCallVerdict,
   type OutboundCallSendOptions,
   type OutboundCallOutcome,
@@ -38,7 +38,7 @@ import {
 } from "./outbound-call-ambiguity.js";
 import {
   fencedEnd,
-  leaseSuperseded,
+  leaseClosed,
   replayed,
   supersededErrorOf,
   unreconciledOf,
@@ -104,7 +104,7 @@ async function sendNow<TRequest, TResult>(
     throw await supersededErrorOf(run, attempt);
   }
   told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
-  return outcomeOf(run, OutboundCallOutcomeStatus.Sent, answer, attempt);
+  return outcomeOf(run, OutboundCallSendStatus.Sent, answer, attempt);
 }
 
 /**
@@ -147,7 +147,7 @@ async function reconciled<TRequest, TResult>(
   } catch (error) {
     throw await unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
   }
-  if (!(verdict instanceof OutboundCallReconciliation))
+  if (!isReconciliation(verdict))
     throw await unreconciled("reconcile gave no OutboundCallReconciliation verdict");
   if (verdict.verdict === OutboundCallVerdict.NotSent) {
     // the key aged while reconcile ran too: measured again, now
@@ -161,7 +161,7 @@ async function reconciled<TRequest, TResult>(
   if (!(await run.parts.repository.markCompleted(run.key, found.attemptOwner, stored)))
     return undefined;
   told(run, OutboundCallEventOutcome.Reconciled, [OutboundCallStatus.Completed, found.attempt]);
-  return outcomeOf(run, OutboundCallOutcomeStatus.Reconciled, verdict.result, found.attempt);
+  return outcomeOf(run, OutboundCallSendStatus.Reconciled, verdict.result, found.attempt);
 }
 
 /** The first attempt: the intent recorded (fenced), then sent. */
@@ -204,8 +204,8 @@ async function settled<TRequest, TResult>(
   const readStarted = run.parts.clock.monotonicNow();
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
-  if ((await checkedCall(run, found)) === OutboundCallLeaseState.Superseded)
-    leaseSuperseded(run, found);
+  if ((await checkedCall(run, found)) === OutboundCallLeaseState.LeaseClosed)
+    leaseClosed(run, found);
   if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
   if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
   if (read > 1) throw inFlight(run);
@@ -227,13 +227,14 @@ async function sendOnce<TRequest, TResult>(
 /** `OutboundCalls.send`: the protocol, in the step's frame. */
 export async function sendOutboundCall<TRequest, TResult>(
   parts: OutboundCallParts,
-  stepKey: EffectKey,
+  stepKey: EffectKey | OutboundCallKey,
   options: OutboundCallSendOptions<TRequest, TResult>,
 ): Promise<OutboundCallOutcome<TResult>> {
-  const key = keyedByRequest(stepKey, options.request);
   const frame = currentFrame();
   if (frame === undefined)
     throw ExecutionContextUnavailableError.outside({ consumer: "OutboundCalls", field: "send" });
+  // its fingerprint in the step's frame (#825): under the application's idempotency key
+  const key = keyedByRequest(stepKey, options.request);
   const run: CallRun<TRequest, TResult> = {
     parts,
     key,

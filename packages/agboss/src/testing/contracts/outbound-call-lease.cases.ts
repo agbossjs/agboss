@@ -1,3 +1,4 @@
+import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
@@ -24,8 +25,8 @@ const crossLeaseKeys = (
 ): readonly [EffectKey, EffectKey] => {
   const businessKey = `order:${String(round)}`;
   return [
-    { ...one, businessKey, fingerprint: "f" },
-    { ...other, businessKey, fingerprint: "f" },
+    effectKeyForTesting(one, { businessKey, fingerprint: "f" }),
+    effectKeyForTesting(other, { businessKey, fingerprint: "f" }),
   ];
 };
 
@@ -60,12 +61,12 @@ const crossLeaseRaced = (ending: "markCompleted" | "markPending"): OutboundCallC
 
 /**
  * `leaseStateOf` of an expired lease racing its holder's late renewal (#508 final re-review): the
- * check and its close are one step — the lease is renewed and `Live`, or `Superseded` and not
+ * check and its close are one step — the lease is renewed and `Live`, or `LeaseClosed` and not
  * renewable, never closed in the caller's eyes while the holder renewed it and sends on. Since #534
  * the renewal past the expiry is refused by the lease store itself, so it is always the latter.
  */
 const stateRacingRenew: OutboundCallCase = {
-  name: "#508: leaseStateOf of an expired lease racing its holder's renewal, round after round: renewed and Live, or Superseded and not renewable — never both",
+  name: "#508: leaseStateOf of an expired lease racing its holder's renewal, round after round: renewed and Live, or LeaseClosed and not renewable — never both",
   run: async ({ clock, first, second }) => {
     for (let round = 0; round < ROUNDS; round += 1) {
       const executionId = `execution-${String(round)}`;
@@ -86,7 +87,7 @@ const stateRacingRenew: OutboundCallCase = {
       // #534: past its expiry the lease is over for its holder too — the renewal never wins
       expect(isRenewed).toBe(false);
       const expected =
-        isRenewed === true ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Superseded;
+        isRenewed === true ? OutboundCallLeaseState.Live : OutboundCallLeaseState.LeaseClosed;
       expect(state).toBe(expected);
       const after = isRenewed === true ? OutboundCallLeaseState.Live : OutboundCallLeaseState.Ended;
       expect(
