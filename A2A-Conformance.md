@@ -21,7 +21,10 @@ own venv, `uv sync --frozen`).
 - **Two runs**: the TCK as published, then with `tck-defects.patch`, a fix of two TCK defects
   (below). Each run's requirements are checked against `tck-expected.json`: a requirement that
   fails and is not listed there, one listed that passes, or one that does not pass with no reason
-  named fails the job.
+  named — or a reason that says another status — fails the job. Each run also pins its JSON-RPC
+  test counts and the exact tests that fail, so a listed requirement fails for its reason only; a
+  TCK that stops early, writes no report or runs no test, or an agent that dies during a run, fails
+  it too.
 - An offline check of the agent itself is `tests/a2a-tck/tck-sut.test.ts` (in `make check`).
 
 ## The results (5daf014)
