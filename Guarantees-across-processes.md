@@ -57,7 +57,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 
 | Invariant | What must hold |
 | --- | --- |
-| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
+| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant; a write counts on any answer but an error — `replayed` and an outbound call's `false` too, since the lease check comes first and a refusal throws). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
 | `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard once by the pods' observers (#562). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |

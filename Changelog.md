@@ -7,7 +7,8 @@ Breaking changes and notable additions, newest first. The API reports
 
 - **Fixed**: `one-owner` fails a write the store accepted at a token no grant of its key gave,
   naming the token and the write; before, the checker skipped it, so a store that let a forged or
-  stale token through could pass. A store set that passed before may fail now: that is a defect the
+  stale token through could pass. A write counts as let through on any answer but an error (a
+  `replayed` effect, an outbound call's `false`): a refusal is `ExecutionFencedError`. A store set that passed before may fail now: that is a defect the
   suite did not see.
 
 ## Unreleased — 0.1.1: the application's configuration has one shape (#834)
