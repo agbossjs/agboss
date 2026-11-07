@@ -139,7 +139,7 @@ protocolVersion: "1.0" }`.
 | Method | What it does |
 | --- | --- |
 | `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
-| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates, the model's text as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next `append: true`), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
+| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates (an agent's tool call as it starts: `WORKING` with the text `calling <tool>`, #848), the model's text as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next `append: true`), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
 | `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter`; `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
 | `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
 | `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |

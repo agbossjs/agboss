@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: an agent's tool calls are streamed (#848)
+
+- **Fixed**: an agent's own tool calls reach `app.execute(…, { onStream })` as `{ kind: "toolCall",
+  tool }` and the A2A stream as a `WORKING` status update `calling <tool>` — none arrived in a real
+  run, since the agent's loop (ADR-0015) calls a tool itself and no LangChain tool callback fires.
+  The event names the tool only, never its arguments. [A2A → §2](A2A#2-serving--a2ahttplistenerapp-options).
+
 ## Unreleased — 0.1.1: a REJECTED A2A call charges nothing (#849)
 
 - **Fixed (money)**: an `@A2AAgent` call whose task the agent `REJECTED` at the accept — nothing

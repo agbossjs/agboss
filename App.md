@@ -268,7 +268,8 @@ worst case of each start with how each number is made up — the [check report](
   characters, a control character) is `InvalidThreadIdError` (`run.invalid-thread-id`, an
   `onExecutionRejected`). `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
   `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (token and
-  tool-call events), `configurable` (extra LangGraph keys), `record`. There is no untyped
+  tool-call events — `{ kind: "textDelta", delta }`, and `{ kind: "toolCall", tool }` as an
+  agent's tool call starts, its name only, never its arguments, #848), `configurable` (extra LangGraph keys), `record`. There is no untyped
   `metadata` or `executionContext` option (#261 PR 6): channels, guardrails, MCP sessions and A2A
   calls read the typed contexts (an A2A request's from its caller resolver, [A2A](A2A)). See
   [Context and Authorization](Context-And-Authorization).
