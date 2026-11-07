@@ -87,6 +87,13 @@ function outputPartsOf(status: A2ATaskStatus, skill: ServedSkill | undefined): P
     : [dataPart(status.output)];
 }
 
+/**
+ * The id of a task's one artifact, its output (#833): the text its run streams is appended to it, and
+ * the finish's output replaces it once the task is `COMPLETED` — the stream's view and `GetTask`'s
+ * end with the same artifact.
+ */
+export const outputArtifactIdOf = (taskId: string): string => `${taskId}:output`;
+
 /** A completed task's artifact: the finish's output, named by the finish; none before. */
 export function outputArtifactOf(
   task: A2ATaskRecord,
@@ -95,7 +102,7 @@ export function outputArtifactOf(
   const { status } = task;
   if (status.state !== A2ATaskState.Completed || status.finish === undefined) return undefined;
   return {
-    artifactId: `${task.taskId}:output`,
+    artifactId: outputArtifactIdOf(task.taskId),
     name: status.finish,
     description: "",
     parts: outputPartsOf(status, skill),

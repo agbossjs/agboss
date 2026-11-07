@@ -80,7 +80,8 @@ const isFinishOutput = (artifact: Artifact): boolean => {
 
 /**
  * The parts of a task's artifacts, in order — of its finish's output artifact alone when it has
- * one: an AGBoss server streams the model's text as an artifact of its own beside it, the same text.
+ * one: a peer may keep other artifacts beside it (an AGBoss server before #833 streamed the model's
+ * text as one of its own, the same text).
  */
 export function artifactPartsOf(artifacts: readonly Artifact[]): readonly Part[] {
   const outputs = artifacts.filter(isFinishOutput);
