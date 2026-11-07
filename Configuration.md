@@ -269,7 +269,9 @@ export class ClaimsApplication {}
 
 Each is a positive, finite duration; `fencedEffects`, `outboundCalls` and `costLedgerEntries` are
 above the lease's 30 s (a mark, an intent or an entry removed sooner would let a zombie's late or
-retried write through); a key it does not know is a typo, never a default — all
+retried write through); none is above a century; a key it does not know is a typo, never a
+default, and a retention set where it was before 0.1.1 (`executionRecordRetention`,
+`fencedEffects.retention`, `mesh.idempotencyRetention`, …) is refused naming its new place — all
 `[application.retention-invalid]`, every problem at once, before anything starts. Sizes and timeouts
 stay with their feature: `fencedEffects: { maxResultSize }`, `outboundCalls: { maxPayloadSize,
 attemptTimeout }`.
