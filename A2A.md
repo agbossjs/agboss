@@ -547,7 +547,7 @@ its operation are read, **before the caller resolver and before anything runs**:
 5. The execution runs with the envelope's chain, and a trusted caller's origin
    (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
    execution with `limit.budget`) and deadline. The card declares the extension
-   (`params.idempotencyRetention` = `@Application({ a2a: { taskRetention } })`, how long a
+   (`params.idempotencyRetention` = `@Application({ retention: { a2aTasks } })`, how long a
    `messageId` is deduplicated) and the answer echoes it in `A2A-Extensions` when it was asked.
 6. **The run report**: a trusted task keeps its first message's `bodyHash`
    (`A2ATaskRecord.meshBodyHash`) and, once `COMPLETED`, carries the report the application signs
