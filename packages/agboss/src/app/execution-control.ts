@@ -60,6 +60,12 @@ export type DurableExecutionState =
       readonly status: DurableExecutionStatus.Finished;
       readonly finish: string;
       readonly output: unknown;
+      /**
+       * What the tree spent (#844): its record's cost — the spend its end event reports, its
+       * strategies' memory update included — else its last checkpoint's, so a status repaired from
+       * the records still signs its run report.
+       */
+      readonly spentUsd: number;
     }
   | { readonly status: DurableExecutionStatus.Failed; readonly reason: string }
   | { readonly status: DurableExecutionStatus.Cancelled };

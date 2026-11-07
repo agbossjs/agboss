@@ -75,7 +75,7 @@ export interface ContractPrice {
  * application's peers, its spend recorded in the step's (`service` = `<transport>:<issuer>`) and
  * its execution kept on the tool call. With a contract price (PR 3, Q6 c) the step records the
  * larger of the price and the verified spend — the price alone without a verified report. Outside
- * a frame, nothing.
+ * a frame, nothing. Whether a verified report was taken (#844: a caller says when none was).
  */
 export function takeRunReport(
   transport: string,
@@ -84,9 +84,9 @@ export function takeRunReport(
   contract?: ContractPrice,
   alreadyCharged = 0,
   identity?: RunReportIdentity,
-): void {
+): boolean {
   const frame = currentFrame();
-  if (frame === undefined || frame.isClosed()) return;
+  if (frame === undefined || frame.isClosed()) return false;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const report = callReportOf(settings, value, bodyHash, identity);
   const charge = chargeOf(report, contract, alreadyCharged);
@@ -95,11 +95,12 @@ export function takeRunReport(
     const spent = serviceUsageOf({ service, cost: usd(charge.cost) });
     frame.services.reportUsage?.(withLedgerKey(spent, identity, report));
   }
-  if (report === undefined) return;
+  if (report === undefined) return false;
   frame.services.meshCall?.recordRemote({
     application: report.issuer,
     executionId: report.executionId,
   });
+  return true;
 }
 
 /**

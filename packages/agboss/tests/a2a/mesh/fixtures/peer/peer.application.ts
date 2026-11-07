@@ -29,6 +29,12 @@ import { usd } from "../../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../../flow/fixtures/budgets.js";
 import { start } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
+import {
+  A2ATaskState,
+  type A2ATaskRecord,
+} from "../../../../../src/infrastructure/a2a-task.repository.js";
+import { IN_MEMORY_DATABASE } from "../../../../../src/infrastructure/in-memory-database.js";
+import { InMemoryA2ATaskRepository } from "../../../../../src/infrastructure/in-memory-a2a-task.repository.js";
 
 /** The peer's name: the audience a caller's envelope must be addressed to. */
 export const PEER_APPLICATION = "peer-application";
@@ -53,7 +59,16 @@ export const peer: {
   clock: Clock | undefined;
 } = { spend: 3, gate: undefined, runs: [], starts: [], clock: undefined };
 
+/**
+ * What the peer's task store loses (#844, reset with `resetPeer`): its next `endsToLose` writes of a
+ * `COMPLETED` status — the projection's, at the execution's end: an end event lost, as observer
+ * events may be (at most once) — and how many it lost.
+ */
+export const lossy = { endsToLose: 0, lost: 0 };
+
 export function resetPeer(): void {
+  lossy.endsToLose = 0;
+  lossy.lost = 0;
   peer.spend = 3;
   peer.gate = undefined;
   peer.runs.length = 0;
@@ -217,3 +232,26 @@ export class KeylessPeerApplication {}
 /** The same peer refusing any chain of one hop or more (`maxMeshHops: 1`). */
 @Application({ ...PEER_OPTIONS, maxMeshHops: 1 })
 export class StrictPeerApplication {}
+
+/** The in-memory task store, losing what `lossy` says. */
+@Injectable({ deps: [IN_MEMORY_DATABASE] })
+export class EndLosingA2ATaskRepository extends InMemoryA2ATaskRepository {
+  override compareAndSetStatus(
+    ...args: Parameters<InMemoryA2ATaskRepository["compareAndSetStatus"]>
+  ): Promise<A2ATaskRecord | undefined> {
+    const [, , status] = args;
+    if (status.state === A2ATaskState.Completed && lossy.endsToLose > 0) {
+      lossy.endsToLose -= 1;
+      lossy.lost += 1;
+      return Promise.reject(new Error("the end event's write was lost"));
+    }
+    return super.compareAndSetStatus(...args);
+  }
+}
+
+/** The peer whose task store loses its end events (#844): its tasks complete by read repair. */
+@Application({
+  ...PEER_OPTIONS,
+  providers: [...PEER_OPTIONS.providers, EndLosingA2ATaskRepository],
+})
+export class EndLosingPeerApplication {}

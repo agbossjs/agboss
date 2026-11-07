@@ -333,7 +333,7 @@ export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunRepor
 // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const completedStatusOf: (finish: string, output: unknown, spentUsd?: number) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
 
 // Warning: (ae-forgotten-export) The symbol "SnapshotDeps" needs to be exported by the entry point internal.d.ts
 //
@@ -670,6 +670,7 @@ export type DurableExecutionState = {
     readonly status: DurableExecutionStatus.Finished;
     readonly finish: string;
     readonly output: unknown;
+    readonly spentUsd: number;
 } | {
     readonly status: DurableExecutionStatus.Failed;
     readonly reason: string;

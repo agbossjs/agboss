@@ -210,8 +210,14 @@ describe("#807: an execution's state as its task's status", () => {
     [{ status: DurableExecutionStatus.Running }, WORKING],
     [{ status: DurableExecutionStatus.Paused, pending: [pause()] }, pausedStatusOf([pause()])],
     [
-      { status: DurableExecutionStatus.Finished, finish: "f", output: { a: 1 } },
-      { state: A2ATaskState.Completed, pendingPauses: [], finish: "f", output: { a: 1 } },
+      { status: DurableExecutionStatus.Finished, finish: "f", output: { a: 1 }, spentUsd: 0.5 },
+      {
+        state: A2ATaskState.Completed,
+        pendingPauses: [],
+        finish: "f",
+        output: { a: 1 },
+        spentUsd: 0.5,
+      },
     ],
     [
       { status: DurableExecutionStatus.Cancelled },
@@ -262,7 +268,12 @@ function projectionOf(
   return { projection, warnings };
 }
 
-const FINISHED = { status: DurableExecutionStatus.Finished, finish: "f", output: 1 } as const;
+const FINISHED = {
+  status: DurableExecutionStatus.Finished,
+  finish: "f",
+  output: 1,
+  spentUsd: 0.2,
+} as const;
 
 describe("#807: the projection on its own", () => {
   it("a child's event, another execution's, and one on another context write nothing", async () => {
@@ -585,7 +596,7 @@ describe("#810: the mesh's statuses", () => {
     });
   });
 
-  it("a completion keeps what it spent only when its end said; none is no key at all", async () => {
+  it("#844: a completion always keeps what it spent", async () => {
     const { completedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
     expect(completedStatusOf("f", 1, 0.5)).toStrictEqual({
@@ -595,6 +606,5 @@ describe("#810: the mesh's statuses", () => {
       output: 1,
       spentUsd: 0.5,
     });
-    expect(completedStatusOf("f", 1)).not.toHaveProperty("spentUsd");
   });
 });

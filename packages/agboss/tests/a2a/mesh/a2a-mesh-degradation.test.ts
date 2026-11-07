@@ -52,7 +52,7 @@ describe("#810 AC3: a call without the mesh is said in the step's record", () =>
     expect(result.toolCalls[0]?.remote).toMatchObject({ mesh: false });
   });
 
-  it("an AGBoss peer that echoes it: no mesh: false on the record", async () => {
+  it("an AGBoss peer that echoes it: no mesh: false on the record — its unsigned task report: false (#844)", async () => {
     const agent = new SdkAgent({
       script: scripts.completeWith({ data: { text: "ran" } }),
       agboss: { idempotencyRetention: hours(24) },
@@ -62,7 +62,12 @@ describe("#810 AC3: a call without the mesh is said in the step's record", () =>
 
     const result = await parts.ask("hello");
 
-    expect(result.toolCalls[0]?.remote).toBeUndefined();
+    // the mesh rode; the agent signs no run report: the price alone, said in the record
+    expect(result.toolCalls[0]?.remote).toEqual({
+      application: "peer-application",
+      executionId: expect.any(String),
+      report: false,
+    });
   });
 });
 

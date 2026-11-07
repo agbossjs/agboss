@@ -79,13 +79,17 @@ export async function finishRun<TName extends string>(
   existingTernId?: string,
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
-  const outcome = outcomeOf(state, usage, paused);
+  const finishedLine = outcomeOf(state, usage, paused).replyWith;
+  // #844: the strategies' memory update is the turn's spend too — made before the record says the
+  // turn ended, so the record's cost is what the end event reports (a task read repair completes
+  // from the record signs the same spend)
+  const memory = paused
+    ? { usage: [] }
+    : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: finishedLine });
+  const outcome = outcomeOf(state, [...usage, ...memory.usage], paused);
   let ternId = existingTernId;
   if (ternId === undefined) ternId = (await ctx.deps.terns.append({ ...ctx.base, ...outcome })).id;
   else await ctx.deps.terns.complete(ternId, outcome);
-  const memory = paused
-    ? { usage: [] }
-    : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: outcome.replyWith });
   return {
     status: paused ? ExecutionStatus.Paused : ExecutionStatus.Finished,
     start: state.start,

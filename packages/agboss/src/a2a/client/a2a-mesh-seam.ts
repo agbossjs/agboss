@@ -1,9 +1,9 @@
-import { HTTP_EXTENSION_HEADER, Message, type AgentCard, type Task } from "@a2a-js/sdk";
+import { HTTP_EXTENSION_HEADER, Message, TaskState, type AgentCard, type Task } from "@a2a-js/sdk";
 import { serviceUsageOf } from "../../components/spend-recorder.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { MeshLoopDetectedError } from "../../mesh/mesh-errors.js";
 import { TRACEPARENT } from "../../mesh/mesh-envelope.js";
-import { takeRunReport } from "../../mesh/mesh-report.js";
+import { takeRunReport, type RunReportIdentity } from "../../mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../mesh/outbound-mesh.js";
 import type { LedgerKey } from "../../finops/ledger-key.js";
 import { usd, type Usd } from "../../units/index.js";
@@ -132,6 +132,52 @@ function refuseLoop(call: A2AMeshCall): void {
 }
 
 /**
+ * A meshed call's end (#810): a trusted peer's signed spend, verified against this call's body —
+ * the body the accept stored, so a pass that replays it verifies the report of what was sent —,
+ * charged above the price. A completed task with no report this caller verifies is charged the
+ * price alone, said in the step's record (`remote.report: false`, #844) — never silently.
+ */
+function settleReport(
+  call: A2AMeshCall,
+  task: Task | undefined,
+  price: Usd | undefined,
+  charged: A2ACharged,
+): void {
+  const { bodyHash, taskId } = charged;
+  if (bodyHash === undefined) return;
+  const application = call.application ?? call.agent;
+  const contract = price === undefined ? undefined : { application, price };
+  const isReported = takeRunReport(
+    "a2a",
+    meshReportTextOf(task),
+    bodyHash,
+    contract,
+    price ?? 0,
+    reportIdentityOf(charged),
+  );
+  if (!isReported) recordUnreported(application, task, taskId);
+}
+
+/** What makes a call's report its own (#810): its ledger id, its task, the caller's window. */
+const reportIdentityOf = (charged: A2ACharged): RunReportIdentity => ({
+  id: `a2a:${charged.messageId}:report`,
+  ...(charged.taskId === undefined ? {} : { executionId: charged.taskId }),
+  // dated inside the caller's own window, never by the peer's word alone
+  notBefore: charged.acceptedAt,
+  now: charged.now,
+});
+
+/** A completed task of no verified report: `remote.report: false` in the step's record (#844). */
+function recordUnreported(application: string, task: Task | undefined, taskId?: string): void {
+  if (task?.status?.state !== TaskState.TASK_STATE_COMPLETED || taskId === undefined) return;
+  currentFrame()?.services.meshCall?.recordRemote({
+    application,
+    executionId: taskId,
+    report: false,
+  });
+}
+
+/**
  * The mesh as it rides one call: the envelope per attempt, the report at the end. Signed and
  * addressed to `call.application` only — a call with no application sends the envelope as an
  * unsigned claim (its chain checked by the receiver, nothing of it trusted), never a signed one an
@@ -164,19 +210,7 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
       chargePrice(call, price, charged);
     },
     settle: (task, price, charged) => {
-      // the body the accept stored: a pass that replays it verifies the report of what was sent
-      const { bodyHash } = charged;
-      if (bodyHash === undefined) return;
-      // a trusted peer's signed spend, verified against this call's body, above the price charged
-      const application = call.application ?? call.agent;
-      const contract = price === undefined ? undefined : { application, price };
-      takeRunReport("a2a", meshReportTextOf(task), bodyHash, contract, price ?? 0, {
-        id: `a2a:${charged.messageId}:report`,
-        ...(charged.taskId === undefined ? {} : { executionId: charged.taskId }),
-        // dated inside the caller's own window, never by the peer's word alone
-        notBefore: charged.acceptedAt,
-        now: charged.now,
-      });
+      settleReport(call, task, price, charged);
     },
   };
 }

@@ -122,7 +122,8 @@ export interface TaskViewParts {
  * caller carries the run report the application signs with its `mesh.signingKey` — the issuer (the
  * application), the execution (the task's id), what it spent, bound to the first message's
  * `bodyHash` and dated by the task's end (one report per task, the same on every read). None for
- * an untrusted caller, an application that signs nothing, or a task whose spend is unknown.
+ * an untrusted caller, an application that signs nothing, or a task whose spend is unknown (a row
+ * kept with none).
  */
 export function taskMetadataOf(
   task: A2ATaskRecord,

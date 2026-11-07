@@ -33,6 +33,7 @@ const FINISHED = {
   status: DurableExecutionStatus.Finished,
   finish: "unit-workflow-finish",
   output: { text: "done" },
+  spentUsd: 0,
 } as const;
 
 const newTasks = () => new InMemoryA2ATaskRepository(new InMemoryDatabase());

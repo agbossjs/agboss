@@ -79,10 +79,21 @@ function recordStateOf(
     : { status: DurableExecutionStatus.Failed, reason: record.stopReason };
 }
 
+/**
+ * What a finished tree spent (#844): its record's cost once the record says it answered — the
+ * turn's whole spend, its strategies' memory update too (`finishRun` writes the record after it) —,
+ * else (its record gone with the thread's window) its last checkpoint's.
+ */
+export const finishedSpendOf = (
+  record: Pick<Tern, "status" | "costUsd"> | undefined,
+  checkpointed: number,
+): number => (record?.status === ExecutionRecordStatus.Answered ? record.costUsd : checkpointed);
+
 /** Its paused run, else its last checkpoint at a finish; `undefined` when it is at neither. */
 async function restStateOf(
   parts: CancelParts,
   state: TreeState,
+  record: Tern | undefined,
 ): Promise<DurableExecutionState | undefined> {
   try {
     const output = await currentOutputOf(parts.deps, parts.paused, state);
@@ -93,6 +104,7 @@ async function restStateOf(
           // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
           finish: definedOf(output.finish, "a finished output names its finish").name,
           output: output.output,
+          spentUsd: finishedSpendOf(record, output.spend.totalUsd),
         };
   } catch (error) {
     if (error instanceof NotPausedError) return undefined;
@@ -112,7 +124,7 @@ export async function executionStateOf(
   return checkedTree(tree, async () => {
     const state = stateOf(parts, tree);
     const record = await rootRecordOf(parts.deps, state);
-    const known = recordStateOf(record, tree.threadId) ?? (await restStateOf(parts, state));
+    const known = recordStateOf(record, tree.threadId) ?? (await restStateOf(parts, state, record));
     if (known !== undefined) return known;
     const isBegun = record !== undefined || (await hasCheckpoint(parts, tree.rootExecutionId));
     return { status: isBegun ? DurableExecutionStatus.Running : DurableExecutionStatus.NotStarted };

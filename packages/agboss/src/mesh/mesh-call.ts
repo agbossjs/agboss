@@ -29,4 +29,11 @@ export interface ToolCallRemote {
    * for a call the mesh rode, its execution from the run report the peer signed.
    */
   readonly mesh?: false;
+  /**
+   * `false` for a call the mesh rode whose completed task carried no run report this caller could
+   * verify (#844): charged its contract price alone — an untrusted caller, a peer that signs
+   * nothing, a report of another body or task. Never silent: said here, in the step's record.
+   * Absent when a verified report was charged.
+   */
+  readonly report?: false;
 }
