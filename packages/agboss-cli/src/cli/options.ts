@@ -73,7 +73,7 @@ export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
     name: "tenant",
     type: "string",
     value: "<id>",
-    help: "the tenant whose knowledge bases to build (default: default)",
+    help: "the tenant whose knowledge bases to build — required when the application declares a tenant context (rag.tenant-required), else default",
   },
   ENV,
 ];

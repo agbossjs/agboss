@@ -1119,7 +1119,8 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ leas
 export` already refused the same omission. In an application that declares a tenant context
   (`@Application({ tenantContext })`) the bare command is now exit 2, `rag.tenant-required`,
   nothing built; name the tenant with `--tenant <id>`. An application without one still builds
-  `default`, its only tenant.
+  `default`, its only tenant. `agboss help rag` and the CLI's README say so (the help said "default:
+  default").
 
 - **An agent with only an answer tool answers with one call** (#649) — OpenAI models call tools in
   parallel by default, and gpt-4.1-nano answered with three `answer-…` calls in one move: every

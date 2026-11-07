@@ -85,6 +85,15 @@ describe("#268 AC12: agboss rag index over the application", () => {
     });
   });
 
+  it("#797 AC3: the help says when --tenant is required, never that it defaults to default", async () => {
+    const call = await agboss(["help", "rag"]);
+    const tenant = call.stdout.split("\n").find((line) => line.trimStart().startsWith("--tenant"));
+
+    expect(call.code).toBe(0);
+    expect(tenant).toContain("required when the application declares a tenant context");
+    expect(tenant).not.toContain("(default: default)");
+  });
+
   it("an unknown --rag: exit 2, a hint and the list; nothing is indexed", async () => {
     const call = await agboss(["rag", "index", "--application", NOTES, "--rag", "notes"]);
 
