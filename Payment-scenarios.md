@@ -163,7 +163,7 @@ three stub gateways:
 - **Guarantee:** P3, through A7.
 - **Boundary:** a gateway without keys or without a lookup is **not supported**
   ([Payment gateways](Payment-gateways#the-ten-gateways)).
-- **Proof:** `outboundGatewayChecklist` against `FakeOutboundGateway` at each level. Full example:
+- **Proof:** `paymentGatewayChecklist` against `FakePaymentGateway` at each level. Full example:
   `ps6`.
 
 ### PS12. A rolling deploy or a graceful stop mid-payment
@@ -394,7 +394,7 @@ weekend, an operator's retry, a customer paying again the next day.
   `keyAge + attemptTimeout` one millisecond below the retention resends, equal refuses; an instance
   two days ahead reads the same age); the times on every store, `outboundCallContract` → times, and
   on PostgreSQL's database time, agbossjs/postgres `tests/stores/outbound-call-times.test.ts`.
-  `outboundGatewayChecklist` probes G3. Full example: `ps17` — (c) the late retry after a `502`
+  `paymentGatewayChecklist` probes G3. Full example: `ps17` — (c) the late retry after a `502`
   and (d) the replay-only gateway's recovery past `keyRetention` asserted exactly once, as `ps6 …
   late` on every level; on the gateways' SDKs, `12-payment-gateways` → Checkout.com `ps17c` and
   Adyen `ps17d`.

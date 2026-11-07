@@ -205,8 +205,8 @@ All read 2026-11-01.
 
 ## The checklist, offline
 
-`outboundGatewayChecklist` (`@agboss/core/testing`) probes G1–G5 through your adapter and returns
-one result per requirement, with its evidence. Against `FakeOutboundGateway` it runs offline in a
+`paymentGatewayChecklist` (`@agboss/core/testing`) probes G1–G5 through your adapter and returns
+one result per requirement, with its evidence. Against `FakePaymentGateway` it runs offline in a
 test; against your gateway's sandbox you run it by hand. G6 needs the gateway's own events and is
 not probed.
 
@@ -217,18 +217,18 @@ import { expect, it } from "vitest";
 
 ```ts
 import {
-  FakeOutboundGateway,
+  FakePaymentGateway,
   GatewayCheckStatus,
-  outboundGatewayChecklist,
+  paymentGatewayChecklist,
   VirtualClock,
 } from "@agboss/core/testing";
 
 it("our gateway's capabilities, as the checklist sees them", async () => {
   const clock = new VirtualClock();
   // a gateway without a lookup by key: switch off what yours lacks
-  const gateway = new FakeOutboundGateway({ clock, capabilities: { lookupByKey: false } });
+  const gateway = new FakePaymentGateway({ clock, capabilities: { lookupByKey: false } });
 
-  const report = await outboundGatewayChecklist({
+  const report = await paymentGatewayChecklist({
     send: (charge) => gateway.charge(charge), // your adapter: amount + idempotencyKey → receipt
     clock, // moves the gateway's time for G3; without it G3 is skipped
   });
@@ -239,7 +239,7 @@ it("our gateway's capabilities, as the checklist sees them", async () => {
 });
 ```
 
-- **`FakeOutboundGateway({ clock, capabilities })`:** `idempotencyKeys` (G1), `keyRetention` (G3,
+- **`FakePaymentGateway({ clock, capabilities })`:** `idempotencyKeys` (G1), `keyRetention` (G3,
   on the clock), `lookupByKey` (G2), `firstResponseOnRepeat` (G4), `conflictOnMismatch` (G5), all
   on by default (`FULL_GATEWAY_CAPABILITIES`, keys kept a day). `charge({ amount, idempotencyKey })`,
   `lookup(idempotencyKey)`, `payments` (every payment made: where a double charge shows).

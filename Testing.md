@@ -8,16 +8,16 @@ through a small test `@Application` of its own. Vitest (≥ 3.2) is an
 optional peer dependency.
 
 ```ts
-// vitest.config.ts — agbossTest() loads AGBoss in the test's module graph and registers the matchers
+// vitest.config.ts — agbossVitest() loads AGBoss in the test's module graph and registers the matchers
 import { defineConfig } from "vitest/config";
-import { agbossTest } from "@agboss/core/testing/vitest";
+import { agbossVitest } from "@agboss/core/testing/vitest";
 
-export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
+export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts"] }) });
 ```
 
 ## The vitest preset: one module graph (#497)
 
-`agbossTest(test?)` (`@agboss/core/testing/vitest`) returns the `test` options of a vitest config:
+`agbossVitest(test?)` (`@agboss/core/testing/vitest`) returns the `test` options of a vitest config:
 
 - `server.deps.inline` gains `/@agboss\/core/`. Installed from npm, `@agboss/core` is an external
   dependency of vitest: Node loads it, and every project file the core loads by path — the
@@ -37,7 +37,7 @@ export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"]
 Without it, `workflowOf(W)` (testing only; the CLI loads everything through tsx in one graph) throws
 `TestSetupError` when the application file's import fails, or when the file's application lists a
 class named like `W` but not `W` itself:
-`the application of <workflow> was loaded outside vitest's module graph; use agbossTest() from @agboss/core/testing/vitest in vitest.config.ts`,
+`the application of <workflow> was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`,
 the original error as its `cause`. The older form — a raw `setupFiles: ["@agboss/core/testing/setup"]`
 — still registers the matchers, but leaves the core external.
 
@@ -187,7 +187,7 @@ A Vitest `test` whose fixtures are:
 | `mcpOf`   | the stub of an MCP server                                                                  |
 | `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock — listed SQLite stores only through a file, not `:memory:` ([Several instances](Several-instances#testing-several-instances)) |
 | `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
-| `leases`  | a frozen process (#471): `leases.stall(apps[0])` holds that instance's lease store calls and lease timers while its steps run on, `leases.resume(apps[0])` lets them go ([Several instances](Several-instances#testing-several-instances)) |
+| `leases`  | a frozen process (#471): `leases.freeze(apps[0])` holds that instance's lease store calls and lease timers while its steps run on, `leases.thaw(apps[0])` lets them go ([Several instances](Several-instances#testing-several-instances)) |
 | `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 
 The whole application is assembled when the test starts: a broken workflow fails every test of
@@ -805,7 +805,7 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   for a live holder — a model call scripted with `waitFor(seconds(31))`, a tool's 30 s timeout, a
   quorum's deadline, a `Retry-After` — advance in steps shorter than the lease
   (`for (let step = 0; step < 3; step += 1) await clock.advance(seconds(10))`, then the rest); a
-  frozen holder in a test is that one long jump, or `leases.stall(app)`.
+  frozen holder in a test is that one long jump, or `leases.freeze(app)`.
 - **Work with real I/O (#511)**: one turn of the event loop is enough for in-memory work, not for a
   database round trip. `clock.track(promise)` registers work `advance` waits for — before the jump
   and after each wait it wakes — and returns the promise as it is (a rejection reaches its caller,
@@ -815,14 +815,14 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   `UnsettledWorkError` (`test.unsettled-work`, its `inFlight` count): the test never hangs.
 - **Right after `app.execute` (#646)**: `const run = app.execute(…); await clock.advance(…)` is
   deterministic — no fixture, no wait for the model's requests. The first execution of a test file
-  loads the core's lazy modules (under `agbossTest()` through vite's module runner: ~300 turns of the
+  loads the core's lazy modules (under `agbossVitest()` through vite's module runner: ~300 turns of the
   event loop), and an execution of an app not built yet builds it first, loading its files by path;
   every one of those loads is `lazyLoad(import(…))` in the core (lint-enforced), and `advance` waits
   for every load in flight — before the jump and after each wait it wakes — so the executions the
   test started reach their next wait on the clock first (a model call scripted with `waitFor`, a step
   slot, a timeout). A load that does not settle within 30 s of real time fails `advance` with
   `UnsettledWorkError`. What `advance` cannot see is work that waits on something else than the
-  clock — a promise the test itself holds, a stalled store (`leases.stall`): await that yourself.
+  clock — a promise the test itself holds, a frozen lease store (`leases.freeze`): await that yourself.
   Since `advance` now lets an execution run as far as the clock allows, one it moves to its end may
   reject while `advance` runs: hold its rejection before advancing
   (`const failure = run.catch((error: unknown) => error)`, then `expect(await failure)…`), else
@@ -1134,10 +1134,10 @@ it("the model reads a token; its answer gets the address back", async () => {
 });
 ```
 
-## A payment gateway's checklist — `outboundGatewayChecklist` (#508)
+## A payment gateway's checklist — `paymentGatewayChecklist` (#508)
 
-`FakeOutboundGateway` is a payment gateway in memory, with each capability a call that leaves the
-system relies on switched on or off, and faults to inject; `outboundGatewayChecklist` probes G1–G5
+`FakePaymentGateway` is a payment gateway in memory, with each capability a call that leaves the
+system relies on switched on or off, and faults to inject; `paymentGatewayChecklist` probes G1–G5
 through an adapter — the fake's offline, a sandbox's by hand. The requirements, what each one
 gives and what the widely used gateways document: [Payment gateways](Payment-gateways).
 
@@ -1146,7 +1146,7 @@ gives and what the widely used gateways document: [Payment gateways](Payment-gat
 A store implementation outside the core runs the core's own contract suites against itself: one
 function per contract (`executionLeaseContract(target)`, …, `checkpointSaverContract(target)`), each
 registering `<contract> contract (<target name>)` with a case per rule, every case on two instances
-over one backing store and its own `VirtualClock`, each store call tracked on it (#511). The target is `{ name, instance(seam), reset?,
+over one backing store and its own `VirtualClock`, each store call tracked on it (#511). The target is `{ name, instance(context), reset?,
 close? }` — [Several instances → Writing your own store](Several-instances#writing-your-own-store-the-published-contract-suites-481).
 It is an entry of its own: `@agboss/core/testing` does not load it.
 

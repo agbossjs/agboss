@@ -226,7 +226,8 @@ agbossjs/postgres's CI runs, on PostgreSQL 16, on every pull request, every push
   stopped, frozen and cut off it in all of the core's scenarios, every invariant checked after each
   ([Guarantees-across-processes](Guarantees-across-processes)). It runs on the real clock — the
   database decides a lease's expiry at its own rate, so a faster pod clock would test another lease
-  than the core's (#607) — split over three parallel jobs.
+  than the core's (#607) — split over three parallel jobs (`shard: "env"`, `AGBOSS_FAULT_SHARD`,
+  #831), its sabotages included.
 - **Two-process tests** of each acceptance criterion: a pod killed mid-step and its tree taken
   over, `AnyInstance` children claimed once, a pause answered on the other pod, a shared budget and
   rate limit, the history export, mesh deduplication, and a payment whose pod froze mid-charge

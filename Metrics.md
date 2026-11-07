@@ -115,8 +115,9 @@ never scale to zero on it.
 
 ## Testing
 
-`testWith(App, { meterProviders: [a, b] })` gives each instance its own provider, by instance (a
-missing one = no metrics there); read it with an in-memory reader:
+`testWith(App, { instances: [{ meterProvider: a }, { meterProvider: b }] })` gives each instance
+its own provider, in its own entry (#831; an entry without one = no metrics there); read it with an
+in-memory reader:
 
 <!-- snippet-context
 import { Application, EmptyEnvironment } from "@agboss/core";
@@ -140,7 +141,7 @@ class InMemoryReader extends MetricReader {
 
 const reader = new InMemoryReader();
 const test = testWith(DeskApplication, {
-  meterProviders: [new MeterProvider({ readers: [reader] })],
+  instances: [{ meterProvider: new MeterProvider({ readers: [reader] }) }],
 });
 
 test("an idle instance holds no lease", async ({ app }) => {

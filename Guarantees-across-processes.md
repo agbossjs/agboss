@@ -129,8 +129,8 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's `reconcile` is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`notSent()`); the framework refuses the resend past the `KeyReplay`'s `keyRetention` (`OutboundCallUnreconciledError`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
 | 16 | The pod that hosts a batch hears no answer to two of its claims of a child: the store claimed the child for it, `Running`, and the answer was lost (#720; on PostgreSQL a claim statement that marked several rows and returned one) | The parent's watch has the pod reclaim the child; the lease it keeps for its own next claim goes back when that claim is lost too, and the next reclaim and claim run the child: once, and the batch ends. Before #720 the kept lease was renewed for ever with nothing running, and the batch never ended (with the fix reverted, 16 fails on `trees-finish`) | `s16-claim-answer-lost` |
 
-**The scenarios bite.** A broken store must fail the scenario that targets it. These permanent
-negative tests prove it (`tests/faults/sabotage.test.ts`):
+**The scenarios bite.** A broken store — a sabotage — must fail the scenario that targets it.
+These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
 - A fenced-effect store with **no fencing check on the business write**: its writes go in at the
   lease's current epoch. It fails 5b on `one-owner`, because the zombie's write was accepted after
   the new epoch was granted.
@@ -150,8 +150,9 @@ negative tests prove it (`tests/faults/sabotage.test.ts`):
 - A replay-only payment whose `notSent()` is **trusted as a lookup** (#658, #795:
   `NotSentTrust.Lookup`, no retention; `s15-sabotage-replay-trusted-as-lookup`): 15 fails on `effects-once` —
   the next pod's replay of the expired key is a new charge. Both run on the real store set
-  (`FAULT_SABOTAGE_SCENARIOS`, `@agboss/core/testing/faults`), in the core on SQLite and in
-  agbossjs/postgres on PostgreSQL (`tests/faults/sabotage.test.ts`).
+  (`FAULT_SABOTAGE_SCENARIOS`, `@agboss/core/testing/faults`): `faultSuite` runs them after its
+  scenarios on every set (#831), each case passing only when the run breaks `effects-once` —
+  `sabotages: false` shows them skipped, never passed.
 
 **A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
 no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or

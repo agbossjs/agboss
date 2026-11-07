@@ -317,8 +317,8 @@ trusts, and one behind takes an expired lease on time. What is left is drift —
 slower the holder's and the database's clocks run over one 30 s lease, together; the margin covers
 up to 1 s of it (3.3 %; a healthy quartz clock drifts 0.005 %). Assumed: the database's clock is
 slewed, never stepped (a step forward ends every lease early by its size), and a pause that stops
-both of the holder's clocks while the database's runs on is outside the bound. Tests skew an instance with `testWith(App, { instances: 2,
-clockSkews: [ClockSkew.none, ClockSkew.ahead(seconds(300))] })`: its wall time, monotonic time and
+both of the holder's clocks while the database's runs on is outside the bound. Tests skew an instance with `testWith(App, { instances: [{},
+{ clockSkew: ClockSkew.ahead(seconds(300)) }] })` (#831: one `TestInstanceOptions` per instance): its wall time, monotonic time and
 sleeps run off the test's clock, while the stores keep the test's own (`lease-skew.test.ts`,
 `lease-skew-charge.test.ts` prove one live holder, no send after the holder's fence and one charge
 for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
@@ -671,7 +671,7 @@ same on every attempt, replay and holder.
   whether the other system charged twice depends on those answers being true — idempotency keys and
   a lookup that does not lag or expire.
 - **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
-  on a gate, `leases.stall(apps[0])` and `clock.advance` past the lease, then the other instance's
+  on a gate, `leases.freeze(apps[0])` and `clock.advance` past the lease, then the other instance's
   recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
   runner's held lease; a second run of one runner is the same step run again.
 
@@ -1358,11 +1358,11 @@ A **`ContractTarget<TStore>`** says how to build the store under test:
 | Field | What it does |
 | --- | --- |
 | `name` | in the suite's title: `lease contract (PostgreSQL)` |
-| `instance(seam)` | builds one instance's store — called twice per case, two instances on one backing store; sync or async |
+| `instance(context)` | builds one instance's store — called twice per case, two instances on one backing store; sync or async |
 | `reset?()` | before each case: an empty backing store (truncate, a new schema, a new file); a failing reset fails the case with its error |
 | `close?(store)` | after each case, per built store: close connections |
 
-The **`StoreSeam`** it builds from is the suite's: `storeClock` (#533: the time the store decides
+The **`StoreInstanceContext`** it builds from is the suite's: `storeClock` (#533: the time the store decides
 by — in most cases the suite's `VirtualClock` injected, one per case at `2026-01-05T09:00:00.000Z`,
 shared by both instances, moved only by the case, `isDatabaseTime` false; in the cases of the
 store's time as the authority the database's own, on real time, `isDatabaseTime` true), `clock`
@@ -1388,7 +1388,7 @@ import { executionLeaseContract } from "@agboss/core/testing/contracts";
 
 executionLeaseContract({
   name: "PostgreSQL",
-  instance: (seam) => new PostgresExecutionLeaseRepository(pool, seam.storeClock, seam.application),
+  instance: (context) => new PostgresExecutionLeaseRepository(pool, context.storeClock, context.application),
   reset: () => pool.query("TRUNCATE execution_leases"),
 });
 ```
@@ -1509,13 +1509,13 @@ tree; or `await app.close({ timeout })` with an execution still running, and the
 continues it at its next sweep.
 
 **A zombie writer** (#471). The `leases` fixture freezes one instance's lease while its step code
-runs on: `leases.stall(apps[0])` holds that instance's lease store calls (taking, renewing,
+runs on: `leases.freeze(apps[0])` holds that instance's lease store calls (taking, renewing,
 releasing — around `ExecutionLeaseRepository`, whichever implementation is listed) and its lease
 timers (the background renewal and the local expiry, on the shared `VirtualClock`);
-`leases.resume(apps[0])` lets them go, the held timers firing at once, as after `SIGCONT`. With a
+`leases.thaw(apps[0])` lets them go, the held timers firing at once, as after `SIGCONT`. With a
 step frozen after `fence.assertHeld()` and before its write (inside the window), `await
 clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over under token 2 and write;
-the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A stalled
+the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A frozen
 instance is resumed at the end of its test.
 
 The fenced effect is tested the same way (#500): a step frozen **before** its

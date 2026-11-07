@@ -218,6 +218,6 @@ with your gateway's documentation.
    (#655), do this for each supported gateway.
 3. **Swap in your own charge step** and run the same scenarios. A step that forgets the key on a
    refund turns the refund-retry scenario (PS19) red.
-4. **Probe the generic requirements** with `outboundGatewayChecklist`
+4. **Probe the generic requirements** with `paymentGatewayChecklist`
    ([Payment gateways](Payment-gateways#the-checklist-offline)), offline against
-   `FakeOutboundGateway`, or by hand against your gateway's sandbox.
+   `FakePaymentGateway`, or by hand against your gateway's sandbox.

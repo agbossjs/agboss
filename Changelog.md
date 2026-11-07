@@ -3,6 +3,41 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the testing surface, reviewed (#831)
+
+From the 0.1.1 API review (G9); every name below is new in 0.1.1, so no aliases.
+
+- **Changed — breaking**: `@agboss/core/testing/faults` publishes the suite and the hold points
+  only (82 symbols → 27): `faultSuite`, `FaultSuiteOptions`, `FaultShard`, `FaultStoreSet` (was
+  `FaultStores`; no `defineFaultStores`), `FaultStoreTime`, `FAULT_SCENARIOS` /
+  `FAULT_SABOTAGE_SCENARIOS` (ids and titles), `FaultInvariant(Error)`, `withHoldPoints`,
+  `StoreHoldPoint`, `processHoldPoints` and `reportHeldOperations({ instanceId, onOperation, onHeld
+  })` → undo, in place of the writable `heldStoreSeam`. The pods, `FaultCluster` (was `FaultWorld`),
+  the gateway, the proxy, `ScaledClock`, `runFaultScenario` and the checkers are internal.
+  **Migration:** [Your own store](Your-own-store#faults-faultsuite-484).
+- **Changed — breaking**: `faultSuite({ storesModule })` (was `stores`) shards itself (`shard: {
+  index, count } | "env"`, `AGBOSS_FAULT_SHARD`) and runs its sabotages after the scenarios, each
+  passing only when it breaks its invariant (`sabotages: false` shows them skipped); its first case
+  counts what runs and every case it leaves out is skipped with its reason. **Migration:** drop your
+  own shard helpers and sabotage test; pass `shard: "env"`.
+- **Changed — breaking**: `storeConformance` takes a `StoreSet` of `StoreEntry`s (were
+  `ConformanceStores` / `ConformanceStore`) built from a `StoreInstanceContext` (was `StoreSeam`);
+  `FencedEffectTarget` / `OutboundCallTarget` (were `…Stores`); `InterleavingOptions.timeLimit` is a
+  `Milliseconds`. A store declares its optional capabilities, `capabilities:
+  [StoreCapability.WatchQueued]`: declared must pass, undeclared is skipped on a store without it and
+  fails on one with it. **Migration:** declare the capability on a child queue with `watchQueued`.
+- **Added**: `runConformanceSabotage({ root, fixtures })` runs a sabotage fixture in a vitest of its
+  own and returns its cases; `VirtualClock`, `TestStoreClock` and `StoreCapability` from
+  `@agboss/core/testing/contracts`.
+- **Changed — breaking**: `leases.freeze(app)` / `thaw(app)` take a `TestApp` (were `stall` /
+  `resume`); `testWith(App, { instances: [{ clockSkew, meterProvider }] })` replaces `clockSkews` /
+  `meterProviders`; `ClockSkew.drifting(rate)`; `callToolWithInvalidArguments` /
+  `callToolWithTruncatedArguments` typed like `callTool`; `confirmNowFails?: boolean | Error`;
+  `FakePaymentGateway` / `paymentGatewayChecklist` (were `FakeOutboundGateway` /
+  `outboundGatewayChecklist`); `agbossVitest()` (was `agbossTest()`).
+- **Fixed**: an unknown `VcrConfig.mode` is `[vcr.unknown-mode]` before any model call (#819) — it
+  recorded against real models.
+
 ## Unreleased — 0.1.1: business keys say what they do, under an idempotency secret of their own (#825)
 
 From the 0.1.1 API review (G1b, G5); the surface is not published yet, so no aliases.

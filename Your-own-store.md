@@ -150,9 +150,9 @@ of that one statement (`remainingOf(expiresAt, now)`, whole ms, rounded down) �
 `undefined` once the lease is over; `acquire` and `reclaim` return it on the lease. The holder
 trusts its lease for `remaining − 1 s` from the moment it **sent** the request, on its monotonic
 clock, so neither the database's clock nor its own wall clock is ever compared with another's. A
-renewal never shortens a live lease. Build the contract target from `seam.storeClock`: the
+renewal never shortens a live lease. Build the contract target from `context.storeClock`: the
 suites' "store's time is the authority" cases run on real time with the other instance's own clock
-(`seam.clock`) off by ± lease/2, ± lease and ± 10 × lease, and a store that reads it fails them —
+(`context.clock`) off by ± lease/2, ± lease and ± 10 × lease, and a store that reads it fails them —
 on every run (#762): each call's real start and end are measured, an attempt is judged only when
 they prove the lease surely live and then surely over by the store's time and the other way round
 by the skewed caller's, a stalled attempt runs again on a fresh tree (up to 10), and a case with no
@@ -381,14 +381,14 @@ import {
   type Clock,
   type StoreClock,
 } from "@agboss/core";
-import type { FencedEffectStores } from "@agboss/core/testing/contracts";
+import type { FencedEffectTarget } from "@agboss/core/testing/contracts";
 declare class Pool { query(sql: string): Promise<void>; }
 declare const pool: Pool;
 declare const PgLeases: new (pool: Pool, clock: StoreClock, application: ApplicationContext) => ExecutionLeaseRepository;
 declare const PgLeaseLog: new (pool: Pool) => ExecutionLeaseEventRepository;
 declare const PgCalls: new (pool: Pool, clock: StoreClock) => OutboundCallRepository;
 declare const PgRateLimits: new (pool: Pool, clock: Clock, application: ApplicationContext) => RateLimitRepository;
-declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectStores<PoolClient>;
+declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectTarget<PoolClient>;
 -->
 
 ```ts
@@ -399,20 +399,21 @@ storeConformance({
   name: "PostgreSQL",
   reset: () => pool.query("TRUNCATE agboss_execution_leases, agboss_fenced_effect_results"),
   stores: {
-    executionLease: (seam) => new PgLeases(pool, seam.storeClock, seam.application),
+    executionLease: (context) => new PgLeases(pool, context.storeClock, context.application),
     executionLeaseEvent: () => new PgLeaseLog(pool),
-    fencedEffect: (seam) => pgFencedEffects(pool, seam.storeClock, seam.application),
-    outboundCall: (seam) => ({
-      calls: new PgCalls(pool, seam.storeClock),
-      leases: new PgLeases(pool, seam.storeClock, seam.application),
+    fencedEffect: (context) => pgFencedEffects(pool, context.storeClock, context.application),
+    outboundCall: (context) => ({
+      calls: new PgCalls(pool, context.storeClock),
+      leases: new PgLeases(pool, context.storeClock, context.application),
     }),
-    rateLimit: (seam) => new PgRateLimits(pool, seam.clock, seam.application),
+    rateLimit: (context) => new PgRateLimits(pool, context.clock, context.application),
   },
 });
 ```
 
-- **Each store** is a factory `(seam) => store`, or `{ instance, reset?, close? }` when it needs a
-  reset or a close of its own. The set's `reset` runs before each case of a store without its own.
+- **Each store** of the `StoreSet` is a `StoreEntry`: a factory `(context) => store` of a
+  `StoreInstanceContext` (its clocks, its instance id, its application context), or `{ instance,
+  reset?, close?, capabilities? }` when it needs a reset, a close or a capability of its own. The set's `reset` runs before each case of a store without its own.
   Every case builds two instances on one backing store, on the case's `VirtualClock`.
 - **A set with a lease store must claim the other fencing contracts**: the fenced effect, the
   outbound call and the lease log. Otherwise it lists them in `without`. A set of coordination
@@ -433,9 +434,15 @@ storeConformance({
     the explorer has no option for.
 - **What the set does not check is shown, never passed** (#799). `store set (<name>)` lists every
   contract the set does not claim as a skipped case, `does not claim stores.<key>`, with the reason
-  (left out in `without`, or not given). A case of an optional method — the child queue's
-  `watchQueued` (#777) — is skipped, with the reason, for a store without it, and fails for a store
-  that has it on one instance only.
+  (left out in `without`, or not given).
+- **A store declares its optional capabilities** (#831). The child queue's `watchQueued` (#777) is
+  one: `childExecutionQueue: { instance: (context) => new PgChildQueue(pool, context.clock),
+  capabilities: [StoreCapability.WatchQueued] }` (`StoreCapability`, `@agboss/core/testing/contracts`).
+  A declared capability's cases must pass on both instances' stores (else
+  `[store-conformance.capability-missing]`); one not declared is skipped, with the reason, on a store
+  without it — and fails on a store that has it (`[store-conformance.capability-not-declared]`):
+  the suite reads what the store claims, not its shape. A capability that is no `StoreCapability`,
+  or not one of that contract's, fails the file (`[store-conformance.invalid-capabilities]`).
 - **The races the suites run**, each round after round, in both orders:
   - a zombie's write racing its lease's release, the next take and the new holder's write of the
     same key: one business row;
@@ -478,7 +485,7 @@ for any store, a networked one included, with no free race.
     else 533; it is printed in the case's name, and a failure reproduces from it.
 - **Skewed clocks**: the second instance's own clock is off by ± lease/2, ± lease and ± 10 ×
   lease (the third's the other way), while the store decides by the run's time
-  (`seam.storeClock`). A store that decides by its caller's clock (`seam.clock`) gives two live
+  (`context.storeClock`). A store that decides by its caller's clock (`context.clock`) gives two live
   holders.
 - **After every step** it checks:
   - `one-live-holder`: at most one instance trusts the lease at any moment (from when it sent the
@@ -529,7 +536,7 @@ for any store, a networked one included, with no free race.
   corrupt the cases after it. A finished search logs its counts (`[interleavings] … 666 schedules,
   211 states`). On PostgreSQL, depth 5 explores the lease world in about 400 s: raise `timeLimit`
   or lower `depth` to fit CI.
-- The core proves it bites (`tests/testing/contracts/explorer-bites.test.ts`). Each naive store
+- The core proves it bites (`tests/testing/contracts/explorer-sabotage.test.ts`). Each naive store
   fails with the invariant it breaks: leases on the caller's clock, a lease live through its expiry
   instant, a renewal whatever the time or from the old end, a `finish` that only releases, a
   `reclaim` that keeps the epoch, calls keyed by the step only, a claim that does not compare,
@@ -559,10 +566,10 @@ overrides it: such a store passes **no** fencing case, even when it would pass t
 
 <!-- snippet-context
 import type { ExecutionLeaseEventRepository, ExecutionLeaseRepository } from "@agboss/core";
-import { storeConformance, type FencedEffectStores, type OutboundCallStores } from "@agboss/core/testing/contracts";
+import { storeConformance, type FencedEffectTarget, type OutboundCallTarget } from "@agboss/core/testing/contracts";
 declare const redisLeases: () => ExecutionLeaseRepository;
-declare const redisEffects: () => FencedEffectStores<unknown>;
-declare const redisCalls: () => OutboundCallStores;
+declare const redisEffects: () => FencedEffectTarget<unknown>;
+declare const redisCalls: () => OutboundCallTarget;
 declare const redisLog: () => ExecutionLeaseEventRepository;
 -->
 
@@ -626,9 +633,9 @@ declare function resolveConnection(app: App): PgConnection;
 
 ```ts
 // tests/faults/postgres.fault-stores.ts — imported by every pod
-import { FaultStoreTime, type FaultStores } from "@agboss/core/testing/faults";
+import { FaultStoreTime, type FaultStoreSet } from "@agboss/core/testing/faults";
 
-export const faultStores: FaultStores<PoolClient> = {
+export const faultStores: FaultStoreSet<PoolClient> = {
   providers: [PgLeases, PgLeaseLog, PgFencedEffects, PgCalls, PgRecords, PgTrees, PgHistory, PgChildQueue, PgPauses, PgCheckpoints],
   // the leases expire by clock_timestamp(): the history is read at the real rate
   storeTime: FaultStoreTime.Database,
@@ -665,8 +672,9 @@ import { faultSuite } from "@agboss/core/testing/faults";
 
 faultSuite({
   name: "PostgreSQL",
-  stores: new URL("./postgres.fault-stores.ts", import.meta.url).pathname,
+  storesModule: new URL("./postgres.fault-stores.ts", import.meta.url).pathname,
   database: { url, reset: () => freshSchema() }, // an empty database (and business table) per scenario
+  shard: "env", // CI's parallel jobs: AGBOSS_FAULT_SHARD=k/n
 });
 ```
 
@@ -680,8 +688,19 @@ faultSuite({
   database's clock (`FaultStoreTime.Database`) keeps the real rate whatever the pods' scale, so run
   it at 1: its leases would outlast the scenario's waits. A real database should run at 1 at least
   nightly anyway: its round trips are real time.
-- **`scenarios`** selects scenarios by id. One test file per scenario makes a flake easy to
-  probe (`node scripts/flaky-probe.mjs <file> 20`).
+- **`scenarios`** selects scenarios (and sabotages) by id. One test file per scenario makes a flake
+  easy to probe (`node scripts/flaky-probe.mjs <file> 20`).
+- **`shard`** (#831) splits the cases over parallel jobs: `{ index, count }`, or `"env"`, which
+  reads `AGBOSS_FAULT_SHARD=k/n` (unset or empty: every case; a malformed one is refused). Every
+  `count`-th case from the `index`-th, the scenarios then the sabotages: the shards of one count run
+  each case once.
+- **The sabotages** (#657, #658, #831) run after the scenarios: the fixture's payment integration
+  broken on purpose (`FAULT_SABOTAGE_SCENARIOS`), each case passing only when the run breaks its
+  invariant (`effects-once`: a second payment). They prove the suite bites on your database too.
+  `sabotages: false` skips them — visibly.
+- **Nothing is left out without a trace.** The first case counts what runs (`runs 7 of 28 cases: 6
+  of 26 scenarios, 1 of 2 sabotages (shard 2/4)`), and every case a selection, a shard or
+  `sabotages: false` leaves out is a skipped case with its reason.
 - The scenarios run one after another. Each starts at most three pods and kills every pod it
   started at its end. With `AGBOSS_FAULT_DUMP_DIR` set, a failed scenario writes its pods' events,
   the store history and the pods' output there (CI's artifact).
@@ -689,15 +708,44 @@ faultSuite({
 **3. Hold points in your own process tests.** `withHoldPoints(Store)` is your store with the
 store hold points (`StoreHoldPoint`) and the history. List it in place of the store. Then, in that
 process, `processHoldPoints.arm({ point: StoreHoldPoint.LeaseAcquire, key })` holds the next
-`acquire` of `key` before your store is asked, until `release(holdId)`. `onHeld` announces each
-held operation. You write no seam of your own to force an order across processes.
+`acquire` of `key` before your store is asked, until `release(holdId)`.
+`reportHeldOperations({ instanceId, onOperation, onHeld })` (#831) tells your test what the held
+stores do — every operation's invoke and complete, named by `instanceId`, and every hold — and
+returns the function that stops it. You write no hook of your own to force an order across
+processes.
+
+**4. Your own sabotages of the contract suites.** A broken store of yours (a check-then-write
+acquire, leases on the caller's clock) must fail the rules it breaks. A failing suite cannot be
+asserted in the run it fails, so put it in a fixture file and run it apart:
+
+<!-- snippet-context
+import { expect, it } from "vitest";
+-->
+
+```ts
+// tests/contracts/sabotage.test.ts
+import { runConformanceSabotage } from "@agboss/core/testing/contracts";
+
+it("leases on the caller's clock fail one-live-holder", async () => {
+  const run = await runConformanceSabotage({
+    root: new URL("../../", import.meta.url),
+    fixtures: ["tests/contracts/fixtures/sabotage.conformance-fixture.ts"],
+  });
+
+  expect(run.failedIn("interleavings (leases on the caller's clock)").length).toBeGreaterThan(0);
+}, 600_000);
+```
+
+Every case comes back with its describe path, its state, its errors and a skip's reason. A fixture
+that does not load, or one that registers no case, rejects: never an empty run that reads as
+"nothing failed".
 
 ## Checklist
 
 - [ ] A lease's expiry is decided by the store's time (#533): the database's, read inside each
       statement, unless `StoreClock.isDatabaseTime` is false (a test's clock, a parameter) — never
       the caller's `Clock`. `acquire`, `renew` and `reclaim` answer `remaining`; the target is built
-      from `seam.storeClock`.
+      from `context.storeClock`.
 - [ ] `acquire` is one atomic step; `renew` / `release` / `yield` / `reclaim` / `finish` match the
       holder and the epoch, and succeed only when one row changed.
 - [ ] A lease is live while `expires_at > now` in every statement, for its holder too (#534):
@@ -728,7 +776,9 @@ held operation. You write no seam of your own to force an order across processes
       for fencing and backs no payment (#543).
 - [ ] `storeConformance` passes with every store the set has, the explorer included (#533), at or
       above the floor for a set with fencing stores (#799); its report's skipped cases are the
-      contracts it does not claim and the optional methods it lacks, nothing else.
-- [ ] `faultSuite` passes on the set, against a real database, in CI. An opted-out set fails its
-      `fences atomically …` case (#584). `faultStores.storeTime` says what the stores decide by (#799).
+      contracts it does not claim and the capabilities it does not declare, nothing else; a store
+      with `watchQueued` declares `StoreCapability.WatchQueued` (#831).
+- [ ] `faultSuite` passes on the set, against a real database, in CI, its sabotages included
+      (#831). An opted-out set fails its `fences atomically …` case (#584).
+      `faultStores.storeTime` says what the stores decide by (#799).
 - [ ] The README lists the stores together, links this page, and says which backend they declare.
