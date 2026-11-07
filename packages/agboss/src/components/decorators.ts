@@ -87,7 +87,7 @@ export interface InjectableOptions<D extends readonly Token[]> {
   readonly deps?: D;
   /**
    * The fields of the environment contract the class reads (#511) — a store's connection:
-   * `{ postgresUrl: EnvironmentField.Secret, postgresPoolSize: EnvironmentField.OptionalInteger }`.
+   * `{ postgresUrl: EnvironmentField.secret(), postgresPoolSize: EnvironmentField.integer({ optional: true }) }`.
    * An application that lists it, or a class whose `deps` reach it, fails assembly with
    * `[environment.missing-field]` when its contract lacks a required one.
    */

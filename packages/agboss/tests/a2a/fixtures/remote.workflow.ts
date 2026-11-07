@@ -1,10 +1,6 @@
-import {
-  A2AExpose,
-  A2ACallerResolution,
-  type A2ACallerResolver,
-} from "../../../src/a2a/index.js";
+import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
+import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
-import type { AppOptions } from "../../../src/app/create-app.js";
 import {
   Agent,
   ExecutionContext,
@@ -114,25 +110,24 @@ const defaults = {
 @Workflow({
   name: "remote-desk-workflow",
   version: "1.0.0",
-  flow: [
-    start(AskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [start(AskStart).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(DeskAnswer)],
   defaults,
   uncompactedTurns: 2,
   providers: [SingleTenantCallerResolver],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 
 /** What the application serves over A2A (#398 PR 3): its one start. */
-@A2AExpose({ name: "remote-desk-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [AskStart] })
+@A2AExpose({
+  name: "remote-desk-a2a-expose",
+  description: "Served over A2A",
+  version: "1.0.0",
+  exports: [AskStart],
+})
 export class RemoteDeskA2AExpose {}
 
 @Application({
@@ -146,7 +141,7 @@ export class RemoteDeskA2AExpose {}
 export class RemoteDeskApplication {}
 
 /** Everything external given: scripted models, memory stores. */
-export const offline = (book: ScriptBook): AppOptions => ({
+export const offline = (book: ScriptBook): BuildApplicationOptions => ({
   processEnv: {},
   gateway: createScriptedGateway(book),
 });

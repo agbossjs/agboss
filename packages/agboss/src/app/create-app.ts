@@ -45,11 +45,13 @@ import { checkedCallerId } from "../flow/context/context-values.js";
 export { NotAWorkflowStartError } from "./starts.js";
 
 /**
- * `createApp` options: the environment, a profile on top of each workflow, and any external part
- * (models, MCP transports) instead of its default. Infrastructure is not an option: it is listed in
- * `@Application({ providers })`.
+ * `createApp` options (#834): the environment, a profile on top of each workflow and where the
+ * instance publishes its metrics — nothing else. Infrastructure is listed in
+ * `@Application({ providers })`; every other setting is an `@Application` option, and the seams a
+ * test or a tool replaces (models, MCP transports, the process environment) are on the internal
+ * build path only (`testWith`, the CLI).
  */
-export interface AppOptions extends Omit<AppDepsOptions, "environment"> {
+export interface AppOptions {
   /**
    * The environment: `environments/<env>.environment.ts` next to the application file (default
    * `dev`) — of an application that declares `@Application({ environment })`.
@@ -57,7 +59,14 @@ export interface AppOptions extends Omit<AppDepsOptions, "environment"> {
   readonly env?: string | undefined;
   /** `profiles/<workflow>/<profile>.yaml` under `profileRoot` (default: the working directory). */
   readonly profile?: string | undefined;
-  readonly profileRoot?: string;
+  readonly profileRoot?: string | undefined;
+  /**
+   * Where the instance publishes its metrics (#485, Wiki → Metrics): an OpenTelemetry
+   * `MeterProvider` — an SDK one with a Prometheus or an OTLP exporter, or the global one
+   * (`metrics.getMeterProvider()`). A runtime object, so an option here and not of `@Application`.
+   * Absent = no metrics: nothing loaded, no store read.
+   */
+  readonly meterProvider?: AppDepsOptions["meterProvider"];
 }
 
 /** Why an execution or a resume is refused once `app.close()` has begun. */

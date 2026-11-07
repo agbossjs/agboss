@@ -1,10 +1,5 @@
-import {
-  createAppDeps,
-  withProfile,
-  type AppDeps,
-  type AssembledWorkflow,
-  type Environment,
-} from "@agboss/core";
+import { withProfile, type AssembledWorkflow, type Environment } from "@agboss/core";
+import { createAppDeps, type AppDeps } from "@agboss/core/internal";
 import {
   applicationEnvironment,
   assembleApplication,

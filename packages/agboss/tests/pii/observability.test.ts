@@ -1,4 +1,5 @@
 /** #120 AC7: logs, traces, events and the record are masked by the application's lists. */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import {
   Injectable,
@@ -16,7 +17,6 @@ import type {
   ToolStartEvent,
 } from "../../src/core/observability.js";
 import { Application } from "../../src/application/application.js";
-import { createApp } from "../../src/application/create-app.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TenantContext } from "../../src/flow/context/tenant-context.js";
 import { observabilityMaskOf } from "../../src/pii/observability-mask.js";
@@ -74,7 +74,7 @@ class SeeingObserver implements OnAgentStart, OnToolStart, OnToolEnd, OnModelSta
 class SeenApplication {}
 
 async function seenApp(book: ScriptBook) {
-  return createApp(SeenApplication, {
+  return createAppWith(SeenApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });

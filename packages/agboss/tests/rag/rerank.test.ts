@@ -4,6 +4,7 @@
  * (AC2); a failing reranker falls back to the retrieval's order with a trace, or fails the step under
  * `FailStep` (AC3); a reranking that is no subset of the candidates is a failure (isolation).
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,7 +16,6 @@ import type { RagConnector } from "../../src/rag/index.js";
 import type { KnowledgeSource } from "../../src/rag/types.js";
 import { inTestFrame } from "../helpers/frame.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { replyWith } from "../../src/testing/index.js";
@@ -56,7 +56,7 @@ afterEach(async () => {
 });
 
 async function appWith(book: ScriptBook, application: Class = rerankApplication()): Promise<App> {
-  app = await createApp(application, { gateway: createScriptedGateway(book) });
+  app = await createAppWith(application, { gateway: createScriptedGateway(book) });
   return app;
 }
 

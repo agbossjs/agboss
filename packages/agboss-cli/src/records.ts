@@ -102,7 +102,7 @@ export const handle: CommandHandler = async (context) => {
       throw new CliError(
         "project",
         "records.not-kept",
-        `${opened.application} keeps no execution records: set @Application({ executionRecordRetention }) to keep them`,
+        `${opened.application} keeps no execution records: set @Application({ retention: { executionRecords } }) to keep them`,
       );
     const file = resolve(context.io.cwd, out);
     const records = await writeRecords(opened, query, file);

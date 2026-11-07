@@ -1,6 +1,10 @@
+import {
+  createApp,
+  createAppWith,
+  type BuildApplicationOptions,
+} from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { NotAWorkflowStartError, type AppOptions } from "../../src/app/create-app.js";
-import { createApp } from "../../src/application/create-app.js";
+import { NotAWorkflowStartError } from "../../src/app/create-app.js";
 import { Agent, Workflow, NotPausedError, GraphRuleError, WorkflowStart } from "../../src/index.js";
 import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
@@ -39,7 +43,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 
 /** Everything external given: scripted models, memory stores, stubbed MCP servers. */
-function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
+function offline(book: ScriptBook, stubs = new McpStubs(book)): BuildApplicationOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
@@ -125,7 +129,7 @@ describe("AC12: createApp — the real app", () => {
   it("assembles before any model call and reports every assembly error at once", async () => {
     const book = new ScriptBook();
 
-    const built = createApp(BrokenApplication, offline(book));
+    const built = createAppWith(BrokenApplication, offline(book));
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const codes = await built.catch((error: unknown) =>
@@ -141,7 +145,7 @@ describe("AC12: createApp — the real app", () => {
       .thenReturn(replyWith(CodeDto, { text: "v1" }, { cost: usd(0.002) }));
     book.scriptOf("agent:reviewer-agent").thenReturn(replyWith(ReviewDto, { text: "clean" }));
     book.scriptOf("router:review-gate-router").thenReturn(routeTo(PullRequest));
-    const app = await createApp(CodeReviewApplication, offline(book));
+    const app = await createAppWith(CodeReviewApplication, offline(book));
 
     const result = await execute(app, TaskStart, { text: "Add a flag" });
     await app.close();
@@ -173,7 +177,7 @@ describe("AC12: createApp — the real app", () => {
     book
       .scriptOf("agent:support-agent")
       .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
-    const app = await createApp(DeskApplication, offline(book, stubs));
+    const app = await createAppWith(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
     const done = await app.resume(answerOf(paused, { approved: true }));
@@ -196,7 +200,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("close runs onStop of the components it started, once", async () => {
     lifecycle.length = 0;
-    const app = await createApp(DeskApplication, offline(new ScriptBook()));
+    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
     const started = [...lifecycle];
 
     await app.close();
@@ -208,7 +212,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("checks the start and its input DTO before any call", async () => {
     const book = new ScriptBook();
-    const app = await createApp(CodeReviewApplication, offline(book));
+    const app = await createAppWith(CodeReviewApplication, offline(book));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toBeInstanceOf(
       NotAWorkflowStartError,
@@ -225,7 +229,7 @@ describe("AC12: createApp — the real app", () => {
     const book = new ScriptBook();
     book.scriptOf("agent:ticket-agent").thenReturn(replyWith("ticket"));
     book.scriptOf("agent:writer-agent").thenReturn(replyWith("chat"));
-    const app = await createApp(TwoStartsApplication, offline(book));
+    const app = await createAppWith(TwoStartsApplication, offline(book));
 
     const ticket = await execute(app, TicketStart, { text: "printer broken", id: "T-1" });
     const chat = await execute(app, ChatStart, { text: "hi" });
@@ -236,5 +240,22 @@ describe("AC12: createApp — the real app", () => {
     expect(chat).toMatchObject({ output: { text: "chat" } });
     expect(chat).toFollowPath([ChatStart, Writer, Reply]);
     expect(app.textStart).toBe(ChatStart);
+  });
+});
+
+describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider only", () => {
+  it("a JavaScript caller's seam is refused, naming where it goes — never ignored", async () => {
+    const seams = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
+
+    await expect(createApp(CodeReviewApplication, seams as never)).rejects.toThrow(
+      "createApp takes only env, profile, profileRoot, meterProvider — not processEnv, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
+    );
+  });
+
+  it("the internal build path takes the seams: what testWith and the CLI use", async () => {
+    const app = await createAppWith(CodeReviewApplication, offline(new ScriptBook()));
+
+    expect(app.warnings).toEqual(expect.any(Array));
+    await app.close();
   });
 });

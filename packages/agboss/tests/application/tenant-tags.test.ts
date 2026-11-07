@@ -3,9 +3,9 @@
  * paused executions, the thread, the standard LangGraph fields of a run (`metadata`, `tags`) and
  * the trace exporter's — so one organization's data and traces are found by its id.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { answerOf } from "../helpers/flow.js";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import {
   ExecutionRecordRepository,
   ExecutionRecordStatus,
@@ -27,12 +27,12 @@ const haifa = { tenantId: "haifa-clinic", units: [] };
 const levi = { clinician: { clinicianId: "c-12" }, unitId: "icu" };
 
 /** The clinic over scripted models: the bed agent books a bed (a pause), then answers. */
-async function clinicApp(): Promise<Awaited<ReturnType<typeof createApp>>> {
+async function clinicApp(): Promise<Awaited<ReturnType<typeof createAppWith>>> {
   const book = new ScriptBook();
   book
     .scriptOf("agent:bed-agent")
     .thenReturn(callTool(BookBedTool, { ward: "icu" }), replyWith(BedsDto, { text: "booked" }));
-  return createApp(ClinicApplication, { processEnv: {}, gateway: createScriptedGateway(book) });
+  return createAppWith(ClinicApplication, { processEnv: {}, gateway: createScriptedGateway(book) });
 }
 
 describe("#261 AC6: every stored record carries tenantId", () => {

@@ -1702,7 +1702,7 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   execution drafted exactly as `npx agboss generate eval-case <name> --from-execution <executionId>`
   drafts it (the turn, the contexts, the thread's earlier turns as `history`, its calls as
   `tools.required`) and written into the suite's file under the name you give. It needs the
-  application's history (`@Application({ executionRecordRetention })`, its stores on `--env`; the
+  application's history (`@Application({ retention: { executionRecords } })`, its stores on `--env`; the
   application from `package.json` or `--application`) — without it the page says so instead of a
   button. The file is written whole and atomically, only if it is still the one the page was made from
   (else 409: reload), never over a case of the same name (409). The execution is the run's own: the
@@ -1810,7 +1810,7 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --metamorphic
 npx agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from-execution <executionId> [--tenant <id>] [--dry-run]
 ```
 
-- Reads the execution from the application's history (`@Application({ executionRecordRetention })`,
+- Reads the execution from the application's history (`@Application({ retention: { executionRecords } })`,
   reference 09) — runs nothing, calls no model — and adds one `evalCase({ … })` to the suite's
   `cases`: its start's input as the case's one `turn(…)`, its tenant and execution values (none for
   the default tenant without fields), the thread's earlier **finished** turns as `history:

@@ -251,6 +251,40 @@ export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: AppOptions = {},
 ): Promise<App> {
+  return (await builtApplicationOf(application, productionOptionsOf(options))).app;
+}
+
+/** The four options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
+const APP_OPTIONS: ReadonlySet<string> = new Set([
+  "env",
+  "profile",
+  "profileRoot",
+  "meterProvider",
+]);
+
+function productionOptionsOf(options: AppOptions): AppOptions {
+  const unknown = Object.keys(options).filter((key) => !APP_OPTIONS.has(key));
+  if (unknown.length > 0) {
+    throw new TypeError(
+      `createApp takes only ${[...APP_OPTIONS].join(", ")} — not ${unknown.join(", ")}: infrastructure and settings go in @Application({ … }), test seams in testWith`,
+    );
+  }
+  return options;
+}
+
+/**
+ * What the internal build path takes (#834): `createApp`'s options and the seams a test or a tool
+ * replaces — the process environment, the model gateway, the providers' HTTP client, MCP transports,
+ * the container's hooks, the branch scheduler, the run's chaos. `testWith`, the CLI and the
+ * framework's own tests go through it; never an option of `createApp`.
+ */
+export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
+
+/** An app instance on the internal build path (#834): `createApp` with its seams. */
+export async function createAppWith(
+  application: Class,
+  options: BuildApplicationOptions = {},
+): Promise<App> {
   return (await builtApplicationOf(application, options)).app;
 }
 
@@ -261,7 +295,7 @@ export async function createApp<TApplication extends Class>(
  */
 export async function builtApplicationOf(
   application: Class,
-  options: AppOptions & Pick<BuildOptions, "chaos"> = {},
+  options: BuildApplicationOptions = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(

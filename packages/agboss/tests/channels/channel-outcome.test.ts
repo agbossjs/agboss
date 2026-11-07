@@ -1,7 +1,7 @@
 /** #267 AC5 / AC7 / AC11 (PR 1): what `send` returns decides whether the execution pauses. */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { createApp } from "../../src/application/create-app.js";
 import { ChannelOutcome, ChannelOutcomeKind } from "../../src/channels/channel-outcome.js";
 import { AutoApproveChannel, AutoRejectChannel } from "../../src/channels/test-channels.js";
 import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
@@ -120,7 +120,7 @@ function applicationWith(name: string, channel: Class): Class {
 /** Runs one refund of `amountCents` on the application: the result and its desk. */
 async function refundOn(application: Class, amountCents: number) {
   const book = refundScript(amountCents);
-  const app = await createApp(application, offline(book));
+  const app = await createAppWith(application, offline(book));
   const result = await execute(app, RefundWorkflowStart, { text: "refund A-1" }).catch(
     (error: unknown) => error,
   );
@@ -142,7 +142,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
   });
 
   it("#267 S35 / S107: decided(…) closes the pause it reserved at once — nothing is left waiting", async () => {
-    const app = await createApp(RuleRefundsApplication, offline(refundScript(1200)));
+    const app = await createAppWith(RuleRefundsApplication, offline(refundScript(1200)));
 
     const done = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 

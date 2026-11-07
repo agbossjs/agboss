@@ -36,7 +36,7 @@ import { SensitiveWorkflow, ShopExecutionContext } from "../../pii/sensitive.fix
   executionContext: DeskExecutionContext,
   piiPolicies: [EvalEmailPiiPolicy],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class HistoryDeskApplication {}
 
@@ -47,7 +47,7 @@ export class HistoryDeskApplication {}
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class HistoryTreasuryApplication {}
 
@@ -59,7 +59,7 @@ export class HistoryTreasuryApplication {}
   executionContext: ShopExecutionContext,
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class HistorySensitiveApplication {}
 
@@ -81,7 +81,7 @@ export class RefusingExecutionHistoryRepository extends InMemoryExecutionHistory
   executionContext: DeskExecutionContext,
   providers: [RefusingExecutionHistoryRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class BrokenHistoryDeskApplication {}
 
@@ -116,7 +116,7 @@ export class NotingExecutionTreeRepository extends InMemoryExecutionTreeReposito
   executionContext: DeskExecutionContext,
   providers: [NotingExecutionHistoryRepository, NotingExecutionTreeRepository],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class EndOrderDeskApplication {}
 
@@ -128,6 +128,6 @@ export class EndOrderDeskApplication {}
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: [...treasuryChannels, NotingExecutionHistoryRepository, NotingExecutionTreeRepository],
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class EndOrderTreasuryApplication {}

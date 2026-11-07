@@ -27,7 +27,7 @@ const specifierOf = (name: string, subpath: string): string =>
 /** #261 PR 6: the observers and the cancel error are named after executions. */
 const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
   WorkflowObserver: { entry: "@agboss/core", name: "ExecutionObserver" },
-  ObserverManager: { entry: "@agboss/core", name: "ExecutionObserverManager" },
+  ObserverManager: { entry: "@agboss/core/internal", name: "ExecutionObserverManager" },
   WorkflowCancelledError: { entry: "@agboss/core", name: "ExecutionCancelledError" },
 };
 

@@ -1,6 +1,5 @@
+import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { type AppOptions } from "../../src/app/create-app.js";
-import { createApp } from "../../src/application/create-app.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -16,7 +15,7 @@ import { execute } from "../helpers/flow.js";
 import type { ResumeRequest } from "../../src/app/types.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-function offline(book: ScriptBook): AppOptions {
+function offline(book: ScriptBook): BuildApplicationOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
@@ -35,7 +34,7 @@ function deskAnswer(desk: ApprovalDesk, decision: unknown): ResumeRequest {
 
 /** The refunds app, its desk, and a run paused at the refund call. */
 async function pausedRefund(book: ScriptBook) {
-  const app = await createApp(RefundsApplication, offline(book));
+  const app = await createAppWith(RefundsApplication, offline(book));
   const desk = app.resolve(ApprovalDesk);
   const paused = await execute(app, ChatStart, { text: "refund order A-1" });
   return { app, desk, paused };
@@ -47,7 +46,7 @@ describe("#261: a channel reads the execution through its ExecutionContext", () 
     book
       .scriptOf("agent:clerk-agent")
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Refunded."));
-    const app = await createApp(RefundsApplication, offline(book));
+    const app = await createAppWith(RefundsApplication, offline(book));
     const desk = app.resolve(ApprovalDesk);
 
     await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
@@ -126,7 +125,9 @@ describe("#188: approval through a @Channel", () => {
   });
 
   it("channels are created by the container: an unregistered channel dependency fails the build", async () => {
-    await expect(createApp(AuditedRefundsApplication, offline(new ScriptBook()))).rejects.toThrow(
+    await expect(
+      createAppWith(AuditedRefundsApplication, offline(new ScriptBook())),
+    ).rejects.toThrow(
       'AuditedRefundApprovalChannel: "AUDIT_LOG" is not registered in @Workflow({ providers })',
     );
   });

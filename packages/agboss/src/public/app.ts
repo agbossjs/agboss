@@ -9,12 +9,6 @@ export {
   type WorkflowServices,
   type WorkflowTools,
 } from "../workflow.js";
-export {
-  createAppDeps,
-  type AppDeps,
-  type AppDepsOptions,
-  type McpConnect,
-} from "../app/app-deps.js";
 export type { AppOptions } from "../app/create-app.js";
 export { Application, type ApplicationOptions } from "../application/application.js";
 export { createApp } from "../application/create-app.js";
@@ -155,7 +149,6 @@ export {
 } from "../eval/compare-profiles.js";
 export type { ProfileReport } from "../eval/compare-report.js";
 export type { PairwiseResult } from "../eval/compare.js";
-export type { GraphDeps } from "../graph/deps.js";
 export { resumeAgent } from "../run/resume-agent.js";
 export { executeAgent } from "../run/run-agent.js";
 export type {

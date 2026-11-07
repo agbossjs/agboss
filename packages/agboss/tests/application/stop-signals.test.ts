@@ -4,9 +4,9 @@
  * then raised again when nothing else listens (the process ends as without the app); `testWith`
  * never listens.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { closeOnStopSignals, type StopSignalSource } from "../../src/application/stop-signals.js";
 import type { CloseOptions } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -144,7 +144,7 @@ describe("#265 S51: the stop signals", () => {
 describe("#265 S51: who listens", () => {
   it("createApp listens on the process until close() finishes", async () => {
     const before = process.listenerCount("SIGTERM");
-    const app = await createApp(DesksApplication, {
+    const app = await createAppWith(DesksApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });

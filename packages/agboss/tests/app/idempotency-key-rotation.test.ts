@@ -6,12 +6,12 @@
  * what was stored under it fails closed: a conflict, nothing sent, nothing run. New rows are stored
  * under the current key only, so they replay after the previous one is gone.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import {
   FencedEffectStatus,
   IdempotencyKeyConflictError,
@@ -43,7 +43,7 @@ async function instanceOf(application: Class): Promise<App> {
     ROTATION_IDEMPOTENCY_KEY_V2: "key-after-the-rotation",
     ROTATION_OPENROUTER_API_KEY: "sk-unused",
   };
-  const app = await createApp(application as never, { env: "dev", processEnv });
+  const app = await createAppWith(application as never, { env: "dev", processEnv });
   opened.push(app);
   return app;
 }

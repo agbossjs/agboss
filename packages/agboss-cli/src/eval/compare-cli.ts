@@ -1,4 +1,4 @@
-import type { AppDeps } from "@agboss/core";
+import type { AppDeps } from "@agboss/core/internal";
 import {
   compareBundleProfiles,
   formatComparison,

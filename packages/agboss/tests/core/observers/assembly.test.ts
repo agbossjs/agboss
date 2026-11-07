@@ -1,5 +1,5 @@
+import { createAppWith } from "../../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../../src/application/create-app.js";
 import {
   ComponentError,
   Injectable,
@@ -101,7 +101,7 @@ class RejectedTypo implements OnExecutionRejected {
 }
 
 const assemblyError = async (observers: Parameters<typeof applicationWith>[1]): Promise<string> =>
-  createApp(applicationWith("checked-workflow", observers), {
+  createAppWith(applicationWith("checked-workflow", observers), {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   }).then(

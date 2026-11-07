@@ -1,11 +1,10 @@
-import type { AppOptions } from "../app/create-app.js";
 import { startComponents, stopComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import { namedEnvironmentFor } from "../environments/load.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { applicationOf } from "./assemble.js";
-import { contextsOf, environmentOwnerOf } from "./create-app.js";
+import { contextsOf, environmentOwnerOf, type BuildApplicationOptions } from "./create-app.js";
 
 /**
  * An application's execution history opened for reading (#401 PR 1, `agboss records export`):
@@ -15,7 +14,7 @@ import { contextsOf, environmentOwnerOf } from "./create-app.js";
 export interface OpenedExecutionHistory {
   /** The application's name (`@Application({ name })`). */
   readonly application: string;
-  /** Whether it keeps its history (`@Application({ executionRecordRetention })`). */
+  /** Whether it keeps its history (`@Application({ retention: { executionRecords } })`). */
   readonly isKept: boolean;
   readonly history: ExecutionHistoryRepository;
   /** Stops and destroys what was created (the SQLite connection). */
@@ -25,7 +24,7 @@ export interface OpenedExecutionHistory {
 /** Opens the execution history of `application` in its `env` environment. */
 export async function openExecutionHistory(
   application: Class,
-  options: Pick<AppOptions, "env" | "processEnv"> = {},
+  options: Pick<BuildApplicationOptions, "env" | "processEnv"> = {},
 ): Promise<OpenedExecutionHistory> {
   const assembled = await applicationOf(application, {}, "agboss records export");
   const processEnv = options.processEnv ?? process.env;

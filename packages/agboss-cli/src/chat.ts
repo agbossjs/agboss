@@ -1,5 +1,9 @@
-import { createApp, type App, type Class, type ExecutionOutput } from "@agboss/core";
-import { executeWithoutInputCheck, type ApplicationStart } from "@agboss/core/internal";
+import { type App, type Class, type ExecutionOutput } from "@agboss/core";
+import {
+  createAppWith,
+  executeWithoutInputCheck,
+  type ApplicationStart,
+} from "@agboss/core/internal";
 import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";
@@ -108,7 +112,7 @@ async function converse(session: Session): Promise<void> {
 
 /** The app of the application (its instance for this session). */
 async function appOf(context: CommandContext, application: Class): Promise<App> {
-  return createApp(application, {
+  return createAppWith(application, {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),

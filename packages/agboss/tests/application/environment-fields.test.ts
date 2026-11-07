@@ -32,8 +32,8 @@ import { start } from "../helpers/flow.js";
 @Injectable({
   deps: [ApplicationContext],
   environmentFields: {
-    postgresUrl: EnvironmentField.Secret,
-    postgresPoolSize: EnvironmentField.OptionalInteger,
+    postgresUrl: EnvironmentField.secret(),
+    postgresPoolSize: EnvironmentField.integer({ optional: true }),
   },
 })
 class PostgresLikeConnection {
@@ -47,7 +47,7 @@ class PostgresLikeLeaseStore {
 }
 
 /** A class that reads `postgresUrl` as text, not a secret. */
-@Injectable({ environmentFields: { postgresUrl: EnvironmentField.Text } })
+@Injectable({ environmentFields: { postgresUrl: EnvironmentField.text() } })
 class TextUrlReader {}
 
 @WorkflowStart({
@@ -177,5 +177,60 @@ describe("#511 AC3: a declared environment field is checked at assembly", () => 
       { listed: PostgresLikeLeaseStore, reader: PostgresLikeConnection },
       { listed: PostgresLikeLeaseStore, reader: ApplicationContext },
     ]);
+  });
+});
+
+describe("#834 AC3: environment fields are made by EnvironmentField's helpers, their names checked", () => {
+  const declared = (fields: unknown): Class => {
+    class Reader {}
+    return Injectable({ environmentFields: fields as Record<string, EnvironmentField> })(Reader);
+  };
+
+  it("each helper is a type, optional or not", async () => {
+    @Injectable({
+      environmentFields: {
+        auditUrl: EnvironmentField.text(),
+        auditRetries: EnvironmentField.integer(),
+        auditOn: EnvironmentField.flag({ optional: true }),
+        auditKey: EnvironmentField.secret({ optional: false }),
+      },
+    })
+    class AuditReader {}
+
+    expect(
+      await violationsOf(applicationListing("audit-application", BareEnvironment, [AuditReader])),
+    ).toEqual([
+      "[environment.missing-field] AuditReader needs auditUrl: string in BareEnvironment",
+      "[environment.missing-field] AuditReader needs auditRetries: number in BareEnvironment",
+      "[environment.missing-field] AuditReader needs auditKey: Secret in BareEnvironment",
+    ]);
+  });
+
+  it("a literal or a string does not compile, and is refused at decoration", () => {
+    // @ts-expect-error — a field is made by EnvironmentField's helpers only
+    const literal: EnvironmentField = { type: "Secret", isOptional: false };
+    expect(() => declared({ postgresUrl: literal })).toThrow(
+      "@Injectable({ environmentFields }) of Reader: postgresUrl is [object Object], not a field made by EnvironmentField.text(), .integer(), .flag() or .secret()",
+    );
+    // the 0.1.0-era enum value of a JavaScript caller
+    expect(() => declared({ postgresUrl: "secret" })).toThrow(
+      'postgresUrl is "secret", not a field made by EnvironmentField',
+    );
+    expect(() => declared({ postgresUrl: undefined })).toThrow(
+      /postgresUrl is undefined, not a field/,
+    );
+  });
+
+  it.each(["PostgresUrl", "postgres-url", "postgres_url", "", "1url"])(
+    'a key "%s" is not a field name',
+    (field) => {
+      expect(() => declared({ [field]: EnvironmentField.secret() })).toThrow(
+        `"${field}" is not a field name — a field of the environment contract is a camelCase identifier (postgresUrl)`,
+      );
+    },
+  );
+
+  it("environmentFields that is not an object is refused", () => {
+    expect(() => declared(null)).toThrow(/environmentFields \}\) of Reader: null is not an object/);
   });
 });

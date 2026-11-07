@@ -103,7 +103,7 @@ async function draftOf(context: CommandContext, name: string): Promise<EvalCaseD
       throw new CliError(
         "project",
         "records.not-kept",
-        `${opened.application} keeps no execution records: set @Application({ executionRecordRetention }) to keep them`,
+        `${opened.application} keeps no execution records: set @Application({ retention: { executionRecords } }) to keep them`,
       );
     return await keptDraftOf(opened.history, name, executionId, tenant);
   } finally {

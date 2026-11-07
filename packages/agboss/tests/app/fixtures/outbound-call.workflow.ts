@@ -282,6 +282,6 @@ export class KeptChargeWorkflow {}
   workflows: [KeptChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class KeptOutboundCallApplication {}

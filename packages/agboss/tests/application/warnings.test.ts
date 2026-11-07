@@ -4,8 +4,9 @@
  * tokens on a key of the instance (no `piiKeyField`). In `app.warnings` and the start log; errors
  * under `agboss check --strict` (the CLI's tests); silent in tests (`testWith`).
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildApplication, createApp } from "../../src/application/create-app.js";
+import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
@@ -42,7 +43,7 @@ beforeEach(resetLogged);
 
 describe("#261 AC14: in-memory ledger and pauses warn", () => {
   it("the built-in in-memory ledger with tenant and application budgets, and pauses in memory: both", async () => {
-    const app = await createApp(LoggedApplication, offline);
+    const app = await createAppWith(LoggedApplication, offline);
     await app.close();
 
     // its text start's `sender` is sensitive (a token): the instance key's warning too (#644)
@@ -61,7 +62,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
   });
 
   it("durable stores listed: none of the stores' (the PII key's stays: no piiKeyField)", async () => {
-    const app = await createApp(DurableLoggedApplication, offline);
+    const app = await createAppWith(DurableLoggedApplication, offline);
     await app.close();
 
     expect(app.warnings).toEqual([PII_KEY]);
@@ -121,7 +122,7 @@ describe("#401 PR 1: kept execution history in memory warns", () => {
 
 describe("#120 S94: no application key → a key of the instance, and a warning", () => {
   it("not set and not needed: the start goes on, the warning in app.warnings and the log", async () => {
-    const app = await createApp(NoteLoggedApplication, offline);
+    const app = await createAppWith(NoteLoggedApplication, offline);
     await app.close();
 
     expect(app.warnings).toContain(PII_KEY);
@@ -148,7 +149,7 @@ describe("#120 S94: no application key → a key of the instance, and a warning"
 
   it("piiKeyField set: no warning", async () => {
     const processEnv = { PII_APP_KEY: "k", PII_TEST_PSEUDONYM_KEY: "own" };
-    const app = await createApp(KeyedApplication, { ...offline, processEnv });
+    const app = await createAppWith(KeyedApplication, { ...offline, processEnv });
     await app.close();
 
     expect(app.warnings).not.toContain(PII_KEY);

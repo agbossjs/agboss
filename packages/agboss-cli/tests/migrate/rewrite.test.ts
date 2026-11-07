@@ -77,7 +77,9 @@ describe("migrateImports (#195)", () => {
 
     expect(after.text).toBe(
       [
-        'import { ExecutionObserverManager as ObserverManager, ExecutionCancelledError as WorkflowCancelledError, type ExecutionObserver as WorkflowObserver, type ExecutionObserver as Seen } from "@agboss/core";',
+        // #834: the manager is internal
+        'import { ExecutionObserverManager as ObserverManager } from "@agboss/core/internal";',
+        'import { ExecutionCancelledError as WorkflowCancelledError, type ExecutionObserver as WorkflowObserver, type ExecutionObserver as Seen } from "@agboss/core";',
       ].join("\n"),
     );
   });

@@ -61,7 +61,7 @@ export { settledSaverOf } from "../app/leased-checkpointer.js";
  * (`LedgerIds`): spend a step makes again after a crash or a takeover was billed again and counts
  * again; the ledger adds an entry once (`CostLedgerRepository.saveAll`), so a write retried after its
  * answer was lost counts once. Each entry is dated by its `madeAt` (#771): the ledger prunes
- * entries made longer ago than `@Application({ ledgerEntryRetention })` and refuses a write of one
+ * entries made longer ago than `@Application({ retention: { costLedgerEntries } })` and refuses a write of one
  * it may have pruned (`CostLedgerEntryExpiredError`, the pass's reads fail with it), so a retry that
  * late is never counted twice — and one within it counts once.
  */

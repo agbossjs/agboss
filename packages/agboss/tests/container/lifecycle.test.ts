@@ -1,5 +1,5 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
 import { ApplicationStoppingError, ExecutionCancelledError, type App } from "../../src/index.js";
 import {
@@ -88,12 +88,12 @@ const scriptedApp = async (): Promise<App> => {
   book
     .scriptOf("agent:scout-agent")
     .thenReturn(callTool(SearchJobsTool, { text: "TS" }), replyWith("found"));
-  return createApp(LifecycleApplication, { gateway: createScriptedGateway(book) });
+  return createAppWith(LifecycleApplication, { gateway: createScriptedGateway(book) });
 };
 
 /** An app whose observer records the refused requests. */
 const observedApp = (): Promise<App> =>
-  createApp(ApplicationsApplication, {
+  createAppWith(ApplicationsApplication, {
     gateway: createScriptedGateway(new ScriptBook()),
   });
 
@@ -199,7 +199,7 @@ describe("#261 AC3: lifecycle hooks — errors", () => {
 
   it("a failing onInit of a real component: the app does not start, the error names it", async () => {
     await expect(
-      createApp(BrokenLifecycleApplication, {
+      createAppWith(BrokenLifecycleApplication, {
         gateway: createScriptedGateway(new ScriptBook()),
       }),
     ).rejects.toThrow("[di.hook-failed] BrokenPoolProvider.onInit failed: no database at start");

@@ -14,7 +14,6 @@ import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 import type { LeaseEventLog } from "../app/execution-leases.js";
 
-import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
 import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
@@ -216,7 +215,7 @@ export function stopOf(
     pauses: parts.infrastructure.pausedExecutions,
     pauseRecordRetention: assembled.pauseRecordRetention,
     meshRequests: parts.infrastructure.meshRequests,
-    idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
+    idempotencyRetention: assembled.meshAnswerRetention,
     executionHistory: parts.infrastructure.executionHistory,
     executionRecordRetention: assembled.executionRecordRetention,
     fencedEffects: parts.infrastructure.fencedEffects,

@@ -56,7 +56,7 @@ export async function goldenSourceOf(context: CommandContext): Promise<OpenedGol
   if (!opened.isKept) {
     await opened.close();
     return off(
-      `${opened.application} keeps no execution records, so a run's execution cannot be read back: set @Application({ executionRecordRetention }) and run the suite again`,
+      `${opened.application} keeps no execution records, so a run's execution cannot be read back: set @Application({ retention: { executionRecords } }) and run the suite again`,
     );
   }
   return {

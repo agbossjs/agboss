@@ -1,6 +1,6 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
-import { createApp } from "../../src/application/create-app.js";
 import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
 import { runResultOf } from "../../src/app/result.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
@@ -127,7 +127,7 @@ describe("AC12: the app's parts", () => {
   });
 
   it("with no start of WorkflowStartTextDto, a plain text has no start", async () => {
-    const app = await createApp(TicketsApplication, offline());
+    const app = await createAppWith(TicketsApplication, offline());
 
     expect(app.textStart).toBeUndefined();
     await app.close();

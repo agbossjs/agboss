@@ -93,11 +93,7 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type ObserverClass,
   /** @deprecated Import from "@agboss/core" (#195). */
-  type ObserverFailure,
-  /** @deprecated Import from "@agboss/core" (#195). */
   type ObserverHook,
-  /** @deprecated Import from "@agboss/core" (#195). */
-  ExecutionObserverManager,
   /** @deprecated Import from "@agboss/core" (#195). */
   type OnActionEnd,
   /** @deprecated Import from "@agboss/core" (#195). */

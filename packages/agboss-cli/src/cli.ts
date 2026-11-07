@@ -1,5 +1,6 @@
-import { createApp, type App, type ExecutionOutput } from "@agboss/core";
+import type { App, ExecutionOutput } from "@agboss/core";
 import {
+  createAppWith,
   executeWithoutInputCheck,
   type ApplicationStart,
   type ExecutionStreamEvent,
@@ -67,7 +68,7 @@ function report(context: CommandContext, app: App, result: ExecutionOutput): voi
 export const handle: CommandHandler = async (context) => {
   const { application, start } = await loadChosenStart(context);
   const input = runInputOf(context, start);
-  const app = await createApp(application, {
+  const app = await createAppWith(application, {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),

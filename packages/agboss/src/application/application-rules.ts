@@ -1,3 +1,4 @@
+import { retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations } from "../budgets/budget-rules.js";
 import type { Class, Provider } from "../components/injection.js";
@@ -26,7 +27,6 @@ import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
 import {
   fencedEffectsViolations,
-  ledgerEntryRetentionViolations,
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
 import { storeBackendViolations } from "./implementations.js";
@@ -197,7 +197,7 @@ export function applicationRuleViolations(
     ...meshHopsViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
-    ...ledgerEntryRetentionViolations(options.name, options.ledgerEntryRetention),
+    ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
     ...storeDescriptorViolations(options.name, options.providers ?? []),
     ...storeBackendViolations(options.name, options.providers ?? []),

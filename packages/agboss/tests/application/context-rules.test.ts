@@ -4,10 +4,10 @@
  * a component injects but the application does not declare (`[context.not-declared]`); the
  * application level itself (`ApplicationContext`) and `testExecutionContext` with the levels.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createApp } from "../../src/application/create-app.js";
 import { Text } from "../../src/dto/index.js";
 import {
   ApplicationContext,
@@ -139,7 +139,7 @@ describe("#261 AC4: the declared context classes are checked at the application'
 
 describe("#261 AC4: ApplicationContext — the one description of the running instance", () => {
   it("name, version, the chosen environment, the host; frozen", async () => {
-    const app = await createApp(PlainApplication, offline);
+    const app = await createAppWith(PlainApplication, offline);
 
     const context = app.resolve(ApplicationContext);
     expect(context).toMatchObject({
@@ -155,7 +155,7 @@ describe("#261 AC4: ApplicationContext — the one description of the running in
   });
 
   it("its instanceId is the holder of the instance's leases (#265 S63 g)", async () => {
-    const app = await createApp(PlainApplication, offline);
+    const app = await createAppWith(PlainApplication, offline);
     const leases = app.resolve(ExecutionLeaseRepository);
 
     const lease = await leases.acquire("default", "root-1", seconds(30));

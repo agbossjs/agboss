@@ -94,8 +94,8 @@ export type RuleCode =
   // an application serving A2A keeps its tasks where its instances share them (#824)
   | "a2a.task-store-not-shared"
   | "application.outbound-calls-invalid"
-  // how long the ledger's entries are kept (#771)
-  | "application.ledger-entry-retention-invalid"
+  // every retention of @Application({ retention }) (#834)
+  | "application.retention-invalid"
   | "mesh.signing-key-missing"
   | "mesh.unknown-peer-key"
   | "mesh.duplicate-peer"

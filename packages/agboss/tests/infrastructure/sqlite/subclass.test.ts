@@ -5,8 +5,8 @@
  * application's `IdGenerator` (`thread-1`, … under `testWith`; random UUIDs in `createApp`), kept
  * in the SQLite file.
  */
+import { createAppWith } from "../../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../../src/application/create-app.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -70,7 +70,7 @@ describe("#313 AC1: a project's SqliteExecutionRecordRepository, public tokens o
   it("in createApp its thread ids are the built-in random ones, the format unchanged", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:clerk-agent").thenReturn(replyWith(ReceiptDto, { text: "One." }));
-    const app = await createApp(AuditedRecordsApplication, {
+    const app = await createAppWith(AuditedRecordsApplication, {
       env: "test",
       gateway: createScriptedGateway(book),
     });

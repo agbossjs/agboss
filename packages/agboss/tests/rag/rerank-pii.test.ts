@@ -8,11 +8,11 @@
  * refused, the execution refused — and the reranker's model reads nothing. The trace of the
  * reranking (its span and its model call) holds the masked text only.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { BaseMessage } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { boundRerankerOf, knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
@@ -61,7 +61,7 @@ afterEach(async () => {
 });
 
 async function appWith(book: ScriptBook): Promise<App> {
-  app = await createApp(RerankPiiApplication, {
+  app = await createAppWith(RerankPiiApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key" },
     gateway: createScriptedGateway(book),
   });

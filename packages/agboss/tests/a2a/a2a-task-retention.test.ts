@@ -23,7 +23,7 @@ import { OrdersApplication } from "./fixtures/task.application.js";
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   budgets: TEST_BUDGETS,
-  a2a: { taskRetention: minutes(10) },
+  retention: { a2aTasks: minutes(10) },
 })
 class ShortTasksApplication {}
 

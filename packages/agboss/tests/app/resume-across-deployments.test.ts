@@ -1,5 +1,5 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import type { Class } from "../../src/components/injection.js";
 import { IncompatibleResumeError, UnknownPauseError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
@@ -50,10 +50,10 @@ function scripted(): ScriptBook {
 /** Pauses a run on the first deployment, then builds `next` over the same database. */
 async function pauseThenDeploy(next: Class) {
   const book = scripted();
-  const v1 = await createApp(MailV1Application, deploymentOf(book));
+  const v1 = await createAppWith(MailV1Application, deploymentOf(book));
   const paused = await execute(v1, Start, { text: "Email the boss" });
   await v1.close();
-  return { paused, next: await createApp(next, deploymentOf(book)), book };
+  return { paused, next: await createAppWith(next, deploymentOf(book)), book };
 }
 
 beforeEach(() => {
@@ -88,7 +88,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
     await expect(next.resume(answerOf(paused, approve))).rejects.toThrow(IncompatibleResumeError);
     await next.close();
 
-    const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
+    const migrating = await createAppWith(MailV2MigratingApplication, deploymentOf(book));
     const done = await migrating.resume(answerOf(paused, approve));
 
     expect(done.status).toBe(ExecutionStatus.Finished);
@@ -127,10 +127,10 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
   /** A restart: the app instance goes, the database it lists stays. */
   async function restartOn(application: Class) {
     const book = scripted();
-    const app = await createApp(application, deploymentOf(book));
+    const app = await createAppWith(application, deploymentOf(book));
     const paused = await execute(app, Start, { text: "Email the boss" });
     await app.close();
-    return { paused, restarted: await createApp(application, deploymentOf(book)) };
+    return { paused, restarted: await createAppWith(application, deploymentOf(book)) };
   }
 
   it("a run paused before the restart is resumed by the new instance from the durable repository", async () => {
@@ -176,7 +176,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
     ]);
     await next.close();
 
-    const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
+    const migrating = await createAppWith(MailV2MigratingApplication, deploymentOf(book));
     const done = await migrating.resume(answerOf(paused, approve));
 
     expect(done).toMatchObject({
@@ -193,10 +193,10 @@ describe("#336 AC2: a child workflow's change makes its root incompatible", () =
   /** Pauses a run inside the child on the first deployment, then builds `next` over the database. */
   async function pauseInChildThenDeploy(next: Class) {
     const book = scripted();
-    const v1 = await createApp(MailParentV1Application, deploymentOf(book));
+    const v1 = await createAppWith(MailParentV1Application, deploymentOf(book));
     const paused = await execute(v1, MailParentStart, { text: "Email the boss" });
     await v1.close();
-    return { paused, next: await createApp(next, deploymentOf(book)) };
+    return { paused, next: await createAppWith(next, deploymentOf(book)) };
   }
 
   it("a child's prompt change makes the root incompatible: IncompatibleResumeError, nothing sent", async () => {
@@ -249,19 +249,19 @@ describe("#336 AC2: a child workflow's change makes its root incompatible", () =
     book
       .scriptOf("agent:mailer-agent")
       .thenReturn(callTool(MailHold, { text: "a moment" }), replyWith("Held."), replyWith("Held."));
-    const v1 = await createApp(MailParentV1Application, deploymentOf(book));
+    const v1 = await createAppWith(MailParentV1Application, deploymentOf(book));
     const running = execute(v1, MailParentStart, { text: "Wait" });
     await until(() => holds.length === 1);
     // the stop interrupts it inside the child: its record stays running
     await v1.close({ timeout: seconds(0) });
     await expect(running).rejects.toBeInstanceOf(ApplicationStoppingError);
 
-    const v2 = await createApp(MailParentV2Application, deploymentOf(book));
+    const v2 = await createAppWith(MailParentV2Application, deploymentOf(book));
     await until(() => logged.some((entry) => entry.code === "recovery.incompatible"));
     await v2.close();
     expect(holds).toHaveLength(1);
 
-    const restarted = await createApp(MailParentV1Application, deploymentOf(book));
+    const restarted = await createAppWith(MailParentV1Application, deploymentOf(book));
     await until(() => holds.length === 2);
     await restarted.close();
     expect(holds).toHaveLength(2);

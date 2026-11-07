@@ -20,6 +20,34 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking
 
+- **The application's configuration has one shape** (#834, API review G2):
+  - **One `@Application({ retention })` group** — `{ pauseRecords, executionRecords, leaseEvents,
+costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each a `Milliseconds`,
+    replaces `pauseRecordRetention`, `executionRecordRetention`, `leaseEventRetention`,
+    `ledgerEntryRetention`, `fencedEffects.retention`, `outboundCalls.retention`,
+    `mesh.idempotencyRetention` and `a2a.taskRetention` (the `a2a` option and `A2AApplicationOptions`
+    are gone). Defaults are unchanged; `executionRecords` unset still keeps nothing. One rule,
+    `[application.retention-invalid]`, replaces `[application.ledger-entry-retention-invalid]` and the
+    retention halves of `[application.fenced-effects-invalid]` / `[application.outbound-calls-invalid]`:
+    every retention a positive, finite duration, the fencing ones (`fencedEffects`, `outboundCalls`,
+    `costLedgerEntries`) above the lease, and a key it does not know is refused, never ignored.
+    Sizes and timeouts stay with their feature. A store's own `FencedEffectSettings` takes
+    `FencedEffectSettingsOptions` (`{ maxResultSize?, retention? }`).
+  - **Environment fields are made by helpers** — `EnvironmentField.secret()`, `.text()`,
+    `.integer()`, `.flag()`, each `({ optional: true })`, replace the enum's eight values
+    (`EnvironmentField.Secret`, `.OptionalInteger`, …). A literal does not compile; a value not made
+    by them, or a key that is not a camelCase field name, is refused when `@Injectable` runs.
+  - **`createApp(App, { env, profile, profileRoot, meterProvider })` only** — `processEnv`,
+    `gateway`, `providerFetch`, `transport`, `connectMcp`, `container` and `branchScheduler` are seams
+    of the internal build path (`testWith`, the CLI); a JavaScript caller's other key is refused,
+    naming where it goes.
+  - **`AppDeps`, `createAppDeps`, `AppDepsOptions`, `McpConnect`, `GraphDeps` and
+    `ExecutionObserverManager` (with `EventMask`, `ObserverFailure`) left the root** (and the
+    deprecated `/core`): they are `@agboss/core/internal`. `agboss migrate imports` points
+    `ObserverManager` there.
+  - **Units have one home, `@agboss/core/units`** (`Usd`, `Milliseconds`, `Bytes` and their makers):
+    the root no longer exports `Usd` and `Milliseconds`.
+
 - **The A2A client speaks A2A v1.0** (#809, epic #805): `A2AClient` / `@A2AAgent` are rebuilt on the
   official `@a2a-js/sdk` (1.3.0, exact pin) and call any v1.0 agent, AGBoss or foreign — the Agent
   Card at `<url>/.well-known/agent-card.json`, JSON-RPC or HTTP+JSON, `SendMessage` with
@@ -403,8 +431,8 @@ clockSkew: ClockSkew.ahead(seconds(300)) }] })` (new) skews an instance's clock 
   `madeAt`. `CostLedgerRepository` has a new abstract `deleteEntriesByMadeAtBefore(cutoff)`: it
   raises the store's pruning mark to `cutoff` (never lowers it) and removes the entries made before
   it, atomically against a save; the recovery sweep calls it every look with `now −
-@Application({ ledgerEntryRetention })` (default `hours(24)`, above the lease —
-  `[application.ledger-entry-retention-invalid]`). `saveAll` refuses an entry made before the mark
+@Application({ retention: { costLedgerEntries } })` (default `hours(24)`, above the lease —
+  `[application.retention-invalid]`). `saveAll` refuses an entry made before the mark
   that it does not hold — `CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of
   the save added — so a lost answer retried after its entry was pruned is never counted twice (the
   pass's reads fail with it); one retried within the retention counts once, as before. The
@@ -862,7 +890,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   packed packages in a project of their own (`npm run check:packed`) (#497).
 
 - **A tree's kept record is saved before its cleanup** (#699) — the history record
-  (`executionRecordRetention`) was saved after the tree's keys, its queued children and its pauses
+  (`retention.executionRecords`) was saved after the tree's keys, its queued children and its pauses
   were removed, so a pod killed during that cleanup's round trips lost the record of a tree that had
   ended: nothing writes it later. The record is now saved first. Found by the fault suite's scenario
   12 on agbossjs/redis (a Redis child queue beside SQLite fencing).
@@ -1053,7 +1081,7 @@ fingerprint? })`: one fenced effect or outbound call per tenant, name and busine
   `LeaseTakeoverReason`, the head checkpoint) and a `Takeover` row of the new infrastructure contract
   `ExecutionLeaseEventRepository` (in-memory default, `SqliteExecutionLeaseEventRepository`, the
   published `executionLeaseEventContract`), always written, read with `app.leaseEventsOf({ tenantId,
-rootExecutionId })` and removed by the recovery sweep after `@Application({ leaseEventRetention })`
+rootExecutionId })` and removed by the recovery sweep after `@Application({ retention: { leaseEvents } })`
   (default `hours(24)`). A step handed over (a lost lease, a fenced write, the app's stop) is told
   and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
   `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
@@ -1280,7 +1308,7 @@ export` already refused the same omission. In an application that declares a ten
 
 - **Wiki → Running-on-PostgreSQL's wiring compiles; Several-instances links the gateway notice**
   (#749) — _Wire the stores_ imported `days` from `@agboss/core/units`, which exports `seconds`,
-  `minutes` and `hours` only (`executionRecordRetention: hours(24 * 30)` now; agbossjs/postgres's
+  `minutes` and `hours` only (`retention: { executionRecords: hours(24 * 30) }` now; agbossjs/postgres's
   README the same); Several-instances names Adyen and Stripe (`keyRetention`, #658) and now links
   the notice, as #686 asked of every page naming a gateway.
 

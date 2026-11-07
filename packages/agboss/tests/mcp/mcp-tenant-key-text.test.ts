@@ -5,11 +5,11 @@
  * kept as `t�`'s answer (or `t�`'s answer handed to it). Each such call runs and is refused
  * by its execution, nothing kept; the A2A key (`dedupeKeyOf`) is the same rule.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { MeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
 import { createMcpService, McpExpose } from "../../src/mcp/index.js";
@@ -61,7 +61,7 @@ async function billing(tenantId: string) {
   @McpExpose({ name: "billing-mcp", version: "1.0.0", exports: [parts.MeshStart] })
   class BillingMcp {}
   const book = new ScriptBook();
-  const app = await createApp(parts.MeshApplication, {
+  const app = await createAppWith(parts.MeshApplication, {
     ...offline(book),
     env: "signing",
     processEnv: meshEnvOf(own, orders),

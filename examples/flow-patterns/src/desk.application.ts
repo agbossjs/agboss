@@ -38,7 +38,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
-  executionRecordRetention: hours(24 * 30), // each execution kept 30 days (#401): records export, eval cases
+  retention: { executionRecords: hours(24 * 30) }, // each execution kept 30 days (#401): records export, eval cases
   providers: [
     DeskMetricsService, // the observer's
     HarnessModelProvider,
