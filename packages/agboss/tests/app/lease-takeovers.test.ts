@@ -31,19 +31,20 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { recordingLog } from "../helpers/log.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const LEASE: ExecutionLease = {
   tenantId: "acme",
   rootExecutionId: "root-1",
   holderInstanceId: "instance-2",
-  leaseEpoch: 2,
+  token: 2,
   expiresAt: new Date("2026-01-05T09:00:30.000Z"),
   remaining: seconds(30),
 };
 
 const TAKEN_OVER: ExecutionLease = {
   ...LEASE,
-  takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+  takenOverFrom: { holderInstanceId: "instance-1", token: 1 },
 };
 
 /** A lease log in memory: its rows, what its observer heard, its warnings. */
@@ -270,8 +271,16 @@ describe("#501: a waiting hold that takes an expired lease reports it", () => {
         environmentName: "test",
         environment: NO_ENVIRONMENT_VALUES,
       });
-    const first = new InMemoryExecutionLeaseRepository(clock, instanceOf("instance-1"), database);
-    const second = new InMemoryExecutionLeaseRepository(clock, instanceOf("instance-2"), database);
+    const first = new InMemoryExecutionLeaseRepository(
+      storeClockOf(clock),
+      instanceOf("instance-1"),
+      database,
+    );
+    const second = new InMemoryExecutionLeaseRepository(
+      storeClockOf(clock),
+      instanceOf("instance-2"),
+      database,
+    );
     const { events, heard } = leaseLog({ clock });
     const tree = { tenantId: "default", rootExecutionId: "root-1" };
     // the first holder's background renewals never reach a store: it froze
@@ -283,7 +292,7 @@ describe("#501: a waiting hold that takes an expired lease reports it", () => {
     await clock.advance(seconds(31));
     const held = await waiting;
 
-    expect(frozen?.leaseEpoch).toBe(1);
+    expect(frozen?.token).toBe(1);
     expect(heard).toEqual([
       expect.objectContaining({
         reason: LeaseTakeoverReason.Resumed,

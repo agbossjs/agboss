@@ -18,6 +18,7 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import {
   ApplicationContext,
   Clock,
+  StoreClock,
   ExecutionLeaseRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
@@ -34,9 +35,9 @@ import {
   UncheckedRedisEffects,
 } from "./fixtures/store-backends.fixture.js";
 
-const LEASE_DEPS = { deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
+const LEASE_DEPS = { deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 const EFFECT_DEPS = {
-  deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
 } as const;
 
 @Injectable(EFFECT_DEPS)

@@ -33,6 +33,7 @@ import { RemoteReviewItemsWorkflowStart } from "../../flow/runtime/fixtures/remo
 import { resetRemoteLog } from "../../flow/runtime/fixtures/remote-children.workflow.js";
 import { RemoteSqliteApplication } from "./fixtures/remote-children.application.js";
 import { sqliteFilePerTest } from "./fixtures/sqlite.workflow.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
 const { path } = sqliteFilePerTest();
 const test = testWith(RemoteSqliteApplication, {
@@ -69,7 +70,7 @@ function restartedLeases(): SqliteExecutionLeaseRepository {
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  return new SqliteExecutionLeaseRepository(connectionTo(path), clock, application);
+  return new SqliteExecutionLeaseRepository(connectionTo(path), storeClockOf(clock), application);
 }
 
 /** The reviewer: an item named `b` is confirmed first (its child pauses), any other answered. */

@@ -32,6 +32,7 @@ import { intentOf } from "../../../src/testing/contracts/outbound-call-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours } from "../../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
 /** One instance's four SQLite fencing stores on a file of the test. */
 function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
@@ -39,10 +40,14 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
   const application = storesOnContext();
   return {
     connection,
-    leases: new SqliteExecutionLeaseRepository(connection, clock, application),
+    leases: new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application),
     events: new SqliteExecutionLeaseEventRepository(connection),
-    effects: new SqliteFencedEffectRepository(connection, clock, new FencedEffectSettings()),
-    calls: new SqliteOutboundCallRepository(connection, clock),
+    effects: new SqliteFencedEffectRepository(
+      connection,
+      storeClockOf(clock),
+      new FencedEffectSettings(),
+    ),
+    calls: new SqliteOutboundCallRepository(connection, storeClockOf(clock)),
   };
 }
 
@@ -59,30 +64,42 @@ const TABLES: readonly (readonly [string, (connection: SqliteConnection) => unkn
   [
     "execution_leases",
     (connection) =>
-      new SqliteExecutionLeaseRepository(connection, new VirtualClock(), storesOnContext()),
+      new SqliteExecutionLeaseRepository(
+        connection,
+        storeClockOf(new VirtualClock()),
+        storesOnContext(),
+      ),
   ],
   ["execution_lease_events", (connection) => new SqliteExecutionLeaseEventRepository(connection)],
   [
     "execution_leases",
     (connection) =>
-      new SqliteFencedEffectRepository(connection, new VirtualClock(), new FencedEffectSettings()),
+      new SqliteFencedEffectRepository(
+        connection,
+        storeClockOf(new VirtualClock()),
+        new FencedEffectSettings(),
+      ),
   ],
   [
     "fenced_effects",
     (connection) =>
-      new SqliteFencedEffectRepository(connection, new VirtualClock(), new FencedEffectSettings()),
+      new SqliteFencedEffectRepository(
+        connection,
+        storeClockOf(new VirtualClock()),
+        new FencedEffectSettings(),
+      ),
   ],
   [
     "execution_leases",
-    (connection) => new SqliteOutboundCallRepository(connection, new VirtualClock()),
+    (connection) => new SqliteOutboundCallRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "fenced_effects",
-    (connection) => new SqliteOutboundCallRepository(connection, new VirtualClock()),
+    (connection) => new SqliteOutboundCallRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "outbound_calls",
-    (connection) => new SqliteOutboundCallRepository(connection, new VirtualClock()),
+    (connection) => new SqliteOutboundCallRepository(connection, storeClockOf(new VirtualClock())),
   ],
 ];
 
@@ -136,7 +153,7 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
     const stores = storesOn(path);
 
     expect(stores.connection.columnsOf("execution_leases")).toContain("yielded");
-    expect(await stores.leases.yield(await held(stores.leases))).toBe(true);
+    expect(await stores.leases.yield(await held(stores.leases))).toBeTypeOf("number");
   });
 
   it.each(PINGED)(
@@ -155,7 +172,7 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
     const stores = storesOn();
     await stores.leases.release(await held(stores.leases));
     const second = await held(stores.leases);
-    expect(second.leaseEpoch).toBe(2);
+    expect(second.token).toBe(2);
     expect(await stores.calls.saveIfAbsent(keyOf(second), intentOf(keyOf(second)))).toBe(true);
     // the lease store wiped (its epochs count from 1 again); only the call's write raised the mark
     stores.connection.database.exec("DELETE FROM execution_leases");

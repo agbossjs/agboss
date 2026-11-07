@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import type {
   ChildExecutionEnd,
-  ChildExecutionQueueDepth,
+  ChildExecutionQueueCounts,
   ChildExecutionQueueRepository,
 } from "../../infrastructure/child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
@@ -10,7 +10,7 @@ import type { ContractInstances } from "./instance-context.js";
 import { queuedChild as child } from "./queued-child.js";
 
 /**
- * #485: `findQueueDepth()` — the cluster's queued work, what every instance reports as
+ * #485: `countByStatus()` — the cluster's queued work, what every instance reports as
  * `agboss.cluster.children.*`: the `Queued` and `Running` rows of every tenant and tree, and the
  * oldest still queued.
  */
@@ -19,10 +19,12 @@ type Instances = ContractInstances<ChildExecutionQueueRepository>;
 
 const at = (seconds: number): Date => new Date(Date.UTC(2026, 0, 5, 9, 0, seconds));
 
-const EMPTY: ChildExecutionQueueDepth = { queued: 0, running: 0, oldestQueuedAt: undefined };
+const EMPTY: ChildExecutionQueueCounts = { queued: 0, running: 0, oldestQueuedAt: undefined };
 
-const depthOf = async (queue: ChildExecutionQueueRepository): Promise<ChildExecutionQueueDepth> => {
-  const { queued, running, oldestQueuedAt } = await queue.findQueueDepth();
+const depthOf = async (
+  queue: ChildExecutionQueueRepository,
+): Promise<ChildExecutionQueueCounts> => {
+  const { queued, running, oldestQueuedAt } = await queue.countByStatus();
   return { queued, running, oldestQueuedAt };
 };
 

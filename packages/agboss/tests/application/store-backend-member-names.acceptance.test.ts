@@ -32,7 +32,9 @@ const MEMBER_NAMES = Object.getOwnPropertyNames(Object.prototype);
 
 /** A fenced-effect store declaring `backend`. */
 function effectsOn(backend: string): Class {
-  @Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+  @Injectable({
+    deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  })
   class MemberEffects extends InMemoryFencedEffectRepository {
     static override readonly store: StoreDescriptor = { backend: backend };
   }
@@ -50,7 +52,7 @@ function callsOn(backend: string): Class {
 
 /** A lease store declaring `backend`. */
 function leasesOn(backend: string): Class {
-  @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+  @Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
   class MemberLeases extends InMemoryExecutionLeaseRepository {
     static override readonly store: StoreDescriptor = { backend: backend };
   }

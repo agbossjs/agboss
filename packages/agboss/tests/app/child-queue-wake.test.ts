@@ -43,7 +43,7 @@ afterEach(resetRoomLog);
 async function untilQueued(app: TestApp, count: number): Promise<void> {
   const queue = app.resolve(ChildExecutionQueueRepository);
   await vi.waitFor(async () => {
-    expect((await queue.findQueueDepth()).queued).toBe(count);
+    expect((await queue.countByStatus()).queued).toBe(count);
   });
   await settle();
 }

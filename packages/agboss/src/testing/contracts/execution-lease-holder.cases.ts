@@ -30,7 +30,7 @@ export const LEASE_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>
 
       expect(holder.signal.aborted).toBe(true);
       expect(holder.signal.reason).toBeInstanceOf(ExecutionLeaseLostError);
-      await expect(holder.renewNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
+      await expect(holder.renew()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
       expect(taken.signal.aborted).toBe(false);
       await taken.release();
       await holder.release();
@@ -58,7 +58,7 @@ export const LEASE_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
-    name: "a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at leaseEpoch + 1",
+    name: "a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at token + 1",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
       let endWait = (): void => undefined;

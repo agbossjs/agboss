@@ -1,10 +1,10 @@
 /**
  * #471 — the held lease as `executionContext.fence` reads it: its token and scope, `assertHeld()`
- * (local, no I/O; past `confirmedUntil` it expires the lease first), `confirmNow()` (a strict
+ * (local, no I/O; past `trustedUntil` it expires the lease first), `renewNow()` (a strict
  * renewal: confirmed → the after-renewal checks, anything else → lost), a fenced write stopping the
  * holder of its token, and the `yieldWhile` rule — the lease is yielded only while no other step of
  * the tree runs. Run against the in-memory and the SQLite lease store; the lease timers on a gated
- * clock (`LeaseGate`, what `leases.freeze` uses), so `confirmedUntil` can pass without them.
+ * clock (`LeaseGate`, what `leases.freeze` uses), so `trustedUntil` can pass without them.
  */
 import { describe, expect, it } from "vitest";
 import { executionLeasesOf, type HeldExecutionLease } from "../../src/app/execution-leases.js";
@@ -29,15 +29,16 @@ import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../src/app/lease-fence.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
 import { withTarget } from "../../src/testing/contracts/instance-context.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** How long a lease just confirmed is trusted (#533): the store's 30 s, less the safety margin. */
 const TRUSTED = EXECUTION_LEASE - LEASE_SAFETY_MARGIN;
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ clock, application, database }) =>
-    new InMemoryExecutionLeaseRepository(clock, application, database),
+    new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database),
   ({ clock, application, connection }) =>
-    new SqliteExecutionLeaseRepository(connection(), clock, application),
+    new SqliteExecutionLeaseRepository(connection(), storeClockOf(clock), application),
 );
 
 const TREE = { tenantId: "acme:eu", rootExecutionId: "root:1" };
@@ -79,12 +80,15 @@ interface LeasesAndCalls {
 
 const withCalls = storeTargets<LeasesAndCalls>(
   ({ clock, application, database }) => {
-    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-    return { leases, calls: new InMemoryOutboundCallRepository(clock, database, leases) };
+    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+    return {
+      leases,
+      calls: new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases),
+    };
   },
   ({ clock, application, connection }) => ({
-    leases: new SqliteExecutionLeaseRepository(connection(), clock, application),
-    calls: new SqliteOutboundCallRepository(connection(), clock),
+    leases: new SqliteExecutionLeaseRepository(connection(), storeClockOf(clock), application),
+    calls: new SqliteOutboundCallRepository(connection(), storeClockOf(clock)),
   }),
 );
 
@@ -92,7 +96,7 @@ describe.each(withCalls)(
   "#508: the held lease after an outbound call closed it ($name)",
   (target) => {
     it(
-      "confirmNow() at token N after leaseStateOf closed the expired lease: rejects lost and aborts the lease's signal",
+      "renewNow() at token N after leaseStateOf closed the expired lease: rejects lost and aborts the lease's signal",
       withTarget(target, async ({ clock, first, second }) => {
         const { lease } = await heldOn(first.leases, clock);
         await clock.advance(seconds(31));
@@ -100,7 +104,7 @@ describe.each(withCalls)(
         const closed = { tenantId, leaseExecutionId: rootExecutionId, token: lease.token ?? 0 };
 
         expect(await second.calls.leaseStateOf(closed)).toBe(OutboundCallLeaseState.LeaseClosed);
-        await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+        await expect(lease.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
 
         expect(lease.signal.aborted).toBe(true);
         expect(lease.signal.reason).toBeInstanceOf(ExecutionLeaseLostError);
@@ -122,13 +126,13 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       expect(lease.token).toBe(1);
       expect(lease.isYielded).toBe(false);
       // #533: the time the store said is left, less the safety margin
-      expect(lease.confirmedUntil).toBe(clock.now().getTime() + TRUSTED);
+      expect(lease.trustedUntil).toBe(clock.now().getTime() + TRUSTED);
       await lease.release();
     }),
   );
 
   it(
-    "assertHeld() passes before confirmedUntil and, at it, expires the lease first, then throws",
+    "assertHeld() passes before trustedUntil and, at it, expires the lease first, then throws",
     withTarget(target, async ({ clock, first }) => {
       const { lease } = await heldOn(first, clock);
 
@@ -149,7 +153,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
   );
 
   it(
-    "confirmNow() renews in the store, moves confirmedUntil on and runs the after-renewal checks",
+    "renewNow() renews in the store, moves trustedUntil on and runs the after-renewal checks",
     withTarget(target, async ({ clock, first }) => {
       const { lease } = await heldOn(first, clock);
       const checks: string[] = [];
@@ -159,10 +163,10 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       });
 
       await clock.advance(seconds(20));
-      await lease.confirmNow();
+      await lease.renewNow();
 
       expect(checks).toEqual(["cancel looked for"]);
-      expect(lease.confirmedUntil).toBe(clock.now().getTime() + TRUSTED);
+      expect(lease.trustedUntil).toBe(clock.now().getTime() + TRUSTED);
       await clock.advance(seconds(20));
       expect(() => {
         lease.assertHeld();
@@ -172,7 +176,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
   );
 
   it(
-    "confirmNow() on a transient store error aborts the lease and rejects: a hand-over, no check runs",
+    "renewNow() on a transient store error aborts the lease and rejects: a hand-over, no check runs",
     withTarget(target, async ({ clock, first }) => {
       const flaky = new FlakyLeases(first);
       const { lease } = await heldOn(flaky.wrap(), clock);
@@ -183,7 +187,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       });
       flaky.isDown = true;
 
-      await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+      await expect(lease.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
 
       expect(lease.signal.aborted).toBe(true);
       expect(checks).toEqual([]);
@@ -193,13 +197,13 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
   );
 
   it(
-    "confirmNow() after another instance took the lease rejects: lost",
+    "renewNow() after another instance took the lease rejects: lost",
     withTarget(target, async ({ clock, first, second }) => {
       const { lease } = await heldOn(first, clock);
       await clock.advance(seconds(31));
       const other = await executionLeasesOf(second, clock).hold(TREE);
 
-      await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+      await expect(lease.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
 
       expect(other.token).toBe(2);
       await other.release();
@@ -327,8 +331,8 @@ describe.each(kinds)(
         const thief = await second.acquire(TREE.tenantId, TREE.rootExecutionId, seconds(30));
         expect(refused).toBeUndefined();
         expect(thief).toMatchObject({
-          leaseEpoch: 2,
-          takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+          token: 2,
+          takenOverFrom: { holderInstanceId: "instance-1", token: 1 },
         });
 
         await expect(lease.enterStep()).rejects.toThrow(

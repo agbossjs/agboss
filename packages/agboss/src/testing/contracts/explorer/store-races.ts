@@ -43,7 +43,7 @@ const writeBy = (run: ExplorerRun, instance: number, token: number): Promise<unk
 const handOver = async (run: ExplorerRun, { lease }: RaceState): Promise<unknown> => {
   await run.storesOf(1).leases.release(lease);
   const next = await taken(run, 2);
-  return writeBy(run, 2, next.leaseEpoch);
+  return writeBy(run, 2, next.token);
 };
 
 /** The fenced effect's race (#500): the old holder's write against the hand-over. */
@@ -52,7 +52,7 @@ export const EFFECT_RACES: readonly ForcedRace[] = [
     name: "a write against its lease's hand-over and the new holder's write (#500)",
     kind: ExplorerWorldKind.FencedEffect,
     setup: live,
-    first: (run, { lease }) => writeBy(run, 1, lease.leaseEpoch),
+    first: (run, { lease }) => writeBy(run, 1, lease.token),
     second: handOver,
     firstWins: async ({ first, second }, run) =>
       expectEqual("the old holder's write", first, "ran") ??
@@ -86,7 +86,7 @@ const recorded = async (run: ExplorerRun): Promise<RaceState> => {
   const lease = await taken(run, 1);
   const calls = run.storesOf(1).calls;
   if (calls === undefined) throw new TypeError("no outbound-call store");
-  const key = callKeyOf("tree-1", lease.leaseEpoch);
+  const key = callKeyOf("tree-1", lease.token);
   const intent = { ...raceIntent("tree-1"), attemptOwner: "owner-1" };
   if (!(await calls.saveIfAbsent(key, intent))) throw new Error("the intent was recorded before");
   return { lease };
@@ -100,7 +100,7 @@ const onKey = (
 ): { readonly calls: OutboundCallRepository; readonly key: EffectKey } => {
   const calls = run.storesOf(instance).calls;
   if (calls === undefined) throw new TypeError("no outbound-call store");
-  return { calls, key: callKeyOf("tree-1", lease.leaseEpoch) };
+  return { calls, key: callKeyOf("tree-1", lease.token) };
 };
 
 const moveBy = (run: ExplorerRun, instance: number, lease: ExecutionLease): Promise<unknown> => {
@@ -161,13 +161,13 @@ export const CALL_RACES: readonly ForcedRace[] = [
     setup: live,
     first: (run, { lease }) =>
       onKey(run, 1, lease).calls.saveIfAbsent(
-        callKeyOf("tree-1", lease.leaseEpoch),
+        callKeyOf("tree-1", lease.token),
         raceIntent("tree-1"),
       ),
     second: async (run: ExplorerRun): Promise<unknown> => {
       const other = await taken(run, 2, "tree-2");
       return onKey(run, 2, other).calls.saveIfAbsent(
-        callKeyOf("tree-2", other.leaseEpoch),
+        callKeyOf("tree-2", other.token),
         raceIntent("tree-2"),
       );
     },

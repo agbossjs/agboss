@@ -90,26 +90,26 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.repository.ping();
   }
 
-  async saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+  async claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
     await this.gate.passed();
-    return this.repository.saveExecutionIdIfAbsent(identity);
+    return this.repository.claimExecutionId(identity);
   }
 
   async acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     await this.gate.passed();
-    return this.repository.acquire(tenantId, rootExecutionId, lease);
+    return this.repository.acquire(tenantId, rootExecutionId, duration);
   }
 
   async renew(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<Milliseconds | undefined> {
     await this.gate.passed();
-    return this.repository.renew(executionLease, lease);
+    return this.repository.renew(executionLease, duration);
   }
 
   async release(executionLease: ExecutionLease): Promise<void> {
@@ -117,22 +117,22 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.repository.release(executionLease);
   }
 
-  async finish(executionLease: ExecutionLease): Promise<void> {
+  async retire(executionLease: ExecutionLease): Promise<void> {
     await this.gate.passed();
-    return this.repository.finish(executionLease);
+    return this.repository.retire(executionLease);
   }
 
-  async yield(executionLease: ExecutionLease): Promise<boolean> {
+  async yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
     await this.gate.passed();
     return this.repository.yield(executionLease);
   }
 
   async reclaim(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     await this.gate.passed();
-    return this.repository.reclaim(executionLease, lease);
+    return this.repository.reclaim(executionLease, duration);
   }
 }
 

@@ -182,7 +182,7 @@ describe("#485 AC5: through an in-memory OpenTelemetry reader", () => {
 
   unmetered("AC5: no meter provider — no store is read for metrics", async ({ app, clock }) => {
     await app.ready();
-    const read = vi.spyOn(app.resolve(ChildExecutionQueueRepository), "findQueueDepth");
+    const read = vi.spyOn(app.resolve(ChildExecutionQueueRepository), "countByStatus");
 
     await execute(app, RemoteItemWorkflowStart, { name: "a", delay: 0, outcome: "ok" });
     for (let second = 0; second < 5; second += 1) await clock.advance(seconds(1));
@@ -192,7 +192,7 @@ describe("#485 AC5: through an in-memory OpenTelemetry reader", () => {
 
   closed("AC5: after close() no callback reads a store", async ({ app }) => {
     await app.ready();
-    const read = vi.spyOn(app.resolve(ChildExecutionQueueRepository), "findQueueDepth");
+    const read = vi.spyOn(app.resolve(ChildExecutionQueueRepository), "countByStatus");
     await collect(closing);
     expect(read).toHaveBeenCalledTimes(1);
 

@@ -91,7 +91,7 @@ export interface ExecutionLeaseRow {
    */
   readonly isClosedByCheck?: boolean;
   /** Finished by its holder (#520): the work under it is over, no `acquire` gets it again. */
-  readonly isFinished?: boolean;
+  readonly isRetired?: boolean;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

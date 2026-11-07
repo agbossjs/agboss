@@ -21,7 +21,7 @@ import {
   type OutboundCallKey,
   type OutboundCallIntent,
 } from "../../src/index.js";
-import { Clock } from "../../src/infrastructure/clock.js";
+import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { override, testAction } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -40,7 +40,7 @@ const reachedWindow = (): Promise<void> =>
     window.reached = resolve;
   });
 
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class GatedOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     const isSaved = await super.saveIfAbsent(key, intent);

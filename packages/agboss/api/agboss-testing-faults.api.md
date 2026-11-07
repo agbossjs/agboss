@@ -210,13 +210,13 @@ export enum StoreHoldPoint {
     // (undocumented)
     LeaseAcquire = "lease.acquire",
     // (undocumented)
-    LeaseFinish = "lease.finish",
-    // (undocumented)
     LeaseReclaim = "lease.reclaim",
     // (undocumented)
     LeaseRelease = "lease.release",
     // (undocumented)
     LeaseRenew = "lease.renew",
+    // (undocumented)
+    LeaseRetire = "lease.retire",
     // (undocumented)
     LeaseYield = "lease.yield",
     // (undocumented)
@@ -260,7 +260,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/store-points.ts:15:3 - (ae-undocumented) Missing documentation for "LeaseAcquire".
 // src/testing/faults/store-points.ts:16:3 - (ae-undocumented) Missing documentation for "LeaseRenew".
 // src/testing/faults/store-points.ts:17:3 - (ae-undocumented) Missing documentation for "LeaseRelease".
-// src/testing/faults/store-points.ts:18:3 - (ae-undocumented) Missing documentation for "LeaseFinish".
+// src/testing/faults/store-points.ts:18:3 - (ae-undocumented) Missing documentation for "LeaseRetire".
 // src/testing/faults/store-points.ts:19:3 - (ae-undocumented) Missing documentation for "LeaseYield".
 // src/testing/faults/store-points.ts:20:3 - (ae-undocumented) Missing documentation for "LeaseReclaim".
 // src/testing/faults/store-points.ts:23:3 - (ae-undocumented) Missing documentation for "OutboundFindByKey".

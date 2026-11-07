@@ -9,6 +9,7 @@ import {
 } from "../core/errors.js";
 import type { ExecutionIdentity, ExecutionLeaseRepository } from "./execution-lease.repository.js";
 import type { Milliseconds } from "../units/index.js";
+import type { Brand } from "../types/brand.js";
 
 /**
  * The framework's time (#262, infrastructure #261): every time it reads (the ledger's UTC day, the
@@ -70,32 +71,57 @@ export class SystemClock extends Clock {
 }
 
 /**
- * The time a store decides a lease's expiry by (#533) — a seam, never listed. In production
- * (`isDatabaseTime`) a networked store reads its database's own time inside each statement that
- * takes, renews, fences or closes a lease (PostgreSQL's `clock_timestamp()`), so every instance
- * agrees on the instant of expiry whatever its wall clock says; the in-memory and SQLite stores, on
- * one host, read `now()` — the application's clock. A test injects its clock instead
- * (`isDatabaseTime` false: every store reads `now()`), so `clock.advance` crosses an expiry. A store
- * takes it in its `deps`: `@Injectable({ deps: [PostgresConnection, StoreClock, ApplicationContext] })`.
+ * Where a store's time comes from (#533, G7): what `StoreClock.source` says, read by every store
+ * that decides a lease's expiry.
  */
-export abstract class StoreClock {
-  /** Whether a networked store reads its database's time (production) rather than `now()`. */
-  abstract readonly isDatabaseTime: boolean;
-
-  /** The time of a store that has no clock of its own (in-memory, SQLite), and of every store in a test. */
-  abstract now(): Date;
+export enum StoreTimeSource {
+  /**
+   * Production: a networked store reads its database's own time inside each statement that takes,
+   * renews, fences or closes a lease (PostgreSQL's `clock_timestamp()`), so every instance agrees on
+   * the instant of expiry whatever its wall clock says; a store on one host (in-memory, SQLite)
+   * reads `now()`, the host's clock.
+   */
+  Database = "database",
+  /**
+   * Every store reads `now()`, the application's clock, the networked ones too: the instances'
+   * clocks must then agree — an offset between hosts moves the instant of expiry.
+   */
+  Host = "host",
+  /** A test's clock: every store reads `now()`, so `clock.advance` crosses an expiry. */
+  Test = "test",
 }
 
-/** The store clock of an application instance: the database's time, the host's clock for a store on it. */
-export class DatabaseStoreClock extends StoreClock {
-  readonly isDatabaseTime: boolean = true;
+/**
+ * An instant on a store's clock (#533, G7): what `StoreClock.now()` answers — a `Date`, branded so
+ * that the application's `Clock` (whose `now()` is a plain `Date`, skewed by `ClockSkew` in a test)
+ * does not satisfy `Pick<StoreClock, "now">`: a fencing store that injects `Clock` by mistake does
+ * not compile.
+ */
+export type StoreTime = Brand<Date, "StoreTime">;
 
-  constructor(private readonly clock: Pick<Clock, "now">) {
-    super();
-  }
+/**
+ * The time a store decides a lease's expiry by (#533) — a seam, never listed: the application
+ * provides it (`StoreTimeSource.Database` on the application's clock), a test its own
+ * (`StoreTimeSource.Test`). A store takes it in its `deps` — `@Injectable({ deps:
+ * [PostgresConnection, StoreClock, ApplicationContext] })` — and reads the database's time exactly
+ * when `source` is `StoreTimeSource.Database`, `now()` otherwise.
+ */
+export class StoreClock {
+  /**
+   * @param source where a networked store's time comes from.
+   * @param clock the time of a store with no clock of its own, and of every store when `source`
+   *   is not `Database`.
+   * Both default to what an application provides (the database's time, the system's clock): a
+   * container with no application (`agboss check` creating a workflow's components) builds it so.
+   */
+  constructor(
+    readonly source: StoreTimeSource = StoreTimeSource.Database,
+    private readonly clock: Pick<Clock, "now"> = systemClock,
+  ) {}
 
-  now(): Date {
-    return this.clock.now();
+  /** The time of a store that has no clock of its own (in-memory, SQLite), and of every store off `Database`. */
+  now(): StoreTime {
+    return this.clock.now() as StoreTime;
   }
 }
 
@@ -116,7 +142,7 @@ export const systemClock: Clock = new SystemClock();
  * `thread-1`, `execution-1`, …) unless the application lists its own. Never a `pauseId`: that is an
  * answer credential, a random 128-bit token outside it. An id is never repeated over the life of
  * the application's stores (#591): every execution id minted is kept by the lease store before use
- * (`saveExecutionIdIfAbsent`) and one any execution had — of any tenant, running or over — fails
+ * (`claimExecutionId`) and one any execution had — of any tenant, running or over — fails
  * the new execution with `DuplicateExecutionIdError` before it is written; a minted thread id the
  * tenant already has is minted again (#550).
  */
@@ -174,7 +200,7 @@ export const randomIdGenerator: IdGenerator = new RandomIdGenerator();
 /**
  * How the framework makes a new execution's id (#591) — a root, a child, a recursion level: the
  * application's `IdGenerator` mints it (checked, #578) and the lease store keeps it
- * (`saveExecutionIdIfAbsent`) before anything else of the execution is written — its budgets'
+ * (`claimExecutionId`) before anything else of the execution is written — its budgets'
  * amounts, its thread, its lease, its marker, its checkpoint. An id another execution ever had is
  * `DuplicateExecutionIdError`: two trees never share a lease, a fencing token, a lease log or a step
  * key, whatever the generator does. A resume and a recovery keep their id and never come here.
@@ -206,11 +232,11 @@ export const mintedThreadIdsOf = (idGenerator: IdGenerator): MintedThreadIds => 
 /** The ids of an application instance: minted by `idGenerator`, kept in `leases`. */
 export const executionIdsOf = (
   idGenerator: IdGenerator,
-  leases: Pick<ExecutionLeaseRepository, "saveExecutionIdIfAbsent">,
+  leases: Pick<ExecutionLeaseRepository, "claimExecutionId">,
 ): ExecutionIds => ({
   async newExecutionId(tenantId: string): Promise<string> {
     const executionId = idGenerator.newExecutionId();
-    if (await leases.saveExecutionIdIfAbsent({ executionId, tenantId })) return executionId;
+    if (await leases.claimExecutionId({ executionId, tenantId })) return executionId;
     throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
   },
 });
@@ -231,11 +257,11 @@ export interface ReservedExecutionIds {
 /** The reserved ids of an application instance, kept in `leases`. */
 export const reservedExecutionIdsOf = (
   idGenerator: IdGenerator,
-  leases: Pick<ExecutionLeaseRepository, "saveExecutionIdIfAbsent">,
+  leases: Pick<ExecutionLeaseRepository, "claimExecutionId">,
 ): ReservedExecutionIds => ({
-  claim: (identity) => leases.saveExecutionIdIfAbsent(identity),
+  claim: (identity) => leases.claimExecutionId(identity),
   async keep(identity: ExecutionIdentity): Promise<string> {
-    if (await leases.saveExecutionIdIfAbsent(identity)) return identity.executionId;
+    if (await leases.claimExecutionId(identity)) return identity.executionId;
     throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
   },
 });

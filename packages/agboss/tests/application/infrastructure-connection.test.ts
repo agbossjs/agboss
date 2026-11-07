@@ -45,6 +45,7 @@ import {
   ConnectionlessEffectApplication,
   ConnectionlessOutboundApplication,
 } from "../infrastructure/sqlite/fixtures/sqlite-connectionless.application.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 sqliteFilePerTest();
 
@@ -126,7 +127,7 @@ class ConnectedLeases extends InMemoryExecutionLeaseRepository {
     database: InMemoryDatabase,
     readonly connection: OwnConnection,
   ) {
-    super(clock, application, database);
+    super(storeClockOf(clock), application, database);
   }
 }
 
@@ -140,7 +141,7 @@ class TokenLeases extends InMemoryExecutionLeaseRepository {
     database: InMemoryDatabase,
     readonly url: string,
   ) {
-    super(clock, application, database);
+    super(storeClockOf(clock), application, database);
   }
 }
 

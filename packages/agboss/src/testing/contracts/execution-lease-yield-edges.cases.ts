@@ -17,14 +17,15 @@ const LEASE = seconds(30);
 async function yieldedBy(store: ExecutionLeaseRepository): Promise<ExecutionLease> {
   const held = await store.acquire("default", "root-1", LEASE);
   if (held === undefined) throw new Error("the first acquire of a free tree must take its lease");
-  expect(await store.yield(held)).toBe(true);
+  expect(await store.yield(held)).toBeTypeOf("number");
   return held;
 }
 
 /**
  * A yielded lease at its edges (#516, acceptance): 1 ms before its expiry it still blocks; once
  * expired, a reclaim racing another instance's take leaves exactly one holder — never two, never
- * none; a yield said twice is one yield; after a reclaim the old epoch is stale for every call.
+ * none; a yield said twice is one yield; after a reclaim the old epoch is stale for every call; a
+ * yield answers the time left, as `renew` does, and extends nothing (G7).
  */
 export const LEASE_YIELD_EDGE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
   {
@@ -60,15 +61,15 @@ export const LEASE_YIELD_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposit
     },
   },
   {
-    name: "a lease yielded twice is one yielded lease: both answer true, another acquire is refused",
+    name: "a lease yielded twice is one yielded lease: both answer its time left, another acquire is refused",
     run: async ({ first, second }: Instances): Promise<void> => {
       const held = await yieldedBy(first);
 
       const again = await first.yield(held);
 
-      expect(again).toBe(true);
+      expect(again).toBeTypeOf("number");
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
-      expect(await first.reclaim(held, LEASE)).toMatchObject({ leaseEpoch: 2 });
+      expect(await first.reclaim(held, LEASE)).toMatchObject({ token: 2 });
     },
   },
   {
@@ -77,11 +78,29 @@ export const LEASE_YIELD_EDGE_CASES: readonly ContractCase<ExecutionLeaseReposit
       const held = await yieldedBy(first);
       const reclaimed = await first.reclaim(held, LEASE);
 
-      expect(await first.yield(held)).toBe(false);
+      expect(await first.yield(held)).toBeUndefined();
       expect(await first.reclaim(held, LEASE)).toBeUndefined();
       expect(await first.renew(held, LEASE)).toBeUndefined();
       expect(reclaimed && (await first.renew(reclaimed, LEASE))).toBe(LEASE);
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
+    },
+  },
+  {
+    name: "G7: a yield answers the time its lease has left on the store's clock — not extended: it still ends when its take said",
+    run: async ({ clock, first, second }: Instances): Promise<void> => {
+      const held = await first.acquire("default", "root-1", LEASE);
+      if (held === undefined)
+        throw new Error("the first acquire of a free tree must take its lease");
+      await clock.advance(seconds(10));
+
+      const left = await first.yield(held);
+      await clock.advance(seconds(20));
+      const taken = await second.acquire("default", "root-1", LEASE);
+
+      // 20 s were left: a store whose time runs on a little during the call answers a little less
+      expect(left).toBeGreaterThan(seconds(19));
+      expect(left).toBeLessThanOrEqual(seconds(20));
+      expect(taken).toMatchObject({ token: 2, takenOverFrom: { token: 1 } });
     },
   },
 ];

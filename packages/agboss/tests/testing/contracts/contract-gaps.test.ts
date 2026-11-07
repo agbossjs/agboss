@@ -34,7 +34,7 @@ describe("#695: the missing races bite", () => {
     expect(namesOf(run, LEASE, "pass")).toEqual(
       expect.arrayContaining([
         "a tree's lease held by one instance is not given to the other",
-        "a released lease is taken at once with leaseEpoch + 1; another tenant's tree is its own",
+        "a released lease is taken at once with token + 1; another tenant's tree is its own",
         PING_CASE,
       ]),
     );

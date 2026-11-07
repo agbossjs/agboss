@@ -1,6 +1,8 @@
 import {
   ApplicationContext,
   Clock,
+  StoreClock,
+  StoreTimeSource,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
@@ -24,13 +26,24 @@ import {
  * the PostgreSQL store did before #533, so a test proves the scenario bites.
  */
 
-/** The lease store on the caller's clock (before #533). */
+/**
+ * The lease store on the caller's clock (before #533): `StoreTimeSource.Host` over the instance's
+ * own `Clock` — G7: a `Clock` alone no longer passes for a store clock, so the fixture says it.
+ */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
-export class CallerClockLeaseRepository extends SqliteExecutionLeaseRepository {}
+export class CallerClockLeaseRepository extends SqliteExecutionLeaseRepository {
+  constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext) {
+    super(connection, new StoreClock(StoreTimeSource.Host, clock), applicationContext);
+  }
+}
 
 /** The intents' store on the caller's clock (before #533): its `leaseStateOf` reads it too. */
 @Injectable({ deps: [SqliteConnection, Clock] })
-export class CallerClockOutboundCallRepository extends SqliteOutboundCallRepository {}
+export class CallerClockOutboundCallRepository extends SqliteOutboundCallRepository {
+  constructor(connection: SqliteConnection, clock: Clock) {
+    super(connection, new StoreClock(StoreTimeSource.Host, clock));
+  }
+}
 
 const charge = {
   version: "1.0.0",

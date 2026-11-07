@@ -17,6 +17,7 @@ import {
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** A lease store that records, at each renewal it is asked for, how long the lease had left. */
 class MarginRecordingLeaseRepository extends InMemoryExecutionLeaseRepository {
@@ -29,7 +30,7 @@ class MarginRecordingLeaseRepository extends InMemoryExecutionLeaseRepository {
     private readonly rows: InMemoryDatabase,
   ) {
     super(
-      time,
+      storeClockOf(time),
       applicationContextOf({
         name: "margin-application",
         version: "1.0.0",

@@ -31,17 +31,15 @@ const keep = (run: ExplorerRun, instance: number, lease: ExecutionLease): void =
 const grantedText = (lease: ExecutionLease): string => {
   const from = lease.takenOverFrom;
   const over =
-    from === undefined
-      ? ""
-      : `, taken over from ${from.holderInstanceId} at ${String(from.leaseEpoch)}`;
-  return `→ epoch ${String(lease.leaseEpoch)}, ${String(lease.remaining)} ms left${over}`;
+    from === undefined ? "" : `, taken over from ${from.holderInstanceId} at ${String(from.token)}`;
+  return `→ epoch ${String(lease.token)}, ${String(lease.remaining)} ms left${over}`;
 };
 
 async function acquired(run: ExplorerRun, instance: number, tree: string): Promise<string> {
   const now = run.now;
   const lease = await run.storesOf(instance).leases.acquire(EXPLORED_TENANT, tree, EXPLORED_LEASE);
   if (lease === undefined) return "→ refused";
-  run.observer.grant(instance, tree, lease.leaseEpoch, lease.remaining, now);
+  run.observer.grant(instance, tree, lease.token, lease.remaining, now);
   keep(run, instance, lease);
   return grantedText(lease);
 }
@@ -62,7 +60,7 @@ async function renewed(run: ExplorerRun, instance: number, tree: string): Promis
     run.observer.ended(instance, tree);
     return "→ refused";
   }
-  run.observer.accepted(`instance-${String(instance)}'s renewal`, tree, lease.leaseEpoch, now);
+  run.observer.accepted(`instance-${String(instance)}'s renewal`, tree, lease.token, now);
   run.observer.renewed(instance, tree, remaining, now);
   return `→ ${String(remaining)} ms left`;
 }
@@ -70,10 +68,10 @@ async function renewed(run: ExplorerRun, instance: number, tree: string): Promis
 async function yielded(run: ExplorerRun, instance: number, tree: string): Promise<string> {
   const now = run.now;
   const lease = heldOf(run, instance, tree);
-  const isYielded = await run.storesOf(instance).leases.yield(lease);
+  const isYielded = (await run.storesOf(instance).leases.yield(lease)) !== undefined;
   const belief = run.observer.beliefOf(instance, tree);
   if (!isYielded) run.observer.ended(instance, tree);
-  else run.observer.accepted(`instance-${String(instance)}'s yield`, tree, lease.leaseEpoch, now);
+  else run.observer.accepted(`instance-${String(instance)}'s yield`, tree, lease.token, now);
   if (isYielded && belief !== undefined) belief.yielded = true;
   return `→ ${String(isYielded)}`;
 }
@@ -86,8 +84,8 @@ async function reclaimed(run: ExplorerRun, instance: number, tree: string): Prom
     run.observer.ended(instance, tree);
     return "→ refused";
   }
-  run.observer.accepted(`instance-${String(instance)}'s reclaim`, tree, lease.leaseEpoch, now);
-  run.observer.grant(instance, tree, taken.leaseEpoch, taken.remaining, now);
+  run.observer.accepted(`instance-${String(instance)}'s reclaim`, tree, lease.token, now);
+  run.observer.grant(instance, tree, taken.token, taken.remaining, now);
   keep(run, instance, taken);
   return grantedText(taken);
 }
@@ -96,13 +94,13 @@ async function letGo(
   run: ExplorerRun,
   instance: number,
   tree: string,
-  isFinished: boolean,
+  isRetired: boolean,
 ): Promise<string> {
   const lease = heldOf(run, instance, tree);
   const leases = run.storesOf(instance).leases;
-  await (isFinished ? leases.finish(lease) : leases.release(lease));
-  run.observer.released(instance, tree, lease.leaseEpoch, isFinished);
-  return `epoch ${String(lease.leaseEpoch)}`;
+  await (isRetired ? leases.retire(lease) : leases.release(lease));
+  run.observer.released(instance, tree, lease.token, isRetired);
+  return `epoch ${String(lease.token)}`;
 }
 
 /** A lease operation. */
@@ -123,7 +121,7 @@ export function leaseStep(
       return reclaimed(run, instance, tree);
     case LeaseOperation.Release:
       return letGo(run, instance, tree, false);
-    case LeaseOperation.Finish:
+    case LeaseOperation.Retire:
       return letGo(run, instance, tree, true);
   }
 }

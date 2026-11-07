@@ -50,7 +50,7 @@ export interface ChildExecutionEnd {
  * What the queue holds now over every tenant and tree (#485): the cluster's queued work, read once
  * per metrics collection (`agboss.cluster.children.*`).
  */
-export interface ChildExecutionQueueDepth {
+export interface ChildExecutionQueueCounts {
   /** Children `Queued`: waiting for an instance to claim them. */
   readonly queued: number;
   /** Children `Running`: claimed by an instance. */
@@ -112,7 +112,7 @@ export abstract class ChildExecutionQueueRepository {
    * longest-waiting queued one was queued (#485) — one round trip (an aggregate, never a read per
    * tree); every instance reads the same.
    */
-  abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
+  abstract countByStatus(): Promise<ChildExecutionQueueCounts>;
   /**
    * Wakes this instance's claimer soon after a child is queued by any instance, in any process
    * (#777) — PostgreSQL's `LISTEN` / `NOTIFY`, a MongoDB change stream. `onQueued` is a hint: it
@@ -126,8 +126,8 @@ export abstract class ChildExecutionQueueRepository {
   watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
 }
 
-/** The depth of `children`: what `findQueueDepth()` answers for these rows. */
-export function queueDepthOf(children: Iterable<QueuedChildExecution>): ChildExecutionQueueDepth {
+/** The depth of `children`: what `countByStatus()` answers for these rows. */
+export function queueCountsOf(children: Iterable<QueuedChildExecution>): ChildExecutionQueueCounts {
   let queued = 0;
   let running = 0;
   let oldest: number | undefined;
@@ -234,7 +234,7 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
     return Promise.resolve();
   }
 
-  findQueueDepth(): Promise<ChildExecutionQueueDepth> {
-    return Promise.resolve(queueDepthOf(this.database.childQueue.values()));
+  countByStatus(): Promise<ChildExecutionQueueCounts> {
+    return Promise.resolve(queueCountsOf(this.database.childQueue.values()));
   }
 }

@@ -26,7 +26,7 @@ import type { TestFenceOptions } from "../fence.js";
  * The fenced effects of a unit runner (#500): the built-in in-memory store on a database of the
  * runner's own, and — for every fenced-effect store the runner's container creates, the SQLite one
  * too — the runner's lease in the lease store of that store's backend (#825: `static store`): the
- * fence's token, held until its `confirmedUntil`, released when the options say it was lost. So
+ * fence's token, held until its `trustedUntil`, released when the options say it was lost. So
  * `testAction` / `testTool` run a component's `saveResultIfAbsent` as a step of a held lease does.
  * The same for the calls that leave the system (#505): `OutboundCalls` over the in-memory
  * outbound-call store, its lease held the same way.
@@ -84,7 +84,7 @@ export class UnitFencedEffects {
     const { tenantId, leaseExecutionId } = this.lease;
     // until its confirmation: one already past is a lease that expired
     const length = seconds(
-      Math.max(0, this.lease.confirmedUntil - this.clock.now().getTime()) / 1000,
+      Math.max(0, this.lease.trustedUntil - this.clock.now().getTime()) / 1000,
     );
     const token = this.fence.token ?? 1;
     for (let epoch = 1; epoch < token; epoch += 1) {

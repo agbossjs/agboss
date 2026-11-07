@@ -127,13 +127,13 @@ describe("#481: a store reading Date.now() instead of the seam's clock", () => {
     expect(namesOf(run, WALL_CLOCK, "fail")).toEqual(
       expect.arrayContaining([
         "a tree's lease held by one instance is not given to the other",
-        "past the lease the other takes it with leaseEpoch + 1, and the old holder's renew is false",
+        "past the lease the other takes it with token + 1, and the old holder's renew is false",
         "a holder frozen past the lease loses it to the waiting instance: its signal aborts",
       ]),
     );
     expect(namesOf(run, WALL_CLOCK, "pass")).toEqual(
       expect.arrayContaining([
-        "a released lease is taken at once with leaseEpoch + 1; another tenant's tree is its own",
+        "a released lease is taken at once with token + 1; another tenant's tree is its own",
         PING_CASE,
       ]),
     );

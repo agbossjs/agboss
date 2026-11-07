@@ -83,8 +83,8 @@ async function expectNoStaleClaim({ b, child }: FrozenReclaim): Promise<void> {
   // the child's lease is still B's, finished: A took none
   expect(leaseRowOf(b, child.executionId)).toMatchObject({
     released: true,
-    isFinished: true,
-    lease: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+    isRetired: true,
+    lease: { holderInstanceId: "instance-1", token: 1 },
   });
   expect(await takeoversOf(b, child.rootExecutionId, child.executionId)).toEqual([]);
   expect(yieldSeen.runs).toEqual([{ name: "gate", instanceId: "instance-1" }]);

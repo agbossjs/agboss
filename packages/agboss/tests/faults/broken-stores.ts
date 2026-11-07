@@ -2,7 +2,6 @@ import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import {
-  Clock,
   LeaseCheck,
   SqliteOutboundCallRepository,
   StoreClock,
@@ -27,7 +26,7 @@ import type { Milliseconds } from "../../src/units/index.js";
  * - `UnfencedSqliteFencedEffectRepository`: no fencing check on the business write — the key's
  *   token is replaced by the lease's current epoch before the store's transaction, so a zombie's
  *   write passes the lease check and the scope's mark as if it held the lease.
- * - `ReleasingSqliteExecutionLeaseRepository`: a `finish` that is a plain `release` (#520) — a
+ * - `ReleasingSqliteExecutionLeaseRepository`: a `retire` that is a plain `release` (#520) — a
  *   finished child's lease is free for the next `acquire`.
  * - `UnfencedSqliteOutboundCallRepository` (#584): no fencing check on the payment's intent — its
  *   writes go in at the lease's current epoch, so a zombie records a payment as if it held the lease.
@@ -46,11 +45,11 @@ function currentEpochOf(database: DatabaseSync, key: EffectKey): number {
   return row === undefined ? key.token : Number(row.lease_epoch);
 }
 
-@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepository {
   constructor(
     private readonly sqliteConnection: SqliteConnection,
-    clock: Clock,
+    clock: StoreClock,
     settings: FencedEffectSettings,
   ) {
     super(sqliteConnection, clock, settings);
@@ -74,7 +73,7 @@ export const FORGED_TOKEN_OFFSET = 1_000_000;
  * history records of the write —, and its transaction lets the forged token through at the
  * lease's current epoch, as `UnfencedSqliteFencedEffectRepository` lets a stale one.
  */
-@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
   override saveResultIfAbsent<TResult>(
     key: EffectKey,
@@ -87,18 +86,18 @@ export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFence
   }
 }
 
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class ReleasingSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
-  override finish(executionLease: ExecutionLease): Promise<void> {
+  override retire(executionLease: ExecutionLease): Promise<void> {
     return this.release(executionLease);
   }
 }
 
 /**
  * #608: a lease store whose renewal says yes to a lease that is over — taken over, or expired: the
- * old holder keeps believing it holds the tree, so its `confirmNow()` right before a send passes.
+ * old holder keeps believing it holds the tree, so its `renewNow()` right before a send passes.
  */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class StaleRenewingSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   override async renew(
     executionLease: ExecutionLease,

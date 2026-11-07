@@ -67,7 +67,9 @@ export function inImmediateTransaction<TResult>(
 /**
  * The SQLite connection of one application instance: created only by the container, shared by its
  * SQLite stores — and the DI token a subclass of a SQLite implementation names in its `deps`
- * (`@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })`, #265 S70).
+ * (`@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })`, #265 S70; a fencing
+ * store's — the lease, fenced-effect and outbound-call stores — `[SqliteConnection, StoreClock,
+ * ApplicationContext]`, #847: a `Clock` does not pass for its `StoreClock`).
  */
 @Injectable({
   deps: [ApplicationContext],

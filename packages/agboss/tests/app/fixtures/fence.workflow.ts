@@ -205,7 +205,7 @@ export async function release(
   seen.fences.push(fenceSeenOf(fence, step.idempotencyKey));
   seen.kept.push(fence);
   if (levers.isRefused) throw new ReleaseRefusedError("the release window is closed");
-  if (levers.wrap !== undefined) throw wrapped(fence.fenced(fence.token + 1));
+  if (levers.wrap !== undefined) throw wrapped(fence.fencedError(fence.token + 1));
   fence.assertHeld();
   if (levers.freeze && isFirst) {
     await new Promise<void>((resolve) => {
@@ -222,7 +222,7 @@ export async function release(
     });
   }
   if (levers.confirmFirst) {
-    await fence.confirmNow();
+    await fence.renewNow();
     seen.notified.push(step.idempotencyKey);
   }
   return staged;
@@ -307,7 +307,7 @@ export class FenceToolInterceptor implements BeforeToolCall {
 
   beforeToolCall(): ToolCallDecision {
     const { fence } = this.executionContext;
-    if (levers.isInterceptorFenced) throw fence.fenced(fence.token + 1);
+    if (levers.isInterceptorFenced) throw fence.fencedError(fence.token + 1);
     return ToolCallDecision.allow();
   }
 }
@@ -348,7 +348,7 @@ export class UnbookAction {
 
   execute(): Promise<void> {
     const { fence, step } = this.executionContext;
-    if (levers.isUndoFenced) throw fence.fenced(fence.token + 1);
+    if (levers.isUndoFenced) throw fence.fencedError(fence.token + 1);
     seen.undone.push(fenceSeenOf(fence, step.idempotencyKey));
     return Promise.resolve();
   }

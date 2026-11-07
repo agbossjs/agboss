@@ -23,6 +23,7 @@ import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** The stores of one instance, and a frame under a lease that keeps what it is told. */
 function effectsInFrame() {
@@ -32,9 +33,9 @@ function effectsInFrame() {
     ...{ name: "observed-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(
-    clock,
+    storeClockOf(clock),
     database,
     new FencedEffectSettings(),
     leases,
@@ -45,10 +46,10 @@ function effectsInFrame() {
     leaseExecutionId: "execution-1",
     scopeKey: "default:execution-1",
     token: 1,
-    confirmedUntil: Number.POSITIVE_INFINITY,
+    trustedUntil: Number.POSITIVE_INFINITY,
     isYielded: false,
     assertHeld: () => undefined,
-    confirmNow: () => Promise.resolve(),
+    renewNow: () => Promise.resolve(),
     enterStep: () => Promise.resolve(() => undefined),
     recordFencedEffect: (report) => {
       reports.push(report);

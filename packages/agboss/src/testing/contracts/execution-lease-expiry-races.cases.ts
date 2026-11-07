@@ -67,7 +67,7 @@ const raceAt = (racing: RacingCall, edge: ExpiryEdge): ContractCase<ExecutionLea
       for (let round = 0; round < ROUNDS; round += 1) {
         const lease = await instances.first.acquire("default", `race-${String(round)}`, LEASE);
         if (lease === undefined) throw new Error("the first acquire of a free tree takes it");
-        if (racing.isYielded) expect(await instances.first.yield(lease)).toBe(true);
+        if (racing.isYielded) expect(await instances.first.yield(lease)).toBeTypeOf("number");
         held.push(lease);
       }
       await instances.clock.advance(EXPIRY_EDGE_OFFSET[edge]);
@@ -77,7 +77,7 @@ const raceAt = (racing: RacingCall, edge: ExpiryEdge): ContractCase<ExecutionLea
       for (const [isKept, taken] of outcomes) {
         expect(isKept).toBe(isHolderWinning);
         if (isHolderWinning) expect(taken).toBeUndefined();
-        else expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+        else expect(taken).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
       }
     },
   };
@@ -104,7 +104,7 @@ const renewedFromNow: ContractCase<ExecutionLeaseRepository> = {
 
     expect(refusedJustBefore).toBeUndefined();
     expect(isRenewedAtSecondExpiry).toBe(false);
-    expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+    expect(taken).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
   },
 };
 

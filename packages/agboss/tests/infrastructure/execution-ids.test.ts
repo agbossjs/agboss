@@ -30,7 +30,7 @@ function idsStore(isKept: boolean) {
   const asked: ExecutionIdentity[] = [];
   return {
     asked,
-    saveExecutionIdIfAbsent: (identity: ExecutionIdentity) => {
+    claimExecutionId: (identity: ExecutionIdentity) => {
       asked.push(identity);
       return Promise.resolve(isKept);
     },

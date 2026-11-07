@@ -958,11 +958,11 @@ export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted"
 
 // @public
 export interface TestFenceOptions {
-    readonly confirmedUntil?: Date;
-    readonly confirmNowFails?: boolean | Error;
     readonly isLost?: boolean;
     readonly leaseExecutionId?: string;
+    readonly renewNowFails?: boolean | Error;
     readonly token?: number;
+    readonly trustedUntil?: Date;
 }
 
 // @public
@@ -1017,17 +1017,6 @@ export interface TestStepOptions {
     readonly itemIndex?: number;
     // (undocumented)
     readonly visitNumber?: number;
-}
-
-// Warning: (ae-forgotten-export) The symbol "StoreClock" needs to be exported by the entry point index.d.ts
-//
-// @public
-export class TestStoreClock extends StoreClock {
-    constructor(clock: Pick<Clock, "now">);
-    // (undocumented)
-    readonly isDatabaseTime: boolean;
-    // (undocumented)
-    now(): Date;
 }
 
 // @public
@@ -1405,8 +1394,6 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/store-clock.ts:8:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/testing/store-clock.ts:14:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/test-app.ts:47:3 - (ae-undocumented) Missing documentation for "clock".
 // src/testing/test-app.ts:53:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:54:3 - (ae-undocumented) Missing documentation for "router".

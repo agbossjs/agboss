@@ -1,7 +1,7 @@
 /**
- * #520 acceptance: the finished lease's edge cases bite. Each runs against a naive store — a finish
- * that matches the holder but not the epoch, one that finishes the key whoever holds it (or nobody),
- * a finish that is only a release, one that a later finish or release undoes — and fails; the real
+ * #520 acceptance: the retired lease's edge cases bite. Each runs against a naive store — a retire
+ * that matches the holder but not the epoch, one that retires the key whoever holds it (or nobody),
+ * a retire that is only a release, one that a later retire or release undoes — and fails; the real
  * store passes them all.
  */
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import {
   applicationContextOf,
   type ApplicationContext,
 } from "../../src/flow/context/application-context.js";
-import type { Clock } from "../../src/infrastructure/clock.js";
+import type { StoreClock } from "../../src/infrastructure/clock.js";
 import {
   InMemoryExecutionLeaseRepository,
   type ExecutionLease,
@@ -18,70 +18,71 @@ import {
 } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { LEASE_FINISH_EDGE_CASES } from "../../src/testing/contracts/execution-lease-finish-edges.cases.js";
-import { LEASE_FINISH_CASES } from "../../src/testing/contracts/execution-lease-finish.cases.js";
+import { LEASE_RETIRE_EDGE_CASES } from "../../src/testing/contracts/execution-lease-retire-edges.cases.js";
+import { LEASE_RETIRE_CASES } from "../../src/testing/contracts/execution-lease-retire.cases.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 type Store = new (
-  clock: Clock,
+  clock: StoreClock,
   application: ApplicationContext,
   database: InMemoryDatabase,
 ) => ExecutionLeaseRepository;
 
-/** A store over the database's rows, as the naive finishes below write them. */
+/** A store over the database's rows, as the naive retires below write them. */
 class RowStore extends InMemoryExecutionLeaseRepository {
   constructor(
-    clock: Clock,
+    clock: StoreClock,
     application: ApplicationContext,
     protected readonly rows: InMemoryDatabase,
   ) {
     super(clock, application, rows);
   }
 
-  protected finishRow(lease: ExecutionLease): void {
+  protected retireRow(lease: ExecutionLease): void {
     this.rows.executionLeases.set(treeKeyOf(lease.tenantId, lease.rootExecutionId), {
       lease,
       released: true,
-      isFinished: true,
+      isRetired: true,
     });
   }
 }
 
-/** A finish that matches the holder only: an older epoch of the same instance finishes the newer. */
+/** A retire that matches the holder only: an older epoch of the same instance retires the newer. */
 class HolderOnlyFinish extends RowStore {
-  override finish(lease: ExecutionLease): Promise<void> {
+  override retire(lease: ExecutionLease): Promise<void> {
     const stored = this.rows.executionLeases.get(treeKeyOf(lease.tenantId, lease.rootExecutionId));
-    if (stored?.lease.holderInstanceId === lease.holderInstanceId) this.finishRow(stored.lease);
+    if (stored?.lease.holderInstanceId === lease.holderInstanceId) this.retireRow(stored.lease);
     return Promise.resolve();
   }
 }
 
-/** A finish of the key, whoever holds it now — or nobody. */
+/** A retire of the key, whoever holds it now — or nobody. */
 class KeyOnlyFinish extends RowStore {
-  override finish(lease: ExecutionLease): Promise<void> {
-    this.finishRow(lease);
+  override retire(lease: ExecutionLease): Promise<void> {
+    this.retireRow(lease);
     return Promise.resolve();
   }
 }
 
-/** The finish before #520: a release, so the key is free again. */
-class FinishAsRelease extends RowStore {
-  override finish(lease: ExecutionLease): Promise<void> {
+/** The retire before #520: a release, so the key is free again. */
+class RetireAsRelease extends RowStore {
+  override retire(lease: ExecutionLease): Promise<void> {
     return this.release(lease);
   }
 }
 
-/** A finish that a second finish of the same lease toggles back to released. */
-class TogglingFinish extends RowStore {
-  override finish(lease: ExecutionLease): Promise<void> {
+/** A retire that a second retire of the same lease toggles back to released. */
+class TogglingRetire extends RowStore {
+  override retire(lease: ExecutionLease): Promise<void> {
     const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
-    if (this.rows.executionLeases.get(key)?.isFinished === true) return this.release(lease);
-    return super.finish(lease);
+    if (this.rows.executionLeases.get(key)?.isRetired === true) return this.release(lease);
+    return super.retire(lease);
   }
 
   override release(lease: ExecutionLease): Promise<void> {
     const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
     const stored = this.rows.executionLeases.get(key);
-    if (stored?.lease.leaseEpoch === lease.leaseEpoch)
+    if (stored?.lease.token === lease.token)
       this.rows.executionLeases.set(key, { lease: stored.lease, released: true });
     return Promise.resolve();
   }
@@ -93,7 +94,7 @@ function instancesOf(Store: Store) {
   const database = new InMemoryDatabase();
   const of = (instanceId: string) =>
     new Store(
-      clock,
+      storeClockOf(clock),
       applicationContextOf({
         name: "bites-application",
         version: "1.0.0",
@@ -107,7 +108,7 @@ function instancesOf(Store: Store) {
   return { clock, first: of("instance-1"), second: of("instance-2") };
 }
 
-const CASES = [...LEASE_FINISH_CASES, ...LEASE_FINISH_EDGE_CASES];
+const CASES = [...LEASE_RETIRE_CASES, ...LEASE_RETIRE_EDGE_CASES];
 
 const caseNamed = (start: string) => {
   const found = CASES.find((each) => each.name.startsWith(start));
@@ -115,16 +116,16 @@ const caseNamed = (start: string) => {
   return found;
 };
 
-describe("#520 acceptance: the finished lease's cases fail on a naive store", () => {
+describe("#520 acceptance: the retired lease's cases fail on a naive store", () => {
   it.each([
-    ["#520: a finish with the epoch before its holder's release", HolderOnlyFinish],
-    ["#520: a finish with the epoch before a reclaim", HolderOnlyFinish],
-    ["#520: released, taken by another instance, then the old holder's finish", KeyOnlyFinish],
-    ["#520: a finish of a key nobody took", KeyOnlyFinish],
-    ["finishing a lost lease keeps the new holder's", KeyOnlyFinish],
-    ["a finished lease is never taken again", FinishAsRelease],
-    ["#520: a finished key stays finished for every instance", FinishAsRelease],
-    ["#520: a finished key stays finished for every instance", TogglingFinish],
+    ["#520: a retire with the epoch before its holder's release", HolderOnlyFinish],
+    ["#520: a retire with the epoch before a reclaim", HolderOnlyFinish],
+    ["#520: released, taken by another instance, then the old holder's retire", KeyOnlyFinish],
+    ["#520: a retire of a key nobody took", KeyOnlyFinish],
+    ["retiring a lost lease keeps the new holder's", KeyOnlyFinish],
+    ["a retired lease is never taken again", RetireAsRelease],
+    ["#520: a retired key stays retired for every instance", RetireAsRelease],
+    ["#520: a retired key stays retired for every instance", TogglingRetire],
   ] as const)("%s… fails on %O", async (start, Naive) => {
     await expect(caseNamed(start).run(instancesOf(Naive))).rejects.toThrow();
   });

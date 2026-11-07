@@ -25,6 +25,7 @@ import {
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** One instance's stores over a database of the test. */
 function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock()) {
@@ -36,9 +37,14 @@ function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock())
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const settings = new FencedEffectSettings();
-  const effects = new InMemoryFencedEffectRepository(clock, database, settings, leases);
+  const effects = new InMemoryFencedEffectRepository(
+    storeClockOf(clock),
+    database,
+    settings,
+    leases,
+  );
   return { clock, database, leases, effects };
 }
 
@@ -55,7 +61,7 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   ping(): Promise<void> {
     return Promise.resolve();
   }
-  saveExecutionIdIfAbsent(): Promise<boolean> {
+  claimExecutionId(): Promise<boolean> {
     return Promise.resolve(true);
   }
   acquire(): Promise<undefined> {
@@ -67,11 +73,11 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   release(): Promise<void> {
     return Promise.resolve();
   }
-  finish(): Promise<void> {
+  retire(): Promise<void> {
     return Promise.resolve();
   }
-  yield(): Promise<boolean> {
-    return Promise.resolve(false);
+  yield(): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
   }
   reclaim(): Promise<undefined> {
     return Promise.resolve(undefined);
@@ -147,7 +153,7 @@ describe("#500: the in-memory fenced-effect store", () => {
   it("refuses to run beside another lease store: FencedEffectStoreMismatchError names both", async () => {
     const { clock, database, leases } = storesOn();
     const effects = new InMemoryFencedEffectRepository(
-      clock,
+      storeClockOf(clock),
       database,
       new FencedEffectSettings(),
       new ElsewhereExecutionLeaseRepository(),

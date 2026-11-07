@@ -149,7 +149,7 @@ describe("#633: a take of work already over (#520)", () => {
   });
 
   it("over once the store gave the lease: given back, and this process's waiters woken", async () => {
-    const lease = { tenantId: "acme", rootExecutionId: "root-1", leaseEpoch: 1 };
+    const lease = { tenantId: "acme", rootExecutionId: "root-1", token: 1 };
     const { repository, release } = storeOf(lease);
     const notify = vi.spyOn(leaseReleases, "notify");
     const leases = executionLeasesOf(repository, new VirtualClock());

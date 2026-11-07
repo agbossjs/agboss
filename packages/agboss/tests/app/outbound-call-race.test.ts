@@ -16,7 +16,7 @@ import {
   type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
-import { Clock } from "../../src/infrastructure/clock.js";
+import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { override, testAction } from "../../src/testing/index.js";
@@ -38,7 +38,7 @@ enum RivalMove {
 
 const rival = { move: RivalMove.Resends, reads: 0, moves: 0 };
 
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
     const found = await super.findByKey(key);

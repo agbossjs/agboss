@@ -1,6 +1,7 @@
 import {
   ApplicationContext,
   Clock,
+  StoreClock,
   Injectable,
   type ExecutionLease,
   type ExecutionLeaseTakeoverEvent,
@@ -93,7 +94,7 @@ export class ThrowingLeaseObserver
 }
 
 /** A lease store that never says who it took a lease over from (`takenOverFrom` left out). */
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class SilentTakeoverLeaseRepository extends InMemoryExecutionLeaseRepository {
   override async acquire(
     tenantId: string,
@@ -107,7 +108,7 @@ export class SilentTakeoverLeaseRepository extends InMemoryExecutionLeaseReposit
           tenantId: taken.tenantId,
           rootExecutionId: taken.rootExecutionId,
           holderInstanceId: taken.holderInstanceId,
-          leaseEpoch: taken.leaseEpoch,
+          token: taken.token,
           expiresAt: taken.expiresAt,
           remaining: taken.remaining,
         };

@@ -9,7 +9,7 @@
 import { pathToFileURL } from "node:url";
 import { applicationOf } from "../../application/assemble.js";
 import { buildApplication } from "../../application/create-app.js";
-import { DatabaseStoreClock, lazyLoad, waitOf } from "../../infrastructure/clock.js";
+import { StoreClock, StoreTimeSource, lazyLoad, waitOf } from "../../infrastructure/clock.js";
 import { hostClockOfPod } from "./fault-clock.js";
 import { closeOnStopSignals } from "../../application/stop-signals.js";
 import { resolveEnvironment } from "../../environments/resolve.js";
@@ -109,7 +109,7 @@ const built = await buildApplication(
   assembled,
   { environmentName: "fault", environment: resolveEnvironment(loaded, process.env) },
   // the stores decide by the run's time, never by the pod's skewed clock: a database's (#533)
-  { instanceId, storeClock: new DatabaseStoreClock(hostClockOfPod()) },
+  { instanceId, storeClock: new StoreClock(StoreTimeSource.Database, hostClockOfPod()) },
 );
 closeOnStopSignals(built);
 process.on("SIGTERM", () => {

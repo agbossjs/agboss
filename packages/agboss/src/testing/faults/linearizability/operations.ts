@@ -43,7 +43,7 @@ const MODELLED: ReadonlySet<string> = new Set([
   StoreHoldPoint.LeaseAcquire,
   StoreHoldPoint.LeaseRenew,
   StoreHoldPoint.LeaseRelease,
-  StoreHoldPoint.LeaseFinish,
+  StoreHoldPoint.LeaseRetire,
   StoreHoldPoint.LeaseYield,
   StoreHoldPoint.LeaseReclaim,
   StoreHoldPoint.FencedEffectWrite,

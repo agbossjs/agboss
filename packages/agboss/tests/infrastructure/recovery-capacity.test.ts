@@ -49,7 +49,7 @@ async function deadAndFull(apps: readonly TestApp[]): Promise<void> {
 
 /** Who took each root's second lease: the instance that recovered it. */
 const recoveredBy = (): readonly string[] =>
-  seen.leases.filter((lease) => lease.leaseEpoch === 2).map((lease) => lease.holderInstanceId);
+  seen.leases.filter((lease) => lease.token === 2).map((lease) => lease.holderInstanceId);
 
 beforeEach(() => {
   resetTreeLog();

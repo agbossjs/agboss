@@ -163,7 +163,7 @@ async function outcomesOf(
     const key: EffectKey = effectKeyForTesting(keyWith("default", "order:1", "charge"), {
       scopeKey: scopeKeyOf("default", tree),
       leaseExecutionId: tree,
-      token: lease.leaseEpoch,
+      token: lease.token,
       idempotencyKey: `${tree}:charge-action:1`,
       fingerprint: fingerprintOf({ request: call.request }),
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },

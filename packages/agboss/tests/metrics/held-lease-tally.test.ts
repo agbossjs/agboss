@@ -11,6 +11,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 describe("#485: the held-lease tally", () => {
   it("counts a lease until its signal aborts, once; one already over is not counted", () => {
@@ -41,7 +42,11 @@ describe("#485: the held-lease tally", () => {
       environmentName: "test",
       environment: NO_ENVIRONMENT_VALUES,
     });
-    const repository = new InMemoryExecutionLeaseRepository(clock, context, new InMemoryDatabase());
+    const repository = new InMemoryExecutionLeaseRepository(
+      storeClockOf(clock),
+      context,
+      new InMemoryDatabase(),
+    );
     const heldLeases = new HeldLeaseTally();
     const leases = executionLeasesOf(repository, clock, { heldLeases });
 
@@ -51,7 +56,7 @@ describe("#485: the held-lease tally", () => {
     await one.release();
     await one.release();
     expect(heldLeases.held).toBe(1);
-    await two.release({ isFinished: true });
+    await two.release({ isRetired: true });
     expect(heldLeases.held).toBe(0);
   });
 });

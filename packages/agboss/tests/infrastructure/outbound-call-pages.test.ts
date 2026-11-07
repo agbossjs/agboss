@@ -24,6 +24,7 @@ import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../src/testing/contracts/outbound-call-data.js";
 import { hours } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const record = (name: string): OutboundCallRecord => ({ name }) as OutboundCallRecord;
 const rowsOf = (...places: number[]) =>
@@ -88,8 +89,8 @@ describe("#825: an in-memory row's place in the record order", () => {
       ...{ name: "pages-application", version: "1.0.0", instanceId: "instance-1" },
       ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
     });
-    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-    const calls = new InMemoryOutboundCallRepository(clock, database, leases);
+    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+    const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
     const key = effectKeyForTesting(keyOf(lease, "charge"));

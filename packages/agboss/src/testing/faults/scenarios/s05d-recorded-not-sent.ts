@@ -20,7 +20,7 @@ import {
  * outbound-call store answered, before it calls the gateway. Its lease expires; pod b takes the
  * tree over, finds the pending intent of a lease that is no longer live, reconciles it with the
  * gateway (not sent), sends once and finishes the tree. a is thawed (SIGCONT) and goes on: its
- * renewal right before the send (`fence.confirmNow()`) is refused, so it hands over and never
+ * renewal right before the send (`fence.renewNow()`) is refused, so it hands over and never
  * reaches the gateway. One charge request, one payment.
  */
 

@@ -672,9 +672,6 @@ export function assertBusinessKey(key: Pick<EffectKeyFields, "name" | "businessK
 export function assertEffectName(name: string): void;
 
 // @public
-export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
-
-// @public
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
@@ -1013,7 +1010,7 @@ export class ChildExecutionFailedError extends StepFailedError {
 }
 
 // @public
-export interface ChildExecutionQueueDepth {
+export interface ChildExecutionQueueCounts {
     readonly oldestQueuedAt?: Date | undefined;
     readonly queued: number;
     readonly running: number;
@@ -1023,9 +1020,9 @@ export interface ChildExecutionQueueDepth {
 export abstract class ChildExecutionQueueRepository {
     abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
     abstract completeByTenantIdAndExecutionId(tenantId: string, executionId: string, end: ChildExecutionEnd): Promise<boolean>;
+    abstract countByStatus(): Promise<ChildExecutionQueueCounts>;
     abstract deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
-    abstract findQueueDepth(): Promise<ChildExecutionQueueDepth>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(child: QueuedChildExecution): Promise<boolean>;
     watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
@@ -1441,23 +1438,10 @@ export class ConsoleLogger extends Logger {
 // @public
 export type ContextValues<T> = T extends ExecutionContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof ExecutionContext>>> : T extends TenantContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof TenantContext>>> & TenantValues : never;
 
-// @public
-export enum CostCategory {
-    // (undocumented)
-    Agents = "agents",
-    // (undocumented)
-    Compaction = "compaction",
-    // (undocumented)
-    Guards = "guards",
-    // (undocumented)
-    Retrieval = "retrieval",
-    // (undocumented)
-    Review = "review",
-    // (undocumented)
-    Routing = "routing",
-    // (undocumented)
-    Tools = "tools"
-}
+// Warning: (ae-forgotten-export) The symbol "COST_CATEGORIES" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type CostCategory = (typeof COST_CATEGORIES)[number];
 
 // @public
 export interface CostCounter extends BudgetAccount {
@@ -1483,32 +1467,13 @@ export interface CostLedgerEntryExpiredErrorOptions {
     readonly prunedBefore: Date;
 }
 
-// @public
-export class CostLedgerEntryInvalidError extends AGBossError {
-    constructor(options: CostLedgerEntryInvalidErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    readonly index: number;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly reason: string;
-}
-
-// @public
-export interface CostLedgerEntryInvalidErrorOptions {
-    readonly index: number;
-    readonly reason: string;
-}
-
 // @public (undocumented)
 export abstract class CostLedgerRepository {
-    abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
     abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
     abstract ping(): Promise<void>;
-    abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
+    abstract saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
     abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
 
@@ -1544,11 +1509,7 @@ export interface CostReport {
 }
 
 // @public
-export enum CostSource {
-    Api = "api",
-    PriceTable = "price-table",
-    Tool = "tool"
-}
+export type CostSource = "api" | "price-table" | "tool";
 
 // @public
 export interface CountQuorum {
@@ -1570,15 +1531,6 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
     readonly name: string;
     // (undocumented)
     readonly rules?: never;
-}
-
-// @public
-export class DatabaseStoreClock extends StoreClock {
-    constructor(clock: Pick<Clock, "now">);
-    // (undocumented)
-    readonly isDatabaseTime: boolean;
-    // (undocumented)
-    now(): Date;
 }
 
 // @public
@@ -2047,14 +1999,14 @@ export interface ExecutionEvent {
 // @public
 export interface ExecutionFence {
     assertHeld(): void;
-    readonly confirmedUntil: Date;
-    confirmNow(): Promise<void>;
-    fenced(observedToken?: number): ExecutionFencedError;
+    fencedError(observedToken?: number): ExecutionFencedError;
     readonly leaseExecutionId: string;
+    renewNow(): Promise<void>;
     readonly scopeKey: string;
     // (undocumented)
     readonly tenantId: string;
     readonly token: number;
+    readonly trustedUntil: Date;
 }
 
 // @public
@@ -2172,11 +2124,11 @@ export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends 
 export interface ExecutionLease {
     readonly expiresAt: Date;
     readonly holderInstanceId: string;
-    readonly leaseEpoch: number;
     readonly remaining: Milliseconds;
     readonly rootExecutionId: string;
     readonly takenOverFrom?: PreviousLeaseHolder;
     readonly tenantId: string;
+    readonly token: number;
 }
 
 // @public
@@ -2224,15 +2176,15 @@ export class ExecutionLeaseLostError extends AGBossError {
 
 // @public
 export abstract class ExecutionLeaseRepository {
-    abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
-    abstract finish(executionLease: ExecutionLease): Promise<void>;
+    abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract reclaim(executionLease: ExecutionLease, lease: Milliseconds): Promise<ExecutionLease | undefined>;
+    abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
-    abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
-    abstract saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
+    abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    abstract retire(executionLease: ExecutionLease): Promise<void>;
     static readonly store: StoreDescriptor;
-    abstract yield(executionLease: ExecutionLease): Promise<boolean>;
+    abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
 // @public
@@ -2472,9 +2424,6 @@ export function executionVersions<TName extends string>(deps: AgentExecutionDeps
     readonly configVersion: string;
     readonly configHash: string;
 };
-
-// @public
-export function expiredEntriesOf(entries: readonly LedgerEntry[], prunedBefore: Date | undefined, isHeld: (ledgerId: string) => boolean): readonly string[];
 
 // Warning: (ae-forgotten-export) The symbol "BuiltHealthCheckResult" needs to be exported by the entry point index.d.ts
 //
@@ -3680,28 +3629,15 @@ export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
 }
 
 // @public
-export type LedgerEntry = UsageRecord & {
-    readonly ledgerId: string;
-    readonly madeAt: Date;
-    readonly costUsd: Usd;
-};
+export interface LedgerDated {
+    readonly ledgerKey?: LedgerKey;
+    readonly madeAt?: string;
+}
 
 // @public
 export interface LedgerKey {
     readonly id: string;
-    readonly madeAt: Date;
-}
-
-// @public
-export type LedgerMark = WrittenLedgerMark | RecordedElsewhereLedgerMark;
-
-// @public
-export function ledgerMarkOf(record: object): LedgerMark | undefined;
-
-// @public
-export enum LedgerState {
-    RecordedElsewhere = "recorded-elsewhere",
-    Written = "written"
+    readonly madeAt: string;
 }
 
 // @public
@@ -4049,6 +3985,9 @@ export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> 
     // (undocumented)
     readonly requestHash: string;
 }
+
+// @public
+export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string, madeAt: number) => boolean) => readonly UsageRecord[];
 
 // @public (undocumented)
 export type NewSummary = Omit<Summary, "id" | "createdAt">;
@@ -5406,7 +5345,7 @@ export interface PreviousLeaseHolder {
     // (undocumented)
     readonly holderInstanceId: string;
     // (undocumented)
-    readonly leaseEpoch: number;
+    readonly token: number;
 }
 
 // @public
@@ -5674,12 +5613,6 @@ export abstract class RateLimitRepository {
     abstract ping(): Promise<void>;
     abstract release(rateLimitLease: RateLimitLease): Promise<void>;
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
-}
-
-// @public
-export interface RecordedElsewhereLedgerMark {
-    // (undocumented)
-    readonly state: LedgerState.RecordedElsewhere;
 }
 
 // @public
@@ -6148,11 +6081,11 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
     // (undocumented)
     completeByTenantIdAndExecutionId(tenantId: string, executionId: string, end: ChildExecutionEnd): Promise<boolean>;
+    countByStatus(): Promise<ChildExecutionQueueCounts>;
     // (undocumented)
     deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     // (undocumented)
     findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
-    findQueueDepth(): Promise<ChildExecutionQueueDepth>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -6177,7 +6110,7 @@ export class SqliteConnection implements OnDestroy {
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByMadeAtBefore(cutoff: Date): Promise<void>;
+    deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
     findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     // (undocumented)
@@ -6185,7 +6118,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
+    saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
     // (undocumented)
     saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
@@ -6228,22 +6161,22 @@ export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepo
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">, applicationContext: ApplicationContext);
     // (undocumented)
-    acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
-    // (undocumented)
-    finish(executionLease: ExecutionLease): Promise<void>;
+    acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    reclaim(executionLease: ExecutionLease, lease: Milliseconds): Promise<ExecutionLease | undefined>;
+    reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     // (undocumented)
     release(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
-    renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined>;
-    saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
+    renew(held: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    // (undocumented)
+    retire(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
     static readonly store: StoreDescriptor;
     // (undocumented)
-    yield(executionLease: ExecutionLease): Promise<boolean>;
+    yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
 // Warning: (ae-forgotten-export) The symbol "TernStoreRecordRepository" needs to be exported by the entry point index.d.ts
@@ -6493,9 +6426,11 @@ export interface StepValues<TInstance> extends ValuesSource {
 }
 
 // @public
-export abstract class StoreClock {
-    abstract readonly isDatabaseTime: boolean;
-    abstract now(): Date;
+export class StoreClock {
+    constructor(source?: StoreTimeSource, clock?: Pick<Clock, "now">);
+    now(): StoreTime;
+    // (undocumented)
+    readonly source: StoreTimeSource;
 }
 
 // @public
@@ -6517,6 +6452,16 @@ export const storedKeyFactsOf: (key: EffectKey) => {
     readonly fingerprint?: string;
     readonly origin?: FencedEffectOrigin;
 };
+
+// @public
+export type StoreTime = Brand<Date, "StoreTime">;
+
+// @public
+export enum StoreTimeSource {
+    Database = "database",
+    Host = "host",
+    Test = "test"
+}
 
 // @public
 export interface SubPath {
@@ -6917,11 +6862,6 @@ export interface ToStep {
 }
 
 // @public
-export function totalCost(entries: readonly (UsageRecord & {
-    readonly costUsd: Usd;
-})[]): Usd;
-
-// @public (undocumented)
 export function totalCost(records: readonly UsageRecord[]): number;
 
 // @public
@@ -7018,18 +6958,15 @@ export class UnknownThreadError extends AGBossError {
 }
 
 // @public
-export const unrecordedEntriesOf: (entries: readonly LedgerEntry[], isNew: (ledgerId: string, madeAt: Date) => boolean) => readonly LedgerEntry[];
-
-// @public
-export interface UsageRecord extends TokenUsage {
+export interface UsageRecord extends TokenUsage, LedgerDated {
     // (undocumented)
     readonly caller: string;
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
     readonly costUsd: number;
-    readonly ledger?: LedgerMark;
-    readonly ledgerKey?: LedgerKey;
+    readonly isRecordedElsewhere?: boolean;
+    readonly ledgerId?: string;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -7280,14 +7217,6 @@ export interface WorkflowStarts {
 
 // @public
 export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
-
-// @public
-export interface WrittenLedgerMark {
-    readonly ledgerId: string;
-    readonly madeAt: Date;
-    // (undocumented)
-    readonly state: LedgerState.Written;
-}
 
 // Warnings were encountered during analysis:
 //
@@ -7631,34 +7560,25 @@ export interface WrittenLedgerMark {
 // src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
-// src/finops/cost-category.ts:3:3 - (ae-undocumented) Missing documentation for "Agents".
-// src/finops/cost-category.ts:4:3 - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts:5:3 - (ae-undocumented) Missing documentation for "Guards".
-// src/finops/cost-category.ts:6:3 - (ae-undocumented) Missing documentation for "Review".
-// src/finops/cost-category.ts:7:3 - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts:8:3 - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts:9:3 - (ae-undocumented) Missing documentation for "Retrieval".
-// src/finops/ledger-mark.ts:22:3 - (ae-undocumented) Missing documentation for "state".
-// src/finops/ledger-mark.ts:31:3 - (ae-undocumented) Missing documentation for "state".
-// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts:26:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:27:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
-// src/finops/usage.ts:42:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:43:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:45:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:71:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:72:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:73:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:74:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:75:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:91:3 - (ae-undocumented) Missing documentation for "byModel".
-// src/finops/usage.ts:228:1 - (ae-undocumented) Missing documentation for "totalCost".
+// src/finops/usage.ts:22:3 - (ae-undocumented) Missing documentation for "inputTokens".
+// src/finops/usage.ts:23:3 - (ae-undocumented) Missing documentation for "outputTokens".
+// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
+// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:39:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:69:1 - (ae-undocumented) Missing documentation for "CostCategory".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:105:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -8042,17 +7962,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts:193:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
 // src/infrastructure/a2a-task.repository.ts:217:3 - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts:219:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
-// src/infrastructure/cost-ledger.repository.ts:48:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/cost-ledger.repository.ts:112:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:113:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:114:3 - (ae-undocumented) Missing documentation for "index".
-// src/infrastructure/cost-ledger.repository.ts:115:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/cost-ledger.repository.ts:227:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:228:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:229:3 - (ae-undocumented) Missing documentation for "ledgerIds".
-// src/infrastructure/cost-ledger.repository.ts:230:3 - (ae-undocumented) Missing documentation for "prunedBefore".
+// src/infrastructure/clock.ts:118:5 - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/cost-ledger.repository.ts:137:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:138:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:139:3 - (ae-undocumented) Missing documentation for "ledgerIds".
+// src/infrastructure/cost-ledger.repository.ts:140:3 - (ae-undocumented) Missing documentation for "prunedBefore".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -8104,7 +8019,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-lease-event.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-lease-event.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
 // src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "leaseEpoch".
+// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -8230,12 +8145,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:146:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:175:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:90:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:94:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:104:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByMadeAtBefore".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:176:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:188:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:91:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:101:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:136:3 - (ae-undocumented) Missing documentation for "deleteEntriesByMadeAtBefore".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:164:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
@@ -8244,18 +8159,18 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:77:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:89:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:99:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:145:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:153:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:157:3 - (ae-undocumented) Missing documentation for "finish".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:172:3 - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:35:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:39:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:54:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
+// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:74:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:96:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:142:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:150:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:154:3 - (ae-undocumented) Missing documentation for "retire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:169:3 - (ae-undocumented) Missing documentation for "yield".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:179:3 - (ae-undocumented) Missing documentation for "reclaim".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:226:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:230:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:245:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:258:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:29:12 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".

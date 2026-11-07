@@ -42,6 +42,7 @@ import {
   resetGateway,
 } from "./fixtures/payment-gateway.js";
 import { isReconciliation } from "../../src/app/outbound-call-reconciliation.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 beforeEach(() => {
   resetGateway();
@@ -176,7 +177,7 @@ describe("#505: an intent left pending, reconciled", () => {
 
 describe("#505: the lease before the network", () => {
   it("a renewal that fails right before the call: nothing sent, the intent pending for the next holder", async () => {
-    const failing = testAction(ChargeOrderAction, { fence: { confirmNowFails: true } });
+    const failing = testAction(ChargeOrderAction, { fence: { renewNowFails: true } });
 
     await expect(failing(order)).rejects.toBeInstanceOf(ExecutionLeaseLostError);
 
@@ -253,8 +254,8 @@ describe("#505: what the protocol refuses", () => {
       ...{ name: "outside-application", version: "1.0.0", instanceId: "instance-1" },
       ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
     });
-    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-    const store = new InMemoryOutboundCallRepository(clock, database, leases);
+    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+    const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
     const outboundCalls = new OutboundCalls(
       store,
       new OutboundCallSettings({ requiresMask: false }),

@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   ApplicationContext,
   Clock,
+  StoreClock,
   ExecutionFencedError,
   Injectable,
   SqliteCheckpointSaver,
@@ -144,7 +145,7 @@ export class SqliteArtifactLedger {
 export class FenceSqliteApplication {}
 
 /** A project's own lease store (here over the test's memory): every call counted. */
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class CountedExecutionLeaseRepository extends InMemoryExecutionLeaseRepository {
   static calls = 0;
 

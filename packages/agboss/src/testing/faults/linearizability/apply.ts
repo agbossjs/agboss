@@ -24,7 +24,7 @@ interface HeldFacts {
   readonly tenantId: string;
   readonly rootExecutionId: string;
   readonly holderInstanceId: string;
-  readonly leaseEpoch: number;
+  readonly token: number;
   readonly lease?: number;
 }
 
@@ -34,11 +34,11 @@ const DEFAULT_LEASE = 30_000;
 /** A store's lease answer as the model's. */
 const leaseAnswerOf = (output: unknown): LeaseAnswer => {
   if (output === null || typeof output !== "object") return null;
-  const { leaseEpoch, holderInstanceId } = output as {
-    leaseEpoch: number;
+  const { token, holderInstanceId } = output as {
+    token: number;
     holderInstanceId: string;
   };
-  return { epoch: leaseEpoch, holder: holderInstanceId };
+  return { epoch: token, holder: holderInstanceId };
 };
 
 /** The result of one step: the next state when the store's answer is the model's. */
@@ -79,7 +79,7 @@ const LEASE_STEPS: Readonly<
       state,
       treeOf(held.tenantId, held.rootExecutionId),
       held.holderInstanceId,
-      held.leaseEpoch,
+      held.token,
       held.lease ?? DEFAULT_LEASE,
       now,
     );
@@ -90,7 +90,7 @@ const LEASE_STEPS: Readonly<
       state,
       treeOf(held.tenantId, held.rootExecutionId),
       held.holderInstanceId,
-      held.leaseEpoch,
+      held.token,
       now,
     );
     return [step, operation.output, step.answer];
@@ -100,7 +100,7 @@ const LEASE_STEPS: Readonly<
       state,
       treeOf(held.tenantId, held.rootExecutionId),
       held.holderInstanceId,
-      held.leaseEpoch,
+      held.token,
       held.lease ?? DEFAULT_LEASE,
       now,
     );
@@ -115,17 +115,17 @@ function leaseApplied(state: FencingState, operation: CheckedOperation, now: num
     tenantId: textOf(input, "tenantId"),
     rootExecutionId: textOf(input, "rootExecutionId"),
     holderInstanceId: textOf(input, "holderInstanceId"),
-    leaseEpoch: numberOf(input, "leaseEpoch") ?? 0,
+    token: numberOf(input, "token") ?? 0,
     ...(length === undefined ? {} : { lease: length }),
   };
   const step = LEASE_STEPS[operation.kind];
   if (step === undefined) {
-    const isFinish = operation.kind === StoreHoldPoint.LeaseFinish;
+    const isFinish = operation.kind === StoreHoldPoint.LeaseRetire;
     return released(
       state,
       treeOf(held.tenantId, held.rootExecutionId),
       held.holderInstanceId,
-      held.leaseEpoch,
+      held.token,
       isFinish,
     ).state;
   }
@@ -138,7 +138,7 @@ const LEASE_KINDS: ReadonlySet<string> = new Set([
   StoreHoldPoint.LeaseAcquire,
   StoreHoldPoint.LeaseRenew,
   StoreHoldPoint.LeaseRelease,
-  StoreHoldPoint.LeaseFinish,
+  StoreHoldPoint.LeaseRetire,
   StoreHoldPoint.LeaseYield,
   StoreHoldPoint.LeaseReclaim,
 ]);

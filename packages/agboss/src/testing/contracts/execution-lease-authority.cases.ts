@@ -155,7 +155,7 @@ const authorityCase = ([label, secondSkew]: readonly [
       expectRemaining(attempt.held?.remaining);
       expectRemaining(attempt.renewed);
       expect(attempt.whileLive).toBeUndefined();
-      expect(attempt.onceOver).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+      expect(attempt.onceOver).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
       expectRemaining(attempt.onceOver?.remaining);
       expect(attempt.held && (await instances.first.renew(attempt.held, LEASE))).toBeUndefined();
       return;

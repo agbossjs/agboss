@@ -31,7 +31,7 @@ import { superseded } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
 import { getEventListeners } from "node:events";
 import { stateOf } from "../../src/app/outbound-call-business.js";
-import { Clock } from "../../src/infrastructure/clock.js";
+import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { ChargeOrderAction } from "./fixtures/outbound-call.workflow.js";
 import { REDACTED } from "../../src/app/outbound-calls.js";
@@ -365,7 +365,7 @@ describe("#508 re-review MEDIUM4: a fingerprint is kept in the store's row only"
 });
 
 /** The rival that takes the attempt over between this call's send and its completion. */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);

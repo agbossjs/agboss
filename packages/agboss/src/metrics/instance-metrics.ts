@@ -17,7 +17,7 @@ import { HeldLeaseTally } from "./held-lease-tally.js";
 
 /**
  * An application instance's metrics (#485), on the `Meter` of the `meterProvider` given to
- * `createApp` — loaded only then: the cluster's queued children (one `findQueueDepth()` per
+ * `createApp` — loaded only then: the cluster's queued children (one `countByStatus()` per
  * collection, a batch callback), the instance's step slots and held leases (read at collection),
  * and its counters (a built-in observer). `onDestroy` removes the callbacks before the stores close:
  * a closed instance never reads a store.
@@ -62,7 +62,7 @@ function clusterGaugesOf(meter: Meter, sources: MetricSources): Registration {
   let isFailing = false;
   const callback: BatchObservableCallback = async (result) => {
     try {
-      const depth = await sources.queue.findQueueDepth();
+      const depth = await sources.queue.countByStatus();
       isFailing = false;
       const waitedFrom = depth.oldestQueuedAt?.getTime();
       const waited = waitedFrom === undefined ? 0 : sources.clock.now().getTime() - waitedFrom;

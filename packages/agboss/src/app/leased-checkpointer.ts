@@ -37,12 +37,12 @@ export class LeasedCheckpointSaver extends BaseCheckpointSaver {
   }
 
   async put(...putArguments: PutArguments): Promise<RunnableConfig> {
-    await this.lease.renewNow();
+    await this.lease.renew();
     return this.saver.put(...putArguments);
   }
 
   async putWrites(...putWritesArguments: PutWritesArguments): Promise<void> {
-    await this.lease.renewNow();
+    await this.lease.renew();
     return this.saver.putWrites(...putWritesArguments);
   }
 

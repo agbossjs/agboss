@@ -1407,8 +1407,8 @@ Several-instances).
 
 **Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
 wake and write after the new holder did. `executionContext.fence` is the lease the step runs under
-— `scopeKey`, `token` (its `leaseEpoch`, a counter of that one lease), `assertHeld()`,
-`confirmNow()` — so the external system keeps the highest token of each `scopeKey` and refuses a
+— `scopeKey`, `token` (the fencing token, a counter of that one lease), `assertHeld()`,
+`renewNow()` — so the external system keeps the highest token of each `scopeKey` and refuses a
 lower one, in the same transaction as the step's `idempotencyKey`:
 
 <!-- snippet-context
@@ -1452,7 +1452,7 @@ export class StageReleaseAction {
       token: fence.token,
       idempotencyKey: step.idempotencyKey,
     });
-    await fence.confirmNow(); // before a call that cannot check tokens (a webhook)
+    await fence.renewNow(); // before a call that cannot check tokens (a webhook)
   }
 }
 ```
@@ -1467,7 +1467,7 @@ from the public API alone; a fenced effect's call (#500) is a `FencedEffect` row
 `ChildPlacement.AnyInstance` children each hold a lease (and a token) of their own. Exactly-once
 holds only when the external system checks both atomically. A test freezes a writer with
 `testWith(App, { instances: 2 })` and `leases.freeze(apps[0])` on the `VirtualClock`; a unit runner's
-step has a held lease (`fence: { token, isLost, confirmNowFails }`).
+step has a held lease (`fence: { token, isLost, renewNowFails }`).
 
 **The fenced effect** (#500) does all of that in one call, for rows in the store's own database —
 no fencing or idempotency table of the application's: `saveResultIfAbsent(effectKeyOf(

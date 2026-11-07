@@ -32,81 +32,81 @@ async function expectStillHeld(
 }
 
 /**
- * A finished lease at its edges (#520, acceptance): a finish matches the lease as `release` does —
- * its holder **and** its epoch — so a finish with an epoch a release, a new take or a reclaim moved
- * on, and a finish of another holder's lease or of a key nobody took, finishes nothing; a
- * finished key is refused to every instance at once and after any time.
+ * A retired lease at its edges (#520, acceptance): a retire matches the lease as `release` does —
+ * its holder **and** its epoch — so a retire with an epoch a release, a new take or a reclaim moved
+ * on, and a retire of another holder's lease or of a key nobody took, retires nothing; a
+ * retired key is refused to every instance at once and after any time.
  */
-export const LEASE_FINISH_EDGE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
+export const LEASE_RETIRE_EDGE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
   {
-    name: "#520: a finish with the epoch before its holder's release and new take finishes nothing — the newer lease stays held, then free",
+    name: "#520: a retire with the epoch before its holder's release and new take retires nothing — the newer lease stays held, then free",
     run: async ({ first, second }: Instances): Promise<void> => {
       const old = await takenBy(first);
       await first.release(old);
       const newer = await takenBy(first);
 
-      await first.finish(old);
+      await first.retire(old);
 
       await expectStillHeld(first, second, newer);
-      expect(await second.acquire("default", "root-1", LEASE)).toMatchObject({ leaseEpoch: 3 });
+      expect(await second.acquire("default", "root-1", LEASE)).toMatchObject({ token: 3 });
     },
   },
   {
-    name: "#520: a finish with the epoch before a reclaim finishes nothing — the reclaimed lease stays held, then free",
+    name: "#520: a retire with the epoch before a reclaim retires nothing — the reclaimed lease stays held, then free",
     run: async ({ first, second }: Instances): Promise<void> => {
       const yielded = await takenBy(first);
-      expect(await first.yield(yielded)).toBe(true);
+      expect(await first.yield(yielded)).toBeTypeOf("number");
       const reclaimed = await first.reclaim(yielded, LEASE);
       if (reclaimed === undefined) throw new Error("the holder's reclaim must take its lease back");
 
-      await first.finish(yielded);
+      await first.retire(yielded);
 
       await expectStillHeld(first, second, reclaimed);
-      expect(await second.acquire("default", "root-1", LEASE)).toMatchObject({ leaseEpoch: 3 });
+      expect(await second.acquire("default", "root-1", LEASE)).toMatchObject({ token: 3 });
     },
   },
   {
-    name: "#520: released, taken by another instance, then the old holder's finish: the new holder's lease is kept, and the key is not finished",
+    name: "#520: released, taken by another instance, then the old holder's retire: the new holder's lease is kept, and the key is not retired",
     run: async ({ first, second }: Instances): Promise<void> => {
       const old = await takenBy(first);
       await first.release(old);
       const taken = await takenBy(second);
 
-      await first.finish(old);
+      await first.retire(old);
 
       await expectStillHeld(second, first, taken);
       expect(await first.acquire("default", "root-1", LEASE)).toMatchObject({
         holderInstanceId: "instance-1",
-        leaseEpoch: 3,
+        token: 3,
       });
     },
   },
   {
-    name: "#520: a finish of a key nobody took finishes nothing: its first acquire takes it",
+    name: "#520: a retire of a key nobody took retires nothing: its first acquire takes it",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const never: ExecutionLease = {
         tenantId: "default",
         rootExecutionId: "root-9",
         holderInstanceId: "instance-1",
-        leaseEpoch: 1,
+        token: 1,
         expiresAt: new Date(clock.now().getTime() + LEASE),
         remaining: LEASE,
       };
 
-      await first.finish(never);
+      await first.retire(never);
 
       expect(await second.acquire("default", "root-9", LEASE)).toMatchObject({
         holderInstanceId: "instance-2",
-        leaseEpoch: 1,
+        token: 1,
       });
     },
   },
   {
-    name: "#520: a finished key stays finished for every instance, after any time, and a second finish changes nothing",
+    name: "#520: a retired key stays retired for every instance, after any time, and a second retire changes nothing",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const held = await takenBy(first);
-      await first.finish(held);
-      await first.finish(held);
+      await first.retire(held);
+      await first.retire(held);
 
       await clock.advance(seconds(3600));
       const attempts = await Promise.all([

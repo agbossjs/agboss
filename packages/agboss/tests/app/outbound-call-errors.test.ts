@@ -29,6 +29,7 @@ import {
   OutboundCalls,
   REDACTED,
 } from "../../src/app/outbound-calls.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const CALL = { name: "charge", target: "payments", operation: "charge" };
 
@@ -148,9 +149,9 @@ describe("#626: send checks a key built by hand first", () => {
       ...{ name: "keys-application", version: "1.0.0", instanceId: "instance-1" },
       ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
     });
-    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
     return new OutboundCalls(
-      new InMemoryOutboundCallRepository(clock, database, leases),
+      new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases),
       new OutboundCallSettings({ requiresMask: false }),
       new SilentLogger(),
       clock,

@@ -2,7 +2,7 @@
  * #471 AC5 — the fence of a unit test's step: `testAction` / `testTool` (any unit runner) and
  * `testExecutionContext()` give a held lease by default — token 1, the execution's own scope, the
  * tenant given, confirmed for 30 s on the runner's clock — and the `fence` option sets each field
- * or makes its checks refuse (`isLost`, `confirmNowFails`).
+ * or makes its checks refuse (`isLost`, `renewNowFails`).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "../../../src/index.js";
@@ -71,11 +71,11 @@ describe("#471 AC5: a unit runner's fence", () => {
     expect(ledger.rows).toEqual([]);
   });
 
-  it("confirmNowFails: only confirmNow() rejects — the write is in, the webhook is not called", async () => {
+  it("renewNowFails: only renewNow() rejects — the write is in, the webhook is not called", async () => {
     levers.confirmFirst = true;
-    const lost = testAction(ReleaseAction, { fence: { confirmNowFails: true } });
+    const lost = testAction(ReleaseAction, { fence: { renewNowFails: true } });
     const failed = testAction(ReleaseAction, {
-      fence: { confirmNowFails: new Error("store down") },
+      fence: { renewNowFails: new Error("store down") },
     });
 
     await expect(lost(message)).rejects.toThrow(ExecutionLeaseLostError);
@@ -85,7 +85,7 @@ describe("#471 AC5: a unit runner's fence", () => {
     expect(seen.notified).toEqual([]);
   });
 
-  it("confirmNow() resolves by default: the step goes on to its webhook", async () => {
+  it("renewNow() resolves by default: the step goes on to its webhook", async () => {
     levers.confirmFirst = true;
 
     await testAction(ReleaseAction)(message);
@@ -93,10 +93,10 @@ describe("#471 AC5: a unit runner's fence", () => {
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
 
-  it("#831: confirmNowFails: false is the default — confirmNow() resolves", async () => {
+  it("#831: renewNowFails: false is the default — renewNow() resolves", async () => {
     levers.confirmFirst = true;
 
-    await testAction(ReleaseAction, { fence: { confirmNowFails: false } })(message);
+    await testAction(ReleaseAction, { fence: { renewNowFails: false } })(message);
 
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
@@ -110,13 +110,13 @@ describe("#471 AC5: a unit runner's fence", () => {
 });
 
 describe("#471 AC5: testExecutionContext()'s fence", () => {
-  it("confirmedUntil is its clock + 30 s; assertHeld() refuses from then on", async () => {
+  it("trustedUntil is its clock + 30 s; assertHeld() refuses from then on", async () => {
     const clock = new VirtualClock();
     const context = testExecutionContext({ clock, tenant: { tenantId: "acme" } });
 
     expect(context.fence.scopeKey).toBe("acme:test-execution");
     expect(context.fence.token).toBe(1);
-    expect(context.fence.confirmedUntil).toEqual(new Date(clock.now().getTime() + seconds(30)));
+    expect(context.fence.trustedUntil).toEqual(new Date(clock.now().getTime() + seconds(30)));
     context.fence.assertHeld();
     await clock.advance(seconds(30));
     expect(() => {
@@ -124,28 +124,28 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
     }).toThrow(ExecutionLeaseLostError);
   });
 
-  it("each field of the option, and fenced() building the error for its scope", () => {
-    const confirmedUntil = new Date("2026-02-01T00:00:00.000Z");
+  it("each field of the option, and fencedError() building the error for its scope", () => {
+    const trustedUntil = new Date("2026-02-01T00:00:00.000Z");
     const { fence } = testExecutionContext({
       executionId: "execution-9",
-      fence: { token: 3, leaseExecutionId: "root-9", confirmedUntil },
+      fence: { token: 3, leaseExecutionId: "root-9", trustedUntil },
     });
 
-    expect(fence).toMatchObject({ scopeKey: "default:root-9", token: 3, confirmedUntil });
-    expect(fence.fenced(4)).toMatchObject({
+    expect(fence).toMatchObject({ scopeKey: "default:root-9", token: 3, trustedUntil });
+    expect(fence.fencedError(4)).toMatchObject({
       scopeKey: "default:root-9",
       token: 3,
       observedToken: 4,
     });
-    expect(fence.fenced()).toBeInstanceOf(ExecutionFencedError);
+    expect(fence.fencedError()).toBeInstanceOf(ExecutionFencedError);
   });
 
-  it("isLost: confirmNow() rejects too, and the confirmNowFails option does not matter", async () => {
+  it("isLost: renewNow() rejects too, and the renewNowFails option does not matter", async () => {
     const { fence } = testExecutionContext({
-      fence: { isLost: true, confirmNowFails: new Error("store down") },
+      fence: { isLost: true, renewNowFails: new Error("store down") },
     });
 
-    await expect(fence.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+    await expect(fence.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
     expect(() => {
       fence.assertHeld();
     }).toThrow(ExecutionLeaseLostError);
@@ -157,7 +157,7 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
       fence: { leaseExecutionId: "root-9", isLost: true },
     });
 
-    await expect(fence.confirmNow()).rejects.toMatchObject({ rootExecutionId: "root-9" });
+    await expect(fence.renewNow()).rejects.toMatchObject({ rootExecutionId: "root-9" });
   });
 
   it("a unit test's lease is never yielded: entering a step holds it, leaving changes nothing", async () => {

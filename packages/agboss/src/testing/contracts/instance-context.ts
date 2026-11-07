@@ -4,14 +4,13 @@ import {
   type ApplicationContext,
 } from "../../flow/context/application-context.js";
 import {
-  DatabaseStoreClock,
   systemClock,
   type Clock,
-  type StoreClock,
+  StoreClock,
+  StoreTimeSource,
 } from "../../infrastructure/clock.js";
 import { TEST_START, VirtualClock } from "../clock.js";
 import { ClockSkew, SkewedClock } from "../clock-skew.js";
-import { TestStoreClock } from "../store-clock.js";
 import type { StoreCapability } from "./store-capability.js";
 import { trackedStore } from "./tracked-store.js";
 
@@ -29,8 +28,8 @@ export interface StoreInstanceContext {
    */
   readonly clock: Clock;
   /**
-   * The time the store decides expiry by (#533): the suite's clock injected (`isDatabaseTime`
-   * false — every store reads it), or in database mode the database's own (`isDatabaseTime` true: a
+   * The time the store decides expiry by (#533): the suite's clock injected (`StoreTimeSource.Test`
+   * — every store reads it), or in database mode the database's own (`StoreTimeSource.Database`: a
    * networked store reads its database's clock in each statement; in-memory and SQLite `now()`, the
    * host's, shared by both instances).
    */
@@ -89,7 +88,7 @@ export interface DatabaseTime {
 }
 
 /** The host's real time, the one clock a database-time case's stores share (#533). */
-const DATABASE_TIME: StoreClock = new DatabaseStoreClock(systemClock);
+const DATABASE_TIME: StoreClock = new StoreClock(StoreTimeSource.Database, systemClock);
 
 /** The instance context of `instanceId`, on the case's clock (or, in database time, on its skewed real clock). */
 const instanceContextOf = (
@@ -98,7 +97,7 @@ const instanceContextOf = (
   time?: DatabaseTime,
 ): StoreInstanceContext => ({
   ...(time === undefined
-    ? { clock, storeClock: new TestStoreClock(clock) }
+    ? { clock, storeClock: new StoreClock(StoreTimeSource.Test, clock) }
     : {
         clock: new SkewedClock(
           systemClock,

@@ -54,7 +54,7 @@ export type { OutboundCallParts } from "./outbound-call-parts.js";
  * #657): sent again; none: recorded (fenced), then sent. An error `send` throws is a failure only
  * when the call's `isDefiniteFailure` says so, else the intent stays pending (#657); a `notSent()`
  * of a `KeyReplay` past its `keyRetention` is refused (#658, #795); an answer after a newer attempt
- * took the intent over is `OutboundCallSupersededError` (#795). Before the network the lease is renewed (`confirmNow`); the answer
+ * took the intent over is `OutboundCallSupersededError` (#795). Before the network the lease is renewed (`renewNow`); the answer
  * is written back fenced — a refusal there is a hand-over, and the new holder reconciles. A new
  * attempt is a compare-and-set on the intent as read — its status, attempt and attempt owner (a
  * random id per claim): a call that loses it sends nothing and reads the intent again, a bounded
@@ -79,7 +79,7 @@ async function sendNow<TRequest, TResult>(
 ): Promise<OutboundCallOutcome<TResult>> {
   const { repository } = run.parts;
   const lease = run.frame.execution.lease;
-  await lease?.confirmNow();
+  await lease?.renewNow();
   run.frame.execution.signal.throwIfAborted();
   const call = callOf(run, attempt);
   // nothing leaves after the holder's fence (#533): checked on its monotonic clock right before

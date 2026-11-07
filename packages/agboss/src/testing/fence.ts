@@ -7,23 +7,23 @@ import { EXECUTION_LEASE } from "../app/lease-fence.js";
  * The fence of a unit test's step (#471): `executionContext.fence` in a unit runner (`testAction`,
  * `testTool`, …) and in `testExecutionContext()`. By default the lease is held — token 1, the
  * execution's own lease scope, confirmed until the runner's clock plus the lease's 30 s; each field
- * may be set, and `isLost` / `confirmNowFails` make its checks refuse as a lost lease does.
+ * may be set, and `isLost` / `renewNowFails` make its checks refuse as a lost lease does.
  */
 export interface TestFenceOptions {
   /** `fence.token`; default 1. */
   readonly token?: number;
   /** `fence.leaseExecutionId`; default the execution's id. */
   readonly leaseExecutionId?: string;
-  /** `fence.confirmedUntil`; default the clock's now + 30 s. */
-  readonly confirmedUntil?: Date;
-  /** The lease was lost: `assertHeld()` throws and `confirmNow()` rejects with `ExecutionLeaseLostError`. */
+  /** `fence.trustedUntil`; default the clock's now + 30 s. */
+  readonly trustedUntil?: Date;
+  /** The lease was lost: `assertHeld()` throws and `renewNow()` rejects with `ExecutionLeaseLostError`. */
   readonly isLost?: boolean;
   /**
-   * Only `confirmNow()` rejects (a store error before an irreversible call): with
+   * Only `renewNow()` rejects (a store error before an irreversible call): with
    * `ExecutionLeaseLostError` when `true`, the error given when an `Error`; `false` (the default)
    * resolves.
    */
-  readonly confirmNowFails?: boolean | Error;
+  readonly renewNowFails?: boolean | Error;
 }
 
 /** Where a unit test's fence stands: its tenant, its execution and the clock of its runner. */
@@ -36,8 +36,8 @@ export interface TestFenceSite {
 /** The held lease a unit test's frame fences with. */
 export function testFenceLeaseOf(options: TestFenceOptions, site: TestFenceSite): FrameLease {
   const leaseExecutionId = options.leaseExecutionId ?? site.executionId;
-  const confirmedUntil = (
-    options.confirmedUntil ?? new Date(site.clock.now().getTime() + EXECUTION_LEASE)
+  const trustedUntil = (
+    options.trustedUntil ?? new Date(site.clock.now().getTime() + EXECUTION_LEASE)
   ).getTime();
   const lost = (): ExecutionLeaseLostError => new ExecutionLeaseLostError(leaseExecutionId);
   return Object.freeze({
@@ -45,14 +45,14 @@ export function testFenceLeaseOf(options: TestFenceOptions, site: TestFenceSite)
     leaseExecutionId,
     scopeKey: scopeKeyOf(site.tenantId, leaseExecutionId),
     token: options.token ?? 1,
-    confirmedUntil,
+    trustedUntil,
     isYielded: false,
     assertHeld: (): void => {
-      if (options.isLost === true || site.clock.now().getTime() >= confirmedUntil) throw lost();
+      if (options.isLost === true || site.clock.now().getTime() >= trustedUntil) throw lost();
     },
-    confirmNow: (): Promise<void> => {
+    renewNow: (): Promise<void> => {
       if (options.isLost === true) return Promise.reject(lost());
-      const fails = options.confirmNowFails;
+      const fails = options.renewNowFails;
       if (fails === undefined || fails === false) return Promise.resolve();
       return Promise.reject(fails === true ? lost() : fails);
     },

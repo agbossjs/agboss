@@ -1,7 +1,7 @@
 /**
  * #520 acceptance — the stale take of finished work, past the handoff's tests:
  *
- * - the finish never landed (a store whose `finish` is a release — a crash between the queue's
+ * - the finish never landed (a store whose `retire` is a release — a crash between the queue's
  *   completion and the finish, or a holder that lost its lease): A's frozen reclaim is then given
  *   the free lease, and only the look after the store (`LeaseTake.isOver`) stops it — no takeover,
  *   nothing runs twice, the lease given back at once;
@@ -16,6 +16,7 @@ import {
   ApplicationContext,
   ChildExecutionFailedError,
   Clock,
+  StoreClock,
   ExecutionLeaseRepository,
   ExecutionRecordStatus,
   Injectable,
@@ -59,9 +60,9 @@ import {
 } from "./fixtures/remote-child-yield.workflow.js";
 
 /** A lease store whose finish never lands as one: the key is only released, free to any take. */
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 class UnfinishedLeases extends InMemoryExecutionLeaseRepository {
-  override finish(lease: ExecutionLease): Promise<void> {
+  override retire(lease: ExecutionLease): Promise<void> {
     return this.release(lease);
   }
 }
@@ -77,9 +78,9 @@ const compensated = testWith(FinishedUndoApplication, { instances: 2 });
 const startsOf = (workflow: string): readonly string[] =>
   yieldSeen.starts.filter((line) => line.startsWith(`${workflow} `));
 
-/** The lease row is given back, not held: released, at `leaseEpoch`. */
-const expectGivenBack = (row: ExecutionLeaseRow | undefined, leaseEpoch: number): void => {
-  expect(row).toMatchObject({ released: true, lease: { leaseEpoch } });
+/** The lease row is given back, not held: released, at `token`. */
+const expectGivenBack = (row: ExecutionLeaseRow | undefined, token: number): void => {
+  expect(row).toMatchObject({ released: true, lease: { token } });
 };
 
 beforeEach(() => {
@@ -106,7 +107,7 @@ describe("#520 acceptance: the finish never landed — the look after the store 
         "the child answered on B",
       );
       // B's finish was only a release: the key is free to A's frozen ask
-      expect(leaseRowOf(b, child.executionId)?.isFinished).toBeUndefined();
+      expect(leaseRowOf(b, child.executionId)?.isRetired).toBeUndefined();
       leases.thaw(a);
       const done = await call;
       await settle();
@@ -182,8 +183,8 @@ describe("#520 acceptance: a compensated child — undone, then failed — is no
       expect(error).toBeInstanceOf(ChildExecutionFailedError);
       expect(leaseRowOf(b, child.executionId)).toMatchObject({
         released: true,
-        isFinished: true,
-        lease: { holderInstanceId: onB, leaseEpoch: 1 },
+        isRetired: true,
+        lease: { holderInstanceId: onB, token: 1 },
       });
       expect(await takeoversOf(b, child.rootExecutionId, child.executionId)).toEqual([]);
       expect(undoSeen.booked).toEqual([`booking-gate on ${onB}`]);

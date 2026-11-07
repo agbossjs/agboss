@@ -5,9 +5,10 @@
  * the boundary cases of the published suites are shown to bite. `naive-expiry.contract-fixture.ts`
  * runs them, `expiry-sabotage.test.ts` reads the failures.
  */
-import { Clock } from "../../../src/infrastructure/clock.js";
+import { Clock, type StoreClock } from "../../../src/infrastructure/clock.js";
 import {
   InMemoryExecutionLeaseRepository,
+  remainingOf,
   type ExecutionLease,
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import {
@@ -30,7 +31,7 @@ export const throughExpiry: HolderLiveness = (expiresAt, now) => expiresAt >= no
 /** An in-memory lease store whose `renew`, `yield` and `reclaim` judge the holder by `liveness`. */
 export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository {
   constructor(
-    private readonly time: Clock,
+    private readonly time: StoreClock,
     application: ApplicationContext,
     private readonly rows: InMemoryDatabase,
     private readonly liveness: HolderLiveness,
@@ -45,11 +46,11 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
     return Promise.resolve(stored === undefined ? undefined : length);
   }
 
-  override yield(lease: ExecutionLease): Promise<boolean> {
+  override yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
     const stored = this.#held(lease);
-    if (stored !== undefined)
-      this.rows.executionLeases.set(this.#key(lease), { ...stored, isYielded: true });
-    return Promise.resolve(stored !== undefined);
+    if (stored === undefined) return Promise.resolve(undefined);
+    this.rows.executionLeases.set(this.#key(lease), { ...stored, isYielded: true });
+    return Promise.resolve(remainingOf(stored.lease.expiresAt, this.time.now()));
   }
 
   override reclaim(
@@ -58,12 +59,12 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
   ): Promise<ExecutionLease | undefined> {
     const stored = this.#held(lease);
     if (stored === undefined) return Promise.resolve(undefined);
-    const { tenantId, rootExecutionId, holderInstanceId, leaseEpoch } = stored.lease;
+    const { tenantId, rootExecutionId, holderInstanceId, token } = stored.lease;
     const reclaimed = {
       tenantId,
       rootExecutionId,
       holderInstanceId,
-      leaseEpoch: leaseEpoch + 1,
+      token: token + 1,
       expiresAt: this.#from(length),
       remaining: length,
     };
@@ -90,7 +91,7 @@ export class NaiveExpiryLeaseRepository extends InMemoryExecutionLeaseRepository
     const isSame =
       stored !== undefined &&
       !stored.released &&
-      stored.lease.leaseEpoch === lease.leaseEpoch &&
+      stored.lease.token === lease.token &&
       stored.lease.holderInstanceId === lease.holderInstanceId;
     const isLive =
       isSame && this.liveness(stored.lease.expiresAt.getTime(), this.time.now().getTime());
@@ -125,7 +126,7 @@ export class LaggingClock extends Clock {
  */
 export class FromOldEndLeaseRepository extends InMemoryExecutionLeaseRepository {
   constructor(
-    private readonly time: Clock,
+    private readonly time: StoreClock,
     application: ApplicationContext,
     private readonly rows: InMemoryDatabase,
   ) {

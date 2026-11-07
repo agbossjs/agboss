@@ -40,7 +40,7 @@ const BITES: readonly (readonly [string, string])[] = [
   ["a lease live through its expiry instant", "no-stale-write"],
   ["a lease renewed whatever the time", "no-stale-write"],
   ["a renewal from the lease's old end", "no-stale-write"],
-  ["a finish that only releases", "no-takeover-of-finished-work"],
+  ["a retire that only releases", "no-takeover-of-finished-work"],
   ["a reclaim that keeps the epoch", "one-live-holder"],
   ["calls keyed by the step only", "one-send-per-business-key"],
   ["effects that trust the current lease's token", "no-stale-write"],
@@ -67,8 +67,8 @@ describe("#533 AC1: the interleaving explorer catches each naive store", () => {
     expect(first?.error).toContain("forced as the first call, then the second");
   });
 
-  it("a finish that only releases fails both #520 races; keyed by the step, the business-key race", () => {
-    expect(racesOf("a finish that only releases")).toEqual([
+  it("a retire that only releases fails both #520 races; keyed by the step, the business-key race", () => {
+    expect(racesOf("a retire that only releases")).toEqual([
       "finish against another instance's take, past the lease (#520)",
       "finish against leaseStateOf, past the lease: finished either way",
     ]);

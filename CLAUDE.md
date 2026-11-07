@@ -628,7 +628,7 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   sweep's first look, `app/remote/child-queue-watch.ts`; a wake-up lost costs at most a sweep), else
   at its sweep, every 30 s (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
   `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row —
-  answered or failed, it finishes the lease (#520: `finish`, never taken again, so a stale instance
+  answered or failed, it retires the lease (#520: `retire`, never taken again, so a stale instance
   that resumes takes no lease of finished work; a paused one releases it);
   a crash or a graceful stop past `shutdownTimeout` (S7) leaves the row `Running` so a live worker
   reclaims only that child once its lease is free and continues it from its last checkpoint (the
@@ -1285,8 +1285,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`, `yield` /
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
-  `finish` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
-  `saveExecutionIdIfAbsent` — #591: every execution id handed out, kept once, never removed),
+  `retire` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
+  `claimExecutionId` — #591: every execution id handed out, kept once, never removed),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1332,7 +1332,10 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the host's clock (`StoreClock`, #533: the test's clock in tests); flow-patterns' applications list seven of them. A project subclasses
   one through public tokens only, with `extends` + `override` and the class's own `deps` — `@Injectable({
-deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecutionRecordRepository`
+deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70) — a fencing store (the lease,
+  fenced-effect and outbound-call stores) takes `StoreClock` in its place, `[SqliteConnection,
+StoreClock, ApplicationContext]` (#847: `StoreClock.now()` is a branded `StoreTime`, so a `Clock`
+  there does not compile); `SqliteExecutionRecordRepository`
   adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
   `[Clock, IdGenerator]`, #313). Every #265 store contract has `abstract ping(): Promise<void>`
   (#300: one fast round trip — the in-memory ones resolve, the SQLite ones `SELECT 1`; a project's
@@ -1379,7 +1382,7 @@ not claim stores.<key>`, and `ragConnectorContract` reranks under `FailStep`
   (`tests/testing/contracts/visible-gaps.test.ts`, `rag-sabotage.test.ts`). #831: a store declares its
   optional capabilities on its entry or target — `childExecutionQueue: { instance, capabilities:
 [StoreCapability.WatchQueued] }` (`StoreCapability`, `@agboss/core/testing/contracts`, with
-  `VirtualClock` and `TestStoreClock`): a declared one's cases must pass, an undeclared one's are
+  `VirtualClock`): a declared one's cases must pass, an undeclared one's are
   skipped with the reason on a store without it, a store that has `watchQueued` and does not declare
   it fails them (`[store-conformance.capability-not-declared]`, `capability-missing`; an unknown or
   foreign capability `[store-conformance.invalid-capabilities]`, `ContractCase.capability`); the set's
@@ -1405,7 +1408,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   the order paid again — reconciled, not resent; `s15-key-expired-not-resent`, a replay-only gateway
   whose declared key retention passed before the takeover — nothing sent; #607:
   `s12b-marked-undo-not-again`, a pod frozen once its undo is marked done — the next pod ends the
-  tree without undoing again, held at `StoreHoldPoint.TreeSaveIfAbsent`, a tree key by its family; #584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `confirmNow()` refused; #533: `s13-clock-ahead`
+  tree without undoing again, held at `StoreHoldPoint.TreeSaveIfAbsent`, a tree key by its family; #584: `s05c-zombie-reaches-payment-first`, a zombie at the payment's intent; #608: `s05d-zombie-recorded-not-sent`, a zombie between the payment's intent and its send — the new holder reconciles and pays once, the zombie's `renewNow()` refused; #533: `s13-clock-ahead`
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
@@ -1470,7 +1473,7 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   `app.resolve(IdGenerator)` gives that check, `app.resolve(<the listed class>)` the listed instance
   itself, unchecked (#614) — a component mints through `deps: [IdGenerator]`, never its own class. An id is
   never repeated over the life of the application's stores (#591): every execution id minted is kept
-  by the lease store before anything else of it is written (`ExecutionLeaseRepository.saveExecutionIdIfAbsent`,
+  by the lease store before anything else of it is written (`ExecutionLeaseRepository.claimExecutionId`,
   by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`; the ids of before from the
   leases, the outbound calls' executions, #638, and the pauses' executions and trees, #663), and one any execution had —
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
@@ -2257,7 +2260,7 @@ export class PlanService {
 - **The execution lease (#265, Q58):** `execute` / `resume` move a tree only while holding its lease
   (keyed by `tenantId` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
   every checkpoint write, released when the pass ends; live while `expiresAt > now` and only then,
-  for its holder too — at `now >= expiresAt` its `renew`, `yield`, `reclaim`, `confirmNow()` and
+  for its holder too — at `now >= expiresAt` its `renew`, `yield`, `reclaim`, `renewNow()` and
   fenced writes are refused, taken or not, and the holder takes the tree again only by `acquire`, a
   takeover from itself, #534). A `resume` records its decision first — the root's record of a
   resting tree goes `paused → running` (#850), then the pause `Pending → Resolved` atomically, a
@@ -2273,9 +2276,10 @@ export class PlanService {
   the store says is left — `ExecutionLease.remaining`, `renew`'s answer, `undefined` once over —,
   `sentAt` when it sent the request, counted on its `Clock.monotonicNow()` and on its wall clock
   — the earlier ends it, so an offset moves neither and the wall clock only ever ends it sooner; the
-  store decides expiry by its own time, `StoreClock` — a networked store's database clock in each
-  statement, the host's for in-memory and SQLite, the test's clock in `testWith` and the contract
-  suites; the margin covers ρ_holder + ρ_store ≤ 1 s / 30 s) — a lease store error before then lets
+  store decides expiry by its own time, `StoreClock` (#847: `{ source: StoreTimeSource, now():
+StoreTime }`) — with `StoreTimeSource.Database` a networked store's database clock in each
+  statement, the host's for in-memory and SQLite; `Host` the application's clock for every store;
+  `Test` the test's clock in `testWith` and the contract suites; the margin covers ρ_holder + ρ_store ≤ 1 s / 30 s) — a lease store error before then lets
   a checkpoint write go on, at that moment the execution's `signal` aborts with
   `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call; an
   outbound call's `send` starts only while it holds (`assertHeld()` right before). Tests skew an
@@ -2299,10 +2303,10 @@ export class PlanService {
 - **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
   under — the root's for a root, its `ParentInstance` children and `ThisWorkflow` levels, an
   `AnyInstance` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
-  `:`), `tenantId`, `leaseExecutionId`, `token` (the lease's `leaseEpoch`, a counter of that one
-  key), `confirmedUntil`, `assertHeld()` (local; past `confirmedUntil` it expires the lease first),
-  `confirmNow()` (a renewal now: confirmed → the #360 checks; anything else aborts the lease and
-  rejects) and `fenced(observedToken)`. An external system keeps the highest token per `scopeKey`
+  `:`), `tenantId`, `leaseExecutionId`, `token` (the fencing token: a counter of that one
+  key), `trustedUntil`, `assertHeld()` (local; past `trustedUntil` it expires the lease first),
+  `renewNow()` (a renewal now: confirmed → the #360 checks; anything else aborts the lease and
+  rejects) and `fencedError(observedToken)`. An external system keeps the highest token per `scopeKey`
   with the step's `idempotencyKey` in one transaction — `incoming >= highest` accepted, below
   refused with `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken`),
@@ -2357,7 +2361,7 @@ NotSentTrust.KeyReplay, keyRetention: hours(24) }` when its `notSent()` relies o
   contract `OutboundCallRepository` (`InMemoryOutboundCallRepository`; `SqliteOutboundCallRepository`
   listed with `SqliteExecutionLeaseRepository`, else `[application.store-backend-mismatch]`; every
   read and write of an intent fenced like a fenced effect — a zombie can neither record nor send):
-  none → recorded `Pending`, `fence.confirmNow()`, `send(call)` with `call.idempotencyKey` (the step's
+  none → recorded `Pending`, `fence.renewNow()`, `send(call)` with `call.idempotencyKey` (the step's
   key and the name) → `Completed` (`Sent`); an error `send` throws → `Failed` only when the call's
   `isDefiniteFailure(error)` returns `true` (#657: the other system did not carry it out — a
   validation error, a decline), any other error (no predicate, `false`, a throw — a 5xx, a reset
@@ -2478,7 +2482,7 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   `@opentelemetry/api` `MeterProvider`; `testWith(App, { instances: [{ meterProvider }, …] })` by instance, #831)
   publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,
   `lazyLoad`), none given → nothing loaded, no store read. Cluster gauges from the shared child
-  queue (`ChildExecutionQueueRepository.findQueueDepth()` → `ChildExecutionQueueDepth { queued,
+  queue (`ChildExecutionQueueRepository.countByStatus()` → `ChildExecutionQueueCounts { queued,
 running, oldestQueuedAt? }`, one read per collection, a batch callback; a failed read reports
   none and warns `metrics.child-queue-unreadable` once per streak): `agboss.cluster.children.queued`
   / `.running` / `.oldest_queued_seconds` — the same on every instance, aggregated with `max`;
@@ -2741,7 +2745,7 @@ probability, refusal? }`
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
   decorators), else the default tenant; with a held lease (`executionContext.fence`: token 1, the
   execution's own scope, confirmed for 30 s on the runner's clock), set by `fence: { token,
-leaseExecutionId, confirmedUntil, isLost, confirmNowFails }` (#471). `testExecutionContext({ … })` stays for a class created
+leaseExecutionId, trustedUntil, isLost, renewNowFails }` (#471). `testExecutionContext({ … })` stays for a class created
   by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a
   real model; real-model checks are `make smoke`.
 - A payment gateway's guarantees (#508, Wiki → Payment-gateways): `FakePaymentGateway({ clock,

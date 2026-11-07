@@ -1,5 +1,5 @@
 /**
- * #471 — the held lease at its edges: `confirmNow()` while yielded, a wait that ends in a hand-over
+ * #471 — the held lease at its edges: `renewNow()` while yielded, a wait that ends in a hand-over
  * or in an ordinary failure, `release()` after the lease was lost, while yielded (#516: the yielded
  * lease is still in the store, so the release gives it up) and twice, and a
  * step's leave called twice. Against the in-memory and the SQLite lease store, the lease timers on a
@@ -21,12 +21,13 @@ import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
 import { withTarget } from "../../src/testing/contracts/instance-context.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ clock, application, database }) =>
-    new InMemoryExecutionLeaseRepository(clock, application, database),
+    new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database),
   ({ clock, application, connection }) =>
-    new SqliteExecutionLeaseRepository(connection(), clock, application),
+    new SqliteExecutionLeaseRepository(connection(), storeClockOf(clock), application),
 );
 
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };
@@ -111,7 +112,7 @@ const acquireBy = (store: ExecutionLeaseRepository) =>
 
 describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
   it(
-    "confirmNow() while the lease is yielded rejects: lost, nothing renewed",
+    "renewNow() while the lease is yielded rejects: lost, nothing renewed",
     withTarget(target, async ({ clock, first }) => {
       const lease = await heldOn(first, clock);
       const { wait, end } = heldWait();
@@ -120,7 +121,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       await settled();
       expect(lease.isYielded).toBe(true);
 
-      await expect(lease.confirmNow()).rejects.toThrow(ExecutionLeaseLostError);
+      await expect(lease.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
 
       expect(lease.signal.aborted).toBe(true);
       end();
@@ -145,7 +146,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       expect(lease.token).toBeUndefined();
       expect(await acquireBy(second)).toBeUndefined();
       await lease.release();
-      expect((await acquireBy(second))?.leaseEpoch).toBe(2);
+      expect((await acquireBy(second))?.token).toBe(2);
     }),
   );
 

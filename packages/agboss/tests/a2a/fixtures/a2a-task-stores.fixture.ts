@@ -10,14 +10,14 @@ import type { Class, Provider } from "../../../src/components/injection.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { ApplicationContext, Clock, Injectable } from "../../../src/index.js";
+import { ApplicationContext, Clock, StoreClock, Injectable } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { ReleaseWorkflow, ReleaseWorkflowStart } from "../../app/fixtures/fence.workflow.js";
 import type { StoreDescriptor } from "../../../src/index.js";
 
 const TASK_DEPS = { deps: [IN_MEMORY_DATABASE] } as const;
-const LEASE_DEPS = { deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
+const LEASE_DEPS = { deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 
 @Injectable(TASK_DEPS)
 export class PostgresA2ATasks extends InMemoryA2ATaskRepository {

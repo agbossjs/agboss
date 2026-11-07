@@ -10,8 +10,7 @@ import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
 import { SkewedClock } from "./clock-skew.js";
 import { testInstancesOf, type TestInstanceOptions } from "./instances.js";
-import type { Clock } from "../infrastructure/clock.js";
-import { TestStoreClock } from "./store-clock.js";
+import { StoreClock, StoreTimeSource, type Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
@@ -186,7 +185,7 @@ export class TestEnvironment {
         database: this.database,
         clock: this.#instanceClock(this.#apps.length),
         // the stores' time is the test's own, unskewed: a database's clock (#533)
-        storeClock: new TestStoreClock(this.clock),
+        storeClock: new StoreClock(StoreTimeSource.Test, this.clock),
         idGenerator: this.idGenerator,
         quiet: true,
         ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),

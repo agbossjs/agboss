@@ -307,7 +307,7 @@ exporter to a Collector); none given → no metrics, nothing loaded. `testWith(A
 
 | Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |
-| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`findQueueDepth()`) | —                     | `max` — every pod reports the same value |
+| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
 | `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                       | —                     | `sum`                                    |
 | `agboss.instance.leases.held`                                                           | gauge                                                        | —                     | `sum`                                    |
 | `agboss.instance.lease.takeovers`                                                       | counter                                                      | `reason`              | `sum`                                    |
@@ -338,8 +338,8 @@ Autoscaling.
 - **Fencing (#471).** `executionContext.fence` is the lease the step runs under: `scopeKey`
   (`${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — the root's lease for
   the root and its `ChildPlacement.ParentInstance` children, an `AnyInstance` child's own), `token`
-  (its `leaseEpoch`: 1, 2, … per lease, rising with every take), `confirmedUntil`, `assertHeld()`,
-  `confirmNow()`, `fenced(observedToken)`. Exactly-once only when the external system checks the
+  (its `token`: 1, 2, … per lease, rising with every take), `trustedUntil`, `assertHeld()`,
+  `renewNow()`, `fencedError(observedToken)`. Exactly-once only when the external system checks the
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
   judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
 - **The fenced effect (#500).** For rows in the store's own database, one call does the fencing and
@@ -743,10 +743,10 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op) and fence it
   with `executionContext.fence`: `fence.token` is the monotonic fencing token of the step's lease
   scope — the external system keeps the highest token per `fence.scopeKey` in the same transaction
-  as the key, refuses a lower one with `fence.fenced(highest)` (or `new ExecutionFencedError({
+  as the key, refuses a lower one with `fence.fencedError(highest)` (or `new ExecutionFencedError({
 scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
   hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
-  write and `await fence.confirmNow()` before a call that cannot check tokens (a webhook). Never key
+  write and `await fence.renewNow()` before a call that cannot check tokens (a webhook). Never key
   the mark by a shared business row: parallel `ChildPlacement.AnyInstance` children each fence with
   a lease (and a token) of their own.
 - `ChildPlacement.AnyInstance` across processes: a child queued in one process wakes that process's

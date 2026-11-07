@@ -54,10 +54,10 @@ function silentLease(scopeKey: string): FrameLease {
     leaseExecutionId: "execution-1",
     scopeKey,
     token: 1,
-    confirmedUntil: Number.POSITIVE_INFINITY,
+    trustedUntil: Number.POSITIVE_INFINITY,
     isYielded: false,
     assertHeld: () => undefined,
-    confirmNow: () => Promise.resolve(),
+    renewNow: () => Promise.resolve(),
     enterStep: () => Promise.resolve(() => undefined),
   };
 }
@@ -261,7 +261,7 @@ const LEASE: ExecutionLease = {
   tenantId: "default",
   rootExecutionId: "execution-1",
   holderInstanceId: "instance-1",
-  leaseEpoch: 2,
+  token: 2,
   expiresAt: new Date("2026-01-05T09:00:30.000Z"),
   remaining: seconds(30),
 };
@@ -271,7 +271,7 @@ describe("#501: a held lease's hand-overs", () => {
     const { events, rows } = handOverLog();
     const reports = new LeaseEventReports();
     reports.held(LEASE);
-    reports.held({ ...LEASE, leaseEpoch: 3 });
+    reports.held({ ...LEASE, token: 3 });
 
     reports.handOver(events, reportOf(lost()), "default:execution-1");
     await reports.settled();

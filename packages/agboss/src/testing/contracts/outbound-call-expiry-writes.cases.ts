@@ -84,7 +84,7 @@ const stateOf = (stores: OutboundCallTarget, lease: ExecutionLease) =>
   stores.calls.leaseStateOf({
     tenantId: lease.tenantId,
     leaseExecutionId: lease.rootExecutionId,
-    token: lease.leaseEpoch,
+    token: lease.token,
   });
 
 /**
@@ -97,7 +97,7 @@ const yieldedStateAt = (edge: ExpiryEdge): OutboundCallCase => {
     name: `#534: leaseStateOf of a yielded lease ${edge} is ${isLive ? "Live" : "LeaseClosed: its holder's reclaim refused"}`,
     run: async ({ clock, first, second }) => {
       const lease = await leaseOf(first, "execution-1", LEASE);
-      expect(await first.leases.yield(lease)).toBe(true);
+      expect(await first.leases.yield(lease)).toBeTypeOf("number");
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
 
       const state = await stateOf(second, lease);

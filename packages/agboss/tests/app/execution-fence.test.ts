@@ -293,7 +293,7 @@ describe("#471 AC1: a fence read where its step is gone", () => {
 
     expect(() => kept?.token).toThrow(ExecutionContextUnavailableError);
     expect(() => kept?.assertHeld()).toThrow(ExecutionContextUnavailableError);
-    await expect(kept?.confirmNow()).rejects.toThrow(ExecutionContextUnavailableError);
+    await expect(kept?.renewNow()).rejects.toThrow(ExecutionContextUnavailableError);
   });
 
   test("a tool called on its own (a test slice) has no fence", async ({ app }) => {

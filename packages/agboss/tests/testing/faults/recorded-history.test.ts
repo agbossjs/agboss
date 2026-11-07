@@ -37,7 +37,7 @@ const zombieWriteOf = (events: readonly OperationEvent[]): string | undefined =>
     event.operation === StoreHoldPoint.LeaseAcquire &&
     event.output !== undefined &&
     event.output !== null
-      ? [(event.output as { leaseEpoch: number }).leaseEpoch]
+      ? [(event.output as { token: number }).token]
       : [],
   );
   const highest = Math.max(...granted);

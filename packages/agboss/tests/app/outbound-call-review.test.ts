@@ -27,7 +27,7 @@ import {
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { maskedTextOf } from "../../src/app/outbound-call-parts.js";
 import { REDACTED } from "../../src/app/outbound-calls.js";
-import { Clock } from "../../src/infrastructure/clock.js";
+import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { FINGERPRINT_LABEL } from "../../src/infrastructure/fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
@@ -101,7 +101,7 @@ describe("#508 review 1a: a lease stays open while an attempt under it is in fli
 });
 
 /** The rival that takes the attempt over between this call's send and its completion. */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
+@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
 class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);

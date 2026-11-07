@@ -59,17 +59,17 @@ function leaseLogOn(clock: VirtualClock): {
 }
 
 /**
- * The framework's take of finished work (#520) over the store: a lease its holder finished is not
+ * The framework's take of finished work (#520) over the store: a lease its holder retired is not
  * taken over — no lease, no `Takeover` row in the lease log —, and a take whose work ended while
  * the store was asked gives the lease back at once, recording nothing.
  */
-export const LEASE_FINISH_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
+export const LEASE_RETIRE_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
   {
     name: "a stale instance's reclaim of a finished child's lease takes nothing and writes no takeover, also past the lease",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const { events, rows } = leaseLogOn(clock);
       const holder = await executionLeasesOf(first, clock).hold(CHILD);
-      await holder.release({ isFinished: true });
+      await holder.release({ isRetired: true });
       const stale = executionLeasesOf(second, clock, { events });
 
       const atOnce = await stale.tryHold(CHILD, RECLAIM);
@@ -99,7 +99,7 @@ export const LEASE_FINISH_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepo
       expect(looks).toBe(2);
       expect(await rows()).toEqual([]);
       // given back, not left to expire: free at once, and no previous holder to name
-      expect(next).toMatchObject({ holderInstanceId: "instance-1", leaseEpoch: 2 });
+      expect(next).toMatchObject({ holderInstanceId: "instance-1", token: 2 });
       expect(next?.takenOverFrom).toBeUndefined();
     },
   },
@@ -117,7 +117,7 @@ export const LEASE_FINISH_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepo
       expect(taken).toBeUndefined();
       expect(await rows()).toEqual([]);
       // the key was never taken: the first acquire is its first lease
-      expect(firstLease).toMatchObject({ leaseEpoch: 1 });
+      expect(firstLease).toMatchObject({ token: 1 });
     },
   },
   {

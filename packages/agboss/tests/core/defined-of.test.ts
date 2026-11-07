@@ -3,7 +3,7 @@ import { definedOf } from "../../src/infrastructure/clock.js";
 
 describe("definedOf (#619): an invariant's value, checked outside the caller's branches", () => {
   it("gives a defined value as it is — falsy ones too", () => {
-    const lease = { leaseEpoch: 1 };
+    const lease = { token: 1 };
 
     expect(definedOf(lease, "held")).toBe(lease);
     expect(definedOf(0, "a count")).toBe(0);

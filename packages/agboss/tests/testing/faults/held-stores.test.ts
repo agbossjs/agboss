@@ -101,7 +101,7 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
     const held = first.acquire("default", "root-1", seconds(30));
     expect(await settled(held)).toBe(false);
     expect(await second.acquire("default", "root-1", seconds(30))).toMatchObject({
-      leaseEpoch: 1,
+      token: 1,
       holderInstanceId: "instance-2",
     });
     points.releaseAll();
@@ -125,21 +125,21 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
     });
     expect(operation?.complete).toMatchObject({
       phase: OperationPhase.Complete,
-      output: { leaseEpoch: 1, holderInstanceId: "instance-1", rootExecutionId: "root-2" },
+      output: { token: 1, holderInstanceId: "instance-1", rootExecutionId: "root-2" },
     });
     points.releaseAll();
     const lease = await taking;
     expect(lease).toBeDefined();
     if (lease === undefined) return;
     expect(await leases.renew(lease, seconds(30))).toBe(seconds(30));
-    await leases.finish(lease);
+    await leases.retire(lease);
     expect(
       history.operations
         .slice(-2)
         .map(({ invoke, complete }) => [invoke.operation, complete?.output]),
     ).toEqual([
       ["lease.renew", seconds(30)],
-      ["lease.finish", null],
+      ["lease.retire", null],
     ]);
   });
 
@@ -157,7 +157,7 @@ describe("#484 AC5: withHoldPoints — any store of a held contract, its operati
       tenantId: "default",
       rootExecutionId: "root-x",
       holderInstanceId: "instance-1",
-      leaseEpoch: 1,
+      token: 1,
       expiresAt: new Date(0),
       remaining: seconds(30),
     };

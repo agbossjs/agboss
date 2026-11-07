@@ -65,7 +65,7 @@ function operation(
 
 const lease = (holder: string, epoch: number, root = "root-1") => ({
   rootExecutionId: root,
-  leaseEpoch: epoch,
+  token: epoch,
   holderInstanceId: holder,
 });
 const key = (token: number, root = "root-1") => ({
@@ -298,13 +298,13 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     const { run, history } = healthy();
     operation(history, {
       process: "a",
-      operation: StoreHoldPoint.LeaseFinish,
+      operation: StoreHoldPoint.LeaseRetire,
       key: "root-1",
       input: lease("a", 1),
     });
     operation(history, {
       process: "a",
-      operation: StoreHoldPoint.LeaseFinish,
+      operation: StoreHoldPoint.LeaseRetire,
       key: "root-1",
       input: lease("a", 1),
     });

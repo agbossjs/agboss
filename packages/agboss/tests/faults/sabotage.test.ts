@@ -6,14 +6,14 @@
  * - no fencing check on the business write (`UnfencedSqliteFencedEffectRepository`): scenario 5b's
  *   zombie writes the charge at its stale token after the new holder was granted the lease — one
  *   owner per tree is broken;
- * - a `finish` that is a plain `release` (`ReleasingSqliteExecutionLeaseRepository`, #520):
+ * - a `retire` that is a plain `release` (`ReleasingSqliteExecutionLeaseRepository`, #520):
  *   scenario 6b's frozen pod is granted the finished child's lease — finished work is touched;
  * - no fencing check on the payment's intent (`UnfencedSqliteOutboundCallRepository`, #584):
  *   scenario 5c's zombie records its payment at its stale token after the new holder was granted
  *   the lease — one owner per tree is broken;
  * - a lease renewal that says yes to a lease that is over (`StaleRenewingSqliteExecutionLeaseRepository`,
  *   #608): scenario 5d's zombie, frozen between its payment's intent and its send, passes its
- *   `confirmNow()` after the new holder paid and sends the payment a second time;
+ *   `renewNow()` after the new holder paid and sends the payment a second time;
  * - a business write that accepts a forged token (`ForgedTokenSqliteFencedEffectRepository`, #840):
  *   scenario 1's charge is accepted at a token no lease was granted at — one owner per tree is
  *   broken, though no grant of a newer epoch came before it;
@@ -61,7 +61,7 @@ const forgedToken = sqliteFaultTarget(
   fileURLToPath(new URL("./forged-token.fault-stores.ts", import.meta.url)),
 );
 const releasing = sqliteFaultTarget(
-  fileURLToPath(new URL("./releasing-finish.fault-stores.ts", import.meta.url)),
+  fileURLToPath(new URL("./releasing-retire.fault-stores.ts", import.meta.url)),
 );
 
 /** What `scenario` failed with on `target`; the test fails when it passed. */

@@ -269,15 +269,6 @@ export interface StoreSet<TTransaction = unknown> {
 }
 
 // @public
-export class TestStoreClock extends StoreClock {
-    constructor(clock: Pick<Clock, "now">);
-    // (undocumented)
-    readonly isDatabaseTime: boolean;
-    // (undocumented)
-    now(): Date;
-}
-
-// @public
 export class VirtualClock extends Clock {
     constructor(start?: Date, options?: VirtualClockOptions);
     // Warning: (ae-forgotten-export) The symbol "ClockDuration" needs to be exported by the entry point index.d.ts
@@ -317,8 +308,6 @@ export interface VirtualClockOptions {
 // src/testing/contracts/store-conformance.ts:66:3 - (ae-undocumented) Missing documentation for "pausedExecution".
 // src/testing/contracts/store-conformance.ts:67:3 - (ae-undocumented) Missing documentation for "rateLimit".
 // src/testing/contracts/store-conformance.ts:76:3 - (ae-undocumented) Missing documentation for "stores".
-// src/testing/store-clock.ts:8:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
-// src/testing/store-clock.ts:14:3 - (ae-undocumented) Missing documentation for "now".
 
 // (No @packageDocumentation comment for this package)
 

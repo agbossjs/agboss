@@ -48,10 +48,10 @@ export interface HeldExecutionLease extends FrameLease {
    * Renews now (before a checkpoint write); throws `ExecutionLeaseLostError` when lost. A store
    * error while the lease is still valid here resolves (the next renewal tries again).
    */
-  renewNow(): Promise<void>;
+  renew(): Promise<void>;
   /**
    * Runs `check` after every renewal the store confirmed — the background one, the one before a
-   * checkpoint write and `confirmNow()` (#360: the holder looks for a cancel request); `check` never
+   * checkpoint write and `renewNow()` (#360: the holder looks for a cancel request); `check` never
    * throws.
    */
   afterEachRenewal(check: RenewalCheck): void;
@@ -64,9 +64,9 @@ export interface HeldExecutionLease extends FrameLease {
   yieldWhile<T>(wait: () => Promise<T>): Promise<T>;
   /**
    * Stops renewing and gives the lease up (nothing to give when it was lost) — for good with
-   * `isFinished` (#520: `ExecutionLeaseRepository.finish`, the work under it is over).
+   * `isRetired` (#520: `ExecutionLeaseRepository.retire`, the work under it is over).
    */
-  release(options?: { readonly isFinished?: boolean }): Promise<void>;
+  release(options?: { readonly isRetired?: boolean }): Promise<void>;
 }
 
 /** What the holder does after a confirmed renewal of its lease (#360). */
@@ -246,10 +246,10 @@ export async function reportTake(
     rootExecutionId: take.rootExecutionId ?? lease.rootExecutionId,
     leaseExecutionId: lease.rootExecutionId,
     scopeKey: scopeKeyOf(lease.tenantId, lease.rootExecutionId),
-    token: lease.leaseEpoch,
+    token: lease.token,
     holderInstanceId: lease.holderInstanceId,
     previousHolderInstanceId: lease.takenOverFrom?.holderInstanceId,
-    previousToken: lease.takenOverFrom?.leaseEpoch,
+    previousToken: lease.takenOverFrom?.token,
     checkpointId,
     reason: take.reason,
   });

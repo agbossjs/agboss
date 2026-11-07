@@ -92,12 +92,12 @@ export class Observer {
   }
 
   /** `instance` released (or finished) its lease of `tree`: the store matches its own lease only. */
-  released(instance: number, tree: string, epoch: number, isFinished: boolean): void {
+  released(instance: number, tree: string, epoch: number, isRetired: boolean): void {
     this.ended(instance, tree);
     const truth = this.trees.get(tree);
     if (truth?.epoch !== epoch || truth.holder !== instance) return;
     truth.released = true;
-    if (isFinished) truth.finished = true;
+    if (isRetired) truth.finished = true;
   }
 
   /** A check closed `tree`'s lease at `epoch` (`LeaseClosed`). */

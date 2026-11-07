@@ -15,7 +15,7 @@ export enum StoreHoldPoint {
   LeaseAcquire = "lease.acquire",
   LeaseRenew = "lease.renew",
   LeaseRelease = "lease.release",
-  LeaseFinish = "lease.finish",
+  LeaseRetire = "lease.retire",
   LeaseYield = "lease.yield",
   LeaseReclaim = "lease.reclaim",
   /** The fenced effect's transaction: the lease check, the mark, the key, the business write. */
@@ -48,13 +48,13 @@ export interface StoreMethod {
 /** What the history keeps of a lease. */
 export const leaseFacts = (lease: unknown): unknown => {
   if (lease === undefined || lease === null) return null;
-  const { tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt, takenOverFrom } =
+  const { tenantId, rootExecutionId, holderInstanceId, token, expiresAt, takenOverFrom } =
     lease as ExecutionLease;
   return {
     tenantId,
     rootExecutionId,
     holderInstanceId,
-    leaseEpoch,
+    token,
     expiresAt: expiresAt.toISOString(),
     // the time the store said is left (#533)
     remaining: (lease as ExecutionLease).remaining,
@@ -117,7 +117,7 @@ export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   },
   renew: withLength(onLease(StoreHoldPoint.LeaseRenew)),
   release: onLease(StoreHoldPoint.LeaseRelease),
-  finish: onLease(StoreHoldPoint.LeaseFinish),
+  retire: onLease(StoreHoldPoint.LeaseRetire),
   yield: onLease(StoreHoldPoint.LeaseYield),
   reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
 };

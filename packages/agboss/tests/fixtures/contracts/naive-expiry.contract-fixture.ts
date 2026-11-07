@@ -1,4 +1,5 @@
 // #534 acceptance: the lease's boundary cases against naive stores (naive-expiry.ts).
+import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
@@ -22,8 +23,8 @@ import {
 
 const leasesWith = (liveness: HolderLiveness) =>
   inMemoryTarget(
-    ({ clock, application, database }) =>
-      new NaiveExpiryLeaseRepository(clock, application, database, liveness),
+    ({ storeClock, application, database }) =>
+      new NaiveExpiryLeaseRepository(storeClock, application, database, liveness),
   );
 
 executionLeaseContract({
@@ -33,8 +34,8 @@ executionLeaseContract({
 executionLeaseContract({ ...leasesWith(throughExpiry), name: "leases live through expiresAt" });
 executionLeaseContract({
   ...inMemoryTarget(
-    ({ clock, application, database }) =>
-      new FromOldEndLeaseRepository(clock, application, database),
+    ({ storeClock, application, database }) =>
+      new FromOldEndLeaseRepository(storeClock, application, database),
   ),
   name: "leases renewed from their old end",
 });
@@ -43,7 +44,7 @@ executionLeaseContract({
 const effectsLagging = (lag: Milliseconds) =>
   inMemoryTarget((seam) => {
     const honest = inMemoryFencedEffects(false)(seam);
-    const late = new LaggingClock(seam.clock, lag);
+    const late = new StoreClock(StoreTimeSource.Test, new LaggingClock(seam.clock, lag));
     const effects = new InMemoryFencedEffectRepository(
       late,
       seam.database,
@@ -56,11 +57,11 @@ const effectsLagging = (lag: Milliseconds) =>
 const callsLagging = (lag: Milliseconds) =>
   inMemoryTarget((seam) => {
     const leases = new InMemoryExecutionLeaseRepository(
-      seam.clock,
+      seam.storeClock,
       seam.application,
       seam.database,
     );
-    const late = new LaggingClock(seam.clock, lag);
+    const late = new StoreClock(StoreTimeSource.Test, new LaggingClock(seam.clock, lag));
     return { calls: new InMemoryOutboundCallRepository(late, seam.database, leases), leases };
   });
 

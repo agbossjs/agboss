@@ -32,7 +32,7 @@ import {
   treeOf,
   type FencingState,
 } from "../../src/testing/contracts/models/lease-model.js";
-import { TestStoreClock } from "../../src/testing/store-clock.js";
+import { StoreClock, StoreTimeSource } from "../../src/infrastructure/clock.js";
 import { seconds } from "../../src/units/index.js";
 
 export const LEASE = seconds(30);
@@ -124,7 +124,7 @@ export async function instancesOn<TStore>(
     stores.push(
       await target.instance({
         clock,
-        storeClock: new TestStoreClock(clock),
+        storeClock: new StoreClock(StoreTimeSource.Test, clock),
         instanceId,
         application,
       }),
@@ -150,7 +150,7 @@ function keyOf(
     scopeKey: scopeKeyOf(TENANT, leaseTree),
     tenantId: TENANT,
     leaseExecutionId: leaseTree,
-    token: lease?.leaseEpoch ?? 1_000,
+    token: lease?.token ?? 1_000,
     idempotencyKey: `${leaseTree}:charge-action:1`,
     name: "charge",
     businessKey: "order:1",
@@ -209,19 +209,19 @@ async function leaseCommand(
     const lease = await leases.acquire(TENANT, command.tree, LEASE);
     if (lease !== undefined) world.leases.set(command.instance, lease);
     return [
-      lease === undefined ? null : { epoch: lease.leaseEpoch, holder: lease.holderInstanceId },
+      lease === undefined ? null : { epoch: lease.token, holder: lease.holderInstanceId },
       step.answer,
     ];
   }
   if (held === undefined) return [null, null];
   const at = treeOf(TENANT, held.rootExecutionId);
   if (command.op === "renew") {
-    const step = renewed(world.state, at, holder, held.leaseEpoch, LEASE, now);
+    const step = renewed(world.state, at, holder, held.token, LEASE, now);
     world.state = step.state;
     const remaining = await leases.renew(held, LEASE);
     return [remaining === undefined ? null : remaining > 0, step.answer === null ? null : true];
   }
-  const step = released(world.state, at, holder, held.leaseEpoch, false);
+  const step = released(world.state, at, holder, held.token, false);
   world.state = step.state;
   await leases.release(held);
   return [null, step.answer];
