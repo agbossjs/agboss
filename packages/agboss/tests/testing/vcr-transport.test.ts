@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeAll, describe, expect } from "vitest";
+import { afterAll, beforeAll, describe, expect, vi } from "vitest";
 import { testWith, VcrMode, type TestApp } from "../../src/testing/index.js";
 import { cassetteFileOf } from "../../src/testing/vcr.js";
 import { execute } from "../helpers/flow.js";
@@ -26,6 +26,14 @@ const ANSWERS = [{ text: "answered by echo/first" }, { text: "answered by echo/s
 const dir = mkdtempSync(join(tmpdir(), "vcr-transport-"));
 const cassette = { cassetteName: "echo", dir };
 const file = cassetteFileOf(cassette);
+
+// #839: these tests record on purpose (offline, through the transport) — under CI too
+beforeAll(() => {
+  vi.stubEnv("AGBOSS_VCR_RECORD_IN_CI", "1");
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 const record = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.RECORD } });
 const replay = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
