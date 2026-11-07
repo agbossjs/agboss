@@ -203,15 +203,6 @@ export {
   pausedStatusOf,
 } from "./a2a/tasks/task-status.js";
 // assembly internals (#834): an app's and a workflow's dependencies, the observers' manager
-export {
-  createAppDeps,
-  type AppDeps,
-  type AppDepsOptions,
-  type McpConnect,
-} from "./app/app-deps.js";
+export * from "./app/app-deps.js";
 export type { GraphDeps } from "./graph/deps.js";
-export {
-  ExecutionObserverManager,
-  type EventMask,
-  type ObserverFailure,
-} from "./core/observer-manager.js";
+export * from "./core/observer-manager.js";

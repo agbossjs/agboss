@@ -43,7 +43,7 @@ async function instanceOf(application: Class): Promise<App> {
     ROTATION_IDEMPOTENCY_KEY_V2: "key-after-the-rotation",
     ROTATION_OPENROUTER_API_KEY: "sk-unused",
   };
-  const app = await createAppWith(application as never, { env: "dev", processEnv });
+  const app = await createAppWith(application, { env: "dev", processEnv });
   opened.push(app);
   return app;
 }

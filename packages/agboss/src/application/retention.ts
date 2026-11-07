@@ -6,6 +6,7 @@ import {
 } from "../infrastructure/fenced-effect-settings.js";
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
 import { hours, type Milliseconds } from "../units/index.js";
+import { shownValueOf } from "../core/shown-value.js";
 
 /**
  * `@Application({ retention })` (#834): how long each kind of row the application keeps stays
@@ -144,7 +145,7 @@ const MAX_RETENTION = hours(24 * 365 * 100);
 function retentionProblem(field: keyof RetentionOptions, value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
-    return `is ${String(value)}, not a positive duration`;
+    return `is ${shownValueOf(value)}, not a positive duration`;
   if (value > MAX_RETENTION)
     return `is ${String(value)} ms, above a century (${String(MAX_RETENTION)} ms) — a cutoff a date cannot hold`;
   if (ABOVE_THE_LEASE.has(field) && value <= EXECUTION_LEASE)
@@ -162,7 +163,8 @@ export function retentionViolations(application: string, options: unknown): Rule
   if (options === undefined) return [];
   const fail = (text: string): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${HINT}`, [application]);
-  if (!isPlainObject(options)) return [fail(` is ${String(options)}, not an object of retentions`)];
+  if (!isPlainObject(options))
+    return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
   const known = new Set<string>(RETENTION_FIELDS);
   const given = options as Readonly<Record<string, unknown>>;
   return [
@@ -229,3 +231,25 @@ export function movedRetentionViolations(application: string, options: object): 
     "its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })";
   return [...found, violation("application.retention-invalid", gone, [application])];
 }
+
+/** How long the sweep keeps each kind of rows (`@Application({ retention })`, #834). */
+/** The assembled application's retention fields, by the names the sweep reads. */
+export interface AssembledRetentions {
+  readonly pauseRecordRetention: Milliseconds;
+  readonly executionRecordRetention?: Milliseconds;
+  readonly leaseEventRetention: Milliseconds;
+  readonly a2aTaskRetention: Milliseconds;
+  readonly ledgerEntryRetention: Milliseconds;
+  readonly meshAnswerRetention: Milliseconds;
+}
+
+export const assembledRetentionsOf = (retention: ApplicationRetention): AssembledRetentions => ({
+  pauseRecordRetention: retention.pauseRecords,
+  ...(retention.executionRecords === undefined
+    ? {}
+    : { executionRecordRetention: retention.executionRecords }),
+  leaseEventRetention: retention.leaseEvents,
+  a2aTaskRetention: retention.a2aTasks,
+  ledgerEntryRetention: retention.costLedgerEntries,
+  meshAnswerRetention: retention.meshAnswers,
+});

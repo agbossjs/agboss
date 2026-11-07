@@ -7,12 +7,12 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { withProfile } from "../profile-workflow.js";
-import { hours, seconds, type Milliseconds } from "../units/index.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
-import { retentionOf, type ApplicationRetention } from "./retention.js";
+import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
   idempotencyKeyViolations,
   keyFieldsOf,
@@ -199,18 +199,6 @@ export const declaredContextsOf = (
 const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
   contract === undefined ? {} : { environment: contract };
 
-/** How long the sweep keeps each kind of rows (`@Application({ retention })`, #834). */
-const retentionsOf = (retention: ApplicationRetention) => ({
-  pauseRecordRetention: retention.pauseRecords,
-  ...(retention.executionRecords === undefined
-    ? {}
-    : { executionRecordRetention: retention.executionRecords }),
-  leaseEventRetention: retention.leaseEvents,
-  a2aTaskRetention: retention.a2aTasks,
-  ledgerEntryRetention: retention.costLedgerEntries,
-  meshAnswerRetention: retention.meshAnswers,
-});
-
 /** Whether anything stored must be masked: the application or a workflow lists PII policies. */
 const hasPiiPolicies = (
   options: ApplicationOptions,
@@ -247,7 +235,7 @@ export async function applicationOf(
     ...listedOf(options),
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
-    ...retentionsOf(retention),
+    ...assembledRetentionsOf(retention),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     fencedEffects: new FencedEffectSettings({
       ...options.fencedEffects,

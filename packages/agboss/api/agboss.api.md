@@ -7510,9 +7510,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
 // src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "summary".
-// src/environments/contract.ts:33:3 - (ae-undocumented) Missing documentation for "[environmentFieldBrand]".
 // src/environments/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
 // src/environments/errors.ts:17:5 - (ae-undocumented) Missing documentation for "code".
+// src/environments/fields.ts:26:3 - (ae-undocumented) Missing documentation for "[environmentFieldBrand]".
 // src/environments/secret.ts:49:3 - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts:53:3 - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts:57:3 - (ae-undocumented) Missing documentation for "[inspect.custom]".

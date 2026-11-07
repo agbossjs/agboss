@@ -266,9 +266,7 @@ describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider 
     await expect(createApp(CodeReviewApplication, inherited as never)).rejects.toThrow(
       /createApp takes an object of env/,
     );
-    await expect(
-      createApp(CodeReviewApplication, { [Symbol("seam")]: true } as never),
-    ).rejects.toThrow(
+    await expect(createApp(CodeReviewApplication, { [Symbol("seam")]: true })).rejects.toThrow(
       /createApp takes only env, profile, profileRoot, meterProvider — not Symbol\(seam\)/,
     );
   });

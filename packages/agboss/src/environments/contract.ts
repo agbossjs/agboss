@@ -1,5 +1,20 @@
 import type { Class, Token } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
+import { shownValueOf } from "../core/shown-value.js";
+import {
+  EnvironmentField,
+  EnvironmentFieldType,
+  fieldSpecOf,
+  type EnvironmentFieldOptions,
+  type EnvironmentFields,
+} from "./fields.js";
+
+export {
+  EnvironmentField,
+  EnvironmentFieldType,
+  type EnvironmentFieldOptions,
+  type EnvironmentFields,
+};
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 
 /**
@@ -7,80 +22,6 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
  * `testWith`, `agboss check`): the contract is a class with declared fields only, and every field a
  * listed class reads — or a class its `deps` reach, a store's connection (#511) — is declared in it.
  */
-
-/** The type of a field a class reads from the environment, as printed in a violation. */
-export enum EnvironmentFieldType {
-  Text = "string",
-  Integer = "number",
-  Flag = "boolean",
-  Secret = "Secret",
-}
-
-/** `EnvironmentField.secret({ optional: true })`: whether the contract may lack the field. */
-export interface EnvironmentFieldOptions {
-  /** An optional field may be absent from the contract (the class reads `undefined`); default `false`. */
-  readonly optional?: boolean;
-}
-
-declare const environmentFieldBrand: unique symbol;
-
-/**
- * One field a class reads from the environment contract (#511, #834), made only by
- * `EnvironmentField.text()`, `.integer()`, `.flag()` or `.secret()` — a literal does not compile, and
- * a JavaScript caller's is refused at decoration.
- */
-export interface EnvironmentField {
-  readonly [environmentFieldBrand]: true;
-}
-
-/** What the framework reads of a field the helpers made. */
-interface FieldSpec {
-  readonly type: EnvironmentFieldType;
-  readonly isOptional: boolean;
-}
-
-const made = new WeakMap<object, FieldSpec>();
-
-const fieldOf =
-  (type: EnvironmentFieldType, maker: string) =>
-  (options: EnvironmentFieldOptions = {}): EnvironmentField => {
-    // a JavaScript caller's typo (`{ optinal: true }`, `optional: "yes"`) is named, never read as required
-    const given: unknown = options;
-    const keys = typeof given === "object" && given !== null ? Object.keys(given) : undefined;
-    const optional = (given as { optional?: unknown } | null)?.optional;
-    if (
-      keys === undefined ||
-      keys.some((key) => key !== "optional") ||
-      (optional !== undefined && typeof optional !== "boolean")
-    ) {
-      throw new ComponentError(
-        `EnvironmentField.${maker}(${JSON.stringify(given) ?? String(given)}): its options are { optional?: boolean } — EnvironmentField.${maker}({ optional: true })`,
-      );
-    }
-    const field = Object.freeze({});
-    made.set(field, { type, isOptional: options.optional === true });
-    return field as EnvironmentField;
-  };
-
-/**
- * The fields a class reads from the environment contract, declared on it (#511, #834):
- * `@Injectable({ environmentFields: { postgresUrl: EnvironmentField.secret(), postgresPoolSize:
- * EnvironmentField.integer({ optional: true }) } })`. A required field the contract lacks fails the
- * application's assembly with `[environment.missing-field]`; an optional one may be absent.
- */
-export const EnvironmentField = Object.freeze({
-  /** A text field (`env("X")`). */
-  text: fieldOf(EnvironmentFieldType.Text, "text"),
-  /** A whole-number field (`env.integer("X")`). */
-  integer: fieldOf(EnvironmentFieldType.Integer, "integer"),
-  /** A boolean field (`env.flag("X")`). */
-  flag: fieldOf(EnvironmentFieldType.Flag, "flag"),
-  /** A `Secret` field (`secret("X")`). */
-  secret: fieldOf(EnvironmentFieldType.Secret, "secret"),
-});
-
-/** The fields a class declares, by name: `{ postgresUrl: EnvironmentField.secret() }`. */
-export type EnvironmentFields = Readonly<Record<string, EnvironmentField>>;
 
 /** A field a class reads (`SqliteConnection` → `sqlitePath`). */
 export interface EnvironmentFieldRequirement {
@@ -120,10 +61,10 @@ function requirementOf(
       `${where}: ${field} is a helper, not a field — call it: EnvironmentField.text(), .integer(), .flag() or .secret()`,
     );
   }
-  const spec = typeof value === "object" && value !== null ? made.get(value) : undefined;
+  const spec = fieldSpecOf(value);
   if (spec === undefined) {
     throw new ComponentError(
-      `${where}: ${field} is ${typeof value === "string" ? `"${value}"` : String(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret() (a store with its own copy of @agboss/core makes fields this one does not know: list the core as a peer dependency)`,
+      `${where}: ${field} is ${shownValueOf(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret() (a store with its own copy of @agboss/core makes fields this one does not know: list the core as a peer dependency)`,
     );
   }
   return { field, type: spec.type, isOptional: spec.isOptional };
@@ -133,7 +74,7 @@ function requirementOf(
 export function declareEnvironmentFields(implementation: Class, fields: EnvironmentFields): void {
   if (typeof fields !== "object" || (fields as unknown) === null) {
     throw new ComponentError(
-      `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}: ${String(fields)} is not an object of fields`,
+      `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}: ${shownValueOf(fields)} is not an object of fields`,
     );
   }
   requireEnvironmentFields(

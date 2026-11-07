@@ -208,11 +208,24 @@ export interface BlastRadiusEntry {
     readonly workflow: string;
 }
 
+// @public
+export interface BudgetListing {
+    // (undocumented)
+    readonly applicationName: string;
+    // (undocumented)
+    readonly budgets: readonly Class[];
+}
+
 // Warning: (ae-forgotten-export) The symbol "AppOptions" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "BuildOptions" needs to be exported by the entry point internal.d.ts
 //
 // @public
 export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {
+}
+
+// @public
+export interface BuildOptions extends AppDepsOptions {
+    readonly chaos?: ChaosOptions;
+    readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
 }
 
 // @public
@@ -406,6 +419,9 @@ export function createAppWith(application: Class, options?: BuildApplicationOpti
 //
 // @public
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
+
+// @public
+export function createWorkflowDeps(bundle: AssembledWorkflow, options: BuildOptions, parts: WorkflowDepsParts): Promise<AppDeps>;
 
 // @public
 export enum DefaultsLevel {
@@ -1508,6 +1524,27 @@ export const versionOf: (value: unknown) => string;
 export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
+export interface WorkflowDepsParts {
+    readonly budgets?: BudgetListing;
+    readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
+    readonly compensation?: CompensationParts;
+    readonly contexts?: RuntimeContexts;
+    readonly created?: unknown[];
+    // (undocumented)
+    readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
+    // (undocumented)
+    readonly infrastructure: Infrastructure;
+    // Warning: (ae-forgotten-export) The symbol "LeaseEventLog" needs to be exported by the entry point internal.d.ts
+    readonly leaseEvents?: LeaseEventLog;
+    readonly observer?: ExecutionObserverManager;
+    // Warning: (ae-forgotten-export) The symbol "ApplicationPiiKey" needs to be exported by the entry point internal.d.ts
+    readonly piiKey?: ApplicationPiiKey;
+    readonly remoteChildren?: RemoteChildren;
+    readonly stepEntries?: StepEntries;
+    readonly stepSlots?: StepSlots;
+}
+
+// @public
 export interface WorkflowSnapshot {
     // (undocumented)
     readonly configHash: string;
@@ -1617,6 +1654,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/a2a/tasks/a2a-task-repair.ts:22:3 - (ae-undocumented) Missing documentation for "clock".
 // src/app/app-deps.ts:62:3 - (ae-undocumented) Missing documentation for "evaluation".
 // src/app/app-deps.ts:114:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:157:3 - (ae-undocumented) Missing documentation for "infrastructure".
+// src/app/app-deps.ts:183:3 - (ae-undocumented) Missing documentation for "executionHistory".
+// src/app/app-deps.ts:188:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/app/app-deps.ts:189:3 - (ae-undocumented) Missing documentation for "applicationName".
 // src/app/execution-control.ts:15:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/execution-control.ts:16:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/app/execution-control.ts:17:3 - (ae-undocumented) Missing documentation for "threadId".
@@ -1631,11 +1672,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:58:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/assemble.ts:67:3 - (ae-undocumented) Missing documentation for "budgets".
 // src/application/assemble.ts:104:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:222:1 - (ae-undocumented) Missing documentation for "applicationOf".
-// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "app".
-// src/application/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "assembled".
-// src/application/create-app.ts:41:3 - (ae-undocumented) Missing documentation for "workflows".
-// src/application/create-app.ts:42:3 - (ae-undocumented) Missing documentation for "infrastructure".
+// src/application/assemble.ts:210:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "app".
+// src/application/create-app.ts:41:3 - (ae-undocumented) Missing documentation for "assembled".
+// src/application/create-app.ts:42:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/application/create-app.ts:43:3 - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts:19:3 - (ae-undocumented) Missing documentation for "history".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".

@@ -182,7 +182,9 @@ describe("#511 AC3: a declared environment field is checked at assembly", () => 
 
 describe("#834 AC3: environment fields are made by EnvironmentField's helpers, their names checked", () => {
   const declared = (fields: unknown): Class => {
-    class Reader {}
+    class Reader {
+      readonly name = "reader";
+    }
     return Injectable({ environmentFields: fields as Record<string, EnvironmentField> })(Reader);
   };
 
