@@ -8,6 +8,7 @@ import { TaskState, type Part, type StreamResponse, type Task } from "@a2a-js/sd
 import { InMemoryTaskStore, ResultManager, ServerCallContext } from "@a2a-js/sdk/server";
 import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { execute } from "../../helpers/flow.js";
 import type { ExecutionStreamEvent } from "../../../src/run/types.js";
 import {
   AskStart,
@@ -163,7 +164,8 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
     );
     const heard: ExecutionStreamEvent[] = [];
 
-    await app.execute(
+    await execute(
+      app,
       AskStart,
       { text: "where is order 7?" },
       {
@@ -191,7 +193,8 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
     );
     const heard: ExecutionStreamEvent[] = [];
 
-    const result = await app.execute(
+    const result = await execute(
+      app,
       AskStart,
       { text: "where is order 7?" },
       {
