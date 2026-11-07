@@ -5,11 +5,13 @@
  * the reader is away, also from a run started after the stream), the end at a terminal state or —
  * a send's stream — at a rest past the version a follow-up answered, and no listener left behind.
  */
-import type { StreamResponse } from "@a2a-js/sdk";
+import type { Part, StreamResponse } from "@a2a-js/sdk";
+import { InMemoryTaskStore, ResultManager, ServerCallContext } from "@a2a-js/sdk/server";
 import { describe, expect, it } from "vitest";
 import { A2AMediaType, type ServedSkill } from "../../../src/a2a/server/a2a-skills.js";
 import { StreamEnd, taskStream } from "../../../src/a2a/server/a2a-stream.js";
-import { textPart, wireStatusOf } from "../../../src/a2a/server/a2a-task-view.js";
+import { taskKeyOf } from "../../../src/a2a/server/a2a-server-parts.js";
+import { textPart, wireStatusOf, wireTaskOf } from "../../../src/a2a/server/a2a-task-view.js";
 import { LocalRuns } from "../../../src/a2a/server/a2a-local-runs.js";
 import { taskChanged } from "../../../src/a2a/tasks/task-changes.js";
 import { DurableExecutionStatus } from "../../../src/app/execution-control.js";
@@ -92,21 +94,22 @@ const nextOf = async (stream: AsyncGenerator<StreamResponse>) => {
 
 const ids = (task: A2ATaskRecord) => ({ taskId: task.taskId, contextId: task.contextId });
 
-const delta = (task: A2ATaskRecord, text: string): StreamResponse => ({
+/** A chunk of the task's output artifact (#833): the stream's first starts it, the next append. */
+const delta = (task: A2ATaskRecord, text: string, append: boolean): StreamResponse => ({
   payload: {
     $case: "artifactUpdate",
     value: {
       ...ids(task),
       metadata: undefined,
       artifact: {
-        artifactId: "stream",
+        artifactId: `${task.taskId}:output`,
         name: "",
         description: "",
         parts: [textPart(text)],
         metadata: undefined,
         extensions: [],
       },
-      append: true,
+      append,
       lastChunk: false,
     },
   },
@@ -211,7 +214,7 @@ describe("#824: a task's stream", () => {
     const away = await nextOf(stream);
     const after = await nextOf(stream);
 
-    expect(first).toStrictEqual(delta(task, "he"));
+    expect(first).toStrictEqual(delta(task, "he", false));
     expect(tool).toStrictEqual({
       payload: {
         $case: "statusUpdate",
@@ -234,7 +237,7 @@ describe("#824: a task's stream", () => {
         },
       },
     });
-    expect([away, after]).toStrictEqual([delta(task, "llo"), "stuck"]);
+    expect([away, after]).toStrictEqual([delta(task, "llo", true), "stuck"]);
     script.state = {
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
@@ -301,7 +304,7 @@ describe("#824: a task's stream", () => {
     expect(await nextOf(stream)).toBe("stuck");
     emit({ kind: "textDelta", delta: "hi" });
 
-    expect(await nextOf(stream)).toStrictEqual(delta(task, "hi"));
+    expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
   });
 
   it("a send's stream ends at a rest past the version its follow-up answered; a subscription waits on", async () => {
@@ -329,5 +332,165 @@ describe("#824: a task's stream", () => {
       payload: { value: { status: wireStatusOf(asked) } },
     });
     expect(await nextOf(answered)).toBe("done");
+  });
+});
+
+/**
+ * The artifacts a client ends with that applies every event as A2A v1.0 says — by the SDK's own
+ * task builder (`ResultManager`, its server's): append to the artifact of that id, else replace.
+ */
+async function appliedArtifacts(events: readonly (StreamResponse | string)[]) {
+  const manager = new ResultManager(new InMemoryTaskStore(), new ServerCallContext());
+  for (const event of events) {
+    if (typeof event === "string" || event.payload === undefined) continue;
+    const { $case, value } = event.payload;
+    await manager.processEvent({ kind: $case, data: value } as Parameters<
+      ResultManager["processEvent"]
+    >[0]);
+  }
+  return manager.getCurrentTask()?.artifacts;
+}
+
+/** The events up to the stream's end, or until none comes ("stuck"): at most `limit` of them. */
+async function restOf(stream: AsyncGenerator<StreamResponse>, limit = 10) {
+  const events: StreamResponse[] = [];
+  for (let count = 0; count < limit; count += 1) {
+    const read = await nextOf(stream);
+    if (typeof read === "string") return events;
+    events.push(read);
+  }
+  throw new Error(`more than ${String(limit)} events`);
+}
+
+/** The text each artifact holds, joined. */
+const artifactTextOf = (artifacts: readonly { parts: readonly Part[] }[] | undefined) =>
+  (artifacts ?? []).map(({ parts }) =>
+    parts.map((part) => (part.content?.$case === "text" ? part.content.value : "")).join(""),
+  );
+
+describe("#833: the streamed text is the chunks of the task's one artifact, its output", () => {
+  it("AC: chunks then the output — a client applying them ends with GetTask's artifacts", async () => {
+    const { task, runs, script, parts } = await setUp();
+    let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+    let finish = (): void => undefined;
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>((resolve) => (finish = resolve));
+    });
+    const stream = taskStream(parts, task, {
+      end: StreamEnd.Terminal,
+      signal: new AbortController().signal,
+    });
+    const events: (StreamResponse | string)[] = [await nextOf(stream)];
+
+    emit({ kind: "textDelta", delta: "do" });
+    events.push(await nextOf(stream));
+    emit({ kind: "textDelta", delta: "ne" });
+    events.push(await nextOf(stream));
+    const chunked = await appliedArtifacts(events);
+    script.state = {
+      status: DurableExecutionStatus.Finished,
+      finish: FINISH,
+      output: { text: "done" },
+    };
+    finish();
+    events.push(...(await restOf(stream)));
+    const ended = await parts.tasks.findById(taskKeyOf(task));
+    if (ended === undefined) throw new Error("no task");
+
+    expect(events.slice(1, 3)).toStrictEqual([delta(task, "do", false), delta(task, "ne", true)]);
+    expect(chunked).toStrictEqual([
+      {
+        artifactId: `${task.taskId}:output`,
+        name: "",
+        description: "",
+        parts: [textPart("do"), textPart("ne")],
+        metadata: undefined,
+        extensions: [],
+      },
+    ]);
+    expect(ended.status.state).toBe(A2ATaskState.Completed);
+    expect(await appliedArtifacts(events)).toStrictEqual(wireTaskOf(ended, parts).artifacts);
+    expect(wireTaskOf(ended, parts).artifacts).toHaveLength(1);
+    expect(artifactTextOf(await appliedArtifacts(events))).toEqual(["done"]);
+  });
+
+  it("a tool call before the first chunk: that chunk still starts the artifact", async () => {
+    const { task, runs, parts } = await setUp();
+    let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>(() => undefined);
+    });
+    const stream = taskStream(parts, task, {
+      end: StreamEnd.Terminal,
+      signal: new AbortController().signal,
+    });
+    await nextOf(stream);
+
+    emit({ kind: "toolCall", tool: "lookup-tool" });
+    await nextOf(stream);
+    emit({ kind: "textDelta", delta: "hi" });
+
+    expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
+  });
+
+  it("each stream starts the artifact anew: a second subscriber's first chunk is not appended", async () => {
+    const { task, runs, parts } = await setUp();
+    let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>(() => undefined);
+    });
+    const signal = new AbortController().signal;
+    const first = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
+    await nextOf(first);
+    emit({ kind: "textDelta", delta: "a" });
+    await nextOf(first);
+    const second = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
+    await nextOf(second);
+
+    emit({ kind: "textDelta", delta: "b" });
+
+    expect(await nextOf(first)).toStrictEqual(delta(task, "b", true));
+    expect(await nextOf(second)).toStrictEqual(delta(task, "b", false));
+  });
+
+  it("a subscription through a pause and its resume: the resumed run's first chunk starts the artifact anew", async () => {
+    const { tasks, task, runs, parts } = await setUp();
+    let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+    let finish = (): void => undefined;
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>((resolve) => (finish = resolve));
+    });
+    const stream = taskStream(parts, task, {
+      end: StreamEnd.Terminal,
+      signal: new AbortController().signal,
+    });
+    const events = [await nextOf(stream)];
+    emit({ kind: "textDelta", delta: "Which order?" });
+    events.push(await nextOf(stream));
+    await written(tasks, task, INPUT_REQUIRED);
+    finish();
+    events.push(...(await restOf(stream)));
+    // the run's end read against its records (scripted: still working) — the task as it is now
+    const paused = await tasks.findById(taskKeyOf(task));
+    if (paused === undefined) throw new Error("no task");
+
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>(() => undefined);
+    });
+    await written(tasks, paused, WORKING);
+    events.push(...(await restOf(stream)));
+    emit({ kind: "textDelta", delta: "Order 7 shipped." });
+    const resumed = await nextOf(stream);
+
+    expect(events[1]).toStrictEqual(delta(task, "Which order?", false));
+    expect(resumed).toStrictEqual(delta(task, "Order 7 shipped.", false));
+    expect(artifactTextOf(await appliedArtifacts([...events, resumed]))).toEqual([
+      "Order 7 shipped.",
+    ]);
   });
 });

@@ -7,6 +7,7 @@ import type { ExecutionStreamEvent } from "../../run/types.js";
 import { changedTask, isAtRest } from "./a2a-task-wait.js";
 import { taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
+  outputArtifactIdOf,
   outputArtifactOf,
   taskMetadataOf,
   textPart,
@@ -16,11 +17,18 @@ import {
 
 /**
  * A task's changes as a stream (#808, design §3 and §4.1.5): the task first (spec §3.1.6), then each
- * change of its status, the text its run here streams as `artifactUpdate`s (`stream`, appended) and
- * its tool calls as `WORKING` updates, and — once `COMPLETED` — its output artifact before the last
- * status. A run on another instance streams its status changes only. It ends when the task is over
- * (`SendStreamingMessage`: also when it waits for its caller) or the request's signal aborts — the
- * task never stops with it.
+ * change of its status, the text its run here streams and its tool calls as `WORKING` updates, and —
+ * once `COMPLETED` — its output artifact before the last status. A run on another instance streams
+ * its status changes only. It ends when the task is over (`SendStreamingMessage`: also when it waits
+ * for its caller) or the request's signal aborts — the task never stops with it.
+ *
+ * The streamed text is a `TaskArtifactUpdateEvent` of the task's one artifact, its output (#833, as
+ * A2A v1.0 streams an artifact in chunks): the first chunk of the stream, and of each run it hears
+ * (a resume's turn), starts it (`append: false`), each next one is appended to it (`append: true`, `lastChunk: false`), and the finish's output replaces it
+ * (`append: false`, `lastChunk: true`). A client that applies every event as the spec says ends with
+ * the artifacts `GetTask` returns; one that joins the chunks' text reads the answer once. A task that
+ * rests at a pause or ends without completing has no output: its stream's view keeps the text streamed so far, never
+ * marked as the last chunk, and `GetTask` shows no artifact.
  */
 
 /** When a stream ends. */
@@ -31,9 +39,12 @@ export enum StreamEnd {
   Rest = "rest",
 }
 
-const STREAM_ARTIFACT = "stream";
-
-function eventOf(task: A2ATaskRecord, event: ExecutionStreamEvent): StreamResponse {
+/** One event of the run streamed here; `append` — a chunk after the stream's first one. */
+function eventOf(
+  task: A2ATaskRecord,
+  event: ExecutionStreamEvent,
+  append: boolean,
+): StreamResponse {
   const ids = { taskId: task.taskId, contextId: task.contextId, metadata: undefined };
   if (event.kind === "textDelta")
     return {
@@ -42,14 +53,14 @@ function eventOf(task: A2ATaskRecord, event: ExecutionStreamEvent): StreamRespon
         value: {
           ...ids,
           artifact: {
-            artifactId: STREAM_ARTIFACT,
+            artifactId: outputArtifactIdOf(task.taskId),
             name: "",
             description: "",
             parts: [textPart(event.delta)],
             metadata: undefined,
             extensions: [],
           },
-          append: true,
+          append,
           lastChunk: false,
         },
       },
@@ -145,6 +156,9 @@ export async function* taskStream(
   let current = task;
   let shown = task.version;
   let wake = new AbortController();
+  // whether the artifact has a chunk of the run heard: a run's first chunk starts it anew
+  let chunked = false;
+  let heard = parts.runs.settledOf(key);
   const hear = (event: ExecutionStreamEvent): void => {
     queued.push(event);
     wake.abort();
@@ -155,14 +169,20 @@ export async function* taskStream(
     while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {
       wake = new AbortController();
       if (queued.length === 0) current = await changedOrHeard(parts, current, signal, wake.signal);
-      for (const event of queued.splice(0)) yield eventOf(current, event);
+      for (const event of queued.splice(0)) {
+        yield eventOf(current, event, chunked);
+        if (event.kind === "textDelta") chunked = true;
+      }
       if (current.version !== shown) {
         shown = current.version;
         yield* changeEventsOf(parts, current);
       }
-      // a run started here since (a resume): its stream is heard from now on
+      // a run started here since (a resume): its stream is heard from now on, its text anew
       stopListening();
       stopListening = parts.runs.listen(key, hear);
+      const run = parts.runs.settledOf(key);
+      if (run !== heard) chunked = false;
+      heard = run;
     }
   } finally {
     stopListening();
