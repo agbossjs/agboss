@@ -1,7 +1,8 @@
 /**
  * #511 AC4: a store outside the core implements an infrastructure contract on the public surface
  * alone — every type a contract's members name (and the data shapes those name in turn) is
- * importable from the root entry, never derived with `Parameters` / `ReturnType` from the class.
+ * importable from the root entry — a unit (`Milliseconds`, `Usd`, `Bytes`) from its one home,
+ * `@agboss/core/units` (#834) —, never derived with `Parameters` / `ReturnType` from the class.
  * The contracts are the application's infrastructure (`INFRASTRUCTURE_DEFAULTS`), so a new one is
  * checked as soon as it is registered.
  */
@@ -12,7 +13,8 @@ import { INFRASTRUCTURE_DEFAULTS } from "../../src/infrastructure/contracts.js";
 
 const src = new URL("../../src/", import.meta.url).pathname;
 const root = `${src}index.ts`;
-const program = ts.createProgram([root], {
+const units = `${src}units/index.ts`;
+const program = ts.createProgram([root, units], {
   module: ts.ModuleKind.NodeNext,
   moduleResolution: ts.ModuleResolutionKind.NodeNext,
   target: ts.ScriptTarget.ES2023,
@@ -39,7 +41,11 @@ const rootSource = program.getSourceFile(root);
 if (rootSource === undefined) throw new Error(`not in the program: ${root}`);
 const rootModule = checker.getSymbolAtLocation(rootSource);
 const rootExports = rootModule === undefined ? [] : checker.getExportsOfModule(rootModule);
-const exported = new Set(rootExports.map((symbol) => keyOf(targetOf(symbol))));
+const unitsSource = program.getSourceFile(units);
+const unitsModule =
+  unitsSource === undefined ? undefined : checker.getSymbolAtLocation(unitsSource);
+const unitExports = unitsModule === undefined ? [] : checker.getExportsOfModule(unitsModule);
+const exported = new Set([...rootExports, ...unitExports].map((symbol) => keyOf(targetOf(symbol))));
 
 /** A member an implementer writes or calls: not `private`, not `#private`. */
 const isOwnMember = (member: ts.ClassElement): boolean =>
@@ -104,7 +110,7 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
     );
   });
 
-  it.each(CONTRACTS)("AC4: %s names only types the root entry exports", (name) => {
+  it.each(CONTRACTS)("AC4: %s names only types the root entry (or /units) exports", (name) => {
     const missing = [...contractTypesOf(name).keys()].filter((key) => !exported.has(key));
 
     expect(missing).toEqual([]);

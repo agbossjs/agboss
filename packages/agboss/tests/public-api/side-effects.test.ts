@@ -79,9 +79,11 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * instances share them, `[a2a.task-store-not-shared]`; 1,523 at #825, after #809, for the business
  * keys' fingerprints and idempotency keys, the keys the framework made, the paged listing, the
  * reconciliation's verdicts, the key fields' and the store descriptors' rules (each its own module
- * under the line limits).
+ * under the line limits). #834: the application's retention group, the environment fields'
+ * helpers, createApp's own options and how a refused value is shown (each its own module under the
+ * line limits).
  */
-const MODULE_BUDGET = 1_523;
+const MODULE_BUDGET = 1_527;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");
