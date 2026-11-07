@@ -14,6 +14,9 @@
  * - a lease renewal that says yes to a lease that is over (`StaleRenewingSqliteExecutionLeaseRepository`,
  *   #608): scenario 5d's zombie, frozen between its payment's intent and its send, passes its
  *   `confirmNow()` after the new holder paid and sends the payment a second time;
+ * - a business write that accepts a forged token (`ForgedTokenSqliteFencedEffectRepository`, #840):
+ *   scenario 1's charge is accepted at a token no lease was granted at — one owner per tree is
+ *   broken, though no grant of a newer epoch came before it;
  * - a tree store that forgets every undo's done mark (`ForgetfulSqliteExecutionTreeRepository`,
  *   #607): scenario 12b's next pod releases the reservation the frozen one released and marked.
  *
@@ -32,6 +35,7 @@ import {
   s05ZombieFirst,
   s05ZombiePaysFirst,
 } from "../../src/testing/faults/scenarios/s05-zombie.js";
+import { s01Drains } from "../../src/testing/faults/scenarios/s01-sigterm.js";
 import { s06FinishedChild } from "../../src/testing/faults/scenarios/s06-children.js";
 import { s05ZombieRecordedNotSent } from "../../src/testing/faults/scenarios/s05d-recorded-not-sent.js";
 import { s12bMarkedUndo } from "../../src/testing/faults/scenarios/s12b-marked-undo.js";
@@ -52,6 +56,9 @@ const staleRenewing = sqliteFaultTarget(
 );
 const forgetful = sqliteFaultTarget(
   fileURLToPath(new URL("./forgetful-marks.fault-stores.ts", import.meta.url)),
+);
+const forgedToken = sqliteFaultTarget(
+  fileURLToPath(new URL("./forged-token.fault-stores.ts", import.meta.url)),
 );
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-finish.fault-stores.ts", import.meta.url)),
@@ -79,6 +86,20 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
     expect(failure.violations.map((found) => found.message)).toContainEqual(
       expect.stringMatching(
         /fencedEffect\.write .* at token 1 .* was accepted after epoch 2 was granted/u,
+      ),
+    );
+  }, 120_000);
+
+  it("#840 AC2: a business write that accepts a forged token: 1 fails one-owner — a write no grant explains", async () => {
+    const failure = await failureOf(s01Drains, forgedToken);
+    expect(failure.invariants).toContain(FaultInvariant.OneOwner);
+    expect(
+      failure.violations
+        .filter((found) => found.invariant === FaultInvariant.OneOwner)
+        .map((found) => found.message),
+    ).toContainEqual(
+      expect.stringMatching(
+        /^fencedEffect\.write of \S+ at token 1000001 \(\S+, \S+\) was accepted, but no lease of \S+ was granted at epoch 1000001$/u,
       ),
     );
   }, 120_000);

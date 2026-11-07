@@ -1408,7 +1408,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
-  at a time), each checked by `faultViolationsOf` — `one-owner`, `finished-work-untouched`,
+  at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too), `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard once, #562),
   `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the

@@ -207,13 +207,13 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       input: key(1),
       output: true,
     });
-    // refused writes and refused grants are no acceptance
+    // refused writes (#840: a refusal is an error, never an answer) and refused grants are no acceptance
     operation(history, {
       process: "a",
       operation: StoreHoldPoint.OutboundMarkPending,
       key: "root-1",
       input: key(1),
-      output: false,
+      error: { name: "ExecutionFencedError", message: "fenced" },
     });
     operation(history, {
       process: "a",
@@ -230,6 +230,54 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     });
     expect(violationsOf(run).map((found) => found.message)).toEqual([
       expect.stringContaining("a stale write"),
+    ]);
+  });
+
+  it("#840 AC1: a write accepted at a token no grant gave fails one-owner, naming the token and the write", () => {
+    const { run, history } = healthy();
+    // a forged token: epoch 7 of root-1 was never granted (a holds epoch 1)
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundSaveIfAbsent,
+      key: "root-1",
+      input: key(7),
+      output: true,
+    });
+    // a key with no grant at all
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-9",
+      input: key(1, "root-9"),
+      output: { status: "ran", token: 1 },
+    });
+    // a write the fence let through that found its key moved (false) is let through all the same
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundMarkPending,
+      key: "root-1",
+      input: key(8),
+      output: false,
+    });
+    // a refused write at an ungranted token is no acceptance
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: key(9),
+      error: { name: "ExecutionFencedError", message: "fenced" },
+    });
+    expect(invariantsOf(run)).toEqual([FaultInvariant.OneOwner]);
+    expect(violationsOf(run).map((found) => found.message)).toEqual([
+      expect.stringMatching(
+        /^outboundCall\.saveIfAbsent of root-1 at token 7 \(a, a#\d+\) was accepted, but no lease of root-1 was granted at epoch 7$/u,
+      ),
+      expect.stringMatching(
+        /^fencedEffect\.write of root-9 at token 1 \(b, b#\d+\) was accepted, but no lease of root-9 was granted at epoch 1$/u,
+      ),
+      expect.stringMatching(
+        /^outboundCall\.markPending of root-1 at token 8 \(a, a#\d+\) was accepted, but no lease of root-1 was granted at epoch 8$/u,
+      ),
     ]);
   });
 

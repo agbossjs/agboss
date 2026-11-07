@@ -17,7 +17,11 @@ export interface Grant {
   readonly by: string;
 }
 
-/** A fenced write the store accepted. */
+/**
+ * A fenced write the store's lease check let through (#840): any answer but an error — a write
+ * that ran, and one that found its key already there (`replayed`, `false`), since every fenced
+ * write checks the lease first and a refused one throws `ExecutionFencedError`.
+ */
 export interface AcceptedWrite {
   readonly operation: string;
   /** The lease's execution: the key of its grants. */
@@ -36,16 +40,16 @@ const GRANTS: ReadonlySet<string> = new Set([
   StoreHoldPoint.LeaseReclaim,
 ]);
 
-/** The fenced writes, and whether an answer is an acceptance. */
-const WRITES: ReadonlyMap<string, (output: unknown) => boolean> = new Map([
-  [
-    StoreHoldPoint.FencedEffectWrite,
-    (output: unknown) => (output as { status?: string } | null)?.status === "ran",
-  ],
-  [StoreHoldPoint.OutboundSaveIfAbsent, (output: unknown) => output === true],
-  [StoreHoldPoint.OutboundMarkPending, (output: unknown) => output === true],
-  [StoreHoldPoint.OutboundMarkCompleted, (output: unknown) => output === true],
-  [StoreHoldPoint.OutboundMarkFailed, (output: unknown) => output === true],
+/**
+ * The fenced writes (#840: whatever they answer — the lease check came first, and a refusal is an
+ * error, never an answer).
+ */
+const WRITES: ReadonlySet<string> = new Set([
+  StoreHoldPoint.FencedEffectWrite,
+  StoreHoldPoint.OutboundSaveIfAbsent,
+  StoreHoldPoint.OutboundMarkPending,
+  StoreHoldPoint.OutboundMarkCompleted,
+  StoreHoldPoint.OutboundMarkFailed,
 ]);
 
 /** The completed operations of `history`. */
@@ -87,11 +91,10 @@ export function finishesOf(history: OperationHistory): ReadonlyMap<string, strin
   return finished;
 }
 
-/** Every fenced write the store accepted. */
+/** Every fenced write the store's lease check let through: answered, not refused. */
 export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWrite[] {
   return completed(history).flatMap(({ invoke, complete }) => {
-    const accepts = WRITES.get(invoke.operation);
-    if (!(accepts?.(complete.output) ?? false)) return [];
+    if (!WRITES.has(invoke.operation)) return [];
     const { leaseExecutionId, token } = invoke.input as { leaseExecutionId: string; token: number };
     return [
       {
