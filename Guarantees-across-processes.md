@@ -57,7 +57,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 
 | Invariant | What must hold |
 | --- | --- |
-| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N. **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
+| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
 | `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard once by the pods' observers (#562). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
@@ -134,6 +134,10 @@ These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
 - A fenced-effect store with **no fencing check on the business write**: its writes go in at the
   lease's current epoch. It fails 5b on `one-owner`, because the zombie's write was accepted after
   the new epoch was granted.
+- A fenced-effect store that **accepts a forged token** (#840): the write's token is one no lease
+  was ever granted at, and it goes in at the lease's current epoch. It fails 1 on `one-owner`,
+  because the history holds a write no grant explains (before #840 the checker skipped it, and only
+  `linearizable` failed).
 - A lease store whose **`finish` is a plain `release`**: it fails 6b on `finished-work-untouched`,
   because the frozen pod was granted the finished child's lease.
 - An outbound-call store with **no fencing check on the payment's intent** (#584): it fails 5c on
