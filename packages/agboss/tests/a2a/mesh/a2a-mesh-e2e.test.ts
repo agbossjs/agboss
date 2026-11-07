@@ -9,7 +9,7 @@
 import "./fixtures/keys.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { A2A_MESH_EXTENSION, A2ATaskFailedError } from "../../../src/a2a/index.js";
-import { HopsLimitExceededError } from "../../../src/index.js";
+import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { untilReached } from "../../helpers/reached.js";
@@ -23,6 +23,9 @@ import {
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
 import {
+  DOWNSTREAM_CHAIN,
+  DOWNSTREAM_ENTRY,
+  DOWNSTREAM_LOOP,
   peer,
   resetPeer,
   STRANGER_TOKEN,
@@ -119,6 +122,22 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
 
     expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
     expect(peer.runs).toEqual([]);
+  });
+
+  test("a run another hop's limit stopped is FAILED with that limit's facts: the caller rethrows the same MeshLoopDetectedError", async ({
+    app,
+    clock,
+  }) => {
+    served.push(await servePeer(clock));
+
+    await execute(app, CallerWorkflowStart, { text: DOWNSTREAM_LOOP }).catch(() => undefined);
+
+    expect(peer.runs).toEqual([DOWNSTREAM_LOOP]);
+    expect(caller.callErrors[0]).toBeInstanceOf(MeshLoopDetectedError);
+    expect(caller.callErrors[0]).toMatchObject({
+      code: "limit.mesh-loop",
+      details: expect.objectContaining({ entry: DOWNSTREAM_ENTRY, chain: DOWNSTREAM_CHAIN }),
+    });
   });
 
   test("an untrusted caller's envelope is a claim: its chain checked, its report none — the price", async ({
