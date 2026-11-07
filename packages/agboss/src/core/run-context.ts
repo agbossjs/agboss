@@ -5,6 +5,7 @@ import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
 import type { FrameLease, ParentExecution } from "../flow/context/frame.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import type { ExecutionStreamEvent } from "../run/types.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type ExecutionId = string & { readonly __brand: "ExecutionId" };
@@ -45,6 +46,12 @@ export interface RunContext {
    * business key's fingerprint is keyed by. None without `idempotencyKeyField`.
    */
   readonly fingerprintKeys?: FingerprintKeys | undefined;
+  /**
+   * Where the run streams what LangChain's callbacks do not see (#848): its agents' own tool calls
+   * (the loop of ADR-0015 calls a tool itself, never through a LangChain tool); `execute(…, {
+   * onStream })`'s, absent without one.
+   */
+  readonly onStream?: ((event: ExecutionStreamEvent) => void) | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */

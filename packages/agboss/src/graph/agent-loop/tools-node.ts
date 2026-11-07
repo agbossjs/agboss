@@ -183,6 +183,8 @@ function runTask(
     await reportNodeEvent((base) =>
       deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
     );
+    // the loop calls the tool itself: no LangChain tool callback streams it (#848)
+    runCtx.run.onStream?.({ kind: "toolCall", tool: task.tool });
     const startedAt = runCtx.clock.now();
     const mesh = toolMeshCallOf(tool, deps.budgets, startedAt); // its remote calls' (#398)
     const guarded = await inToolCallFrame(

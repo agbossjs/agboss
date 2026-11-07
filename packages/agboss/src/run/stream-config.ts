@@ -1,10 +1,10 @@
-import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
 
+/** The model's tokens as they come (a tool call is streamed by the agent's loop, #848). */
 class StreamingCallbackHandler extends BaseCallbackHandler {
   name = "StreamingCallbackHandler";
   constructor(private readonly onStream: (event: ExecutionStreamEvent) => void) {
@@ -12,9 +12,6 @@ class StreamingCallbackHandler extends BaseCallbackHandler {
   }
   override handleLLMNewToken(token: string) {
     this.onStream({ kind: "textDelta", delta: token });
-  }
-  override handleToolStart(tool: Serialized, input: string) {
-    this.onStream({ kind: "toolCall", tool: tool.id.at(-1) ?? "unknown", args: input });
   }
 }
 
@@ -53,6 +50,8 @@ const runContextOf = (
   ...piiKeysOf(pii),
   // what a business key's fingerprint is keyed by (#825): the application's idempotency keys
   fingerprintKeys,
+  // what its agents' tool loops stream (#848): no LangChain tool callback ever fires for them
+  ...(options.onStream === undefined ? {} : { onStream: options.onStream }),
 });
 
 /**
