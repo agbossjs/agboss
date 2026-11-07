@@ -12,9 +12,9 @@ export function storeDescriptorOf(store: object): StoreDescriptor {
 
 /** A declared `static store`, read once: a text backend and a known `leaseCheck`, else undeclared. */
 function descriptorIn(declared: unknown): StoreDescriptor {
-  if (typeof declared !== "object" || declared === null) return { backend: undefined };
-  const backend: unknown = Reflect.get(declared, "backend");
-  const leaseCheck: unknown = Reflect.get(declared, "leaseCheck");
+  // a declaration that is no object (none at all, `null`, a number) throws here: undeclared
+  const backend: unknown = Reflect.get(declared as object, "backend");
+  const leaseCheck: unknown = Reflect.get(declared as object, "leaseCheck");
   return {
     backend: typeof backend === "string" ? backend : undefined,
     ...(isLeaseCheck(leaseCheck) ? { leaseCheck } : {}),

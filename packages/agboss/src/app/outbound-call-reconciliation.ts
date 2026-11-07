@@ -65,7 +65,7 @@ function marked<TVerdict extends object>(verdict: TVerdict): TVerdict {
 
 /** Whether `value` is a verdict the factories built (#825: never a look-alike object). */
 export const isReconciliation = (value: unknown): value is OutboundCallReconciliation<unknown> =>
-  typeof value === "object" && value !== null && built.has(value);
+  built.has(value as object);
 
 /** The three ways `reconcile` answers (#505). */
 export const OutboundCallReconciliation = Object.freeze({

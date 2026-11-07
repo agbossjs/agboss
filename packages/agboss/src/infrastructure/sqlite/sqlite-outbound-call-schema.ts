@@ -27,25 +27,18 @@ export const OUTBOUND_CALLS_SCHEMA = `${TABLE}${INDEXES}`;
 export const OUTBOUND_CALL_COLUMNS =
   "scope_key, idempotency_key, name, tenant_id, root_execution_id, status, ended_at, record, business_key";
 
-const INDEX_NAMES = [
-  "outbound_calls_by_step",
-  "outbound_calls_by_business_key",
-  "outbound_calls_by_tree",
-  "outbound_calls_by_status",
-];
-
 /**
  * A file whose `outbound_calls` was written before `seq` (#825): the table rebuilt with it, its rows
- * in their rowid order, in one transaction — the table and its indexes as a new file has them.
+ * in their rowid order, in one transaction. Its indexes go with the old table; the store's schema
+ * makes them again on the new one right after.
  */
 export function upgradeOutboundCallsSeq(connection: SqliteConnection): void {
   const columns = connection.columnsOf("outbound_calls");
   if (columns.length === 0 || columns.includes("seq")) return;
   const database = connection.database;
   inImmediateTransaction(database, () => {
-    for (const index of INDEX_NAMES) database.exec(`DROP INDEX IF EXISTS ${index}`);
     database.exec("ALTER TABLE outbound_calls RENAME TO outbound_calls_before_seq");
-    database.exec(OUTBOUND_CALLS_SCHEMA);
+    database.exec(TABLE);
     database.exec(
       `INSERT INTO outbound_calls (${OUTBOUND_CALL_COLUMNS}) SELECT ${OUTBOUND_CALL_COLUMNS} FROM outbound_calls_before_seq ORDER BY rowid`,
     );

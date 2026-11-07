@@ -12,6 +12,5 @@ export function issuedKey<TKey extends object>(key: TKey): TKey {
   return key;
 }
 
-/** Whether `key` is one the framework made (never a copy of one). */
-export const isIssuedKey = (key: unknown): boolean =>
-  typeof key === "object" && key !== null && issued.has(key);
+/** Whether `key` is one the framework made (never a copy of one; a primitive never is). */
+export const isIssuedKey = (key: unknown): boolean => issued.has(key as object);

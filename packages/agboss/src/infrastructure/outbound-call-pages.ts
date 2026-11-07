@@ -1,3 +1,4 @@
+import { definedOf } from "./clock.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { OutboundCallRecord } from "./outbound-call-record.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
@@ -42,10 +43,10 @@ export interface PagedCall {
 export function outboundCallPageOf(rows: readonly PagedCall[], limit: number): OutboundCallPage {
   const page = rows.slice(0, limit);
   const calls = page.map((row) => row.record);
-  const last = page.at(-1);
-  return last === undefined || rows.length <= limit
-    ? { calls }
-    : { calls, next: String(last.place) };
+  if (rows.length <= limit) return { calls };
+  // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+  const last = definedOf(page.at(-1), "a page with a row past its limit has a last row");
+  return { calls, next: String(last.place) };
 }
 
 /**
@@ -93,12 +94,12 @@ export function inMemoryPageOf(
     const limit = pageLimitOf(query.limit);
     const from = after === undefined ? 0 : placeOfCursor(after);
     const { outboundCalls, outboundCallOrder } = database;
+    // a row is inserted when its place is given and keeps its position while it lives: the map's
+    // order is the record order, so the rows come in it as they are
     const rows = [...outboundCalls]
       .map(([row, record]) => ({ place: placeIn(outboundCallOrder, row), record }))
       .filter(({ place, record }) => place > from && record.tenantId === tenantId)
       .filter(({ record }) => record.status === status)
-      .sort((left, right) => left.place - right.place)
-      .slice(0, limit + 1)
       .map(({ place, record }) => ({ place, record: structuredClone(record) }));
     resolve(outboundCallPageOf(rows, limit));
   });

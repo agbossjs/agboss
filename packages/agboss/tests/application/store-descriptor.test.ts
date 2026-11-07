@@ -8,10 +8,12 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   Clock,
   ExecutionLeaseRepository,
+  FencedEffectRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
+  OutboundCallRepository,
   type Provider,
   type StoreDescriptor,
 } from "../../src/index.js";
@@ -69,10 +71,40 @@ describe("#825: a static store that is no StoreDescriptor", () => {
   });
 
   it("read on its own: what is no descriptor is undeclared — never an opt-out, never a throw", () => {
-    expect(storeDescriptorOf(NumberBackendEffects)).toEqual({ backend: undefined });
-    expect(storeDescriptorOf(TypoLeaseCheckEffects)).toEqual({ backend: "in-memory" });
-    expect(storeDescriptorOf(ThrowingEffects)).toEqual({ backend: undefined });
+    expect(storeDescriptorOf(NumberBackendEffects)).toStrictEqual({ backend: undefined });
+    expect(storeDescriptorOf(TypoLeaseCheckEffects)).toStrictEqual({ backend: "in-memory" });
+    expect(storeDescriptorOf(ThrowingEffects)).toStrictEqual({ backend: undefined });
+    for (const store of [undefined, null, 5, "postgres"])
+      expect(storeDescriptorOf({ store })).toStrictEqual({ backend: undefined });
     expect(optsOutOfLeaseCheck(TypoLeaseCheckEffects)).toBe(false);
     expect(LeaseCheck.WithoutDoubleChargeProtection).toBe("without-double-charge-protection");
+  });
+
+  it("a declared opt-out is read as one, with its backend; a store that says nothing checks atomically", () => {
+    const optedOut = {
+      store: { backend: "postgres", leaseCheck: LeaseCheck.WithoutDoubleChargeProtection },
+    };
+
+    expect(storeDescriptorOf(optedOut)).toStrictEqual({
+      backend: "postgres",
+      leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
+    });
+    expect(optsOutOfLeaseCheck(optedOut)).toBe(true);
+    expect(optsOutOfLeaseCheck({ store: { backend: "postgres" } })).toBe(false);
+    expect(
+      storeDescriptorOf({ store: { backend: "sqlite", leaseCheck: LeaseCheck.Atomic } }),
+    ).toStrictEqual({ backend: "sqlite", leaseCheck: LeaseCheck.Atomic });
+  });
+
+  it("the contracts' own descriptors, as declared: undeclared, atomic where it applies", () => {
+    expect(ExecutionLeaseRepository.store).toStrictEqual({ backend: undefined });
+    expect(FencedEffectRepository.store).toStrictEqual({
+      backend: undefined,
+      leaseCheck: LeaseCheck.Atomic,
+    });
+    expect(OutboundCallRepository.store).toStrictEqual({
+      backend: undefined,
+      leaseCheck: LeaseCheck.Atomic,
+    });
   });
 });

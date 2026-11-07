@@ -158,11 +158,11 @@ describe("#825 AC1: the fingerprint decision at the store's entry", () => {
 
   it("no key at all from JavaScript is refused as an unissued one — a rejection, never a throw", async () => {
     const store = new UnreachedStore(new FencedEffectSettings());
-    const none: unknown = null;
+    for (const none of [null, undefined, "a key", 5] as unknown[]) {
+      const refused = store.saveResultIfAbsent(none as EffectKey, () => ({}));
 
-    const refused = store.saveResultIfAbsent(none as EffectKey, () => ({}));
-
-    await expect(refused).rejects.toThrow(/make it with effectKeyOf/u);
+      await expect(refused).rejects.toThrow(/make it with effectKeyOf/u);
+    }
   });
 
   it("a step's key, or one with a fingerprint or the policy, is let through to the store", () => {

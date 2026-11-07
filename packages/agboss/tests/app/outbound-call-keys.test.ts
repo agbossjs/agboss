@@ -80,6 +80,19 @@ describe("#825: the key a call is sent under", () => {
       name: "FingerprintRequiredError",
       reason: FingerprintProblem.Contradictory,
     });
+    // two requests under it: neither is recorded, so neither can replay the other
+    expect(await store.findAllByTenantIdAndStatus({ ...STATUS, limit: 10 })).toEqual({ calls: [] });
+  });
+
+  it("a fingerprintPolicy on a step's own key is refused too: a call's key never says one", async () => {
+    const { store, settings } = parts();
+    const calls = new OutboundCalls(store, settings, new SilentLogger(), clock);
+    const stepKey = effectKeyForTesting(KEY, { fingerprintPolicy: FingerprintPolicy.None });
+
+    await expect(calls.send(stepKey, options)).rejects.toMatchObject({
+      name: "FingerprintRequiredError",
+      reason: FingerprintProblem.Contradictory,
+    });
   });
 
   it("a JavaScript caller's OutboundCalls without a logger or a clock is refused", () => {
@@ -87,8 +100,16 @@ describe("#825: the key a call is sent under", () => {
     const build = (logger: unknown, at: unknown) => () =>
       new OutboundCalls(store, settings, logger as never, at as never);
 
-    expect(build(undefined, clock)).toThrow(TypeError);
-    expect(build(new SilentLogger(), undefined)).toThrow(TypeError);
+    const refusal = new TypeError(
+      "new OutboundCalls(repository, settings, logger, clock): a Logger and a Clock are required",
+    );
+    for (const [logger, at] of [
+      [undefined, clock],
+      [null, clock],
+      [new SilentLogger(), undefined],
+      [new SilentLogger(), null],
+    ] as const)
+      expect(build(logger, at)).toThrow(refusal);
     expect(build(new SilentLogger(), clock)).not.toThrow();
   });
 

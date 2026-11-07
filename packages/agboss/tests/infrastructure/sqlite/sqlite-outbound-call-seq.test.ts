@@ -97,6 +97,8 @@ describe("#825: the SQLite outbound calls page on a declared seq", () => {
     });
 
     expect(reopened.connection.columnsOf("outbound_calls")).toContain("seq");
+    // the old table gone, nothing of it left on the file
+    expect(reopened.connection.columnsOf("outbound_calls_before_seq")).toEqual([]);
     expect(reopened.connection.uniqueIndexesOf("outbound_calls")).toEqual(
       expect.arrayContaining(["scope_key,idempotency_key,name", "tenant_id,name,business_key"]),
     );
@@ -104,5 +106,22 @@ describe("#825: the SQLite outbound calls page on a declared seq", () => {
     await reopened.record("d");
     const all = await reopened.calls.findAllByTenantIdAndStatus({ ...PENDING, limit: 10 });
     expect(namesOf(all)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("a file that has seq already is kept as it is when opened again: no rebuild renumbers its rows", async () => {
+    const path = temporarySqlitePath();
+    const { connection, record } = await storesOn(path);
+    for (const name of ["a", "b", "c"]) await record(name);
+    connection.database.exec("DELETE FROM outbound_calls WHERE name = 'a'");
+
+    const reopened = await storesOn(path, "execution-2");
+
+    const seqs = reopened.connection.database
+      .prepare("SELECT name, seq FROM outbound_calls ORDER BY seq")
+      .all();
+    expect(seqs).toEqual([
+      { name: "b", seq: 2 },
+      { name: "c", seq: 3 },
+    ]);
   });
 });

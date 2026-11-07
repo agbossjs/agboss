@@ -120,11 +120,8 @@ export function isKeyFingerprint(
 ): boolean {
   const found = stored ?? undefined;
   if (found === key.fingerprint) return true;
-  return (
-    found !== undefined &&
-    key.previousFingerprint !== undefined &&
-    found === key.previousFingerprint
-  );
+  // a previous key's match only for a stored one (`found` none is no previous key's fingerprint)
+  return key.previousFingerprint !== undefined && found === key.previousFingerprint;
 }
 
 /**
