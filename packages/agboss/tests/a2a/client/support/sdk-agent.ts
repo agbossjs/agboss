@@ -364,20 +364,25 @@ export class SdkAgent {
     }
     const refused = this.#meshRefusal(body);
     if (refused !== undefined) return Response.json(refused, { headers: this.#echoOf(headers) });
-    // a task it refused is kept as refused, as an AGBoss agent keeps it (#849: the client reads it)
-    const params = (raw as { readonly params?: { readonly id?: unknown } }).params;
-    if (
-      body.method === "GetTask" &&
-      params?.id === REFUSED_TASK_ID &&
-      this.#refusedTask !== undefined
-    ) {
-      return Response.json({ jsonrpc: "2.0", id: body.id, result: this.#refusedTask });
-    }
+    const kept = this.#refusedRead(raw);
+    if (kept !== undefined) return kept;
     const context = new ServerCallContext({ requestedVersion: headers["a2a-version"] ?? "1.0" });
     const answer =
       this.#dedupe(body) ?? (await this.#transport.handle(raw as Record<string, unknown>, context));
     this.#remember(body, answer);
     return this.#reply(body.method, answer, this.#echoOf(headers));
+  }
+
+  /** A GetTask of the task it refused: kept as refused, as an AGBoss agent keeps it (#849). */
+  #refusedRead(raw: unknown): Response | undefined {
+    const body = raw as {
+      readonly id?: unknown;
+      readonly method?: unknown;
+      readonly params?: { readonly id?: unknown };
+    };
+    if (body.method !== "GetTask" || body.params?.id !== REFUSED_TASK_ID) return undefined;
+    if (this.#refusedTask === undefined) return undefined;
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: this.#refusedTask });
   }
 
   /** The extensions an answer echoes: the mesh, when asked of an agent that activates it. */

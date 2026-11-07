@@ -3,7 +3,9 @@ import type { DtoClass } from "../../dto/types.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
-import { answerPartsOf, rawOutputOf } from "./a2a-parts.js";
+import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
+import type { A2ARemotePeer } from "./a2a-card.js";
+import type { A2ATaskResult } from "./a2a-client-options.js";
 import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
 import {
   A2ATaskCanceledError,
@@ -123,4 +125,22 @@ export function outputOf(
     throw new A2ARemoteCallError({ agent, reason, taskId: task?.id });
   }
   return raw.value;
+}
+
+/** An untyped call's result: an interrupted task given back, any other failure thrown. */
+export function untypedResultOf(
+  settled: {
+    readonly task: Task | undefined;
+    readonly accepted: { readonly message: Message | undefined };
+    readonly peer: A2ARemotePeer;
+  },
+  agent: string,
+): A2ATaskResult {
+  const { task, peer } = settled;
+  const { message } = settled.accepted;
+  const failure = task === undefined || isInterrupted(task) ? undefined : failureOf(task, agent);
+  if (failure !== undefined) throw failure;
+  const answer = task ?? message;
+  const parts = answer === undefined ? [] : answerPartsOf(answer);
+  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, peer };
 }

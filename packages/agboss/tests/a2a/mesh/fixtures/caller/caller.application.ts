@@ -110,23 +110,30 @@ async function completedAnswerOf(response: Response): Promise<Response> {
   return Response.json({ ...body, result }, { status: response.status });
 }
 
-/** The peer's address as the test serves it: `http://peer.test` → its loopback port. */
-const routed: typeof fetch = async (input, init) => {
+/** The body of a request of `method` (its JSON-RPC text names it); `undefined` for another. */
+const bodyOf = (init: RequestInit | undefined, method: string): string | undefined =>
+  typeof init?.body === "string" && init.body.includes(`"${method}"`) ? init.body : undefined;
+
+/** The URL a request goes to: `http://peer.test` → the peer's loopback port. */
+function targetOf(input: Parameters<typeof fetch>[0]): string {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   if (caller.origin === undefined) throw new TypeError("fetch failed: the peer is not served");
-  const target = url.startsWith(PEER_ORIGIN)
-    ? `${caller.origin}${url.slice(PEER_ORIGIN.length)}`
-    : url;
-  const isSend = typeof init?.body === "string" && init.body.includes('"SendMessage"');
-  if (isSend) caller.sends.push(init.body as string);
-  const response = await fetch(target, init);
-  if (isSend && caller.loseSendAnswers > 0) {
+  return url.startsWith(PEER_ORIGIN) ? `${caller.origin}${url.slice(PEER_ORIGIN.length)}` : url;
+}
+
+/** The peer's address as the test serves it: `http://peer.test` → its loopback port. */
+const routed: typeof fetch = async (input, init) => {
+  const send = bodyOf(init, "SendMessage");
+  if (send !== undefined) caller.sends.push(send);
+  const response = await fetch(targetOf(input), init);
+  if (send !== undefined && caller.loseSendAnswers > 0) {
     caller.loseSendAnswers -= 1;
     await response.arrayBuffer();
     throw new TypeError("fetch failed: the answer was lost");
   }
-  const isGetTask = typeof init?.body === "string" && init.body.includes('"GetTask"');
-  if (isGetTask && caller.isGetTaskCompleted) return completedAnswerOf(response);
+  if (bodyOf(init, "GetTask") !== undefined && caller.isGetTaskCompleted) {
+    return completedAnswerOf(response);
+  }
   // answered as from the peer's address (the loopback is only how the test reaches it)
   return new Response(response.body, {
     status: response.status,

@@ -1,7 +1,15 @@
 import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
+import type { Task } from "@a2a-js/sdk";
 import type { Accepted } from "./a2a-message.js";
+import {
+  A2AClientOperation,
+  A2AProtocolError,
+  A2ARemoteCallError,
+  A2ARemoteCallReason,
+} from "./a2a-client-errors.js";
+import { meshRefusalOf } from "./a2a-outcome.js";
 import type { A2ACharged, A2AMeshActivation } from "./a2a-mesh-seam.js";
 
 /**
@@ -64,4 +72,38 @@ export function recordRefused(
     ...(isMeshed ? {} : { mesh: false as const }),
     refused: true,
   });
+}
+
+/** What `refusedCall` needs of the call: its agent, its task, a read of it, its charge and record. */
+export interface RefusedCall {
+  readonly agent: string;
+  readonly taskId: string | undefined;
+  /** `GetTask` of the task, as the agent has it now. */
+  readonly read: (taskId: string) => Promise<Task>;
+  /** Charges the call's price (the ledger adds it once). */
+  readonly charge: () => void;
+  /** Records the call as refused (`remote.refused: true`). */
+  readonly record: () => void;
+}
+
+/**
+ * A call the agent refused at the accept (#849, as stored — a replay's too): never waited on and
+ * none of its output used. The refusal is the agent's word, so the task is read once more: still
+ * `REJECTED` with its mesh limit → charged nothing, recorded `refused: true`, the limit thrown;
+ * anything else (working, completed, another end, another task) contradicts the refusal → the
+ * price charged and `A2AProtocolError` thrown. A read that fails throws its error, nothing charged.
+ */
+export async function refusedCall(call: RefusedCall): Promise<never> {
+  const { agent, taskId } = call;
+  if (taskId === undefined) {
+    throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
+  }
+  const read = await call.read(taskId);
+  const refusal = read.id === taskId ? meshRefusalOf(read) : undefined;
+  if (refusal !== undefined) {
+    call.record();
+    throw refusal;
+  }
+  call.charge();
+  throw new A2AProtocolError({ agent, operation: A2AClientOperation.GetTask });
 }
