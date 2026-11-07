@@ -52,7 +52,7 @@ Why two packages?
 | `agboss eval score` / `agboss compare`                        | Score recorded runs with Jev and compare YAML configuration profiles side by side                                                                                                           |
 | `agboss records export`                                       | Export stored `ExecutionRecord`s (`ExecutionHistoryRepository`) for `--tenant <id>` or `--all-tenants` to `--out <file.jsonl>` (`--since`, `--until`)                                       |
 | `agboss hub show <path...> [--html <file>]` / `agboss hub ui` | Stitch `describe --json` snapshots and `.jsonl` execution records into a global Agent Mesh graph, cross-service execution trees, Progressive Crystallization Radar, and Blast Radius        |
-| `agboss rag index`                                            | Build or update `@Rag` knowledge-base indexes                                                                                                                                               |
+| `agboss rag index`                                            | Build or update `@Rag` knowledge-base indexes for one tenant: `--tenant <id>`, required when the application declares a tenant context (`rag.tenant-required`), else `default`              |
 | `agboss migrate imports`                                      | Rewrite deprecated sub-entry imports to current `@agboss/core` entries                                                                                                                      |
 
 ## Documentation & Links
