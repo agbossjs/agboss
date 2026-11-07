@@ -165,6 +165,11 @@ export interface FrameServices {
   readonly keepCompensations?: (entries: readonly CompensationEntry[]) => void;
   /** A tool call's mesh services (#398 PR 2): what its remote calls claim and report. */
   readonly meshCall?: MeshCallServices;
+  /**
+   * What the execution may still spend, in USD (#810): what a remote call made by a step's own
+   * code (an action's) claims in its envelope; `undefined` without budgets.
+   */
+  readonly remainingBudget?: () => number | undefined;
 }
 
 /** What a frame is opened with. */

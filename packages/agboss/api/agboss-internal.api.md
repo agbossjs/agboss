@@ -333,7 +333,7 @@ export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunRepor
 // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const completedStatusOf: (finish: string, output: unknown) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd?: number) => A2ATaskStatus;
 
 // Warning: (ae-forgotten-export) The symbol "SnapshotDeps" needs to be exported by the entry point internal.d.ts
 //
@@ -1816,16 +1816,16 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
 // src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
 // src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:103:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:106:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:105:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts:28:3 - (ae-undocumented) Missing documentation for "start".

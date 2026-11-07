@@ -211,6 +211,8 @@ const SHARDS = {
       "src/a2a/server/a2a-stream.ts",
       "src/a2a/server/a2a-list-tasks.ts",
       "src/a2a/a2a-task-store-rule.ts",
+      // #810: the inbound mesh check — the audience first, then the signature, window and body
+      "src/a2a/server/a2a-mesh-admission.ts",
     ],
   },
   // the A2A client (#809): the accept round trip's messageId and reconciliation by peer, which
@@ -228,6 +230,9 @@ const SHARDS = {
       "src/a2a/client/a2a-task-view.ts",
       "src/a2a/client/a2a-outcome.ts",
       "src/a2a/a2a-mesh-message.ts",
+      // #810: the call's charges, once across passes; the echo of the mesh
+      "src/a2a/client/a2a-charges.ts",
+      "src/a2a/client/a2a-echo.ts",
       audienceRefusalOf("src/mesh/mesh-verification.ts"),
     ],
   },

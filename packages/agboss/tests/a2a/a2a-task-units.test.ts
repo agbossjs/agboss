@@ -300,8 +300,9 @@ describe("#807: the projection on its own", () => {
     expect(await tasks.findById(KEY)).toMatchObject({ status: WORKING, version: 4 });
   });
 
-  it("an end → COMPLETED from the records; nothing while they show no finish", async () => {
-    const end = { ...(eventOf() as object), finish: { name: "f" } } as never;
+  it("an end → COMPLETED from the records, with what it spent (#810); nothing while they show no finish", async () => {
+    const spend = { totalUsd: 0.25 };
+    const end = { ...(eventOf() as object), finish: { name: "f" }, spend } as never;
     const { tasks } = await storeWith(WORKING);
 
     const running = scripted([{ status: DurableExecutionStatus.Running }]);
@@ -317,6 +318,7 @@ describe("#807: the projection on its own", () => {
       pendingPauses: [],
       finish: "f",
       output: 1,
+      spentUsd: 0.25,
     });
   });
 
@@ -558,5 +560,41 @@ describe("#807: read repair on its own", () => {
 
     expect(repaired.status).toEqual(WORKING);
     expect(asked.at(-1)).toBe("state task-1 ctx-1");
+  });
+});
+
+describe("#810: the mesh's statuses", () => {
+  const entry = { application: "billing-application", start: "charge-workflow-start" };
+  const chain = [{ application: "orders-application", start: "o", executionId: "e-1" }];
+
+  it("a refused chain: REJECTED with the limit's code, its fixed text and its facts", async () => {
+    const { HopsLimitExceededError, MeshLoopDetectedError } =
+      await import("../../src/mesh/mesh-errors.js");
+    const { rejectedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
+
+    expect(rejectedStatusOf(new HopsLimitExceededError(entry, chain, 1))).toEqual({
+      state: A2ATaskState.Rejected,
+      pendingPauses: [],
+      errorCode: "limit.hops",
+      message: "the task was rejected: limit.hops",
+      errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 1 }),
+    });
+    expect(rejectedStatusOf(new MeshLoopDetectedError(entry, chain))).toMatchObject({
+      errorCode: "limit.mesh-loop",
+      errorDetails: { entry, chain },
+    });
+  });
+
+  it("a completion keeps what it spent only when its end said; none is no key at all", async () => {
+    const { completedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
+
+    expect(completedStatusOf("f", 1, 0.5)).toStrictEqual({
+      state: A2ATaskState.Completed,
+      pendingPauses: [],
+      finish: "f",
+      output: 1,
+      spentUsd: 0.5,
+    });
+    expect(completedStatusOf("f", 1)).not.toHaveProperty("spentUsd");
   });
 });

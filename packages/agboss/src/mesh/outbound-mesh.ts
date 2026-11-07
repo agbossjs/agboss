@@ -37,7 +37,8 @@ const SPAN_ID_LENGTH = 16;
 /** The envelope's claims of what the calling execution has left: budget and time. */
 function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadline"> {
   const call = frame.services.meshCall;
-  const left = call?.remainingBudget();
+  // a tool call's, else the step's own (#810: an action's remote call passes its budget down too)
+  const left = call === undefined ? frame.services.remainingBudget?.() : call.remainingBudget();
   const deadlineAt = call?.deadlineAt.getTime() ?? Date.parse(frame.execution.deadline?.at ?? "");
   return {
     ...(left === undefined ? {} : { budget: { remaining: amountOf(left), currency: "USD" } }),

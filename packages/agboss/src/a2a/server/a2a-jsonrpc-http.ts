@@ -8,10 +8,11 @@ import {
   type A2ARequestHandler,
 } from "@a2a-js/sdk/server";
 import type { Class } from "../../components/injection.js";
+import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import type { Bytes } from "../../units/index.js";
 import type { A2ACaller, A2ACallerResolver } from "../a2a-caller.js";
 import { admitCaller } from "../a2a-caller-gate.js";
-import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2A_VERSION, AGENT_CARD_PATH, type ServedAgentCard } from "./a2a-card.js";
 import {
   bodyWithin,
@@ -23,14 +24,16 @@ import {
   type BindingLog,
 } from "./a2a-http-io.js";
 import { admittedRequestOf, type AdmittedRequest } from "./a2a-admitted.js";
+import { admittedMeshOf, requestMeshOf, type A2ARequestMesh } from "./a2a-mesh-admission.js";
 import { callerState } from "./a2a-server-parts.js";
 
 /**
  * The JSON-RPC 2.0 binding on `node:http` (#808, spec §9, design §4.1.1–4.1.2): `GET
  * <base>/.well-known/agent-card.json` serves the card; `POST <base>` takes one JSON-RPC request —
  * its body read up to `maxBodySize` (over it: `413`), its `A2A-Version` checked (none means 0.3:
- * `-32009`), its method and task read, then the caller resolver asked with them (a refusal is a
- * real `401` / `403`, nothing run), then the SDK's `JsonRpcTransportHandler` over our handler —
+ * `-32009`), its method and task read, its mesh envelope checked (#810: `401 mesh.*`, nothing run —
+ * `a2a-mesh-admission.ts`), then the caller resolver asked with them (a refusal is a real `401` /
+ * `403`, nothing run), then the SDK's `JsonRpcTransportHandler` over our handler —
  * one JSON answer, or server-sent events for the streaming methods. A connection that closes ends
  * what the request waits for or streams, never the task.
  */
@@ -39,6 +42,7 @@ const HTTP_NOT_FOUND = 404;
 
 const VERSION_HEADER = "a2a-version";
 const EXTENSIONS_HEADER = "a2a-extensions";
+const TRACEPARENT_HEADER = "traceparent";
 /** What an empty or missing `A2A-Version` means (spec §3.6). */
 const LEGACY_VERSION = "0.3";
 
@@ -47,6 +51,8 @@ export interface A2AHttpBinding {
   readonly card: ServedAgentCard;
   readonly handler: A2ARequestHandler;
   readonly resolver: A2ACallerResolver<Class>;
+  /** The application's mesh settings: its name (the audience it accepts), its peers' keys. */
+  readonly mesh: MeshSettings;
   readonly base: string;
   readonly maxBodySize: Bytes;
   readonly log: BindingLog;
@@ -117,21 +123,25 @@ function extensionHeadersOf(context: ServerCallContext): Record<string, string> 
   return activated.length === 0 ? {} : { [EXTENSIONS_HEADER]: activated.join(", ") };
 }
 
+/** The extensions a call activates when it asks for them: both of ours (echoed, spec §4.6). */
+const SERVED_EXTENSIONS = [A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION] as const;
+
 /** The call's context: its version, extensions, and the admitted caller with the request's end. */
 function contextOf(
   req: IncomingMessage,
   closed: AbortSignal,
   caller: A2ACaller<Class>,
   admitted: AdmittedRequest,
+  mesh: A2ARequestMesh,
 ) {
   const requestedExtensions = Extensions.parseServiceParameter(headerOf(req, EXTENSIONS_HEADER));
   const context = new ServerCallContext({
     requestedVersion: versionOf(req),
     requestedExtensions,
-    state: callerState(caller, closed, admitted),
+    state: callerState(caller, closed, admitted, mesh),
   });
-  if (requestedExtensions.includes(A2A_SKILLS_EXTENSION))
-    context.addActivatedExtension(A2A_SKILLS_EXTENSION);
+  for (const uri of SERVED_EXTENSIONS)
+    if (requestedExtensions.includes(uri)) context.addActivatedExtension(uri);
   return context;
 }
 
@@ -166,6 +176,26 @@ async function serveRpc(
     sendJson(res, wireSafeAnswer(answer, log));
     return;
   }
+  await serveAdmitted(binding, { req, res, closed, body, admitted, transport });
+}
+
+/** One request of a caller's operation, once its version and its operation are read. */
+interface AdmittedRpc {
+  readonly req: IncomingMessage;
+  readonly res: ServerResponse;
+  readonly closed: AbortController;
+  readonly body: unknown;
+  readonly admitted: AdmittedRequest;
+  readonly transport: JsonRpcTransportHandler;
+}
+
+/** Its envelope checked, its caller resolved, then the transport's answer (JSON or events). */
+async function serveAdmitted(binding: A2AHttpBinding, rpc: AdmittedRpc): Promise<void> {
+  const { req, res, closed, body, admitted } = rpc;
+  const { log } = binding;
+  // the envelope before the resolver and before anything runs (design §4.1.2 step 3)
+  const verdict = admittedMeshOf(binding.mesh, admitted.operation, body, res);
+  if (verdict === undefined) return;
   const asked = {
     operation: admitted.operation,
     ...(admitted.taskId === "" ? {} : { taskId: admitted.taskId }),
@@ -173,9 +203,11 @@ async function serveRpc(
   const gate = await admitCaller(binding.resolver, { ...asked, http: req }, res, log);
   if (!gate.isAdmitted) return;
   if (res.destroyed) closed.abort();
-  const context = contextOf(req, closed.signal, gate.caller, admitted);
-  const answer = await transport.handle(body as Record<string, unknown>, context);
+  const mesh = requestMeshOf(verdict, gate.caller.peer, headerOf(req, TRACEPARENT_HEADER));
+  const context = contextOf(req, closed.signal, gate.caller, admitted, mesh);
+  const answer = await rpc.transport.handle(body as Record<string, unknown>, context);
   const headers = extensionHeadersOf(context);
+  const id = fieldOf(body, "id");
   if (isAsyncIterable(answer)) await sendEvents(res, answer, { id, log, headers });
   else sendJson(res, wireSafeAnswer(answer, log), headers);
 }

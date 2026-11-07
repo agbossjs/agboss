@@ -82,6 +82,7 @@ export interface A2ATaskRecord extends A2ATaskKey {
     readonly acceptedAt: Date;
     readonly callerPeer?: string;
     readonly contextId: string;
+    readonly meshBodyHash?: string;
     // (undocumented)
     readonly ownerId: string | undefined;
     readonly skill: string;
@@ -148,10 +149,12 @@ export enum A2ATaskState {
 export interface A2ATaskStatus {
     readonly cancelRequestedAt?: string;
     readonly errorCode?: string;
+    readonly errorDetails?: unknown;
     readonly finish?: string;
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
+    readonly spentUsd?: number;
     // (undocumented)
     readonly state: A2ATaskState;
 }
@@ -3635,6 +3638,18 @@ export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
 }
 
 // @public
+export interface LedgerDated {
+    readonly ledgerKey?: LedgerKey;
+    readonly madeAt?: string;
+}
+
+// @public
+export interface LedgerKey {
+    readonly id: string;
+    readonly madeAt: string;
+}
+
+// @public
 export class LimitExceededError extends AGBossError {
     // Warning: (ae-forgotten-export) The symbol "LimitBreach" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "LimitErrorText" needs to be exported by the entry point index.d.ts
@@ -6728,6 +6743,7 @@ export interface ToolCallRemote {
     readonly application: string;
     // (undocumented)
     readonly executionId: string;
+    readonly mesh?: false;
 }
 
 // @public
@@ -6937,7 +6953,7 @@ export class UnknownThreadError extends AGBossError {
 }
 
 // @public
-export interface UsageRecord extends TokenUsage {
+export interface UsageRecord extends TokenUsage, LedgerDated {
     // (undocumented)
     readonly caller: string;
     // (undocumented)
@@ -6946,7 +6962,6 @@ export interface UsageRecord extends TokenUsage {
     readonly costUsd: number;
     readonly isRecordedElsewhere?: boolean;
     readonly ledgerId?: string;
-    readonly madeAt?: string;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -7540,25 +7555,25 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
-// src/finops/usage.ts:21:3 - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts:22:3 - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts:23:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
-// src/finops/usage.ts:35:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:70:1 - (ae-undocumented) Missing documentation for "CostCategory".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:103:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:106:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:22:3 - (ae-undocumented) Missing documentation for "inputTokens".
+// src/finops/usage.ts:23:3 - (ae-undocumented) Missing documentation for "outputTokens".
+// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
+// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:39:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:69:1 - (ae-undocumented) Missing documentation for "CostCategory".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:105:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -7925,23 +7940,23 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/a2a-task.repository.ts:58:3 - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-task.repository.ts:65:3 - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts:72:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:92:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:97:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/a2a-task.repository.ts:112:3 - (ae-undocumented) Missing documentation for "taskId".
-// src/infrastructure/a2a-task.repository.ts:113:3 - (ae-undocumented) Missing documentation for "savedAt".
-// src/infrastructure/a2a-task.repository.ts:120:3 - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-task.repository.ts:121:3 - (ae-undocumented) Missing documentation for "requestHash".
-// src/infrastructure/a2a-task.repository.ts:134:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
-// src/infrastructure/a2a-task.repository.ts:145:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts:146:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts:147:3 - (ae-undocumented) Missing documentation for "contextId".
-// src/infrastructure/a2a-task.repository.ts:148:3 - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts:159:3 - (ae-undocumented) Missing documentation for "tasks".
-// src/infrastructure/a2a-task.repository.ts:160:3 - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts:170:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts:177:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts:201:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts:203:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/a2a-task.repository.ts:102:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:107:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/a2a-task.repository.ts:127:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/infrastructure/a2a-task.repository.ts:128:3 - (ae-undocumented) Missing documentation for "savedAt".
+// src/infrastructure/a2a-task.repository.ts:135:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts:136:3 - (ae-undocumented) Missing documentation for "requestHash".
+// src/infrastructure/a2a-task.repository.ts:149:1 - (ae-undocumented) Missing documentation for "A2ATaskSave".
+// src/infrastructure/a2a-task.repository.ts:160:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-task.repository.ts:161:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-task.repository.ts:162:3 - (ae-undocumented) Missing documentation for "contextId".
+// src/infrastructure/a2a-task.repository.ts:163:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-task.repository.ts:174:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/infrastructure/a2a-task.repository.ts:175:3 - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts:185:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:192:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:216:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:218:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:91:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
 // src/infrastructure/clock.ts:97:3 - (ae-undocumented) Missing documentation for "now".
 // src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".

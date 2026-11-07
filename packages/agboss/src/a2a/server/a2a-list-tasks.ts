@@ -80,7 +80,7 @@ export async function listedTasks(
   const page = await pageOf(parts, caller, params, pageSize);
   const repaired = await Promise.all(page.tasks.map((task) => repairedOf(parts, task)));
   const wire = repaired.map((task) => {
-    const shown = wireTaskOf(task, parts.skills);
+    const shown = wireTaskOf(task, parts);
     return params.includeArtifacts === true ? shown : { ...shown, artifacts: [] };
   });
   return {

@@ -219,12 +219,15 @@ export class BudgetMeter implements BudgetCheck {
     const own: UsageRecord[] = [];
     const kept = records.map((record) => {
       if (!isRecordedHere(record)) return record;
+      // a spend of its own identity (#810) keeps it: whichever pass writes it, the ledger adds it once
+      const { ledgerKey } = record;
       const marked = {
         ...record,
         isRecordedElsewhere: true,
-        ledgerId: this.#ids.mint(),
+        // an id of no pass: one any pass may have written — the ledger adds it once, its reads hold it
+        ledgerId: ledgerKey?.id ?? this.#ids.mint(),
         // its entry's date (#771): a write of it retried after the ledger pruned it is refused
-        madeAt: this.clock.now().toISOString(),
+        madeAt: ledgerKey?.madeAt ?? this.clock.now().toISOString(),
       };
       own.push(marked);
       return marked;
@@ -312,7 +315,8 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       await this.#writeUnwritten();
-      const own = records.filter(isRecordedHere);
+      // a spend of its own identity (#810) is written under it: the ledger adds it once
+      const own = records.filter(isRecordedHere).map(withOwnLedgerKey);
       const elsewhere = this.#ids.uncounted(records, false);
       this.#recorded += totalCost(own);
       if (own.length > 0) await this.#save(own);
@@ -320,6 +324,12 @@ export class BudgetMeter implements BudgetCheck {
     });
   }
 }
+
+/** A record written at its step's end under its own identity (#810), when it has one. */
+const withOwnLedgerKey = (record: UsageRecord): UsageRecord =>
+  record.ledgerKey === undefined
+    ? record
+    : { ...record, ledgerId: record.ledgerKey.id, madeAt: record.ledgerKey.madeAt };
 
 /** A pass's budgets over the records the execution keeps. */
 export const meterOf = (

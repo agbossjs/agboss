@@ -99,6 +99,8 @@ describe("#807: the A2A task stores' helpers", () => {
       ensureSchema: (_name: string, ddl: string) => {
         database.exec(ddl);
       },
+      // #810: the schema written today has the column already
+      addColumn: () => undefined,
       ping: () => Promise.resolve(),
       transaction: <T>(work: () => T): T => work(),
     };
@@ -118,6 +120,8 @@ describe("#807: the A2A task stores' helpers", () => {
       ensureSchema: (_name: string, ddl: string) => {
         database.exec(ddl);
       },
+      // #810: the schema written today has the column already
+      addColumn: () => undefined,
       transaction: <T>(work: () => T): T => work(),
     };
     const sqlite = new SqliteA2ATaskRepository(connection as never);

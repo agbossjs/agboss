@@ -981,6 +981,23 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **The AGBoss mesh over A2A v1.0, both sides** (#810, epic #805) — the A2A server checks a
+  `SendMessage`'s envelope (`message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`) before
+  the caller resolver and before anything runs: its audience first, against the application's own
+  name (fail closed, mesh settings or not), then a known issuer's signature, replay window and the
+  `bodyHash` of the message as decoded — `401 mesh.*`; a chain through the skill or past
+  `maxMeshHops` is a `REJECTED` task with the limit's code and facts, which the client rebuilds into
+  the same `MeshLoopDetectedError` / `HopsLimitExceededError`; a trusted caller's chain, origin,
+  budget and deadline bind the remote execution, and its completed task carries the signed run
+  report (`task.metadata[uri].report`, also on the stream's last status update). The card declares
+  the mesh extension (`idempotencyRetention` = `retention.a2aTasks`) and echoes it. The client
+  charges an A2A call's price and its report's excess on every pass under the call's own ledger
+  identity (`UsageRecord.ledgerKey`, `LedgerKey`): a takeover that replays the accept charges them
+  exactly once (price 1, report 3 → 3); a report must name the call's task; an agent that does not
+  echo the extension is called without the mesh, said in the tool call's record (`remote: { …,
+mesh: false }`) and in `agboss describe` (`a2a agents`, `mesh: not guaranteed`). An action's
+  remote call passes its budget down too. `A2ATaskRecord.meshBodyHash` (SQLite: a column added on
+  open), `A2ATaskStatus.errorDetails` / `spentUsd`, with `a2aTaskContract` cases.
 - **A2A tasks shared by the instances, or no start** (#824) — `A2ATaskRepository` declares its
   backend (`static store = { backend }` since #825; the in-memory store `"in-memory"`, `SqliteA2ATaskRepository` `"sqlite"`;
   `PostgresA2ATaskRepository` in `@agboss/postgres` and `MongoA2ATaskRepository` in

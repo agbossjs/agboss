@@ -6,7 +6,13 @@ import {
 import type { ExecutionStreamEvent } from "../../run/types.js";
 import { changedTask, isAtRest } from "./a2a-task-wait.js";
 import { taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
-import { outputArtifactOf, textPart, wireStatusOf, wireTaskOf } from "./a2a-task-view.js";
+import {
+  outputArtifactOf,
+  taskMetadataOf,
+  textPart,
+  wireStatusOf,
+  wireTaskOf,
+} from "./a2a-task-view.js";
 
 /**
  * A task's changes as a stream (#808, design §3 and §4.1.5): the task first (spec §3.1.6), then each
@@ -70,14 +76,15 @@ function emptyMessageOf(task: A2ATaskRecord): Message {
   };
 }
 
-const statusUpdateOf = (task: A2ATaskRecord): StreamResponse => ({
+/** A status update; the last one of a completed task carries its metadata (#810: the run report). */
+const statusUpdateOf = (parts: A2AServerParts, task: A2ATaskRecord): StreamResponse => ({
   payload: {
     $case: "statusUpdate",
     value: {
       taskId: task.taskId,
       contextId: task.contextId,
       status: wireStatusOf(task),
-      metadata: undefined,
+      metadata: taskMetadataOf(task, parts.mesh),
     },
   },
 });
@@ -104,7 +111,7 @@ function changeEventsOf(parts: A2AServerParts, task: A2ATaskRecord): StreamRespo
             },
           },
         ];
-  return [...artifactEvent, statusUpdateOf(task)];
+  return [...artifactEvent, statusUpdateOf(parts, task)];
 }
 
 const isEnd = (task: A2ATaskRecord, end: StreamEnd, answered: number): boolean =>
@@ -144,7 +151,7 @@ export async function* taskStream(
   };
   let stopListening = parts.runs.listen(key, hear);
   try {
-    yield { payload: { $case: "task", value: wireTaskOf(current, parts.skills) } };
+    yield { payload: { $case: "task", value: wireTaskOf(current, parts) } };
     while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {
       wake = new AbortController();
       if (queued.length === 0) current = await changedOrHeard(parts, current, signal, wake.signal);

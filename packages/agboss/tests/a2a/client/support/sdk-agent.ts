@@ -74,6 +74,11 @@ export interface SdkAgentOptions {
     readonly skills?: Record<string, unknown>;
   };
   readonly skills?: readonly string[];
+  /**
+   * Whether the agent echoes the mesh extension it was asked for (#810, spec §4.6); default: an
+   * AGBoss peer does, a foreign one never.
+   */
+  readonly echoesMesh?: boolean;
   /** The card as served, replacing the built one (a v0.3 card). */
   readonly rawCard?: unknown;
   /**
@@ -353,22 +358,32 @@ export class SdkAgent {
       return new Response("bad gateway", { status: 502 });
     }
     const refused = this.#meshRefusal(body);
-    if (refused !== undefined) return Response.json(refused);
+    if (refused !== undefined) return Response.json(refused, { headers: this.#echoOf(headers) });
     const context = new ServerCallContext({ requestedVersion: headers["a2a-version"] ?? "1.0" });
     const answer =
       this.#dedupe(body) ?? (await this.#transport.handle(raw as Record<string, unknown>, context));
     this.#remember(body, answer);
-    return this.#reply(body.method, answer);
+    return this.#reply(body.method, answer, this.#echoOf(headers));
+  }
+
+  /** The extensions an answer echoes: the mesh, when asked of an agent that activates it. */
+  #echoOf(headers: Readonly<Record<string, string>>): Record<string, string> {
+    const asked = (headers["a2a-extensions"] ?? "").split(",").map((uri) => uri.trim());
+    const echoes = this.#options.echoesMesh ?? this.#options.agboss !== undefined;
+    return echoes && asked.includes(A2A_MESH_EXTENSION)
+      ? { "a2a-extensions": A2A_MESH_EXTENSION }
+      : {};
   }
 
   /** The answer as sent back: lost, streamed, or rewritten. */
-  #reply(method: string, answer: unknown): Response {
+  #reply(method: string, answer: unknown, headers: Record<string, string> = {}): Response {
     if (method === "SendMessage" && this.loseSendAnswers > 0) {
       this.loseSendAnswers -= 1;
       throw new TypeError("fetch failed: the answer was lost");
     }
     if (isStream(answer)) return this.#stream(answer, method);
-    return Response.json(this.rewrite?.(method, answer as Record<string, unknown>) ?? answer);
+    const sent = this.rewrite?.(method, answer as Record<string, unknown>) ?? answer;
+    return Response.json(sent, { headers });
   }
 
   /** An AGBoss peer keeps each message's answer by its messageId. */

@@ -26,8 +26,29 @@ import {
 import { InMemoryA2ATaskRepository } from "../../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../../src/testing/clock.js";
+import type { A2ARequestMesh } from "../../../../src/a2a/server/a2a-mesh-admission.js";
+import type { MeshSettings } from "../../../../src/mesh/mesh-settings.js";
+
+/** A request that carried no envelope (#810). */
+export const NO_MESH: A2ARequestMesh = {
+  envelope: undefined,
+  trusted: undefined,
+  traceparent: undefined,
+};
 
 export const NINE = new Date("2026-01-05T09:00:00.000Z");
+
+/** The served application's mesh settings: its name, its hop limit, no keys. */
+export const UNIT_MESH: MeshSettings = {
+  application: "unit-application",
+  maxMeshHops: 8,
+  keys: { peers: new Map() },
+  clock: new VirtualClock(NINE),
+  idempotencyRetention: 0,
+  a2aTaskRetention: 0,
+  exposes: [],
+  contracts: () => Promise.reject(new Error("no contracts in a unit test")),
+};
 export const SUBMITTED: A2ATaskStatus = { state: A2ATaskState.Submitted, pendingPauses: [] };
 export const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] };
 
@@ -100,6 +121,7 @@ export function unitParts(
     runs: new LocalRuns(),
     skills: [TEXT_SKILL],
     maxTaskDuration: undefined,
+    mesh: UNIT_MESH,
     ids: {
       newExecutionId: () => {
         const id = `minted-${String((minted += 1))}`;
@@ -160,6 +182,7 @@ export const callerOf = (
   ownerId: "dana",
   signal: new AbortController().signal,
   admitted: { operation, taskId: "" },
+  mesh: NO_MESH,
   ...overrides,
 });
 

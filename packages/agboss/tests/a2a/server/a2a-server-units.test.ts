@@ -4,6 +4,7 @@
  * handler reads it, the owned task, the end of a task no execution can start under, and the
  * read repair's wake-up.
  */
+import { NO_MESH } from "./support/unit-parts.js";
 import { ServerCallContext } from "@a2a-js/sdk/server";
 import { describe, expect, it } from "vitest";
 import { A2AOperation } from "../../../src/a2a/a2a-caller.js";
@@ -184,10 +185,15 @@ describe("#808: the request admitted, as the SDK decodes it", () => {
 describe("#808: the caller, as the handler reads it", () => {
   const contextOf = (caller: Parameters<typeof callerState>[0], taskId = "t-1") =>
     new ServerCallContext({
-      state: callerState(caller, new AbortController().signal, {
-        operation: A2AOperation.GetTask,
-        taskId,
-      }),
+      state: callerState(
+        caller,
+        new AbortController().signal,
+        {
+          operation: A2AOperation.GetTask,
+          taskId,
+        },
+        NO_MESH,
+      ),
     });
 
   it("the admitted caller, with its tenant (default `default`) and owner", () => {
@@ -265,6 +271,7 @@ describe("#808: a caller's task", () => {
     ownerId,
     signal: new AbortController().signal,
     admitted: { operation: A2AOperation.GetTask, taskId: "task-1" },
+    mesh: NO_MESH,
   });
 
   it("its own; another owner's, none, an empty or invalid id: not found, the store not asked for the last two", async () => {

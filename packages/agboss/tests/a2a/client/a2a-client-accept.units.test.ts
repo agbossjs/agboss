@@ -113,6 +113,7 @@ function clientAnswering(...answers: (Task | Message | Error)[]) {
 function clockRecording(onSleep: () => void = () => undefined) {
   const slept: number[] = [];
   const clock: AcceptCall["clock"] = {
+    now: () => new Date(0),
     sleep: (delay: Milliseconds) => {
       slept.push(delay);
       onSleep();
@@ -206,28 +207,63 @@ describe("the message and the request one SendMessage sends", () => {
     expect(sent[0]?.options).toEqual({ serviceParameters: { traceparent: "00-x" }, signal });
   });
 
-  it("stores a task's ids, or a message's wire JSON", async () => {
+  it("stores a task's ids, or a message's wire JSON, with when it was accepted", async () => {
     const task = await sentOf(
       callOf({ client: clientAnswering(taskOf("t-7", "c-7")).client }),
       "m",
     );
     const message = await sentOf(callOf({ client: clientAnswering(messageAnswer).client }), "m");
 
-    expect(task.result).toEqual({ kind: "task", taskId: "t-7", contextId: "c-7", mesh: false });
+    const acceptedAt = new Date(0).toISOString();
+    expect(task.result).toEqual({
+      kind: "task",
+      taskId: "t-7",
+      contextId: "c-7",
+      mesh: false,
+      acceptedAt,
+    });
     expect(message.result).toEqual({
       kind: "message",
       message: JSON.stringify(Message.toJSON(messageAnswer)),
       mesh: false,
+      acceptedAt,
     });
-    const meshed = await sentOf(
-      callOf({
-        client: clientAnswering(taskOf()).client,
-        sign: () => ({ metadata: { [MESH]: { envelope: "e" } }, serviceParameters: {} }),
-      }),
+    expect(message.answer).toBe(messageAnswer);
+  });
+
+  it("#810: meshed only when the envelope rode and the agent echoed the extension; its bodyHash kept", async () => {
+    const sign = () => ({
+      metadata: { [MESH]: { envelope: "e" } },
+      serviceParameters: {},
+      bodyHash: "sha256:b",
+    });
+    const sent = (meshEchoOf?: () => boolean | undefined) =>
+      sentOf(
+        callOf({
+          client: clientAnswering(taskOf()).client,
+          sign,
+          ...(meshEchoOf === undefined ? {} : { meshEchoOf }),
+        }),
+        "m",
+      );
+
+    expect((await sent(() => true)).result).toMatchObject({ mesh: true, bodyHash: "sha256:b" });
+    const unechoed = (await sent(() => false)).result;
+    expect(unechoed).toMatchObject({ mesh: false });
+    expect(unechoed).not.toHaveProperty("bodyHash");
+    expect((await sent()).result).toMatchObject({ mesh: false });
+    // echoed, but no envelope rode (nothing signed): not meshed
+    const bare = await sentOf(
+      callOf({ client: clientAnswering(taskOf()).client, meshEchoOf: () => true }),
       "m",
     );
-    expect(meshed.result).toMatchObject({ mesh: true });
-    expect(message.answer).toBe(messageAnswer);
+    expect(bare.result).toStrictEqual({
+      kind: "task",
+      taskId: expect.any(String),
+      contextId: expect.any(String),
+      mesh: false,
+      acceptedAt: new Date(0).toISOString(),
+    });
   });
 
   it("a failure is translated: codes only, the signal's reason when it ended the call", async () => {

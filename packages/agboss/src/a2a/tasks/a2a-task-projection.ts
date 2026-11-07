@@ -69,7 +69,7 @@ export class A2ATaskProjection
     return this.#move(event, async () => {
       const state = await this.#durableStateOf(event);
       return state.status === DurableExecutionStatus.Finished
-        ? completedStatusOf(state.finish, state.output)
+        ? completedStatusOf(state.finish, state.output, event.spend.totalUsd)
         : undefined;
     });
   }

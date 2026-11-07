@@ -2,7 +2,11 @@ import type { Message } from "@a2a-js/sdk";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { DurableExecutionStatus } from "../../app/execution-control.js";
 import { DuplicateExecutionIdError } from "../../core/errors.js";
-import { failedStatusOf } from "../tasks/task-status.js";
+import { failedStatusOf, rejectedStatusOf } from "../tasks/task-status.js";
+import { meshRefusalOf } from "../../mesh/mesh-admission.js";
+import type { MeshLimitError } from "../../mesh/mesh-errors.js";
+import { withInboundMesh } from "../../mesh/inbound-mesh.js";
+import { inboundMeshOfA2A } from "./a2a-mesh-admission.js";
 import { withReservedExecutionId } from "../../app/tree-control.js";
 import {
   A2ATaskSaveStatus,
@@ -35,6 +39,12 @@ import { A2AInternalError, invalidParams, taskNotFound } from "./a2a-wire-errors
  * while that task has not started (its first accept crashed before the start), starts it under the
  * same reserved id: the lease store keeps every execution id once, so one task starts at most one
  * execution, whichever instance tries. The same id with other content is `-32602`.
+ *
+ * The mesh (#810, design §4.1.7): a message whose envelope's chain already passed through this
+ * skill, or is as long as the application's `maxMeshHops`, is accepted as a `REJECTED` task with the
+ * limit's code and facts — nothing started, so a resend finds that answer; any other runs with the
+ * envelope's chain (and, for a trusted caller, its budget and deadline: `caller-budget`, the
+ * execution's deadline), and a trusted caller's task keeps the message's `bodyHash` for its report.
  */
 
 /** How many minted task ids are tried before the generator is taken as broken. */
@@ -59,13 +69,16 @@ function started(
   if (parts.runs.settledOf(taskKeyOf(task)) !== undefined) return;
   const { tenant, ownerId, execution } = callerOptionsOf(caller);
   const options = withReservedExecutionId(
-    {
-      threadId: task.contextId,
-      ...(tenant === undefined ? {} : { tenant }),
-      ...(ownerId === undefined ? {} : { ownerId }),
-      ...(execution === undefined ? {} : { execution }),
-      ...(parts.maxTaskDuration === undefined ? {} : { deadline: parts.maxTaskDuration }),
-    },
+    withInboundMesh(
+      {
+        threadId: task.contextId,
+        ...(tenant === undefined ? {} : { tenant }),
+        ...(ownerId === undefined ? {} : { ownerId }),
+        ...(execution === undefined ? {} : { execution }),
+        ...(parts.maxTaskDuration === undefined ? {} : { deadline: parts.maxTaskDuration }),
+      },
+      inboundMeshOfA2A(caller.mesh),
+    ),
     task.taskId,
   );
   // its end is its task's status: the projection writes it, or — refused before it began — below
@@ -119,6 +132,30 @@ async function acceptedBefore(
   return task;
 }
 
+/**
+ * The chain limit the message meets at this skill: checked on every envelope, trusted or not — a
+ * caller only makes its own request fail with it.
+ */
+function meshLimitOf(
+  parts: A2AServerParts,
+  caller: A2ARequestCaller,
+  skill: ServedSkill,
+): MeshLimitError | undefined {
+  const { application, maxMeshHops } = parts.mesh;
+  const receiver = { entry: { application, start: skill.id }, maxMeshHops };
+  return meshRefusalOf(receiver, caller.mesh.envelope);
+}
+
+/** What a task keeps of its caller: the peer the resolver named, a trusted message's body hash. */
+function meshFieldsOf(caller: A2ARequestCaller): Pick<NewA2ATask, "callerPeer" | "meshBodyHash"> {
+  const { trusted } = caller.mesh;
+  const { peer } = caller.caller;
+  return {
+    ...(peer === undefined ? {} : { callerPeer: peer }),
+    ...(trusted === undefined ? {} : { meshBodyHash: trusted.bodyHash }),
+  };
+}
+
 /** The task of a new message: accepted now (and started), or the one it was accepted for. */
 export async function acceptedTask(
   parts: A2AServerParts,
@@ -136,6 +173,7 @@ export async function acceptedTask(
   const key = { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId };
   const kept = await parts.tasks.findByMessage(key);
   if (kept !== undefined) return acceptedBefore(parts, caller, kept, sent);
+  const limit = meshLimitOf(parts, caller, skill);
   for (let attempt = 0; attempt < MINT_ATTEMPTS; attempt += 1) {
     const task: NewA2ATask = {
       ...key,
@@ -143,15 +181,19 @@ export async function acceptedTask(
       taskId: parts.ids.newExecutionId(),
       contextId,
       skill: skill.id,
-      status: { state: A2ATaskState.Submitted, pendingPauses: [] },
+      status:
+        limit === undefined
+          ? { state: A2ATaskState.Submitted, pendingPauses: [] }
+          : rejectedStatusOf(limit),
       acceptedAt: parts.clock.now(),
       requestHash: sent.requestHash,
-      ...(caller.caller.peer === undefined ? {} : { callerPeer: caller.caller.peer }),
+      ...meshFieldsOf(caller),
     };
     const save = await parts.tasks.saveIfAbsent(task);
     switch (save.status) {
       case A2ATaskSaveStatus.Saved:
-        started(parts, caller, save.task, sent);
+        // a rejected task is over as accepted: nothing ever runs under its id
+        if (limit === undefined) started(parts, caller, save.task, sent);
         return save.task;
       case A2ATaskSaveStatus.MessageTaken:
         return acceptedBefore(parts, caller, save.message, sent);

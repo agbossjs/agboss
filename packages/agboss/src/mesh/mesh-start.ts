@@ -21,6 +21,7 @@ export function meshSettingsFor(
     keys: meshKeysOf(assembled.mesh, context.environment),
     clock: app.resolve(Clock),
     idempotencyRetention: assembled.meshAnswerRetention,
+    a2aTaskRetention: assembled.a2aTaskRetention,
     exposes: assembled.exposes,
     contracts: async () =>
       (await lazyLoad(import("../describe/contracts.js"))).contractsOf(assembled),

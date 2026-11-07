@@ -96,6 +96,36 @@ export const A2A_TASK_STATUS_CASES: readonly ContractCase<A2ATaskRepository>[] =
     },
   },
   {
+    name: "a mesh status comes back as written: a refusal's facts, a completion's spend (#810)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const details = {
+        entry: { application: "billing-application", start: "charge-workflow-start" },
+        chain: [{ application: "orders-application", start: "o", executionId: "e-1" }],
+        maxMeshHops: 1,
+      };
+      const rejected: A2ATaskStatus = {
+        state: A2ATaskState.Rejected,
+        pendingPauses: [],
+        errorCode: "limit.hops",
+        message: "the task was rejected: limit.hops",
+        errorDetails: details,
+      };
+      await saved(first, newTask("t-1", { status: rejected }));
+      await saved(first, newTask("t-2"));
+      const completed: A2ATaskStatus = {
+        state: A2ATaskState.Completed,
+        pendingPauses: [],
+        finish: "charged-workflow-finish",
+        output: { chargeId: "ch-1" },
+        spentUsd: 0.000123,
+      };
+      await first.compareAndSetStatus(keyOf(newTask("t-2")), 1, completed, at(1));
+
+      expect((await second.findById(keyOf(newTask("t-1"))))?.status).toEqual(rejected);
+      expect((await second.findById(keyOf(newTask("t-2"))))?.status).toEqual(completed);
+    },
+  },
+  {
     name: nulCaseName("a task's output"),
     run: async ({ first, second }: Instances): Promise<void> => {
       await saved(first, newTask("t-1"));

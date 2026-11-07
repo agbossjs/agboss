@@ -1,6 +1,7 @@
 import type { KeyObject } from "node:crypto";
 import { z } from "zod";
 import { serviceUsageOf } from "../components/spend-recorder.js";
+import type { UsageRecord } from "../finops/usage.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { usd, type Usd } from "../units/index.js";
 import { amountOf, dollarsOf } from "./mesh-durations.js";
@@ -82,16 +83,17 @@ export function takeRunReport(
   bodyHash: string,
   contract?: ContractPrice,
   alreadyCharged = 0,
+  identity?: RunReportIdentity,
 ): void {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
-  const report =
-    settings === undefined ? undefined : verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const report = callReportOf(settings, value, bodyHash, identity);
   const charge = chargeOf(report, contract, alreadyCharged);
   if (charge !== undefined) {
     const service = `${transport}:${charge.application}`;
-    frame.services.reportUsage?.(serviceUsageOf({ service, cost: usd(charge.cost) }));
+    const spent = serviceUsageOf({ service, cost: usd(charge.cost) });
+    frame.services.reportUsage?.(withLedgerKey(spent, identity, report));
   }
   if (report === undefined) return;
   frame.services.meshCall?.recordRemote({
@@ -99,6 +101,70 @@ export function takeRunReport(
     executionId: report.executionId,
   });
 }
+
+/**
+ * The call's verified report: signed by a known peer for this `bodyHash` — and, when the call
+ * knows its remote execution (an A2A task, #810), naming it: another execution's report is not
+ * this call's.
+ */
+function callReportOf(
+  settings: ReturnType<typeof contextMeshSettingsOf>,
+  value: unknown,
+  bodyHash: string,
+  identity: RunReportIdentity | undefined,
+): MeshRunReport | undefined {
+  if (settings === undefined) return undefined;
+  const verified = verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const expected = identity?.executionId;
+  return expected === undefined || verified?.executionId === expected ? verified : undefined;
+}
+
+/**
+ * What makes a report's charge one across passes (#810): its ledger id, the execution the report
+ * must name (the call's task), and the window its entry is dated in — never by the peer's word
+ * alone: from the call's own accept (`notBefore`, as the caller stored it) to the caller's `now`.
+ */
+export interface RunReportIdentity {
+  readonly id: string;
+  readonly executionId?: string;
+  /** When the caller's accept of the call was stored (ISO 8601): the entry's earliest date. */
+  readonly notBefore: string;
+  /** The caller's own time now, on its `Clock`: the entry's latest date. */
+  readonly now: Date;
+}
+
+/**
+ * The date of a report's charge (#810, security review): when its peer signed it, clamped into the
+ * caller's own window `[notBefore, now]` — a peer that backdates it (to 1970, before the call was
+ * accepted) cannot put the spend behind a budget's period or the ledger's pruning mark, one that
+ * dates it ahead cannot keep it from them; an unreadable date is `now`. Inside the window it is the
+ * same on every pass that charges it (the report is the task's one report).
+ */
+export function reportMadeAtOf(
+  issuedAt: string | undefined,
+  identity: Pick<RunReportIdentity, "notBefore" | "now">,
+): string {
+  const now = identity.now.getTime();
+  const lower = Date.parse(identity.notBefore);
+  // a lower bound that is no date, or past now, leaves only now: fail closed to the caller's time
+  const floor = Number.isNaN(lower) || lower > now ? now : lower;
+  const issued = issuedAt === undefined ? Number.NaN : Date.parse(issuedAt);
+  const dated = Number.isNaN(issued) ? now : Math.min(now, Math.max(floor, issued));
+  return new Date(dated).toISOString();
+}
+
+/** The charge under the call's own ledger identity, when it has one (#810). */
+const withLedgerKey = (
+  spent: UsageRecord,
+  identity: RunReportIdentity | undefined,
+  report: MeshRunReport | undefined,
+): UsageRecord =>
+  identity === undefined
+    ? spent
+    : {
+        ...spent,
+        ledgerKey: { id: identity.id, madeAt: reportMadeAtOf(report?.issuedAt, identity) },
+      };
 
 /**
  * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less

@@ -103,6 +103,10 @@ export function reportingOf(
     keepCompensations: (entries: readonly CompensationEntry[]): void => {
       reported.compensations.push(...entries);
     },
+    remainingBudget: () => {
+      const left = limits.budgets.remaining();
+      return Number.isFinite(left) ? left : undefined;
+    },
   };
   return { reported, services };
 }
