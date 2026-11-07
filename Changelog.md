@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A interop, the official TCK in CI, fault scenarios (#811)
+
+- **Added**: the official A2A TCK runs in CI (`a2a-tck`) against an AGBoss conformance agent, pinned
+  to `1.0.0.alpha3`; its results and every requirement that does not pass, with why, on
+  [A2A-Conformance](A2A-Conformance).
+- **Fixed**: `GetExtendedAgentCard` is `-32004` (the card declares none; was `-32007`); the card has
+  `Last-Modified`; `ListTasks.statusTimestampAfter` keeps a task whose status changed at that very
+  time (`>=`, as a2a.proto says; was `>`).
+
 ## Unreleased — 0.1.1: the Unknown-cost metric counts every end (#875)
 
 - **Changed**: `agboss.instance.costs.unknown` counts a lost pass's Unknown-cost entries as the

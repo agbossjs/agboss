@@ -47,6 +47,7 @@
 - [A2A — agent to agent](A2A)
   - [The mesh extension](A2A-Mesh-Extension)
   - [The skills extension](A2A-Skills-Extension)
+  - [Conformance — the official TCK](A2A-Conformance)
 - [FinOps](FinOps)
 - [Tracing](Tracing)
 - [Observability](Observability)

@@ -122,7 +122,8 @@ application does not list too: `[application.expose-unlisted]`; a `publicUrl` th
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
-**The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Cache-Control: max-age=300`):
+**The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
+listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):
 the expose's `name`, `description`, `version` and `provider`; one skill per exported start (its id
 the start's name, its description the start's, `tags` from `@A2AExpose({ skills })`, default the
 application's name; `inputModes` `text/plain` for a `WorkflowStartTextDto` start, else
@@ -140,10 +141,10 @@ protocolVersion: "1.0" }`.
 | --- | --- |
 | `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
 | `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates (an agent's tool call as it starts: `WORKING` with the text `calling <tool>`, #848), the model's text as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next `append: true`), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
-| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter`; `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
+| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter` — a task whose status changed at or after that time, as a2a.proto says ("greater than or equal"; #811: the SDK's own store filters `>`, the official TCK tests no boundary), a fraction below the millisecond rounded up to it; `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
 | `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
 | `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
-| push methods / `GetExtendedAgentCard` | `-32003` / `-32007` |
+| push methods / `GetExtendedAgentCard` | `-32003` / `-32004` — the card declares no extended card, and an operation of a capability not declared is `UnsupportedOperationError` (spec §3.3.4; `-32007` is for an agent that declares one; #811) |
 
 - **A message** names its skill in `metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional
   with one export; else `-32602` listing the skill ids) and carries text parts (a text start) or one
