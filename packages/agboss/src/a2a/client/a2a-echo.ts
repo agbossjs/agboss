@@ -25,14 +25,15 @@ export interface ExtensionEcho {
 }
 
 /** A body's JSON; `undefined` for one that is none. */
+// Stryker disable BlockStatement: an empty catch answers the same `undefined`
 function jsonOf(body: unknown): unknown {
   try {
     return JSON.parse(String(body)) as unknown;
-    // Stryker disable next-line BlockStatement: an empty catch answers the same `undefined`
   } catch {
     return undefined; // no JSON body: no send of a message
   }
 }
+// Stryker restore BlockStatement
 
 /** The `messageId` of a JSON-RPC `SendMessage` body; `undefined` for anything else. */
 function sentMessageIdOf(body: unknown): string | undefined {

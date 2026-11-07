@@ -199,8 +199,10 @@ export function wireFetchOf(
       const response = await fetchedOnce(fetcher, url, { ...init, headers, redirect: "manual" });
       const answer = await answerOf(policy, response, { url, isGet, isJsonRpc, redirects });
       if (answer instanceof Response) {
-        if (echo !== undefined)
+        if (echo !== undefined) {
+          // Stryker disable next-line OptionalChaining: a request with no init asked for no extension (its headers are the client's only), so nothing reads its body
           observeEcho(echo.uri, { headers, body: init?.body }, answer, echo.onEcho);
+        }
         return answer;
       }
       url = answer.next;

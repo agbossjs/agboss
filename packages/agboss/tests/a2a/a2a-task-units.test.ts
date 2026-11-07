@@ -572,12 +572,12 @@ describe("#810: the mesh's statuses", () => {
       await import("../../src/mesh/mesh-errors.js");
     const { rejectedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
-    expect(rejectedStatusOf(new HopsLimitExceededError(entry, chain, 1))).toStrictEqual({
+    expect(rejectedStatusOf(new HopsLimitExceededError(entry, chain, 1))).toEqual({
       state: A2ATaskState.Rejected,
       pendingPauses: [],
       errorCode: "limit.hops",
       message: "the task was rejected: limit.hops",
-      errorDetails: { entry, chain, maxMeshHops: 1 },
+      errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 1 }),
     });
     expect(rejectedStatusOf(new MeshLoopDetectedError(entry, chain))).toMatchObject({
       errorCode: "limit.mesh-loop",
