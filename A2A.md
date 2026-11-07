@@ -139,7 +139,7 @@ protocolVersion: "1.0" }`.
 | Method | What it does |
 | --- | --- |
 | `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
-| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates, text deltas (`artifactUpdate` `stream`), the output artifact, the last status |
+| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates, the model's text as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next `append: true`), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
 | `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter`; `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
 | `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
 | `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
@@ -180,6 +180,12 @@ protocolVersion: "1.0" }`.
   code in `status.message.metadata["https://agboss.dev/a2a/mesh/v1"].code` and that code's fixed text
   — never the error's own text, which may carry PII; an unexpected failure of the server is `-32603`
   "the request failed".
+- **One artifact in every view** (#833): the text a run streams and the finish's output are one
+  artifact, `<taskId>:output`. A client that applies every stream event as A2A v1.0 says (append to
+  the artifact of that id, or replace it) ends with the artifacts `GetTask` returns; one that joins
+  the artifacts' text reads the answer once. A task that ends without completing has no output:
+  the stream's view keeps the text streamed so far (never a `lastChunk`), and `GetTask` shows no
+  artifact.
 
 | The resolver returns                       | The caller gets                                                                                     |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
@@ -242,8 +248,7 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   read that fails transiently (no answer, a 5xx, 408, 429, `-32603`) is tried again, by stream or
   poll alike, any other ends the wait; the caller's `onEvent` failing ends it with its own error. The call's `signal` ends the wait with its reason and cancels nothing.
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
-  (`metadata[skills-uri].finish`) when the task has one — never from the streamed `stream` text
-  beside it —, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
+  (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
   same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCanceledError`;
   INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),

@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: one artifact in an A2A task's stream and its reads (#833)
+
+- **Fixed**: `SendStreamingMessage` / `SubscribeToTask` stream the model's text as chunks of the
+  task's output artifact (`<taskId>:output`, `append`), and the finish's output replaces it
+  (`append: false`, `lastChunk: true`) — was a separate `stream` artifact `GetTask` never had, so a
+  client that joins the artifacts' text read the answer twice. [A2A → §2](A2A#2-serving--a2ahttplistenerapp-options).
+
 ## Unreleased — 0.1.1: the mesh over A2A v1.0, both sides (#810)
 
 - **Added**: the A2A listener checks a message's mesh envelope before its caller resolver and before
