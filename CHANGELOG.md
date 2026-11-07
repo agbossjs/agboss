@@ -489,6 +489,10 @@ key.token + 1 }`, `{ ...key, fingerprint }`) does not compile, and a key the fra
     make (a JavaScript caller's, a cast) is refused at run time before anything runs; a store's or a
     contract's tests make one with `effectKeyForTesting(fields, changes?)`
     (`@agboss/core/testing/contracts`; `EffectKeyFields` its fields);
+  - an automatic undo — a root's, a child's in its parent's node — makes its business keys as its
+    step did: its frame carries the application's idempotency keys and the PII key of the
+    handle (#825 acceptance: a refund under `refund:<charge>:1` in an undo was
+    `IdempotencyKeyMissingError`, the undo `CompensationFailedError`);
   - `@Application({ idempotencyKeyField })` names a `Secret` field used only for business-key
     fingerprints (`HMAC(HMAC(key, "agboss/fingerprint/v1"), canonical JSON)`) — required once a
     component or a listed service reaches `OutboundCalls`, a fenced-effect store or the outbound-call

@@ -57,6 +57,7 @@ interface SiteOptions {
   readonly tree?: { parent: unknown; itemIndex: number };
   readonly lease?: unknown;
   readonly last?: readonly CompensationEntry[];
+  readonly keys?: { readonly correlationKey: string; readonly fingerprintKeys: object };
 }
 
 function siteOf(options: SiteOptions = {}) {
@@ -80,6 +81,7 @@ function siteOf(options: SiteOptions = {}) {
       signal,
       ...(options.tree === undefined ? {} : { tree: options.tree }),
       ...(options.lease === undefined ? {} : { lease: options.lease }),
+      ...(options.keys ?? {}),
     },
     parent: {
       execution: { executionId: "root-1", tenant: { tenantId: "acme" }, values: { v: 1 } },
@@ -167,6 +169,16 @@ describe("#633: where the child's undo runs", () => {
     expect(undo.reason).toBe(CompensationReason.ExecutionCancelled);
     expect([undo.timeout, undo.clock]).toEqual([seconds(7), CLOCK]);
     expect(unwindAsked().isSealing).toBe(true);
+  });
+
+  it("#825: the keys its business keys are made with — the handle's and the fingerprint's — when the run has them", async () => {
+    const keys = { correlationKey: "pii-key", fingerprintKeys: { current: "k1", previous: "k0" } };
+    const { site } = siteOf({ keys });
+
+    await unwoundChild(site, site.error);
+    const facts = unwindAsked().undoSiteOf(ofChild("x")).execution;
+
+    expect(facts).toMatchObject(keys);
   });
 
   it("neither: none of them on its facts", async () => {
