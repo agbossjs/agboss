@@ -1287,6 +1287,13 @@ only replays and fails without a cassette; `VcrMode.RECORD_STALE` replays and re
 stale components (below). The process variable `AGBOSS_VCR_MODE` — a member's value — overrides
 every test's own `mode` for one run: `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
 
+Under `CI` no test records against real models (#839, fail closed): a mode that would — `RECORD`,
+`RECORD_STALE`, or `AUTO` with no cassette, whether `vcr.mode` or `AGBOSS_VCR_MODE` set it — fails
+the test app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from,
+`CI` and the remedy), before any model is asked. Record without `CI` and commit the cassette; a CI
+job that records on purpose sets `AGBOSS_VCR_RECORD_IN_CI=1` (or `true` — any other value is no
+opt-in).
+
 ### Stale cassettes (#395)
 
 A cassette (version 2) keeps, with every recorded call, the component that made it and that
