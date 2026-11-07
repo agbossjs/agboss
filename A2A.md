@@ -267,7 +267,16 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   does not is called without the mesh, said in the tool call's record (`remote: { application,
   executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
   `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
-  when the call is accepted — a call that later runs out of time is charged too — and a verified run
+  when the call is accepted — a call that later runs out of time or fails there is charged too; a
+  call the agent refused before anything ran (its task `REJECTED` at the accept: a mesh loop, a
+  chain past its `maxMeshHops`) is charged nothing, its price neither, on any pass, a takeover's
+  replay of the accept too (#849, as in 0.1.0), said in the tool call's record (`remote: {
+  application, executionId, refused: true }`). Only an AGBoss agent the mesh rode to refuses so:
+  a `REJECTED` task with a mesh limit; any other `REJECTED` answer is charged as accepted. The
+  refusal is the agent's word, so it is fail-closed: such a task is never waited on and none of its
+  output is used; the client reads it once more (`GetTask`) — still refused, the limit is thrown;
+  anything else (working, completed) contradicts it, so the price is charged and the call fails
+  with `A2AProtocolError` — and a verified run
   report's spend above it at the end (the report must name the call's task); a completed task with
   no run report the caller verifies — an untrusted caller, a peer that signs nothing, another body's
   or task's report — is charged the price alone and said so in the tool call's record (`remote: {
@@ -625,7 +634,8 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
   and `@Budget`); `target` is optional (#809: a foreign agent has no application) and names a
   `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
 - **The price**: the calling tool's spend records the larger of `price` and the spend a
-  trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`.
+  trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
+  nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
   target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
   before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that

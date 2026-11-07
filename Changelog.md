@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a REJECTED A2A call charges nothing (#849)
+
+- **Fixed (money)**: an `@A2AAgent` call whose task the agent `REJECTED` at the accept — nothing
+  ran there: a mesh loop, a chain past its `maxMeshHops` — is charged nothing, its price neither,
+  as in 0.1.0 (was: its full contract price). The accept stores the refusal, so a takeover that
+  replays it charges nothing too; a call accepted and then failed is still charged its price.
+  Only an AGBoss agent the mesh rode to refuses (a `REJECTED` task with a mesh limit); the refusal
+  is read back once (`GetTask`), never waited on, its output never used — a task that is no longer
+  refused is charged the price and fails with `A2AProtocolError`.
+- **Added**: such a call is recorded `remote.refused: true` (`ToolCallRemote.refused`) in its tool
+  call's record. [A2A → §4](A2A#4-the-client-side--a2a-v10-809).
+
 ## Unreleased — 0.1.1: a repaired A2A task still signs its run report (#844)
 
 - **Fixed (money)**: a task completed by read repair (its execution's end event lost) keeps what the
