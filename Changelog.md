@@ -1470,9 +1470,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
   ```ts
   import { defineConfig } from "vitest/config";
-  import { agbossTest } from "@agboss/core/testing/vitest";
+  import { agbossVitest } from "@agboss/core/testing/vitest"; // agbossTest before #831
 
-  export default defineConfig({ test: agbossTest({ include: ["tests/**/*.test.ts"] }) });
+  export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts"] }) });
   ```
 
   The `setupFiles: ["@agboss/core/testing/setup"]` entry may go; kept, it is not added twice.
