@@ -4,6 +4,7 @@
  * outcome, polling and streaming, a dropped stream, and what of a remote error it keeps.
  */
 import { describe, expect, it } from "vitest";
+import { AgentEvent } from "@a2a-js/sdk/server";
 import {
   A2ACallerRejectedError,
   A2AClient,
@@ -21,6 +22,7 @@ import {
   TaskState,
   type A2AStreamEvent,
 } from "../../../src/a2a/index.js";
+import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { HopsLimitExceededError } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { hours } from "../../../src/units/index.js";
@@ -417,6 +419,78 @@ describe("#809: waiting — polling, streaming, a dropped stream", () => {
 
     await expect(run).resolves.toEqual({ status: "paid" });
     expect(agent.count("SubscribeToTask")).toBe(2);
+  });
+
+  // #809 acceptance: an AGBoss server streams the model's text as a "stream" artifact, then the
+  // finish's output artifact (metadata[skills-uri].finish) — the output is that artifact alone
+  it("a streamed text chunk artifact beside the finish's output artifact: the output is read once", async () => {
+    const agent = new SdkAgent({ script: workingThen(), streaming: true });
+    const typed = new A2AClient<WorkflowStartTextDto, WorkflowFinishTextDto>({
+      url: AGENT_URL,
+      fetcher: agent.fetcher,
+      contract: { input: WorkflowStartTextDto, output: WorkflowFinishTextDto },
+    });
+    const finishWithChunks = () => {
+      const [entry] = agent.held.values();
+      if (entry === undefined) throw new Error("no held task");
+      const { context, bus, release } = entry;
+      const ids = { taskId: context.taskId, contextId: context.contextId, metadata: undefined };
+      const text = (value: string) => ({
+        content: { $case: "text" as const, value },
+        metadata: undefined,
+        filename: "",
+        mediaType: "text/plain",
+      });
+      const artifact = (artifactId: string, metadata?: Record<string, unknown>) => ({
+        artifactId,
+        name: "",
+        description: "",
+        parts: [text("Shipped.")],
+        metadata,
+        extensions: [],
+      });
+      bus.publish(
+        AgentEvent.artifactUpdate({
+          ...ids,
+          artifact: artifact("stream"),
+          append: true,
+          lastChunk: false,
+        }),
+      );
+      bus.publish(
+        AgentEvent.artifactUpdate({
+          ...ids,
+          artifact: artifact(`${context.taskId}:output`, {
+            [A2A_SKILLS_EXTENSION]: { finish: "answer-workflow-finish" },
+          }),
+          append: false,
+          lastChunk: true,
+        }),
+      );
+      bus.publish(
+        AgentEvent.statusUpdate({
+          ...ids,
+          status: {
+            state: TaskState.TASK_STATE_COMPLETED,
+            message: undefined,
+            timestamp: new Date(0).toISOString(),
+          },
+        }),
+      );
+      bus.finished();
+      agent.held.delete(context.taskId);
+      release();
+    };
+
+    const run = typed.execute({ text: "where is #7?" });
+    await untilHeld(agent);
+    finishWithChunks();
+    const sent = clientOf(agent).send("again");
+    await untilHeld(agent);
+    finishWithChunks();
+
+    await expect(run).resolves.toEqual({ text: "Shipped." });
+    await expect(sent).resolves.toMatchObject({ text: "Shipped." });
   });
 });
 

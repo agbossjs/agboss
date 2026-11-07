@@ -28,7 +28,8 @@ import {
   reconciliationOf,
 } from "../../../src/a2a/client/a2a-reconcile.js";
 import { A2APeerKind, type A2ARemotePeer } from "../../../src/a2a/client/a2a-card.js";
-import { dataPartOf } from "../../../src/a2a/client/a2a-parts.js";
+import { artifactPartsOf, dataPartOf, textPartOf } from "../../../src/a2a/client/a2a-parts.js";
+import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import {
   A2AClientOperation,
   A2AProtocolError,
@@ -77,6 +78,38 @@ const fieldOf = (verdict: object, field: "reason" | "result"): unknown =>
 
 const MESH = "https://agboss.dev/a2a/mesh/v1";
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
+
+describe("artifactPartsOf: the finish's output artifact when the task has one", () => {
+  const artifactOf = (text: string, metadata?: Record<string, unknown>) => ({
+    artifactId: text,
+    name: "",
+    description: "",
+    parts: [textPartOf(text)],
+    metadata,
+    extensions: [],
+  });
+  const textsOf = (...artifacts: ReturnType<typeof artifactOf>[]) =>
+    artifactPartsOf(artifacts).map((part) =>
+      part.content?.$case === "text" ? part.content.value : "",
+    );
+  const finish = { [A2A_SKILLS_EXTENSION]: { finish: "answer-workflow-finish" } };
+
+  it("an AGBoss task: the output artifact alone, beside a streamed one", () => {
+    expect(textsOf(artifactOf("stream"), artifactOf("output", finish))).toEqual(["output"]);
+  });
+
+  it("no finish named (a foreign task, a malformed entry): every artifact, in order", () => {
+    expect(textsOf(artifactOf("a"), artifactOf("b"))).toEqual(["a", "b"]);
+    expect(
+      textsOf(
+        artifactOf("null", { [A2A_SKILLS_EXTENSION]: null }),
+        artifactOf("text", { [A2A_SKILLS_EXTENSION]: "answer-workflow-finish" }),
+        artifactOf("number", { [A2A_SKILLS_EXTENSION]: { finish: 7 } }),
+        artifactOf("other", { "https://other.example/ext": { finish: "x" } }),
+      ),
+    ).toEqual(["null", "text", "number", "other"]);
+  });
+});
 
 describe("messageIdOf", () => {
   it("is one UUID (version 5 layout) per tenant and key, the same every time", () => {

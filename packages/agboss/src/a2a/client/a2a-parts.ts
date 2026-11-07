@@ -1,6 +1,7 @@
 import type { Artifact, Message, Part, Task } from "@a2a-js/sdk";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import type { DtoClass } from "../../dto/types.js";
+import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 
 /**
  * What a message carries and what an answer gives (#809, design §3 and §4.2): one `data` part
@@ -69,9 +70,22 @@ export function dataOf(parts: readonly Part[]): { readonly value: unknown } | un
   return undefined;
 }
 
-/** Every part of a task's artifacts, in order. */
-export const artifactPartsOf = (artifacts: readonly Artifact[]): readonly Part[] =>
-  artifacts.flatMap((artifact) => artifact.parts);
+/** Whether an artifact is an AGBoss finish's output: `metadata[skills-uri].finish` names it. */
+const isFinishOutput = (artifact: Artifact): boolean => {
+  const entry: unknown = artifact.metadata?.[A2A_SKILLS_EXTENSION];
+  return (
+    typeof entry === "object" && entry !== null && typeof Reflect.get(entry, "finish") === "string"
+  );
+};
+
+/**
+ * The parts of a task's artifacts, in order — of its finish's output artifact alone when it has
+ * one: an AGBoss server streams the model's text as an artifact of its own beside it, the same text.
+ */
+export function artifactPartsOf(artifacts: readonly Artifact[]): readonly Part[] {
+  const outputs = artifacts.filter(isFinishOutput);
+  return (outputs.length === 0 ? artifacts : outputs).flatMap((artifact) => artifact.parts);
+}
 
 /** The parts an answer gives: a task's artifacts, or a message's own parts. */
 export const answerPartsOf = (answer: Task | Message): readonly Part[] =>
