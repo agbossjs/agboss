@@ -63,6 +63,7 @@ function modeFromEnv(env: NodeJS.ProcessEnv): VcrMode | undefined {
 
 /** `testWith(W, { vcr })`: record real model calls once, replay them in every later run. */
 export interface VcrConfig {
+  /** The cassette's name: its file is `<cassetteName>.cassette.json` in `dir`. */
   readonly cassetteName: string;
   /**
    * Default: REPLAY when `CI` is set (CI never calls a model), else AUTO. Under `CI` a mode that

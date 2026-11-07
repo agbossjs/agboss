@@ -1207,7 +1207,6 @@ export class UnsettledWorkError extends TestFailure {
 
 // @public
 export interface VcrConfig {
-    // (undocumented)
     readonly cassetteName: string;
     readonly dir?: string;
     readonly mode?: VcrMode;
@@ -1452,7 +1451,6 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:60:3 - (ae-undocumented) Missing documentation for "output".
-// src/testing/vcr.ts:58:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
 // (No @packageDocumentation comment for this package)
 
