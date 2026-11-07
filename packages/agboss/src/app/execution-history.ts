@@ -25,7 +25,7 @@ import { ExecutionStatus } from "./types.js";
 
 /**
  * The history of root executions (#401 PR 1): when the application keeps it
- * (`executionRecordRetention`), a root's `ExecutionHistoryRecord` is saved each time its tree rests
+ * (`retention.executionRecords`), a root's `ExecutionHistoryRecord` is saved each time its tree rests
  * paused and once it ends — finished, failed or cancelled — built from its last checkpoint (any
  * instance can: the start time and contexts are in it), masked like its traces (the application's
  * and the workflow's PII policies, the contexts' `sensitive` fields hidden). A failed save is a

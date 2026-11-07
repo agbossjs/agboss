@@ -11,7 +11,7 @@ import type { InMemoryDatabase } from "./in-memory-database.js";
 /**
  * Infrastructure (#401 PR 1, S2 Q2 / Q3): the history of an application's root executions — one
  * `ExecutionHistoryRecord` each, its `ExecutionRecord` with who and what it was, PII-masked as its
- * traces are. Kept only when `@Application({ executionRecordRetention })` says how long (unset →
+ * traces are. Kept only when `@Application({ retention: { executionRecords } })` says how long (unset →
  * nothing is kept), saved when its tree rests or ends and removed by the recovery sweep on the
  * `Clock` once it ended longer ago than that. Listed only in `@Application({ providers })`; the
  * built-in default is in memory, `SqliteExecutionHistoryRepository` keeps it in the application's

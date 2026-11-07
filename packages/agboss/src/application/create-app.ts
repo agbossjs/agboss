@@ -1,4 +1,3 @@
-import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { AppDepsOptions, BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
@@ -15,13 +14,16 @@ import { randomUUID } from "node:crypto";
 import { applicationContextOf } from "../flow/context/application-context.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Clock, IdGenerator, StoreClock } from "../infrastructure/clock.js";
-import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import { gatedInfrastructure, type ExecutionLeaseGate } from "./lease-gate.js";
+import type { Clock } from "../infrastructure/clock.js";
+import { gatedInfrastructure } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { instanceAppOf } from "./compose-app.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
+import { productionOptionsOf } from "./app-options.js";
+import type { InstanceSeams } from "./instance-seams.js";
+
+export type { InstanceSeams } from "./instance-seams.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import { observersOf } from "./observers.js";
 import { withExecutionControl as byId } from "../app/tree-control.js";
@@ -32,7 +34,6 @@ import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import { lazyLoad } from "../infrastructure/clock.js";
-import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -47,35 +48,6 @@ export interface BuiltApplication {
 }
 
 /**
- * What a test gives an application instance beyond `createApp`'s options (never in production):
- * the instances an earlier app of the test created (its stores: a paused execution survives
- * `recoverApp()`), this instance's id, the in-memory rows its instances share, its ids (#313: unless
- * the application lists an `IdGenerator`) and its `VirtualClock` — always, whatever `Clock` the
- * application lists: tests never run on real time. In production the listed ones, else built-in.
- */
-export interface InstanceSeams {
-  readonly reused?: ReadonlyMap<Class, unknown>;
-  readonly instanceId?: string;
-  readonly database?: InMemoryDatabase;
-  readonly clock?: Clock;
-  /** The stores' time (#533, `testWith`: the test's clock, unskewed); absent = the database's. */
-  readonly storeClock?: StoreClock;
-  readonly idGenerator?: IdGenerator;
-  /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
-  readonly quiet?: boolean;
-  /**
-   * The PII key when the application sets none (`testWith`: a fixed one shared by its instances,
-   * #334); absent = a key of the instance, one per root execution — what production does.
-   */
-  readonly piiTestKey?: string;
-  /** The idempotency keys of a key field with no value (#825, `testWith`); absent = the start fails. */
-  readonly idempotencyTestKeys?: FingerprintKeys;
-  /** Observers of the instance besides the application's (a test's call recorder, #262). */
-  readonly observers?: readonly ExecutionObserver[];
-  /** A test's gate over the instance's lease (#471, `leases.freeze`): its store and its timers. */
-  readonly leaseGate?: ExecutionLeaseGate;
-}
-
 /**
  * The instance's context levels (#261): its one `ApplicationContext` — name, version, its id,
  * when it started (the framework's clock), the chosen environment and the host — and the context
@@ -251,6 +223,22 @@ export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: AppOptions = {},
 ): Promise<App> {
+  return (await builtApplicationOf(application, productionOptionsOf(options))).app;
+}
+
+/**
+ * What the internal build path takes (#834): `createApp`'s options and the seams a test or a tool
+ * replaces — the process environment, the model gateway, the providers' HTTP client, MCP transports,
+ * the container's hooks, the branch scheduler, the run's chaos. `testWith`, the CLI and the
+ * framework's own tests go through it; never an option of `createApp`.
+ */
+export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
+
+/** An app instance on the internal build path (#834): `createApp` with its seams. */
+export async function createAppWith(
+  application: Class,
+  options: BuildApplicationOptions = {},
+): Promise<App> {
   return (await builtApplicationOf(application, options)).app;
 }
 
@@ -261,7 +249,7 @@ export async function createApp<TApplication extends Class>(
  */
 export async function builtApplicationOf(
   application: Class,
-  options: AppOptions & Pick<BuildOptions, "chaos"> = {},
+  options: BuildApplicationOptions = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(

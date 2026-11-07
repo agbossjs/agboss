@@ -3,10 +3,10 @@
  * `candidates` whole numbers with `1 ≤ topK ≤ candidates`, `by` a `@Reranker`, its name's suffix, a
  * code reranker's `rerank()`, a model reranker on a chat model served by the application's providers.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Agent, DecidedBy, EmptyEnvironment, Workflow, type Class } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import { createApp } from "../../src/application/create-app.js";
 import {
   ModelReranker,
   Rag,
@@ -123,7 +123,7 @@ describe("#703: reranking at assembly", () => {
     })
     class LocalApplication {}
 
-    const failed = await createApp(LocalApplication, {
+    const failed = await createAppWith(LocalApplication, {
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((e: unknown) => e);
 

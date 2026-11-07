@@ -22,6 +22,6 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
   executionContext: DeskExecutionContext,
   providers: [SqliteExecutionHistoryRepository],
   budgets: TEST_BUDGETS,
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class SqliteHistoryApplication {}

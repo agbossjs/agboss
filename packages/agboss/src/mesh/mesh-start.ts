@@ -3,7 +3,6 @@ import { rememberA2AClientServicesOf } from "../a2a/client/a2a-client-services.j
 import type { AssembledApplication } from "../application/assemble.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock, lazyLoad } from "../infrastructure/clock.js";
-import { DEFAULT_IDEMPOTENCY_RETENTION } from "./mesh-defaults.js";
 import { meshKeysOf } from "./mesh-keys.js";
 import { rememberContextMeshSettings, type MeshSettings } from "./mesh-settings.js";
 
@@ -21,7 +20,7 @@ export function meshSettingsFor(
     maxMeshHops: assembled.maxMeshHops,
     keys: meshKeysOf(assembled.mesh, context.environment),
     clock: app.resolve(Clock),
-    idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
+    idempotencyRetention: assembled.meshAnswerRetention,
     exposes: assembled.exposes,
     contracts: async () =>
       (await lazyLoad(import("../describe/contracts.js"))).contractsOf(assembled),

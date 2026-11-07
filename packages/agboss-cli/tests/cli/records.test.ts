@@ -184,7 +184,7 @@ describe("#401 PR 1: agboss records export", () => {
     expect(envelope(call)).toMatchObject({
       error: {
         code: "records.not-kept",
-        message: expect.stringContaining("executionRecordRetention") as unknown,
+        message: expect.stringContaining("retention: { executionRecords }") as unknown,
       },
     });
   });

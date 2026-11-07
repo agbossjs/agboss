@@ -8,9 +8,9 @@ import type { OutboundCallStatus } from "./outbound-call.repository.js";
  * Infrastructure (#501): the lease log — an append-only record of what happened to the leases of an
  * application's execution trees: who took a tree's lease over (`Takeover`) and which step stopped
  * because it lost it (`HandedOver`). Identities and tokens only, never a payload; masked like
- * observer events. Always written, whatever `executionRecordRetention` says, before the observers
+ * observer events. Always written, whatever `retention.executionRecords` says, before the observers
  * hear of it, and readable while the tree runs (`app.leaseEventsOf`); the recovery sweep removes the
- * rows older than `@Application({ leaseEventRetention })` (default `hours(24)`). Listed only in
+ * rows older than `@Application({ retention: { leaseEvents } })` (default `hours(24)`). Listed only in
  * `@Application({ providers })`; the built-in default is in memory, `SqliteExecutionLeaseEventRepository`
  * keeps it in the application's SQLite file.
  */

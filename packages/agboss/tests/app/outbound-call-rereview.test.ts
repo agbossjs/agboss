@@ -106,7 +106,7 @@ function settledFlag(promise: Promise<unknown>): () => boolean {
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,
   observers: [OutboundCallLog],
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 class KeptBusinessKeyApplication {}
 

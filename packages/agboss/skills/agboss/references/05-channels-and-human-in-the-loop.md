@@ -483,7 +483,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn). An answer to anything but `Pending` → `NotPausedError` (a double
   click); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
-  `@Application({ pauseRecordRetention: hours(24) })`, then removed by the recovery sweep.
+  `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ record: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `role`, `answeredBy`, `responder`, `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the

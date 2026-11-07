@@ -3,8 +3,8 @@
  * test's fixed key when the test process does not set its variable; a test that sets it keeps its
  * own; production still refuses to start without it.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { tokenOf } from "../../src/pii/tokens.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -76,7 +76,7 @@ describe("#778: the application's key under testWith, its variable set by the te
 
 describe("#778: production without the application's key", () => {
   it("createApp refuses to start, naming the field and its variable", async () => {
-    const failure = await createApp(KeyedApplication, {
+    const failure = await createAppWith(KeyedApplication, {
       processEnv: { [PII_KEY_VARIABLE]: "own-policy-key" },
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);

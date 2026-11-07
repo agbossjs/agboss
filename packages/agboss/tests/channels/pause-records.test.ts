@@ -3,7 +3,7 @@
  * `ExecutionRecord.pauses`, in the order asked, one `PauseResolution` each (`Replied`, `Decided`,
  * `Withdrawn`, `Cancelled`), the decision masked by the application's PII policies and none for a
  * pause closed without an answer, no `pauseId` for a `PauseAnswerer.Channel` pause. Resolved records
- * are kept `@Application({ pauseRecordRetention })` (default `hours(24)`) and then removed by the
+ * are kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`) and then removed by the
  * recovery sweep on the `Clock`: within it a late answer is `NotPausedError`, after it
  * `UnknownPauseError`; a pending pause is never removed.
  */
@@ -250,7 +250,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
   );
 });
 
-describe("#267 S107: resolved pause records are kept pauseRecordRetention, then removed", () => {
+describe("#267 S107: resolved pause records are kept retention.pauseRecords, then removed", () => {
   testWith(BriefTreasuryApplication)(
     "within it a late answer is NotPausedError, after it UnknownPauseError; a pending pause stays",
     async ({ app, clock, mockLlm }) => {

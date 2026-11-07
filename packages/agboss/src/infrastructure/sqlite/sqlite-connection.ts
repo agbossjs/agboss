@@ -71,7 +71,7 @@ export function inImmediateTransaction<TResult>(
  */
 @Injectable({
   deps: [ApplicationContext],
-  environmentFields: { sqlitePath: EnvironmentField.Text },
+  environmentFields: { sqlitePath: EnvironmentField.text() },
 })
 export class SqliteConnection implements OnDestroy {
   /** The file (`sqlitePath`); `:memory:` keeps the database in this connection only. */

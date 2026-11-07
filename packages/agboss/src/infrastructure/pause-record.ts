@@ -22,7 +22,7 @@ export enum PauseStatus {
   Resolved = "resolved",
   /**
    * Its step took the decision and went on (or its channel decided at once): kept for
-   * `pauseRecordRetention`, so a late second answer gets `NotPausedError`.
+   * `retention.pauseRecords`, so a late second answer gets `NotPausedError`.
    */
   Taken = "taken",
   /** Dropped: withdrawn (a `FailFast` sibling failed, a quorum was decided) or cancelled. */
@@ -160,7 +160,7 @@ export interface PauseRecord extends PauseSite {
   readonly answer?: PauseAnswer;
   /** How it was resolved; `undefined` while `Pending`. */
   readonly resolution?: PauseResolution;
-  /** When it was resolved (ISO 8601); a resolved record is kept `pauseRecordRetention` after it. */
+  /** When it was resolved (ISO 8601); a resolved record is kept `retention.pauseRecords` after it. */
   readonly resolvedAt?: string;
 }
 

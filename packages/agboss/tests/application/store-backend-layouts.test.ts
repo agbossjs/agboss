@@ -6,9 +6,9 @@
  * `[application.lease-check-not-atomic]` at the start (`app.warnings`, `agboss check`, an error
  * under `--strict`), naming the store and the guarantee it gives up.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createApp } from "../../src/application/create-app.js";
 import { Application } from "../../src/application/application.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import type { Provider } from "../../src/components/injection.js";
@@ -161,7 +161,7 @@ describe("#526 AC1: the opt-out, LeaseCheck.WithoutDoubleChargeProtection", () =
     })
     class UncheckedApplication {}
 
-    const app = await createApp(UncheckedApplication, {
+    const app = await createAppWith(UncheckedApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });

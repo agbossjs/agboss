@@ -73,7 +73,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     workflows: [FaultOrderWorkflow, FaultBatchWorkflow],
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
-    executionRecordRetention: hours(24),
+    retention: { executionRecords: hours(24) },
     ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
     ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
     providers: [

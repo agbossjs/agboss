@@ -1,5 +1,5 @@
 /**
- * #771 — the ledger's entries are pruned by the recovery sweep after `ledgerEntryRetention`, and a
+ * #771 — the ledger's entries are pruned by the recovery sweep after `retention.costLedgerEntries`, and a
  * write of one the ledger may have pruned is refused, never counted again: a lost answer retried
  * within the retention counts once; one retried after the sweep pruned its entry fails the pass's
  * reads with `CostLedgerEntryExpiredError` and the ledger still holds the spend once.
@@ -137,7 +137,7 @@ describe("#771: the in-memory ledger's refusal", () => {
     await expect(
       ledger.saveAll([counter], [made("a:0"), made("a:1"), made("a:0")]),
     ).rejects.toThrow(
-      "the ledger may have pruned the entries a:0, a:1: made before its pruning mark 2026-10-18T09:00:00.000Z and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ ledgerEntryRetention })",
+      "the ledger may have pruned the entries a:0, a:1: made before its pruning mark 2026-10-18T09:00:00.000Z and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ retention: { costLedgerEntries } })",
     );
     expect(await ledger.findSpentByCounter(counter)).toBe(0);
   });

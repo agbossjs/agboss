@@ -195,30 +195,30 @@ export interface RetentionSources {
   readonly clock: Clock;
   /** The application's pause records: the resolved ones are removed after their retention. */
   readonly pauses: PausedExecutionRepository;
-  /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
+  /** `@Application({ retention: { pauseRecords } })`: how long a resolved pause record is kept. */
   readonly pauseRecordRetention: Milliseconds;
   /** The trusted mesh requests' answers (#398 PR 2): removed after their retention. */
   readonly meshRequests?: MeshRequestRepository | undefined;
-  /** `@Application({ mesh: { idempotencyRetention } })`: how long an answer is kept. */
+  /** `@Application({ retention: { meshAnswers } })`: how long an answer is kept. */
   readonly idempotencyRetention?: number | undefined;
   /**
-   * The kept root executions (#401 PR 1) and `@Application({ executionRecordRetention })`: a record
+   * The kept root executions (#401 PR 1) and `@Application({ retention: { executionRecords } })`: a record
    * that ended longer ago than it is removed; none set → nothing is kept, nothing removed.
    */
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
   readonly executionRecordRetention?: Milliseconds | undefined;
-  /** The fenced effects' results and marks (#500), removed after `fencedEffects.retention`. */
+  /** The fenced effects' results and marks (#500), removed after `retention.fencedEffects`. */
   readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
   readonly fencedEffectRetention?: Milliseconds | undefined;
-  /** The lease log (#501) and `@Application({ leaseEventRetention })`: older rows are removed. */
+  /** The lease log (#501) and `@Application({ retention: { leaseEvents } })`: older rows are removed. */
   readonly leaseEvents?: ExecutionLeaseEventRepository | undefined;
   readonly leaseEventRetention?: Milliseconds | undefined;
   /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
   readonly expiries?: readonly Expiry[] | undefined;
-  /** The ended outbound calls (#505), removed after `outboundCalls.retention`; never a pending one. */
+  /** The ended outbound calls (#505), removed after `retention.outboundCalls`; never a pending one. */
   readonly outboundCalls?: OutboundCallRepository | undefined;
   readonly outboundCallRetention?: Milliseconds | undefined;
-  /** The ledger (#771) and `@Application({ ledgerEntryRetention })`: older entries pruned. */
+  /** The ledger (#771) and `@Application({ retention: { costLedgerEntries } })`: older entries pruned. */
   readonly ledger?: CostLedgerRepository | undefined;
   readonly ledgerEntryRetention?: Milliseconds | undefined;
 }

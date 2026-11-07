@@ -4,6 +4,7 @@
  * `maxResultSize` fails the step and rolls back — an ordinary failure, `.onError` takes it) and by
  * the recovery sweep, which removes results and marks past the retention on the `Clock`.
  */
+import type { RetentionOptions } from "../../src/application/retention.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -34,7 +35,7 @@ beforeEach(() => {
   resetRecovery();
 });
 
-const assembledWith = (fencedEffects: FencedEffectOptions) => {
+const assembledWith = (fencedEffects: FencedEffectOptions, retention?: RetentionOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
@@ -44,6 +45,7 @@ const assembledWith = (fencedEffects: FencedEffectOptions) => {
     budgets: TEST_BUDGETS,
     providers: [InMemoryFencedEffectRepository],
     fencedEffects,
+    ...(retention === undefined ? {} : { retention }),
   })
   class SettingsApplication {}
   return applicationOf(SettingsApplication);
@@ -63,15 +65,20 @@ describe("#500: @Application({ fencedEffects }) at assembly", () => {
     );
   });
 
-  it("a retention not above the lease's 30 s fails assembly, with the size's problem too", async () => {
-    const assembly = assembledWith({ maxResultSize: kilobytes(0), retention: seconds(30) });
+  it("#834: a retention.fencedEffects not above the lease's 30 s fails assembly, with the size's problem too", async () => {
+    const assembly = assembledWith({ maxResultSize: kilobytes(0) }, { fencedEffects: seconds(30) });
 
-    await expect(assembly).rejects.toThrow(/retention is 30000 ms, not above the lease's 30000 ms/);
+    await expect(assembly).rejects.toThrow(
+      "[application.retention-invalid] its retention.fencedEffects is 30000 ms, not above the lease's 30000 ms",
+    );
     await expect(assembly).rejects.toThrow(/maxResultSize is 0 bytes/);
   });
 
   it("takes what it sets", async () => {
-    const assembled = await assembledWith({ maxResultSize: kilobytes(1), retention: seconds(31) });
+    const assembled = await assembledWith(
+      { maxResultSize: kilobytes(1) },
+      { fencedEffects: seconds(31) },
+    );
 
     expect(assembled.fencedEffects).toMatchObject({ maxResultSize: 1024, retention: seconds(31) });
   });
@@ -86,7 +93,8 @@ describe("#500: @Application({ fencedEffects }) at assembly", () => {
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
-  fencedEffects: { maxResultSize: kilobytes(1), retention: minutes(1) },
+  fencedEffects: { maxResultSize: kilobytes(1) },
+  retention: { fencedEffects: minutes(1) },
 })
 class SmallFencedEffectApplication {}
 

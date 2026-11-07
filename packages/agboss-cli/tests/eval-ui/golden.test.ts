@@ -316,7 +316,7 @@ describe("#397 PR 5: where eval ui reads executions from", () => {
     expect(notKept.source).toMatchObject({
       kind: "off",
       reason: expect.stringContaining(
-        "keeps no execution records, so a run's execution cannot be read back: set @Application({ executionRecordRetention })",
+        "keeps no execution records, so a run's execution cannot be read back: set @Application({ retention: { executionRecords } })",
       ) as unknown,
     });
     expect(none.source).toMatchObject({

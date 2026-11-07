@@ -115,7 +115,7 @@ with an `executionId` drafts its kept execution — the record on the run's thre
 (#397 PR 5b) — (`--application`, `--env`: the history only, nothing runs) with
 `evalCaseDraftOf` and `withEvalCase` — one builder with `generate eval-case` — and writes it into the suite's file
 atomically, only while the file's ETag is the page's (else 409), never over a case of that name (409); an
-application without `executionRecordRetention`, none at all or one that does not load turns the button into why) — a `schemaVersion` 3 artifact also names its `profile`,
+application without `retention.executionRecords`, none at all or one that does not load turns the button into why) — a `schemaVersion` 3 artifact also names its `profile`,
 `agbossVersion`, `models` and `piiPolicies` for the header, a version 4 each run's `tenantId` (#397 PR 5b); rendered in `agboss-cli`
 (`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
 <labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON
@@ -205,7 +205,7 @@ application's twelve workflows `--federation` against the desk's fresh `describe
 `--models` on `test`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
-run records:check` — the desk keeps its executions (`executionRecordRetention`, #401, in
+run records:check` — the desk keeps its executions (`retention.executionRecords`, #401, in
 `.agboss/desk-offline.sqlite` on `offline`): one run, `agboss records export`, `agboss generate
 eval-case --from-execution --dry-run` (#396 PR 8, what `eval ui`'s "Save as golden case" writes,
 #397 PR 5); `npm run snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
@@ -1289,7 +1289,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
-  mesh requests by idempotency key, removed after `mesh.idempotencyRetention` by the recovery sweep,
+  mesh requests by idempotency key, removed after `retention.meshAnswers` by the recovery sweep,
   #398), `ChildExecutionQueueRepository` (#333 PR 2: children launched with
   `ChildPlacement.AnyInstance`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
   `completeByTenantIdAndExecutionId`, rows removed with their tree; #777: the optional
@@ -1299,7 +1299,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionRecord` with `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`,
   `workflow`, `status` (`ExecutionHistoryStatus`), `startedAt` / `endedAt`, `start` + `input`,
   `finish` + `output`, `contexts`, `error` — masked like its traces, saved when its tree rests or
-  ends, only with `@Application({ executionRecordRetention })` (unset → nothing kept; on the
+  ends, only with `@Application({ retention: { executionRecords } })` (unset → nothing kept; on the
   in-memory store `[application.in-memory-execution-history]`), removed by the recovery sweep once it
   ended longer ago; `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl>
 [--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
@@ -1308,9 +1308,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord` |
   `StepHandedOverRecord` (the step's `nodeId`, `visitNumber`, `idempotencyKey`) |
   `FencedEffectRecord` (`name`, `outcome`, the step, `writtenToken?`, `observedToken?`), identities and
-  tokens only, masked like observer events; always written, whatever `executionRecordRetention` says,
+  tokens only, masked like observer events; always written, whatever `retention.executionRecords` says,
   readable mid-run with `app.leaseEventsOf({ tenantId, rootExecutionId })`, removed by the recovery
-  sweep after `@Application({ leaseEventRetention })`, default `hours(24)`; a kept
+  sweep after `@Application({ retention: { leaseEvents } })`, default `hours(24)`; a kept
   `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents`, so `agboss records export` does)
   — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
@@ -1435,8 +1435,10 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
   signs mesh envelopes as a peer with `signedMeshEnvelope({ issuer, signingKey, body, issuedAt,
 origin, callChain, … })` (`@agboss/core/testing`, the real client's header); and a class declares the environment fields it reads —
-  `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.Secret, postgresPoolSize:
-EnvironmentField.OptionalInteger } })` — checked at assembly for every class the application or
+  `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.secret(), postgresPoolSize:
+EnvironmentField.integer({ optional: true }) } })` (#834: made only by `EnvironmentField.text()`, `.integer()`, `.flag()`,
+  `.secret()`, a literal does not compile, a key that is not a camelCase field name is refused when
+  `@Injectable` runs) — checked at assembly for every class the application or
   a workflow lists and every class their `deps` reach: a required one the contract lacks is
   `[environment.missing-field]` (`… needs postgresUrl: Secret in AppEnvironment (read by
 PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of two types
@@ -2130,7 +2132,15 @@ passed (a skipped one fails it, S2 Q6).
 ### Runs: context, limits, errors
 
 - `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
-  `createApp(Workflow)` does not compile). `app.execute(Start, input, { threadId, ownerId, signal,
+  `createApp(Workflow)` does not compile; #834: its options are `env`, `profile`, `profileRoot` and
+  `meterProvider` only — a JS caller's other key is refused; the seams — `processEnv`, `gateway`,
+  `providerFetch`, MCP transports, the container's hooks — are the internal build path's,
+  `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
+  `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
+  each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
+leaseEvents, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks } })` (#834,
+  `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
+  refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
   before the next step or model call) runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
@@ -2161,7 +2171,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `findPauseAnswersByTenantIdAndRootExecutionId`; once per pause of a tree — tenant,
   `rootExecutionId` and step key, #676), the permanent history; the pause records are
   operational state, never read for it. A resolved pause record (`Taken`,
-  `Cancelled`) is kept `@Application({ pauseRecordRetention })` (default `hours(24)`), then removed by
+  `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a
   late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn). The options are named like the
@@ -2303,7 +2313,7 @@ status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one tra
   one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
   `work` gets the connection's `DatabaseSync` and must be synchronous (a promise →
   `FencedEffectAsyncWorkError`, rolled back). Results and marks are removed by the recovery sweep
-  after `fencedEffects.retention` (default `hours(24)`, above the lease: `[application.fenced-effects-invalid]`).
+  after `retention.fencedEffects` (default `hours(24)`, above the lease: `[application.retention-invalid]`).
   Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
   its key's rules are exported (#526 AC5): `assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf` (#825), `replayedFromOf` (a row's `null`s
@@ -2440,7 +2450,7 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
-- **Metrics (#485):** `createApp(App, { meterProvider })` (`AppDepsOptions.meterProvider`, an
+- **Metrics (#485):** `createApp(App, { meterProvider })` (`AppOptions.meterProvider`, an
   `@opentelemetry/api` `MeterProvider`; `testWith(App, { instances: [{ meterProvider }, …] })` by instance, #831)
   publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,
   `lazyLoad`), none given → nothing loaded, no store read. Cluster gauges from the shared child
@@ -2564,8 +2574,8 @@ const readiness: HealthReport = await app.checkReadiness();
   and counts again, while a record kept in a durable state counts once —, added once by
   `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once; #771: each
   entry dated by its record's `madeAt`, pruned by the recovery sweep after
-  `@Application({ ledgerEntryRetention })` — default `hours(24)`, above the lease,
-  `[application.ledger-entry-retention-invalid]` — through `deleteEntriesByMadeAtBefore(cutoff)`,
+  `@Application({ retention: { costLedgerEntries } })` — default `hours(24)`, above the lease,
+  `[application.retention-invalid]` — through `deleteEntriesByMadeAtBefore(cutoff)`,
   which raises the store's pruning mark; a save of an entry made before the mark that the store does
   not hold is refused, `CostLedgerEntryExpiredError`, nothing added and the pass's reads failing
   with it, so a retry that late never counts twice). Hitting a limit **fails the

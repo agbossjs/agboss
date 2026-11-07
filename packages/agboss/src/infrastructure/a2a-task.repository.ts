@@ -11,7 +11,7 @@ import type { StoreDescriptor } from "./execution-lease.repository.js";
  * resent with the same id finds the task it was accepted for, never a second one. A task's status
  * moves by compare-and-set on its `version` (one more per change), and a terminal status never
  * changes again (sticky): a stale writer's late `WORKING` cannot overwrite `COMPLETED`. Finished
- * tasks are removed by the recovery sweep after `@Application({ a2a: { taskRetention } })`
+ * tasks are removed by the recovery sweep after `@Application({ retention: { a2aTasks } })`
  * (default `hours(24)`); unfinished ones never are. Listed only in `@Application({ providers })`;
  * the built-in default is in memory, `SqliteA2ATaskRepository` shares the tasks between instances
  * on one file. A store of your own proves itself with `a2aTaskContract`

@@ -1,5 +1,5 @@
 /**
- * #401 PR 1 — the history of root executions: with `@Application({ executionRecordRetention })` each
+ * #401 PR 1 — the history of root executions: with `@Application({ retention: { executionRecords } })` each
  * root's `ExecutionHistoryRecord` is saved when its tree rests or ends — its record with who and what
  * it was (ids, application, workflow, start and input, finish and output, times, contexts, tool calls,
  * steps), masked like its traces — and removed by the recovery sweep once it ended longer ago than
@@ -105,7 +105,7 @@ describe("#401 PR 1: the history of root executions", () => {
   );
 
   testWith(EvalDeskApplication)(
-    "without executionRecordRetention nothing is kept",
+    "without retention.executionRecords nothing is kept",
     async ({ app, mockLlm }) => {
       mockLlm(DeskAgent).thenReturn(...refundScript);
       const { tenant, execution } = contexts;

@@ -499,6 +499,6 @@ export class TreasuryApplication {}
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
-  pauseRecordRetention: minutes(5),
+  retention: { pauseRecords: minutes(5) },
 })
 export class BriefTreasuryApplication {}

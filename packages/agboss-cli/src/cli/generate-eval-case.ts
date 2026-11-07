@@ -14,7 +14,7 @@ import { checkedTenantOption, CliError, usageError } from "./errors.js";
 
 /**
  * `agboss generate eval-case <name> [--suite <name>] --from-execution <executionId> [--tenant <id>]
- * [--env <name>]` (#396 PR 8): a kept execution (`executionRecordRetention`, #401) read from the
+ * [--env <name>]` (#396 PR 8): a kept execution (`retention.executionRecords`, #401) read from the
  * application's history — its stores opened, nothing run — and drafted into a case: its start's
  * input as the turn, its contexts, its thread's earlier finished turns as the history, the tool
  * calls it ran as the required calls; then written into the suite's file.
@@ -103,7 +103,7 @@ async function draftOf(context: CommandContext, name: string): Promise<EvalCaseD
       throw new CliError(
         "project",
         "records.not-kept",
-        `${opened.application} keeps no execution records: set @Application({ executionRecordRetention }) to keep them`,
+        `${opened.application} keeps no execution records: set @Application({ retention: { executionRecords } }) to keep them`,
       );
     return await keptDraftOf(opened.history, name, executionId, tenant);
   } finally {

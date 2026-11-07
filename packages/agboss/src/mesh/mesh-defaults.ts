@@ -1,7 +1,7 @@
 /** The default `@Application({ maxMeshHops })` (#398): at most 8 applications in one call chain. */
 export const DEFAULT_MAX_MESH_HOPS = 8;
 
-/** The default `@Application({ mesh: { idempotencyRetention } })`: 30 minutes. */
+/** The default `@Application({ retention: { meshAnswers } })`: 30 minutes. */
 export const DEFAULT_IDEMPOTENCY_RETENTION = 30 * 60 * 1000;
 
 /** How long an envelope the application signs is valid (`expiresIn`): 60 seconds. */

@@ -70,9 +70,7 @@ describe("framework and examples apart (#91)", () => {
 
   it("AC5: the public API says workflow, not bundle (the command help: agboss-cli)", () => {
     expect(Object.keys(publicApi).filter((name) => /bundle/i.test(name))).toEqual([]);
-    expect(Object.keys(publicApi)).toEqual(
-      expect.arrayContaining(["createAppDeps", "loadWorkflow"]),
-    );
+    expect(Object.keys(publicApi)).toEqual(expect.arrayContaining(["createApp", "loadWorkflow"]));
   });
   it("AC1 (#101, #205): the package is @agboss/core, with a proxy bin and no runtime dependency on @agboss/cli", () => {
     const pkg = JSON.parse(readFileSync(join(root, "packages/agboss/package.json"), "utf8")) as {

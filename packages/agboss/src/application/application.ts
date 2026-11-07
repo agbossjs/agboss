@@ -15,16 +15,7 @@ import type { ExecutionContextClass, TenantContextClass } from "../flow/context/
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ObserverClass } from "../core/observer-hooks.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
-
-/** `@Application({ a2a })` (#807): what the application's A2A tasks keep. */
-export interface A2AApplicationOptions {
-  /**
-   * How long a finished A2A task is kept after its last status change — and with it the ids of its
-   * messages: a message resent within it gets the same task, never a second execution; the recovery
-   * sweep removes it on the `Clock` after this (an unfinished task never). Default `hours(24)`.
-   */
-  readonly taskRetention?: Milliseconds;
-}
+import type { RetentionOptions } from "./retention.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -90,8 +81,8 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   readonly maxMeshHops?: number;
   /**
    * The application's identity in the mesh (#398 PR 2): its `signingKey` field (envelopes and run
-   * reports signed, JWS `EdDSA`), the `peers` whose signatures it verifies (each a `verifyKey` field)
-   * and the `idempotencyRetention` of trusted requests' answers. A request's budget, deadline,
+   * reports signed, JWS `EdDSA`) and the `peers` whose signatures it verifies (each a `verifyKey`
+   * field); how long trusted requests' answers are kept is `retention.meshAnswers`. A request's budget, deadline,
    * origin and idempotency key are honoured only for an authenticated peer with a valid signature.
    */
   readonly mesh?: MeshOptions;
@@ -102,39 +93,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly exposes?: readonly Class[];
   /**
-   * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
-   * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the
-   * recovery sweep removes it on the `Clock`. A pending pause is never removed. Default `hours(24)`.
-   */
-  readonly pauseRecordRetention?: Milliseconds;
-  /**
-   * How long the history of each root execution is kept after it ended (#401 PR 1): unset →
-   * nothing is kept. Set, every root execution's `ExecutionHistoryRecord` — its record with who and
-   * what it was, masked like its traces — is saved in the `ExecutionHistoryRepository` when its
-   * tree rests or ends, and removed by the recovery sweep on the `Clock` once it ended longer ago
-   * than this; `agboss records export` reads it. On the built-in in-memory store it warns
-   * `[application.in-memory-execution-history]`.
-   */
-  readonly executionRecordRetention?: Milliseconds;
-  /**
-   * How long a row of the lease log is kept after it happened (#501): every takeover of a tree's
-   * lease and every step handed over is written to the `ExecutionLeaseEventRepository` — whatever
-   * `executionRecordRetention` says — and read by `app.leaseEventsOf`; the recovery sweep removes it
-   * on the `Clock` after this. Default `hours(24)`.
-   */
-  readonly leaseEventRetention?: Milliseconds;
-  /** What the application serves over A2A keeps (#807): see `A2AApplicationOptions`. */
-  readonly a2a?: A2AApplicationOptions;
-  /**
-   * How long an entry of the ledger is kept after its spend was made (#771): every tallied spend is
-   * an entry under its `ledgerId` (#727) so that a write retried after a lost answer counts once;
-   * the recovery sweep prunes entries made longer ago than this on the `Clock` (the counters
-   * never), and a write retried later than that is refused (`CostLedgerEntryExpiredError`: the pass
-   * fails), never counted twice. Above the lease's 30 s —
-   * `[application.ledger-entry-retention-invalid]`. Default `hours(24)`.
-   */
-  readonly ledgerEntryRetention?: Milliseconds;
-  /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up
    * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not
@@ -143,15 +101,23 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly compensationTimeout?: Milliseconds;
   /**
+   * How long each kind of row the application keeps stays (#834): pause records, execution
+   * records, the lease log, cost ledger entries, fenced effects, outbound calls, mesh answers and
+   * A2A tasks — the one place a retention is set, `[application.retention-invalid]`. See
+   * `RetentionOptions`.
+   */
+  readonly retention?: RetentionOptions;
+  /**
    * The fenced effects of the application's steps (#500, `FencedEffectRepository`): the largest
-   * result stored (`maxResultSize`, default `kilobytes(64)`) and how long results and marks are kept
-   * (`retention`, default `hours(24)`, above the lease's 30 s — `[application.fenced-effects-invalid]`).
+   * result stored (`maxResultSize`, default `kilobytes(64)`, `[application.fenced-effects-invalid]`);
+   * how long results and marks are kept is `retention.fencedEffects`.
    */
   readonly fencedEffects?: FencedEffectOptions;
   /**
    * The calls that leave the system (#505, `OutboundCalls`): the largest request and result
-   * (default `kilobytes(64)`) and how long an ended intent is kept (default `hours(168)`; a
-   * pending one always) — `[application.outbound-calls-invalid]`.
+   * (default `kilobytes(64)`) and the bound of an attempt in flight —
+   * `[application.outbound-calls-invalid]`; how long an ended intent is kept is
+   * `retention.outboundCalls`.
    */
   readonly outboundCalls?: OutboundCallOptions;
   /**

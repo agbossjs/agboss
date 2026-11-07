@@ -174,7 +174,7 @@ describe("#501 AC1: a takeover is told and kept", () => {
     expect(rows[0]).not.toHaveProperty("previousHolderInstanceId");
   });
 
-  test("the recovery sweep removes rows older than leaseEventRetention (default 24 h)", async ({
+  test("the recovery sweep removes rows older than retention.leaseEvents (default 24 h)", async ({
     app,
     clock,
   }) => {

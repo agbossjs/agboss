@@ -1,3 +1,4 @@
+import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
 import {
   Agent,
   provide,
@@ -11,7 +12,6 @@ import type { Class } from "../../../src/components/injection.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { start } from "../../helpers/flow.js";
-import type { AppOptions } from "../../../src/app/create-app.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -32,7 +32,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Scripted models and in-memory stores: nothing external. */
-export const offline = (book = new ScriptBook()): AppOptions => ({
+export const offline = (book = new ScriptBook()): BuildApplicationOptions => ({
   processEnv: {},
   gateway: createScriptedGateway(book),
 });

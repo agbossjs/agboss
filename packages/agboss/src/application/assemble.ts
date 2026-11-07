@@ -7,11 +7,12 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { withProfile } from "../profile-workflow.js";
-import { hours, seconds, type Milliseconds } from "../units/index.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
+import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
   idempotencyKeyViolations,
   keyFieldsOf,
@@ -72,16 +73,18 @@ export interface AssembledApplication extends AssembledKeyFields {
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
   readonly shutdownTimeout: Milliseconds;
-  /** How long a resolved pause record is kept (`@Application({ pauseRecordRetention })`, #267 S107). */
+  /** How long a resolved pause record is kept (`retention.pauseRecords`, #267 S107). */
   readonly pauseRecordRetention: Milliseconds;
-  /** How long a root execution's history is kept (`@Application({ executionRecordRetention })`, #401); unset = not kept. */
+  /** How long a root execution's history is kept (`retention.executionRecords`, #401); unset = not kept. */
   readonly executionRecordRetention?: Milliseconds;
-  /** How long a row of the lease log is kept (`@Application({ leaseEventRetention })`, #501). */
+  /** How long a row of the lease log is kept (`retention.leaseEvents`, #501). */
   readonly leaseEventRetention: Milliseconds;
-  /** How long a finished A2A task is kept (`@Application({ a2a: { taskRetention } })`, #807). */
+  /** How long a finished A2A task is kept (`retention.a2aTasks`, #807). */
   readonly a2aTaskRetention: Milliseconds;
-  /** How long an entry of the ledger is kept (`@Application({ ledgerEntryRetention })`, #771). */
+  /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */
   readonly ledgerEntryRetention: Milliseconds;
+  /** How long a trusted mesh request's answer is kept (`retention.meshAnswers`, #398). */
+  readonly meshAnswerRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
   /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
@@ -102,20 +105,6 @@ export interface AssembledApplication extends AssembledKeyFields {
   /** `@Application({ piiPolicies })` (#120): every workflow's, and what its own log is masked by. */
   readonly piiPolicies: readonly Class[];
 }
-
-/** How long a resolved pause record is kept by default (#267 S107): a late answer is told apart a day. */
-const PAUSE_RECORD_RETENTION: Milliseconds = hours(24);
-
-/** How long a row of the lease log is kept by default (#501): a day of takeovers and hand-overs. */
-const LEASE_EVENT_RETENTION: Milliseconds = hours(24);
-/** How long a finished A2A task is kept by default (#807). */
-const A2A_TASK_RETENTION: Milliseconds = hours(24);
-
-/**
- * How long a ledger entry is kept by default (#771): a day — a pass retries a lost write at its
- * next read of the counters, seconds later; only a pass asleep for a day meets the refusal.
- */
-export const LEDGER_ENTRY_RETENTION: Milliseconds = hours(24);
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
 const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
@@ -210,17 +199,6 @@ export const declaredContextsOf = (
 const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
   contract === undefined ? {} : { environment: contract };
 
-/** How long the sweep keeps each kind of rows: pause records, history, lease log, ledger entries. */
-const retentionsOf = (options: ApplicationOptions) => ({
-  pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
-  ...(options.executionRecordRetention === undefined
-    ? {}
-    : { executionRecordRetention: options.executionRecordRetention }),
-  leaseEventRetention: options.leaseEventRetention ?? LEASE_EVENT_RETENTION,
-  a2aTaskRetention: options.a2a?.taskRetention ?? A2A_TASK_RETENTION,
-  ledgerEntryRetention: options.ledgerEntryRetention ?? LEDGER_ENTRY_RETENTION,
-});
-
 /** Whether anything stored must be masked: the application or a workflow lists PII policies. */
 const hasPiiPolicies = (
   options: ApplicationOptions,
@@ -245,6 +223,7 @@ export async function applicationOf(
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
   const keys = idempotencyKeyViolations(options, assembled);
   throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys], errors);
+  const retention = retentionOf(options.retention);
   return {
     application,
     name: options.name,
@@ -256,11 +235,15 @@ export async function applicationOf(
     ...listedOf(options),
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
-    ...retentionsOf(options),
+    ...assembledRetentionsOf(retention),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
-    fencedEffects: new FencedEffectSettings(options.fencedEffects),
+    fencedEffects: new FencedEffectSettings({
+      ...options.fencedEffects,
+      retention: retention.fencedEffects,
+    }),
     outboundCalls: new OutboundCallSettings({
       ...options.outboundCalls,
+      retention: retention.outboundCalls,
       requiresMask: hasPiiPolicies(options, assembled),
     }),
     ...(options.maxConcurrentSteps === undefined

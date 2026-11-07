@@ -36,6 +36,6 @@ export class UnwindRecoveryApplication {}
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
   compensationTimeout: seconds(60),
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
 })
 export class KeptUnwindRecoveryApplication {}

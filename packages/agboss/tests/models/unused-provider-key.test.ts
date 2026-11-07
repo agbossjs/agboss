@@ -5,10 +5,10 @@
  * all, while one that does use a model still fails at `createApp`, naming the missing field, before
  * any model call (#266 S73 c).
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Action, Agent, EmptyEnvironment, Workflow, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import { createApp } from "../../src/application/create-app.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
@@ -88,7 +88,7 @@ const NO_KEYS: NodeJS.ProcessEnv = {};
 
 describe("#716: a provider that serves no model of the application needs no key", () => {
   it("an application whose workflows call no model starts and runs with no OpenRouter key", async () => {
-    const app = await createApp(ModelFreeApplication, { processEnv: NO_KEYS });
+    const app = await createAppWith(ModelFreeApplication, { processEnv: NO_KEYS });
 
     const result = await execute(app, NoteWorkflowStart, { text: "hello" });
     await app.close();
@@ -99,7 +99,7 @@ describe("#716: a provider that serves no model of the application needs no key"
   });
 
   it("an application that uses a model still fails at createApp without its key, naming the field", async () => {
-    const started = createApp(ModelUsingApplication, { processEnv: NO_KEYS });
+    const started = createAppWith(ModelUsingApplication, { processEnv: NO_KEYS });
 
     await expect(started).rejects.toBeInstanceOf(EnvironmentError);
     await expect(started).rejects.toThrow(

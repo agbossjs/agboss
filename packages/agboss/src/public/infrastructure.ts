@@ -94,6 +94,7 @@ export {
 export {
   FencedEffectSettings,
   type FencedEffectOptions,
+  type FencedEffectSettingsOptions,
 } from "../infrastructure/fenced-effect-settings.js";
 // every type an infrastructure contract's members name (#511 AC4, tests/public-api/contract-types):
 // a store outside the core implements the contract with these, never derives them from the class
@@ -124,7 +125,6 @@ export type { Compacted } from "../run/compaction.js";
 export type { ExecutionData } from "../run/types.js";
 export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export type { Brand } from "../types/brand.js";
-export type { Milliseconds, Usd } from "../units/index.js";
 // calls that leave the system (#505): the store's contract, its in-memory default, the service,
 // its verdicts and outcome, its settings
 export {
@@ -188,5 +188,5 @@ export {
   type A2ATerminalTaskState,
   type NewA2ATask,
 } from "../infrastructure/a2a-task.repository.js";
-export type { A2AApplicationOptions } from "../application/application.js";
 export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
+export type { RetentionOptions } from "../application/retention.js";

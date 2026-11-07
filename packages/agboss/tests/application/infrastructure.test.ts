@@ -3,6 +3,7 @@
  * `ExecutionRecordRepository`, `PausedExecutionRepository`, `BaseCheckpointSaver` — each with an
  * in-memory default: nothing is written to the home folder, nothing outlives the instance.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { InMemoryExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { BaseCheckpointSaver } from "@langchain/langgraph";
 import { applicationOf } from "../../src/application/assemble.js";
-import { buildApplication, createApp } from "../../src/application/create-app.js";
+import { buildApplication } from "../../src/application/create-app.js";
 import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -68,12 +69,12 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     const folder = mkdtempSync(join(tmpdir(), "agboss-home-"));
     process.env.HOME = folder;
     const options = { processEnv: { HOME: folder }, gateway: createScriptedGateway(scripted()) };
-    const first = await createApp(DesksApplication, options);
+    const first = await createAppWith(DesksApplication, options);
     const { threadId: thread } = await execute(first, OrdersWorkflowStart, {
       text: "where is order 7?",
     });
     await first.close();
-    const second = await createApp(DesksApplication, options);
+    const second = await createAppWith(DesksApplication, options);
 
     // the second instance has its own records: the first one's thread is unknown to it
     await expect(second.cancel(thread)).rejects.toBeInstanceOf(UnknownThreadError);

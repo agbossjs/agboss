@@ -4,8 +4,8 @@
  * no model call, no spend), refused at assembly with a model (`[judge.model-on-code-judge]`) or an
  * injected `JudgeModel`, and run by `testJudge` without a model script.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PlainTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -142,13 +142,13 @@ function gatedBy(judge: typeof NamedModelJudge | typeof InjectedModelJudge, name
 
 describe("#396: [judge.model-on-code-judge] at assembly", () => {
   it("a code judge that names a model is refused", async () => {
-    await expect(createApp(gatedBy(NamedModelJudge, "named"), offline())).rejects.toThrow(
+    await expect(createAppWith(gatedBy(NamedModelJudge, "named"), offline())).rejects.toThrow(
       /^\[judge\.model-on-code-judge\] @Judge NamedModelJudge \("named-model-judge"\): decided by code \(DecidedBy\.Code\), but it names model "local\/judge"/u,
     );
   });
 
   it("a code judge that injects JudgeModel is refused", async () => {
-    await expect(createApp(gatedBy(InjectedModelJudge, "injected"), offline())).rejects.toThrow(
+    await expect(createAppWith(gatedBy(InjectedModelJudge, "injected"), offline())).rejects.toThrow(
       /^\[judge\.model-on-code-judge\] @Judge InjectedModelJudge .*remove JudgeModel from deps/u,
     );
   });

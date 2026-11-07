@@ -1220,7 +1220,7 @@ the PII policies like the rest of the record, none when withdrawn or cancelled. 
 the pause is resolved into the execution records — `ExecutionRecordRepository.savePauseAnswer`, read
 back with `findPauseAnswersByTenantIdAndRootExecutionId` — the permanent history, so the retention
 below never changes it; the pause records are operational state. A resolved pause
-record (`Taken`, `Cancelled`) is kept `@Application({ pauseRecordRetention })` — default
+record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
 (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): within it a late answer
 is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed.

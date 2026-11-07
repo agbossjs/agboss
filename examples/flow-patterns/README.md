@@ -55,7 +55,7 @@ Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, 
 .agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
 
-The desk keeps each execution for 30 days (`@Application({ executionRecordRetention })`, #401) in
+The desk keeps each execution for 30 days (`@Application({ retention: { executionRecords } })`, #401) in
 `.agboss/desk-offline.sqlite` on `--env offline`. `npm run records:check` (the last step of `npm run
 check`) runs the desk once, exports the kept records (`agboss records export --tenant default --out
 .agboss/records/desk.jsonl`) and drafts an eval case from the newest (`agboss generate eval-case

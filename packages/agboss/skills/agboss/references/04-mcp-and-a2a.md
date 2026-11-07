@@ -708,7 +708,7 @@ smaller of it and a trusted caller's, checked before every step and model call (
 not cut). `A2AClient.cancel(taskId)` sends A2A `CancelTask` for that task only (#809).
 
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
-  between instances), kept `mesh.idempotencyRetention` (default `minutes(30)`), then removed by the
+  between instances), kept `retention.meshAnswers` (default `minutes(30)`), then removed by the
   recovery sweep. Only trusted MCP requests are deduplicated: a `tools/call` by its `_meta.callId` (the AGBoss client sends
   the step's key) — a repeat gets the kept result, one in flight an error result with
   `_meta["agboss.dev/error"]` `mesh.request-in-progress`.

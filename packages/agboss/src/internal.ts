@@ -69,7 +69,12 @@ export { evaluate } from "./eval/eval.js";
 export { checkEvalSuite, evalSuiteWarningsOf } from "./eval/suite/check-suite.js";
 export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
-export { builtApplicationOf, type BuiltApplication } from "./application/create-app.js";
+export {
+  builtApplicationOf,
+  createAppWith,
+  type BuildApplicationOptions,
+  type BuiltApplication,
+} from "./application/create-app.js";
 export {
   openExecutionHistory,
   type OpenedExecutionHistory,
@@ -197,3 +202,7 @@ export {
   INTERNAL_FAILURE,
   pausedStatusOf,
 } from "./a2a/tasks/task-status.js";
+// assembly internals (#834): an app's and a workflow's dependencies, the observers' manager
+export * from "./app/app-deps.js";
+export type { GraphDeps } from "./graph/deps.js";
+export * from "./core/observer-manager.js";

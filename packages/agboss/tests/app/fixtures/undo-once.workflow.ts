@@ -311,6 +311,6 @@ export class OnceLevelWorkflow {}
   providers: [RecordingLogger, SharedCheckpointSaver, HookedExecutionTreeRepository],
   budgets: TEST_BUDGETS,
   // each root's record kept: what its undos were, as the tree ended
-  executionRecordRetention: hours(1),
+  retention: { executionRecords: hours(1) },
 })
 export class UndoOnceApplication {}

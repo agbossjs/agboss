@@ -19,11 +19,6 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // @public
-export interface A2AApplicationOptions {
-    readonly taskRetention?: Milliseconds;
-}
-
-// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -286,6 +281,8 @@ export class AgentAnswerInvalidError extends AgentFailedError {
 // @public
 export type AgentEndEvent = EndEvent<NodeValue>;
 
+// Warning: (ae-forgotten-export) The symbol "GraphDeps" needs to be exported by the entry point index.d.ts
+//
 // @public
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
     // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
@@ -482,46 +479,6 @@ export interface App {
     readonly warnings: readonly string[];
 }
 
-// @public
-export interface AppDeps extends AgentExecutionDeps<string> {
-    readonly close: (executionsDone?: () => Promise<void>) => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly evaluation: EvalDeps;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryKeeper" needs to be exported by the entry point index.d.ts
-    readonly executionHistory?: ExecutionHistoryKeeper | undefined;
-    // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point index.d.ts
-    readonly log: FrameworkLog;
-    readonly models: readonly string[];
-    readonly observer: ExecutionObserverManager;
-    readonly rememberConfig: () => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ReplyReaderParts" needs to be exported by the entry point index.d.ts
-    readonly replies: ReplyReaderParts;
-    readonly warnings: readonly string[];
-}
-
-// @public
-export interface AppDepsOptions {
-    // Warning: (ae-forgotten-export) The symbol "BranchScheduler" needs to be exported by the entry point index.d.ts
-    readonly branchScheduler?: BranchScheduler;
-    readonly connectMcp?: McpConnect;
-    // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly container?: ContainerOptions;
-    readonly environment?: Environment;
-    readonly environmentName?: string;
-    // Warning: (ae-forgotten-export) The symbol "ModelGateway" needs to be exported by the entry point index.d.ts
-    readonly gateway?: ModelGateway;
-    readonly meterProvider?: MeterProvider;
-    readonly processEnv?: NodeJS.ProcessEnv;
-    // Warning: (ae-forgotten-export) The symbol "ProviderFetch" needs to be exported by the entry point index.d.ts
-    readonly providerFetch?: ProviderFetch;
-    // Warning: (ae-forgotten-export) The symbol "TransportFactory" needs to be exported by the entry point index.d.ts
-    readonly transport?: TransportFactory;
-}
-
 // @public (undocumented)
 export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>): <TClass extends Class>(value: TClass) => TClass;
 
@@ -544,32 +501,29 @@ export abstract class ApplicationContext {
 
 // @public
 export interface ApplicationOptions<TEnvironment = unknown> {
-    readonly a2a?: A2AApplicationOptions;
     readonly budgets?: readonly Class[];
     readonly compaction?: Class;
     readonly compensationTimeout?: Milliseconds;
     readonly defaults?: WorkflowDefaults;
     readonly environment: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
-    readonly executionRecordRetention?: Milliseconds;
     readonly exposes?: readonly Class[];
     readonly fencedEffects?: FencedEffectOptions;
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly idempotencyKeyField?: SecretFieldOf<TEnvironment>;
-    readonly leaseEventRetention?: Milliseconds;
-    readonly ledgerEntryRetention?: Milliseconds;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops?: number;
     readonly mesh?: MeshOptions;
     readonly name: string;
     readonly observers?: readonly ObserverClass[];
     readonly outboundCalls?: OutboundCallOptions;
-    readonly pauseRecordRetention?: Milliseconds;
     readonly piiKeyField?: SecretFieldOf<TEnvironment>;
     readonly piiPolicies?: readonly Class[];
     readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly providers?: readonly Provider[];
+    readonly retention?: RetentionOptions;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly shutdownTimeout?: Milliseconds;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
@@ -597,11 +551,13 @@ export class ApplicationStoppingError extends AGBossError {
 }
 
 // @public
-export interface AppOptions extends Omit<AppDepsOptions, "environment"> {
+export interface AppOptions {
     readonly env?: string | undefined;
+    // Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point index.d.ts
+    readonly meterProvider?: AppDepsOptions["meterProvider"];
     readonly profile?: string | undefined;
     // (undocumented)
-    readonly profileRoot?: string;
+    readonly profileRoot?: string | undefined;
 }
 
 // @public
@@ -804,6 +760,7 @@ export interface BudgetAccount {
 export interface BudgetBreach {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly key: string;
+    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
     readonly maxSpend: Usd;
     readonly period?: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
@@ -1564,9 +1521,6 @@ export interface CountQuorum {
 export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: AppOptions): Promise<App>;
 
 // @public
-export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOptions): Promise<AppDeps>;
-
-// @public
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
     readonly action: MaskingPiiAction;
     // (undocumented)
@@ -1840,23 +1794,22 @@ export enum EnvironmentErrorCode {
 }
 
 // @public
-export enum EnvironmentField {
+export interface EnvironmentField {
     // (undocumented)
-    Flag = "flag",
-    // (undocumented)
-    Integer = "integer",
-    // (undocumented)
-    OptionalFlag = "optional-flag",
-    // (undocumented)
-    OptionalInteger = "optional-integer",
-    // (undocumented)
-    OptionalSecret = "optional-secret",
-    // (undocumented)
-    OptionalText = "optional-text",
-    // (undocumented)
-    Secret = "secret",
-    // (undocumented)
-    Text = "text"
+    readonly [environmentFieldBrand]: true;
+}
+
+// @public
+export const EnvironmentField: Readonly<{
+    text: (options?: EnvironmentFieldOptions) => EnvironmentField;
+    integer: (options?: EnvironmentFieldOptions) => EnvironmentField;
+    flag: (options?: EnvironmentFieldOptions) => EnvironmentField;
+    secret: (options?: EnvironmentFieldOptions) => EnvironmentField;
+}>;
+
+// @public
+export interface EnvironmentFieldOptions {
+    readonly optional?: boolean;
 }
 
 // @public
@@ -1933,9 +1886,6 @@ export interface EvalCaseIssue {
     // (undocumented)
     readonly reason: string;
 }
-
-// @public
-export type EventMask = (event: unknown) => Promise<unknown>;
 
 // @public
 export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
@@ -2266,78 +2216,6 @@ export interface ExecutionLeaseTakeoverEvent {
 export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & LeaseEventHooks>;
 
 // @public
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
-    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[]);
-    masked(mask: EventMask): ExecutionObserverManager;
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): Promise<void>;
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): Promise<void>;
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): Promise<void>;
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // (undocumented)
-    onCompensationEnd(event: CompensationEndEvent): Promise<void>;
-    // (undocumented)
-    onCompensationStart(event: CompensationStartEvent): Promise<void>;
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // (undocumented)
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
-    // (undocumented)
-    onFencedEffect(event: FencedEffectEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // (undocumented)
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): Promise<void>;
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): Promise<void>;
-    // (undocumented)
-    onOutboundCall(event: OutboundCallEvent): Promise<void>;
-    // (undocumented)
-    onQuorumDecided(event: QuorumDecidedEvent): Promise<void>;
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): Promise<void>;
-    // (undocumented)
-    onRagStart(event: RagStartEvent): Promise<void>;
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onStepHandedOver(event: StepHandedOverEvent): Promise<void>;
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): Promise<void>;
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): Promise<void>;
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
-}
-
-// @public
 export enum ExecutionOperation {
     // (undocumented)
     Cancel = "cancel",
@@ -2633,7 +2511,6 @@ export enum FencedEffectEventOutcome {
 export interface FencedEffectOptions {
     // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxResultSize?: Bytes;
-    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -2709,9 +2586,14 @@ export interface FencedEffectResultTooLargeErrorOptions {
 
 // @public
 export class FencedEffectSettings {
-    constructor(options?: FencedEffectOptions);
+    constructor(options?: FencedEffectSettingsOptions);
     readonly maxResultSize: Bytes;
     readonly retention: Milliseconds;
+}
+
+// @public
+export interface FencedEffectSettingsOptions extends FencedEffectOptions {
+    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -2847,64 +2729,6 @@ export function formatLogEntry(entry: LogEntry): string;
 export interface GeneratedTypeError {
     // (undocumented)
     readonly __error: string;
-}
-
-// @public
-export interface GraphDeps<TName extends string> {
-    // Warning: (ae-forgotten-export) The symbol "ArbiterModel" needs to be exported by the entry point index.d.ts
-    readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
-    // Warning: (ae-forgotten-export) The symbol "BranchErrors" needs to be exported by the entry point index.d.ts
-    readonly branchErrors?: BranchErrors;
-    readonly branchScheduler?: BranchScheduler;
-    readonly channelOf?: (channelName: string) => PauseChannel;
-    readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
-    readonly clock?: Clock | undefined;
-    readonly compactions?: AssembledCompactions;
-    // Warning: (ae-forgotten-export) The symbol "CompensationParts" needs to be exported by the entry point index.d.ts
-    readonly compensation?: CompensationParts | undefined;
-    // (undocumented)
-    readonly config: AgentsConfigOf<TName>;
-    readonly container: {
-        readonly get: <T>(token: Class<T>) => T;
-    };
-    // Warning: (ae-forgotten-export) The symbol "RuntimeContexts" needs to be exported by the entry point index.d.ts
-    readonly contexts?: RuntimeContexts;
-    readonly executionIds?: ExecutionIds | undefined;
-    readonly fingerprintKeys?: FingerprintKeys | undefined;
-    readonly graph: RuntimeGraph;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailRuntime" needs to be exported by the entry point index.d.ts
-    readonly guardrails?: GuardrailRuntime;
-    readonly judges?: ReadonlyMap<string, JudgeInstance>;
-    readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
-    // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
-    readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
-    // Warning: (ae-forgotten-export) The symbol "FrameLease" needs to be exported by the entry point index.d.ts
-    readonly lease?: FrameLease | undefined;
-    readonly maxSteps: number;
-    readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
-    // (undocumented)
-    readonly observer?: ExecutionObserverManager;
-    // Warning: (ae-forgotten-export) The symbol "PauseSeam" needs to be exported by the entry point index.d.ts
-    readonly pause?: PauseSeam | undefined;
-    // Warning: (ae-forgotten-export) The symbol "PiiRuntime" needs to be exported by the entry point index.d.ts
-    readonly pii?: PiiRuntime;
-    readonly prompts: AgentPrompts<TName>;
-    // Warning: (ae-forgotten-export) The symbol "ModelRegistry" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly registry: ModelRegistry;
-    // Warning: (ae-forgotten-export) The symbol "RemoteChildren" needs to be exported by the entry point index.d.ts
-    readonly remoteChildren?: RemoteChildren | undefined;
-    readonly routerFor: (router: LoadedRouter) => RouterEngine;
-    readonly routers: readonly LoadedRouter[];
-    // Warning: (ae-forgotten-export) The symbol "StepEntries" needs to be exported by the entry point index.d.ts
-    readonly stepEntries?: StepEntries | undefined;
-    // Warning: (ae-forgotten-export) The symbol "StepSlots" needs to be exported by the entry point index.d.ts
-    readonly stepSlots?: StepSlots | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ToolInterceptorRuntime" needs to be exported by the entry point index.d.ts
-    readonly toolInterceptors?: ToolInterceptorRuntime;
-    // Warning: (ae-forgotten-export) The symbol "AnyTool" needs to be exported by the entry point index.d.ts
-    readonly tools: (name: string) => AnyTool;
 }
 
 // @public
@@ -3885,11 +3709,6 @@ export type MaskingPiiAction = ReplaceWithKindAction | ReplacePartAction | Repla
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
 
-// Warning: (ae-forgotten-export) The symbol "McpConnections" needs to be exported by the entry point index.d.ts
-//
-// @public
-export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv) => Promise<McpConnections>;
-
 // @public
 export interface MeshBudgetClaim {
     // (undocumented)
@@ -3949,7 +3768,6 @@ export class MeshLoopDetectedError extends LimitExceededError {
 
 // @public
 export interface MeshOptions {
-    readonly idempotencyRetention?: Milliseconds;
     readonly peers?: readonly MeshPeer[];
     readonly signingKey?: string;
 }
@@ -4020,9 +3838,6 @@ export interface MeshSpendReport {
     // (undocumented)
     readonly total: string;
 }
-
-// @public
-export type Milliseconds = Brand<number, "Milliseconds">;
 
 // @public
 export interface MissingGeneratedTypes {
@@ -4321,9 +4136,6 @@ export const OBSERVER_HOOKS: readonly ObserverHook[];
 
 // @public
 export type ObserverClass = Class<ExecutionObserver>;
-
-// @public
-export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
 
 // @public
 export type ObserverHook = keyof ExecutionObserver;
@@ -4775,7 +4587,6 @@ export type OutboundCallNotSent = NotSentByLookup | NotSentByKeyReplay;
 export interface OutboundCallOptions {
     readonly attemptTimeout?: Milliseconds;
     readonly maxPayloadSize?: Bytes;
-    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -4935,6 +4746,7 @@ export class OutboundCallSettings {
 // @public
 export interface OutboundCallSettingsOptions extends OutboundCallOptions {
     readonly requiresMask: boolean;
+    readonly retention?: Milliseconds;
 }
 
 // @public (undocumented)
@@ -5872,6 +5684,8 @@ export interface ReplyResumeRequest {
     readonly reply: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "AnyTool" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
 
@@ -5902,6 +5716,18 @@ export interface ResumeVersions {
     readonly configHash: string;
     // (undocumented)
     readonly workflowVersion: string;
+}
+
+// @public
+export interface RetentionOptions {
+    readonly a2aTasks?: Milliseconds;
+    readonly costLedgerEntries?: Milliseconds;
+    readonly executionRecords?: Milliseconds;
+    readonly fencedEffects?: Milliseconds;
+    readonly leaseEvents?: Milliseconds;
+    readonly meshAnswers?: Milliseconds;
+    readonly outboundCalls?: Milliseconds;
+    readonly pauseRecords?: Milliseconds;
 }
 
 // @public
@@ -6085,7 +5911,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.task-store-not-shared" | "application.outbound-calls-invalid" | "application.ledger-entry-retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.task-store-not-shared" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -7127,9 +6953,6 @@ export interface UsageRecord extends TokenUsage {
 }
 
 // @public
-export type Usd = Brand<number, "Usd">;
-
-// @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
 
 // @public
@@ -7328,7 +7151,9 @@ export interface WorkflowRecord {
 
 // @public
 export interface WorkflowServices {
+    // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
     readonly container?: ContainerOptions;
+    // Warning: (ae-forgotten-export) The symbol "RuntimeContexts" needs to be exported by the entry point index.d.ts
     readonly contexts?: RuntimeContexts;
     // Warning: (ae-forgotten-export) The symbol "ModelBinding" needs to be exported by the entry point index.d.ts
     readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
@@ -7375,9 +7200,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:62:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:114:3 - (ae-undocumented) Missing documentation for "container".
-// src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:62:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/lease-lost.ts:98:3 - (ae-undocumented) Missing documentation for "code".
@@ -7478,7 +7301,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:308:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:317:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:318:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/application/application.ts:266:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:232:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -7679,39 +7502,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:123:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:126:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:129:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:132:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:135:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:138:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:147:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:150:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-manager.ts:153:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-manager.ts:156:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-manager.ts:159:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-manager.ts:162:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-manager.ts:165:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-manager.ts:168:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-manager.ts:171:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-manager.ts:174:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-manager.ts:177:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
-// src/core/observer-manager.ts:180:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/core/observer-manager.ts:183:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
-// src/core/observer-manager.ts:186:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts:189:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts:192:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts:195:3 - (ae-undocumented) Missing documentation for "onFencedEffect".
-// src/core/observer-manager.ts:198:3 - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/dto/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
@@ -7720,16 +7510,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
 // src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "summary".
-// src/environments/contract.ts:25:3 - (ae-undocumented) Missing documentation for "Text".
-// src/environments/contract.ts:26:3 - (ae-undocumented) Missing documentation for "Integer".
-// src/environments/contract.ts:27:3 - (ae-undocumented) Missing documentation for "Flag".
-// src/environments/contract.ts:28:3 - (ae-undocumented) Missing documentation for "Secret".
-// src/environments/contract.ts:29:3 - (ae-undocumented) Missing documentation for "OptionalText".
-// src/environments/contract.ts:30:3 - (ae-undocumented) Missing documentation for "OptionalInteger".
-// src/environments/contract.ts:31:3 - (ae-undocumented) Missing documentation for "OptionalFlag".
-// src/environments/contract.ts:32:3 - (ae-undocumented) Missing documentation for "OptionalSecret".
 // src/environments/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
 // src/environments/errors.ts:17:5 - (ae-undocumented) Missing documentation for "code".
+// src/environments/fields.ts:26:3 - (ae-undocumented) Missing documentation for "[environmentFieldBrand]".
 // src/environments/secret.ts:49:3 - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts:53:3 - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts:57:3 - (ae-undocumented) Missing documentation for "[inspect.custom]".
@@ -8079,9 +7862,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/tool-calls.ts:86:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts:91:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/deps.ts:34:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:35:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:79:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
@@ -8264,13 +8044,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/fenced-effect-key.ts:88:1 - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-key.ts:166:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-key.ts:167:3 - (ae-undocumented) Missing documentation for "origin".
-// src/infrastructure/fenced-effect-settings.ts:203:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:204:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-settings.ts:213:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts:214:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-settings.ts:215:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-settings.ts:216:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:217:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:174:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:175:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:184:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-settings.ts:185:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-settings.ts:186:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-settings.ts:187:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:188:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-a2a-task.repository.ts:29:3 - (ae-undocumented) Missing documentation for "store".

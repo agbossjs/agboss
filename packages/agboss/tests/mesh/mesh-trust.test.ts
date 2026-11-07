@@ -1,6 +1,6 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { DeadlineExceededError, GraphRuleError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
@@ -31,7 +31,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       },
     });
 
-    const built = createApp(MeshApplication, { processEnv: {}, env: "signing" });
+    const built = createAppWith(MeshApplication, { processEnv: {}, env: "signing" });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     await expect(built).rejects.toThrow(/\[mesh\.signing-key-missing\].*billingKey: Secret/);
@@ -48,7 +48,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       mesh: meshOf("orders-application"),
     });
     const start = (processEnv: NodeJS.ProcessEnv) =>
-      createApp(MeshApplication, { ...offline(new ScriptBook()), processEnv, env: "signing" });
+      createAppWith(MeshApplication, { ...offline(new ScriptBook()), processEnv, env: "signing" });
     const rsaPem = rsa.publicKey.export({ type: "spki", format: "pem" }).toString();
 
     await expect(
@@ -72,7 +72,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       mesh: meshOf("orders-application"),
     });
 
-    const app = await createApp(MeshApplication, {
+    const app = await createAppWith(MeshApplication, {
       ...offline(new ScriptBook()),
       processEnv: meshEnvOf(own, peer),
       env: "signing",
@@ -86,7 +86,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
 describe("#398 PR 2: app.execute(…, { deadline })", () => {
   it("an execution past its deadline fails before its next step with DeadlineExceededError", async () => {
     const book = new ScriptBook();
-    const app = await createApp(RemoteDeskApplication, offline(book));
+    const app = await createAppWith(RemoteDeskApplication, offline(book));
     apps.push(app);
 
     const run = execute(app, AskStart, { text: "hi" }, { deadline: seconds(0) });
@@ -101,7 +101,7 @@ describe("#398 PR 2: app.execute(…, { deadline })", () => {
   it("a deadline not reached changes nothing", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:desk-agent").thenReturn(replyWith("hello"));
-    const app = await createApp(RemoteDeskApplication, offline(book));
+    const app = await createAppWith(RemoteDeskApplication, offline(book));
     apps.push(app);
 
     const result = await execute(app, AskStart, { text: "hi" }, { deadline: seconds(60) });

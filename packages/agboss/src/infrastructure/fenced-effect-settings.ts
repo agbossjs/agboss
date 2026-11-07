@@ -1,12 +1,21 @@
-import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { AGBossError } from "../core/errors.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hours, kilobytes, minutes, type Bytes, type Milliseconds } from "../units/index.js";
 
-/** `@Application({ fencedEffects })` (#500): the largest result and how long rows are kept. */
+/**
+ * `@Application({ fencedEffects })` (#500): the largest result (how long rows are kept is
+ * `@Application({ retention: { fencedEffects } })`, #834).
+ */
 export interface FencedEffectOptions {
   /** The largest stored result, in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
   readonly maxResultSize?: Bytes;
+}
+
+/**
+ * What `FencedEffectSettings` is built from: the application's `fencedEffects` and its
+ * `retention.fencedEffects` (a store's test builds one with either).
+ */
+export interface FencedEffectSettingsOptions extends FencedEffectOptions {
   /**
    * How long a stored result and a scope's mark are kept (default `hours(24)`), then removed by
    * the recovery sweep on the `Clock` — above the lease's 30 s, so a late zombie is still refused.
@@ -31,78 +40,41 @@ export class FencedEffectSettings {
   /** How long stored results and marks are kept. */
   readonly retention: Milliseconds;
 
-  constructor(options: FencedEffectOptions = {}) {
+  constructor(options: FencedEffectSettingsOptions = {}) {
     this.maxResultSize = options.maxResultSize ?? DEFAULT_FENCED_EFFECT_RESULT_SIZE;
     this.retention = options.retention ?? DEFAULT_FENCED_EFFECT_RETENTION;
     Object.freeze(this);
   }
 }
 
-/**
- * `@Application({ fencedEffects })` (#500): a positive `maxResultSize`, and a `retention` above the
- * lease (30 s) — a mark removed sooner would let a zombie's late write through.
- */
+/** `@Application({ fencedEffects })` (#500): a positive `maxResultSize`. */
 export function fencedEffectsViolations(
   application: string,
   options: FencedEffectOptions | undefined,
 ): RuleViolation[] {
-  const { maxResultSize, retention } = options ?? {};
-  return sizeAndRetentionProblems(["maxResultSize", maxResultSize], retention).map((problem) =>
+  return sizeProblems("maxResultSize", options?.maxResultSize).map((problem) =>
     violation(
       "application.fenced-effects-invalid",
-      `its fencedEffects.${problem} — @Application({ fencedEffects: { maxResultSize: kilobytes(64), retention: hours(24) } })`,
+      `its fencedEffects.${problem} — @Application({ fencedEffects: { maxResultSize: kilobytes(64) } })`,
       [application],
     ),
   );
 }
 
-/**
- * What is wrong with a size and a retention of rows a fenced write keeps (#500, #505): a size that
- * is not positive, a retention not above the lease (30 s) — removed sooner, a mark or an intent
- * would let a zombie's late write through.
- */
-function sizeAndRetentionProblems(
-  [field, size]: readonly [string, Bytes | undefined],
-  retention: Milliseconds | undefined,
-): string[] {
-  const problems: string[] = [];
-  if (size !== undefined && !(size > 0))
-    problems.push(`${field} is ${String(size)} bytes, not a positive size`);
-  if (retention !== undefined && !(retention > EXECUTION_LEASE))
-    problems.push(
-      `retention is ${String(retention)} ms, not above the lease's ${String(EXECUTION_LEASE)} ms`,
-    );
-  return problems;
+/** What is wrong with a size of what a fenced write keeps (#500, #505): one that is not positive. */
+function sizeProblems(field: string, size: Bytes | undefined): string[] {
+  return size === undefined || size > 0
+    ? []
+    : [`${field} is ${String(size)} bytes, not a positive size`];
 }
 
 /**
- * `@Application({ ledgerEntryRetention })` (#771): above the lease (30 s) — a pass retries a lost
- * write of its spend at its next read of the counters, and a retry later than the retention is
- * refused (never counted twice), so a shorter one would fail a live pass.
+ * `@Application({ outboundCalls })` (#505): the largest request and result, and the bound of an
+ * attempt (how long ended intents are kept is `@Application({ retention: { outboundCalls } })`, #834).
  */
-export function ledgerEntryRetentionViolations(
-  application: string,
-  retention: Milliseconds | undefined,
-): RuleViolation[] {
-  if (retention === undefined || retention > EXECUTION_LEASE) return [];
-  return [
-    violation(
-      "application.ledger-entry-retention-invalid",
-      `its ledgerEntryRetention is ${String(retention)} ms, not above the lease's ${String(EXECUTION_LEASE)} ms — @Application({ ledgerEntryRetention: hours(24) })`,
-      [application],
-    ),
-  ];
-}
-
-/** `@Application({ outboundCalls })` (#505): the largest request and result, how long ended intents are kept. */
 export interface OutboundCallOptions {
   /** The largest request and the largest result, each in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
   readonly maxPayloadSize?: Bytes;
-  /**
-   * How long a `Completed` or `Failed` intent is kept after it ended (default `hours(168)`, a
-   * week), then removed by the recovery sweep on the `Clock`; a `Pending` one is never removed.
-   */
-  readonly retention?: Milliseconds;
   /**
    * The bound of an attempt in flight, from the moment it started (default `minutes(2)`; #508):
    * until then its holder releases its lease only once the attempt settled, and yields it under none.
@@ -126,10 +98,16 @@ export const DEFAULT_OUTBOUND_CALL_PAYLOAD_SIZE: Bytes = kilobytes(64);
 export const DEFAULT_OUTBOUND_CALL_RETENTION: Milliseconds = hours(168);
 
 /**
- * What `OutboundCallSettings` is built from (#795): the application's `outboundCalls` and whether a
- * request is stored only masked — always said, never a silent `false`.
+ * What `OutboundCallSettings` is built from (#795): the application's `outboundCalls`, its
+ * `retention.outboundCalls` and whether a request is stored only masked — always said, never a
+ * silent `false`.
  */
 export interface OutboundCallSettingsOptions extends OutboundCallOptions {
+  /**
+   * How long a `Completed` or `Failed` intent is kept after it ended (default `hours(168)`, a
+   * week), then removed by the recovery sweep on the `Clock`; a `Pending` one is never removed.
+   */
+  readonly retention?: Milliseconds;
   /**
    * Whether a request is stored only masked: `true` where the application or one of its workflows
    * lists PII policies (the assembly says so). A JavaScript caller that leaves it out, or gives no
@@ -168,29 +146,22 @@ export class OutboundCallSettings {
   }
 }
 
-/**
- * `@Application({ outboundCalls })` (#505): a positive `maxPayloadSize`, a `retention` above the
- * lease (30 s) — an intent must outlive the holder that may still complete it — and a positive
- * `attemptTimeout` (#508).
- */
+/** `@Application({ outboundCalls })` (#505): a positive `maxPayloadSize` and `attemptTimeout` (#508). */
 export function outboundCallsViolations(
   application: string,
   options: OutboundCallOptions | undefined,
 ): RuleViolation[] {
-  const { maxPayloadSize, retention, attemptTimeout } = options ?? {};
+  const { maxPayloadSize, attemptTimeout } = options ?? {};
   const isTimeoutValid =
     attemptTimeout === undefined || (Number.isFinite(attemptTimeout) && attemptTimeout > 0);
   const timeout = isTimeoutValid
     ? []
     : [`attemptTimeout is ${String(attemptTimeout)} ms, not a positive duration`];
-  const problems = [
-    ...sizeAndRetentionProblems(["maxPayloadSize", maxPayloadSize], retention),
-    ...timeout,
-  ];
+  const problems = [...sizeProblems("maxPayloadSize", maxPayloadSize), ...timeout];
   return problems.map((problem) =>
     violation(
       "application.outbound-calls-invalid",
-      `its outboundCalls.${problem} — @Application({ outboundCalls: { maxPayloadSize: kilobytes(64), retention: hours(168) } })`,
+      `its outboundCalls.${problem} — @Application({ outboundCalls: { maxPayloadSize: kilobytes(64), attemptTimeout: minutes(2) } })`,
       [application],
     ),
   );

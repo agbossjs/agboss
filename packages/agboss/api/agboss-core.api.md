@@ -160,109 +160,6 @@ export type DecisionState = string | Readonly<Record<string, unknown>> | readonl
 export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & LeaseEventHooks>;
 
 // @public
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
-    // Warning: (ae-forgotten-export) The symbol "EventMask" needs to be exported by the entry point index.d.ts
-    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[]);
-    masked(mask: EventMask): ExecutionObserverManager;
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): Promise<void>;
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): Promise<void>;
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): Promise<void>;
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "CompensationEndEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onCompensationEnd(event: CompensationEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "CompensationStartEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onCompensationStart(event: CompensationStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseTakeoverEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "FencedEffectEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onFencedEffect(event: FencedEffectEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): Promise<void>;
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onOutboundCall(event: OutboundCallEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "QuorumDecidedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onQuorumDecided(event: QuorumDecidedEvent): Promise<void>;
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): Promise<void>;
-    // (undocumented)
-    onRagStart(event: RagStartEvent): Promise<void>;
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "StepHandedOverEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onStepHandedOver(event: StepHandedOverEvent): Promise<void>;
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): Promise<void>;
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
-}
-
-// @public
 export function file(filePath: string): string;
 
 // Warning: (ae-forgotten-export) The symbol "GuardrailOutcome" needs to be exported by the entry point index.d.ts
@@ -425,9 +322,6 @@ export const OBSERVER_HOOKS: readonly ObserverHook[];
 export type ObserverClass = Class<ExecutionObserver>;
 
 // @public
-export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
-
-// @public
 export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
@@ -475,18 +369,24 @@ export interface OnDestroy {
 
 // @public
 export interface OnExecutionEnd {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     onExecutionEnd(event: ExecutionEndEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionError {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionStart {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): HookResult;
 }
@@ -813,39 +713,6 @@ export class WorkflowSettings {
 // src/core/observer-hooks.ts:129:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:123:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:126:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:129:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:132:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:135:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:138:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:147:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:150:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-manager.ts:153:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-manager.ts:156:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-manager.ts:159:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-manager.ts:162:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-manager.ts:165:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-manager.ts:168:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-manager.ts:171:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-manager.ts:174:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-manager.ts:177:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
-// src/core/observer-manager.ts:180:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/core/observer-manager.ts:183:3 - (ae-undocumented) Missing documentation for "onCompensationStart".
-// src/core/observer-manager.ts:186:3 - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts:189:3 - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts:192:3 - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts:195:3 - (ae-undocumented) Missing documentation for "onFencedEffect".
-// src/core/observer-manager.ts:198:3 - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/flow/decorators/workflow.ts:116:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".

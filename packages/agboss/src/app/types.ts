@@ -281,7 +281,7 @@ export interface App {
   /**
    * The lease log of one execution tree (#501), oldest first: who took its lease over and which of
    * its steps stopped because it lost it — the rows of `ExecutionLeaseEventRepository`, masked like
-   * observer events, readable while the tree runs and kept `leaseEventRetention`. Another tenant's
+   * observer events, readable while the tree runs and kept `retention.leaseEvents`. Another tenant's
    * tree has none.
    */
   leaseEventsOf(tree: LeaseEventsQuery): Promise<readonly ExecutionLeaseEventRecord[]>;

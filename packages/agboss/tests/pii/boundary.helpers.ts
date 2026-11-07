@@ -1,4 +1,4 @@
-import { createApp } from "../../src/application/create-app.js";
+import { createAppWith } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { extractText } from "../../src/graph/multimodal.js";
 import type { ModelRequest } from "../../src/testing/index.js";
@@ -11,7 +11,7 @@ export async function piiApp(book: ScriptBook = new ScriptBook()): Promise<{
   readonly app: App;
   readonly book: ScriptBook;
 }> {
-  const app = await createApp(PiiApplication, {
+  const app = await createAppWith(PiiApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });

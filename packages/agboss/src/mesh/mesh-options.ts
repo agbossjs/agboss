@@ -1,11 +1,9 @@
-import type { Milliseconds } from "../units/index.js";
-
 /**
  * `@Application({ mesh })` (#398 PR 2): the application's identity in the mesh. With `signingKey`
  * every envelope it sends and every run report it returns is signed (JWS `EdDSA`); `peers` are the
  * applications whose envelopes it can verify — a request is trusted only when the caller resolver
  * names its `peer` and the envelope carries that peer's valid signature. `maxMeshHops` stays a
- * setting of its own.
+ * setting of its own, and how long answers are kept is `retention.meshAnswers`.
  */
 export interface MeshOptions {
   /**
@@ -16,11 +14,6 @@ export interface MeshOptions {
   readonly signingKey?: string;
   /** The applications whose signatures it verifies, each with its public key's field. */
   readonly peers?: readonly MeshPeer[];
-  /**
-   * How long a trusted request's answer is kept for a repeat of its idempotency key
-   * (`MeshRequestRepository`, removed by the recovery sweep on the `Clock`). Default `minutes(30)`.
-   */
-  readonly idempotencyRetention?: Milliseconds;
 }
 
 /** A peer of the mesh: its `@Application({ name })` and the field of its public key. */

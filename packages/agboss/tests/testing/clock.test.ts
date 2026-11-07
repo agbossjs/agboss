@@ -4,10 +4,9 @@
  * pauses, backoff and leases with `clock.advance(…)`, without real waiting; an application may list
  * its own `Clock`, which production uses. The gate rule itself: tests/lint/no-direct-time.test.ts.
  */
+import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AppOptions } from "../../src/app/create-app.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createApp } from "../../src/application/create-app.js";
 import { GraphRuleError } from "../../src/index.js";
 import { ModelFailure, RetryPolicy } from "../../src/models/index.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
@@ -146,7 +145,7 @@ describe("#262 AC12: the clock fixture is the application's Clock", () => {
 
 describe("#262: a Clock the application lists", () => {
   it("is the clock of every part outside tests: the start, the components", async () => {
-    const app = await createApp(FixedClockApplication, {
+    const app = await createAppWith(FixedClockApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -158,7 +157,7 @@ describe("#262: a Clock the application lists", () => {
   });
 
   it("is the one way to set the clock: createApp takes no clock option", () => {
-    const options: AppOptions = {
+    const options: BuildApplicationOptions = {
       // @ts-expect-error — the clock is infrastructure, listed in @Application({ providers })
       clock: new FixedClockProvider(),
     };
@@ -176,7 +175,7 @@ describe("#262: a Clock the application lists", () => {
   );
 
   it("may not depend on the application's contexts: they read their start from it", async () => {
-    const starting = createApp(ContextClockApplication, {
+    const starting = createAppWith(ContextClockApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });

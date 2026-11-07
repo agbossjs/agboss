@@ -6,8 +6,8 @@
  * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
  * on it; a `listOf(oneOf(A, B))` judge reads each item as `VariantOf<A | B>`.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
 import { isVariant, PlainTextDto, type VariantOf } from "../../src/dto/index.js";
@@ -354,7 +354,7 @@ describe("[judge.wrong-reply]", () => {
   });
 
   it("fails the application's assembly before any model call", async () => {
-    await expect(createApp(WrongReplyApplication, offline())).rejects.toThrow(
+    await expect(createAppWith(WrongReplyApplication, offline())).rejects.toThrow(
       /\[judge\.wrong-reply\]/u,
     );
   });

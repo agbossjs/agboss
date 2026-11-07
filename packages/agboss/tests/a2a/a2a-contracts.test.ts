@@ -1,8 +1,8 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener, A2AStatus } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { contractsOf } from "../../src/describe/contracts.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -30,7 +30,7 @@ afterEach(async () => {
 
 describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
   it("an expose the application does not list: [application.expose-unlisted]", async () => {
-    const app = await createApp(ShopApplication, offline(new ScriptBook()));
+    const app = await createAppWith(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const built = () =>

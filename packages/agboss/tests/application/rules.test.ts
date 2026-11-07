@@ -3,6 +3,7 @@
  * workflows, names are unique in the application, budgets are `@Budget`s, infrastructure is listed
  * only in `@Application({ providers })`, by inheritance — every violation at once.
  */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -157,7 +158,7 @@ describe("#261: an infrastructure contract has one implementation", () => {
   it("two listed implementations of one contract are ambiguous", async () => {
     const { createApp } = await import("../../src/application/create-app.js");
 
-    await expect(createApp(TwoPausesApplication, { processEnv: {} })).rejects.toThrow(
+    await expect(createAppWith(TwoPausesApplication, { processEnv: {} })).rejects.toThrow(
       '[di.ambiguous-implementation] the app depends on PausedExecutionRepository, and 2 listed classes implement it: FirstPausedExecutionRepository (@Application "two-pauses-application"), SecondPausedExecutionRepository (@Application "two-pauses-application") — list one',
     );
   });

@@ -178,7 +178,7 @@ export class DownLeaseLogApplication {}
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
-  executionRecordRetention: hours(24),
+  retention: { executionRecords: hours(24) },
   budgets: TEST_BUDGETS,
 })
 export class KeptLeaseEventsApplication {}

@@ -60,7 +60,7 @@ export abstract class CostLedgerRepository {
    * Prunes the entries (#771): raises the store's pruning mark to `cutoff` (never lowers it) and
    * removes every entry dated (`madeAt`) before the mark, atomically against a save — from then on
    * a save of an id dated before the mark that the store does not hold rejects. The counters are
-   * never touched. Called by the recovery sweep with `now − @Application({ ledgerEntryRetention })`.
+   * never touched. Called by the recovery sweep with `now − @Application({ retention: { costLedgerEntries } })`.
    */
   abstract deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
 
@@ -131,7 +131,7 @@ export interface CostLedgerEntryExpiredErrorOptions {
  * not held, so it may have been counted and removed since — counting it again could count it twice.
  * The save adds nothing; the pass's reads fail with it from then on (its spend is never counted
  * twice, and never read beside spend it cannot place). Only a write retried longer after its spend
- * was made than `@Application({ ledgerEntryRetention })` meets it — a pass that slept that long.
+ * was made than `@Application({ retention: { costLedgerEntries } })` meets it — a pass that slept that long.
  */
 export class CostLedgerEntryExpiredError extends AGBossError {
   static override readonly code: string = "cost-ledger.entry-expired";
@@ -141,7 +141,7 @@ export class CostLedgerEntryExpiredError extends AGBossError {
 
   constructor(options: CostLedgerEntryExpiredErrorOptions) {
     super(
-      `the ledger may have pruned the entries ${options.ledgerIds.join(", ")}: made before its pruning mark ${options.prunedBefore.toISOString()} and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ ledgerEntryRetention })`,
+      `the ledger may have pruned the entries ${options.ledgerIds.join(", ")}: made before its pruning mark ${options.prunedBefore.toISOString()} and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ retention: { costLedgerEntries } })`,
     );
     this.ledgerIds = options.ledgerIds;
     this.prunedBefore = options.prunedBefore;

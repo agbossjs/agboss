@@ -5,6 +5,7 @@
  * leaves the intent pending, so the next attempt reconciles) and by the recovery sweep, which
  * removes ended intents past the retention on the `Clock` — never a pending one.
  */
+import type { RetentionOptions } from "../../src/application/retention.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -46,7 +47,7 @@ beforeEach(() => {
 
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
-const assembledWith = (outboundCalls: OutboundCallOptions) => {
+const assembledWith = (outboundCalls: OutboundCallOptions, retention?: RetentionOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
@@ -55,6 +56,7 @@ const assembledWith = (outboundCalls: OutboundCallOptions) => {
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     outboundCalls,
+    ...(retention === undefined ? {} : { retention }),
   })
   class SettingsApplication {}
   return applicationOf(SettingsApplication);
@@ -93,17 +95,23 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
     );
   });
 
-  it("a retention not above the lease's 30 s fails assembly, with the size's problem too", async () => {
-    const assembly = assembledWith({ maxPayloadSize: kilobytes(0), retention: seconds(30) });
+  it("#834: a retention.outboundCalls not above the lease's 30 s fails assembly, with the size's problem too", async () => {
+    const assembly = assembledWith(
+      { maxPayloadSize: kilobytes(0) },
+      { outboundCalls: seconds(30) },
+    );
 
     await expect(assembly).rejects.toThrow(
-      /outboundCalls.retention is 30000 ms, not above the lease's 30000 ms/,
+      "[application.retention-invalid] its retention.outboundCalls is 30000 ms, not above the lease's 30000 ms",
     );
     await expect(assembly).rejects.toThrow(/maxPayloadSize is 0 bytes/);
   });
 
   it("takes what it sets", async () => {
-    const assembled = await assembledWith({ maxPayloadSize: kilobytes(1), retention: seconds(31) });
+    const assembled = await assembledWith(
+      { maxPayloadSize: kilobytes(1) },
+      { outboundCalls: seconds(31) },
+    );
 
     expect(assembled.outboundCalls).toMatchObject({ maxPayloadSize: 1024, retention: seconds(31) });
   });
@@ -118,7 +126,8 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [RecordingLogger],
-  outboundCalls: { maxPayloadSize: kilobytes(1), retention: minutes(1) },
+  outboundCalls: { maxPayloadSize: kilobytes(1) },
+  retention: { outboundCalls: minutes(1) },
 })
 class SmallOutboundCallApplication {}
 

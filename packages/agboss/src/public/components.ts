@@ -175,6 +175,7 @@ export {
   EnvironmentError,
   EnvironmentErrorCode,
   EnvironmentField,
+  type EnvironmentFieldOptions,
   type Environment,
   type EnvironmentFields,
   type EnvironmentValueOptions,

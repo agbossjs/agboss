@@ -1,5 +1,5 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/application/create-app.js";
 import { withInboundMesh, type InboundMesh } from "../../src/mesh/inbound-mesh.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -38,7 +38,7 @@ describe("#398 PR 2b: a trusted request's origin on its resume legs", () => {
     book
       .scriptOf("agent:desk-clerk-agent")
       .thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }), replyWith("Confirmed."));
-    const app = await createApp(PausesApplication, {
+    const app = await createAppWith(PausesApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
     });
@@ -63,7 +63,7 @@ describe("#398 PR 2b: a trusted request's origin on its resume legs", () => {
     book
       .scriptOf("agent:desk-clerk-agent")
       .thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }), replyWith("Confirmed."));
-    const app = await createApp(PausesApplication, {
+    const app = await createAppWith(PausesApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
     });

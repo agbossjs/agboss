@@ -1,10 +1,10 @@
+import { createAppWith } from "../../src/application/create-app.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import { McpServerClient } from "../../src/components/mcp-client.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
@@ -55,7 +55,7 @@ async function served(book: ScriptBook, peerUrl: string, maxMeshHops?: number) {
   });
   @McpExpose({ name: "orders-mcp", version: "1.0.0", exports: [parts.MeshStart, parts.CallPeer] })
   class OrdersMcp {}
-  const app = await createApp(parts.MeshApplication, offline(book));
+  const app = await createAppWith(parts.MeshApplication, offline(book));
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await createMcpService(app, OrdersMcp).connect(serverSide);

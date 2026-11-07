@@ -1,6 +1,6 @@
+import { createAppWith } from "../../../src/application/create-app.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
-import { createApp } from "../../../src/application/create-app.js";
 import type { App } from "../../../src/app/types.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
@@ -34,7 +34,7 @@ const test = testWith(ContextApplication);
 
 /** The audit workflow's app, nothing running: its services are created at start, outside any execution. */
 const auditApp = (): Promise<App> =>
-  createApp(AuditApplication, {
+  createAppWith(AuditApplication, {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   });
@@ -154,7 +154,7 @@ describe("#280: a tool called on its own runs in an execution of its own", () =>
 describe("#280 AC7, AC12: outside an execution a read throws, never undefined", () => {
   it("outside an execution throws: a constructor reading it at start names its class", async () => {
     // every listed provider is created at start (#261): the application does not start
-    const start = createApp(EagerAuditApplication, {
+    const start = createAppWith(EagerAuditApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });

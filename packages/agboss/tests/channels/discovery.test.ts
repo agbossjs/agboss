@@ -1,7 +1,7 @@
 /** #267 AC9 (PR 1): channel roles are found from the graph; implementations from the application. */
+import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { createApp } from "../../src/application/create-app.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { implementationsOf, channelRuleViolations } from "../../src/channels/channel-rules.js";
 import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
@@ -104,7 +104,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
         callTool(RefundCardTool, { orderId: "A-1", amountCents: 1200 }),
         replyWith(RefundCardOutputDto, { status: "asked" }),
       );
-    const app = await createApp(SlackRefundsApplication, offline(book));
+    const app = await createAppWith(SlackRefundsApplication, offline(book));
 
     await execute(
       app,
@@ -126,7 +126,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
   });
 
   it("none listed → [di.missing-implementation]", async () => {
-    await expect(createApp(UnprovidedRefundsApplication, offline())).rejects.toMatchObject({
+    await expect(createAppWith(UnprovidedRefundsApplication, offline())).rejects.toMatchObject({
       violations: [
         {
           code: "di.missing-implementation",
@@ -139,7 +139,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
   });
 
   it("two listed → [di.ambiguous-implementation]", async () => {
-    await expect(createApp(DoubledRefundsApplication, offline())).rejects.toMatchObject({
+    await expect(createAppWith(DoubledRefundsApplication, offline())).rejects.toMatchObject({
       violations: [
         {
           code: "di.ambiguous-implementation",
@@ -173,7 +173,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
     })
     class MisplacedApplication {}
 
-    await expect(createApp(MisplacedApplication, offline())).rejects.toMatchObject({
+    await expect(createAppWith(MisplacedApplication, offline())).rejects.toMatchObject({
       violations: expect.arrayContaining([
         expect.objectContaining({
           code: "di.infrastructure-in-workflow",
@@ -269,7 +269,7 @@ describe("#267 AC8 (PR 1 part): one interpreter belongs to one role", () => {
     })
     class RepliesApplication {}
 
-    await expect(createApp(RepliesApplication, offline())).rejects.toMatchObject({
+    await expect(createAppWith(RepliesApplication, offline())).rejects.toMatchObject({
       violations: expect.arrayContaining([
         expect.objectContaining({
           code: "channel.shared-interpreter",

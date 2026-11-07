@@ -1,9 +1,8 @@
+import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import type { AppOptions } from "../../src/app/create-app.js";
 import {
-  createApp,
   type App,
   Agent,
   ExecutionContext,
@@ -47,7 +46,7 @@ import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 
-function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
+function offline(book: ScriptBook, stubs = new McpStubs(book)): BuildApplicationOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
@@ -142,7 +141,7 @@ async function connected(
   stubs = new McpStubs(book),
   session: McpSessionOptions = {},
 ): Promise<Client> {
-  const app = await createApp(ClerkDeskApplication, offline(book, stubs));
+  const app = await createAppWith(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await createMcpService(app, DeskMcp).connect(serverSide, session);
@@ -313,7 +312,7 @@ describe("McpService over an in-memory MCP transport", () => {
   });
 
   it("exporting a tool the workflow does not use fails when the server starts", async () => {
-    const app = await createApp(DeskApplication, offline(new ScriptBook()));
+    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
     opened.push(app);
     const [, serverSide] = InMemoryTransport.createLinkedPair();
 

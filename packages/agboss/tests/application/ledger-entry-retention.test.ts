@@ -1,6 +1,6 @@
 /**
- * #771 — `@Application({ ledgerEntryRetention })`: how long the ledger's entries are kept, checked
- * at assembly (`[application.ledger-entry-retention-invalid]`: above the lease's 30 s) and read by
+ * #771 — `@Application({ retention: { costLedgerEntries } })`: how long the ledger's entries are kept, checked
+ * at assembly (`[application.retention-invalid]`: above the lease's 30 s) and read by
  * the recovery sweep, which prunes the entries made before `now − retention` on the `Clock` — the
  * counters never.
  */
@@ -19,7 +19,7 @@ beforeEach(() => {
   resetLogged();
 });
 
-const assembledWith = (ledgerEntryRetention?: Milliseconds) => {
+const assembledWith = (costLedgerEntries?: Milliseconds) => {
   @Application({
     name: "ledger-application",
     version: "1.0.0",
@@ -28,25 +28,28 @@ const assembledWith = (ledgerEntryRetention?: Milliseconds) => {
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [InMemoryFencedEffectRepository],
-    ...(ledgerEntryRetention === undefined ? {} : { ledgerEntryRetention }),
+    ...(costLedgerEntries === undefined ? {} : { retention: { costLedgerEntries } }),
   })
   class LedgerApplication {}
   return applicationOf(LedgerApplication);
 };
 
-describe("#771: @Application({ ledgerEntryRetention }) at assembly", () => {
+describe("#771, #834: @Application({ retention: { costLedgerEntries } }) at assembly", () => {
   it("defaults to a day", async () => {
     expect((await assembledWith()).ledgerEntryRetention).toBe(hours(24));
   });
 
-  it.each([seconds(30), 0, Number.NaN])(
-    "a retention of %s ms fails assembly",
-    async (retention) => {
-      await expect(assembledWith(retention as Milliseconds)).rejects.toThrow(
-        `[application.ledger-entry-retention-invalid] its ledgerEntryRetention is ${String(retention)} ms, not above the lease's 30000 ms`,
-      );
-    },
-  );
+  it("a retention at the lease fails assembly", async () => {
+    await expect(assembledWith(seconds(30))).rejects.toThrow(
+      "[application.retention-invalid] its retention.costLedgerEntries is 30000 ms, not above the lease's 30000 ms",
+    );
+  });
+
+  it.each([0, Number.NaN])("a retention of %s fails assembly", async (retention) => {
+    await expect(assembledWith(retention as Milliseconds)).rejects.toThrow(
+      `[application.retention-invalid] its retention.costLedgerEntries is ${String(retention)}, not a positive duration`,
+    );
+  });
 
   it("takes what it sets", async () => {
     expect((await assembledWith(seconds(31))).ledgerEntryRetention).toBe(seconds(31));
@@ -61,7 +64,7 @@ describe("#771: @Application({ ledgerEntryRetention }) at assembly", () => {
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
-  ledgerEntryRetention: minutes(1),
+  retention: { costLedgerEntries: minutes(1) },
 })
 class ShortLedgerApplication {}
 

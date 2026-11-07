@@ -33,7 +33,8 @@ beforeEach(() => {
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
-  outboundCalls: { maxPayloadSize: kilobytes(1), retention: minutes(1) },
+  outboundCalls: { maxPayloadSize: kilobytes(1) },
+  retention: { outboundCalls: minutes(1) },
 })
 class EdgeOutboundCallApplication {}
 

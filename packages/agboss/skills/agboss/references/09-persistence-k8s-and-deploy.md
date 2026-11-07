@@ -11,16 +11,16 @@ Every store is an **infrastructure contract** with a built-in **in-memory** defa
 `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`).
 In memory nothing is shared between instances and nothing survives a restart.
 
-| Contract                            | Holds                                                                        | SQLite implementation              |
-| ----------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------- |
-| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it      | `SqliteCheckpointSaver`            |
-| `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries       | `SqliteExecutionRecordRepository`  |
-| `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)           | `SqlitePausedExecutionRepository`  |
-| `CostLedgerRepository`              | the budgets' counters (reference 06)                                         | `SqliteCostLedgerRepository`       |
-| `ExecutionLeaseRepository`          | one lease per execution tree: who moves it                                   | `SqliteExecutionLeaseRepository`   |
-| `ExecutionTreeRepository`           | the shared state of one request (cancel requests, the undo's progress marks) | `SqliteExecutionTreeRepository`    |
-| `RateLimitRepository`               | a provider's slots, per-minute windows, 429 pause and circuit breaker        | `SqliteRateLimitRepository`        |
-| `ExecutionHistoryRepository`        | each root execution's history, only with `executionRecordRetention` (below)  | `SqliteExecutionHistoryRepository` |
+| Contract                            | Holds                                                                         | SQLite implementation              |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------- |
+| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it       | `SqliteCheckpointSaver`            |
+| `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries        | `SqliteExecutionRecordRepository`  |
+| `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)            | `SqlitePausedExecutionRepository`  |
+| `CostLedgerRepository`              | the budgets' counters (reference 06)                                          | `SqliteCostLedgerRepository`       |
+| `ExecutionLeaseRepository`          | one lease per execution tree: who moves it                                    | `SqliteExecutionLeaseRepository`   |
+| `ExecutionTreeRepository`           | the shared state of one request (cancel requests, the undo's progress marks)  | `SqliteExecutionTreeRepository`    |
+| `RateLimitRepository`               | a provider's slots, per-minute windows, 429 pause and circuit breaker         | `SqliteRateLimitRepository`        |
+| `ExecutionHistoryRepository`        | each root execution's history, only with `retention.executionRecords` (below) | `SqliteExecutionHistoryRepository` |
 
 The SQLite ones share **one file**, the environment's `sqlitePath` (required only when one is
 listed: `[environment.missing-field]`), over one `node:sqlite` connection per instance (the
@@ -242,8 +242,10 @@ import { AppEnvironment } from "./environments/app.environment.js";
   ],
   healthChecks: [ClaimsApiHealthCheck],
   shutdownTimeout: seconds(25), // under the platform's 30 s grace period and the 30 s lease
-  pauseRecordRetention: hours(24), // resolved pause records kept this long, then swept
-  executionRecordRetention: hours(24 * 30), // each root execution's history, 30 days after it ended
+  retention: {
+    pauseRecords: hours(24), // resolved pause records kept this long, then swept
+    executionRecords: hours(24 * 30), // each root execution's history, 30 days after it ended
+  },
   compensationTimeout: seconds(15), // each automatic undo's clean-up signal
   maxConcurrentSteps: 32, // agent, router and action steps of this instance at once
 })
@@ -434,14 +436,14 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
   version. A workflow's name is unique in one application (`[application.duplicate-workflow]`): two
   versions of one workflow do not run side by side in one application — keep the old version
   deployed until its paused executions are answered, or accept them with the policy.
-- Resolved pause records are kept `pauseRecordRetention` (default `hours(24)`), then removed by the
+- Resolved pause records are kept `retention.pauseRecords` (default `hours(24)`), then removed by the
   sweep: a late answer is `NotPausedError` within it, `UnknownPauseError` after. `Pending` is never
   removed.
 
-## Execution history: `executionRecordRetention` and `agboss records export`
+## Execution history: `retention.executionRecords` and `agboss records export`
 
 Nothing of an execution is kept beyond its thread's turns unless the application says how long:
-`@Application({ executionRecordRetention: hours(24 * 30) })`. Then every **root** execution's
+`@Application({ retention: { executionRecords: hours(24 * 30) } })`. Then every **root** execution's
 `ExecutionHistoryRecord` is saved in the `ExecutionHistoryRepository` — when its tree rests at a
 pause (`ExecutionHistoryStatus.Paused`, no `endedAt`) and when it ends (`Finished`, `Failed` or
 `Cancelled`, with its `error`) — and the recovery sweep removes it once it ended longer ago than the
@@ -469,7 +471,7 @@ One masked record per line, oldest start first, each `{ "kind": "agboss.executio
 "schema": 1, …record }`. A tenant is always named (`--tenant <id>`) or every tenant explicitly
 (`--all-tenants`) — neither or both is `records.tenant-required` (exit 2); `--since` / `--until`
 take an ISO 8601 date or time (records started in `[since, until)`); an application without
-`executionRecordRetention` is `records.not-kept` (exit 3).
+`retention.executionRecords` is `records.not-kept` (exit 3).
 
 ## The Mesh Hub: `agboss hub show`
 
