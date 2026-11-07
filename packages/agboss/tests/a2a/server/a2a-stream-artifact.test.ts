@@ -180,4 +180,30 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
     );
     expect(call).toBeLessThan(answer);
   });
+
+  test("a listener that throws on the tool call never fails the run: the tool runs, the run finishes", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(Desk).thenReturn(
+      callTool(QuickLookup, { orderId: "7" }),
+      replyWith("Order 7 shipped."),
+    );
+    const heard: ExecutionStreamEvent[] = [];
+
+    const result = await app.execute(
+      AskStart,
+      { text: "where is order 7?" },
+      {
+        onStream: (event) => {
+          heard.push(event);
+          if (event.kind === "toolCall") throw new Error("the stream's socket closed");
+        },
+      },
+    );
+
+    expect(result.output).toEqual({ text: "Order 7 shipped." });
+    expect(result.toolCalls.map((call) => call.status)).toEqual(["succeeded"]);
+    expect(heard.some((event) => event.kind === "toolCall")).toBe(true);
+  });
 });

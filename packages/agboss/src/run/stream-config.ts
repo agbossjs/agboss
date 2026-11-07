@@ -2,9 +2,17 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
+import { TOOL_CALL_EVENT } from "./stream-events.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
 
-/** The model's tokens as they come (a tool call is streamed by the agent's loop, #848). */
+/** The tool a `TOOL_CALL_EVENT` names; `undefined` for any other event. */
+function toolCallOf(eventName: string, data: unknown): string | undefined {
+  if (eventName !== TOOL_CALL_EVENT || typeof data !== "object" || data === null) return undefined;
+  const tool: unknown = Reflect.get(data, "tool");
+  return typeof tool === "string" ? tool : undefined;
+}
+
+/** The model's tokens and the agents' tool calls as they come. */
 class StreamingCallbackHandler extends BaseCallbackHandler {
   name = "StreamingCallbackHandler";
   constructor(private readonly onStream: (event: ExecutionStreamEvent) => void) {
@@ -12,6 +20,12 @@ class StreamingCallbackHandler extends BaseCallbackHandler {
   }
   override handleLLMNewToken(token: string) {
     this.onStream({ kind: "textDelta", delta: token });
+  }
+  // an agent's tool call (#848): its loop calls the tool itself, so it dispatches this event —
+  // through the same callback manager as the tokens (a listener that throws is logged, never fatal)
+  override handleCustomEvent(eventName: string, data: unknown) {
+    const tool = toolCallOf(eventName, data);
+    if (tool !== undefined) this.onStream({ kind: "toolCall", tool });
   }
 }
 
@@ -50,8 +64,6 @@ const runContextOf = (
   ...piiKeysOf(pii),
   // what a business key's fingerprint is keyed by (#825): the application's idempotency keys
   fingerprintKeys,
-  // what its agents' tool loops stream (#848): no LangChain tool callback ever fires for them
-  ...(options.onStream === undefined ? {} : { onStream: options.onStream }),
 });
 
 /**
