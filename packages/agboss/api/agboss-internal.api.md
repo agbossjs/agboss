@@ -999,10 +999,11 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
-} | {
+}
+/** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+| {
     readonly kind: "toolCall";
     readonly tool: string;
-    readonly args?: unknown;
 };
 
 // @public
