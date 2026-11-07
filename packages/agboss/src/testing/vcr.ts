@@ -18,7 +18,9 @@ import { VcrChatModel } from "./vcr-chat-model.js";
 // one `createApp` builds — its transport providers created by the test app's container (#439) — so
 // an offline project records through its transport; a replay never builds a provider. The mode
 // comes from the test's `vcr.mode`, else `AUTO` (`REPLAY` under `CI`); `AGBOSS_VCR_MODE` overrides
-// every test's own for one run.
+// every test's own for one run. Under `CI` no mode records against real models (#839): one that
+// would — `RECORD`, `RECORD_STALE`, `AUTO` with no cassette — is refused before the app is built,
+// `[vcr.record-in-ci]`, unless `AGBOSS_VCR_RECORD_IN_CI=1` says the run records on purpose.
 
 /** How a VCR test answers its model calls: from the cassette, from the models, or both. */
 export enum VcrMode {
@@ -39,6 +41,12 @@ export enum VcrMode {
 /** The process variable that picks the mode of every VCR test: a member's value (`RECORD_STALE`). */
 export const VCR_MODE_VARIABLE = "AGBOSS_VCR_MODE";
 
+/**
+ * The process variable that lets a CI run record (#839): `1` (or `true`) — any other value, or
+ * none, and a mode that would call real models under `CI` is refused (`[vcr.record-in-ci]`).
+ */
+export const VCR_RECORD_IN_CI_VARIABLE = "AGBOSS_VCR_RECORD_IN_CI";
+
 const MODES: ReadonlySet<string> = new Set(Object.values(VcrMode));
 
 const isVcrMode = (value: string): value is VcrMode => MODES.has(value);
@@ -56,7 +64,11 @@ function modeFromEnv(env: NodeJS.ProcessEnv): VcrMode | undefined {
 /** `testWith(W, { vcr })`: record real model calls once, replay them in every later run. */
 export interface VcrConfig {
   readonly cassetteName: string;
-  /** Default: REPLAY when `CI` is set (CI never calls a model), else AUTO. */
+  /**
+   * Default: REPLAY when `CI` is set (CI never calls a model), else AUTO. Under `CI` a mode that
+   * would call real models (RECORD, RECORD_STALE, AUTO with no cassette) is refused at startup,
+   * `[vcr.record-in-ci]`, unless `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
+   */
   readonly mode?: VcrMode;
   /** Where `<cassetteName>.cassette.json` lives; default `__snapshots__` (from the working directory). */
   readonly dir?: string;
@@ -65,13 +77,43 @@ export interface VcrConfig {
 const isCi = (env: NodeJS.ProcessEnv): boolean =>
   env.CI !== undefined && !["", "0", "false"].includes(env.CI.toLowerCase());
 
+/** Whether the run opted in to recording under `CI` (#839): `AGBOSS_VCR_RECORD_IN_CI` is `1` or `true`. */
+const recordsInCi = (env: NodeJS.ProcessEnv): boolean =>
+  ["1", "true"].includes((env[VCR_RECORD_IN_CI_VARIABLE] ?? "").toLowerCase());
+
+/** Why `mode` would call real models for `file`'s calls — `undefined` when it only replays. */
+function recordingOf(mode: VcrMode, file: string): string | undefined {
+  if (mode === VcrMode.RECORD || mode === VcrMode.RECORD_STALE) return mode;
+  if (mode === VcrMode.AUTO && !fs.existsSync(file)) return `AUTO with no cassette at ${file}`;
+  return undefined;
+}
+
 /**
  * The mode a VCR test runs in: `AGBOSS_VCR_MODE` when set (it re-records tests that name their own
- * mode too), else the given one; REPLAY under `CI`; else AUTO.
+ * mode too), else the given one; REPLAY under `CI`; else AUTO. Under `CI` a mode that would call
+ * real models is refused (#839, fail closed): `[vcr.record-in-ci]`, naming where the mode came from,
+ * the variable and the remedy — unless `AGBOSS_VCR_RECORD_IN_CI=1`.
  */
 export function vcrModeOf(config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode {
   const configured = configuredModeOf(config);
-  return modeFromEnv(env) ?? configured ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
+  const fromEnv = modeFromEnv(env);
+  const mode = fromEnv ?? configured ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
+  if (!isCi(env) || recordsInCi(env)) return mode;
+  const recording = recordingOf(mode, cassetteFileOf(config));
+  if (recording === undefined) return mode;
+  const source =
+    fromEnv === undefined ? `vcr.mode ${recording}` : `${VCR_MODE_VARIABLE}=${recording}`;
+  const optIn = env[VCR_RECORD_IN_CI_VARIABLE];
+  // a value set and not taken is named, so a typo does not read as the variable ignored
+  const rejected =
+    optIn === undefined || optIn === ""
+      ? ""
+      : ` (${VCR_RECORD_IN_CI_VARIABLE}=${optIn} is no opt-in: 1 or true)`;
+  throw new TestSetupError(
+    `[vcr.record-in-ci] ${source} records against real models, and CI is set (CI=${String(env.CI)}): ` +
+      `a CI run replays its cassettes — record without CI and commit the cassette, or set ` +
+      `${VCR_RECORD_IN_CI_VARIABLE}=1 to record in this CI run on purpose${rejected}`,
+  );
 }
 
 /** A value as a message shows it: a text quoted, a number, a flag or null as is, else its type. */

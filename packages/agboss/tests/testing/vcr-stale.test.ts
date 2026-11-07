@@ -183,7 +183,13 @@ describe("VcrMode.RECORD_STALE", () => {
     const named = { cassetteName: "x", mode: VcrMode.REPLAY };
 
     expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD_STALE" })).toBe(VcrMode.RECORD_STALE);
-    expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD", CI: "true" })).toBe(VcrMode.RECORD);
+    // #839: a recording mode under CI is refused, AGBOSS_VCR_MODE's too, unless opted in
+    expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD", CI: "true" })).toThrow(
+      /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=RECORD records against real models/u,
+    );
+    expect(
+      vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD", CI: "true", AGBOSS_VCR_RECORD_IN_CI: "1" }),
+    ).toBe(VcrMode.RECORD);
     expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "" })).toBe(VcrMode.REPLAY);
     expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "record-stale" })).toThrow(TestSetupError);
     expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "nope" })).toThrow(
