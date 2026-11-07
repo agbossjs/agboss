@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a repaired A2A task still signs its run report (#844)
+
+- **Fixed (money)**: a task completed by read repair (its execution's end event lost) keeps what the
+  execution spent, read from its last checkpoint, so its trusted caller gets the signed run report
+  and is charged `max(report, price)` once — was the contract price alone, the remote's excess
+  lost. The record of a finished turn is written after its agents' memory update, so its cost is
+  the end event's spend; `DurableExecutionState`'s finished state carries it as `spentUsd`.
+- **Added**: a meshed A2A call whose completed task carries no run report the caller verifies is
+  recorded `remote.report: false` (`ToolCallRemote.report`) — charged its price alone, never
+  silently. [A2A → §6.1](A2A#61-the-mesh-on-the-a2a-v10-listener-810).
+
 ## Unreleased — 0.1.1: one artifact in an A2A task's stream and its reads (#833)
 
 - **Fixed**: `SendStreamingMessage` / `SubscribeToTask` stream the model's text as chunks of the

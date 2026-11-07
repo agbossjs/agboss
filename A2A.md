@@ -268,7 +268,10 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
   `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
   when the call is accepted — a call that later runs out of time is charged too — and a verified run
-  report's spend above it at the end (the report must name the call's task). **Exactly once across
+  report's spend above it at the end (the report must name the call's task); a completed task with
+  no run report the caller verifies — an untrusted caller, a peer that signs nothing, another body's
+  or task's report — is charged the price alone and said so in the tool call's record (`remote: {
+  application, executionId, report: false }`, #844). **Exactly once across
   passes (#810):** both charges are made on every pass that reaches the accept — a takeover that
   replays the accept an earlier pass recorded too — under the call's own ledger identity
   (`UsageRecord.ledgerKey`: `a2a:<messageId>:price`, dated by the accept; `a2a:<messageId>:report`,
@@ -557,8 +560,9 @@ its operation are read, **before the caller resolver and before anything runs**:
 6. **The run report**: a trusted task keeps its first message's `bodyHash`
    (`A2ATaskRecord.meshBodyHash`) and, once `COMPLETED`, carries the report the application signs
    with `mesh.signingKey` in `task.metadata[uri].report` — `GetTask`, `ListTasks`, and the stream's
-   last status update — over what its execution spent (its end event's, `A2ATaskStatus.spentUsd`;
-   a task its read repair completed has none, and its caller is charged its price).
+   last status update — over what its execution spent (`A2ATaskStatus.spentUsd`: its end event's,
+   or — when that event was lost and read repair completed the task — the spend its tree's last
+   checkpoint keeps, #844: a missed end never leaves its caller charged the price alone).
 
 An `@A2AAgent`'s remote call from an action passes the action's budget down as a tool's does.
 
