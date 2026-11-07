@@ -1,9 +1,30 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { getCallbackManagerForConfig, type RunnableConfig } from "@langchain/core/runnables";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
-import { TOOL_CALL_EVENT } from "./stream-events.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
+
+/**
+ * The custom LangChain event an agent's loop dispatches as a tool call starts (#848): its loop
+ * (ADR-0015) calls a tool itself, so no LangChain tool callback fires. Its data: `{ tool }`.
+ */
+const TOOL_CALL_EVENT = "agboss/tool-call";
+
+/**
+ * The tool call as a LangChain custom event (#848), what `dispatchCustomEvent` does, through the
+ * run's callback manager (a handler that throws is logged there, never fatal to the step).
+ */
+export async function streamedToolCall(
+  config: RunnableConfig | undefined,
+  tool: string,
+): Promise<void> {
+  const manager = await getCallbackManagerForConfig(config);
+  const parentRunId = manager?.getParentRunId();
+  if (manager !== undefined && parentRunId !== undefined) {
+    await manager.handleCustomEvent?.(TOOL_CALL_EVENT, { tool }, parentRunId);
+  }
+}
 
 /** The tool a `TOOL_CALL_EVENT` names; `undefined` for any other event. */
 function toolCallOf(eventName: string, data: unknown): string | undefined {
