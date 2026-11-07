@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the VCR refuses to record under CI (#839)
+
+- **Changed — breaking**: under `CI` a VCR test whose mode would call real models — `RECORD`,
+  `RECORD_STALE`, or `AUTO` with no cassette, from `vcr.mode` or `AGBOSS_VCR_MODE` — fails its
+  start with `[vcr.record-in-ci]`; before, an explicit `RECORD` recorded there. **Migration:**
+  record without `CI` and commit the cassette, or set `AGBOSS_VCR_RECORD_IN_CI=1` in the CI job
+  that records on purpose.
+
 ## Unreleased — 0.1.1: the lease surface says what it does (#847, API review G7)
 
 The store contracts are new in 0.1.1, so only a store or a test written against `main` changes.
