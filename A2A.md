@@ -156,7 +156,7 @@ protocolVersion: "1.0" }`.
   task whose start was lost (a crash right after it was accepted) is started by the resend, under
   the same id, once.
 - **The task store is shared by the instances** (#824). "On any instance" holds only when every
-  instance reads one store, so the store declares its `static backend` and assembly checks it: an
+  instance reads one store, so the store declares its backend (`static store = { backend }`, #825) and assembly checks it: an
   application that serves A2A on a lease store its instances share (any backend but `in-memory`)
   keeps its tasks on that backend, or on a kind known to be shared (`postgres`, `mongodb`). Anything
   else — the in-memory default, a store that declares no backend, SQLite beside PostgreSQL leases,
@@ -165,7 +165,7 @@ protocolVersion: "1.0" }`.
   to list; on SQLite: `SqliteA2ATaskRepository`; on PostgreSQL: `PostgresA2ATaskRepository`
   (`@agboss/postgres`); on MongoDB: `MongoA2ATaskRepository` (`@agboss/mongodb`); on Redis
   (coordination only, it keeps no A2A tasks): the A2A task store of the durable backend. A store of
-  your own declares `static backend = "<kind>"` and passes `a2aTaskContract`
+  your own declares `static store: StoreDescriptor = { backend: "<kind>" }` and passes `a2aTaskContract`
   ([Your own store](Your-own-store)).
 - **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
   with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
