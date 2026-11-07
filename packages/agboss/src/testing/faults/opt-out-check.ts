@@ -1,5 +1,5 @@
 import type { FaultScenarioOptions } from "./scenario.js";
-import { FaultWorld } from "./world.js";
+import { FaultCluster } from "./cluster.js";
 
 /**
  * #584 — the fault suite proves nothing for payments on a set that opts out of the atomic lease
@@ -26,16 +26,16 @@ export class FaultSuiteOptedOutError extends Error {
 /** Starts one pod on the set and refuses it when a store of it opts out. */
 export async function checkAtomicFencing(options: FaultScenarioOptions): Promise<void> {
   await options.database.reset?.();
-  const world = new FaultWorld({
-    stores: options.stores,
+  const cluster = new FaultCluster({
+    storesModule: options.storesModule,
     database: options.database,
     timeScale: options.timeScale ?? 1,
   });
   let optedOut: readonly string[];
   try {
-    optedOut = (await world.pod("a")).optedOut;
+    optedOut = (await cluster.pod("a")).optedOut;
   } finally {
-    await world.close();
+    await cluster.close();
   }
   if (optedOut.length > 0) throw new FaultSuiteOptedOutError(optedOut);
 }

@@ -1369,16 +1369,28 @@ double-charge protection for …` — a fencing contract run on its own with the
   explored and left (#590), never a pass — and one stopped while it cuts a violation down fails with
   the schedule as found, no store call after (#618); and AC7's
   two-outcome races forced in both orders (broken stores fail it,
-  `tests/testing/contracts/explorer-bites.test.ts`). #799: nothing unchecked reads as a pass —
+  `tests/testing/contracts/explorer-sabotage.test.ts`). #799: nothing unchecked reads as a pass —
   `interleavings: false` is one skipped case, a `depth`, `walks` or `walkDepth` that is no whole number ≥ 1 (or a seed not whole, a `timeLimit` not positive) is
   `[store-conformance.invalid-interleavings]`, a set with fenced-effect or outbound-call stores
   below depth 4, 20 walks of 16 steps (or off) fails `store set`'s floor case
   (`[store-conformance.interleavings-below-floor]`), every contract not claimed is a skipped `does
-not claim stores.<key>`, an optional method's cases (`watchQueued`) are skipped for a store
-  without it (`ContractCase.optional`), and `ragConnectorContract` reranks under `FailStep`
-  (`tests/testing/contracts/visible-gaps.test.ts`, `rag-bites.test.ts`). Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, stores: "<module
-path>", database: { url, reset }, timeScale?, scenarios? })` (`@agboss/core/testing/faults`, an
-  entry of its own, never loaded by the root) runs the fixture application (`src/testing/faults/
+not claim stores.<key>`, and `ragConnectorContract` reranks under `FailStep`
+  (`tests/testing/contracts/visible-gaps.test.ts`, `rag-sabotage.test.ts`). #831: a store declares its
+  optional capabilities on its entry or target — `childExecutionQueue: { instance, capabilities:
+[StoreCapability.WatchQueued] }` (`StoreCapability`, `@agboss/core/testing/contracts`, with
+  `VirtualClock` and `TestStoreClock`): a declared one's cases must pass, an undeclared one's are
+  skipped with the reason on a store without it, a store that has `watchQueued` and does not declare
+  it fails them (`[store-conformance.capability-not-declared]`, `capability-missing`; an unknown or
+  foreign capability `[store-conformance.invalid-capabilities]`, `ContractCase.capability`); the set's
+  entries are a `StoreSet` of `StoreEntry`s, each built from a `StoreInstanceContext`, the fencing
+  contracts' bundles `FencedEffectTarget` / `OutboundCallTarget`. Wiki → Your-own-store. Under real faults (#484): `faultSuite({ name, storesModule: "<module
+path>", database: { url, reset }, timeScale?, scenarios?, shard?, sabotages?, timeout? })` (`@agboss/core/testing/faults`, an
+  entry of its own, never loaded by the root; #831: its public surface is the suite — `faultSuite`,
+  `FaultSuiteOptions`, `FaultShard`, `FaultStoreSet`, `FaultStoreTime`, `FAULT_SCENARIOS` /
+  `FAULT_SABOTAGE_SCENARIOS` (ids and titles), `FaultInvariant(Error)` — and the hold points —
+  `withHoldPoints`, `StoreHoldPoint`, `processHoldPoints`, `reportHeldOperations({ instanceId,
+onOperation, onHeld }) → undo`; the pods, the cluster (`FaultCluster`), the gateway, the proxy and
+  the checkers are internal) runs the fixture application (`src/testing/faults/
 fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCalls` to the test's
   gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
@@ -1404,7 +1416,13 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
   time); `withHoldPoints(Store)` (`StoreHoldPoint`, `processHoldPoints`) holds any store's
   operations before or after the store, the way scenarios force orders across processes; broken
-  stores fail the scenario they target (`tests/faults/sabotage.test.ts`), and a set whose fenced-effect or outbound-call store declares `LeaseCheck.WithoutDoubleChargeProtection` fails the suite's case `fences atomically …` (`[fault-suite.opted-out-store]`, #584). Wiki →
+  stores fail the scenario they target (`tests/faults/sabotage.test.ts`); #831: the suite's first
+  case counts what it runs (`runs N of M cases: … (selected by scenarios:, shard k/n)`), every case
+  it leaves out — not selected, another shard (`shard: { index, count }` or `"env"`, which reads
+  `AGBOSS_FAULT_SHARD=k/n`; the scenarios then the sabotages, each in one shard), the sabotages
+  off — is skipped with its reason, and after the scenarios it runs `FAULT_SABOTAGE_SCENARIOS`,
+  each passing only when it breaks its invariant (`sabotages: false` skips them, visibly;
+  `tests/faults/scenarios.test.ts`, `suite-registration.test.ts`); and a set whose fenced-effect or outbound-call store declares `LeaseCheck.WithoutDoubleChargeProtection` fails the suite's case `fences atomically …` (`[fault-suite.opted-out-store]`, #584). Wiki →
   Guarantees-across-processes; every guarantee of several instances with the assumptions it rests
   on and the checker that proves it: Wiki → Guarantees (#533). On the public surface alone
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
@@ -1749,7 +1767,7 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`). A
   connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
   (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
-  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-bites.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it for every tenant that read it, and a tenant it never saw served, its calls carrying it; that the core passes the tenant to a shared connector is `tests/rag/tenancy.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
+  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-sabotage.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it for every tenant that read it, and a tenant it never saw served, its calls carrying it; that the core passes the tenant to a shared connector is `tests/rag/tenancy.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
   (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ topK ≤ candidates`;
   `by` is a `RerankerClass` — a model `@Reranker` `extends ModelReranker`, a code one `implements RerankerHandler`; any other class does not compile, #818, a JS caller's is
   `[rag.not-a-reranker]`) — the connector is asked for `candidates`, the `@Reranker`
@@ -2227,7 +2245,8 @@ export class PlanService {
   a checkpoint write go on, at that moment the execution's `signal` aborts with
   `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call; an
   outbound call's `send` starts only while it holds (`assertHeld()` right before). Tests skew an
-  instance with `testWith(App, { instances: 2, clockSkews: [ClockSkew.none, ClockSkew.ahead(…)] })`
+  instance with `testWith(App, { instances: [{}, { clockSkew: ClockSkew.ahead(…) }] })` (#831: one
+  `TestInstanceOptions` per instance)
   (`ClockSkew`, `SkewedClock`: wall time, monotonic time and sleeps; the stores keep the test's clock).
   While a parent node waits for `AnyInstance` children it yields the lease only when no other step
   of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first)
@@ -2422,7 +2441,7 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
 - **Metrics (#485):** `createApp(App, { meterProvider })` (`AppDepsOptions.meterProvider`, an
-  `@opentelemetry/api` `MeterProvider`; `testWith(App, { meterProviders: [...] })` by instance)
+  `@opentelemetry/api` `MeterProvider`; `testWith(App, { instances: [{ meterProvider }, …] })` by instance, #831)
   publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,
   `lazyLoad`), none given → nothing loaded, no store read. Cluster gauges from the shared child
   queue (`ChildExecutionQueueRepository.findQueueDepth()` → `ChildExecutionQueueDepth { queued,

@@ -9,7 +9,7 @@ import {
 import type { Class } from "../../../components/injection.js";
 import { hours, usd, type Milliseconds, type Usd } from "../../../units/index.js";
 import { FaultPodClock } from "../fault-clock.js";
-import { FAULT_BUSINESS_ROWS, type FaultStores } from "../fault-stores.js";
+import { FAULT_BUSINESS_ROWS, type FaultStoreSet } from "../fault-stores.js";
 import { heldMethodsOf, withHoldPoints } from "../held-stores.js";
 import { FaultModelProvider } from "./fault.model-provider.js";
 import { FaultObserver } from "./fault.observer.js";
@@ -62,7 +62,7 @@ export const heldProvidersOf = (providers: readonly Class[]): Class[] =>
   );
 
 /** The fixture's application on `stores`, with the pod's `settings`. */
-export function faultApplicationOf(stores: FaultStores, settings: FaultPodSettings = {}): Class {
+export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSettings = {}): Class {
   const { shutdownTimeout, maxConcurrentSteps } = settings;
   return Application({
     name: "fault-application",

@@ -1,7 +1,7 @@
 import { FaultStepPoint } from "../fixture/pod-link.js";
-import type { FaultScenario } from "../scenario.js";
+import type { RunnableFaultScenario } from "../scenario.js";
 import type { FaultPod } from "../pod.js";
-import type { FaultWorld } from "../world.js";
+import type { FaultCluster } from "../cluster.js";
 import {
   endedOn,
   eventsOf,
@@ -22,38 +22,38 @@ import {
 
 /** Pod a killed while held after `point`; b finishes the tree. The statuses `type` events had, by pod. */
 async function crashAfter(
-  world: FaultWorld,
+  cluster: FaultCluster,
   orderId: string,
   point: FaultStepPoint,
   type: string,
 ): Promise<{ readonly reader: FaultPod; readonly outcomes: string[] }> {
-  const a = await world.pod("a");
-  const b = await world.pod("b");
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
   await holdStep(a, point, orderId);
-  const order = await startOrder(world, a, orderId);
-  await heldStep(world, a, point, orderId);
+  const order = await startOrder(cluster, a, orderId);
+  await heldStep(cluster, a, point, orderId);
   await a.kill();
-  await takenOverBy(world, b, order.rootExecutionId);
-  await endedOn(world, order.rootExecutionId, b);
+  await takenOverBy(cluster, b, order.rootExecutionId);
+  await endedOn(cluster, order.rootExecutionId, b);
   return {
     reader: b,
-    outcomes: eventsOf(world, type).map((event) => `${event.pod}:${String(event.status)}`),
+    outcomes: eventsOf(cluster, type).map((event) => `${event.pod}:${String(event.status)}`),
   };
 }
 
-export const s03FencedEffect: FaultScenario = {
+export const s03FencedEffect: RunnableFaultScenario = {
   id: "s03-crash-after-charge",
   title:
     "3: a pod dies after its charge committed, before its checkpoint — the retry carries the same key and is replayed: one business row",
-  run: async (world) => {
+  run: async (cluster) => {
     const { reader, outcomes } = await crashAfter(
-      world,
+      cluster,
       "o-3",
       FaultStepPoint.ChargeAfter,
       "charged",
     );
     expectThat(
-      world,
+      cluster,
       outcomes.join() === "a:ran,b:replayed",
       `the charge's outcomes: ${outcomes.join(", ")}`,
     );
@@ -61,19 +61,19 @@ export const s03FencedEffect: FaultScenario = {
   },
 };
 
-export const s03Payment: FaultScenario = {
+export const s03Payment: RunnableFaultScenario = {
   id: "s03b-crash-after-payment",
   title:
     "3b: a pod dies after the gateway answered its payment, before its checkpoint — the retry is replayed, the gateway saw one request",
-  run: async (world) => {
-    const { reader, outcomes } = await crashAfter(world, "o-3b", FaultStepPoint.PayAfter, "paid");
+  run: async (cluster) => {
+    const { reader, outcomes } = await crashAfter(cluster, "o-3b", FaultStepPoint.PayAfter, "paid");
     expectThat(
-      world,
+      cluster,
       outcomes.join() === "a:sent,b:replayed",
       `the payment's outcomes: ${outcomes.join(", ")}`,
     );
-    const requests = world.gateway.requests.length;
-    expectThat(world, requests === 1, `the gateway saw ${String(requests)} requests`);
+    const requests = cluster.gateway.requests.length;
+    expectThat(cluster, requests === 1, `the gateway saw ${String(requests)} requests`);
     return reader;
   },
 };

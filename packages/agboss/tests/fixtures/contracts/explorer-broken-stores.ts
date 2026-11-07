@@ -1,7 +1,7 @@
 /**
  * #533 item 1, AC1: naive fencing stores the interleaving explorer must catch, each wrong in one way
  * a port to another database gets wrong between two operations — and the store targets that build
- * them. `explorer-bites.contract-fixture.ts` runs the explorer on each; `explorer-bites.test.ts`
+ * them. `explorer-sabotage.contract-fixture.ts` runs the explorer on each; `explorer-sabotage.test.ts`
  * reads which invariant each one broke.
  */
 import {

@@ -5,7 +5,7 @@ import { waitOf } from "../../infrastructure/clock.js";
 import type { FaultBusinessRows } from "./fault-stores.js";
 import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/order.workflow.js";
 import { sendToTest } from "./fixture/pod-link.js";
-import type { HeldStoreSeam } from "./held-stores.js";
+import type { HeldStoreState } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
 import { FaultPayment, FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
 import type { FaultFacts } from "./facts.js";
@@ -16,11 +16,11 @@ import type { FaultFacts } from "./facts.js";
  * cut or restore its stores, close. Every command is answered once it was done: the test's ack.
  */
 
-/** What the commands work on: the pod's app, its holds, its stores' seam and business rows. */
+/** What the commands work on: the pod's app, its holds, its held stores' state and business rows. */
 export interface PodParts {
   readonly app: App;
   readonly points: HoldPoints;
-  readonly seam: HeldStoreSeam;
+  readonly heldStores: HeldStoreState;
   readonly businessRows: FaultBusinessRows;
 }
 
@@ -136,8 +136,8 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
     case "read":
       return factsOf(parts, command.rootExecutionIds);
     case "outage":
-      if (command.mode === null) parts.seam.outage.end();
-      else parts.seam.outage.begin(command.mode);
+      if (command.mode === null) parts.heldStores.outage.end();
+      else parts.heldStores.outage.begin(command.mode);
       return null;
     case "close":
       await parts.app.close(

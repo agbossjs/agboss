@@ -96,7 +96,7 @@ describe("#481 AC1: the published entry", () => {
 
   it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), the capabilities and the clocks (#831), nothing else at run time", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
-    const kit = ["StoreCapability", "TestStoreClock", "VirtualClock"];
+    const kit = ["StoreCapability", "TestStoreClock", "VirtualClock", "runConformanceSabotage"];
     expect(Object.keys(contracts).sort()).toEqual(
       [...named, ...kit, "ragConnectorContract", "effectKeyForTesting"].sort(),
     );

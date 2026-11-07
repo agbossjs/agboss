@@ -46,6 +46,12 @@ export type { FencingContractOptions } from "./fencing-gate.js";
 export type { InterleavingOptions } from "./explorer/register.js";
 export { ragConnectorContract } from "./rag-connector.contract.js";
 export { StoreCapability } from "./store-capability.js";
+export {
+  runConformanceSabotage,
+  type ConformanceSabotageOptions,
+  type SabotageCase,
+  type SabotageRun,
+} from "./sabotage-run.js";
 export { VirtualClock, type VirtualClockOptions } from "../clock.js";
 export { TestStoreClock } from "../store-clock.js";
 export type { RagConnectorContractTarget, RagContractDocument } from "./rag-connector-data.js";

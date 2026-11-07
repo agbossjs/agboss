@@ -46,24 +46,28 @@ describe("#484 AC4: the published entry", () => {
       import: "./dist/testing/faults/index.js",
     });
     const report = readFileSync(join(PACKAGE_ROOT, "api", "agboss-testing-faults.api.md"), "utf8");
-    for (const name of ["faultSuite", "withHoldPoints", "StoreHoldPoint", "OperationHistory"])
+    for (const name of ["faultSuite", "withHoldPoints", "StoreHoldPoint", "reportHeldOperations"])
       expect(report).toContain(name);
   });
 
-  it("exports the suite, the hold points, the history and the checker", () => {
-    expect(Object.keys(faults)).toEqual(
-      expect.arrayContaining([
-        "faultSuite",
-        "runFaultScenario",
+  it("#831 AC1: exports the suite and the hold points a store's tests use — nothing of the pods, the cluster or the checker", () => {
+    expect(Object.keys(faults).sort()).toEqual(
+      [
+        "FAULT_SABOTAGE_SCENARIOS",
         "FAULT_SCENARIOS",
-        "withHoldPoints",
-        "HoldPoints",
-        "StoreHoldPoint",
-        "OperationHistory",
-        "DatabaseProxy",
-        "faultViolationsOf",
         "FaultInvariant",
-      ]),
+        "FaultInvariantError",
+        "FaultStoreTime",
+        "HoldPhase",
+        "HoldPoints",
+        "OperationPhase",
+        "StoreAnswerLostError",
+        "StoreHoldPoint",
+        "faultSuite",
+        "processHoldPoints",
+        "reportHeldOperations",
+        "withHoldPoints",
+      ].sort(),
     );
   });
 
@@ -78,7 +82,7 @@ describe("#484 AC4: the published entry", () => {
     const entry = pathToFileURL(built).href;
     const script = `const f = await import(${JSON.stringify(entry)});
       console.log(typeof f.withHoldPoints, typeof f.processHoldPoints.arm);
-      try { f.faultSuite({ name: "x", stores: "", database: { url: "" } }); } catch (e) { console.log(e.message); }`;
+      try { f.faultSuite({ name: "x", storesModule: "", database: { url: "" } }); } catch (e) { console.log(e.message); }`;
     const run = await runNode(["--input-type=module", "-e", script], {
       env: { ...process.env, VITEST: "", VITEST_WORKER_ID: "", VITEST_POOL_ID: "" },
     });

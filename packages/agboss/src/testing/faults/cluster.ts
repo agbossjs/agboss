@@ -4,16 +4,16 @@ import {
   tcpTargetOf,
   throughProxy,
   type FaultPodOptions,
-  type FaultWorldOptions,
-} from "./world-options.js";
+  type FaultClusterOptions,
+} from "./cluster-options.js";
 
 export {
   tcpTargetOf,
   type FaultDatabase,
   type FaultPodOptions,
-  type FaultWorldOptions,
-} from "./world-options.js";
-import { DatabaseProxy } from "./database-proxy.js";
+  type FaultClusterOptions,
+} from "./cluster-options.js";
+import { DatabaseProxy, ProxyState } from "./database-proxy.js";
 import type { FaultRun, FaultRunOrder, PodEventFact, FaultFacts } from "./facts.js";
 import { FaultGateway } from "./fault-gateway.js";
 import { OperationHistory } from "./operation-history.js";
@@ -24,14 +24,14 @@ import { StoreHoldPoint } from "./store-points.js";
 import { ExecutionHistoryStatus } from "../../infrastructure/execution-history.repository.js";
 
 /**
- * One scenario's world (#484): its pods on one database — each through a TCP proxy of its own when
+ * One scenario's cluster (#484): its pods on one database — each through a TCP proxy of its own when
  * the database is reached over TCP —, the payment gateway, every pod's events in the order they
  * came, the history of every store operation, and the orders the scenario started. A wait of the
- * world looks at the events of every pod, dead or alive; it is bounded, and past its deadline it
+ * cluster looks at the events of every pod, dead or alive; it is bounded, and past its deadline it
  * fails naming what it waited for.
  */
 
-export class FaultWorld {
+export class FaultCluster {
   readonly history = new OperationHistory();
   readonly gateway = new FaultGateway();
   readonly events: PodEventFact[] = [];
@@ -45,12 +45,12 @@ export class FaultWorld {
   #starts = 0;
 
   /**
-   * How long a wait of the world lasts (real time): the longest a step of a scenario takes is a
+   * How long a wait of the cluster lasts (real time): the longest a step of a scenario takes is a
    * lease's expiry and the next sweep — 60 s of the pods' clock —, four times over, at least 20 s.
    */
   readonly waitTimeout: Milliseconds;
 
-  constructor(readonly options: FaultWorldOptions) {
+  constructor(readonly options: FaultClusterOptions) {
     this.waitTimeout = seconds(Math.max(20, 240 / options.timeScale));
   }
 
@@ -72,7 +72,7 @@ export class FaultWorld {
     }
     const pod = await launchPod({
       name,
-      stores: this.options.stores,
+      storesModule: this.options.storesModule,
       databaseUrl,
       timeScale: this.options.timeScale,
       timeOrigin: this.timeOrigin,
@@ -93,30 +93,31 @@ export class FaultWorld {
     return pod;
   }
 
-  /** The proxy between pod `name` and the database; a world without proxies has none. */
+  /** The proxy between pod `name` and the database; a cluster without proxies has none. */
   proxyOf(name: string): DatabaseProxy | undefined {
     return this.#proxies.get(name);
   }
 
   /**
-   * Cuts `pod` off its database: through its proxy when it has one — `drop` cuts its connections
-   * and refuses new ones, `pause` stalls them —, else its held stores' outage (`Refuse` / `Hang`).
+   * Cuts `pod` off its database: through its proxy when it has one — `ProxyState.Dropped` cuts its
+   * connections and refuses new ones, `ProxyState.Frozen` freezes them —, else its held stores'
+   * outage (`Refuse` / `Hang`).
    */
-  async cut(pod: FaultPod, how: "drop" | "pause"): Promise<void> {
+  async cutDatabase(pod: FaultPod, how: ProxyState.Dropped | ProxyState.Frozen): Promise<void> {
     const proxy = this.#proxies.get(pod.name);
     if (proxy !== undefined) {
-      if (how === "drop") proxy.drop();
-      else proxy.pause();
+      if (how === ProxyState.Dropped) proxy.drop();
+      else proxy.freeze();
       return;
     }
-    const mode = how === "drop" ? StoreOutageMode.Refuse : StoreOutageMode.Hang;
+    const mode = how === ProxyState.Dropped ? StoreOutageMode.Refuse : StoreOutageMode.Hang;
     await pod.command({ op: "outage", mode });
   }
 
   /** Gives `pod` its database back. */
-  async restore(pod: FaultPod): Promise<void> {
+  async reconnectDatabase(pod: FaultPod): Promise<void> {
     const proxy = this.#proxies.get(pod.name);
-    if (proxy !== undefined) proxy.restore();
+    if (proxy !== undefined) proxy.reconnect();
     else await pod.command({ op: "outage", mode: null });
   }
 

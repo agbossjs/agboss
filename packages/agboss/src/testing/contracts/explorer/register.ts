@@ -1,3 +1,4 @@
+import type { Milliseconds } from "../../../units/index.js";
 import { describe, expect, it, type TestContext } from "vitest";
 import { isOptedOutStore, optedOutRefusal, OPTED_OUT_REASON } from "../fencing-gate.js";
 import type { FencedEffectTarget } from "../fenced-effect-data.js";
@@ -39,10 +40,11 @@ export interface InterleavingOptions {
   /** The walks' seed; default `AGBOSS_EXPLORER_SEED` or 533. */
   readonly seed?: number;
   /**
-   * How long one case may search, in ms of real time (#590); default 8 minutes. A search still
-   * going then stops and fails the case with what it explored and what was left — never a pass.
+   * How long one case may search, in real time (#590; `minutes(15)`, #831: a `Milliseconds`);
+   * default 8 minutes. A search still going then stops and fails the case with what it explored
+   * and what was left — never a pass.
    */
-  readonly timeLimit?: number;
+  readonly timeLimit?: Milliseconds;
 }
 
 /** What `storeConformance` adds: whether the set accepted an opted-out store (#543). */

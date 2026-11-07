@@ -5,7 +5,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { FaultSuiteOptedOutError } from "../../src/testing/faults/index.js";
+import { FaultSuiteOptedOutError } from "../../src/testing/faults/opt-out-check.js";
 import { checkAtomicFencing } from "../../src/testing/faults/opt-out-check.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 

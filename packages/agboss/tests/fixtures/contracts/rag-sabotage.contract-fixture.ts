@@ -1,5 +1,5 @@
 // #700 AC2 — the RAG connector contract run on a sound in-memory connector and on one broken way
-// per rule; tests/testing/contracts/rag-bites.test.ts reads which cases each fails.
+// per rule; tests/testing/contracts/rag-sabotage.test.ts reads which cases each fails.
 import { RagTenancy } from "../../../src/rag/types.js";
 import { ragConnectorContract } from "../../../src/testing/contracts/index.js";
 import { memoryTarget } from "./rag-connectors.js";

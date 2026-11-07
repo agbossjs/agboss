@@ -629,7 +629,9 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
   retries, `Retry-After`, the recovery sweep, pause retention) without real waiting.
 - **Restarts and instances**: `await recoverApp()` closes the app and returns a new one over the same
   stores, clock and ids — a paused execution survives it; `testWith(App, { instances: 2 })` gives
-  `apps` (each its own container, one set of stores) for leases and cross-instance resumes;
+  `apps` (each its own container, one set of stores) for leases and cross-instance resumes —
+  `instances: [{}, { clockSkew: ClockSkew.ahead(seconds(300)), meterProvider }]` gives each its own
+  settings;
   `leases.freeze(apps[0])` freezes that instance's lease (its store calls and lease timers) while its
   steps run on — `await clock.advance(seconds(31))` lets `apps[1]` take the tree over — and
   `leases.thaw(apps[0])` wakes it: a fenced write of the old token is refused. A unit runner's step

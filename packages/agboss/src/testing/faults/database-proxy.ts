@@ -8,9 +8,9 @@ import {
 
 /**
  * The database's network, under a test's control (#484 scenario 8): a TCP proxy in the test's
- * process between one pod and its database. `pause()` stalls every connection (nothing goes
+ * process between one pod and its database. `freeze()` freezes every connection (nothing goes
  * either way, as a partition: the pod's queries hang), `drop()` cuts every connection and refuses
- * new ones (its queries fail), `restore()` lets traffic and new connections through again. One
+ * new ones (its queries fail), `reconnect()` lets traffic and new connections through again. One
  * proxy per pod, so one pod loses its database while the others keep theirs.
  */
 
@@ -23,7 +23,9 @@ export interface ProxyTarget {
 /** How the proxy treats traffic now. */
 export enum ProxyState {
   Open = "open",
-  Paused = "paused",
+  /** Every connection frozen: nothing forwarded, nothing closed — a network that stopped answering. */
+  Frozen = "frozen",
+  /** Every connection cut, new ones refused. */
   Dropped = "dropped",
 }
 
@@ -34,7 +36,7 @@ interface Link {
 }
 
 /** Stops forwarding either way: unpiped and paused, so no drain resumes it. */
-function stall(link: Link): void {
+function freezeLink(link: Link): void {
   link.client.unpipe(link.server);
   link.server.unpipe(link.client);
   link.client.pause();
@@ -69,24 +71,24 @@ export class DatabaseProxy {
     return (server.address() as AddressInfo).port;
   }
 
-  /** Stalls every connection: nothing is forwarded until `restore()`. */
-  pause(): void {
+  /** Freezes every connection: nothing is forwarded until `reconnect()`. */
+  freeze(): void {
     if (this.#state !== ProxyState.Open) return;
-    this.#state = ProxyState.Paused;
-    for (const link of this.#links) stall(link);
+    this.#state = ProxyState.Frozen;
+    for (const link of this.#links) freezeLink(link);
   }
 
-  /** Cuts every connection; new ones are refused until `restore()`. */
+  /** Cuts every connection; new ones are refused until `reconnect()`. */
   drop(): void {
     this.#state = ProxyState.Dropped;
     for (const link of [...this.#links]) this.#cut(link);
   }
 
   /** Lets traffic and new connections through again. */
-  restore(): void {
-    const wasPaused = this.#state === ProxyState.Paused;
+  reconnect(): void {
+    const wasFrozen = this.#state === ProxyState.Frozen;
     this.#state = ProxyState.Open;
-    if (wasPaused) for (const link of this.#links) flow(link);
+    if (wasFrozen) for (const link of this.#links) flow(link);
   }
 
   /** Cuts every connection and stops listening. */

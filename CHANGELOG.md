@@ -173,6 +173,48 @@ index` (as before) — a running instance does not re-read a folder on its own.
 
 ### Changed — breaking for stores outside the core
 
+- **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
+  - `@agboss/core/testing/faults` publishes the suite and the hold points only (82 symbols → 27):
+    `faultSuite`, `FaultSuiteOptions`, `FaultShard`, `FaultStoreSet` (was `FaultStores`; no
+    `defineFaultStores`), `FaultStoreTime`, `FaultBusinessRows`, `FaultEnvironment`,
+    `FaultDatabase`, `FAULT_SCENARIOS` / `FAULT_SABOTAGE_SCENARIOS` (`FaultScenario`: id and title),
+    `FaultInvariant`, `FaultInvariantError`, `FaultViolation`, `withHoldPoints`, `StoreHoldPoint`,
+    `processHoldPoints` (`HoldPoints`, `HoldRequest`, `HoldPhase`, `HeldOperation`,
+    `StoreAnswerLostError`), `OperationPhase`, `OperationEvent` and `reportHeldOperations({
+instanceId, onOperation, onHeld })`, which returns its undo, in place of the writable
+    `heldStoreSeam`. The pods, the cluster (`FaultWorld` → `FaultCluster`, internal), the gateway,
+    the proxy, `ScaledClock`, `runFaultScenario` and the checkers are the suite's own;
+  - `faultSuite({ storesModule })` (was `stores`, a module's path) shards itself (`shard: { index,
+count } | "env"`, `AGBOSS_FAULT_SHARD=k/n`) and runs `FAULT_SABOTAGE_SCENARIOS` after the
+    scenarios, each passing only when it breaks its invariant (`sabotages: false` skips them,
+    visibly); its first case counts what runs, and every scenario it leaves out is a skipped case
+    with its reason; `timeout` is a `Milliseconds`;
+  - `storeConformance({ stores })` takes a `StoreSet` of `StoreEntry`s (were `ConformanceStores` /
+    `ConformanceStore`), each built from a `StoreInstanceContext` (was `StoreSeam`); the fencing
+    bundles are `FencedEffectTarget` / `OutboundCallTarget`; `InterleavingOptions.timeLimit` is a
+    `Milliseconds`. A store declares its optional capabilities — `childExecutionQueue: { instance,
+capabilities: [StoreCapability.WatchQueued] }`: a declared watch must pass its cases, an
+    undeclared one is skipped on a store without `watchQueued` and fails on a store that has it
+    (`[store-conformance.capability-not-declared]`). `VirtualClock`, `TestStoreClock` and
+    `StoreCapability` come from `@agboss/core/testing/contracts` too, with `runConformanceSabotage({
+root, fixtures })`, which runs a sabotage fixture in a vitest of its own and returns its cases
+    (a fixture that does not load, or no case at all, rejects);
+  - `@agboss/core/testing`: `leases.freeze(app)` / `leases.thaw(app)` take a `TestApp` (were
+    `stall` / `resume` of any object); `testWith(App, { instances: [{ clockSkew, meterProvider }] })`
+    (`TestInstanceOptions`) replaces `clockSkews` / `meterProviders`; `ClockSkew.drifting(rate)` (was
+    `drift`); `callToolWithInvalidArguments` / `callToolWithTruncatedArguments` are typed like
+    `callTool` (#679: a tool the agent does not list does not compile); `fence: { confirmNowFails }`
+    takes `boolean | Error`; `FakePaymentGateway` / `paymentGatewayChecklist` (were
+    `FakeOutboundGateway` / `outboundGatewayChecklist`); `agbossVitest()` (was `agbossTest()`,
+    `@agboss/core/testing/vitest`);
+  - `VcrConfig.mode` is validated (#819): an unknown mode is `[vcr.unknown-mode]` before any model
+    is asked, where it recorded against real models.
+
+  **Migration:** rename as above; in a store package's fault suite pass `storesModule`, `shard:
+  "env"`, and drop your own shard helpers and sabotage test; give a child queue with `watchQueued`
+  `capabilities: [StoreCapability.WatchQueued]`; replace `heldStoreSeam` writes with
+  `reportHeldOperations`.
+
 - **The fencing contracts' statics, paging and helpers** (#825, from the 0.1.1 API review):
   - one `static store: StoreDescriptor = { backend, leaseCheck? }` on `ExecutionLeaseRepository`,
     `FencedEffectRepository`, `OutboundCallRepository` and `A2ATaskRepository` (#824's `static
@@ -199,7 +241,7 @@ status`) fail a store that pages by an offset, names its cursor by a row that ma
 
 - **The testing surface no longer passes what it did not check** (#799) — five fail-open defaults
   of the store author's suites:
-  - a fault store set declares the time its fencing stores decide by, `FaultStores.storeTime:
+  - a fault store set declares the time its fencing stores decide by, `FaultStoreSet.storeTime:
 FaultStoreTime.Database | FaultStoreTime.Host` (required; `@agboss/core/testing/faults`), and
     the `linearizable` invariant reads the run's history on it — at 1 on a database's own clock,
     at the pods' `timeScale` on the host's. `FaultScenarioOptions.storeTimeScale` is removed: a
@@ -323,8 +365,8 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
   outbound call's `send` starts only while the holder's fence holds. `StoreClock` (new; `TestStoreClock` in `@agboss/core/testing`) is the time a
   store decides by: a networked store's database time in production, the host's clock for in-memory
   and SQLite — and in `testWith` and the contract suites the test's clock, unskewed, injected through
-  the seam (`StoreInstanceContext.storeClock`). `testWith(App, { instances: 2, clockSkews: [ClockSkew.none,
-ClockSkew.ahead(seconds(300))] })` (new) skews an instance's clock — wall time, monotonic time and
+  the seam (`StoreInstanceContext.storeClock`). `testWith(App, { instances: [{}, {
+clockSkew: ClockSkew.ahead(seconds(300)) }] })` (new) skews an instance's clock — wall time, monotonic time and
   sleeps — over the test's. New contract cases run on real time with the other instance's clock off
   by ± lease/2, ± lease and ± 10 × lease: a store that decides by the caller's clock fails them.
   **Migration:** return `remaining` (`remainingOf(expiresAt, now)`, both on the store's clock) from
@@ -981,14 +1023,14 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   the model's; an operation nobody saw answer may or may not have taken effect. A part with none is
   reported with the longest order found and what could not follow it. `linearizabilityOf(history,
 { timeScale })` (`@agboss/core/testing/faults`) checks any history; the store set says
-  what its stores decide by (`FaultStores.storeTime`, #799: a database's own clock is read at 1). The history
+  what its stores decide by (`FaultStoreSet.storeTime`, #799: a database's own clock is read at 1). The history
   now keeps a lease's length, a claim's expected state and an ending's owner.
 
 - **The fault suite** (#484) — `@agboss/core/testing/faults`, a published entry of its own (never
-  loaded by the root): `faultSuite({ name, stores, database: { url, reset }, timeScale? })` runs
+  loaded by the root): `faultSuite({ name, storesModule, database: { url, reset }, timeScale? })` runs
   the fixture application in real `node` processes on one database — SIGTERM, SIGKILL, SIGSTOP /
   SIGCONT, the database cut by a TCP proxy per pod — and checks after each of its 20 scenarios (#533:
-  two of a pod whose clock is ten leases ahead or behind, `world.pod(name, { clockSkew })`)
+  two of a pod whose clock is ten leases ahead or behind)
   that each tree had one owner at a time, every child and every charge happened once, a hand-over
   undid nothing and every tree finished (`FaultInvariantError`, each invariant named). Store hold
   points for any store (`withHoldPoints(Store)`, `StoreHoldPoint`) force the order of operations

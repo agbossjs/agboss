@@ -21,7 +21,7 @@ export const SQLITE_TIME_SCALE = 10;
 
 /** The fault suite's options on a file of this test file's own. */
 export function sqliteFaultTarget(
-  stores: string = SQLITE_FAULT_STORES,
+  storesModule: string = SQLITE_FAULT_STORES,
 ): Omit<FaultSuiteOptions, "scenarios"> {
   const dir = mkdtempSync(join(tmpdir(), "agboss-faults-"));
   let runs = 0;
@@ -31,7 +31,7 @@ export function sqliteFaultTarget(
   });
   return {
     name: "SQLite",
-    stores,
+    storesModule,
     timeScale: SQLITE_TIME_SCALE,
     database: {
       get url() {

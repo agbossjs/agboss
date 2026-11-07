@@ -4,7 +4,7 @@ import {
   ExecutionTreeRepository,
   InMemoryExecutionTreeRepository,
 } from "../../../src/infrastructure/execution-tree.repository.js";
-import { heldStoreSeam, withHoldPoints } from "../../../src/testing/faults/held-stores.js";
+import { heldStoreState, withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { HoldPhase, HoldPoints } from "../../../src/testing/faults/hold-points.js";
 import { OperationHistory } from "../../../src/testing/faults/operation-history.js";
 import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";
@@ -33,8 +33,8 @@ const points = new HoldPoints();
 afterEach(() => {
   points.releaseAll();
 });
-heldStoreSeam.points = points;
-heldStoreSeam.recorder = history;
+heldStoreState.points = points;
+heldStoreState.recorders.add(history);
 
 describe("#607: the tree store's hold point", () => {
   it("names a key's family: the framework's prefix, a project's key as it is", () => {

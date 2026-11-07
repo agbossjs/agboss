@@ -300,8 +300,8 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 
 `createApp(App, { meterProvider })` publishes the instance's metrics through an OpenTelemetry
 `MeterProvider` the project builds (an SDK one with `@opentelemetry/exporter-prometheus` or an OTLP
-exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { meterProviders:
-[…] })` gives each instance its own, read with an in-memory `MetricReader`.
+exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { instances:
+[{ meterProvider }, …] })` gives each instance its own, read with an in-memory `MetricReader`.
 
 | Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |

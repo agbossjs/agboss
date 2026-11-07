@@ -1,6 +1,6 @@
 import type { Milliseconds } from "../../units/index.js";
 
-/** What a fault scenario's world runs on (#484): its database, its store set, its pods' settings. */
+/** What a fault scenario's cluster runs on (#484): its database, its store set, its pods' settings. */
 
 /** The database a fault suite runs on. */
 export interface FaultDatabase {
@@ -12,9 +12,9 @@ export interface FaultDatabase {
   readonly proxy?: boolean;
 }
 
-/** What a world is made of. */
-export interface FaultWorldOptions {
-  readonly stores: string;
+/** What a cluster is made of. */
+export interface FaultClusterOptions {
+  readonly storesModule: string;
   readonly database: FaultDatabase;
   readonly timeScale: number;
 }

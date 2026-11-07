@@ -19,6 +19,7 @@ import {
   type InterleavingOptions,
   type LeftOutContract,
 } from "../../../src/testing/contracts/index.js";
+import { minutes } from "../../../src/units/index.js";
 import { checkStoreSet } from "../../../src/testing/contracts/store-conformance-check.js";
 
 /** A store that is never built: the checks read which keys a set gives, not what they build. */
@@ -298,7 +299,7 @@ describe("#799 AC3: an interleaving budget that is no budget is refused", () => 
   it.each([
     ["none", undefined],
     ["false", false],
-    ["a full budget", { depth: 4, walks: 20, walkDepth: 16, seed: 0, timeLimit: 60_000 }],
+    ["a full budget", { depth: 4, walks: 20, walkDepth: 16, seed: 0, timeLimit: minutes(1) }],
     ["a seed of its own", { seed: 777 }],
   ])("%s: accepted", (_case, interleavings) => {
     expect(() => {
