@@ -1458,6 +1458,11 @@ test("a strong candidate is hired", async ({ app }) => {
 replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
 with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
 `AGBOSS_VCR_MODE` (a `VcrMode` member's value) overrides every test's own mode for one run.
+Under `CI` no test records against real models (#839): a mode that would — `RECORD`,
+`RECORD_STALE`, or `AUTO` with no cassette, set by `vcr.mode` or `AGBOSS_VCR_MODE` — fails the test
+app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from, `CI` and
+the remedy), before any model is asked; a CI job that records on purpose sets
+`AGBOSS_VCR_RECORD_IN_CI=1` (or `true`; any other value is no opt-in).
 Recording goes through the application's model providers as `createApp` builds them — a transport
 provider (`complete`, #385) too, created by the test app's container with its hooks (#439) — so an
 offline transport records a cassette with no key: `AGBOSS_VCR_MODE=RECORD npx vitest run

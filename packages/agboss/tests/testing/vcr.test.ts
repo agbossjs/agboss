@@ -10,6 +10,7 @@ import {
   decideWith,
   replyWith,
   routeTo,
+  TestSetupError,
   testWith,
   VcrMode,
   type VcrConfig,
@@ -115,7 +116,84 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
     expect(vcrModeOf(named, { CI: "1" })).toBe(VcrMode.REPLAY);
     expect(vcrModeOf(named, { CI: "false" })).toBe(VcrMode.AUTO);
     expect(vcrModeOf(named, {})).toBe(VcrMode.AUTO);
-    expect(vcrModeOf({ ...named, mode: VcrMode.RECORD }, { CI: "true" })).toBe(VcrMode.RECORD);
+  });
+
+  describe("#839: under CI no mode records against real models, unless AGBOSS_VCR_RECORD_IN_CI opts in", () => {
+    const missing = { cassetteName: "never-recorded", dir };
+    const refusal =
+      /^\[vcr\.record-in-ci\] .* records against real models, and CI is set \(CI=true\): a CI run replays its cassettes — record without CI and commit the cassette, or set AGBOSS_VCR_RECORD_IN_CI=1 to record in this CI run on purpose( \(AGBOSS_VCR_RECORD_IN_CI=\S+ is no opt-in: 1 or true\))?$/u;
+
+    it("AC2: each mode under CI set and unset — a cassette present and missing", () => {
+      const ci = { CI: "true" };
+      const optIn = { CI: "true", AGBOSS_VCR_RECORD_IN_CI: "1" };
+      // CI unset: every mode as given
+      for (const mode of Object.values(VcrMode)) {
+        expect(vcrModeOf({ ...cassette, mode }, {})).toBe(mode);
+        expect(vcrModeOf({ ...missing, mode }, { CI: "false" })).toBe(mode);
+      }
+      // CI set: the modes that only replay are taken
+      expect(vcrModeOf({ ...cassette, mode: VcrMode.REPLAY }, ci)).toBe(VcrMode.REPLAY);
+      expect(vcrModeOf({ ...missing, mode: VcrMode.REPLAY }, ci)).toBe(VcrMode.REPLAY);
+      expect(vcrModeOf(cassette, ci)).toBe(VcrMode.REPLAY);
+      expect(vcrModeOf({ ...cassette, mode: VcrMode.AUTO }, ci)).toBe(VcrMode.AUTO); // replays
+      // CI set: every mode that calls real models is refused, naming the variables and the remedy
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD_STALE }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...missing, mode: VcrMode.AUTO }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, ci)).toThrow(
+        /^\[vcr\.record-in-ci\] vcr\.mode RECORD records/u,
+      );
+      expect(() => vcrModeOf({ ...missing, mode: VcrMode.AUTO }, ci)).toThrow(
+        /^\[vcr\.record-in-ci\] vcr\.mode AUTO with no cassette at .* records/u,
+      );
+      expect(() => vcrModeOf(cassette, { ...ci, AGBOSS_VCR_MODE: "RECORD" })).toThrow(
+        /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=RECORD records/u,
+      );
+      for (const mode of [VcrMode.RECORD, VcrMode.RECORD_STALE, VcrMode.AUTO])
+        expect(() => vcrModeOf({ ...missing, mode }, ci)).toThrow(TestSetupError);
+      // the opt-in: "1" or "true", nothing else
+      for (const mode of Object.values(VcrMode))
+        expect(vcrModeOf({ ...missing, mode }, optIn)).toBe(mode);
+      expect(
+        vcrModeOf(
+          { ...cassette, mode: VcrMode.RECORD },
+          { ...ci, AGBOSS_VCR_RECORD_IN_CI: "TRUE" },
+        ),
+      ).toBe(VcrMode.RECORD);
+      expect(() =>
+        vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, { ...ci, AGBOSS_VCR_RECORD_IN_CI: "yes" }),
+      ).toThrow(/ \(AGBOSS_VCR_RECORD_IN_CI=yes is no opt-in: 1 or true\)$/u);
+      for (const value of ["", "0", "false", "yes", "on"])
+        expect(() =>
+          vcrModeOf(
+            { ...cassette, mode: VcrMode.RECORD },
+            { ...ci, AGBOSS_VCR_RECORD_IN_CI: value },
+          ),
+        ).toThrow(refusal);
+    });
+
+    it("AC1: a test app recording under CI fails to build — no model asked, no cassette written", async () => {
+      vi.stubEnv("CI", "true");
+      vi.stubEnv("AGBOSS_VCR_RECORD_IN_CI", "");
+      await expect(
+        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.RECORD } }),
+      ).rejects.toThrow(refusal);
+      await expect(
+        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.AUTO } }),
+      ).rejects.toThrow(refusal);
+      expect(existsSync(cassetteFileOf(missing))).toBe(false);
+    });
+
+    it("AC1: with the opt-in, a recording test app builds under CI", async () => {
+      vi.stubEnv("CI", "true");
+      vi.stubEnv("AGBOSS_VCR_RECORD_IN_CI", "1");
+      const environment = await TestEnvironment.of(DeskApplication, {
+        vcr: { ...missing, mode: VcrMode.RECORD },
+      });
+      // built: the providers' gateway is made on the first recorded call, none here
+      expect(environment).toBeInstanceOf(TestEnvironment);
+      await environment.close();
+    });
   });
 
   it("#819 AC1: an unknown vcr.mode is refused, naming the modes — under CI, AGBOSS_VCR_MODE or neither", () => {
