@@ -56,6 +56,10 @@ From the 0.1.1 API review (G1b, G5); the surface is not published yet, so no ali
   a redirect elsewhere is `A2AOriginError`, nothing sent there); a signed mesh envelope always names
   its audience — senders sign only with one, receivers refuse a signed one without
   (`mesh.audience-missing`); `signedMeshEnvelope` takes a required `audience`.
+- **Fixed**: a text output read from a streamed AGBoss task came twice (`"Shipped.Shipped."`) — the
+  server streams the model's text as an artifact of its own beside the finish's output artifact, and
+  the client joined both; it now reads the output artifact alone when the task has one
+  (`metadata[skills-uri].finish`), every artifact otherwise.
 
 ## Unreleased — 0.1.1: A2A tasks shared by the instances, `ListTasks.totalSize` (#824)
 

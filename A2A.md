@@ -241,7 +241,9 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   read must be of the waited task (another id, a message in its stream: `A2ARemoteCallError`); a
   read that fails transiently (no answer, a 5xx, 408, 429, `-32603`) is tried again, by stream or
   poll alike, any other ends the wait; the caller's `onEvent` failing ends it with its own error. The call's `signal` ends the wait with its reason and cancels nothing.
-- **Outcomes.** COMPLETED → the output (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
+- **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
+  (`metadata[skills-uri].finish`) when the task has one — never from the streamed `stream` text
+  beside it —, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
   same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCanceledError`;
   INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
