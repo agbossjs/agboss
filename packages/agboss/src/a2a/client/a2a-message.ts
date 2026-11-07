@@ -187,6 +187,7 @@ function resultOf(
 const isRefusedAnswer = (call: AcceptCall, answer: Task | Message, isMeshed: boolean): boolean =>
   call.peer.kind === A2APeerKind.AGBoss &&
   isMeshed &&
+  // Stryker disable next-line StringLiteral: a message has no status, so it is no refusal either way
   !("messageId" in answer) &&
   meshRefusalOf(answer) !== undefined;
 

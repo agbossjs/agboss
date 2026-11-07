@@ -141,6 +141,7 @@ export function untypedResultOf(
   const failure = task === undefined || isInterrupted(task) ? undefined : failureOf(task, agent);
   if (failure !== undefined) throw failure;
   const answer = task ?? message;
+  // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data
   const parts = answer === undefined ? [] : answerPartsOf(answer);
   return { task, message, text: textOf(parts), data: dataOf(parts)?.value, peer };
 }

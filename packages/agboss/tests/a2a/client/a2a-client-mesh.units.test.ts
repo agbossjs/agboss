@@ -16,10 +16,19 @@ import { Role, TaskState, type Task } from "@a2a-js/sdk";
 import {
   chargedOf,
   recordRefused,
+  refusedCall,
   settledChargeOf,
   settledPeerOf,
 } from "../../../src/a2a/client/a2a-charges.js";
 import type { A2AMeshActivation } from "../../../src/a2a/client/a2a-mesh-seam.js";
+import { meshRefusalOf, untypedResultOf } from "../../../src/a2a/client/a2a-outcome.js";
+import {
+  A2AClientOperation,
+  A2AProtocolError,
+  A2ARemoteCallError,
+  A2ARemoteCallReason,
+} from "../../../src/a2a/client/a2a-client-errors.js";
+import { HopsLimitExceededError } from "../../../src/index.js";
 import { A2APeerKind } from "../../../src/a2a/client/a2a-card.js";
 import { currentFrame, runInFrame } from "../../../src/flow/context/frame.js";
 import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
@@ -177,6 +186,108 @@ describe("#849: only an AGBoss agent's mesh limit at the accept is a refusal", (
   });
 });
 
+describe("#849: a stored refusal is read back once, fail-closed", () => {
+  const taskOf = (id: string, state: TaskState, metadata?: unknown): Task => ({
+    id,
+    contextId: "c-1",
+    status: {
+      state,
+      message: {
+        messageId: "s-1",
+        contextId: "c-1",
+        taskId: id,
+        role: Role.ROLE_AGENT,
+        parts: [],
+        metadata: metadata === undefined ? undefined : { [URI]: metadata },
+        extensions: [],
+        referenceTaskIds: [],
+      },
+      timestamp: "2026-11-04T12:00:00.000Z",
+    },
+    artifacts: [],
+    history: [],
+    metadata: undefined,
+  });
+  const LIMIT = {
+    code: "limit.hops",
+    details: {
+      entry: { application: "peer-application", start: "ask-workflow-start" },
+      chain: [
+        { application: "caller-application", start: "caller-workflow-start", executionId: "e-1" },
+      ],
+      maxMeshHops: 1,
+    },
+  };
+
+  /** One refused call's read: what it threw, whether it charged, recorded and read. */
+  async function refusedWith(taskId: string | undefined, read: Task) {
+    const did = { charged: 0, recorded: 0, reads: [] as string[] };
+    const error = await refusedCall({
+      agent: "peer-a2a-agent",
+      taskId,
+      read: (id) => {
+        did.reads.push(id);
+        return Promise.resolve(read);
+      },
+      charge: () => {
+        did.charged += 1;
+      },
+      record: () => {
+        did.recorded += 1;
+      },
+    }).catch((thrown: unknown) => thrown);
+    return { error, ...did };
+  }
+
+  it("still refused: the limit thrown, recorded, nothing charged", async () => {
+    const done = await refusedWith("t-1", taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT));
+    expect(done.error).toBeInstanceOf(HopsLimitExceededError);
+    expect(done).toMatchObject({ charged: 0, recorded: 1, reads: ["t-1"] });
+  });
+
+  it("completed now, or another task's refusal: charged, A2AProtocolError, nothing recorded", async () => {
+    for (const read of [
+      taskOf("t-1", TaskState.TASK_STATE_COMPLETED),
+      taskOf("t-2", TaskState.TASK_STATE_REJECTED, LIMIT),
+    ]) {
+      const done = await refusedWith("t-1", read);
+      expect(done.error).toBeInstanceOf(A2AProtocolError);
+      expect(done.error).toMatchObject({
+        agent: "peer-a2a-agent",
+        operation: A2AClientOperation.GetTask,
+      });
+      expect(done).toMatchObject({ charged: 1, recorded: 0 });
+    }
+  });
+
+  it("no task to read: a malformed answer, nothing read, charged or recorded", async () => {
+    const done = await refusedWith(undefined, taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT));
+    expect(done.error).toBeInstanceOf(A2ARemoteCallError);
+    expect(done.error).toMatchObject({ reason: A2ARemoteCallReason.MalformedAnswer });
+    expect(done).toMatchObject({ charged: 0, recorded: 0, reads: [] });
+  });
+
+  it("a mesh refusal is a REJECTED task with a mesh limit only — not a FAILED one, nor one of no status", () => {
+    expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT))).toBeInstanceOf(
+      HopsLimitExceededError,
+    );
+    expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_FAILED, LIMIT))).toBeUndefined();
+    expect(
+      meshRefusalOf({ ...taskOf("t-1", TaskState.TASK_STATE_REJECTED), status: undefined }),
+    ).toBeUndefined();
+  });
+
+  it("an untyped result of no task and no message: no text, no data", () => {
+    const peer = { kind: A2APeerKind.AGBoss, idempotencyRetention: hours(1), mesh: true } as const;
+    expect(
+      untypedResultOf(
+        { task: undefined, accepted: { message: undefined }, peer },
+        "peer-a2a-agent",
+      ),
+    ).toEqual({ task: undefined, message: undefined, text: undefined, data: undefined, peer });
+  });
+});
+
 describe("#810: the charges' identity and the record of an unmeshed call", () => {
   const NOW = new Date("2026-11-04T12:05:00.000Z");
   const clock = { now: () => NOW };
@@ -278,6 +389,17 @@ describe("#810: the charges' identity and the record of an unmeshed call", () =>
       await recorded(() => {
         recordRefused(activation(true), accepted({ taskId: undefined }), "peer-application");
       }),
+    ).toEqual([]);
+  });
+
+  it("#849: a refused call outside any frame, or in one of no tool call: nothing recorded, nothing thrown", async () => {
+    expect(() => {
+      recordRefused(activation(true), accepted({ isMeshed: true }), "p");
+    }).not.toThrow();
+    expect(
+      await recorded(() => {
+        recordRefused(activation(true), accepted({ isMeshed: true }), "p");
+      }, false),
     ).toEqual([]);
   });
 });
