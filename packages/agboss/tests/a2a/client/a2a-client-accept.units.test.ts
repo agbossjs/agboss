@@ -326,6 +326,7 @@ describe("what an accepted answer is", () => {
       isNew: true,
       messageId: "m-1",
       isMeshed: true,
+      isRefused: false,
     });
     expect(live.message).toBe(messageAnswer);
     expect(replayed.message).toEqual(messageAnswer);
@@ -345,6 +346,7 @@ describe("what an accepted answer is", () => {
       isNew: true,
       messageId: "m",
       isMeshed: false,
+      isRefused: false,
     });
     expect(acceptedOf(stored, undefined, false, "m").task).toBeUndefined();
     expect(acceptedOf(stored, messageAnswer, false, "m").task).toBeUndefined();

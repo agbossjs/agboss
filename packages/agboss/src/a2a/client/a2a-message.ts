@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Message, Part, Role, type SendMessageRequest, type Task } from "@a2a-js/sdk";
+import { Message, Part, Role, TaskState, type SendMessageRequest, type Task } from "@a2a-js/sdk";
 import type { Client } from "@a2a-js/sdk/client";
 import type { Clock } from "../../infrastructure/clock.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
@@ -69,6 +69,12 @@ export interface Accepted {
    * price's ledger entry, the same on every pass that charges it.
    */
   readonly acceptedAt?: string;
+  /**
+   * Whether the agent refused the call before anything ran (#849): its task `REJECTED` at the
+   * accept — a mesh loop, a chain past its `maxMeshHops` —, as stored, so a replay knows it too.
+   * Nothing ran, so nothing is charged, its price neither.
+   */
+  readonly isRefused: boolean;
 }
 
 /** What the call's intent stores of the answer: plain JSON. */
@@ -88,6 +94,8 @@ export interface AcceptFacts {
   readonly bodyHash?: string;
   /** When the agent accepted it (ISO 8601). */
   readonly acceptedAt?: string;
+  /** The agent refused it at the accept, before anything ran: its task `REJECTED` (#849). */
+  readonly refused?: true;
 }
 
 /** A UUID (version 5 layout) over the tenant and the call's idempotency key: one per call, ever. */
@@ -170,6 +178,10 @@ function resultOf(
   return { kind: "task", taskId, contextId, mesh, ...facts };
 }
 
+/** A task the agent refused as it accepted it (#849): `REJECTED` — nothing ran under it. */
+const isRefusedAnswer = (answer: Task | Message): boolean =>
+  !("messageId" in answer) && answer.status?.state === TaskState.TASK_STATE_REJECTED;
+
 /** One `SendMessage`, its answer as stored; an error translated (codes only). */
 export async function sentOf(
   call: AcceptCall,
@@ -193,7 +205,11 @@ export async function sentOf(
   // that does not echo it gave none of its guarantees — unmeshed, said in its peer and step record
   const bodyHash = isEchoed === true ? signed.bodyHash : undefined;
   const acceptedAt = call.clock.now().toISOString();
-  const facts: AcceptFacts = bodyHash === undefined ? { acceptedAt } : { bodyHash, acceptedAt };
+  const facts: AcceptFacts = {
+    ...(bodyHash === undefined ? {} : { bodyHash }),
+    acceptedAt,
+    ...(isRefusedAnswer(answer) ? { refused: true } : {}),
+  };
   return { answer, result: resultOf(call.agent, answer, bodyHash !== undefined, facts) };
 }
 
@@ -217,6 +233,7 @@ export function acceptedOf(
       isNew,
       messageId,
       isMeshed: result.mesh,
+      isRefused: false,
       ...factsOf(result),
     };
   }
@@ -229,6 +246,7 @@ export function acceptedOf(
     isNew,
     messageId,
     isMeshed: result.mesh,
+    isRefused: result.refused === true,
     ...factsOf(result),
   };
 }

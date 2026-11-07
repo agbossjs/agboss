@@ -46,6 +46,8 @@ export const caller: {
   /** Answers to drop: a SendMessage the peer accepted whose answer never arrives. */
   loseSendAnswers: number;
   freezeAfterCall: number;
+  /** How many coming runs of the step freeze after their call failed (before the failure is durable). */
+  freezeAfterError: number;
   readonly frozen: (() => void)[];
   readonly answers: string[];
   readonly callErrors: unknown[];
@@ -57,6 +59,7 @@ export const caller: {
   token: CALLER_TOKEN,
   loseSendAnswers: 0,
   freezeAfterCall: 0,
+  freezeAfterError: 0,
   frozen: [],
   answers: [],
   callErrors: [],
@@ -70,6 +73,7 @@ export function resetCaller(): void {
   caller.token = CALLER_TOKEN;
   caller.loseSendAnswers = 0;
   caller.freezeAfterCall = 0;
+  caller.freezeAfterError = 0;
   for (const list of [caller.frozen, caller.answers, caller.callErrors, caller.ends]) {
     list.length = 0;
   }
@@ -143,6 +147,13 @@ async function frozenAfterCall(): Promise<void> {
   await new Promise<void>((resolve) => caller.frozen.push(resolve));
 }
 
+/** Waits until let go after a failed call when the lever says so (#849). */
+async function frozenAfterError(): Promise<void> {
+  if (caller.freezeAfterError <= 0) return;
+  caller.freezeAfterError -= 1;
+  await new Promise<void>((resolve) => caller.frozen.push(resolve));
+}
+
 @Action({
   name: "ask-peer-action",
   description: "Asks the peer",
@@ -163,6 +174,7 @@ export class AskPeerAction {
       return answer;
     } catch (error) {
       caller.callErrors.push(error);
+      await frozenAfterError();
       throw error;
     }
   }

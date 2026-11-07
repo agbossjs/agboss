@@ -45,3 +45,23 @@ export function settledPeerOf(
   }
   return peer;
 }
+
+/**
+ * A call the agent refused at the accept, before anything ran (#849: its task `REJECTED` — a mesh
+ * loop, a chain past `maxMeshHops`), as the accept stored it: charged nothing, said in the step's
+ * record (`remote: { …, refused: true }`, with `mesh: false` when the mesh did not ride).
+ */
+export function recordRefused(
+  activation: A2AMeshActivation,
+  accepted: Accepted,
+  application: string,
+): void {
+  if (accepted.taskId === undefined) return;
+  const isMeshed = activation.peer.mesh && accepted.isMeshed;
+  currentFrame()?.services.meshCall?.recordRemote({
+    application,
+    executionId: accepted.taskId,
+    ...(isMeshed ? {} : { mesh: false as const }),
+    refused: true,
+  });
+}

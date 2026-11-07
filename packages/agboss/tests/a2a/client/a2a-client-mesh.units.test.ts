@@ -7,7 +7,12 @@ import { describe, expect, it } from "vitest";
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/index.js";
 import { observeEcho, type ExtensionEcho } from "../../../src/a2a/client/a2a-echo.js";
 import { acceptedOf, type Accepted } from "../../../src/a2a/client/a2a-message.js";
-import { chargedOf, settledChargeOf, settledPeerOf } from "../../../src/a2a/client/a2a-charges.js";
+import {
+  chargedOf,
+  recordRefused,
+  settledChargeOf,
+  settledPeerOf,
+} from "../../../src/a2a/client/a2a-charges.js";
 import type { A2AMeshActivation } from "../../../src/a2a/client/a2a-mesh-seam.js";
 import { A2APeerKind } from "../../../src/a2a/client/a2a-card.js";
 import { currentFrame, runInFrame } from "../../../src/flow/context/frame.js";
@@ -78,6 +83,7 @@ describe("#810: what an accept stores to charge the same on every pass", () => {
       isNew: false,
       messageId: "m-1",
       isMeshed: true,
+      isRefused: false,
       bodyHash: "sha256:b",
       acceptedAt: "2026-11-04T12:00:00.000Z",
     });
@@ -87,6 +93,13 @@ describe("#810: what an accept stores to charge the same on every pass", () => {
     const accepted = acceptedOf({ ...task, mesh: false }, undefined, false, "m-1");
     expect(accepted).not.toHaveProperty("bodyHash");
     expect(accepted).not.toHaveProperty("acceptedAt");
+  });
+
+  it("#849: a task the agent refused at the accept, as stored — a replay knows it was refused", () => {
+    expect(acceptedOf({ ...task, refused: true }, undefined, false, "m-1").isRefused).toBe(true);
+    expect(acceptedOf(task, undefined, false, "m-1").isRefused).toBe(false);
+    const message = { kind: "message", message: '{"messageId":"r-1"}', mesh: false } as const;
+    expect(acceptedOf(message, undefined, false, "m-1").isRefused).toBe(false);
   });
 });
 
@@ -101,6 +114,7 @@ describe("#810: the charges' identity and the record of an unmeshed call", () =>
     isNew: false,
     messageId: "m-1",
     isMeshed: false,
+    isRefused: false,
     ...fields,
   });
 
@@ -171,5 +185,25 @@ describe("#810: the charges' identity and the record of an unmeshed call", () =>
     );
     expect(currentFrame()).toBeUndefined();
     expect(settledPeerOf(activation(false), accepted(), "p").mesh).toBe(false);
+  });
+
+  it("#849: a refused call is recorded refused: true — with mesh: false when the mesh did not ride", async () => {
+    expect(
+      await recorded(() => {
+        recordRefused(activation(true), accepted({ isMeshed: true }), "peer-application");
+      }),
+    ).toEqual([{ application: "peer-application", executionId: "t-1", refused: true }]);
+    expect(
+      await recorded(() => {
+        recordRefused(activation(false), accepted({ isMeshed: true }), "peer-application");
+      }),
+    ).toEqual([
+      { application: "peer-application", executionId: "t-1", mesh: false, refused: true },
+    ]);
+    expect(
+      await recorded(() => {
+        recordRefused(activation(true), accepted({ taskId: undefined }), "peer-application");
+      }),
+    ).toEqual([]);
   });
 });

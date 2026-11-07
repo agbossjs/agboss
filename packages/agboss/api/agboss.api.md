@@ -6744,6 +6744,7 @@ export interface ToolCallRemote {
     // (undocumented)
     readonly executionId: string;
     readonly mesh?: false;
+    readonly refused?: true;
     readonly report?: false;
 }
 
