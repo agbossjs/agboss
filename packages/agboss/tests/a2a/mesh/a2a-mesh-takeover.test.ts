@@ -2,7 +2,7 @@
  * #810 AC5 (money) — an A2A call's charges across a takeover, end to end: the caller's step asks
  * the peer (price 1) and the peer's execution spends 3, so the call costs exactly 3 — the price
  * once and the verified run report's excess (2) once — whichever pass charges what. Instance A
- * holds the tree and dies (its lease stalled: a SIGKILL as the store sees it); instance B's
+ * holds the tree and dies (its lease frozen: a SIGKILL as the store sees it); instance B's
  * recovery sweep takes the tree over and runs the step again: its accept is the one A recorded
  * (`OutboundCallOutcomeStatus.Replayed` — nothing sent again), it waits on the same task and
  * settles. The ledger's total for the execution is 3: never 1 (the excess missed on a replay), 4
@@ -56,9 +56,9 @@ function heldGate(): { readonly open: () => void } {
   };
 }
 
-/** A's lease stalled, the clock past it twice: B's sweep takes the tree over and runs the step again. */
+/** A's lease frozen, the clock past it twice: B's sweep takes the tree over and runs the step again. */
 async function takenOverByB(clock: VirtualClock, leases: TestLeases, a: TestApp): Promise<void> {
-  leases.stall(a);
+  leases.freeze(a);
   await clock.advance(seconds(31));
   await clock.advance(seconds(31));
   await settle();
@@ -102,7 +102,7 @@ describe("#810 AC5: a takeover that replays the accept charges price + report ex
       expect(caller.ends[0]?.spend.totalUsd).toBeCloseTo(3);
       expect(await executionSpentOf(b, ROOT)).toBeCloseTo(3);
       // A, a zombie that also heard the task end and settled it: still 3
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
       expect(await rejectionOf(call)).toBeDefined();
       expect(await executionSpentOf(b, ROOT)).toBeCloseTo(3);
@@ -150,7 +150,7 @@ describe("#810 AC5: a takeover that replays the accept charges price + report ex
       // A's pass heard the end as well as B's (a recovered pass may have run the step twice)
       expect(caller.answers.length).toBeGreaterThanOrEqual(2);
       expect(await executionSpentOf(b, ROOT)).toBeCloseTo(3);
-      leases.resume(a);
+      leases.thaw(a);
       await settle();
 
       expect(peer.runs).toHaveLength(1);
