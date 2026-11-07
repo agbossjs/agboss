@@ -6,10 +6,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BudgetScope } from "../../../src/budgets/budget.js";
-import type { UsageRecord } from "../../../src/finops/usage.js";
+import type { LedgerEntry } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { SqliteCostLedgerRepository } from "../../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 import { isSqliteImplementation } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { ledgerEntryOf, usageRecord } from "../../helpers.js";
 
 const counter = {
   budget: "tenant-daily-budget",
@@ -27,7 +28,7 @@ describe("#261: the SQLite cost ledger of a file written before budgets", () => 
       INSERT INTO cost_ledger VALUES ('desk-workflow', '2026-10-18', 0.75);`);
 
     const ledger = new SqliteCostLedgerRepository(connectionTo(path));
-    await ledger.saveAll([counter], [{ costUsd: 0.25 } as UsageRecord]);
+    await ledger.saveAll([counter], [ledgerEntryOf(usageRecord("clerk-agent", 0.25))]);
 
     expect(await ledger.findSpentByCounter(counter)).toBe(0.25);
     const columns = connectionTo(path).columnsOf("cost_ledger");
@@ -38,7 +39,7 @@ describe("#261: the SQLite cost ledger of a file written before budgets", () => 
     const path = temporarySqlitePath();
     await new SqliteCostLedgerRepository(connectionTo(path)).saveAll(
       [counter],
-      [{ costUsd: 0.5 } as UsageRecord],
+      [ledgerEntryOf(usageRecord("clerk-agent", 0.5))],
     );
 
     const reopened = new SqliteCostLedgerRepository(connectionTo(path));
@@ -84,14 +85,14 @@ describe("#771: the SQLite cost ledger of a file #727 wrote — its entries with
       INSERT INTO cost_ledger_entries VALUES ('pass-a:0');`);
     return path;
   };
-  const entry = (ledgerId: string, madeAt: string): UsageRecord =>
-    ({ costUsd: 0.25, ledgerId, madeAt }) as UsageRecord;
+  const entry = (ledgerId: string, madeAt: string): LedgerEntry =>
+    ledgerEntryOf(usageRecord("clerk-agent", 0.25), ledgerId, new Date(madeAt));
 
   it("dates the held entries never: no prune removes them, a save of one adds nothing", async () => {
     const path = fileOf727();
     const ledger = new SqliteCostLedgerRepository(connectionTo(path));
 
-    await ledger.deleteEntriesByMadeAtBefore(new Date("2030-01-01T00:00:00.000Z"));
+    await ledger.deleteByMadeAtBefore(new Date("2030-01-01T00:00:00.000Z"));
     await ledger.saveAll([counter], [entry("pass-a:0", "2026-10-18T08:00:00.000Z")]);
 
     expect(await ledger.findSpentByCounter(counter)).toBe(0);
@@ -116,7 +117,7 @@ describe("#771: the SQLite cost ledger of a file #727 wrote — its entries with
   it("an entry made before the mark that it still holds — a save that raced the prune — adds nothing and is not refused", async () => {
     const path = fileOf727();
     const ledger = new SqliteCostLedgerRepository(connectionTo(path));
-    await ledger.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+    await ledger.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
     connectionTo(path)
       .database.prepare("INSERT INTO cost_ledger_entries VALUES ('pass-c:0', ?)")
       .run(Date.parse("2026-10-18T08:00:00.000Z"));
@@ -131,7 +132,7 @@ describe("#771: the SQLite cost ledger of a file #727 wrote — its entries with
     const ledger = new SqliteCostLedgerRepository(connectionTo(path));
     await ledger.saveAll([counter], [entry("pass-b:0", "2026-10-18T08:00:00.000Z")]);
 
-    await ledger.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+    await ledger.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
 
     const rows = connectionTo(path)
       .database.prepare("SELECT ledger_id FROM cost_ledger_entries ORDER BY ledger_id")

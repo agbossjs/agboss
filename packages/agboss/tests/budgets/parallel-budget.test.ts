@@ -40,6 +40,7 @@ import {
   WaitForAbortTool,
   WaiterAgent,
 } from "./fixtures/parallel-budget.workflow.js";
+import { LedgerState } from "../../src/finops/ledger-mark.js";
 
 /** The spender's answer completes first, the waiter's (stopped) second: one order on every run. */
 const SPENDER_FIRST = {
@@ -266,7 +267,10 @@ describe("the live tally (BudgetMeter)", () => {
     const budgets = meterOf({ ledger, clock: systemClock }, [record], 0);
 
     const [kept] = budgets.tally([call(0.03)]);
-    expect(kept).toMatchObject({ isRecordedElsewhere: true, ledgerId: expect.any(String) });
+    expect(kept?.ledger).toMatchObject({
+      state: LedgerState.Written,
+      ledgerId: expect.any(String),
+    });
     await budgets.settled();
     expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
     await budgets.record(kept === undefined ? [] : [kept]);

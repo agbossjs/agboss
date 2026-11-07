@@ -28,6 +28,7 @@ import { testWith } from "../../src/testing/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
 import { execute, start } from "../helpers/flow.js";
+import { ledgerEntryOf } from "../helpers.js";
 import { ItemDto, ItemResultDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 
 const EIGHT_DIMES = Array.from({ length: 8 }, () => recordToolCost("search-tool", 0.1));
@@ -78,7 +79,10 @@ describe("#728 AC1: eight $0.10 calls exhaust $0.80", () => {
       },
       usd(0.8),
     );
-    await ledger.saveAll([counterOf(record, systemClock.now())], EIGHT_DIMES);
+    await ledger.saveAll(
+      [counterOf(record, systemClock.now())],
+      EIGHT_DIMES.map((dime) => ledgerEntryOf(dime)),
+    );
 
     await expect(isApplicationSpendExhausted(application)).resolves.toBe(true);
   });

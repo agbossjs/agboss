@@ -5,11 +5,13 @@ import { workflowOf } from "../src/components/assemble.js";
 import type { Class } from "../src/components/injection.js";
 import { type AgentsConfigOf } from "../src/config/types.js";
 import { TokenLimit } from "../src/config/types.js";
-import type { UsageRecord } from "../src/finops/usage.js";
+import { randomUUID } from "node:crypto";
+import { CostSource, type UsageRecord } from "../src/finops/usage.js";
 import {
   CostLedgerRepository,
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../src/infrastructure/cost-ledger.repository.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
 import type { ApplicationBudgets } from "../src/budgets/execution-budgets.js";
@@ -106,11 +108,11 @@ export const fakeGateway = (
 
 /** The in-memory cost ledger, remembering every call it counted (once per call, over all counters). */
 export class RecordingCostLedger extends InMemoryCostLedgerRepository {
-  readonly recorded: UsageRecord[] = [];
+  readonly recorded: LedgerEntry[] = [];
 
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     this.recorded.push(...records);
     await super.saveAll(counters, records);
@@ -200,8 +202,18 @@ export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
   costUsd,
-  costSource: "price-table",
+  costSource: CostSource.PriceTable,
 });
+
+/**
+ * `record` as an entry of the ledger (#817): under `ledgerId` (else one of its own), made at
+ * `madeAt` (else noon of the contract's day, after any cutoff a test prunes at).
+ */
+export const ledgerEntryOf = (
+  record: UsageRecord,
+  ledgerId = `entry:${randomUUID()}`,
+  madeAt = new Date("2026-10-18T12:00:00.000Z"),
+): LedgerEntry => ({ ...record, costUsd: usd(record.costUsd), ledgerId, madeAt });
 
 /** The deps with every router request recorded (what the routers saw, in order). */
 export function recordingRouters<TDeps extends AgentExecutionDeps<string>>(

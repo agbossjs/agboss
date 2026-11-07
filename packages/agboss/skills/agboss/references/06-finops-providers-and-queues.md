@@ -133,6 +133,13 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   `[budget.application-budget-required]`, `[budget.not-a-budget]`. The counters live in the
   application's `CostLedgerRepository` — the built-in in-memory one counts per instance and resets on
   restart (`[application.in-memory-cost-ledger]`); list `SqliteCostLedgerRepository` (reference 09).
+- **The terms** (#817): **cost** is what one call cost (`UsageRecord.costUsd`, `CostLine`,
+  `CostSource.Api | PriceTable | Tool`, `CostCategory`); **spend** what was consumed against a
+  budget (`result.spend`, `findSpentByCounter`, `spentUsd`); **usage** tokens only (`TokenUsage`).
+  A record's place in the ledger is its one state `UsageRecord.ledger` (`ledgerMarkOf(record)`:
+  `LedgerState.Written` with `ledgerId` + `madeAt: Date`, or `LedgerState.RecordedElsewhere`); the
+  ledger saves `LedgerEntry` values only (`ledgerId`, `madeAt: Date`, `costUsd: Usd`) — every
+  amount crossing a store boundary is `Usd`, a `CostReport`'s JSON keeps `…Usd: number`.
 
 ### What a service costs: `SpendRecorder`
 
@@ -451,7 +458,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
 - **The answer** (`ModelProviderResponse`): `text`, `toolCalls?` (`ModelProviderToolCall { id,
 name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
 cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
-  `costSource: "api"`; else the table), `finishReason?` (`FinishReason.Length`).
+  `costSource: CostSource.Api`; else the table), `finishReason?` (`FinishReason.Length`).
 - **Failures**: throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })` — the
   retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
   `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.

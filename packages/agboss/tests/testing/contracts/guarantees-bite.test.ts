@@ -88,6 +88,24 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
     );
   });
 
+  it("#817: a ledger that takes what it is handed counts a record without an identity", () => {
+    expect(failedOf("a ledger that takes what it is handed")).toEqual([
+      "#817: what is no ledger entry is refused before anything is added — no id, an empty id, a madeAt that is no Date, a cost that is no amount",
+    ]);
+  });
+
+  it("#817: a ledger that keeps its mark in seconds counts a retry of an entry it pruned twice", () => {
+    expect(failedOf("a ledger that keeps its mark in seconds")).toEqual([
+      "#817: the mark and the dates are kept to the millisecond: an entry made a millisecond before the cutoff is refused after the prune",
+    ]);
+  });
+
+  it("#817: a ledger that takes any cutoff lowers its mark and counts a pruned entry again", () => {
+    expect(failedOf("a ledger that takes any cutoff")).toEqual([
+      "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+    ]);
+  });
+
   it("each naive store keeps the rules it does not break: its ping passes", () => {
     expect(namesOf(run, FIXTURE, "pass").length).toBeGreaterThan(0);
   });

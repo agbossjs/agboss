@@ -11,7 +11,10 @@ import {
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
-import type { CostCounter } from "../../../../src/infrastructure/cost-ledger.repository.js";
+import type {
+  CostCounter,
+  LedgerEntry,
+} from "../../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import {
@@ -26,7 +29,7 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
 export class HeldParentSqliteLedger extends SqliteCostLedgerRepository {
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     await holdsParentPay(records);
     return super.saveAll(counters, records);

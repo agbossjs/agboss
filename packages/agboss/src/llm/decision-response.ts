@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { UsageRecord } from "../finops/usage.js";
+import { CostSource, type UsageRecord } from "../finops/usage.js";
 import { DecisionResponseError } from "./decision-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
 
@@ -29,7 +29,8 @@ const ResponseSchema = z.object({
     .object({
       input_tokens: z.number().optional(),
       output_tokens: z.number().optional(),
-      cost: z.number().optional(),
+      // a cost below zero would take spend off the budgets' counters: an invalid answer (#817)
+      cost: z.number().nonnegative().optional(),
     })
     .optional(),
 });
@@ -115,7 +116,7 @@ export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcom
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       costUsd: usage?.cost ?? 0,
-      costSource: "api",
+      costSource: CostSource.Api,
     },
   };
 }

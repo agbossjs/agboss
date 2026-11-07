@@ -9,7 +9,7 @@ import {
 import { BUDGET_EXHAUSTED, type EvalDeps } from "../../src/eval/eval.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import type { RouteOutcome, RouterEngine } from "../../src/routers/index.js";
-import { routeTo, fakeDeps, memoryLedger, usageRecord } from "../helpers.js";
+import { routeTo, fakeDeps, memoryLedger, usageRecord, ledgerEntryOf } from "../helpers.js";
 
 const judgeSaying = (outcome: RouteOutcome): RouterEngine => ({
   name: "judge",
@@ -28,7 +28,10 @@ async function profileRun(name: string, spentToday = 0) {
   const today = new Date().toISOString().slice(0, 10);
   const tenant = { budget: "test-tenant-daily-budget", scope: BudgetScope.Tenant, key: "default" };
   if (spentToday > 0)
-    await ledger.saveAll([{ ...tenant, period: today }], [usageRecord("earlier", spentToday)]);
+    await ledger.saveAll(
+      [{ ...tenant, period: today }],
+      [ledgerEntryOf(usageRecord("earlier", spentToday))],
+    );
   const deps = await fakeDeps(
     {
       "test/router": Array.from({ length: 4 }, () => routeTo("alpha-agent")),

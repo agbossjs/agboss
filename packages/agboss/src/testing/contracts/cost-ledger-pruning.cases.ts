@@ -1,23 +1,16 @@
 import { expect } from "vitest";
 import { BudgetScope } from "../../budgets/budget.js";
-import type { UsageRecord } from "../../finops/usage.js";
-import type { CostLedgerRepository } from "../../infrastructure/cost-ledger.repository.js";
-import { applicationMonth, call, tenantDay } from "./cost-ledger-data.js";
+import type {
+  CostLedgerRepository,
+  LedgerEntry,
+} from "../../infrastructure/cost-ledger.repository.js";
+import { applicationMonth, call, entry, tenantDay } from "./cost-ledger-data.js";
 import type { ContractCase } from "./define.js";
 
 /**
  * The cost ledger contract's pruning (#771): entries dated by `madeAt`, removed under a mark that
  * never goes back, and a save of one the store may have pruned refused — never counted twice.
  */
-
-/** A record with a `ledgerId` (#727) made at `madeAt` (#771). */
-type EntryRecord = UsageRecord & { readonly ledgerId: string };
-
-const entry = (ledgerId: string, costUsd: number, madeAt: string): EntryRecord => ({
-  ...call(costUsd),
-  ledgerId,
-  madeAt,
-});
 
 /** What a refused save rejects with (#771): its expired entries and the store's mark. */
 const expired = (ledgerIds: readonly string[], prunedBefore: string) => ({
@@ -35,7 +28,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       const young = entry("run-1:pass-a:1", 0.5, "2026-10-18T10:00:00.000Z");
       const atCutoff = entry("run-1:pass-a:2", 0.125, "2026-10-18T09:00:00.000Z");
       await first.saveAll([tenantDay, applicationMonth], [old, young, atCutoff]);
-      await second.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
 
       expect(await first.findSpentByCounter(tenantDay)).toBe(0.875);
       await expect(first.saveAll([tenantDay], [old, call(0.125)])).rejects.toMatchObject(
@@ -60,7 +53,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await first.saveAll([tenantDay], [lost]);
       expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
 
-      await second.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
       const fresh = entry("run-1:pass-b:1", 0.5, "2026-10-18T10:00:00.000Z");
       await expect(first.saveAll([tenantDay], [fresh, lost, call(0.125)])).rejects.toMatchObject(
         expired([lost.ledgerId], "2026-10-18T09:00:00.000Z"),
@@ -76,19 +69,14 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     name: "#771: the pruning mark never goes back: an earlier cutoff after a later one still refuses what the later may have removed",
     run: async ({ first, second }) => {
       const between = entry("run-1:pass-c:0", 0.25, "2026-10-18T09:30:00.000Z");
-      await first.deleteEntriesByMadeAtBefore(new Date("2026-10-18T10:00:00.000Z"));
-      await second.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      await first.deleteByMadeAtBefore(new Date("2026-10-18T10:00:00.000Z"));
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
 
       await expect(first.saveAll([tenantDay], [between])).rejects.toMatchObject(
         expired([between.ledgerId], "2026-10-18T10:00:00.000Z"),
       );
-      // an entry without a date is the oldest: refused once anything was pruned
-      const undated: UsageRecord = { ...call(0.25), ledgerId: "run-1:pass-c:2" };
-      await expect(second.saveAll([tenantDay], [undated])).rejects.toMatchObject(
-        expired(["run-1:pass-c:2"], "2026-10-18T10:00:00.000Z"),
-      );
       const after = entry("run-1:pass-c:1", 0.5, "2026-10-18T10:00:00.000Z");
-      // a call without a ledgerId is no entry: never refused
+      // made after the mark: never refused, each once
       await second.saveAll([tenantDay], [after, after, call(0.125)]);
       await first.saveAll([tenantDay], [after]);
 
@@ -100,12 +88,12 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     run: async ({ first, second }) => {
       const execution = { budget: "execution-budget", scope: BudgetScope.Execution, key: "run-1" };
       const counters = [tenantDay, { ...execution, period: "" }];
-      const racing = (index: number): EntryRecord =>
+      const racing = (index: number): LedgerEntry =>
         entry(`run-1:pass-d:${String(index % 10)}`, 0.125, "2026-10-18T08:00:00.000Z");
       const save = (index: number) =>
         (index % 2 === 0 ? first : second).saveAll(counters, [racing(index)]);
       const before = Array.from({ length: 10 }, (_, index) => save(index));
-      const prune = second.deleteEntriesByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      const prune = second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
       const after = Array.from({ length: 10 }, (_, index) => save(index + 10));
       const outcomes = await Promise.allSettled([...before, ...after]);
       await prune;
@@ -125,6 +113,39 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         });
       for (const counter of counters)
         expect(await second.findSpentByCounter(counter)).toBe(counted);
+    },
+  },
+  {
+    // #817: a date is a Date — a store that keeps the mark or the dates coarser lets a retry in
+    name: "#817: the mark and the dates are kept to the millisecond: an entry made a millisecond before the cutoff is refused after the prune",
+    run: async ({ first, second }) => {
+      const before = entry("run-1:pass-e:0", 0.25, "2026-10-18T09:00:00.499Z");
+      const atCutoff = entry("run-1:pass-e:1", 0.5, "2026-10-18T09:00:00.500Z");
+      await first.saveAll([tenantDay], [before, atCutoff]);
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.500Z"));
+
+      await expect(first.saveAll([tenantDay], [before])).rejects.toMatchObject(
+        expired([before.ledgerId], "2026-10-18T09:00:00.500Z"),
+      );
+      await second.saveAll([tenantDay], [atCutoff]);
+      expect(await second.findSpentByCounter(tenantDay)).toBe(0.75);
+    },
+  },
+  {
+    // #817: a cutoff that is no date compares false with every entry — it would lower the mark
+    name: "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+    run: async ({ first, second }) => {
+      const old = entry("run-1:pass-g:0", 0.25, "2026-10-18T08:00:00.000Z");
+      await first.saveAll([tenantDay], [old]);
+      await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
+      const invalid: readonly unknown[] = [new Date(Number.NaN), "2026-10-18T10:00:00.000Z", 0];
+
+      for (const cutoff of invalid)
+        await expect(first.deleteByMadeAtBefore(cutoff as Date)).rejects.toThrow();
+      await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject(
+        expired([old.ledgerId], "2026-10-18T09:00:00.000Z"),
+      );
+      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
     },
   },
 ];

@@ -126,8 +126,8 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   /** What the application serves over A2A keeps (#807): see `A2AApplicationOptions`. */
   readonly a2a?: A2AApplicationOptions;
   /**
-   * How long an entry of the ledger is kept after its spend was made (#771): every tallied spend is
-   * an entry under its `ledgerId` (#727) so that a write retried after a lost answer counts once;
+   * How long an entry of the ledger is kept after its spend was made (#771): every spend is an
+   * entry under its `ledgerId` (#727, #817) so that a write retried after a lost answer counts once;
    * the recovery sweep prunes entries made longer ago than this on the `Clock` (the counters
    * never), and a write retried later than that is refused (`CostLedgerEntryExpiredError`: the pass
    * fails), never counted twice. Above the lease's 30 s —

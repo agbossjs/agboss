@@ -1,6 +1,6 @@
 import { AGBossError } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
-import { ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import type { Usd } from "../units/index.js";
 
 /** What a paid service that is not a model cost one call: `{ service: "serp-api", cost: usd(0.002) }`. */
@@ -35,7 +35,7 @@ export const serviceUsageOf = ({ service, cost }: ServiceSpend): UsageRecord => 
   model: service,
   ...ZERO_USAGE,
   costUsd: cost,
-  costSource: "tool",
+  costSource: CostSource.Tool,
 });
 
 /** The injected `SpendRecorder`: one per consumer, recording into the frame of the current step. */

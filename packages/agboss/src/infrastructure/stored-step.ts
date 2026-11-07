@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CostSource } from "../finops/usage.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { PauseAnswer, PauseAsk, QuestionAsk } from "./pause-record.js";
 
@@ -54,7 +55,7 @@ const StoredUsage = z.object({
   ...{ inputTokens: z.number(), outputTokens: z.number() },
   ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
   costUsd: z.number(),
-  costSource: z.enum(["api", "price-table", "tool"]),
+  costSource: z.enum(CostSource),
   servedBy: z.string().optional(),
 });
 

@@ -10,12 +10,15 @@ import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-eff
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget, sharedInMemory } from "../../infrastructure/contracts/store-kinds.js";
 import {
+  AnyCutoffCostLedgerRepository,
   currentToken,
   LookThenWriteMeshRequestRepository,
   PrunedWithoutMarkCostLedgerRepository,
   ReadThenWriteCostLedgerRepository,
   rewritingKeys,
+  SecondsMarkCostLedgerRepository,
   stepOnly,
+  UncheckedCostLedgerRepository,
   UncountedRateLimitRepository,
   type KeyRewrite,
 } from "./naive-guarantees.js";
@@ -58,4 +61,22 @@ costLedgerContract({
     sharedInMemory(seam, "unmarked-ledger", () => new PrunedWithoutMarkCostLedgerRepository()),
   ),
   name: "a ledger that prunes without a mark",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "unchecked-ledger", () => new UncheckedCostLedgerRepository()),
+  ),
+  name: "a ledger that takes what it is handed",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "seconds-ledger", () => new SecondsMarkCostLedgerRepository()),
+  ),
+  name: "a ledger that keeps its mark in seconds",
+});
+costLedgerContract({
+  ...inMemoryTarget((seam) =>
+    sharedInMemory(seam, "any-cutoff-ledger", () => new AnyCutoffCostLedgerRepository()),
+  ),
+  name: "a ledger that takes any cutoff",
 });

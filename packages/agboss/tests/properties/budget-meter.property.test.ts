@@ -20,6 +20,7 @@ import { recordToolCost, totalCost, type UsageRecord } from "../../src/finops/us
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
+  type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
 import { BudgetExceededError } from "../../src/index.js";
@@ -46,7 +47,7 @@ class ScheduledLedger extends InMemoryCostLedgerRepository {
 
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     await this.scheduler.schedule(Promise.resolve(), "write");
     await super.saveAll(counters, records);

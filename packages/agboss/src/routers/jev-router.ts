@@ -1,6 +1,6 @@
 import { extractText } from "./multimodal-utils.js";
 import { z } from "zod";
-import { ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import type { JevClient } from "../llm/jev-client.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
 import { jevRouteInstructions } from "./prompts.js";
@@ -21,7 +21,13 @@ const JevResponseSchema = z.object({
       probabilities: z.record(z.string(), z.number()).optional(),
     }),
   }),
-  usage: z.object({ cost: z.number().optional(), total_cost: z.number().optional() }).optional(),
+  // a cost below zero would take spend off the budgets' counters: an invalid answer (#817)
+  usage: z
+    .object({
+      cost: z.number().nonnegative().optional(),
+      total_cost: z.number().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 type JevResponse = z.infer<typeof JevResponseSchema>;
@@ -59,7 +65,7 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
     model: reportedModel ?? deps.model,
     ...ZERO_USAGE,
     costUsd,
-    costSource: "api",
+    costSource: CostSource.Api,
   });
   return {
     name: deps.name,
