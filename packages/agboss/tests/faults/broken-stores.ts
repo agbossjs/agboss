@@ -32,6 +32,8 @@ import type { Milliseconds } from "../../src/units/index.js";
  * - `UnfencedSqliteOutboundCallRepository` (#584): no fencing check on the payment's intent — its
  *   writes go in at the lease's current epoch, so a zombie records a payment as if it held the lease.
  * - `OptedOutSqliteFencedEffectRepository` (#584): declares `LeaseCheck.WithoutDoubleChargeProtection`.
+ * - `ForgedTokenSqliteFencedEffectRepository` (#840): a write at a forged token — one no lease was
+ *   ever granted at — let through, so the history holds a write no grant explains.
  */
 
 /** The lease's current epoch in the file. */
@@ -60,6 +62,28 @@ export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepo
   ): Promise<FencedEffectOutcome<TResult>> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
     return super.runInTransaction(effectKeyForTesting(key, { token }), work);
+  }
+}
+
+/** #840: the token a forged write names — far above any epoch a fault scenario grants. */
+export const FORGED_TOKEN_OFFSET = 1_000_000;
+
+/**
+ * #840: a fenced-effect store that accepts a token no lease was granted at. Its entry forges the
+ * key's token (the lease's epoch + `FORGED_TOKEN_OFFSET`) before the transaction — what the
+ * history records of the write —, and its transaction lets the forged token through at the
+ * lease's current epoch, as `UnfencedSqliteFencedEffectRepository` lets a stale one.
+ */
+@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
+  override saveResultIfAbsent<TResult>(
+    key: EffectKey,
+    work: FencedEffectWork<DatabaseSync, TResult>,
+  ): Promise<FencedEffectOutcome<TResult>> {
+    return super.saveResultIfAbsent(
+      effectKeyForTesting(key, { token: key.token + FORGED_TOKEN_OFFSET }),
+      work,
+    );
   }
 }
 

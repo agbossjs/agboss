@@ -7,7 +7,9 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
 /**
  * One owner per tree (#484 invariant 1), from the store history and the lease log:
  * - every epoch of a lease key is granted once, and a key's epochs grow in the order granted;
- * - a write the store accepted at token N came from the instance that was granted epoch N;
+ * - a write the store's lease check let through at token N (#840: any answer but an error) came from the instance that was granted epoch N — and a
+ *   write at a token no grant of its key gave is a violation too (#840: a forged or unrecorded
+ *   token fails closed, never passes for want of a grant to compare it with);
  * - no write is accepted at token N once epoch N + k was granted (its grant answered before the
  *   write was asked): the zombie's write is refused;
  * - the lease log has one takeover per token of an execution;
@@ -54,7 +56,14 @@ function writeViolations(
     const grants = keys.get(write.key) ?? [];
     const own = grants.find((grant) => grant.epoch === write.token);
     const found: FaultViolation[] = [];
-    if (own !== undefined && own.holder !== write.instanceId)
+    if (own === undefined)
+      found.push(
+        violation(
+          FaultInvariant.OneOwner,
+          `${write.operation} of ${write.key} at token ${String(write.token)} (${write.instanceId}, ${write.id}) was accepted, but no lease of ${write.key} was granted at epoch ${String(write.token)}`,
+        ),
+      );
+    else if (own.holder !== write.instanceId)
       found.push(
         violation(
           FaultInvariant.OneOwner,
