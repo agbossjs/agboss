@@ -1,4 +1,3 @@
-import type { MeterProvider } from "@opentelemetry/api";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
@@ -9,7 +8,8 @@ import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
-import { ClockSkew, SkewedClock } from "./clock-skew.js";
+import { SkewedClock } from "./clock-skew.js";
+import { testInstancesOf, type TestInstanceOptions } from "./instances.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { TestStoreClock } from "./store-clock.js";
 import type { Milliseconds } from "../units/index.js";
@@ -37,61 +37,6 @@ function branchSchedulerOf(
 ): Pick<AppDepsOptions, "branchScheduler"> {
   const branchScheduler = schedulerOf(concurrency, book);
   return branchScheduler === undefined ? {} : { branchScheduler };
-}
-
-/** One instance of a test (#831): its own settings, `apps[i]`'s in `instances[i]`. */
-export interface TestInstanceOptions {
-  /**
-   * The instance's clock skew (#533; default `ClockSkew.none`): its wall clock ahead or behind,
-   * running fast or slow — while the stores decide by the test's clock, as by a database's own.
-   */
-  readonly clockSkew?: ClockSkew;
-  /**
-   * The instance's OpenTelemetry `MeterProvider` (#485; default none: no metrics on it): read it
-   * with an in-memory reader, `await reader.collect()`.
-   */
-  readonly meterProvider?: MeterProvider;
-}
-
-/** The keys a `TestInstanceOptions` may have: another is a typo the test would silently ignore. */
-const INSTANCE_OPTION_KEYS: ReadonlySet<string> = new Set(["clockSkew", "meterProvider"]);
-
-/**
- * The test's instances, one entry each (#831): `instances` as a count of plain ones (a whole number
- * ≥ 1, default 1) or as given — a non-empty list of objects with no key but `clockSkew` and
- * `meterProvider`; anything else is a `TestSetupError`.
- */
-export function testInstancesOf(options: TestWithOptions): readonly TestInstanceOptions[] {
-  for (const removed of ["clockSkews", "meterProviders"])
-    if (Reflect.get(options, removed) !== undefined)
-      throw new TestSetupError(
-        `${removed}: no such option (#831) — each instance's own settings are its entry: instances: [{ clockSkew, meterProvider }, …]`,
-      );
-  const instances: unknown = options.instances ?? 1;
-  if (typeof instances === "number") {
-    if (!Number.isInteger(instances) || instances < 1)
-      throw new TestSetupError(`instances: ${String(instances)} — a whole number ≥ 1`);
-    return Array.from({ length: instances }, () => ({}));
-  }
-  if (!Array.isArray(instances) || instances.length === 0)
-    throw new TestSetupError(
-      "instances: a whole number ≥ 1, or a non-empty list of { clockSkew?, meterProvider? }",
-    );
-  return instances.map((instance: unknown, at) => {
-    if (typeof instance !== "object" || instance === null)
-      throw new TestSetupError(`instances[${String(at)}]: not an object`);
-    const unknown = Object.keys(instance).filter((key) => !INSTANCE_OPTION_KEYS.has(key));
-    if (unknown.length > 0)
-      throw new TestSetupError(
-        `instances[${String(at)}]: ${unknown.join(", ")} — an instance takes clockSkew and meterProvider only`,
-      );
-    const { clockSkew } = instance as TestInstanceOptions;
-    if (clockSkew !== undefined && !(clockSkew instanceof ClockSkew))
-      throw new TestSetupError(
-        `instances[${String(at)}].clockSkew: not a ClockSkew (ClockSkew.ahead(…), .behind(…), .drifting(…))`,
-      );
-    return instance as TestInstanceOptions;
-  });
 }
 
 /**

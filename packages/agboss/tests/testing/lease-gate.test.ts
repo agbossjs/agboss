@@ -6,7 +6,12 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { TestSetupError } from "../../src/testing/errors.js";
-import { LeaseGate, rememberLeaseGate, testLeasesOf } from "../../src/testing/leases.js";
+import {
+  LeaseGate,
+  rememberLeaseGate,
+  testLeasesOf,
+  type TestLeases,
+} from "../../src/testing/leases.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 
 const settled = async (): Promise<void> => {
@@ -105,10 +110,12 @@ describe("#471: the leases fixture", () => {
 
   it("#831: freeze and thaw take a test app — any other object does not compile", () => {
     const { leases } = testLeasesOf();
-    expectTypeOf(leases.freeze).parameter(0).toEqualTypeOf<TestApp>();
-    expectTypeOf(leases.thaw).parameter(0).toEqualTypeOf<TestApp>();
-    // @ts-expect-error -- a store, a clock or `{}` is no app of the test
-    expect(() => leases.freeze({})).toThrow(TestSetupError);
+    expectTypeOf<Parameters<TestLeases["freeze"]>>().toEqualTypeOf<[app: TestApp]>();
+    expectTypeOf<Parameters<TestLeases["thaw"]>>().toEqualTypeOf<[app: TestApp]>();
+    expect(() => {
+      // @ts-expect-error -- a store, a clock or `{}` is no app of the test
+      leases.freeze({});
+    }).toThrow(TestSetupError);
     expect(Object.keys(leases).sort()).toEqual(["freeze", "thaw"]);
   });
 

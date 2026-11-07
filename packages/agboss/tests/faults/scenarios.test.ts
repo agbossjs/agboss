@@ -16,7 +16,7 @@ const DIR = new URL("./", import.meta.url);
 const BASE: FaultSuiteOptions = { name: "x", storesModule: "", database: { url: "" } };
 
 /** A value a JavaScript caller could pass, typed as the option it is not. */
-const untyped = <T>(value: unknown): T => value as T;
+const untypedFlag = (value: unknown): boolean => value as boolean;
 const ALL = [...FAULT_SCENARIOS, ...FAULT_SABOTAGE_SCENARIOS].map((scenario) => scenario.id);
 
 /** The ids of the cases a plan runs. */
@@ -173,7 +173,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
     expect(skipped.map((one) => one.scenario.id)).toEqual(SABOTAGES.map((one) => one.id));
     expect(skipped[0]?.skipped).toMatch(/^sabotages: false — /u);
     expect(plan.summary).toMatch(/0 of 2 sabotages \(sabotages: false\)$/u);
-    expect(() => faultSuitePlanOf({ ...BASE, sabotages: untyped<boolean>("no") }, {})).toThrow(
+    expect(() => faultSuitePlanOf({ ...BASE, sabotages: untypedFlag("no") }, {})).toThrow(
       /sabotages is no — true or false/u,
     );
   });

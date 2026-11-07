@@ -150,7 +150,10 @@ function recorded(
 ): void {
   const { process, instanceId } = state;
   const full = { ...event, process, instanceId, at: monotonicNow() };
-  for (const recorder of [...state.recorders]) heardApart(() => recorder.record(full));
+  for (const recorder of [...state.recorders])
+    heardApart(() => {
+      recorder.record(full);
+    });
 }
 
 /**

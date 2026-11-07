@@ -5,7 +5,7 @@
  */
 import type { MeterProvider } from "@opentelemetry/api";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { testInstancesOf } from "../../src/testing/environment.js";
+import { testInstancesOf } from "../../src/testing/instances.js";
 import {
   callTool,
   ClockSkew,

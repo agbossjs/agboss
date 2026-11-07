@@ -50,7 +50,9 @@ describe("#831 AC2: runConformanceSabotage", () => {
         root: ROOT,
         fixtures: ["tests/fixtures/sabotage-run/partly-loading.contract-fixture.ts"],
       }),
-    ).rejects.toThrow(/partly-loading\.contract-fixture\.ts did not load: the second suite was refused/u);
+    ).rejects.toThrow(
+      /partly-loading\.contract-fixture\.ts did not load: the second suite was refused/u,
+    );
     await expect(
       runConformanceSabotage({
         root: ROOT,

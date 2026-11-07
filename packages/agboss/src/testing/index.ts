@@ -14,7 +14,8 @@ import "../polyfills/symbol-metadata.js";
 import "./vitest-types.js";
 
 export { testWith, type WorkflowFixtures } from "./test-with.js";
-export type { TestInstanceOptions, TestWithOptions } from "./environment.js";
+export type { TestWithOptions } from "./environment.js";
+export type { TestInstanceOptions } from "./instances.js";
 export type { TestApp } from "./test-app.js";
 export type { A2AServerFixture, A2ATestServer } from "./a2a-server.js";
 export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.js";

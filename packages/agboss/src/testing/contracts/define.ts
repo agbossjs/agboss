@@ -44,9 +44,13 @@ export interface CapabilityCheck<TStore> {
   readonly without: string;
 }
 
+/** Each capability as a message names it (`StoreCapability.WatchQueued`). */
+const CAPABILITY_NAMES: Readonly<Record<StoreCapability, string>> = {
+  [StoreCapability.WatchQueued]: "StoreCapability.WatchQueued",
+};
+
 /** `StoreCapability.WatchQueued`, as a message names it. */
-const capabilityName = (capability: StoreCapability): string =>
-  `StoreCapability.${Object.entries(StoreCapability).find(([, value]) => value === capability)?.[0] ?? capability}`;
+const capabilityName = (capability: StoreCapability): string => CAPABILITY_NAMES[capability];
 
 /**
  * The body of a case of an optional capability (#831): what the target declares decides. Not
@@ -107,7 +111,7 @@ function checkCapabilities<TStore>(
       seen.add(each);
       if (!isStoreCapability(each))
         problems.push(
-          `[store-conformance.invalid-capabilities] ${contract} (${target.name}): ${JSON.stringify(each) ?? String(each)} is not a StoreCapability`,
+          `[store-conformance.invalid-capabilities] ${contract} (${target.name}): ${typeof each === "string" ? JSON.stringify(each) : typeof each} is not a StoreCapability`,
         );
       else if (!known.has(each))
         problems.push(
