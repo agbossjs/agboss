@@ -21,55 +21,12 @@ export function checkpointSaverContract(target: ContractTarget<BaseCheckpointSav
 export function childExecutionQueueContract(target: ContractTarget<ChildExecutionQueueRepository>): void;
 
 // @public
-export type ConformanceStore<TStore> = ((seam: StoreSeam) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;
-
-// @public
-export interface ConformanceStores<TTransaction = unknown> {
-    readonly a2aTask?: ConformanceStore<A2ATaskRepository>;
-    // (undocumented)
-    readonly checkpointSaver?: ConformanceStore<BaseCheckpointSaver>;
-    // (undocumented)
-    readonly childExecutionQueue?: ConformanceStore<ChildExecutionQueueRepository>;
-    // Warning: (ae-forgotten-export) The symbol "CostLedgerRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly costLedger?: ConformanceStore<CostLedgerRepository>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly executionHistory?: ConformanceStore<ExecutionHistoryRepository>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly executionLease?: ConformanceStore<ExecutionLeaseRepository>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseEventRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly executionLeaseEvent?: ConformanceStore<ExecutionLeaseEventRepository>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionRecordRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly executionRecord?: ConformanceStore<ExecutionRecordRepository>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionTreeRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly executionTree?: ConformanceStore<ExecutionTreeRepository>;
-    // (undocumented)
-    readonly fencedEffect?: ConformanceStore<FencedEffectStores<TTransaction>>;
-    // Warning: (ae-forgotten-export) The symbol "MeshRequestRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly meshRequest?: ConformanceStore<MeshRequestRepository>;
-    // (undocumented)
-    readonly outboundCall?: ConformanceStore<OutboundCallStores>;
-    // Warning: (ae-forgotten-export) The symbol "PausedExecutionRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly pausedExecution?: ConformanceStore<PausedExecutionRepository>;
-    // Warning: (ae-forgotten-export) The symbol "RateLimitRepository" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly rateLimit?: ConformanceStore<RateLimitRepository>;
+export interface ConformanceSabotageOptions {
+    readonly fixtures: readonly string[];
+    readonly hookTimeout?: number;
+    readonly maxWorkers?: number;
+    readonly root: string | URL;
+    readonly testTimeout?: number;
 }
 
 // @public
@@ -77,7 +34,6 @@ export type ContractCaseBody<TStore> = (instances: ContractInstances<TStore>) =>
 
 // @public
 export interface ContractInstances<TStore> {
-    // Warning: (ae-forgotten-export) The symbol "VirtualClock" needs to be exported by the entry point index.d.ts
     readonly clock: VirtualClock;
     readonly first: TStore;
     readonly second: TStore;
@@ -85,12 +41,15 @@ export interface ContractInstances<TStore> {
 
 // @public
 export interface ContractTarget<TStore> {
+    readonly capabilities?: readonly StoreCapability[];
     close?(store: TStore): void | Promise<void>;
-    instance(seam: StoreSeam): TStore | Promise<TStore>;
+    instance(context: StoreInstanceContext): TStore | Promise<TStore>;
     readonly name: string;
     reset?(): void | Promise<void>;
 }
 
+// Warning: (ae-forgotten-export) The symbol "CostLedgerRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void;
 
@@ -100,18 +59,28 @@ export function costLedgerContract(target: ContractTarget<CostLedgerRepository>)
 // @public
 export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function executionHistoryContract(target: ContractTarget<ExecutionHistoryRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionLeaseRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionLeaseEventRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function executionLeaseEventContract(target: ContractTarget<ExecutionLeaseEventRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionRecordRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function executionRecordContract(target: ContractTarget<ExecutionRecordRepository>): void;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionTreeRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function executionTreeContract(target: ContractTarget<ExecutionTreeRepository>): void;
 
@@ -122,10 +91,10 @@ export interface FencedEffectBusinessRows<TTransaction> {
 }
 
 // @public
-export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectStores<TTransaction>>, options?: FencingContractOptions): void;
+export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectTarget<TTransaction>>, options?: FencingContractOptions): void;
 
 // @public
-export interface FencedEffectStores<TTransaction> {
+export interface FencedEffectTarget<TTransaction> {
     // Warning: (ae-forgotten-export) The symbol "FencedEffectRepository" needs to be exported by the entry point index.d.ts
     readonly effects: FencedEffectRepository<TTransaction>;
     readonly leases: ExecutionLeaseRepository;
@@ -141,7 +110,8 @@ export interface FencingContractOptions {
 export interface InterleavingOptions {
     readonly depth?: number;
     readonly seed?: number;
-    readonly timeLimit?: number;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly timeLimit?: Milliseconds;
     readonly walkDepth?: number;
     readonly walks?: number;
 }
@@ -149,19 +119,23 @@ export interface InterleavingOptions {
 // @public
 export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
 
+// Warning: (ae-forgotten-export) The symbol "MeshRequestRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function meshRequestContract(target: ContractTarget<MeshRequestRepository>): void;
 
 // @public
-export function outboundCallContract(target: ContractTarget<OutboundCallStores>, options?: FencingContractOptions): void;
+export function outboundCallContract(target: ContractTarget<OutboundCallTarget>, options?: FencingContractOptions): void;
 
 // @public
-export interface OutboundCallStores {
+export interface OutboundCallTarget {
     // Warning: (ae-forgotten-export) The symbol "OutboundCallRepository" needs to be exported by the entry point index.d.ts
     readonly calls: OutboundCallRepository;
     readonly leases: ExecutionLeaseRepository;
 }
 
+// Warning: (ae-forgotten-export) The symbol "PausedExecutionRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function pausedExecutionContract(target: ContractTarget<PausedExecutionRepository>): void;
 
@@ -191,8 +165,38 @@ export interface RagContractDocument {
     readonly text: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "RateLimitRepository" needs to be exported by the entry point index.d.ts
+//
 // @public
 export function rateLimitContract(target: ContractTarget<RateLimitRepository>): void;
+
+// @public
+export function runConformanceSabotage(options: ConformanceSabotageOptions): Promise<SabotageRun>;
+
+// @public
+export interface SabotageCase {
+    readonly errors: readonly string[];
+    readonly file: string;
+    // (undocumented)
+    readonly name: string;
+    readonly note?: string | undefined;
+    // (undocumented)
+    readonly state: "pass" | "fail" | "skip" | "todo" | "run" | "queued" | "only" | undefined;
+    readonly suites: readonly string[];
+}
+
+// @public
+export interface SabotageRun {
+    // (undocumented)
+    readonly cases: readonly SabotageCase[];
+    failedIn(suite: string): readonly SabotageCase[];
+    readonly isFailed: boolean;
+}
+
+// @public
+export enum StoreCapability {
+    WatchQueued = "watchQueued"
+}
 
 // @public
 export function storeConformance<TTransaction>(options: StoreConformanceOptions<TTransaction>): void;
@@ -215,12 +219,15 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
-    readonly stores: ConformanceStores<TTransaction>;
+    readonly stores: StoreSet<TTransaction>;
     readonly without?: readonly LeftOutContract[];
 }
 
 // @public
-export interface StoreSeam {
+export type StoreEntry<TStore> = ((context: StoreInstanceContext) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;
+
+// @public
+export interface StoreInstanceContext {
     // Warning: (ae-forgotten-export) The symbol "ApplicationContext" needs to be exported by the entry point index.d.ts
     readonly application: ApplicationContext;
     // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
@@ -230,27 +237,88 @@ export interface StoreSeam {
     readonly storeClock: StoreClock;
 }
 
+// @public
+export interface StoreSet<TTransaction = unknown> {
+    readonly a2aTask?: StoreEntry<A2ATaskRepository>;
+    // (undocumented)
+    readonly checkpointSaver?: StoreEntry<BaseCheckpointSaver>;
+    // (undocumented)
+    readonly childExecutionQueue?: StoreEntry<ChildExecutionQueueRepository>;
+    // (undocumented)
+    readonly costLedger?: StoreEntry<CostLedgerRepository>;
+    // (undocumented)
+    readonly executionHistory?: StoreEntry<ExecutionHistoryRepository>;
+    // (undocumented)
+    readonly executionLease?: StoreEntry<ExecutionLeaseRepository>;
+    // (undocumented)
+    readonly executionLeaseEvent?: StoreEntry<ExecutionLeaseEventRepository>;
+    // (undocumented)
+    readonly executionRecord?: StoreEntry<ExecutionRecordRepository>;
+    // (undocumented)
+    readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
+    // (undocumented)
+    readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
+    // (undocumented)
+    readonly meshRequest?: StoreEntry<MeshRequestRepository>;
+    // (undocumented)
+    readonly outboundCall?: StoreEntry<OutboundCallTarget>;
+    // (undocumented)
+    readonly pausedExecution?: StoreEntry<PausedExecutionRepository>;
+    // (undocumented)
+    readonly rateLimit?: StoreEntry<RateLimitRepository>;
+}
+
+// @public
+export class TestStoreClock extends StoreClock {
+    constructor(clock: Pick<Clock, "now">);
+    // (undocumented)
+    readonly isDatabaseTime: boolean;
+    // (undocumented)
+    now(): Date;
+}
+
+// @public
+export class VirtualClock extends Clock {
+    constructor(start?: Date, options?: VirtualClockOptions);
+    // Warning: (ae-forgotten-export) The symbol "ClockDuration" needs to be exported by the entry point index.d.ts
+    advance(duration: ClockDuration | Milliseconds): Promise<void>;
+    monotonicNow(): number;
+    now(): Date;
+    sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+    track<T>(work: Promise<T>): Promise<T>;
+}
+
+// @public
+export interface VirtualClockOptions {
+    readonly settleTimeout?: Milliseconds;
+}
+
 // Warnings were encountered during analysis:
 //
 // src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
 // src/testing/contracts/rag-connector-data.ts:46:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
+// src/testing/contracts/sabotage-run.ts:22:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/contracts/sabotage-run.ts:23:3 - (ae-undocumented) Missing documentation for "state".
+// src/testing/contracts/sabotage-run.ts:32:3 - (ae-undocumented) Missing documentation for "cases".
 // src/testing/contracts/store-conformance-check.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:43:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:44:3 - (ae-undocumented) Missing documentation for "problems".
-// src/testing/contracts/store-conformance.ts:51:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
-// src/testing/contracts/store-conformance.ts:52:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
-// src/testing/contracts/store-conformance.ts:53:3 - (ae-undocumented) Missing documentation for "costLedger".
-// src/testing/contracts/store-conformance.ts:54:3 - (ae-undocumented) Missing documentation for "executionHistory".
-// src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "executionLease".
-// src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "executionLeaseEvent".
-// src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "executionRecord".
-// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "executionTree".
-// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "fencedEffect".
-// src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "meshRequest".
-// src/testing/contracts/store-conformance.ts:63:3 - (ae-undocumented) Missing documentation for "outboundCall".
-// src/testing/contracts/store-conformance.ts:64:3 - (ae-undocumented) Missing documentation for "pausedExecution".
-// src/testing/contracts/store-conformance.ts:65:3 - (ae-undocumented) Missing documentation for "rateLimit".
-// src/testing/contracts/store-conformance.ts:74:3 - (ae-undocumented) Missing documentation for "stores".
+// src/testing/contracts/store-conformance.ts:52:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
+// src/testing/contracts/store-conformance.ts:53:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
+// src/testing/contracts/store-conformance.ts:54:3 - (ae-undocumented) Missing documentation for "costLedger".
+// src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "executionHistory".
+// src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "executionLease".
+// src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "executionLeaseEvent".
+// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "executionRecord".
+// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "executionTree".
+// src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "fencedEffect".
+// src/testing/contracts/store-conformance.ts:61:3 - (ae-undocumented) Missing documentation for "meshRequest".
+// src/testing/contracts/store-conformance.ts:64:3 - (ae-undocumented) Missing documentation for "outboundCall".
+// src/testing/contracts/store-conformance.ts:65:3 - (ae-undocumented) Missing documentation for "pausedExecution".
+// src/testing/contracts/store-conformance.ts:66:3 - (ae-undocumented) Missing documentation for "rateLimit".
+// src/testing/contracts/store-conformance.ts:75:3 - (ae-undocumented) Missing documentation for "stores".
+// src/testing/store-clock.ts:8:3 - (ae-undocumented) Missing documentation for "isDatabaseTime".
+// src/testing/store-clock.ts:14:3 - (ae-undocumented) Missing documentation for "now".
 
 // (No @packageDocumentation comment for this package)
 

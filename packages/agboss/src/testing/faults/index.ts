@@ -25,11 +25,7 @@ export {
   type HeldOperation,
   type HoldRequest,
 } from "./hold-points.js";
-export {
-  reportHeldOperations,
-  withHoldPoints,
-  type HeldOperationsReport,
-} from "./held-stores.js";
+export { reportHeldOperations, withHoldPoints, type HeldOperationsReport } from "./held-stores.js";
 export { StoreHoldPoint } from "./store-points.js";
 export { OperationPhase, type OperationEvent } from "./operation-history.js";
 export { faultSuite, type FaultShard, type FaultSuiteOptions } from "./fault-suite.js";

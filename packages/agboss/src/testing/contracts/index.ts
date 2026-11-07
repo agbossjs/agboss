@@ -15,7 +15,12 @@
  * contract's rules as cases, every case on two instances over one backing store and the suite's
  * `VirtualClock`. Not re-exported by `@agboss/core/testing`: it imports vitest's `describe` / `it`.
  */
-export type { ContractCaseBody, ContractInstances, ContractTarget, StoreInstanceContext } from "./instance-context.js";
+export type {
+  ContractCaseBody,
+  ContractInstances,
+  ContractTarget,
+  StoreInstanceContext,
+} from "./instance-context.js";
 export { checkpointSaverContract } from "./checkpoint-saver.contract.js";
 export { childExecutionQueueContract } from "./child-execution-queue.contract.js";
 export { costLedgerContract } from "./cost-ledger.contract.js";

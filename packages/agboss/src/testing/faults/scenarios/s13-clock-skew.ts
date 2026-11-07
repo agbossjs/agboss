@@ -43,7 +43,11 @@ export const s13ClockAhead: RunnableFaultScenario = {
     await release(a, held);
     await endedOn(cluster, order.rootExecutionId, a);
     const takeovers = eventsOf(cluster, "takeover", b);
-    expectThat(cluster, takeovers.length === 0, `b, ahead, took ${String(takeovers.length)} leases`);
+    expectThat(
+      cluster,
+      takeovers.length === 0,
+      `b, ahead, took ${String(takeovers.length)} leases`,
+    );
     const charges = eventsOf(cluster, "charged");
     expectThat(cluster, charges.length === 1, `${String(charges.length)} charges, not one`);
     return a;

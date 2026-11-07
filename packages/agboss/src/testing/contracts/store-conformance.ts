@@ -45,7 +45,8 @@ import type { StoreCapability } from "./store-capability.js";
 
 /** One store of the set: how one instance builds it, and optionally its own reset and close. */
 export type StoreEntry<TStore> =
-  ((context: StoreInstanceContext) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;
+  | ((context: StoreInstanceContext) => TStore | Promise<TStore>)
+  | Omit<ContractTarget<TStore>, "name">;
 
 /** The stores a set claims, by contract: give each one the set has. */
 export interface StoreSet<TTransaction = unknown> {

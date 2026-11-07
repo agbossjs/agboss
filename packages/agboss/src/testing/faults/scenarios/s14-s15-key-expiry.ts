@@ -84,7 +84,11 @@ async function keyExpired(cluster: FaultCluster, payment: FaultPayment): Promise
     (event) =>
       `${event.pod}:${String(event.attempt)}:${typeof event.keyAge}:${typeof event.attemptStartedAt}`,
   );
-  expectThat(cluster, told.join() === "b:1:number:string", `reconcile was told: ${told.join(", ")}`);
+  expectThat(
+    cluster,
+    told.join() === "b:1:number:string",
+    `reconcile was told: ${told.join(", ")}`,
+  );
   const failed = eventsOf(cluster, "pay-failed").map(
     (event) => `${event.pod}:${String(event.error)}`,
   );

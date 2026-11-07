@@ -37,7 +37,9 @@ async function storesOf(path: string): Promise<FaultStoreSet> {
   const module = (await lazyLoad(import(url))) as Readonly<Record<string, unknown>>;
   const stores = module[FAULT_STORES_EXPORT];
   if (typeof stores !== "object" || stores === null)
-    throw new Error(`${path} exports no ${FAULT_STORES_EXPORT} (export const faultStores: FaultStoreSet = { … })`);
+    throw new Error(
+      `${path} exports no ${FAULT_STORES_EXPORT} (export const faultStores: FaultStoreSet = { … })`,
+    );
   return stores as FaultStoreSet;
 }
 

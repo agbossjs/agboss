@@ -34,7 +34,11 @@ export const s09CrashAfterSend: RunnableFaultScenario = {
     await takenOverBy(cluster, b, order.rootExecutionId);
     await endedOn(cluster, order.rootExecutionId, b);
     const paid = eventsOf(cluster, "paid").map((event) => `${event.pod}:${String(event.status)}`);
-    expectThat(cluster, paid.join() === "b:reconciled", `the payment's outcomes: ${paid.join(", ")}`);
+    expectThat(
+      cluster,
+      paid.join() === "b:reconciled",
+      `the payment's outcomes: ${paid.join(", ")}`,
+    );
     return b;
   },
 };

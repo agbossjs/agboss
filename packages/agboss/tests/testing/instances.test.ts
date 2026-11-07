@@ -58,16 +58,16 @@ describe("#831 AC3: instances: [{ clockSkew, meterProvider }] — one entry per 
     instances: [{}, { clockSkew: ClockSkew.ahead(seconds(300)) }],
   });
 
-  skewed("each instance gets its own entry's settings; a list's length is the count", async ({
-    apps,
-    clock,
-  }) => {
-    expect(apps).toHaveLength(2);
-    const [first, second] = apps;
-    await Promise.all(apps.map((one) => one.ready()));
-    expect(first?.resolve(Clock).now().getTime()).toBe(clock.now().getTime());
-    expect(second?.resolve(Clock).now().getTime()).toBe(clock.now().getTime() + 300_000);
-  });
+  skewed(
+    "each instance gets its own entry's settings; a list's length is the count",
+    async ({ apps, clock }) => {
+      expect(apps).toHaveLength(2);
+      const [first, second] = apps;
+      await Promise.all(apps.map((one) => one.ready()));
+      expect(first?.resolve(Clock).now().getTime()).toBe(clock.now().getTime());
+      expect(second?.resolve(Clock).now().getTime()).toBe(clock.now().getTime() + 300_000);
+    },
+  );
 
   it("an empty list, a non-object, an unknown key or a clockSkew that is no ClockSkew is refused", () => {
     const refused = [

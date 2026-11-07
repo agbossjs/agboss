@@ -28,7 +28,12 @@ import {
 type ZombieWrite = StoreHoldPoint.FencedEffectWrite | StoreHoldPoint.OutboundSaveIfAbsent;
 
 /** How pod `pod`'s fenced write `point` of `key` ended, from the history. */
-function writeOutcome(cluster: FaultCluster, pod: FaultPod, key: string, point: ZombieWrite): string {
+function writeOutcome(
+  cluster: FaultCluster,
+  pod: FaultPod,
+  key: string,
+  point: ZombieWrite,
+): string {
   const write = cluster.history.events.find(
     (event) =>
       event.phase === OperationPhase.Complete &&

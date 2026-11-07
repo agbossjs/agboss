@@ -50,10 +50,7 @@ const setOf = (keys: readonly string[]): StoreSet =>
   Object.fromEntries(keys.map((key) => [key, unbuilt]));
 
 /** What `storeConformance` threw for the set: its problems' codes, in order. */
-function refusalOf(
-  stores: StoreSet,
-  without?: readonly LeftOutContract[],
-): StoreConformanceError {
+function refusalOf(stores: StoreSet, without?: readonly LeftOutContract[]): StoreConformanceError {
   try {
     storeConformance({ name: "PostgreSQL", stores, ...(without === undefined ? {} : { without }) });
   } catch (error) {
@@ -354,9 +351,17 @@ describe("#831 AC5: a target's capabilities are StoreCapability values its contr
 
   it.each([
     [queue, ["watchQueue"], /"watchQueue" is not a StoreCapability/u],
-    [queue, [StoreCapability.WatchQueued, StoreCapability.WatchQueued], /watchQueued declared twice/u],
+    [
+      queue,
+      [StoreCapability.WatchQueued, StoreCapability.WatchQueued],
+      /watchQueued declared twice/u,
+    ],
     [queue, StoreCapability.WatchQueued, /capabilities is not a list/u],
-    [leases, [StoreCapability.WatchQueued], /StoreCapability\.WatchQueued is not a capability of this contract \(it has none\)/u],
+    [
+      leases,
+      [StoreCapability.WatchQueued],
+      /StoreCapability\.WatchQueued is not a capability of this contract \(it has none\)/u,
+    ],
   ] as const)("refused before any case: %#", (register, capabilities, problem) => {
     const problems = capabilityRefusalOf(register, capabilities);
 

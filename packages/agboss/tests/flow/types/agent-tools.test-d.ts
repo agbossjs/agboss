@@ -49,8 +49,12 @@ describe("#679 AC1: an agent's tool calls are typed by the tools it lists", () =
 
 describe("#831: an invalid or truncated call is typed like callTool (#679)", () => {
   it("of a tool the agent lists: one of its turns", () => {
-    expectTypeOf(callToolWithInvalidArguments(RefundCardTool, { orderId: 7 })).toExtend<ClerkTurn>();
-    expectTypeOf(callToolWithTruncatedArguments(RefundCardTool, { orderId: "A-1" })).toExtend<ClerkTurn>();
+    expectTypeOf(
+      callToolWithInvalidArguments(RefundCardTool, { orderId: 7 }),
+    ).toExtend<ClerkTurn>();
+    expectTypeOf(
+      callToolWithTruncatedArguments(RefundCardTool, { orderId: "A-1" }),
+    ).toExtend<ClerkTurn>();
     expectTypeOf(
       callToolWithInvalidArguments(RefundCardTool, {}).tool,
     ).toEqualTypeOf<"refund-card-tool">();

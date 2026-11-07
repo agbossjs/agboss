@@ -68,9 +68,7 @@ const capabilityBody =
         present,
         `[store-conformance.capability-not-declared] the store has ${check.capability} but does not declare it: give its entry capabilities: [${name}]`,
       ).toEqual([false, false]);
-      context.skip(
-        `the store does not declare ${name} (optional): ${check.without}`,
-      );
+      context.skip(`the store does not declare ${name} (optional): ${check.without}`);
     }
     expect(
       present,

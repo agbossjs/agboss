@@ -18,7 +18,8 @@ describe("#831 AC2: runConformanceSabotage", () => {
       fixtures: ["tests/fixtures/contracts/queue-watch-insert-only.contract-fixture.ts"],
       testTimeout: 5000,
     });
-    const suite = "child execution queue contract (a queue whose watch misses a child queued again)";
+    const suite =
+      "child execution queue contract (a queue whose watch misses a child queued again)";
 
     expect(run.isFailed).toBe(true);
     expect(run.failedIn(suite).map((found) => found.name)).toEqual([WATCH]);
@@ -36,7 +37,9 @@ describe("#831 AC2: runConformanceSabotage", () => {
         root: ROOT,
         fixtures: ["tests/fixtures/sabotage-run/not-loading.contract-fixture.ts"],
       }),
-    ).rejects.toThrow(/not-loading\.contract-fixture\.ts did not load: this fixture does not load/u);
+    ).rejects.toThrow(
+      /not-loading\.contract-fixture\.ts did not load: this fixture does not load/u,
+    );
   }, 120_000);
 
   it("a path that names no fixture, or none at all, rejects", async () => {

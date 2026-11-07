@@ -211,7 +211,7 @@ root, fixtures })`, which runs a sabotage fixture in a vitest of its own and ret
     is asked, where it recorded against real models.
 
   **Migration:** rename as above; in a store package's fault suite pass `storesModule`, `shard:
-  "env"`, and drop your own shard helpers and sabotage test; give a child queue with `watchQueued`
+"env"`, and drop your own shard helpers and sabotage test; give a child queue with `watchQueued`
   `capabilities: [StoreCapability.WatchQueued]`; replace `heldStoreSeam` writes with
   `reportHeldOperations`.
 

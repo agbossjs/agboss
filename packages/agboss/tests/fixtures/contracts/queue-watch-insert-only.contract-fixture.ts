@@ -1,5 +1,8 @@
 // #777: the child execution queue contract against a queue whose watch misses a child queued again.
-import { childExecutionQueueContract, StoreCapability } from "../../../src/testing/contracts/index.js";
+import {
+  childExecutionQueueContract,
+  StoreCapability,
+} from "../../../src/testing/contracts/index.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { InsertOnlyNotifyingQueueRepository } from "./broken-stores.js";
 

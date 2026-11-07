@@ -12,7 +12,10 @@ import {
   isTimed,
   LEASE_AUTHORITY_CASES,
 } from "../../../src/testing/contracts/execution-lease-authority.cases.js";
-import { withTarget, type StoreInstanceContext } from "../../../src/testing/contracts/instance-context.js";
+import {
+  withTarget,
+  type StoreInstanceContext,
+} from "../../../src/testing/contracts/instance-context.js";
 import {
   LeaseTable,
   MapExecutionLeaseRepository,

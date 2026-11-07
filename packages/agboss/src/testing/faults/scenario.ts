@@ -56,7 +56,10 @@ const anyLivePod = (cluster: FaultCluster): FaultPod | undefined =>
  * The scenario run and its facts checked: the invariants first — also when the scenario stopped
  * early, on what a live pod reads then —, then the scenario's own expectations.
  */
-async function checkedRun(scenario: RunnableFaultScenario, cluster: FaultCluster): Promise<FaultRun> {
+async function checkedRun(
+  scenario: RunnableFaultScenario,
+  cluster: FaultCluster,
+): Promise<FaultRun> {
   let reader: FaultPod | undefined;
   let stopped: Error | undefined;
   try {
