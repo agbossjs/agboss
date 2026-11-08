@@ -305,15 +305,15 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { instances:
 [{ meterProvider }, …] })` gives each instance its own, read with an in-memory `MetricReader`.
 
-| Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |
+| Metric                                                                                  | Kind                                                        | Labels                | Aggregate                                |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------- | ---------------------------------------- |
 | `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
-| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                       | —                     | `sum`                                    |
-| `agboss.instance.leases.held`                                                           | gauge                                                        | —                     | `sum`                                    |
-| `agboss.instance.lease.takeovers`                                                       | counter                                                      | `reason`              | `sum`                                    |
-| `agboss.instance.steps.handed_over`                                                     | counter                                                      | `reason`              | `sum`                                    |
-| `agboss.instance.executions.ended`                                                      | counter                                                      | `workflow`, `outcome` | `sum`                                    |
-| `agboss.instance.compensations`                                                         | counter                                                      | `workflow`, `status`  | `sum`                                    |
+| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                      | —                     | `sum`                                    |
+| `agboss.instance.leases.held`                                                           | gauge                                                       | —                     | `sum`                                    |
+| `agboss.instance.lease.takeovers`                                                       | counter                                                     | `reason`              | `sum`                                    |
+| `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`              | `sum`                                    |
+| `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome` | `sum`                                    |
+| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `status`  | `sum`                                    |
 
 Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
 the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +
@@ -609,21 +609,21 @@ export class LeaseAuditService {
 ```ts file=src/claims/repositories/audited-lease.repository.ts
 import {
   ApplicationContext,
-  Clock,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
+  StoreClock,
   type ExecutionLease,
 } from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 import { LeaseAuditService } from "../services/lease-audit.service.js";
 
 /** The SQLite leases, each one taken written to the audit log as well. */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, LeaseAuditService] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext, LeaseAuditService] })
 export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   constructor(
     connection: SqliteConnection,
-    clock: Clock,
+    clock: StoreClock,
     applicationContext: ApplicationContext,
     private readonly leaseAuditService: LeaseAuditService,
   ) {
@@ -633,9 +633,9 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
   override async acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
-    const taken = await super.acquire(tenantId, rootExecutionId, lease);
+    const taken = await super.acquire(tenantId, rootExecutionId, duration);
     if (taken !== undefined) this.leaseAuditService.taken(taken);
     return taken;
   }
@@ -643,7 +643,8 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
 ```
 
 An implementation over another store keeps every operation atomic, takes every time value from the
-framework (durations as parameters, now from `Clock`), never from the store's clock, and implements
+framework (durations as parameters; a lease or fenced store reads now from its `StoreClock` — the
+database's time when its `source` is `Database` — never from the instance's `Clock`), and implements
 `ping()` — one fast round trip that readiness calls. It gives back every text and JSON value it is
 handed unchanged — a model's or a tool's answer may hold a NUL character (U+0000), which
 PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as

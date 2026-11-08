@@ -58,7 +58,8 @@ costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each 
     A networked store reads its database's time exactly when `source` is `Database`.
   - **The fencing token is `token` everywhere** — `ExecutionLease.leaseEpoch` and
     `PreviousLeaseHolder.leaseEpoch` are `token`, as on `ExecutionFence`, `EffectKey` and every event.
-  - **`ExecutionLeaseRepository`**: `finish` → `retire`, `saveExecutionIdIfAbsent` →
+  - **`ExecutionLeaseRepository`**: `finish` → `retire`, its fault hold point `StoreHoldPoint.LeaseFinish` (`"lease.finish"`) →
+    `LeaseRetire` (`"lease.retire"`), `saveExecutionIdIfAbsent` →
     `claimExecutionId`, the duration parameter `lease` → `duration`, and `yield` answers as `renew`
     does — `Milliseconds | undefined`, the time the lease has left (not extended), `undefined` once
     it is not the caller's.
@@ -400,7 +401,7 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
 
 - **A lease is over at its expiry, for its holder too** (#534) — a lease is live while
   `expiresAt > now`, and only then: at `now >= expiresAt` `renew` (held or yielded) and `yield` are
-  `false`, `reclaim` is `undefined`, `fence.renewNow()` loses the lease and every fenced write and
+  `undefined`, `reclaim` is `undefined`, `fence.renewNow()` loses the lease and every fenced write and
   outbound-call write under it is `ExecutionFencedError` — whether another instance took it or not;
   the holder takes its tree again only by `acquire`, at a new epoch, a takeover from itself. The
   in-memory and SQLite stores renewed a lease past its expiry when nobody had taken it, PostgreSQL

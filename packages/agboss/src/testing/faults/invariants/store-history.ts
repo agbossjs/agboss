@@ -80,7 +80,7 @@ export function grantsOf(history: OperationHistory): readonly Grant[] {
     .sort((left, right) => (BigInt(left.at) < BigInt(right.at) ? -1 : 1));
 }
 
-/** When each lease key was first finished (`lease.finish` answered). */
+/** When each lease key was first retired (`lease.retire` answered). */
 export function finishesOf(history: OperationHistory): ReadonlyMap<string, string> {
   const finished = new Map<string, string>();
   for (const { invoke, complete } of completed(history)) {

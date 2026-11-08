@@ -48,7 +48,7 @@ export type Applied = FencingState | undefined;
 const leaseOutputOf = (output: unknown): unknown =>
   output === UNKNOWN ? UNKNOWN : leaseAnswerOf(output);
 
-/** A renewal's answer (the time left, or none) as the model compares it: whether it renewed. */
+/** A renewal's or a yield's answer (the time left, or none) as the model compares it: whether it held. */
 const renewedOutputOf = (output: unknown): unknown =>
   output === UNKNOWN ? UNKNOWN : output !== null;
 
@@ -93,7 +93,7 @@ const LEASE_STEPS: Readonly<
       held.token,
       now,
     );
-    return [step, operation.output, step.answer];
+    return [step, renewedOutputOf(operation.output), step.answer];
   },
   [StoreHoldPoint.LeaseReclaim]: (state, held, operation, now) => {
     const step = reclaimed(
@@ -120,13 +120,13 @@ function leaseApplied(state: FencingState, operation: CheckedOperation, now: num
   };
   const step = LEASE_STEPS[operation.kind];
   if (step === undefined) {
-    const isFinish = operation.kind === StoreHoldPoint.LeaseRetire;
+    const isRetire = operation.kind === StoreHoldPoint.LeaseRetire;
     return released(
       state,
       treeOf(held.tenantId, held.rootExecutionId),
       held.holderInstanceId,
       held.token,
-      isFinish,
+      isRetire,
     ).state;
   }
   const [taken, output, answer] = step(state, held, operation, now);

@@ -93,6 +93,24 @@ describe("#533 item 5: the linearizability checker", () => {
     expect(failures(history)).toEqual([]);
   });
 
+  it("#847: a yield answers the time left, or none once the lease is not the caller's", () => {
+    const held = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 5)
+      .op(StoreHoldPoint.LeaseYield, "a", lease("a", 1), 29_000, 1_000, 1_002);
+    const lost = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 5)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 30_010, 30_015)
+      .op(StoreHoldPoint.LeaseYield, "a", lease("a", 1), null, 30_020, 30_025);
+    const wrong = new Recorded()
+      .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 5)
+      .op(StoreHoldPoint.LeaseAcquire, "b", TREE, granted("b", 2), 30_010, 30_015)
+      .op(StoreHoldPoint.LeaseYield, "a", lease("a", 1), 1_000, 30_020, 30_025);
+
+    expect(failures(held)).toEqual([]);
+    expect(failures(lost)).toEqual([]);
+    expect(failures(wrong)).toHaveLength(1);
+  });
+
   it("two takes that overlap: the refused one may come first or last", () => {
     const history = new Recorded()
       .op(StoreHoldPoint.LeaseAcquire, "a", TREE, granted("a", 1), 0, 20)

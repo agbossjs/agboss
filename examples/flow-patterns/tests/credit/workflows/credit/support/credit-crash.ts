@@ -1,11 +1,11 @@
 import {
   ApplicationContext,
-  Clock,
   ExecutionContext,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
+  StoreClock,
   type ExecutionEndEvent,
   type ExecutionLease,
   type InputOf,
@@ -56,11 +56,15 @@ export function resetCrash(): void {
 }
 
 /** The leases on the shared file; a killed instance takes none and renews none. */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class MortalExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   readonly #instanceId: string;
 
-  constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext) {
+  constructor(
+    connection: SqliteConnection,
+    clock: StoreClock,
+    applicationContext: ApplicationContext,
+  ) {
     super(connection, clock, applicationContext);
     this.#instanceId = applicationContext.instanceId;
   }
@@ -81,8 +85,9 @@ export class MortalExecutionLeaseRepository extends SqliteExecutionLeaseReposito
     if (crash.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.renew(executionLease, lease);
   }
-  override yield(executionLease: ExecutionLease): Promise<boolean> {
-    if (crash.dead.has(this.#instanceId)) return Promise.resolve(false);
+
+  override yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    if (crash.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.yield(executionLease);
   }
 
