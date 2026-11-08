@@ -69,8 +69,9 @@ class TreeMover implements TreeMoves {
     });
     const leaving = this.#resuming.enter(state.runId);
     try {
-      // answered: the tree has work again — its record is `running` until it rests (#265 S30); only
-      // while it is still `paused`: a holder that took the decision meanwhile may have ended it (S66 h)
+      // answered: the tree has work again — its record is `running` until it rests (#265 S30); the
+      // answer's own mark made it so (#850): again here only for a recovery that rested it meanwhile,
+      // and only while it is still `paused`: a holder that took the decision may have ended it (S66 h)
       if (run !== undefined) {
         await deps.terns.completeIfStatus(
           run.ternId,

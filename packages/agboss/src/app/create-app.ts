@@ -119,7 +119,8 @@ export async function buildApp(
   // a pause inside a child (#263) is validated against the child's tool
   const questions = treeQuestionAnswersOf(deps);
   const tools = treeToolsOf(deps);
-  const answers = { pauses, paused, owned, tools, questions, current, policy, terns: deps.terns };
+  const marks = { terns: deps.terns, log: deps.log };
+  const answers = { pauses, paused, owned, tools, questions, current, policy, ...marks };
   const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
