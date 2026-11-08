@@ -7,7 +7,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
   type Produced,
   type ExecutionEndEvent,
   type OnExecutionEnd,
@@ -25,6 +24,7 @@ import {
 import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { start } from "../../helpers/flow.js";
 
 /**
  * #853 — a step whose pass is lost mid model call: one agent (its model scripted, the first call

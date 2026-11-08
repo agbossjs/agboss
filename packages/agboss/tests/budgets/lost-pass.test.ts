@@ -13,6 +13,7 @@ import type { TestApp } from "../../src/testing/test-app.js";
 import type { TestLeases } from "../../src/testing/leases.js";
 import { hours, seconds, usd } from "../../src/units/index.js";
 import { until } from "../helpers/until.js";
+import { execute } from "../helpers/flow.js";
 import { instance } from "../app/fixtures/fence-takeover.js";
 import {
   CheckDto,
@@ -79,7 +80,7 @@ async function loseLease(holder: TestApp, clock: VirtualClock, leases: TestLease
 /** Every instance started (its sweep running), then the execution on `app`, its model call under way. */
 async function startedOn(app: TestApp, apps: readonly TestApp[]): Promise<void> {
   for (const each of apps) await each.ready();
-  const call = app.execute(LostPassWorkflowStart, { text: "write it" });
+  const call = execute(app, LostPassWorkflowStart, { text: "write it" });
   call.catch(() => undefined);
   await until(() => lostPassSeen.modelCalls >= 1, "the model call under way");
 }
@@ -125,7 +126,7 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
     mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
     mockLlm(WriterAgent).thenReturn(replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }));
 
-    await app.execute(LostPassWorkflowStart, { text: "write it" });
+    await execute(app, LostPassWorkflowStart, { text: "write it" });
 
     expect(unknownOf(lostPassSeen.saved)).toEqual([]);
     expect(lostPassSeen.ends[0]?.unknownCalls).toBe(0);
@@ -142,7 +143,7 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
       mockLlm(WriterAgent).thenReturn(replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }));
       lostPassLevers.isHolding = true;
       for (const each of apps) await each.ready();
-      const call = a.execute(LostPassWorkflowStart, { text: "write it" });
+      const call = execute(a, LostPassWorkflowStart, { text: "write it" });
       call.catch(() => undefined);
       await until(() => lostPassSeen.holds === 1, "the hold after the agent");
 
@@ -172,7 +173,7 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
         replyWith(CheckDto, { verdict: "fine" }, { cost: usd(0.02) }),
       );
       for (const each of apps) await each.ready();
-      const call = a.execute(LostBranchWorkflowStart, { text: "write it" });
+      const call = execute(a, LostBranchWorkflowStart, { text: "write it" });
       call.catch(() => undefined);
       await until(() => lostPassSeen.modelCalls === 2, "both model calls under way");
       // the drafter's answer is written at the superstep's checkpoint before the lease is lost
