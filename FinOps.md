@@ -415,7 +415,8 @@ over and runs the step again records one ledger entry for each lost pass before 
   calls are billed and counted as usual: both passes are paid, the lost one shows as Unknown.
 - **No write on the happy path**: the lost passes are read only by a pass that takes a tree over —
   the takeovers of the tree's lease log at its head checkpoint from a lease that expired, and the
-  checkpoint's writes (a task with one finished or paused: not lost).
+  checkpoint's writes (a task with a write there finished: not lost — a pause's, its resume's or a
+  failure's write runs it again, so a resumed step lost mid call is lost too).
 - **Budgets add zero**; `result.spend.unknownCalls` counts the entries next to `totalUsd` and
   `calls` (which hold the known costs only; the entries are in `trace`, priced
   `unknown: a lost pass (#853)` by the CLI, whose total says `… of unknown cost`), and the metric
@@ -425,9 +426,10 @@ Limits — what Unknown does not say:
 
 - **Unknown may be nothing**: a pass that took the tree over and died before it ran the step is a
   lost pass too; the amount is never estimated.
-- **Only an agent's or a model router's step of the root workflow** (a parallel branch too); a
-  model call inside a child workflow, an action's or a tool's service spend, and a step a graceful
-  stop interrupted (its lease released, no takeover) leave no entry.
+- **Only an agent's or a model router's step of the root workflow** (a parallel branch too, one
+  cancelled before it runs included); a model call inside a child workflow, an action's or a
+  tool's service spend, and a step a graceful stop interrupted (its lease released, no takeover)
+  leave no entry.
 - The metric counts an execution's entries when it finishes; one that fails or is cancelled
   afterwards keeps them in the ledger and its record, not in the metric.
 
