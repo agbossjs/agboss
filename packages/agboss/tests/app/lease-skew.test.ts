@@ -20,7 +20,7 @@ import type { Clock } from "../../src/infrastructure/clock.js";
 import { ClockSkew } from "../../src/testing/clock-skew.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { storeTargets } from "../infrastructure/contracts/store-kinds.js";
-import { HostClock, runSkew, StoreTime } from "./fixtures/lease-skew.js";
+import { HostClock, runSkew, ExpiryTime } from "./fixtures/lease-skew.js";
 
 const kinds = storeTargets<ExecutionLeaseRepository>(
   ({ storeClock, application, database }) =>
@@ -87,7 +87,7 @@ const SCENARIOS: readonly Scenario[] = [
 describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) => {
   describe.each(SCENARIOS)("$name", ({ holder, taker, breaks }) => {
     it("the store's clock decides: one live holder at every step, no send after the take, the take on time", async () => {
-      const run = await runSkew(target, { holder, taker, time: StoreTime.Store });
+      const run = await runSkew(target, { holder, taker, time: ExpiryTime.Store });
 
       expect(run.violations).toEqual([]);
       expect(run.takenAt).toBeDefined();
@@ -95,7 +95,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     });
 
     it("bites: on the caller's clock the same run breaks an invariant", async () => {
-      const run = await runSkew(target, { holder, taker, time: StoreTime.Caller });
+      const run = await runSkew(target, { holder, taker, time: ExpiryTime.Caller });
 
       expect(run.violations.join("\n")).toMatch(breaks);
     });
@@ -106,7 +106,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     const run = await runSkew(target, {
       holder,
       taker: ClockSkew.none,
-      time: StoreTime.Store,
+      time: ExpiryTime.Store,
       margin: 0 as Milliseconds,
     });
 
@@ -123,7 +123,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     const run = await runSkew(target, {
       holder: ClockSkew.none,
       taker: ClockSkew.none,
-      time: StoreTime.Store,
+      time: ExpiryTime.Store,
       host,
     });
 
@@ -140,7 +140,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     const run = await runSkew(target, {
       holder: ClockSkew.none,
       taker: ClockSkew.none,
-      time: StoreTime.Store,
+      time: ExpiryTime.Store,
       host,
     });
 
@@ -162,7 +162,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
       const run = await runSkew(target, {
         holder: ClockSkew.none,
         taker: ClockSkew.none,
-        time: StoreTime.Store,
+        time: ExpiryTime.Store,
         host,
       });
 
@@ -174,7 +174,7 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
     const run = await runSkew(target, {
       holder: ClockSkew.drifting(-0.01),
       taker: ClockSkew.none,
-      time: StoreTime.Store,
+      time: ExpiryTime.Store,
       answerDelay: seconds(5),
     });
 

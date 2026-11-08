@@ -83,7 +83,7 @@ describe("#485 AC1: cluster gauges are the store's, counted once", () => {
       expect(ages[0]).toBeGreaterThanOrEqual(40);
       // the rule: max over the instances is the cluster's value; a sum triple-counts it
       const queued = acrossInstances(collections, QUEUED).map(Number);
-      const store = await first(apps).resolve(ChildExecutionQueueRepository).findQueueDepth();
+      const store = await first(apps).resolve(ChildExecutionQueueRepository).countByStatus();
       expect(Math.max(...queued)).toBe(store.queued);
       expect(queued.reduce((sum, value) => sum + value, 0)).not.toBe(12);
       release();
@@ -98,7 +98,7 @@ describe("#485 AC1: cluster gauges are the store's, counted once", () => {
     async ({ app }) => {
       await app.ready();
       const queue = app.resolve(ChildExecutionQueueRepository);
-      const read = vi.spyOn(queue, "findQueueDepth").mockRejectedValue(new Error("db down"));
+      const read = vi.spyOn(queue, "countByStatus").mockRejectedValue(new Error("db down"));
       const [meter] = failing;
       if (meter === undefined) throw new Error("no meter");
 
@@ -114,7 +114,7 @@ describe("#485 AC1: cluster gauges are the store's, counted once", () => {
 
       read.mockRestore();
       expect(acrossInstances([await collect(meter)], QUEUED)).toEqual([0]);
-      vi.spyOn(queue, "findQueueDepth").mockRejectedValue(new Error("db down again"));
+      vi.spyOn(queue, "countByStatus").mockRejectedValue(new Error("db down again"));
       await collect(meter);
       expect(warned()).toHaveLength(2);
     },

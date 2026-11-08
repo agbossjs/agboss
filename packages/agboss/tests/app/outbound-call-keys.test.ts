@@ -24,6 +24,7 @@ import { SilentLogger } from "../../src/infrastructure/logger.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const KEY = {
   scopeKey: "default:execution-1",
@@ -42,8 +43,8 @@ function parts() {
     ...{ name: "keys-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-  const store = new InMemoryOutboundCallRepository(clock, database, leases);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+  const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
   return { store, settings: new OutboundCallSettings({ requiresMask: false }) };
 }
 

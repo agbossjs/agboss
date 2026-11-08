@@ -635,7 +635,7 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
   `leases.freeze(apps[0])` freezes that instance's lease (its store calls and lease timers) while its
   steps run on — `await clock.advance(seconds(31))` lets `apps[1]` take the tree over — and
   `leases.thaw(apps[0])` wakes it: a fenced write of the old token is refused. A unit runner's step
-  fences with a held lease (token 1), set by `fence: { token, isLost, confirmNowFails }`.
+  fences with a held lease (token 1), set by `fence: { token, isLost, renewNowFails }`.
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
   `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
 

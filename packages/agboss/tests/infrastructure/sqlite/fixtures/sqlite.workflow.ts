@@ -35,6 +35,7 @@ import {
   seen,
 } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { storeClockOf } from "../../../helpers/store-clock.js";
 
 /**
  * #265 PR 3 — the recovery fixture's workflow in applications that list every SQLite
@@ -67,7 +68,7 @@ export class MortalSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRe
   readonly #instanceId: string;
 
   constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext) {
-    super(connection, clock, applicationContext);
+    super(connection, storeClockOf(clock), applicationContext);
     this.#instanceId = applicationContext.instanceId;
   }
 
@@ -89,8 +90,8 @@ export class MortalSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRe
     if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.renew(executionLease, lease);
   }
-  override yield(executionLease: ExecutionLease): Promise<boolean> {
-    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+  override yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.yield(executionLease);
   }
 

@@ -5,7 +5,7 @@ import { Clock } from "../clock.js";
 import {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,
-  type ChildExecutionQueueDepth,
+  type ChildExecutionQueueCounts,
   type QueuedChildExecution,
 } from "../child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../execution-record.repository.js";
@@ -202,7 +202,7 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
   }
 
   /** One aggregate over the claims index's `status` prefix: the queued and the running rows only. */
-  findQueueDepth(): Promise<ChildExecutionQueueDepth> {
+  countByStatus(): Promise<ChildExecutionQueueCounts> {
     const { Queued, Running } = ExecutionRecordStatus;
     const row = this.connection.database
       .prepare(

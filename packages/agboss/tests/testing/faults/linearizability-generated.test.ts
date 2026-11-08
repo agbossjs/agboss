@@ -57,13 +57,13 @@ function stepOf(
     const output =
       step.answer === null
         ? null
-        : { holderInstanceId: holder, leaseEpoch: step.answer.epoch, rootExecutionId: "tree-1" };
+        : { holderInstanceId: holder, token: step.answer.epoch, rootExecutionId: "tree-1" };
     return { operation: StoreHoldPoint.LeaseAcquire, input: held, output };
   }
   if (kind === 1) {
     const step = renewed(model.state, TREE, holder, epoch, LEASE, now);
     model.state = step.state;
-    const input = { ...held, holderInstanceId: holder, leaseEpoch: epoch };
+    const input = { ...held, holderInstanceId: holder, token: epoch };
     return { operation: StoreHoldPoint.LeaseRenew, input, output: step.answer };
   }
   const step = leaseStateAt(model.state, TREE, epoch, now);
@@ -119,7 +119,7 @@ describe("#750 AC2: histories the model itself answers are linearizable", () => 
         event.output === null;
       const grant = {
         holderInstanceId: event.instanceId,
-        leaseEpoch: 99,
+        token: 99,
         rootExecutionId: "tree-1",
       };
       turned.record(isRefusedTake ? { ...event, output: grant } : event);

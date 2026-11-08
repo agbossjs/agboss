@@ -11,7 +11,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as contracts from "../../../src/testing/contracts/index.js";
 import { PING_CASE } from "../../../src/testing/contracts/define.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
-import { TestStoreClock } from "../../../src/testing/store-clock.js";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
 const PACKAGE_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -94,16 +93,15 @@ describe("#481 AC1: the published entry", () => {
     }
   });
 
-  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), the capabilities and the clocks (#831), nothing else at run time", () => {
+  it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), the capabilities and the virtual clock (#831), nothing else at run time", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
-    const kit = ["StoreCapability", "TestStoreClock", "VirtualClock", "runConformanceSabotage"];
+    const kit = ["StoreCapability", "VirtualClock", "runConformanceSabotage"];
     expect(Object.keys(contracts).sort()).toEqual(
       [...named, ...kit, "ragConnectorContract", "effectKeyForTesting"].sort(),
     );
     for (const [name, value] of Object.entries(contracts))
       if (name !== "StoreCapability") expect(value).toBeTypeOf("function");
     expect(contracts.VirtualClock).toBe(VirtualClock);
-    expect(contracts.TestStoreClock).toBe(TestStoreClock);
   });
 
   it("@agboss/core/testing does not pull it in: no module of the suites in its module graph", () => {
@@ -180,8 +178,8 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
 
     expect(lease.map((found) => [...found.suites.slice(1), found.name].join(" > "))).toEqual([
       "a tree's lease held by one instance is not given to the other",
-      "past the lease the other takes it with leaseEpoch + 1, and the old holder's renew is false",
-      "a released lease is taken at once with leaseEpoch + 1; another tenant's tree is its own",
+      "past the lease the other takes it with token + 1, and the old holder's renew is false",
+      "a released lease is taken at once with token + 1; another tenant's tree is its own",
       "acquire after expiry reports the previous holder; after release it does not",
       "a holder that takes its own expired lease back reports itself as the previous holder",
       "releasing a lost lease leaves the new holder's",
@@ -190,16 +188,17 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       "two takes of a free lease at once > #695: two instances take one expired lease at once, round after round, in both orders: exactly one is given it, at the next epoch",
       "a yielded lease > a yielded lease blocks another acquire until it expires",
       "a yielded lease > a renewal keeps a yielded lease past its first expiry, still yielded",
-      "a yielded lease > the holder reclaims its yielded lease at leaseEpoch + 1: held again, the old epoch's renew false",
-      "a yielded lease > a held lease is reclaimed too: the holder that never yielded moves to leaseEpoch + 1",
+      "a yielded lease > the holder reclaims its yielded lease at token + 1: held again, the old epoch's renew false",
+      "a yielded lease > a held lease is reclaimed too: the holder that never yielded moves to token + 1",
       "a yielded lease > an expired yielded lease is taken over with takenOverFrom; the old holder's reclaim, renew and yield then fail",
       "a yielded lease > a reclaim racing a takeover attempt: the holder wins while its lease is valid",
       "a yielded lease > a yielded lease its holder releases is free at once, with no previous holder",
       "a yielded lease > only the holder's own lease yields: another instance's, a released one and another tenant's tree do not",
       "a yielded lease > a yielded lease 1 ms before its expiry still blocks another acquire",
       "a yielded lease > an expired yielded lease, reclaimed and taken at once: exactly one instance holds it",
-      "a yielded lease > a lease yielded twice is one yielded lease: both answer true, another acquire is refused",
+      "a yielded lease > a lease yielded twice is one yielded lease: both answer its time left, another acquire is refused",
       "a yielded lease > after a reclaim the old epoch is stale: its yield, reclaim and renew are refused",
+      "a yielded lease > G7: a yield answers the time its lease has left on the store's clock — not extended: it still ends when its take said",
       "the lease's expiry, for its holder too > #534: renew of a held lease 1 ms before its expiry, not taken meanwhile, is kept",
       "the lease's expiry, for its holder too > #534: renew of a held lease exactly at its expiry, not taken meanwhile, is refused: the lease is over for its holder too",
       "the lease's expiry, for its holder too > #534: renew of a held lease 1 ms after its expiry, not taken meanwhile, is refused: the lease is over for its holder too",
@@ -228,19 +227,19 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       "the store's time is the authority > #533: with the other instance's clock 1 × lease behind, the store's time decides — no take of a live lease, the take of an expired one on time",
       "the store's time is the authority > #533: with the other instance's clock 10 × lease ahead, the store's time decides — no take of a live lease, the take of an expired one on time",
       "the store's time is the authority > #533: with the other instance's clock 10 × lease behind, the store's time decides — no take of a live lease, the take of an expired one on time",
-      "a finished lease > a finished lease is never taken again: not by another instance, not by its holder, not after it would have expired",
-      "a finished lease > a finished lease is renewed, yielded and reclaimed no more",
-      "a finished lease > a yielded lease its holder finishes is never taken again",
-      "a finished lease > a release after the finish leaves it finished",
-      "a finished lease > finishing a lost lease keeps the new holder's and finishes nothing",
-      "a finished lease > another tenant's tree of the same id is not finished with it",
-      "a finished lease > a race of the finish and another instance's acquire while the lease is valid: the acquire is refused either way",
-      "a finished lease > a race of the finish and another instance's acquire past the lease: the acquire takes it first (the finish then a no-op) or is refused for good — never both",
-      "a finished lease > #520: a finish with the epoch before its holder's release and new take finishes nothing — the newer lease stays held, then free",
-      "a finished lease > #520: a finish with the epoch before a reclaim finishes nothing — the reclaimed lease stays held, then free",
-      "a finished lease > #520: released, taken by another instance, then the old holder's finish: the new holder's lease is kept, and the key is not finished",
-      "a finished lease > #520: a finish of a key nobody took finishes nothing: its first acquire takes it",
-      "a finished lease > #520: a finished key stays finished for every instance, after any time, and a second finish changes nothing",
+      "a retired lease > a retired lease is never taken again: not by another instance, not by its holder, not after it would have expired",
+      "a retired lease > a retired lease is renewed, yielded and reclaimed no more",
+      "a retired lease > a yielded lease its holder retires is never taken again",
+      "a retired lease > a release after the retire leaves it retired",
+      "a retired lease > retiring a lost lease keeps the new holder's and retires nothing",
+      "a retired lease > another tenant's tree of the same id is not retired with it",
+      "a retired lease > a race of the retire and another instance's acquire while the lease is valid: the acquire is refused either way",
+      "a retired lease > a race of the retire and another instance's acquire past the lease: the acquire takes it first (the retire then a no-op) or is refused for good — never both",
+      "a retired lease > #520: a retire with the epoch before its holder's release and new take retires nothing — the newer lease stays held, then free",
+      "a retired lease > #520: a retire with the epoch before a reclaim retires nothing — the reclaimed lease stays held, then free",
+      "a retired lease > #520: released, taken by another instance, then the old holder's retire: the new holder's lease is kept, and the key is not retired",
+      "a retired lease > #520: a retire of a key nobody took retires nothing: its first acquire takes it",
+      "a retired lease > #520: a retired key stays retired for every instance, after any time, and a second retire changes nothing",
       "an execution's identity > #591: a new execution id is kept once — true, then false on either instance",
       "an execution's identity > #591: an id is one across tenants — kept for one, refused for another (step keys carry no tenant)",
       "an execution's identity > #591: 8 concurrent claims of one id on both instances — exactly one is true",
@@ -248,12 +247,12 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       "an execution's identity > #591: a kept id's tree takes its lease as before, and the id stays kept once the lease is released or finished",
       "the framework's holder of a tree's lease > a holder frozen past the lease loses it to the waiting instance: its signal aborts",
       "the framework's holder of a tree's lease > a live holder renews every third of the lease: the waiting call waits",
-      "the framework's holder of a tree's lease > a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at leaseEpoch + 1",
+      "the framework's holder of a tree's lease > a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at token + 1",
       "the framework's holder of a tree's lease > a release wakes the waiting call at once, without the clock",
       "the framework's holder of a tree's lease > the caller's signal ends the wait with its reason",
-      "the framework's holder at the lease's expiry > #534: fence.confirmNow() 1 ms before its expiry, its timers paused, is confirmed: the holder goes on",
-      "the framework's holder at the lease's expiry > #534: fence.confirmNow() exactly at its expiry, its timers paused, is lost: the holder stops and the tree is taken over",
-      "the framework's holder at the lease's expiry > #534: fence.confirmNow() 1 ms after its expiry, its timers paused, is lost: the holder stops and the tree is taken over",
+      "the framework's holder at the lease's expiry > #534: fence.renewNow() 1 ms before its expiry, its timers paused, is confirmed: the holder goes on",
+      "the framework's holder at the lease's expiry > #534: fence.renewNow() exactly at its expiry, its timers paused, is lost: the holder stops and the tree is taken over",
+      "the framework's holder at the lease's expiry > #534: fence.renewNow() 1 ms after its expiry, its timers paused, is lost: the holder stops and the tree is taken over",
       "the framework's holder at the lease's expiry > #534: the renewal before a checkpoint write 1 ms before its expiry, its timers paused, is confirmed: the holder goes on",
       "the framework's holder at the lease's expiry > #534: the renewal before a checkpoint write exactly at its expiry, its timers paused, is lost: the holder stops and the tree is taken over",
       "the framework's holder at the lease's expiry > #534: the renewal before a checkpoint write 1 ms after its expiry, its timers paused, is lost: the holder stops and the tree is taken over",

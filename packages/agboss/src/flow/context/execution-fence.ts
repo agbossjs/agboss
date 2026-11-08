@@ -6,7 +6,7 @@ import type { Frame, FrameLease } from "./frame.js";
  * The fence of the current step (#471): the lease it runs under, as an external system needs it to
  * refuse a write of an instance that lost the lease — `scopeKey` + `token` written with the step's
  * `idempotencyKey` in one transaction, `incoming >= highest` accepted, `incoming < highest` refused
- * (`fence.fenced(highest)`). Exactly-once only when the external system checks both atomically;
+ * (`fence.fencedError(highest)`). Exactly-once only when the external system checks both atomically;
  * the framework runs a step at least once. Wiki → Several-instances.
  */
 export interface ExecutionFence {
@@ -22,7 +22,7 @@ export interface ExecutionFence {
    */
   readonly leaseExecutionId: string;
   /**
-   * The lease's `leaseEpoch`: a counter of this one lease key (1, 2, …), not a cluster-wide
+   * The lease's `token`: a counter of this one lease key (1, 2, …), not a cluster-wide
    * sequence — it rises with every take (a recovery, a resume, the re-acquire after remote children).
    */
   readonly token: number;
@@ -31,9 +31,9 @@ export interface ExecutionFence {
    * 1 s margin, counted from when it sent the request on its monotonic and its wall clock (the
    * earlier ends it) — shown here on the wall clock, for reading.
    */
-  readonly confirmedUntil: Date;
+  readonly trustedUntil: Date;
   /**
-   * Synchronous, no I/O: the lease lost, or its trust ran out (`confirmedUntil`, counted on the
+   * Synchronous, no I/O: the lease lost, or its trust ran out (`trustedUntil`, counted on the
    * holder's monotonic and wall clocks) → expires the lease here first (its signal aborts), then
    * throws `ExecutionLeaseLostError`.
    */
@@ -44,9 +44,9 @@ export interface ExecutionFence {
    * — lost, any store error, a transient one too — aborts the lease here and rejects with
    * `ExecutionLeaseLostError`: a hand-over, the tree goes on elsewhere once the lease expires.
    */
-  confirmNow(): Promise<void>;
+  renewNow(): Promise<void>;
   /** The error a step throws when the external system refused its write (it saw `observedToken`). */
-  fenced(observedToken?: number): ExecutionFencedError;
+  fencedError(observedToken?: number): ExecutionFencedError;
 }
 
 /** How the view finds the frame of each read: the current one, open (`live-context.ts`). */
@@ -96,18 +96,18 @@ export function fenceOver(leaseOf: (member: string) => FrameLease): ExecutionFen
     get token(): number {
       return tokenOf(leaseOf("token"));
     },
-    get confirmedUntil(): Date {
-      return new Date(leaseOf("confirmedUntil").confirmedUntil);
+    get trustedUntil(): Date {
+      return new Date(leaseOf("trustedUntil").trustedUntil);
     },
     assertHeld(): void {
       leaseOf("assertHeld").assertHeld();
     },
-    async confirmNow(): Promise<void> {
+    async renewNow(): Promise<void> {
       // a fence that cannot be read rejects, as a renewal that failed does
-      await leaseOf("confirmNow").confirmNow();
+      await leaseOf("renewNow").renewNow();
     },
-    fenced(observedToken?: number): ExecutionFencedError {
-      const held = leaseOf("fenced");
+    fencedError(observedToken?: number): ExecutionFencedError {
+      const held = leaseOf("fencedError");
       return new ExecutionFencedError({
         scopeKey: held.scopeKey,
         token: tokenOf(held),

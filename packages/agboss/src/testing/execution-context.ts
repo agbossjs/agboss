@@ -51,7 +51,7 @@ export interface TestExecutionContextOptions {
   /** The `@Workflow` class (its `name` and `version` from its decorator). */
   readonly workflow?: WorkflowClass;
   readonly step?: TestStepOptions;
-  /** The clock `fence.confirmedUntil` and `fence.assertHeld()` read (#471); default a `VirtualClock`. */
+  /** The clock `fence.trustedUntil` and `fence.assertHeld()` read (#471); default a `VirtualClock`. */
   readonly clock?: Clock;
 }
 

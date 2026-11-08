@@ -16,6 +16,7 @@ import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../../src/testing/contracts/outbound-call-data.js";
 import { hours } from "../../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
 const clock = new VirtualClock();
 const application = applicationContextOf({
@@ -27,8 +28,8 @@ const PENDING = { tenantId: "default", status: OutboundCallStatus.Pending } as c
 /** The stores on `path`, and a way to record a pending call named `name`. */
 async function storesOn(path: string, executionId = "execution-1") {
   const connection = connectionTo(path);
-  const leases = new SqliteExecutionLeaseRepository(connection, clock, application);
-  const calls = new SqliteOutboundCallRepository(connection, clock);
+  const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
+  const calls = new SqliteOutboundCallRepository(connection, storeClockOf(clock));
   const lease = await leases.acquire("default", executionId, hours(1));
   if (lease === undefined) throw new Error("no lease");
   const record = async (name: string) => {

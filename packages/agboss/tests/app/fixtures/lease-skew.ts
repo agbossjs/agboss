@@ -10,8 +10,7 @@ import { executionLeasesOf, type HeldExecutionLease } from "../../../src/app/exe
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../../src/app/lease-fence.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { Clock } from "../../../src/infrastructure/clock.js";
-import { TestStoreClock } from "../../../src/testing/store-clock.js";
+import { Clock, StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import type {
   ExecutionLease,
   ExecutionLeaseRepository,
@@ -22,7 +21,7 @@ import type { ContractTarget } from "../../../src/testing/contracts/instance-con
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 
 /** Whose clock the store decides expiry by. */
-export enum StoreTime {
+export enum ExpiryTime {
   /** The store's own (#533): one clock for every instance, the database's. */
   Store = "the store's clock",
   /** The calling instance's (the design before #533). */
@@ -81,7 +80,7 @@ export class HostClock extends Clock {
 export interface SkewScenario {
   readonly holder: ClockSkew;
   readonly taker: ClockSkew;
-  readonly time: StoreTime;
+  readonly time: ExpiryTime;
   readonly margin?: Milliseconds;
   /** The holder's own host clock instead of a skew, and what happens to it as its store stops. */
   readonly host?: {
@@ -156,7 +155,9 @@ async function instancesOf(
   const host = scenario.host?.clock(base);
   const holderClock = host ?? new SkewedClock(base, scenario.holder);
   const storeTime = (own: Clock) =>
-    new TestStoreClock(scenario.time === StoreTime.Store ? base : own);
+    scenario.time === ExpiryTime.Store
+      ? new StoreClock(StoreTimeSource.Test, base)
+      : new StoreClock(StoreTimeSource.Host, own);
   const build = (instanceId: string, clock: Clock) =>
     target.instance({
       clock,

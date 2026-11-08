@@ -111,7 +111,7 @@ const naiveLeaseState: StoreFactory<OutboundCallTarget> = (seam) => {
     override async leaseStateOf({ tenantId, leaseExecutionId, token }: OutboundCallLease) {
       const key = treeKeyOf(tenantId, leaseExecutionId);
       const read = rows.get(key);
-      if (read === undefined || read.released || read.lease.leaseEpoch !== token)
+      if (read === undefined || read.released || read.lease.token !== token)
         return OutboundCallLeaseState.Ended;
       if (read.lease.expiresAt > seam.storeClock.now()) return OutboundCallLeaseState.Live;
       await roundTrip();
@@ -119,7 +119,7 @@ const naiveLeaseState: StoreFactory<OutboundCallTarget> = (seam) => {
       const isStillExpired =
         row !== undefined &&
         !row.released &&
-        row.lease.leaseEpoch === token &&
+        row.lease.token === token &&
         row.lease.expiresAt <= seam.storeClock.now();
       if (isStillExpired) rows.set(key, { ...row, released: true });
       return OutboundCallLeaseState.LeaseClosed;

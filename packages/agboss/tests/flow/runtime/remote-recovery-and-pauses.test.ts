@@ -113,8 +113,8 @@ describe("#333 PR 4 AC2: yielding the root lease while waiting for remote childr
       (lease) => lease.rootExecutionId === done.executionId,
     );
     // initial acquire on start (epoch 1), then re-acquired after yielding for remote children (epoch >= 2)
-    expect(rootLeases[0]?.leaseEpoch).toBe(1);
-    expect(rootLeases.at(-1)?.leaseEpoch).toBeGreaterThanOrEqual(2);
+    expect(rootLeases[0]?.token).toBe(1);
+    expect(rootLeases.at(-1)?.token).toBeGreaterThanOrEqual(2);
 
     const failed = await execute(
       first,

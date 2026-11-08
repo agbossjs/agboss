@@ -79,7 +79,7 @@ const stateRacingRenew: OutboundCallCase = {
           second.calls.leaseStateOf({
             tenantId: "default",
             leaseExecutionId: executionId,
-            token: lease.leaseEpoch,
+            token: lease.token,
           }),
         async () => (await first.leases.renew(lease, seconds(30))) !== undefined,
       );
@@ -94,7 +94,7 @@ const stateRacingRenew: OutboundCallCase = {
         await second.calls.leaseStateOf({
           tenantId: "default",
           leaseExecutionId: executionId,
-          token: lease.leaseEpoch,
+          token: lease.token,
         }),
       ).toBe(after);
     }
@@ -116,7 +116,7 @@ const stateRacingAcquire: OutboundCallCase = {
           first.calls.leaseStateOf({
             tenantId: "default",
             leaseExecutionId: executionId,
-            token: lease.leaseEpoch,
+            token: lease.token,
           }),
         () => second.leases.acquire("default", executionId, seconds(30)),
       );
@@ -124,13 +124,13 @@ const stateRacingAcquire: OutboundCallCase = {
       expect(state).not.toBe(OutboundCallLeaseState.Live);
       const held = taken as ExecutionLease | undefined;
       if (held === undefined) throw new Error("the take of the expired lease failed");
-      expect(held.leaseEpoch).toBe(lease.leaseEpoch + 1);
+      expect(held.token).toBe(lease.token + 1);
       expect(await second.leases.renew(held, seconds(30))).toBe(seconds(30));
       expect(
         await first.calls.leaseStateOf({
           tenantId: "default",
           leaseExecutionId: executionId,
-          token: held.leaseEpoch,
+          token: held.token,
         }),
       ).toBe(OutboundCallLeaseState.Live);
     }

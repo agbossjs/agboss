@@ -96,7 +96,7 @@ describe("#265 AC12: a root left running by an instance that died", () => {
     expect(seen.steps).toEqual(["one"]);
     expect(seen.holds).toHaveLength(2);
     expect(seen.resumes).toEqual([{ reason: ResumeReason.Recovered, decision: undefined }]);
-    expect(seen.leases.map((lease) => [lease.holderInstanceId, lease.leaseEpoch])).toEqual([
+    expect(seen.leases.map((lease) => [lease.holderInstanceId, lease.token])).toEqual([
       ["instance-1", 1],
       ["instance-2", 2],
     ]);
@@ -135,7 +135,7 @@ describe("#265 AC12: a root left running by an instance that died", () => {
       expect(seen.ends).toHaveLength(1);
       expect(seen.holds).toHaveLength(2);
       expect(seen.resumes.map((resume) => resume.reason)).toEqual([ResumeReason.Recovered]);
-      expect(seen.leases.filter((lease) => lease.leaseEpoch === 2)).toHaveLength(1);
+      expect(seen.leases.filter((lease) => lease.token === 2)).toHaveLength(1);
     },
   );
 

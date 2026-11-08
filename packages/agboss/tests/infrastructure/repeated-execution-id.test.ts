@@ -1,7 +1,7 @@
 /**
  * #591 — an `IdGenerator` that repeats an execution id never makes two trees one: every new
  * execution's id — a root, a child, a recursion level (here or on any instance) — is kept by the
- * lease store before anything of it is written (`saveExecutionIdIfAbsent`), and an id any earlier
+ * lease store before anything of it is written (`claimExecutionId`), and an id any earlier
  * execution had, of a tree running, paused, finished or cancelled, is `DuplicateExecutionIdError`
  * (`run.duplicate-execution-id`: the generator named, never the id). A resume and a recovery keep
  * their id: they are not a create.

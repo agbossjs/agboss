@@ -32,6 +32,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
 /**
  * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
@@ -210,7 +211,7 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
   readonly #instanceId: string;
 
   constructor(clock: Clock, applicationContext: ApplicationContext, database: InMemoryDatabase) {
-    super(clock, applicationContext, database);
+    super(storeClockOf(clock), applicationContext, database);
     this.#instanceId = applicationContext.instanceId;
   }
 
@@ -235,8 +236,8 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
     if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.renew(executionLease, lease);
   }
-  override yield(executionLease: ExecutionLease): Promise<boolean> {
-    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+  override yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(undefined);
     return super.yield(executionLease);
   }
 

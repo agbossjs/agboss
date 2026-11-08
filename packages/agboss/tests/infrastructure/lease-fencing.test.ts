@@ -1,6 +1,6 @@
 /**
  * #335 (S1): local fencing of the execution lease — the holder trusts its lease until
- * `confirmedUntil` (the `Clock` before the last renewal its store confirmed, plus the lease). A
+ * `trustedUntil` (the `Clock` before the last renewal its store confirmed, plus the lease). A
  * store that does not answer past it stops the holder at the lease's end: its signal aborts with
  * `ExecutionLeaseLostError`, the agent's tool loop starts no further call, and another instance
  * recovers the tree. A store error within the lease lets the checkpoint write go on. A tool call's

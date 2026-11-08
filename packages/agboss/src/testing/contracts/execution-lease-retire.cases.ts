@@ -21,17 +21,17 @@ async function takenBy(store: ExecutionLeaseRepository): Promise<ExecutionLease>
 }
 
 /**
- * A finished lease (#520): its holder gave it up for good, the work under it over (an
+ * A retired lease (#520): its holder gave it up for good, the work under it over (an
  * `AnyInstance` child answered or failed). No `acquire` gets that key again — not another instance,
  * not the holder, not after any time —, so a stale instance never takes over finished work; it is
  * matched as `release` matches (another holder's lease is kept), and renewed, yielded and reclaimed
  * no more.
  */
-export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
+export const LEASE_RETIRE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
   {
-    name: "a finished lease is never taken again: not by another instance, not by its holder, not after it would have expired",
+    name: "a retired lease is never taken again: not by another instance, not by its holder, not after it would have expired",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
-      await first.finish(await takenBy(first));
+      await first.retire(await takenBy(first));
 
       const byOther = await second.acquire("default", "root-1", LEASE);
       const byHolder = await first.acquire("default", "root-1", LEASE);
@@ -44,33 +44,33 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
-    name: "a finished lease is renewed, yielded and reclaimed no more",
+    name: "a retired lease is renewed, yielded and reclaimed no more",
     run: async ({ first }: Instances): Promise<void> => {
       const held = await takenBy(first);
-      await first.finish(held);
+      await first.retire(held);
 
       expect(await first.renew(held, LEASE)).toBeUndefined();
-      expect(await first.yield(held)).toBe(false);
+      expect(await first.yield(held)).toBeUndefined();
       expect(await first.reclaim(held, LEASE)).toBeUndefined();
     },
   },
   {
-    name: "a yielded lease its holder finishes is never taken again",
+    name: "a yielded lease its holder retires is never taken again",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const held = await takenBy(first);
-      expect(await first.yield(held)).toBe(true);
+      expect(await first.yield(held)).toBeTypeOf("number");
 
-      await first.finish(held);
+      await first.retire(held);
       await clock.advance(seconds(31));
 
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
     },
   },
   {
-    name: "a release after the finish leaves it finished",
+    name: "a release after the retire leaves it retired",
     run: async ({ first, second }: Instances): Promise<void> => {
       const held = await takenBy(first);
-      await first.finish(held);
+      await first.retire(held);
 
       await first.release(held);
 
@@ -78,39 +78,39 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
-    name: "finishing a lost lease keeps the new holder's and finishes nothing",
+    name: "retiring a lost lease keeps the new holder's and retires nothing",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const old = await takenBy(first);
       await clock.advance(seconds(31));
       const taken = await second.acquire("default", "root-1", LEASE);
 
-      await first.finish(old);
+      await first.retire(old);
       const renewed = taken !== undefined && (await second.renew(taken, LEASE));
       if (taken !== undefined) await second.release(taken);
       const afterRelease = await first.acquire("default", "root-1", LEASE);
 
-      expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+      expect(taken).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
       expect(renewed).toBe(LEASE);
-      expect(afterRelease).toMatchObject({ holderInstanceId: "instance-1", leaseEpoch: 3 });
+      expect(afterRelease).toMatchObject({ holderInstanceId: "instance-1", token: 3 });
     },
   },
   {
-    name: "another tenant's tree of the same id is not finished with it",
+    name: "another tenant's tree of the same id is not retired with it",
     run: async ({ first, second }: Instances): Promise<void> => {
-      await first.finish(await takenBy(first));
+      await first.retire(await takenBy(first));
 
       const otherTenant = await second.acquire("acme", "root-1", LEASE);
 
-      expect(otherTenant).toMatchObject({ tenantId: "acme", leaseEpoch: 1 });
+      expect(otherTenant).toMatchObject({ tenantId: "acme", token: 1 });
     },
   },
   {
-    name: "a race of the finish and another instance's acquire while the lease is valid: the acquire is refused either way",
+    name: "a race of the retire and another instance's acquire while the lease is valid: the acquire is refused either way",
     run: async ({ first, second }: Instances): Promise<void> => {
       const held = await takenBy(first);
 
       const [, raced] = await Promise.all([
-        first.finish(held),
+        first.retire(held),
         second.acquire("default", "root-1", LEASE),
       ]);
 
@@ -119,13 +119,13 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
-    name: "a race of the finish and another instance's acquire past the lease: the acquire takes it first (the finish then a no-op) or is refused for good — never both",
+    name: "a race of the retire and another instance's acquire past the lease: the acquire takes it first (the retire then a no-op) or is refused for good — never both",
     run: async ({ clock, first, second }: Instances): Promise<void> => {
       const held = await takenBy(first);
       await clock.advance(seconds(31));
 
       const [, raced] = await Promise.all([
-        first.finish(held),
+        first.retire(held),
         second.acquire("default", "root-1", LEASE),
       ]);
       const renewed = raced !== undefined && (await second.renew(raced, LEASE));
@@ -135,9 +135,9 @@ export const LEASE_FINISH_CASES: readonly ContractCase<ExecutionLeaseRepository>
       if (raced === undefined) {
         expect(after).toBeUndefined();
       } else {
-        expect(raced).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+        expect(raced).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
         expect(renewed).toBe(LEASE);
-        expect(after).toMatchObject({ leaseEpoch: 3 });
+        expect(after).toMatchObject({ token: 3 });
       }
     },
   },

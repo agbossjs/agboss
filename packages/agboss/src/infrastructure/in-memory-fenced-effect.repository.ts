@@ -164,7 +164,7 @@ export function checkInMemoryFence(
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))
-    throw new ExecutionFencedError({ scopeKey, token, observedToken: row?.lease.leaseEpoch });
+    throw new ExecutionFencedError({ scopeKey, token, observedToken: row?.lease.token });
   const highest = database.fencedEffectMarks.get(scopeKey)?.highestToken ?? 0;
   if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
 }
@@ -182,7 +182,7 @@ export function isInMemoryLeaseHeld(
   return (
     row !== undefined &&
     !row.released &&
-    row.lease.leaseEpoch === lease.token &&
+    row.lease.token === lease.token &&
     row.lease.expiresAt > clock.now()
   );
 }

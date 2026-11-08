@@ -83,7 +83,7 @@ describe("#265 M2 (automated): recovery on SQLite after an instance died", () =>
     expect(seen.steps).toEqual(["one"]);
     expect(seen.holds).toHaveLength(2);
     expect(seen.resumes).toEqual([{ reason: ResumeReason.Recovered, decision: undefined }]);
-    expect(seen.leases.map((lease) => [lease.holderInstanceId, lease.leaseEpoch])).toEqual([
+    expect(seen.leases.map((lease) => [lease.holderInstanceId, lease.token])).toEqual([
       ["instance-1", 1],
       ["instance-2", 2],
     ]);

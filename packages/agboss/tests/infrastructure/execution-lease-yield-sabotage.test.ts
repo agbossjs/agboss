@@ -1,7 +1,8 @@
 /**
  * #516 acceptance: the yielded lease's edge cases bite. Each runs against a naive store — the yield
  * as the release it was before #516, a reclaim that never asks whether the lease was taken, a yield
- * that answers once, a reclaim that keeps the old epoch — and fails; the real store passes them all.
+ * that answers once, a reclaim that keeps the old epoch, a yield that answers the lease's length or
+ * renews it (G7) — and fails; the real store passes them all.
  */
 import { describe, expect, it } from "vitest";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
@@ -12,9 +13,10 @@ import {
   type ExecutionLeaseRepository,
 } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
+import { StoreClock, StoreTimeSource } from "../../src/infrastructure/clock.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { LEASE_YIELD_EDGE_CASES } from "../../src/testing/contracts/execution-lease-yield-edges.cases.js";
-import type { Milliseconds } from "../../src/units/index.js";
+import { seconds, type Milliseconds } from "../../src/units/index.js";
 
 type Store = new (
   ...args: ConstructorParameters<typeof InMemoryExecutionLeaseRepository>
@@ -22,9 +24,9 @@ type Store = new (
 
 /** The yield before #516: a release — the tree is free while its holder waits. */
 class YieldAsRelease extends InMemoryExecutionLeaseRepository {
-  override async yield(lease: ExecutionLease): Promise<boolean> {
+  override async yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
     await this.release(lease);
-    return true;
+    return seconds(30);
   }
 }
 
@@ -32,7 +34,7 @@ class YieldAsRelease extends InMemoryExecutionLeaseRepository {
 class BlindReclaim extends InMemoryExecutionLeaseRepository {
   override async reclaim(lease: ExecutionLease, duration: Milliseconds) {
     const reclaimed = await super.reclaim(lease, duration);
-    return reclaimed ?? { ...lease, leaseEpoch: lease.leaseEpoch + 1 };
+    return reclaimed ?? { ...lease, token: lease.token + 1 };
   }
 }
 
@@ -40,10 +42,25 @@ class BlindReclaim extends InMemoryExecutionLeaseRepository {
 class YieldOnce extends InMemoryExecutionLeaseRepository {
   readonly #yielded = new Set<number>();
 
-  override async yield(lease: ExecutionLease): Promise<boolean> {
-    if (this.#yielded.has(lease.leaseEpoch)) return false;
-    this.#yielded.add(lease.leaseEpoch);
+  override async yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
+    if (this.#yielded.has(lease.token)) return undefined;
+    this.#yielded.add(lease.token);
     return super.yield(lease);
+  }
+}
+
+/** G7: a yield that answers the lease's whole length, not the time it has left. */
+class YieldAnswersLength extends InMemoryExecutionLeaseRepository {
+  override async yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
+    return (await super.yield(lease)) === undefined ? undefined : seconds(30);
+  }
+}
+
+/** G7: a yield that renews the lease as it marks it: the yielded tree outlives its take. */
+class YieldRenews extends InMemoryExecutionLeaseRepository {
+  override async yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
+    const left = await super.yield(lease);
+    return left === undefined ? undefined : this.renew(lease, seconds(30));
   }
 }
 
@@ -60,7 +77,7 @@ function instancesOf(Store: Store) {
   const database = new InMemoryDatabase();
   const of = (instanceId: string) =>
     new Store(
-      clock,
+      new StoreClock(StoreTimeSource.Test, clock),
       applicationContextOf({
         name: "bites-application",
         version: "1.0.0",
@@ -86,6 +103,8 @@ describe("#516 acceptance: the yield edge cases fail on a naive store", () => {
     ["an expired yielded lease, reclaimed and taken at once", BlindReclaim],
     ["a lease yielded twice", YieldOnce],
     ["after a reclaim the old epoch is stale", SameEpochReclaim],
+    ["G7: a yield answers the time its lease has left", YieldAnswersLength],
+    ["G7: a yield answers the time its lease has left", YieldRenews],
   ] as const)("%s… fails on %O", async (start, Naive) => {
     await expect(caseNamed(start).run(instancesOf(Naive))).rejects.toThrow();
   });

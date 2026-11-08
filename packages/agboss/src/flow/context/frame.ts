@@ -83,16 +83,16 @@ export interface FrameLease {
   readonly tenantId: string;
   readonly leaseExecutionId: string;
   readonly scopeKey: string;
-  /** The lease's `leaseEpoch`; `undefined` while it is yielded (no lease held). */
+  /** The lease's `token`; `undefined` while it is yielded (no lease held). */
   readonly token: number | undefined;
   /** Until when (wall ms, for reading) the holder trusts it (#533); `POSITIVE_INFINITY` while yielded. */
-  readonly confirmedUntil: number;
+  readonly trustedUntil: number;
   /** Yielded while remote children run (#333 PR 4): nothing held, nothing to fence with. */
   readonly isYielded: boolean;
-  /** Throws the lease's `ExecutionLeaseLostError` when lost or past `confirmedUntil` (expiring it first). */
+  /** Throws the lease's `ExecutionLeaseLostError` when lost or past `trustedUntil` (expiring it first). */
   assertHeld(): void;
   /** Renews in the store now: confirmed → the after-renewal checks; anything else → lost, rejected. */
-  confirmNow(): Promise<void>;
+  renewNow(): Promise<void>;
   /** A step of the tree runs (#471): the lease is not yielded under it; the function leaves. */
   enterStep(): Promise<() => void>;
   /**

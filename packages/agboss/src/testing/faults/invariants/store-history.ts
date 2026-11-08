@@ -66,12 +66,12 @@ export function grantsOf(history: OperationHistory): readonly Grant[] {
     .map(({ complete }) => {
       const lease = complete.output as {
         rootExecutionId: string;
-        leaseEpoch: number;
+        token: number;
         holderInstanceId: string;
       };
       return {
         key: lease.rootExecutionId,
-        epoch: lease.leaseEpoch,
+        epoch: lease.token,
         holder: lease.holderInstanceId,
         at: complete.at,
         by: complete.id,
@@ -80,11 +80,11 @@ export function grantsOf(history: OperationHistory): readonly Grant[] {
     .sort((left, right) => (BigInt(left.at) < BigInt(right.at) ? -1 : 1));
 }
 
-/** When each lease key was first finished (`lease.finish` answered). */
+/** When each lease key was first retired (`lease.retire` answered). */
 export function finishesOf(history: OperationHistory): ReadonlyMap<string, string> {
   const finished = new Map<string, string>();
   for (const { invoke, complete } of completed(history)) {
-    if (invoke.operation !== StoreHoldPoint.LeaseFinish) continue;
+    if (invoke.operation !== StoreHoldPoint.LeaseRetire) continue;
     if (invoke.key === undefined) continue;
     if (!finished.has(invoke.key)) finished.set(invoke.key, complete.at);
   }

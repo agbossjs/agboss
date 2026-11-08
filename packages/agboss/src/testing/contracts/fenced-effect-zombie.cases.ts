@@ -36,7 +36,7 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
     const count: WriteCount = { runs: 0 };
     for (const name of BAD_NAMES) {
       const valid = effectKeyForTesting(keyOf(lease), { name });
-      const stale = effectKeyForTesting(valid, { token: lease.leaseEpoch + 7 });
+      const stale = effectKeyForTesting(valid, { token: lease.token + 7 });
       for (const key of [valid, stale])
         expect(
           await rejectionOf(
@@ -51,7 +51,7 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
       keyOf(lease),
       writing(second.rows, "r1", count),
     );
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.leaseEpoch });
+    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
   },
 });
 
@@ -95,13 +95,13 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
         expect(rows).toEqual([`holder-${String(round)}`]);
         expect(holder).toMatchObject({
           status: FencedEffectStatus.Ran,
-          token: lease.leaseEpoch + 1,
+          token: lease.token + 1,
         });
       } else {
         expect(rows).toEqual([`zombie-${String(round)}`]);
         expect(holder).toMatchObject({
           status: FencedEffectStatus.Replayed,
-          token: lease.leaseEpoch,
+          token: lease.token,
         });
       }
     }

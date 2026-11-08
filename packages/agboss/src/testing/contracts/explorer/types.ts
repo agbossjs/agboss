@@ -48,7 +48,7 @@ export enum LeaseOperation {
   Yield = "yield",
   Reclaim = "reclaim",
   Release = "release",
-  Finish = "finish",
+  Retire = "retire",
 }
 
 /** How far the time moves: a renewal's beat, or to the next lease's end (1 ms before, or at it). */

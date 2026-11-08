@@ -90,8 +90,8 @@ export interface ExecutionLeaseRow {
    * take is a takeover from that holder and epoch (`takenOverFrom`), as of an expired lease.
    */
   readonly isClosedByCheck?: boolean;
-  /** Finished by its holder (#520): the work under it is over, no `acquire` gets it again. */
-  readonly isFinished?: boolean;
+  /** Retired by its holder (#520): the work under it is over, no `acquire` gets it again. */
+  readonly isRetired?: boolean;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

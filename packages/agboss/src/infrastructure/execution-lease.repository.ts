@@ -27,7 +27,7 @@ export interface ExecutionLease {
    * or released lease —, never a sequence across keys. Every implementation keeps it so (a
    * distributed store counts per key, not by its own revision).
    */
-  readonly leaseEpoch: number;
+  readonly token: number;
   /**
    * When the lease ends unless renewed, on the store's clock (#533: the database's for a networked
    * store) — information only: no instance compares it with its own clock.
@@ -64,12 +64,12 @@ export interface ExecutionIdentity {
 /** Who held a lease that expired before another `acquire` took it over (#501). */
 export interface PreviousLeaseHolder {
   readonly holderInstanceId: string;
-  readonly leaseEpoch: number;
+  readonly token: number;
 }
 
 /** The previous holder of a stored lease that expired by `now` without a release (#501). */
 export const takenOverFromOf = (
-  stored: { readonly holderInstanceId: string; readonly leaseEpoch: number } | undefined,
+  stored: { readonly holderInstanceId: string; readonly token: number } | undefined,
   isExpired: boolean,
 ): { readonly takenOverFrom?: PreviousLeaseHolder } =>
   stored === undefined || !isExpired
@@ -77,7 +77,7 @@ export const takenOverFromOf = (
     : {
         takenOverFrom: {
           holderInstanceId: stored.holderInstanceId,
-          leaseEpoch: stored.leaseEpoch,
+          token: stored.token,
         },
       };
 
@@ -155,34 +155,35 @@ export abstract class ExecutionLeaseRepository {
   abstract ping(): Promise<void>;
 
   /**
-   * Keeps a new execution's identity (#591) — a root, a child or a recursion level — before
+   * Claims a new execution's identity (#591) — a root, a child or a recursion level — before
    * anything else of it is written: `true` when no execution ever had `executionId`, under any
-   * tenant; `false` otherwise, nothing written. One atomic insert-if-absent: of concurrent calls
-   * with one id, on any instances, exactly one gets `true`. Never removed — a finished, failed or
-   * cancelled execution's id is never handed out again — and independent of the leases: `acquire`
-   * of an existing tree (a resume, a recovery) never asks it.
+   * tenant, and the id is now taken; `false` when it was taken before — a refusal, nothing written.
+   * One atomic insert-if-absent: of concurrent claims of one id, on any instances, exactly one gets
+   * `true`. Never removed — a finished, failed or cancelled execution's id is never handed out
+   * again — and independent of the leases: `acquire` of an existing tree (a resume, a recovery)
+   * never asks it.
    */
-  abstract saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean>;
+  abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
 
   /**
-   * The tree's lease for `lease` from now; `undefined` while another holder's lease is valid, and
-   * for good once its holder finished it (`finish`, #520).
+   * The tree's lease for `duration` from now; `undefined` while another holder's lease is valid,
+   * and for good once its holder retired it (`retire`, #520).
    */
   abstract acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined>;
 
   /**
-   * Extends the lease by `lease` from now and answers the time it has left (#533: `remaining`, on
-   * the store's clock — never shorter than before); `undefined` once it is over — expired (`now >=
-   * expiresAt`, #534: the instant of expiry belongs to the next taker, the holder included), taken
-   * by another holder, or released — and the caller must stop moving the tree.
+   * Extends the lease by `duration` from now and answers the time it has left (#533: `remaining`,
+   * on the store's clock — never shorter than before); `undefined` once it is over — expired (`now
+   * >= expiresAt`, #534: the instant of expiry belongs to the next taker, the holder included),
+   * taken by another holder, or released — and the caller must stop moving the tree.
    */
   abstract renew(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<Milliseconds | undefined>;
 
   /** Gives the lease up at once (the tree paused, finished or failed); another holder's is kept. */
@@ -192,35 +193,36 @@ export abstract class ExecutionLeaseRepository {
    * Gives the lease up for good (#520): the work under it is over — an `AnyInstance` child that
    * answered or failed — so no later `acquire` of its key gets a lease, whoever asks and whenever,
    * and no takeover of finished work can follow. One atomic step, matched as `release` matches
-   * (another holder's lease is kept, nothing finished); a finished lease is renewed, yielded and
+   * (another holder's lease is kept, nothing retired); a retired lease is renewed, yielded and
    * reclaimed no more.
    */
-  abstract finish(executionLease: ExecutionLease): Promise<void>;
+  abstract retire(executionLease: ExecutionLease): Promise<void>;
 
   /**
    * Marks the holder's lease yielded (#516): its holder waits for children on any instance and no
    * step of the tree runs. It is not a release — the lease stays the holder's: `acquire` of another
    * instance is refused while it is valid, `renew` keeps it (still yielded), and once it expired it
-   * is taken over like a held one (`takenOverFrom`). `false` when the caller no longer holds it (as
-   * for `renew`: expired at `now >= expiresAt` too, #534).
+   * is taken over like a held one (`takenOverFrom`). Answers as `renew` does: the time the lease
+   * has left (`remaining`, on the store's clock — not extended: a yield is no renewal); `undefined`
+   * when the caller no longer holds it (expired at `now >= expiresAt` too, #534).
    */
-  abstract yield(executionLease: ExecutionLease): Promise<boolean>;
+  abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 
   /**
-   * The holder takes its lease back (#516: after a yield, before a step runs again) at
-   * `leaseEpoch + 1`, held again for `lease` from now, with no `takenOverFrom`; `undefined` when it
-   * is no longer the caller's (expired at `now >= expiresAt`, #534 — taken or not —, or released) —
-   * the lease `renew` would keep. An expired holder `acquire`s again: a takeover from itself.
+   * The holder takes its lease back (#516: after a yield, before a step runs again) at `token + 1`,
+   * held again for `duration` from now, with no `takenOverFrom`; `undefined` when it is no longer
+   * the caller's (expired at `now >= expiresAt`, #534 — taken or not —, or released) — the lease
+   * `renew` would keep. An expired holder `acquire`s again: a takeover from itself.
    */
   abstract reclaim(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined>;
 }
 
-/** Whether `acquire` refuses a stored lease: still held, or finished (#520). */
+/** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
 const isRefused = (stored: ExecutionLeaseRow, now: Date): boolean =>
-  stored.isFinished === true || (!stored.released && isLiveAt(stored.lease, now));
+  stored.isRetired === true || (!stored.released && isLiveAt(stored.lease, now));
 
 /**
  * Whether a lease is live at `now` (#534): while `expiresAt > now`, and only then — the one boundary
@@ -231,13 +233,13 @@ export const isLiveAt = (lease: { readonly expiresAt: Date }, now: Date): boolea
 
 /** Whether `stored` is the very lease the caller holds (its holder and epoch). */
 const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
-  stored.leaseEpoch === held.leaseEpoch && stored.holderInstanceId === held.holderInstanceId;
+  stored.token === held.token && stored.holderInstanceId === held.holderInstanceId;
 
 /**
  * The built-in default: leases in this instance's memory — every operation is one synchronous
  * step, so it is atomic. With one instance nothing contends; the instances of one test share it. A
  * yielded lease is its row with `isYielded` (#516): read by nothing but the people looking at it; a
- * finished one (#520) its released row with `isFinished`, never acquired again. Every execution id
+ * retired one (#520) its released row with `isRetired`, never acquired again. Every execution id
  * handed out is a row of `executionIds` (#591), kept for the instance's life.
  */
 @Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
@@ -256,7 +258,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
-  saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+  claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
     const { executionIds } = this.database;
     if (executionIds.has(identity.executionId)) return Promise.resolve(false);
     executionIds.add(identity.executionId);
@@ -266,7 +268,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const key = treeKeyOf(tenantId, rootExecutionId);
     const now = this.clock.now();
@@ -276,9 +278,9 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       tenantId,
       rootExecutionId,
       holderInstanceId: this.applicationContext.instanceId,
-      leaseEpoch: (stored?.lease.leaseEpoch ?? 0) + 1,
-      expiresAt: new Date(now.getTime() + lease),
-      remaining: lease,
+      token: (stored?.lease.token ?? 0) + 1,
+      expiresAt: new Date(now.getTime() + duration),
+      remaining: duration,
       // held is false here: a stored lease not released has expired; a superseded one had (#508)
       ...takenOverFromOf(
         stored?.lease,
@@ -289,12 +291,12 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(taken);
   }
 
-  renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined> {
+  renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined> {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.#heldOf(key, executionLease);
     if (stored === undefined) return Promise.resolve(undefined);
     const now = this.clock.now();
-    const expiresAt = new Date(now.getTime() + lease);
+    const expiresAt = new Date(now.getTime() + duration);
     this.database.executionLeases.set(key, { ...stored, lease: { ...stored.lease, expiresAt } });
     return Promise.resolve(remainingOf(expiresAt, now));
   }
@@ -304,45 +306,45 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
-  finish(executionLease: ExecutionLease): Promise<void> {
+  retire(executionLease: ExecutionLease): Promise<void> {
     this.#released(executionLease, true);
     return Promise.resolve();
   }
 
-  /** Releases the caller's own lease — for good when `isFinished` (#520); another's is kept. */
-  #released(executionLease: ExecutionLease, isFinished: boolean): void {
+  /** Releases the caller's own lease — for good when `isRetired` (#520); another's is kept. */
+  #released(executionLease: ExecutionLease, isRetired: boolean): void {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.database.executionLeases.get(key);
     if (stored === undefined || !isSameLease(stored.lease, executionLease)) return;
-    const finished = isFinished || stored.isFinished === true;
+    const retired = isRetired || stored.isRetired === true;
     this.database.executionLeases.set(key, {
       lease: stored.lease,
       released: true,
-      ...(finished ? { isFinished: true } : {}),
+      ...(retired ? { isRetired: true } : {}),
     });
   }
 
-  yield(executionLease: ExecutionLease): Promise<boolean> {
+  yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.#heldOf(key, executionLease);
-    if (stored !== undefined)
-      this.database.executionLeases.set(key, { ...stored, isYielded: true });
-    return Promise.resolve(stored !== undefined);
+    if (stored === undefined) return Promise.resolve(undefined);
+    this.database.executionLeases.set(key, { ...stored, isYielded: true });
+    return Promise.resolve(remainingOf(stored.lease.expiresAt, this.clock.now()));
   }
 
   reclaim(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const key = treeKeyOf(executionLease.tenantId, executionLease.rootExecutionId);
     const stored = this.#heldOf(key, executionLease);
     if (stored === undefined) return Promise.resolve(undefined);
     const { tenantId, rootExecutionId, holderInstanceId } = stored.lease;
-    const expiresAt = new Date(this.clock.now().getTime() + lease);
-    const leaseEpoch = stored.lease.leaseEpoch + 1;
+    const expiresAt = new Date(this.clock.now().getTime() + duration);
+    const token = stored.lease.token + 1;
     const reclaimed = {
-      ...{ tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt },
-      remaining: lease,
+      ...{ tenantId, rootExecutionId, holderInstanceId, token, expiresAt },
+      remaining: duration,
     };
     this.database.executionLeases.set(key, { lease: reclaimed, released: false });
     return Promise.resolve(reclaimed);

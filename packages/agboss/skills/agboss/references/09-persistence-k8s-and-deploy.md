@@ -305,15 +305,15 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { instances:
 [{ meterProvider }, …] })` gives each instance its own, read with an in-memory `MetricReader`.
 
-| Metric                                                                                  | Kind                                                         | Labels                | Aggregate                                |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------- | ---------------------------------------- |
-| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`findQueueDepth()`) | —                     | `max` — every pod reports the same value |
-| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                       | —                     | `sum`                                    |
-| `agboss.instance.leases.held`                                                           | gauge                                                        | —                     | `sum`                                    |
-| `agboss.instance.lease.takeovers`                                                       | counter                                                      | `reason`              | `sum`                                    |
-| `agboss.instance.steps.handed_over`                                                     | counter                                                      | `reason`              | `sum`                                    |
-| `agboss.instance.executions.ended`                                                      | counter                                                      | `workflow`, `outcome` | `sum`                                    |
-| `agboss.instance.compensations`                                                         | counter                                                      | `workflow`, `status`  | `sum`                                    |
+| Metric                                                                                  | Kind                                                        | Labels                | Aggregate                                |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------- | ---------------------------------------- |
+| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
+| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                      | —                     | `sum`                                    |
+| `agboss.instance.leases.held`                                                           | gauge                                                       | —                     | `sum`                                    |
+| `agboss.instance.lease.takeovers`                                                       | counter                                                     | `reason`              | `sum`                                    |
+| `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`              | `sum`                                    |
+| `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome` | `sum`                                    |
+| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `status`  | `sum`                                    |
 
 Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
 the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +
@@ -338,8 +338,8 @@ Autoscaling.
 - **Fencing (#471).** `executionContext.fence` is the lease the step runs under: `scopeKey`
   (`${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — the root's lease for
   the root and its `ChildPlacement.ParentInstance` children, an `AnyInstance` child's own), `token`
-  (its `leaseEpoch`: 1, 2, … per lease, rising with every take), `confirmedUntil`, `assertHeld()`,
-  `confirmNow()`, `fenced(observedToken)`. Exactly-once only when the external system checks the
+  (its `token`: 1, 2, … per lease, rising with every take), `trustedUntil`, `assertHeld()`,
+  `renewNow()`, `fencedError(observedToken)`. Exactly-once only when the external system checks the
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
   judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
 - **The fenced effect (#500).** For rows in the store's own database, one call does the fencing and
@@ -609,21 +609,21 @@ export class LeaseAuditService {
 ```ts file=src/claims/repositories/audited-lease.repository.ts
 import {
   ApplicationContext,
-  Clock,
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
+  StoreClock,
   type ExecutionLease,
 } from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 import { LeaseAuditService } from "../services/lease-audit.service.js";
 
 /** The SQLite leases, each one taken written to the audit log as well. */
-@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, LeaseAuditService] })
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext, LeaseAuditService] })
 export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   constructor(
     connection: SqliteConnection,
-    clock: Clock,
+    clock: StoreClock,
     applicationContext: ApplicationContext,
     private readonly leaseAuditService: LeaseAuditService,
   ) {
@@ -633,9 +633,9 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
   override async acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
-    const taken = await super.acquire(tenantId, rootExecutionId, lease);
+    const taken = await super.acquire(tenantId, rootExecutionId, duration);
     if (taken !== undefined) this.leaseAuditService.taken(taken);
     return taken;
   }
@@ -643,7 +643,8 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
 ```
 
 An implementation over another store keeps every operation atomic, takes every time value from the
-framework (durations as parameters, now from `Clock`), never from the store's clock, and implements
+framework (durations as parameters; a lease or fenced store reads now from its `StoreClock` — the
+database's time when its `source` is `Database` — never from the instance's `Clock`), and implements
 `ping()` — one fast round trip that readiness calls. It gives back every text and JSON value it is
 handed unchanged — a model's or a tool's answer may hold a NUL character (U+0000), which
 PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as
@@ -743,10 +744,10 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op) and fence it
   with `executionContext.fence`: `fence.token` is the monotonic fencing token of the step's lease
   scope — the external system keeps the highest token per `fence.scopeKey` in the same transaction
-  as the key, refuses a lower one with `fence.fenced(highest)` (or `new ExecutionFencedError({
+  as the key, refuses a lower one with `fence.fencedError(highest)` (or `new ExecutionFencedError({
 scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
   hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
-  write and `await fence.confirmNow()` before a call that cannot check tokens (a webhook). Never key
+  write and `await fence.renewNow()` before a call that cannot check tokens (a webhook). Never key
   the mark by a shared business row: parallel `ChildPlacement.AnyInstance` children each fence with
   a lease (and a token) of their own.
 - `ChildPlacement.AnyInstance` across processes: a child queued in one process wakes that process's

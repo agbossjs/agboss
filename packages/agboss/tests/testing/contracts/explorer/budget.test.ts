@@ -1,7 +1,7 @@
 /**
  * #590: a search stops when its case is aborted — vitest times a case out and goes on, so a search
  * left running kept resetting the backing store under the next case (on PostgreSQL: epochs from 1
- * again inside a walk, a finished lease taken again, `deadlock detected`) — and at its time limit;
+ * again inside a walk, a retired lease taken again, `deadlock detected`) — and at its time limit;
  * either way it says how far it got, and makes no store call after.
  */
 import { describe, expect, it } from "vitest";

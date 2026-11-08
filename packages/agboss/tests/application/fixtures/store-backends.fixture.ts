@@ -12,6 +12,7 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import {
   ApplicationContext,
   Clock,
+  StoreClock,
   ExecutionLeaseRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
@@ -27,11 +28,11 @@ import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/envi
 import { MortalExecutionLeaseRepository } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { ReleaseWorkflow } from "../../app/fixtures/fence.workflow.js";
 
-const LEASE_DEPS = { deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
+const LEASE_DEPS = { deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 const EFFECT_DEPS = {
-  deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
 } as const;
-const CALL_DEPS = { deps: [Clock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] } as const;
+const CALL_DEPS = { deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] } as const;
 
 @Injectable(LEASE_DEPS)
 export class PostgresLeases extends InMemoryExecutionLeaseRepository {

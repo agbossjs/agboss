@@ -1,12 +1,12 @@
 import {
   Application,
-  Clock,
   EmptyEnvironment,
   ExecutionLeaseRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
+  StoreClock,
   type StoreDescriptor,
 } from "../../../../agboss/src/index.js";
 import { IN_MEMORY_DATABASE } from "../../../../agboss/src/infrastructure/in-memory-database.js";
@@ -14,7 +14,9 @@ import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js"
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
 
 /** A fenced-effect store on no declared backend that opts out of the atomic lease check. */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 export class OptedOutEffects extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = {
     backend: undefined,

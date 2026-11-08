@@ -10,6 +10,7 @@ import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Clock,
+  StoreClock,
   ExecutionContext,
   ExecutionFencedError,
   ExecutionLeaseRepository,
@@ -74,19 +75,25 @@ describe("#500: a unit runner's fenced effect", () => {
 });
 
 /** A project's store that declares no backend: the runner has no lease store to hold its lease in. */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 class UnleasedFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: undefined };
 }
 
 /** A project's store on a backend the runner has no lease store of, and the test lists none. */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
 /** A project's own store on the in-memory backend: the runner finds its lease store by it (#825). */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 class OwnInMemoryFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 }

@@ -209,7 +209,7 @@ class SelectThenCloseCalls extends InMemoryOutboundCallRepository {
     const rows = this.seam.database.executionLeases;
     const key = treeKeyOf(tenantId, leaseExecutionId);
     const read = rows.get(key);
-    if (read === undefined || read.released || read.lease.leaseEpoch !== token)
+    if (read === undefined || read.released || read.lease.token !== token)
       return OutboundCallLeaseState.Ended;
     if (read.lease.expiresAt > this.seam.storeClock.now()) return OutboundCallLeaseState.Live;
     await roundTrip();

@@ -24,7 +24,7 @@ export {
 export {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,
-  type ChildExecutionQueueDepth,
+  type ChildExecutionQueueCounts,
   type ChildExecutionQueueWatch,
   type QueuedChildExecution,
 } from "../infrastructure/child-execution-queue.repository.js";

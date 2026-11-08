@@ -102,8 +102,8 @@ const liveLease: OutboundCallCase = {
   run: async ({ first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
 
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Live);
-    expect(await stateAt(first, "execution-1", lease.leaseEpoch)).toBe(Live);
+    expect(await stateAt(second, "execution-1", lease.token)).toBe(Live);
+    expect(await stateAt(first, "execution-1", lease.token)).toBe(Live);
   },
 };
 
@@ -114,15 +114,15 @@ const expiredLease: OutboundCallCase = {
     const lease = await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));
 
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
-    expect(await stateAt(first, "execution-1", lease.leaseEpoch)).toBe(Ended);
+    expect(await stateAt(second, "execution-1", lease.token)).toBe(LeaseClosed);
+    expect(await stateAt(first, "execution-1", lease.token)).toBe(Ended);
     const taken = await leaseOf(second, "execution-1");
-    expect(taken.leaseEpoch).toBe(lease.leaseEpoch + 1);
+    expect(taken.token).toBe(lease.token + 1);
     expect(taken.takenOverFrom).toEqual({
       holderInstanceId: lease.holderInstanceId,
-      leaseEpoch: lease.leaseEpoch,
+      token: lease.token,
     });
-    expect(await stateAt(first, "execution-1", taken.leaseEpoch)).toBe(Live);
+    expect(await stateAt(first, "execution-1", taken.token)).toBe(Live);
   },
 };
 
@@ -158,7 +158,7 @@ const supersededHolderRefused: OutboundCallCase = {
     const key = businessKeyOf(lease);
     await recorded(first, key);
     await clock.advance(seconds(31));
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
+    expect(await stateAt(second, "execution-1", lease.token)).toBe(LeaseClosed);
 
     expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();
     for (const [, call] of HOLDER_WRITES)
@@ -168,7 +168,7 @@ const supersededHolderRefused: OutboundCallCase = {
     expect(found).toMatchObject({
       status: OutboundCallStatus.Pending,
       attempt: 1,
-      token: lease.leaseEpoch,
+      token: lease.token,
     });
   },
 };
@@ -178,12 +178,12 @@ const supersededYieldRefused: OutboundCallCase = {
   isFencing: true,
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", seconds(30));
-    expect(await first.leases.yield(lease)).toBe(true);
+    expect(await first.leases.yield(lease)).toBeTypeOf("number");
     await clock.advance(seconds(31));
 
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(LeaseClosed);
+    expect(await stateAt(second, "execution-1", lease.token)).toBe(LeaseClosed);
     expect(await first.leases.reclaim(lease, seconds(30))).toBeUndefined();
-    expect(await first.leases.yield(lease)).toBe(false);
+    expect(await first.leases.yield(lease)).toBeUndefined();
     expect(await first.leases.renew(lease, seconds(30))).toBeUndefined();
   },
 };
@@ -195,9 +195,9 @@ const reclaimedLease: OutboundCallCase = {
     await first.leases.yield(lease);
     const reclaimed = await first.leases.reclaim(lease, seconds(30));
 
-    expect(reclaimed?.leaseEpoch).toBe(lease.leaseEpoch + 1);
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch)).toBe(Ended);
-    expect(await stateAt(second, "execution-1", lease.leaseEpoch + 1)).toBe(Live);
+    expect(reclaimed?.token).toBe(lease.token + 1);
+    expect(await stateAt(second, "execution-1", lease.token)).toBe(Ended);
+    expect(await stateAt(second, "execution-1", lease.token + 1)).toBe(Live);
   },
 };
 
@@ -210,9 +210,9 @@ const closedLease: OutboundCallCase = {
     await clock.advance(seconds(31));
     const taken = await leaseOf(second, "execution-3");
 
-    expect(await stateAt(first, "execution-1", released.leaseEpoch)).toBe(Ended);
-    expect(await stateAt(first, "execution-3", old.leaseEpoch)).toBe(Ended);
-    expect(await stateAt(first, "execution-3", taken.leaseEpoch)).toBe(Live);
+    expect(await stateAt(first, "execution-1", released.token)).toBe(Ended);
+    expect(await stateAt(first, "execution-3", old.token)).toBe(Ended);
+    expect(await stateAt(first, "execution-3", taken.token)).toBe(Live);
     expect(await stateAt(first, "execution-9", 1)).toBe(Ended);
     expect(await second.leases.renew(taken, seconds(30))).toBe(seconds(30));
   },

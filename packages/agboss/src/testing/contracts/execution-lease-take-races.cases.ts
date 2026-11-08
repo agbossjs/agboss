@@ -42,7 +42,7 @@ async function freed(
   if (held === undefined) throw new Error(`the first take of ${rootExecutionId} was refused`);
   if (how === FreeLease.Released) await first.release(held);
   else await clock.advance(seconds(31));
-  return held.leaseEpoch + 1;
+  return held.token + 1;
 }
 
 const takeRace = (how: FreeLease): ContractCase<ExecutionLeaseRepository> => ({
@@ -61,7 +61,7 @@ const takeRace = (how: FreeLease): ContractCase<ExecutionLeaseRepository> => ({
 
       const given = taken.filter((lease): lease is ExecutionLease => lease !== undefined);
       expect(given, `round ${String(round)}: two owners of one free lease`).toHaveLength(1);
-      expect(given[0]?.leaseEpoch).toBe(epoch);
+      expect(given[0]?.token).toBe(epoch);
     }
   },
 });

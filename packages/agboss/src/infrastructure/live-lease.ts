@@ -24,7 +24,7 @@ export function inMemoryLeaseStateOf(
 ): OutboundCallLeaseState {
   const key = treeKeyOf(lease.tenantId, lease.leaseExecutionId);
   const row = database.executionLeases.get(key);
-  if (row === undefined || row.released || row.lease.leaseEpoch !== lease.token)
+  if (row === undefined || row.released || row.lease.token !== lease.token)
     return OutboundCallLeaseState.Ended;
   if (row.lease.expiresAt > now) return OutboundCallLeaseState.Live;
   database.executionLeases.set(key, { ...row, released: true, isClosedByCheck: true });

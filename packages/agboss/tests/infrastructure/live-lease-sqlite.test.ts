@@ -13,6 +13,7 @@ import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** A lease store on a new SQLite file, and the state its check reads now. */
 function sqliteLeases() {
@@ -22,7 +23,7 @@ function sqliteLeases() {
     ...{ name: "live-lease-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new SqliteExecutionLeaseRepository(connection, clock, application);
+  const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
   const stateOf = (leaseExecutionId: string, token: number): OutboundCallLeaseState =>
     sqliteLeaseStateOf(
       connection.database,

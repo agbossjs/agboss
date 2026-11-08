@@ -1,6 +1,6 @@
 /**
  * The sequential model of the fencing stores (#533 items 2 and 5): what the lease contract says one
- * store does, one operation at a time — `acquire`, `renew`, `release`, `finish`, `yield`, `reclaim`,
+ * store does, one operation at a time — `acquire`, `renew`, `release`, `retire`, `yield`, `reclaim`,
  * `leaseStateOf` — and the fence every write and fenced read passes first (the key's lease at its
  * token, live, not released, and the scope's high-water mark). A state is plain data, never
  * changed in place: each step gives a new one, so a search may keep any state it reached. The
@@ -113,7 +113,7 @@ export function renewed(
   return { state: withLease(state, tree, { ...stored, expiresAt: now + length }), answer: length };
 }
 
-/** `release` (and `finish`, for good): only the caller's own lease, whatever the time. */
+/** `release` (and `retire`, for good): only the caller's own lease, whatever the time. */
 export function released(
   state: FencingState,
   tree: string,

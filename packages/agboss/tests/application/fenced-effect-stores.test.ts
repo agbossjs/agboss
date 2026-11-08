@@ -15,6 +15,7 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import {
   ActionFailedError,
   Clock,
+  StoreClock,
   ExecutionLeaseRepository,
   FencedEffectSettings,
   FencedEffectRepository,
@@ -41,7 +42,9 @@ import { ReleaseWorkflow } from "../app/fixtures/fence.workflow.js";
 sqliteFilePerTest();
 
 /** A project's own store that declares no backend (#526: it fails assembly). */
-@Injectable({ deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository] })
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
 class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: undefined };
 }

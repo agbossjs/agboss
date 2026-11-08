@@ -16,9 +16,9 @@ import {
 import {
   CheckedIdGenerator,
   Clock,
-  DatabaseStoreClock,
   IdGenerator,
   StoreClock,
+  StoreTimeSource,
 } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
@@ -82,7 +82,7 @@ export function applicationContainerOf(
     modules: sources.modules,
     core: new Map<Token, unknown>([
       [Clock, clock],
-      [StoreClock, sources.storeClock ?? new DatabaseStoreClock(clock)],
+      [StoreClock, sources.storeClock ?? new StoreClock(StoreTimeSource.Database, clock)],
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],

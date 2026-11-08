@@ -35,6 +35,7 @@ import { LeaseGate } from "../../src/testing/leases.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
 import { recordingLog } from "../helpers/log.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };
 const SCOPE = "acme:root-1";
@@ -65,10 +66,10 @@ class ScriptedLeaseRepository extends InMemoryExecutionLeaseRepository {
     return super.renew(lease, duration);
   }
 
-  override async yield(lease: ExecutionLease): Promise<boolean> {
+  override async yield(lease: ExecutionLease): Promise<Milliseconds | undefined> {
     this.script.calls.yield += 1;
     if (this.script.yieldAnswer === "rejects") throw new Error("the lease store is down");
-    return this.script.yieldAnswer === false ? false : super.yield(lease);
+    return this.script.yieldAnswer === false ? undefined : super.yield(lease);
   }
 
   override async reclaim(lease: ExecutionLease, duration: Milliseconds) {
@@ -98,7 +99,7 @@ function scriptedStore() {
     ...{ name: "held-lease-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const store = new ScriptedLeaseRepository(clock, application, database);
+  const store = new ScriptedLeaseRepository(storeClockOf(clock), application, database);
   return { clock, database, store, script: store.script };
 }
 
@@ -145,18 +146,6 @@ async function isSettled(promise: Promise<unknown>): Promise<boolean> {
 }
 
 describe("#533: a lost or released holder asks its store nothing", () => {
-  it("confirmNow() after a fenced write rejects with it; no renewal reaches the store", async () => {
-    const leases = scriptedStore();
-    const lease = await heldBy(leases);
-    const fenced = fencedAt(1);
-    handedOverOf(fenced, undefined);
-
-    await expect(lease.confirmNow()).rejects.toBe(fenced);
-
-    expect(leases.script.calls.renew).toBe(0);
-    await lease.release();
-  });
-
   it("renewNow() after a fenced write rejects with it; no renewal reaches the store", async () => {
     const leases = scriptedStore();
     const lease = await heldBy(leases);
@@ -169,17 +158,29 @@ describe("#533: a lost or released holder asks its store nothing", () => {
     await lease.release();
   });
 
-  it("confirmNow() after the release is a hand-over; no renewal reaches the store", async () => {
+  it("renew() after a fenced write rejects with it; no renewal reaches the store", async () => {
+    const leases = scriptedStore();
+    const lease = await heldBy(leases);
+    const fenced = fencedAt(1);
+    handedOverOf(fenced, undefined);
+
+    await expect(lease.renew()).rejects.toBe(fenced);
+
+    expect(leases.script.calls.renew).toBe(0);
+    await lease.release();
+  });
+
+  it("renewNow() after the release is a hand-over; no renewal reaches the store", async () => {
     const leases = scriptedStore();
     const lease = await heldBy(leases);
     await lease.release();
 
-    await expect(lease.confirmNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
+    await expect(lease.renewNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
 
     expect(leases.script.calls.renew).toBe(0);
   });
 
-  it("renewNow() after the release asks the store nothing and runs the after-renewal checks", async () => {
+  it("renew() after the release asks the store nothing and runs the after-renewal checks", async () => {
     const leases = scriptedStore();
     const lease = await heldBy(leases);
     const checks: string[] = [];
@@ -189,7 +190,7 @@ describe("#533: a lost or released holder asks its store nothing", () => {
     });
     await lease.release();
 
-    await expect(lease.renewNow()).resolves.toBeUndefined();
+    await expect(lease.renew()).resolves.toBeUndefined();
 
     expect(leases.script.calls.renew).toBe(0);
     expect(checks).toEqual(["checked"]);
@@ -214,10 +215,10 @@ describe("#533: which renewals run the after-renewal checks", () => {
       return Promise.resolve();
     });
 
-    await lease.renewNow();
+    await lease.renew();
     const afterConfirmed = [...checks];
     leases.script.renewFails = true;
-    await lease.renewNow();
+    await lease.renew();
 
     expect(afterConfirmed).toEqual(["checked"]);
     expect(checks).toEqual(["checked"]);
@@ -236,7 +237,7 @@ describe("#533: which renewals run the after-renewal checks", () => {
     });
     const gate = closedGate();
     leases.script.renewGate = gate.passed;
-    const renewal = lease.renewNow();
+    const renewal = lease.renew();
 
     await lease.release();
     gate.open();
@@ -245,12 +246,12 @@ describe("#533: which renewals run the after-renewal checks", () => {
     expect(checks).toEqual([]);
   });
 
-  it("confirmNow() on a renewal the store did not answer rejects, though the lease has time left", async () => {
+  it("renewNow() on a renewal the store did not answer rejects, though the lease has time left", async () => {
     const leases = scriptedStore();
     const lease = await heldBy(leases);
     leases.script.renewFails = true;
 
-    await expect(lease.confirmNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
+    await expect(lease.renewNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
 
     expect(lease.signal.aborted).toBe(true);
     await lease.release();
@@ -388,7 +389,7 @@ describe("#533: a yield, its store's answers, and the reclaim", () => {
     expect(() => {
       lease.assertHeld();
     }).not.toThrow();
-    expect(lease.confirmedUntil).toBe(leases.clock.now().getTime() + seconds(14));
+    expect(lease.trustedUntil).toBe(leases.clock.now().getTime() + seconds(14));
     await lease.release();
   });
 

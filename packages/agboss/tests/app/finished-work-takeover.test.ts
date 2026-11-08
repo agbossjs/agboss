@@ -97,13 +97,13 @@ describe("#520: a paused child's lease is released, not finished", () => {
 
     expect(rest.status).toBe(ExecutionStatus.Paused);
     expect(pausedRow).toBe(ExecutionRecordStatus.Paused);
-    expect(paused).toMatchObject({ released: true, lease: { leaseEpoch: 1 } });
-    expect(paused?.isFinished).toBeUndefined();
+    expect(paused).toMatchObject({ released: true, lease: { token: 1 } });
+    expect(paused?.isRetired).toBeUndefined();
     expect(answered.status).toBe(ExecutionStatus.Finished);
     expect(leaseRowOf(b, child.executionId)).toMatchObject({
       released: true,
-      isFinished: true,
-      lease: { leaseEpoch: 2 },
+      isRetired: true,
+      lease: { token: 2 },
     });
     expect(await takeoversOf(b, child.rootExecutionId, child.executionId)).toEqual([]);
   });

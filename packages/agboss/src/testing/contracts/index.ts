@@ -58,5 +58,4 @@ export {
   type SabotageRun,
 } from "./sabotage-run.js";
 export { VirtualClock, type VirtualClockOptions } from "../clock.js";
-export { TestStoreClock } from "../store-clock.js";
 export type { RagConnectorContractTarget, RagContractDocument } from "./rag-connector-data.js";

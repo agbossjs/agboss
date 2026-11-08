@@ -73,7 +73,7 @@ const deadlinesOf = (sentAt: SentAt, remaining: unknown, margin: Milliseconds): 
  * and over at the earlier: an offset of its wall clock moves neither; a step of its wall clock back
  * is bounded by the monotonic count, a step forward or a suspend of the host (which stops the
  * monotonic clock while the store's time runs on) by the wall count. The wall clock only ever ends
- * the fence earlier, never later. `confirmedUntil` is that deadline on the wall clock, for reading.
+ * the fence earlier, never later. `trustedUntil` is that deadline on the wall clock, for reading.
  */
 export class LeaseFence {
   #until: Deadlines;
@@ -91,7 +91,7 @@ export class LeaseFence {
   }
 
   /** The time (wall-clock ms) up to which the lease is valid here, for reading. */
-  get confirmedUntil(): number {
+  get trustedUntil(): number {
     return this.clock.now().getTime() + this.left;
   }
 
@@ -159,13 +159,13 @@ export class LeaseFence {
 export async function renewInBackground(
   clock: Clock,
   working: AbortSignal,
-  renewNow: () => Promise<void>,
+  renew: () => Promise<void>,
 ): Promise<void> {
   for (;;) {
     await clock.sleep(RENEW_EVERY, working);
     if (working.aborted) return;
     try {
-      await renewNow();
+      await renew();
     } catch (error) {
       if (error instanceof ExecutionLeaseLostError) return;
     }
@@ -173,7 +173,7 @@ export async function renewInBackground(
 }
 
 /**
- * Sleeps until the lease runs out here (`confirmedUntil`, moved on by every confirmed renewal) and
+ * Sleeps until the lease runs out here (`trustedUntil`, moved on by every confirmed renewal) and
  * then expires it (#335): the holder stops at the lease's end even while its store does not answer.
  */
 export async function expireInBackground(

@@ -50,6 +50,26 @@ costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each 
   - **Units have one home, `@agboss/core/units`** (`Usd`, `Milliseconds`, `Bytes` and their makers):
     the root no longer exports `Usd` and `Milliseconds`.
 
+- **The lease surface says what it does** (#847, API review G7) — the store contracts are new in
+  0.1.1, so only a store or a test written against `main` changes:
+  - **`StoreClock { source: StoreTimeSource.Database | Host | Test; now(): StoreTime }`** — one
+    class replaces `DatabaseStoreClock`, `TestStoreClock` and `isDatabaseTime`; `StoreTime` is a
+    branded `Date`, so a `Clock` passed where a fencing store takes its `StoreClock` does not compile.
+    A networked store reads its database's time exactly when `source` is `Database`.
+  - **The fencing token is `token` everywhere** — `ExecutionLease.leaseEpoch` and
+    `PreviousLeaseHolder.leaseEpoch` are `token`, as on `ExecutionFence`, `EffectKey` and every event.
+  - **`ExecutionLeaseRepository`**: `finish` → `retire`, its fault hold point `StoreHoldPoint.LeaseFinish` (`"lease.finish"`) →
+    `LeaseRetire` (`"lease.retire"`), `saveExecutionIdIfAbsent` →
+    `claimExecutionId`, the duration parameter `lease` → `duration`, and `yield` answers as `renew`
+    does — `Milliseconds | undefined`, the time the lease has left (not extended), `undefined` once
+    it is not the caller's.
+  - **`ExecutionFence`**: `confirmNow()` → `renewNow()`, `confirmedUntil` → `trustedUntil`,
+    `fenced(observedToken?)` → `fencedError(observedToken?)`; the testing fence's options follow
+    (`trustedUntil`, `renewNowFails`).
+  - **`ChildExecutionQueueRepository.findQueueDepth()` → `countByStatus()`**, its
+    `ChildExecutionQueueDepth` → `ChildExecutionQueueCounts`.
+  - Fencing semantics are unchanged: who holds a lease, when it expires and which write is refused.
+
 - **The A2A client speaks A2A v1.0** (#809, epic #805): `A2AClient` / `@A2AAgent` are rebuilt on the
   official `@a2a-js/sdk` (1.3.0, exact pin) and call any v1.0 agent, AGBoss or foreign — the Agent
   Card at `<url>/.well-known/agent-card.json`, JSON-RPC or HTTP+JSON, `SendMessage` with
@@ -260,7 +280,7 @@ root, fixtures })`, which runs a sabotage fixture in a vitest of its own and ret
     `stall` / `resume` of any object); `testWith(App, { instances: [{ clockSkew, meterProvider }] })`
     (`TestInstanceOptions`) replaces `clockSkews` / `meterProviders`; `ClockSkew.drifting(rate)` (was
     `drift`); `callToolWithInvalidArguments` / `callToolWithTruncatedArguments` are typed like
-    `callTool` (#679: a tool the agent does not list does not compile); `fence: { confirmNowFails }`
+    `callTool` (#679: a tool the agent does not list does not compile); `fence: { renewNowFails }`
     takes `boolean | Error`; `FakePaymentGateway` / `paymentGatewayChecklist` (were
     `FakeOutboundGateway` / `outboundGatewayChecklist`); `agbossVitest()` (was `agbossTest()`,
     `@agboss/core/testing/vitest`);
@@ -339,7 +359,7 @@ component`: a question with no component, an approval whose component reads as a
   `0024`; agbossjs/mongodb reads a record written before by the same rule).
 
 - **A lease store keeps every execution id handed out** (#591) — `ExecutionLeaseRepository` has a
-  new abstract `saveExecutionIdIfAbsent({ executionId, tenantId }): Promise<boolean>`: one atomic
+  new abstract `claimExecutionId({ executionId, tenantId }): Promise<boolean>`: one atomic
   insert-if-absent by the id alone (across tenants: a step's idempotency key and the key an
   outbound call sends with no business key carry no tenant), `true` for a new id, `false` for one
   any execution ever had; never removed. The lease contract checks it (`an execution's identity`:
@@ -381,13 +401,13 @@ out of the lease check (acceptWithoutDoubleChargeProtection)` in its own suite �
 
 - **A lease is over at its expiry, for its holder too** (#534) — a lease is live while
   `expiresAt > now`, and only then: at `now >= expiresAt` `renew` (held or yielded) and `yield` are
-  `false`, `reclaim` is `undefined`, `fence.confirmNow()` loses the lease and every fenced write and
+  `undefined`, `reclaim` is `undefined`, `fence.renewNow()` loses the lease and every fenced write and
   outbound-call write under it is `ExecutionFencedError` — whether another instance took it or not;
   the holder takes its tree again only by `acquire`, at a new epoch, a takeover from itself. The
   in-memory and SQLite stores renewed a lease past its expiry when nobody had taken it, PostgreSQL
   refused it (except at the exact instant); every store now draws the same line as `acquire`,
   `leaseStateOf` and the fence checks. New contract cases at `expiresAt − 1 ms`, exactly at it and
-  `+ 1 ms` for `renew`, `yield`, `reclaim`, the framework's `confirmNow()` and renewal, a fenced
+  `+ 1 ms` for `renew`, `yield`, `reclaim`, the framework's `renewNow()` and renewal, a fenced
   write, an outbound call's intent and `leaseStateOf`; the cases "a lease renewed exactly at expiry,
   not taken meanwhile, is kept" and "a yielded lease reclaimed exactly at its expiry…" are gone.
   **Migration:** a store of your own matches `expires_at > now` (not `>=`, not holder and epoch only)
@@ -429,7 +449,7 @@ clockSkew: ClockSkew.ahead(seconds(300)) }] })` (new) skews an instance's clock 
   **Migration:** return `remaining` (`remainingOf(expiresAt, now)`, both on the store's clock) from
   `acquire`, `renew` and `reclaim`; a networked store compares and writes `expires_at` with its
   database's time inside each statement (PostgreSQL `clock_timestamp()`) unless
-  `StoreClock.isDatabaseTime` is false (a test's clock), and builds from `seam.storeClock` in its
+  `StoreClock.source` is not `StoreTimeSource.Database` (a test's clock), and builds from `seam.storeClock` in its
   contract target. A test that expected a holder to trust its lease for the full 30 s counts 29 s.
 
 - **The rules of a fenced key are exported** (#526) — `checkedEffectName`, `replayedFromOf` (a row's
@@ -488,8 +508,8 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   to `deleteByMadeAtBefore` and `newEntriesOf` to `unrecordedEntriesOf` (its callback's `madeAt` a
   `Date`); the stored tables are unchanged.
 
-- **`ChildExecutionQueueRepository.findQueueDepth()`** (#485) — a new abstract method: one read of
-  the queue's `ChildExecutionQueueDepth { queued, running, oldestQueuedAt? }`, which the cluster
+- **`ChildExecutionQueueRepository.countByStatus()`** (#485) — a new abstract method: one read of
+  the queue's `ChildExecutionQueueCounts { queued, running, oldestQueuedAt? }`, which the cluster
   gauges of the autoscaling metrics read once per collection. **Migration:** a child queue of your
   own answers it in one query (agbossjs/postgres, agbossjs/mongodb and agbossjs/redis do).
 
@@ -919,7 +939,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   `execute` got `ExecutionLeaseLostError` or a "no longer queued" error. The yield is now visible in
   the store: `ExecutionLeaseRepository` gains `yield(lease)` / `reclaim(lease, duration)` (a yielded
   lease stays its holder's, is renewed, is refused to every other `acquire` until it expires, and is
-  taken back at the next `leaseEpoch`). A holder that dies while waiting stops renewing, so its
+  taken back at the next `token`). A holder that dies while waiting stops renewing, so its
   lease expires and the tree is recovered as before. **Breaking for a store of your own**: implement
   the two methods; `executionLeaseContract` checks them. The in-memory and SQLite stores implement
   them (SQLite adds the `yielded` column to an existing file).
@@ -953,7 +973,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   outbound-call stores) registered no `interleavings (<name>)` case at all: its leases were never
   explored. The world "every lease operation" now runs on the lease store alone — every schedule of
   two instances, seeded walks of three, every skew, no `leaseStateOf` step — with the two lease
-  races (`finish` and `release` against another instance's take).
+  races (`retire` and `release` against another instance's take).
 
 - **A child on any instance waits for its siblings' spend too — now pinned by a test, and the
   checkpoint write that waits for the pass's spend is mutation-tested** (#776) — the `settled()`
@@ -1102,7 +1122,7 @@ mesh: false }`) and in `agboss describe` (`a2a agents`, `mesh: not guaranteed`).
   move an outbound call through its protocol, one operation at a time — every schedule of two
   instances up to a depth (each state once), seeded walks of three, the second instance's clock off
   by ± lease/2, ± lease and ± 10 × lease while the store keeps the run's time — and every
-  two-outcome race of the contracts forced in both orders (`finish` against a take, a release, a
+  two-outcome race of the contracts forced in both orders (`retire` against a take, a release, a
   `leaseStateOf`, a write against its hand-over, each compare-and-set of an intent). After each step
   it checks one live holder, no write at a superseded, closed or expired token, one effect per key,
   one charge per business key and no takeover of finished work; a failure prints the minimal

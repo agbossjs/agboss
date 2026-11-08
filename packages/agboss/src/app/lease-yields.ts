@@ -148,7 +148,7 @@ export class LeaseAttempts {
  */
 export class LeaseEventReports {
   #tail: Promise<void> = Promise.resolve();
-  #holder: Pick<ExecutionLease, "holderInstanceId" | "leaseEpoch"> | undefined;
+  #holder: Pick<ExecutionLease, "holderInstanceId" | "token"> | undefined;
 
   /** The lease now held: its holder and token name a later hand-over. */
   held(lease: ExecutionLease): void {
@@ -158,7 +158,7 @@ export class LeaseEventReports {
   handOver(events: LeaseEventLog | undefined, report: HandOverReport, scopeKey: string): void {
     const holder = this.#holder;
     if (holder === undefined) return;
-    const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.leaseEpoch };
+    const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.token };
     this.#append(events, (recording, log) => recording.recordHandOver(log, report, lease));
   }
 

@@ -56,8 +56,8 @@ interface HolderCall {
 }
 
 const HOLDER_CALLS: readonly HolderCall[] = [
-  { name: "fence.confirmNow()", call: (holder) => holder.confirmNow() },
-  { name: "the renewal before a checkpoint write", call: (holder) => holder.renewNow() },
+  { name: "fence.renewNow()", call: (holder) => holder.renewNow() },
+  { name: "the renewal before a checkpoint write", call: (holder) => holder.renew() },
 ];
 
 /**
@@ -93,8 +93,8 @@ const holderCallAt = (
         expect(holder.signal.aborted).toBe(true);
         expect(taken).toMatchObject({
           holderInstanceId: "instance-2",
-          leaseEpoch: 2,
-          takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+          token: 2,
+          takenOverFrom: { holderInstanceId: "instance-1", token: 1 },
         });
       }
       await holder.release();
@@ -104,7 +104,7 @@ const holderCallAt = (
 
 /**
  * The framework's holder against the lease's boundary (#534): its own store calls after a pause
- * that stopped its timers — `confirmNow()` and the renewal before a checkpoint write — 1 ms before,
+ * that stopped its timers — `renewNow()` and the renewal before a checkpoint write — 1 ms before,
  * exactly at and 1 ms after the expiry. The store's refusal is what stops it there.
  */
 export const LEASE_CONFIRM_CASES: readonly ContractCase<ExecutionLeaseRepository>[] =

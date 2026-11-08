@@ -2,7 +2,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../../environments/resolve.js";
 import { applicationContextOf } from "../../../flow/context/application-context.js";
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
-import { TestStoreClock } from "../../store-clock.js";
+import { StoreClock, StoreTimeSource } from "../../../infrastructure/clock.js";
 import type { ContractTarget, StoreInstanceContext } from "../instance-context.js";
 import { trackedStore } from "../tracked-store.js";
 import { stepOf } from "./moves.js";
@@ -113,7 +113,7 @@ export class ExplorerRun {
     const instanceId = `instance-${String(instance)}`;
     return {
       clock: new SkewedClock(this.clock, this.world.skewOf(instance)),
-      storeClock: new TestStoreClock(this.clock),
+      storeClock: new StoreClock(StoreTimeSource.Test, this.clock),
       instanceId,
       application: applicationContextOf({
         name: "interleaving-explorer-application",

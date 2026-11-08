@@ -22,26 +22,26 @@ describe("#533: an answer to a fence that is over", () => {
     const { fence, lost } = fenceOf(clock, seconds(30));
     const loss = new ExecutionLeaseLostError("root-1");
     lost.abort(loss);
-    const until = fence.confirmedUntil;
+    const until = fence.trustedUntil;
     await clock.advance(seconds(10));
 
     expect(() => {
       fence.settle(sentAtOf(clock), seconds(30));
     }).toThrow(loss);
-    expect(fence.confirmedUntil).toBe(until);
+    expect(fence.trustedUntil).toBe(until);
   });
 
   it("a renewal the store did not answer, once the fence ran out: expired, its deadline where it was", async () => {
     const clock = new VirtualClock();
     const { fence, lost } = fenceOf(clock, seconds(5));
-    const until = fence.confirmedUntil;
+    const until = fence.trustedUntil;
     await clock.advance(seconds(10));
 
     expect(() => {
       fence.settle(sentAtOf(clock), undefined);
     }).toThrow(ExecutionLeaseLostError);
     expect(lost.signal.aborted).toBe(true);
-    expect(fence.confirmedUntil).toBe(until);
+    expect(fence.trustedUntil).toBe(until);
   });
 
   it("a renewal confirmed with no time left, once the fence ran out: expired", async () => {

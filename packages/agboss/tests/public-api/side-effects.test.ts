@@ -82,9 +82,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * under the line limits). #834: the application's retention group, the environment fields'
  * helpers, createApp's own options and how a refused value is shown (each its own module under the
  * line limits); 1,532 at #817: a usage record's ledger state, the cost categories and a restored
- * state's usage, modules of their own.
+ * state's usage, modules of their own; 1,533 at #847: the SQLite lease log in
+ * its own module, beside its lease store (the line limits).
  */
-const MODULE_BUDGET = 1_532;
+const MODULE_BUDGET = 1_533;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

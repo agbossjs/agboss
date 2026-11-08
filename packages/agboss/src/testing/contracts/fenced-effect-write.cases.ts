@@ -72,7 +72,7 @@ const newerLeaseReplays = <TTransaction>(): Case<TTransaction> => ({
       writing(second.rows, "r2", count),
     );
 
-    expect(taken.leaseEpoch).toBe(2);
+    expect(taken.token).toBe(2);
     expect(replay).toEqual({
       status: FencedEffectStatus.Replayed,
       result: { receipt: "r1" },

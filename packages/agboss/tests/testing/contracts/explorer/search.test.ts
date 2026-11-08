@@ -29,12 +29,13 @@ import { ClockSkew } from "../../../../src/testing/clock-skew.js";
 import { seconds } from "../../../../src/units/index.js";
 import { inMemoryOutboundCalls } from "../../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../../infrastructure/contracts/store-kinds.js";
+import { callerStoreClockOf } from "../../../helpers/store-clock.js";
 
 const sound = callTarget(inMemoryTarget(inMemoryOutboundCalls));
 const onCallerClock = callTarget(
   inMemoryTarget((seam) => {
     const leases = new InMemoryExecutionLeaseRepository(
-      seam.clock,
+      callerStoreClockOf(seam.clock),
       seam.application,
       seam.database,
     );

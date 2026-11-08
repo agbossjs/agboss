@@ -29,6 +29,7 @@ import {
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, type Bytes } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** One instance's stores over a new database. */
 function storesOn(settings = new FencedEffectSettings()) {
@@ -38,8 +39,13 @@ function storesOn(settings = new FencedEffectSettings()) {
     ...{ name: "fenced-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-  const effects = new InMemoryFencedEffectRepository(clock, database, settings, leases);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+  const effects = new InMemoryFencedEffectRepository(
+    storeClockOf(clock),
+    database,
+    settings,
+    leases,
+  );
   return { clock, database, leases, effects };
 }
 

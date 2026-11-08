@@ -28,6 +28,7 @@ import { hours } from "../../src/units/index.js";
 import { testFrame } from "./frame.js";
 import { Logger, type LogEntry } from "../../src/infrastructure/logger.js";
 import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
+import { storeClockOf } from "./store-clock.js";
 
 /**
  * #657, #658 — `OutboundCalls` in a step's frame made by hand over the in-memory stores, on a test's
@@ -83,19 +84,19 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
     ...{ name: "outbound-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const Store = options.store ?? InMemoryOutboundCallRepository;
-  const store = new Store(clock, database, leases);
+  const store = new Store(storeClockOf(clock), database, leases);
   const reports: OutboundCallReport[] = [];
   const lease: FrameLease = {
     tenantId: "default",
     leaseExecutionId: "execution-1",
     scopeKey: "default:execution-1",
     token: 1,
-    confirmedUntil: Number.POSITIVE_INFINITY,
+    trustedUntil: Number.POSITIVE_INFINITY,
     isYielded: false,
     assertHeld: () => undefined,
-    confirmNow: () => Promise.resolve(),
+    renewNow: () => Promise.resolve(),
     enterStep: () => Promise.resolve(() => undefined),
     recordOutboundCall: (report) => {
       reports.push(report);

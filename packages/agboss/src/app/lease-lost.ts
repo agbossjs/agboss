@@ -91,7 +91,7 @@ class InvalidScopeKeyError extends TypeError {
  * lease is over at the write's token (expired, released, never taken; #567: its message says only
  * that). A hand-over, like the
  * lease lost it extends: no `.onError`, no compensation, no failed record — the moving call rejects
- * with it, and the tree goes on where the lease is held. `fence.fenced(observedToken)` builds it for
+ * with it, and the tree goes on where the lease is held. `fence.fencedError(observedToken)` builds it for
  * the current step; a repository that has only what it wrote builds it from the scope key.
  */
 export class ExecutionFencedError extends ExecutionLeaseLostError {

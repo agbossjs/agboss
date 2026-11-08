@@ -35,6 +35,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { hours } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
 import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** How the store under the protocol misbehaves, when it does. */
 const storeScript = { isRecordedElsewhere: false, isResultDropped: false };
@@ -69,18 +70,18 @@ function callsInFrame() {
     ...{ name: "outbound-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-  const store = new ScriptedOutboundCallRepository(clock, database, leases);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+  const store = new ScriptedOutboundCallRepository(storeClockOf(clock), database, leases);
   const reports: OutboundCallReport[] = [];
   const lease: FrameLease = {
     tenantId: "default",
     leaseExecutionId: "execution-1",
     scopeKey: "default:execution-1",
     token: 1,
-    confirmedUntil: Number.POSITIVE_INFINITY,
+    trustedUntil: Number.POSITIVE_INFINITY,
     isYielded: false,
     assertHeld: () => undefined,
-    confirmNow: () => Promise.resolve(),
+    renewNow: () => Promise.resolve(),
     enterStep: () => Promise.resolve(() => undefined),
     recordOutboundCall: (report) => {
       reports.push(report);

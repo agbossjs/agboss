@@ -183,7 +183,7 @@ export abstract class FencedEffectRepository<TTransaction> {
   }
 
   /**
-   * One transaction, in this order: the lease (`leaseEpoch !== token`, released, expired →
+   * One transaction, in this order: the lease (the stored lease's `token !== key.token`, released, expired →
    * fenced), the mark (`token < highest` → fenced, else `highest = max(highest, token)`), the key
    * (found → `Replayed`, `work` not called), the write (`work`, then the result stored with its
    * token and the `Clock`'s time → `Ran`). Rolled back as a whole when anything throws.

@@ -15,6 +15,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import {
   Clock,
+  StoreClock,
   ExecutionLeaseRepository,
   FencedEffectSettings,
   InMemoryFencedEffectRepository,
@@ -32,7 +33,7 @@ import {
 } from "./fixtures/store-backends.fixture.js";
 
 const EFFECT_DEPS = {
-  deps: [Clock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
 } as const;
 
 /** The backend computed when it is read, as from a setting. */
@@ -68,12 +69,12 @@ class CapitalisedEffects extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "Postgres" };
 }
 
-@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 class RedeclaredSqliteEffects extends SqliteFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
-@Injectable({ deps: [SqliteConnection, Clock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 class OwnSqliteEffects extends SqliteFencedEffectRepository {}
 
 @Injectable(EFFECT_DEPS)

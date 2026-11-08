@@ -9,8 +9,9 @@
 import { getEventListeners } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DatabaseStoreClock,
   RandomIdGenerator,
+  StoreClock,
+  StoreTimeSource,
   SystemClock,
   timeoutError,
   timeoutOn,
@@ -88,10 +89,18 @@ describe("#533: the clock's other parts", () => {
   it("an instance's store clock is the database's time, its now() the clock's", () => {
     const clock = new VirtualClock();
 
-    const storeClock = new DatabaseStoreClock(clock);
+    const storeClock = new StoreClock(StoreTimeSource.Database, clock);
 
-    expect(storeClock.isDatabaseTime).toBe(true);
+    expect(storeClock.source).toBe(StoreTimeSource.Database);
     expect(storeClock.now()).toEqual(clock.now());
+  });
+
+  it("#847: a store clock a container builds on its own is the application's default: the database's time, the system's clock", () => {
+    const storeClock = new StoreClock();
+
+    expect(StoreClock.length).toBe(0);
+    expect(storeClock.source).toBe(StoreTimeSource.Database);
+    expect(storeClock.now()).toBeInstanceOf(Date);
   });
 
   it("the built-in ids are random UUIDs, for executions as for threads", () => {

@@ -43,7 +43,7 @@ export const stepOnly: KeyRewrite = (key) => {
 export const currentToken: KeyRewrite = (key, database) => {
   const tenantId = String(key.tenantId);
   const row = database.executionLeases.get(treeKeyOf(tenantId, String(key.leaseExecutionId)));
-  return row === undefined ? key : { ...key, token: row.lease.leaseEpoch };
+  return row === undefined ? key : { ...key, token: row.lease.token };
 };
 
 const isKey = (value: unknown): value is Record<string, unknown> =>

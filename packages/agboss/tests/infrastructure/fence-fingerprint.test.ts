@@ -27,6 +27,7 @@ import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../src/testing/contracts/outbound-call-data.js";
 import { hours } from "../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const clock = new VirtualClock();
 const application = applicationContextOf({
@@ -54,9 +55,14 @@ const unfingerprinted = (key: EffectKey): EffectKey =>
 describe("#825 AC1: the fingerprint decision in the stores' own transaction", () => {
   it("in memory: an entry that skips it still refuses, nothing written", async () => {
     const database = new InMemoryDatabase();
-    const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-    const effects = new EntrylessEffects(clock, database, new FencedEffectSettings(), leases);
-    const calls = new InMemoryOutboundCallRepository(clock, database, leases);
+    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+    const effects = new EntrylessEffects(
+      storeClockOf(clock),
+      database,
+      new FencedEffectSettings(),
+      leases,
+    );
+    const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
     const key = unfingerprinted(keyOf(lease));
@@ -74,9 +80,13 @@ describe("#825 AC1: the fingerprint decision in the stores' own transaction", ()
 
   it("on SQLite: the same, nothing written", async () => {
     const connection = connectionTo(temporarySqlitePath());
-    const leases = new SqliteExecutionLeaseRepository(connection, clock, application);
-    const effects = new EntrylessSqliteEffects(connection, clock, new FencedEffectSettings());
-    const calls = new SqliteOutboundCallRepository(connection, clock);
+    const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
+    const effects = new EntrylessSqliteEffects(
+      connection,
+      storeClockOf(clock),
+      new FencedEffectSettings(),
+    );
+    const calls = new SqliteOutboundCallRepository(connection, storeClockOf(clock));
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
     const key = unfingerprinted(keyOf(lease));

@@ -20,6 +20,7 @@ import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
 /** One instance's SQLite stores on a file of the test. */
 function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
@@ -32,8 +33,12 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  const effects = new SqliteFencedEffectRepository(connection, clock, new FencedEffectSettings());
-  const leases = new SqliteExecutionLeaseRepository(connection, clock, application);
+  const effects = new SqliteFencedEffectRepository(
+    connection,
+    storeClockOf(clock),
+    new FencedEffectSettings(),
+  );
+  const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
   return { clock, connection, effects, leases };
 }
 
@@ -107,7 +112,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
     const connection = connectionTo(temporarySqlitePath());
     const effects = new SqliteFencedEffectRepository(
       connection,
-      new VirtualClock(),
+      storeClockOf(new VirtualClock()),
       new FencedEffectSettings(),
     );
     const key = effectKeyForTesting(
@@ -115,7 +120,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
         tenantId: "default",
         rootExecutionId: "e1",
         holderInstanceId: "i",
-        leaseEpoch: 1,
+        token: 1,
         expiresAt: new Date(0),
         remaining: seconds(30),
       }),

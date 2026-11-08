@@ -12,7 +12,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 import type { Provider } from "../../src/components/injection.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { ApplicationContext, Clock, Injectable } from "../../src/index.js";
+import { ApplicationContext, Clock, StoreClock, Injectable } from "../../src/index.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -31,7 +31,7 @@ import {
 } from "./fixtures/a2a-task-stores.fixture.js";
 import type { StoreDescriptor } from "../../src/index.js";
 
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 class CassandraLeases extends InMemoryExecutionLeaseRepository {
   static override readonly store: StoreDescriptor = { backend: "cassandra" };
 }

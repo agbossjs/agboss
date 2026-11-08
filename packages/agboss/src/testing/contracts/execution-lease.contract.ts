@@ -6,9 +6,9 @@ import { LEASE_AUTHORITY_CASES } from "./execution-lease-authority.cases.js";
 import { LEASE_CONFIRM_CASES } from "./execution-lease-confirm.cases.js";
 import { LEASE_EXPIRY_RACE_CASES } from "./execution-lease-expiry-races.cases.js";
 import { LEASE_EXPIRY_CASES } from "./execution-lease-expiry.cases.js";
-import { LEASE_FINISH_EDGE_CASES } from "./execution-lease-finish-edges.cases.js";
-import { LEASE_FINISH_HOLDER_CASES } from "./execution-lease-finish-holder.cases.js";
-import { LEASE_FINISH_CASES } from "./execution-lease-finish.cases.js";
+import { LEASE_RETIRE_EDGE_CASES } from "./execution-lease-retire-edges.cases.js";
+import { LEASE_RETIRE_HOLDER_CASES } from "./execution-lease-retire-holder.cases.js";
+import { LEASE_RETIRE_CASES } from "./execution-lease-retire.cases.js";
 import { LEASE_IDENTITY_CASES } from "./execution-lease-identity.cases.js";
 import { LEASE_TAKE_RACE_CASES } from "./execution-lease-take-races.cases.js";
 import { LEASE_HOLDER_CASES } from "./execution-lease-holder.cases.js";
@@ -30,7 +30,7 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
         tenantId: "default",
         rootExecutionId: "root-1",
         holderInstanceId: "instance-1",
-        leaseEpoch: 1,
+        token: 1,
         expiresAt: new Date("2026-01-05T09:00:30.000Z"),
         remaining: LEASE,
       });
@@ -38,20 +38,20 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
     },
   },
   {
-    name: "past the lease the other takes it with leaseEpoch + 1, and the old holder's renew is false",
+    name: "past the lease the other takes it with token + 1, and the old holder's renew is false",
     run: async ({ clock, first, second }) => {
       const old = await first.acquire("default", "root-1", LEASE);
 
       await clock.advance(seconds(31));
       const taken = await second.acquire("default", "root-1", LEASE);
 
-      expect(taken).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
+      expect(taken).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
       expect(old && (await first.renew(old, LEASE))).toBeUndefined();
       expect(taken && (await second.renew(taken, LEASE))).toBe(LEASE);
     },
   },
   {
-    name: "a released lease is taken at once with leaseEpoch + 1; another tenant's tree is its own",
+    name: "a released lease is taken at once with token + 1; another tenant's tree is its own",
     run: async ({ first, second }) => {
       const held = await first.acquire("default", "root-1", LEASE);
       if (held !== undefined) await first.release(held);
@@ -59,8 +59,8 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
       const next = await second.acquire("default", "root-1", LEASE);
       const otherTenant = await second.acquire("acme", "root-1", LEASE);
 
-      expect(next).toMatchObject({ holderInstanceId: "instance-2", leaseEpoch: 2 });
-      expect(otherTenant).toMatchObject({ tenantId: "acme", leaseEpoch: 1 });
+      expect(next).toMatchObject({ holderInstanceId: "instance-2", token: 2 });
+      expect(otherTenant).toMatchObject({ tenantId: "acme", token: 1 });
     },
   },
   {
@@ -74,10 +74,10 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 
       expect(fresh?.takenOverFrom).toBeUndefined();
       expect(taken).toMatchObject({
-        leaseEpoch: 2,
-        takenOverFrom: { holderInstanceId: "instance-1", leaseEpoch: 1 },
+        token: 2,
+        takenOverFrom: { holderInstanceId: "instance-1", token: 1 },
       });
-      expect(afterRelease).toMatchObject({ leaseEpoch: 3 });
+      expect(afterRelease).toMatchObject({ token: 3 });
       expect(afterRelease?.takenOverFrom).toBeUndefined();
     },
   },
@@ -89,7 +89,7 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 
       const again = await first.acquire("default", "root-1", LEASE);
 
-      expect(again?.takenOverFrom).toEqual({ holderInstanceId: "instance-1", leaseEpoch: 1 });
+      expect(again?.takenOverFrom).toEqual({ holderInstanceId: "instance-1", token: 1 });
     },
   },
   {
@@ -110,14 +110,14 @@ const LEASE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
 /**
  * `ExecutionLeaseRepository` (#265 AC11, Q58): one lease per tree, keyed by `(tenantId,
  * rootExecutionId)` — not given to another instance while valid (`expiresAt > now`), taken with
- * `leaseEpoch + 1` after it expired or was released (#695: by exactly one of two instances taking a
+ * `token + 1` after it expired or was released (#695: by exactly one of two instances taking a
  * free lease at once), the old holder's `renew` then `false`; at
  * `now >= expiresAt` the lease is over for its holder too (#534: `renew`, `yield`, `reclaim` and the
- * holder's `confirmNow()` refused, taken or not) — a take after expiry names the
+ * holder's `renewNow()` refused, taken or not) — a take after expiry names the
  * expired holder (`takenOverFrom`, #501), one after a release none —; a yielded lease (#516) still
  * its holder's, renewed and refused to others until it expires, taken back with `reclaim`; a finished
  * lease (#520) never taken again, so no stale instance takes over finished work; every execution id
- * kept once (#591, `saveExecutionIdIfAbsent`: by the id alone, one winner of a race, never removed);
+ * kept once (#591, `claimExecutionId`: by the id alone, one winner of a race, never removed);
  * the store's time
  * the authority (#533: run on real time with the other instance's clock off by ± lease/2, ± lease,
  * ± 10 × lease, every take and renewal answering the time left, `remaining`); and the
@@ -137,11 +137,11 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
         cases: [...LEASE_EXPIRY_CASES, ...LEASE_EXPIRY_RACE_CASES],
       },
       { title: "the store's time is the authority", cases: LEASE_AUTHORITY_CASES },
-      { title: "a finished lease", cases: [...LEASE_FINISH_CASES, ...LEASE_FINISH_EDGE_CASES] },
+      { title: "a retired lease", cases: [...LEASE_RETIRE_CASES, ...LEASE_RETIRE_EDGE_CASES] },
       { title: "an execution's identity", cases: LEASE_IDENTITY_CASES },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
       { title: "the framework's holder at the lease's expiry", cases: LEASE_CONFIRM_CASES },
-      { title: "the framework's take of finished work", cases: LEASE_FINISH_HOLDER_CASES },
+      { title: "the framework's take of finished work", cases: LEASE_RETIRE_HOLDER_CASES },
     ],
     pingOf,
   );

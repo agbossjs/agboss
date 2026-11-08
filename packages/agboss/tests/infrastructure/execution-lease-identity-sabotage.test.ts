@@ -18,10 +18,11 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { VirtualClock } from "../../src/testing/clock.js";
 import { LEASE_IDENTITY_CASES } from "../../src/testing/contracts/execution-lease-identity.cases.js";
 import { LeaseTable, MapExecutionLeaseRepository } from "../fixtures/contracts/map-lease-store.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** The race of before: whether the id is known, a round trip, then the insert. */
 class CheckThenInsert extends MapExecutionLeaseRepository {
-  override async saveExecutionIdIfAbsent({ executionId }: ExecutionIdentity): Promise<boolean> {
+  override async claimExecutionId({ executionId }: ExecutionIdentity): Promise<boolean> {
     const isKnown = this.executionIds.has(executionId);
     await Promise.resolve();
     if (isKnown) return false;
@@ -32,8 +33,8 @@ class CheckThenInsert extends MapExecutionLeaseRepository {
 
 /** Ids per tenant, like the leases: two tenants' trees share step keys. */
 class PerTenant extends MapExecutionLeaseRepository {
-  override saveExecutionIdIfAbsent({ executionId, tenantId }: ExecutionIdentity): Promise<boolean> {
-    return super.saveExecutionIdIfAbsent({
+  override claimExecutionId({ executionId, tenantId }: ExecutionIdentity): Promise<boolean> {
+    return super.claimExecutionId({
       executionId: `${tenantId}\u0000${executionId}`,
       tenantId,
     });
@@ -42,22 +43,22 @@ class PerTenant extends MapExecutionLeaseRepository {
 
 /** An id removed with its finished lease: a finished tree's id handed out again. */
 class ForgetsOnFinish extends MapExecutionLeaseRepository {
-  override async finish(executionLease: ExecutionLease): Promise<void> {
-    await super.finish(executionLease);
+  override async retire(executionLease: ExecutionLease): Promise<void> {
+    await super.retire(executionLease);
     this.executionIds.delete(executionLease.rootExecutionId);
   }
 }
 
 /** Ids compared without case, as a case-insensitive collation would. */
 class CaseInsensitive extends MapExecutionLeaseRepository {
-  override saveExecutionIdIfAbsent({ executionId, tenantId }: ExecutionIdentity): Promise<boolean> {
-    return super.saveExecutionIdIfAbsent({ executionId: executionId.toLowerCase(), tenantId });
+  override claimExecutionId({ executionId, tenantId }: ExecutionIdentity): Promise<boolean> {
+    return super.claimExecutionId({ executionId: executionId.toLowerCase(), tenantId });
   }
 }
 
 /** No identity kept: every id new. */
 class KeepsNothing extends MapExecutionLeaseRepository {
-  override saveExecutionIdIfAbsent(): Promise<boolean> {
+  override claimExecutionId(): Promise<boolean> {
     return Promise.resolve(true);
   }
 }
@@ -88,7 +89,11 @@ function inMemoryInstances() {
   const clock = new VirtualClock();
   const database = new InMemoryDatabase();
   const of = (instanceId: string) =>
-    new InMemoryExecutionLeaseRepository(clock, applicationOf(clock, instanceId), database);
+    new InMemoryExecutionLeaseRepository(
+      storeClockOf(clock),
+      applicationOf(clock, instanceId),
+      database,
+    );
   return { clock, first: of("instance-1"), second: of("instance-2") };
 }
 

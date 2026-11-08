@@ -3,7 +3,7 @@
  * Redis, `without: ["fencedEffect", "outboundCall", …]` — is explored on its lease store alone:
  * every schedule of two instances and seeded walks of three over every lease operation (no
  * `leaseStateOf`), every skew, and the two lease races. The sound in-memory store passes; leases on
- * the caller's clock and a finish that only releases fail with the invariant they break
+ * the caller's clock and a retire that only releases fail with the invariant they break
  * (explorer-lease-only.contract-fixture.ts, in a vitest of its own).
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -54,8 +54,8 @@ describe("#694: the explorer on a lease store alone", () => {
     expect(first?.errors[0]).toMatch(/minimal schedule \(\d+ of the \d+ steps found\):\n {3}1\. /u);
   });
 
-  it("AC2: a finish that only releases breaks no-takeover-of-finished-work and the #520 race", () => {
-    const failed = failedOf("leases alone, a finish that only releases");
+  it("AC2: a retire that only releases breaks no-takeover-of-finished-work and the #520 race", () => {
+    const failed = failedOf("leases alone, a retire that only releases");
     expect(
       failed.some((found) => (found.errors[0] ?? "").includes("[no-takeover-of-finished-work]")),
     ).toBe(true);

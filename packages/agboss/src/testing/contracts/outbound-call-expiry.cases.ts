@@ -51,11 +51,11 @@ const stateAtEdge = (edge: ExpiryEdge): OutboundCallCase => {
       const lease = await leaseOf(first, "execution-1", seconds(30));
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
 
-      const state = await stateAt(second, lease.leaseEpoch);
+      const state = await stateAt(second, lease.token);
 
       const { Live, LeaseClosed, Ended } = OutboundCallLeaseState;
       expect(state).toBe(isLive ? Live : LeaseClosed);
-      expect(await stateAt(second, lease.leaseEpoch)).toBe(isLive ? Live : Ended);
+      expect(await stateAt(second, lease.token)).toBe(isLive ? Live : Ended);
       expect(await first.leases.renew(lease, seconds(30))).toBe(isLive ? seconds(30) : undefined);
     },
   };

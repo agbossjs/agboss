@@ -16,6 +16,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { businessKeyOf, leaseOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** `null`: no fingerprint. Each pair of them a join must keep apart, unless it is one value. */
 const FINGERPRINTS: readonly (string | null)[] = [
@@ -48,9 +49,9 @@ function stores() {
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(
-    clock,
+    storeClockOf(clock),
     database,
     new FencedEffectSettings(),
     leases,

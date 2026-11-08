@@ -17,13 +17,14 @@ import {
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 const TREE = { tenantId: "default", rootExecutionId: "root-1" };
 
 /** The in-memory store, its answers' `remaining` replaced by `answer`, its renewals failing once `down`. */
 function storeAnswering(clock: VirtualClock, answer: unknown) {
   const store = new InMemoryExecutionLeaseRepository(
-    clock,
+    storeClockOf(clock),
     applicationContextOf({
       ...{ name: "sanity-application", version: "1.0.0", instanceId: "instance-1" },
       ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },

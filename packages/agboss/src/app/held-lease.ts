@@ -104,21 +104,21 @@ export class HeldLease implements HeldExecutionLease {
     const start = { sentAt, remaining: initial.remaining, margin: taking.safetyMargin };
     this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId);
     this.#holder = new FencedHolders(this.scopeKey, this.fenced.bind(this));
-    this.#holder.hold(initial.leaseEpoch);
+    this.#holder.hold(initial.token);
     // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral,BooleanLiteral: the abort event fires once and its holder is forgotten at the release as well; a fenced write of a lost holder's token only aborts what is aborted already
     this.#lost.signal.addEventListener("abort", this.#holder.forget, { once: true });
     const working = AbortSignal.any([this.#stopped.signal, this.#lost.signal]);
     taking.heldLeases?.hold(working);
-    void renewInBackground(this.clock, working, () => this.renewNow());
+    void renewInBackground(this.clock, working, () => this.renew());
     void expireInBackground(this.clock, working, this.#fence);
   }
 
   get token(): number | undefined {
-    return this.#isYieldedNow ? undefined : this.#current?.leaseEpoch;
+    return this.#isYieldedNow ? undefined : this.#current?.token;
   }
 
-  get confirmedUntil(): number {
-    return this.#fence.confirmedUntil;
+  get trustedUntil(): number {
+    return this.#fence.trustedUntil;
   }
 
   get isYielded(): boolean {
@@ -133,7 +133,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#fence.check();
   }
 
-  async confirmNow(): Promise<void> {
+  async renewNow(): Promise<void> {
     this.#lost.signal.throwIfAborted();
     const held = this.#current;
     // no step runs while the lease is yielded: a confirmation now is not this holder's
@@ -151,7 +151,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#lost.abort(error);
   }
 
-  async renewNow(): Promise<void> {
+  async renew(): Promise<void> {
     this.#lost.signal.throwIfAborted();
     const renewal = await this.#turns.run(async () => {
       const held = this.#current;
@@ -205,7 +205,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#attempts.keep(attempt, maxWait, () => this.#yields.enterStep());
   }
 
-  async release({ isFinished = false }: { readonly isFinished?: boolean } = {}): Promise<void> {
+  async release({ isRetired = false }: { readonly isRetired?: boolean } = {}): Promise<void> {
     // its attempts in flight first, renewed on meanwhile, within their bounds (#508)
     const isSettled = await this.#attempts.settled(this.#lost.signal, this.taking.stopping);
     await this.#reports.settled();
@@ -217,7 +217,7 @@ export class HeldLease implements HeldExecutionLease {
     if (isSettled && !this.#lost.signal.aborted) {
       const held = heldAtRelease(this.#current);
       this.#current = undefined;
-      await (isFinished ? this.repository.finish(held) : this.repository.release(held));
+      await (isRetired ? this.repository.retire(held) : this.repository.release(held));
     }
     leaseReleases.notify(this.#key);
   }
@@ -231,8 +231,8 @@ export class HeldLease implements HeldExecutionLease {
     if (this.#isYieldedNow) return;
     this.#isYieldedNow = true;
     this.#holder.forget();
-    const isYielded = await this.repository.yield(held).catch((): boolean => true);
-    if (!isYielded) this.#fence.lose();
+    // the time left is unused (a yield extends nothing); null: the store did not answer
+    if ((await this.repository.yield(held).catch(() => null)) === undefined) this.#fence.lose();
   }
 
   /** Takes the yielded lease back before a step runs (#516): the next token, or the holder stops. */
@@ -248,7 +248,7 @@ export class HeldLease implements HeldExecutionLease {
     if (next === undefined) this.#fence.lose(leaseTakenWhileYieldedError(this.leaseExecutionId));
     this.#isYieldedNow = false;
     this.#reports.held(next);
-    this.#holder.hold(next.leaseEpoch);
+    this.#holder.hold(next.token);
     this.#fence.reacquired(sentAt, next.remaining);
     await reportTake(this.taking.events, next, reacquiredOf(this.#take));
   }

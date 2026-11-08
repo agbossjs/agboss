@@ -18,7 +18,7 @@ const HOLDER_OPERATIONS: Readonly<Record<ExplorerWorldKind, readonly LeaseOperat
     LeaseOperation.Yield,
     LeaseOperation.Reclaim,
     LeaseOperation.Release,
-    LeaseOperation.Finish,
+    LeaseOperation.Retire,
   ],
   [ExplorerWorldKind.FencedEffect]: [LeaseOperation.Renew, LeaseOperation.Release],
   [ExplorerWorldKind.OutboundCall]: [LeaseOperation.Renew],

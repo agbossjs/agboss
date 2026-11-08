@@ -38,10 +38,11 @@ export {
 export type { PausedExecution } from "../app/paused-runs.js";
 export {
   Clock,
-  DatabaseStoreClock,
   IdGenerator,
   RandomIdGenerator,
   StoreClock,
+  StoreTimeSource,
+  type StoreTime,
   type ExecutionIds,
 } from "../infrastructure/clock.js";
 export {

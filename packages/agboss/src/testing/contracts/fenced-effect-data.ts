@@ -83,7 +83,7 @@ export const keyOf = (
     scopeKey: scopeKeyOf(lease.tenantId, lease.rootExecutionId),
     tenantId: lease.tenantId,
     leaseExecutionId: lease.rootExecutionId,
-    token: lease.leaseEpoch,
+    token: lease.token,
     idempotencyKey,
     name,
   });

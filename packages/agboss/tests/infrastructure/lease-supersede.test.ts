@@ -47,7 +47,7 @@ describe.each(storeTargets(inMemory, sqlite))(
         const closed = await second.calls.leaseStateOf({
           tenantId: "default",
           leaseExecutionId: "execution-1",
-          token: lease.leaseEpoch,
+          token: lease.token,
         });
         let isRun = false;
 

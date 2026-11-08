@@ -3,7 +3,7 @@ import {
   Action,
   Agent,
   ApplicationContext,
-  Clock,
+  Clock, StoreClock,
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
@@ -79,7 +79,7 @@ export class Teardown implements OnDestroy {
 }
 
 /** The leases in the test's memory; each release is logged. */
-@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class LoggedExecutionLeaseRepository extends InMemoryExecutionLeaseRepository {
   override async release(lease: ExecutionLease): Promise<void> {
     order.push(`lease released by ${lease.holderInstanceId}`);

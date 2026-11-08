@@ -6,14 +6,11 @@ import { ApplicationContext } from "../../flow/context/application-context.js";
 import { StoreClock, lazyLoad } from "../clock.js";
 import {
   ExecutionLeaseRepository,
+  remainingOf,
   takenOverFromOf,
   type ExecutionIdentity,
   type ExecutionLease,
 } from "../execution-lease.repository.js";
-import {
-  ExecutionLeaseEventRepository,
-  type ExecutionLeaseEventRecord,
-} from "../execution-lease-event.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
@@ -28,12 +25,12 @@ const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT
 /**
  * `released`: 0 held (or expired), 1 released by its holder, 2 closed as expired by an outbound
  * call's check (#508, `SUPERSEDED`) — not held either way, but a take of a superseded one is a
- * takeover from its holder —, 3 finished by its holder (#520, `FINISHED`): never acquired again.
+ * takeover from its holder —, 3 retired by its holder (#520, `RETIRED`): never acquired again.
  */
 const RELEASED = 1;
-const FINISHED = 3;
+const RETIRED = 3;
 
-/** The key, holder and epoch of a lease, as `release` and `finish` match it. */
+/** The key, holder and epoch of a lease, as `release` and `retire` match it. */
 const SAME_LEASE = `tenant_id = ? AND root_execution_id = ? AND holder_instance_id = ?
   AND lease_epoch = ?`;
 
@@ -44,8 +41,8 @@ const SAME_LEASE = `tenant_id = ? AND root_execution_id = ? AND holder_instance_
 const HELD_BY = `${SAME_LEASE} AND released = 0 AND expires_at > ?`;
 
 /** The key, holder and epoch of `lease`, in `SAME_LEASE`'s order. */
-const sameLease = ({ tenantId, rootExecutionId, holderInstanceId, leaseEpoch }: ExecutionLease) =>
-  [tenantId, rootExecutionId, holderInstanceId, leaseEpoch] as const;
+const sameLease = ({ tenantId, rootExecutionId, holderInstanceId, token }: ExecutionLease) =>
+  [tenantId, rootExecutionId, holderInstanceId, token] as const;
 
 /** `sameLease`, then the time (ms) it must still be live at: `HELD_BY`'s parameters. */
 const heldBy = (lease: ExecutionLease, now: number) => [...sameLease(lease), now] as const;
@@ -57,9 +54,9 @@ const LeaseRow = z.object({
   released: z.number(),
 });
 
-/** Whether `acquire` refuses a stored lease: still held, or finished (#520). */
+/** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
 const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: number): boolean =>
-  released === FINISHED || (released === 0 && expires_at > now); // live: expires_at > now (#534)
+  released === RETIRED || (released === 0 && expires_at > now); // live: expires_at > now (#534)
 
 /**
  * `ExecutionLeaseRepository` on the application's SQLite file (#265, S32): one row per tree with
@@ -67,10 +64,10 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  * `BEGIN IMMEDIATE` transaction, so of two instances on one file exactly one takes a free lease;
  * `renew`, `release`, `yield` and `reclaim` (#516: `yielded`, the next epoch) are one statement each,
  * matching the holder and the epoch — `renew`, `yield` and `reclaim` a lease still live too
- * (`expires_at > now`, #534); `finish` (#520) is a release no `acquire` passes (`released =
- * 3`); `saveExecutionIdIfAbsent` (#591) one insert into `execution_ids`. Times are the host's — the application's clock, read through `StoreClock` (#533: a test's
- * clock in tests) — in milliseconds; every take and renewal answers the time left. Listed in
- * `@Application({ providers })`; needs `sqlitePath`.
+ * (`expires_at > now`, #534); `retire` (#520) a release no `acquire` passes (`released = 3`);
+ * `claimExecutionId` (#591) one insert into `execution_ids`; the token is the 0.1.0 column
+ * `lease_epoch`. Times are the host's (`StoreClock`, #533; a test's clock in tests), in ms; every
+ * take, renewal and yield answers the time left. Listed in `@Application({ providers })`.
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
@@ -91,7 +88,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   /** Loaded on first use (#591): the root import stays as it was. */
-  async saveExecutionIdIfAbsent(identity: ExecutionIdentity): Promise<boolean> {
+  async claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
     const { savedExecutionId } = await lazyLoad(import("./sqlite-execution-ids.js"));
     return savedExecutionId(this.connection, identity);
   }
@@ -99,7 +96,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   acquire(
     tenantId: string,
     rootExecutionId: string,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const now = this.clock.now().getTime();
     const { database } = this.connection;
@@ -113,13 +110,13 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
         tenantId,
         rootExecutionId,
         holderInstanceId: this.applicationContext.instanceId,
-        leaseEpoch: (stored?.lease_epoch ?? 0) + 1,
-        expiresAt: new Date(now + lease),
-        remaining: lease,
+        token: (stored?.lease_epoch ?? 0) + 1,
+        expiresAt: new Date(now + duration),
+        remaining: duration,
         ...takenOverFromOf(
           stored === undefined
             ? undefined
-            : { holderInstanceId: stored.holder_instance_id, leaseEpoch: stored.lease_epoch },
+            : { holderInstanceId: stored.holder_instance_id, token: stored.lease_epoch },
           // not released by its holder: expired (0), or closed as expired by a call's check (2, #508)
           stored !== undefined && stored.released !== RELEASED,
         ),
@@ -134,31 +131,31 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
           tenantId,
           rootExecutionId,
           this.applicationContext.instanceId,
-          next.leaseEpoch,
-          now + lease,
+          next.token,
+          now + duration,
         );
       return next;
     });
     return Promise.resolve(taken);
   }
 
-  renew(held: ExecutionLease, lease: Milliseconds): Promise<Milliseconds | undefined> {
+  renew(held: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined> {
     const now = this.clock.now().getTime();
     const { changes } = this.connection.database
       .prepare(`UPDATE execution_leases SET expires_at = ? WHERE ${HELD_BY}`)
-      .run(now + lease, ...heldBy(held, now));
-    return Promise.resolve(Number(changes) === 1 ? lease : undefined);
+      .run(now + duration, ...heldBy(held, now));
+    return Promise.resolve(Number(changes) === 1 ? duration : undefined);
   }
 
   release(executionLease: ExecutionLease): Promise<void> {
     return this.#released(executionLease, RELEASED);
   }
 
-  finish(executionLease: ExecutionLease): Promise<void> {
-    return this.#released(executionLease, FINISHED);
+  retire(executionLease: ExecutionLease): Promise<void> {
+    return this.#released(executionLease, RETIRED);
   }
 
-  /** The holder's own lease released as `released` (a finished one stays finished, #520). */
+  /** The holder's own lease released as `released` (a retired one stays retired, #520). */
   #released(executionLease: ExecutionLease, released: number): Promise<void> {
     this.connection.database
       .prepare(
@@ -169,19 +166,22 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
-  yield(executionLease: ExecutionLease): Promise<boolean> {
-    const { changes } = this.connection.database
-      .prepare(`UPDATE execution_leases SET yielded = 1 WHERE ${HELD_BY}`)
-      .run(...heldBy(executionLease, this.clock.now().getTime()));
-    return Promise.resolve(Number(changes) === 1);
+  yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    const now = this.clock.now().getTime();
+    const yielded = this.connection.database
+      .prepare(`UPDATE execution_leases SET yielded = 1 WHERE ${HELD_BY} RETURNING expires_at`)
+      .get(...heldBy(executionLease, now));
+    if (yielded === undefined) return Promise.resolve(undefined);
+    const { expires_at } = LeaseRow.pick({ expires_at: true }).parse(yielded);
+    return Promise.resolve(remainingOf(new Date(expires_at), new Date(now)));
   }
 
   reclaim(
     executionLease: ExecutionLease,
-    lease: Milliseconds,
+    duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const now = this.clock.now().getTime();
-    const expiresAt = now + lease;
+    const expiresAt = now + duration;
     const { changes } = this.connection.database
       .prepare(
         `UPDATE execution_leases SET lease_epoch = lease_epoch + 1, expires_at = ?, yielded = 0
@@ -189,78 +189,12 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
       )
       .run(expiresAt, ...heldBy(executionLease, now));
     if (Number(changes) !== 1) return Promise.resolve(undefined);
-    const { tenantId, rootExecutionId, holderInstanceId, leaseEpoch } = executionLease;
-    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, leaseEpoch: leaseEpoch + 1 };
-    return Promise.resolve({ ...reclaimed, expiresAt: new Date(expiresAt), remaining: lease });
+    const { tenantId, rootExecutionId, holderInstanceId, token } = executionLease;
+    const reclaimed = { tenantId, rootExecutionId, holderInstanceId, token: token + 1 };
+    return Promise.resolve({ ...reclaimed, expiresAt: new Date(expiresAt), remaining: duration });
   }
 }
 
 sqliteImplementation(SqliteExecutionLeaseRepository);
 
-const EVENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lease_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
-  occurred_at INTEGER NOT NULL, record TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS execution_lease_events_tree
-  ON execution_lease_events (tenant_id, root_execution_id, occurred_at, id);
-CREATE INDEX IF NOT EXISTS execution_lease_events_occurred ON execution_lease_events (occurred_at);`;
-
-const EventRow = z.object({ record: z.string() });
-
-/** A row's record (written by `save`: the record as JSON). */
-const recordOf = (row: unknown): ExecutionLeaseEventRecord =>
-  // the column holds exactly what `save` wrote
-  JSON.parse(EventRow.parse(row).record) as ExecutionLeaseEventRecord;
-
-/**
- * `ExecutionLeaseEventRepository` on the application's SQLite file (#501): one row per event, its
- * record as JSON beside the columns it is found by, ordered by the time it happened and then by the
- * order it was saved. Listed in `@Application({ providers })`; needs `sqlitePath`.
- */
-@Injectable({ deps: [SqliteConnection] })
-export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepository {
-  constructor(private readonly connection: SqliteConnection) {
-    super();
-    connection.ensureSchema("execution_lease_events", EVENTS_SCHEMA);
-  }
-
-  ping(): Promise<void> {
-    return this.connection.ping();
-  }
-
-  save(record: ExecutionLeaseEventRecord): Promise<void> {
-    this.connection.database
-      .prepare(
-        `INSERT INTO execution_lease_events (tenant_id, root_execution_id, occurred_at, record)
-         VALUES (?, ?, ?, ?)`,
-      )
-      .run(
-        record.tenantId,
-        record.rootExecutionId,
-        Date.parse(record.occurredAt),
-        JSON.stringify(record),
-      );
-    return Promise.resolve();
-  }
-
-  findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
-    tenantId: string,
-    rootExecutionId: string,
-  ): Promise<readonly ExecutionLeaseEventRecord[]> {
-    const rows = this.connection.database
-      .prepare(
-        `SELECT record FROM execution_lease_events WHERE tenant_id = ? AND root_execution_id = ?
-         ORDER BY occurred_at, id`,
-      )
-      .all(tenantId, rootExecutionId);
-    return Promise.resolve(rows.map(recordOf));
-  }
-
-  deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
-    this.connection.database
-      .prepare("DELETE FROM execution_lease_events WHERE occurred_at < ?")
-      .run(cutoff.getTime());
-    return Promise.resolve();
-  }
-}
-
-sqliteImplementation(SqliteExecutionLeaseEventRepository);
+export { SqliteExecutionLeaseEventRepository } from "./sqlite-execution-lease-event.repository.js";

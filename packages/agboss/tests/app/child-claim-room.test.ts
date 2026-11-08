@@ -44,7 +44,7 @@ async function slotsNow(): Promise<{ busy: number | undefined; free: number | un
 
 /** The queue's rows now: claimed (`Running`) and still `Queued` — a worker never holds more than its slots. */
 async function rowsNow(app: TestApp): Promise<{ running: number; queued: number }> {
-  const { running, queued } = await app.resolve(ChildExecutionQueueRepository).findQueueDepth();
+  const { running, queued } = await app.resolve(ChildExecutionQueueRepository).countByStatus();
   return { running, queued };
 }
 

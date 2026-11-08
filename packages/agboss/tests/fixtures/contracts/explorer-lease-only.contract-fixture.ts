@@ -6,12 +6,13 @@ import {
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import { registerInterleavings } from "../../../src/testing/contracts/explorer/register.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
+import { callerStoreClockOf } from "../../helpers/store-clock.js";
 
 const BUDGET = { depth: 6, walks: 20, walkDepth: 20 };
 
-/** A lease store whose `finish` only releases: finished work is taken again (#520). */
-class ReleasingFinishLeaseRepository extends InMemoryExecutionLeaseRepository {
-  override finish(lease: ExecutionLease): Promise<void> {
+/** A lease store whose `retire` only releases: finished work is taken again (#520). */
+class ReleasingRetireLeaseRepository extends InMemoryExecutionLeaseRepository {
+  override retire(lease: ExecutionLease): Promise<void> {
     return this.release(lease);
   }
 }
@@ -30,17 +31,22 @@ registerInterleavings(
   "leases alone on the caller's clock",
   {
     executionLease: inMemoryTarget(
-      (seam) => new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database),
+      (seam) =>
+        new InMemoryExecutionLeaseRepository(
+          callerStoreClockOf(seam.clock),
+          seam.application,
+          seam.database,
+        ),
     ),
   },
   BUDGET,
 );
 registerInterleavings(
-  "leases alone, a finish that only releases",
+  "leases alone, a retire that only releases",
   {
     executionLease: inMemoryTarget(
       (seam) =>
-        new ReleasingFinishLeaseRepository(seam.storeClock, seam.application, seam.database),
+        new ReleasingRetireLeaseRepository(seam.storeClock, seam.application, seam.database),
     ),
   },
   BUDGET,

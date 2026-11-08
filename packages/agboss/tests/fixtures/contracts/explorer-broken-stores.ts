@@ -17,7 +17,7 @@ import {
 } from "../../../src/infrastructure/outbound-call.repository.js";
 import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
-import { Clock, type StoreClock } from "../../../src/infrastructure/clock.js";
+import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import type {
   ContractTarget,
   FencedEffectTarget,
@@ -32,25 +32,11 @@ import {
   FromOldEndLeaseRepository,
 } from "./naive-expiry.js";
 import { currentToken, rewritingKeys, stepOnly } from "./naive-guarantees.js";
+import { storeClockOf } from "../../helpers/store-clock.js";
 
-/** The store's time as a `Clock`, for the naive stores that take one. */
-class StoreTime extends Clock {
-  constructor(private readonly storeClock: StoreClock) {
-    super();
-  }
-
-  now(): Date {
-    return this.storeClock.now();
-  }
-
-  sleep(): Promise<void> {
-    return Promise.resolve();
-  }
-}
-
-/** A lease store whose `finish` only releases: finished work is taken again (#520). */
-class ReleasingFinishLeaseRepository extends InMemoryExecutionLeaseRepository {
-  override finish(lease: ExecutionLease): Promise<void> {
+/** A lease store whose `retire` only releases: finished work is taken again (#520). */
+class ReleasingRetireLeaseRepository extends InMemoryExecutionLeaseRepository {
+  override retire(lease: ExecutionLease): Promise<void> {
     return this.release(lease);
   }
 }
@@ -62,7 +48,7 @@ class SameEpochReclaimLeaseRepository extends InMemoryExecutionLeaseRepository {
     length: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const taken = await super.reclaim(lease, length);
-    return taken === undefined ? undefined : { ...taken, leaseEpoch: lease.leaseEpoch };
+    return taken === undefined ? undefined : { ...taken, token: lease.token };
   }
 }
 
@@ -107,12 +93,17 @@ const callsOn = (
 /** The broken outbound-call targets (the lease world and the call worlds run on them). */
 export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<OutboundCallTarget>>> = {
   "leases on the caller's clock": callsOn(
-    (seam) => new InMemoryExecutionLeaseRepository(seam.clock, seam.application, seam.database),
+    (seam) =>
+      new InMemoryExecutionLeaseRepository(
+        new StoreClock(StoreTimeSource.Host, seam.clock),
+        seam.application,
+        seam.database,
+      ),
   ),
   "a lease live through its expiry instant": callsOn(
     (seam) =>
       new NaiveExpiryLeaseRepository(
-        new StoreTime(seam.storeClock),
+        seam.storeClock,
         seam.application,
         seam.database,
         throughExpiry,
@@ -121,22 +112,17 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
   "a lease renewed whatever the time": callsOn(
     (seam) =>
       new NaiveExpiryLeaseRepository(
-        new StoreTime(seam.storeClock),
+        seam.storeClock,
         seam.application,
         seam.database,
         holderAndEpochOnly,
       ),
   ),
   "a renewal from the lease's old end": callsOn(
-    (seam) =>
-      new FromOldEndLeaseRepository(
-        new StoreTime(seam.storeClock),
-        seam.application,
-        seam.database,
-      ),
+    (seam) => new FromOldEndLeaseRepository(seam.storeClock, seam.application, seam.database),
   ),
-  "a finish that only releases": callsOn(
-    (seam) => new ReleasingFinishLeaseRepository(seam.storeClock, seam.application, seam.database),
+  "a retire that only releases": callsOn(
+    (seam) => new ReleasingRetireLeaseRepository(seam.storeClock, seam.application, seam.database),
   ),
   "a reclaim that keeps the epoch": callsOn(
     (seam) => new SameEpochReclaimLeaseRepository(seam.storeClock, seam.application, seam.database),
@@ -168,7 +154,7 @@ export const BROKEN_EFFECT_TARGETS: Readonly<
   "effects on the caller's clock": inMemoryTarget((seam) => {
     const stores = inMemoryFencedEffects(false)(seam);
     const effects = new InMemoryFencedEffectRepository(
-      seam.clock,
+      storeClockOf(seam.clock),
       seam.database,
       new FencedEffectSettings(),
       stores.leases,

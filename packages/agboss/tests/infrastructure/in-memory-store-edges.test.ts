@@ -21,6 +21,7 @@ import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../src/testing/contracts/outbound-call-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, seconds } from "../../src/units/index.js";
+import { storeClockOf } from "../helpers/store-clock.js";
 
 /** One instance's lease and outbound-call stores over a new database. */
 function storesOn() {
@@ -30,8 +31,8 @@ function storesOn() {
     ...{ name: "store-application", version: "1.0.0", instanceId: "instance-1" },
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
-  const leases = new InMemoryExecutionLeaseRepository(clock, application, database);
-  const calls = new InMemoryOutboundCallRepository(clock, database, leases);
+  const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
+  const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
   return { clock, database, leases, calls };
 }
 
@@ -48,12 +49,12 @@ describe("#533: the in-memory lease store", () => {
     const stores = storesOn();
     const lease = await heldIn(stores);
 
-    await expect(stores.leases.yield(lease)).resolves.toBe(true);
+    await expect(stores.leases.yield(lease)).resolves.toBeTypeOf("number");
 
     expect(stores.database.executionLeases.get(ROW)).toMatchObject({
       released: false,
       isYielded: true,
-      lease: { leaseEpoch: 1 },
+      lease: { token: 1 },
     });
   });
 
@@ -62,7 +63,7 @@ describe("#533: the in-memory lease store", () => {
     const lease = await heldIn(stores);
     await stores.leases.release(lease);
 
-    await expect(stores.leases.yield(lease)).resolves.toBe(false);
+    await expect(stores.leases.yield(lease)).resolves.toBeUndefined();
 
     expect(stores.database.executionLeases.get(ROW)?.isYielded).toBeUndefined();
   });

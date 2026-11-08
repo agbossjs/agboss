@@ -14,7 +14,7 @@ import {
  * AC7 (#533, from agbossjs/postgres#9): every race of the store contracts whose outcome depends on
  * which call the store takes first, run in both orders on every store — each call sent only once
  * the store answered the one before, never left to a free race (which on PostgreSQL only ever ran
- * one order of `finish` against a take). Each race names what each order must give.
+ * one order of `retire` against a take). Each race names what each order must give.
  */
 
 /** A two-outcome race: its setup, its two calls, what each order must end with. */
@@ -121,7 +121,7 @@ export const acquireBy2 = (run: ExplorerRun): Promise<unknown> =>
   run.storesOf(2).leases.acquire(EXPLORED_TENANT, "tree-1", EXPLORED_LEASE);
 
 export const epochOf = (answer: unknown): number | undefined =>
-  typeof answer === "object" && answer !== null ? (answer as ExecutionLease).leaseEpoch : undefined;
+  typeof answer === "object" && answer !== null ? (answer as ExecutionLease).token : undefined;
 
 /** A problem unless `answer` is a lease of `epoch` (or, for `undefined`, a refusal). */
 export const expectTake = (answer: unknown, epoch: number | undefined): string | undefined =>
@@ -154,7 +154,7 @@ export const LEASE_RACES: readonly ForcedRace[] = [
     name: "finish against another instance's take, past the lease (#520)",
     kind: ExplorerWorldKind.Lease,
     setup: expired,
-    first: (run, { lease }) => run.storesOf(1).leases.finish(lease),
+    first: (run, { lease }) => run.storesOf(1).leases.retire(lease),
     second: acquireBy2,
     firstWins: ({ second }) => Promise.resolve(expectTake(second, undefined)),
     secondWins: ({ second }) => Promise.resolve(expectTake(second, 2)),
@@ -183,7 +183,7 @@ export const LEASE_RACES: readonly ForcedRace[] = [
     name: "finish against leaseStateOf, past the lease: finished either way",
     kind: ExplorerWorldKind.OutboundCall,
     setup: expired,
-    first: (run, { lease }) => run.storesOf(1).leases.finish(lease),
+    first: (run, { lease }) => run.storesOf(1).leases.retire(lease),
     second: (run) => stateOf(run, 1),
     firstWins: async ({ second }, run) =>
       expectEqual("leaseStateOf", second, "ended") ?? expectTake(await acquireBy2(run), undefined),

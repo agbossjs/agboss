@@ -30,7 +30,7 @@ const keyOf = (tenantId: string, rootExecutionId: string): string =>
   JSON.stringify([tenantId, rootExecutionId]);
 
 const isSameLease = (stored: ExecutionLease | undefined, held: ExecutionLease): boolean =>
-  stored?.leaseEpoch === held.leaseEpoch && stored.holderInstanceId === held.holderInstanceId;
+  stored?.token === held.token && stored.holderInstanceId === held.holderInstanceId;
 
 export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
   constructor(
@@ -50,10 +50,16 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.table.executionIds;
   }
 
-  saveExecutionIdIfAbsent({ executionId }: ExecutionIdentity): Promise<boolean> {
+  claimExecutionId({ executionId }: ExecutionIdentity): Promise<boolean> {
     if (this.executionIds.has(executionId)) return Promise.resolve(false);
     this.executionIds.add(executionId);
     return Promise.resolve(true);
+  }
+
+  /** The time the lease of `key` has left (G7: a yield's answer), never below 0. */
+  #remainingOf(key: string): Milliseconds {
+    const expiresAt = this.table.rows.get(key)?.expiresAt.getTime() ?? 0;
+    return Math.max(0, expiresAt - this.now()) as Milliseconds;
   }
 
   /** The time, in milliseconds: the store's clock (#533: `seam.storeClock`). */
@@ -84,7 +90,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
       tenantId,
       rootExecutionId,
       holderInstanceId: this.application.instanceId,
-      leaseEpoch: (stored?.leaseEpoch ?? 0) + 1,
+      token: (stored?.token ?? 0) + 1,
       expiresAt: new Date(this.now() + lease),
       remaining: lease,
       ...(stored === undefined || this.table.released.has(key)
@@ -92,7 +98,7 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
         : {
             takenOverFrom: {
               holderInstanceId: stored.holderInstanceId,
-              leaseEpoch: stored.leaseEpoch,
+              token: stored.token,
             },
           }),
     };
@@ -118,17 +124,18 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
-  finish(executionLease: ExecutionLease): Promise<void> {
+  retire(executionLease: ExecutionLease): Promise<void> {
     const key = keyOf(executionLease.tenantId, executionLease.rootExecutionId);
     // in one step with the release: an acquire in between would take the finished key
     if (isSameLease(this.table.rows.get(key), executionLease)) this.table.finished.add(key);
     return this.release(executionLease);
   }
 
-  yield(executionLease: ExecutionLease): Promise<boolean> {
+  yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
     const key = this.#heldKeyOf(executionLease);
-    if (key !== undefined) this.table.yielded.add(key);
-    return Promise.resolve(key !== undefined);
+    if (key === undefined) return Promise.resolve(undefined);
+    this.table.yielded.add(key);
+    return Promise.resolve(this.#remainingOf(key));
   }
 
   reclaim(
@@ -138,10 +145,10 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     const key = this.#heldKeyOf(executionLease);
     if (key === undefined) return Promise.resolve(undefined);
     const { tenantId, rootExecutionId, holderInstanceId } = executionLease;
-    const leaseEpoch = executionLease.leaseEpoch + 1;
+    const token = executionLease.token + 1;
     const expiresAt = new Date(this.now() + lease);
     const reclaimed = {
-      ...{ tenantId, rootExecutionId, holderInstanceId, leaseEpoch, expiresAt },
+      ...{ tenantId, rootExecutionId, holderInstanceId, token, expiresAt },
       remaining: lease,
     };
     this.table.rows.set(key, reclaimed);
