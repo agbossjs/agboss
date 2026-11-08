@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { memoryLine } from "../../src/cli/approve.js";
 import { costSummary, costTotal, costTrace } from "../../src/cli/finops.js";
 // the framework's cost report, built the way a run builds it
-import { buildCostReport, recordToolCost } from "../../../agboss/src/finops/usage.js";
+import { buildCostReport, CostSource, recordToolCost } from "../../../agboss/src/finops/usage.js";
 import { usageRecord } from "../../../agboss/tests/helpers.js";
 
 describe("CLI cost output", () => {
@@ -22,7 +22,9 @@ describe("CLI cost output", () => {
   });
 
   it("says how each call was priced", () => {
-    const api = buildCostReport([{ ...usageRecord("router:main", 0.00002), costSource: "api" }]);
+    const api = buildCostReport([
+      { ...usageRecord("router:main", 0.00002), costSource: CostSource.Api },
+    ]);
 
     expect(costTrace(api)[0]).toMatch(/api-priced$/);
   });

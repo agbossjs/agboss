@@ -11,6 +11,7 @@ import {
   counterOf,
   type ExecutionBudgetRecord,
 } from "../../src/budgets/execution-budgets.js";
+import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { BudgetExceededError } from "../../src/graph/limits.js";
@@ -27,7 +28,7 @@ const budget: ExecutionBudgetRecord = {
 
 const keyed = (costUsd: number, id: string): UsageRecord => ({
   ...recordToolCost("pay-tool", costUsd),
-  ledgerKey: { id, madeAt: NOW.toISOString() },
+  ledgerKey: { id, madeAt: NOW },
 });
 
 /** A pass of the execution: its own meter over the one ledger. */
@@ -49,8 +50,11 @@ describe("#810: a spend of its own identity counts once across passes", () => {
     second.tally([keyed(1, "a2a:m-1:price"), keyed(2, "a2a:m-1:report")]);
     await second.settled();
 
-    expect(price?.ledgerId).toBe("a2a:m-1:price");
-    expect(price?.madeAt).toBe(NOW.toISOString());
+    expect(price?.ledger).toEqual({
+      state: LedgerState.Written,
+      ledgerId: "a2a:m-1:price",
+      madeAt: NOW,
+    });
     expect(await spentOf(ledger, clock)).toBeCloseTo(3);
   });
 

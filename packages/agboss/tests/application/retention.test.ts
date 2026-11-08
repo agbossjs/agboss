@@ -211,7 +211,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       ],
       [
         "costLedgerEntries",
-        vi.spyOn(app.resolve(CostLedgerRepository), "deleteEntriesByMadeAtBefore"),
+        vi.spyOn(app.resolve(CostLedgerRepository), "deleteByMadeAtBefore"),
         RETENTION.costLedgerEntries,
       ],
       [

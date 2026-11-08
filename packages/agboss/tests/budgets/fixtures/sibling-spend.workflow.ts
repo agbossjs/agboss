@@ -14,7 +14,10 @@ import {
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
+import {
+  InMemoryCostLedgerRepository,
+  type LedgerEntry,
+} from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -82,7 +85,7 @@ const gates = { queued: (): void => undefined, paid: (): void => undefined };
 export class HeldSiblingLedger extends InMemoryCostLedgerRepository {
   override async saveAll(
     counters: readonly CostCounter[],
-    records: readonly UsageRecord[],
+    records: readonly LedgerEntry[],
   ): Promise<void> {
     if (records.some((record) => record.caller.includes("sibling-pay-action"))) {
       await siblingSpend.held;

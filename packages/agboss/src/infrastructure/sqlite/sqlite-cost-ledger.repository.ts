@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { BudgetScope } from "../../budgets/budget.js";
 import { Injectable } from "../../components/decorators.js";
-import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { totalCost } from "../../finops/usage.js";
 import { usd, type Usd } from "../../units/index.js";
 import {
   CostLedgerEntryExpiredError,
   CostLedgerRepository,
   expiredEntriesOf,
-  newEntriesOf,
+  invalidDateErrorOf,
+  invalidLedgerEntryErrorOf,
+  unrecordedEntriesOf,
   type BudgetAccount,
   type CostCounter,
+  type LedgerEntry,
 } from "../cost-ledger.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -53,9 +56,9 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
 
 /**
  * `CostLedgerRepository` on the application's SQLite file (#265, S32; counters by budget, #261 PR
- * 5): each call's cost added to every counter in one `BEGIN IMMEDIATE` transaction — an entry
- * with a `ledgerId` once, its id kept in `cost_ledger_entries` in that transaction (#727) with its
- * date, pruned by `deleteEntriesByMadeAtBefore` under a mark a later save of it is refused by
+ * 5): each entry's cost added to every counter in one `BEGIN IMMEDIATE` transaction — an entry
+ * once by its `ledgerId`, its id kept in `cost_ledger_entries` in that transaction (#727) with its
+ * date, pruned by `deleteByMadeAtBefore` under a mark a later save of it is refused by
  * (#771) —, so the
  * instances on one file share the counters and survive a restart. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
@@ -76,12 +79,12 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     });
   }
 
-  /** The pruning mark (#771, ms): entries made before it may have been removed; none yet → −∞. */
-  #prunedBefore(): number {
+  /** The pruning mark (#771, kept in ms): entries made before it may have been removed; none yet → `undefined`. */
+  #prunedBefore(): Date | undefined {
     const row = this.connection.database
       .prepare("SELECT pruned_before FROM cost_ledger_entries_pruned WHERE id = 1")
       .get();
-    return row === undefined ? Number.NEGATIVE_INFINITY : PrunedRow.parse(row).pruned_before;
+    return row === undefined ? undefined : new Date(PrunedRow.parse(row).pruned_before);
   }
 
   ping(): Promise<void> {
@@ -98,8 +101,24 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve(usd(row === undefined ? 0 : SpentRow.parse(row).spent_usd));
   }
 
-  saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
-    if (counters.length === 0 || records.length === 0) return Promise.resolve();
+  saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
+    // a JS caller's record without an identity is refused before anything (#817)
+    const invalid = invalidLedgerEntryErrorOf(entries);
+    if (invalid !== undefined) return Promise.reject(invalid);
+    if (counters.length === 0 || entries.length === 0) return Promise.resolve();
+    // a failure of the file (busy, a row that does not parse) rejects, never throws
+    return new Promise<void>((resolve, reject) => {
+      const refused = this.#add(counters, entries);
+      if (refused === undefined) resolve();
+      else reject(refused);
+    });
+  }
+
+  /** Adds `entries` to every counter in one transaction, or answers why it refused them (#771). */
+  #add(
+    counters: readonly CostCounter[],
+    entries: readonly LedgerEntry[],
+  ): CostLedgerEntryExpiredError | undefined {
     let refused: CostLedgerEntryExpiredError | undefined;
     this.connection.transaction(() => {
       // an entry it may have pruned is refused, the whole save with it (#771): the mark is read
@@ -108,19 +127,20 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
       const held = this.connection.database.prepare(
         "SELECT 1 FROM cost_ledger_entries WHERE ledger_id = ?",
       );
-      const expired = expiredEntriesOf(records, prunedBefore, (id) => held.get(id) !== undefined);
-      if (expired.length > 0) {
-        refused = new CostLedgerEntryExpiredError({
-          ledgerIds: expired,
-          prunedBefore: new Date(prunedBefore),
-        });
+      const expired = expiredEntriesOf(entries, prunedBefore, (id) => held.get(id) !== undefined);
+      // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
+      if (expired.length > 0 && prunedBefore !== undefined) {
+        refused = new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore });
         return;
       }
       // each entry once (#727): its id kept, with its date, in the transaction that adds its cost
       const entry = this.connection.database.prepare(
         "INSERT INTO cost_ledger_entries VALUES (?, ?) ON CONFLICT (ledger_id) DO NOTHING",
       );
-      const added = newEntriesOf(records, (id, madeAt) => entry.run(id, madeAt).changes === 1);
+      const added = unrecordedEntriesOf(
+        entries,
+        (id, madeAt) => entry.run(id, madeAt.getTime()).changes === 1,
+      );
       const spent = totalCost(added);
       const statement = this.connection.database.prepare(
         `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)
@@ -130,12 +150,16 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
       for (const counter of counters)
         statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent);
     });
-    return refused === undefined ? Promise.resolve() : Promise.reject(refused);
+    return refused;
   }
 
-  deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void> {
+  deleteByMadeAtBefore(cutoff: Date): Promise<void> {
+    // a cutoff that is no date would lower the mark: refused (#817)
+    const invalid = invalidDateErrorOf(cutoff, "the cutoff");
+    if (invalid !== undefined) return Promise.reject(invalid);
     this.connection.transaction(() => {
-      const prunedBefore = Math.max(this.#prunedBefore(), cutoff.getTime());
+      const kept = this.#prunedBefore()?.getTime() ?? Number.NEGATIVE_INFINITY;
+      const prunedBefore = Math.max(kept, cutoff.getTime());
       this.connection.database
         .prepare(
           `INSERT INTO cost_ledger_entries_pruned VALUES (1, ?)

@@ -216,7 +216,7 @@ export async function openExecutionBudgets<TName extends string>(
 /**
  * The budgets of a later pass of an execution (a resume, a recovery): the records it keeps in its
  * state (the amounts read at its start), and what it spent before — already counted; its spend
- * written as it was made (`ledgerId`, #727) the pass never takes in again.
+ * written as it was made (`LedgerState.Written`, its `ledgerId`, #727) the pass never takes in again.
  */
 export async function continuedExecutionBudgets<TName extends string>(
   deps: AgentExecutionDeps<TName>,

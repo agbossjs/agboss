@@ -259,7 +259,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
     },
     {
       what: "the ledger's old entries",
-      remove: sources.ledger?.deleteEntriesByMadeAtBefore.bind(sources.ledger),
+      remove: sources.ledger?.deleteByMadeAtBefore.bind(sources.ledger),
       retention: sources.ledgerEntryRetention,
     },
     ...(sources.expiries ?? []),

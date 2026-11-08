@@ -4,7 +4,7 @@ import type { Class } from "../components/injection.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { VirtualClock } from "./clock.js";
 import { routerCaller, type RouteOutcome } from "../routers/index.js";
-import type { UsageRecord } from "../finops/usage.js";
+import { CostSource, type UsageRecord } from "../finops/usage.js";
 import { asError, TestFailure } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { ModelCallFailedError, replyWith } from "./script.js";
@@ -87,7 +87,7 @@ function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | un
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     costUsd: details.cost,
-    costSource: "api",
+    costSource: CostSource.Api,
   };
 }
 

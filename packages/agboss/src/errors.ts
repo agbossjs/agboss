@@ -108,7 +108,9 @@ export {
 } from "./app/outbound-calls.js";
 export {
   CostLedgerEntryExpiredError,
+  CostLedgerEntryInvalidError,
   type CostLedgerEntryExpiredErrorOptions,
+  type CostLedgerEntryInvalidErrorOptions,
 } from "./infrastructure/cost-ledger.repository.js";
 export {
   FencedEffectResultTooLargeError,

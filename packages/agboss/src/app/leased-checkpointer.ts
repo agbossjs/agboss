@@ -7,6 +7,7 @@ import {
   type CheckpointTuple,
 } from "@langchain/langgraph";
 import type { HeldExecutionLease } from "./execution-leases.js";
+import { withUsageRead, withUsageReadOf } from "./restored-usage.js";
 
 /** What LangGraph's checkpointer contract takes (its types are not all re-exported). */
 type ListArguments = Parameters<BaseCheckpointSaver["list"]>;
@@ -77,7 +78,12 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
     super(saver.serde);
   }
 
+  /** The checkpoint `config` names (its latest), its usage read as this version keeps it (#817). */
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    return withUsageReadOf(await this.#tupleOf(config));
+  }
+
+  async #tupleOf(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     if (idOf(config) !== undefined) return this.saver.getTuple(config);
     if (await this.#isMarked(config)) {
       const [newest] = await this.#ordered(threadOf(config, namespaceOf(config)));
@@ -88,16 +94,18 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
     return tuple;
   }
 
+  /** The thread's checkpoints, newest first, their usage read as this version keeps it (#817). */
   async *list(
     config: RunnableConfig,
     options?: CheckpointListOptions,
   ): AsyncGenerator<CheckpointTuple> {
     if (!(await this.#isMarked(config))) {
       for await (const tuple of this.saver.list(config, options))
-        if (namespaceOf(tuple.config) !== OUT_OF_ORDER) yield tuple;
+        if (namespaceOf(tuple.config) !== OUT_OF_ORDER) yield withUsageRead(tuple);
       return;
     }
-    yield* limited(await this.#ordered(config, options), options?.limit);
+    for (const tuple of limited(await this.#ordered(config, options), options?.limit))
+      yield withUsageRead(tuple);
   }
 
   async put(

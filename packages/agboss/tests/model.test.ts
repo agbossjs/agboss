@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../src/app/app-deps.js";
+import { CostSource } from "../src/finops/usage.js";
 import type { ModelGateway } from "../src/llm/gateway.js";
 import { TestChat } from "./fixtures/test-flow/test.flow.js";
 import { providerStub } from "./models/stub.js";
@@ -54,7 +55,7 @@ const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       costUsd: 0,
-      costSource: "api",
+      costSource: CostSource.Api,
     },
   });
 

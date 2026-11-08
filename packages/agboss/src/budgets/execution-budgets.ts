@@ -2,7 +2,11 @@ import type { Clock } from "../infrastructure/clock.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { BudgetExceededError } from "../graph/limits.js";
-import type { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
+import { LedgerState } from "../finops/ledger-mark.js";
+import type {
+  CostLedgerRepository,
+  LedgerEntry,
+} from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
 import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
 import {
@@ -10,6 +14,7 @@ import {
   counterOf,
   isRecordedHere,
   isSpendExhausted,
+  ledgerEntryOf,
   LedgerIds,
 } from "./budget-check.js";
 import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
@@ -52,7 +57,7 @@ export { settledSaverOf } from "../app/leased-checkpointer.js";
  * Written as it is made (#727, #732): a tally is written to the ledger at once — so the tree's
  * steps on other instances (its children on any instance, their siblings, the parent of one) see it
  * at their next read of the counters — and the state keeps the record marked as in the ledger
- * (`isRecordedElsewhere`) with its `ledgerId`. The pass writes a checkpoint only once every tally
+ * (`ledger: { state: LedgerState.Written, ledgerId, madeAt }`, #817). The pass writes a checkpoint only once every tally
  * before it is written (`settled`, `SettledSpendCheckpointSaver`), and queues a child on any
  * instance only then, so a durable state never holds a mark its ledger lacks. A record with a
  * `ledgerId` counts once by that id: this pass's own, or taken in once — a child's from another
@@ -70,11 +75,11 @@ export class BudgetMeter implements BudgetCheck {
   #recorded = 0;
   #snapshot: CounterSnapshot = { values: new Map(), recorded: 0 };
   /** The pass's spend tallied as it was made and not in the ledger yet (its write pending). */
-  #tallied: UsageRecord[] = [];
+  #tallied: LedgerEntry[] = [];
   /** The `ledgerId`s this pass gave, took in, or found counted before it (#727). */
   readonly #ids: LedgerIds;
   /** Tallied spend whose write failed: written again before the next write or checkpoint. */
-  #unwritten: UsageRecord[] = [];
+  #unwritten: LedgerEntry[] = [];
   /** The meter's reads and writes, one at a time. */
   #turns: Promise<unknown> = Promise.resolve();
   readonly #exhausted = new AbortController();
@@ -181,18 +186,23 @@ export class BudgetMeter implements BudgetCheck {
     if (breach !== undefined) throw breach;
   }
 
-  /** Adds `records` to every counter (their period). */
-  #save(records: readonly UsageRecord[]): Promise<void> {
+  /** Adds `entries` to every counter (their period). */
+  #save(entries: readonly LedgerEntry[]): Promise<void> {
     const now = this.clock.now();
     const counters = this.records.map((record) => counterOf(record, now));
-    return this.ledger.saveAll(counters, records);
+    return this.ledger.saveAll(counters, entries);
+  }
+
+  /** `record` as an entry of the ledger under a new id of this pass, made now (#727, #771, #817). */
+  #entryOf(record: UsageRecord): LedgerEntry {
+    return ledgerEntryOf(record, this.#ids.mint(), this.clock.now());
   }
 
   /**
    * Writes tallied spend: in the ledger, out of the tally, with a read after it — an entry an
    * earlier run of its step wrote is not added again (#727), so only a read says what it holds.
    */
-  async #write(records: readonly UsageRecord[]): Promise<void> {
+  async #write(records: readonly LedgerEntry[]): Promise<void> {
     await this.#save(records);
     const values = await this.#read();
     this.#recorded += totalCost(records);
@@ -216,21 +226,14 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0 || !records.some(isRecordedHere)) return records;
     // written at once (#727, #732): another instance's check sees it at its next read of the
     // counters; marked with its id, so no pass writes or counts it again
-    const own: UsageRecord[] = [];
-    const kept = records.map((record) => {
+    const own: LedgerEntry[] = [];
+    const kept = records.map((record): UsageRecord => {
       if (!isRecordedHere(record)) return record;
-      // a spend of its own identity (#810) keeps it: whichever pass writes it, the ledger adds it once
-      const { ledgerKey } = record;
-      const marked = {
-        ...record,
-        isRecordedElsewhere: true,
-        // an id of no pass: one any pass may have written — the ledger adds it once, its reads hold it
-        ledgerId: ledgerKey?.id ?? this.#ids.mint(),
-        // its entry's date (#771): a write of it retried after the ledger pruned it is refused
-        madeAt: ledgerKey?.madeAt ?? this.clock.now().toISOString(),
-      };
-      own.push(marked);
-      return marked;
+      // its entry's date (#771): a write of it retried after the ledger pruned it is refused
+      const entry = this.#entryOf(record);
+      own.push(entry);
+      const { ledgerId, madeAt } = entry;
+      return { ...record, ledger: { state: LedgerState.Written, ledgerId, madeAt } };
     });
     this.#tallied.push(...own);
     // a failed write is kept, still counted in the tally: the next write or checkpoint writes it
@@ -315,8 +318,9 @@ export class BudgetMeter implements BudgetCheck {
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       await this.#writeUnwritten();
-      // a spend of its own identity (#810) is written under it: the ledger adds it once
-      const own = records.filter(isRecordedHere).map(withOwnLedgerKey);
+      // written at its step's end: each an entry of its own under a new id of the pass (#817 — the
+      // ledger saves nothing without an identity; a step run again mints new ones, as a tally does)
+      const own = records.filter(isRecordedHere).map((record) => this.#entryOf(record));
       const elsewhere = this.#ids.uncounted(records, false);
       this.#recorded += totalCost(own);
       if (own.length > 0) await this.#save(own);
@@ -326,10 +330,6 @@ export class BudgetMeter implements BudgetCheck {
 }
 
 /** A record written at its step's end under its own identity (#810), when it has one. */
-const withOwnLedgerKey = (record: UsageRecord): UsageRecord =>
-  record.ledgerKey === undefined
-    ? record
-    : { ...record, ledgerId: record.ledgerKey.id, madeAt: record.ledgerKey.madeAt };
 
 /** A pass's budgets over the records the execution keeps. */
 export const meterOf = (

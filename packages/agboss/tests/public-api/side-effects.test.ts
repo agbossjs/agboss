@@ -81,9 +81,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * reconciliation's verdicts, the key fields' and the store descriptors' rules (each its own module
  * under the line limits). #834: the application's retention group, the environment fields'
  * helpers, createApp's own options and how a refused value is shown (each its own module under the
- * line limits).
+ * line limits); 1,532 at #817: a usage record's ledger state, the cost categories and a restored
+ * state's usage, modules of their own.
  */
-const MODULE_BUDGET = 1_527;
+const MODULE_BUDGET = 1_532;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

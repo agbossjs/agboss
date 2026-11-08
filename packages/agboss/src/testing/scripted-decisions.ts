@@ -1,4 +1,5 @@
 import type { DecisionOutcome } from "../llm/decision-response.js";
+import { CostSource } from "../finops/usage.js";
 import {
   checkDecisionRequest,
   type ChoiceQuestion,
@@ -132,7 +133,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): Decisio
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       costUsd: cost ?? 0,
-      costSource: "api",
+      costSource: CostSource.Api,
     },
   };
 }

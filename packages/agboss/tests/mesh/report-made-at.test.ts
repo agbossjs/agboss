@@ -13,6 +13,7 @@ import {
   counterOf,
   type ExecutionBudgetRecord,
 } from "../../src/budgets/execution-budgets.js";
+import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { reportMadeAtOf } from "../../src/mesh/mesh-report.js";
@@ -28,6 +29,10 @@ const budget: ExecutionBudgetRecord = {
   key: "execution-1",
   maxSpend: 100,
 };
+
+/** The date its pass wrote the charge under, as ISO text ("" when it is not written). */
+const writtenMadeAtOf = (record: UsageRecord | undefined): string =>
+  record?.ledger?.state === LedgerState.Written ? record.ledger.madeAt.toISOString() : "";
 
 const inWindow = (madeAt: string): boolean => {
   const at = Date.parse(madeAt);
@@ -78,7 +83,7 @@ describe("#810: a run report's charge is dated inside the caller's window", () =
         ...recordToolCost("pay-tool", 2),
         ledgerKey: {
           id: "a2a:m-1:report",
-          madeAt: reportMadeAtOf(issuedAt, { notBefore: ACCEPTED, now }),
+          madeAt: new Date(reportMadeAtOf(issuedAt, { notBefore: ACCEPTED, now })),
         },
       });
       const first = new BudgetMeter([budget], ledger, clock, 0);
@@ -89,7 +94,7 @@ describe("#810: a run report's charge is dated inside the caller's window", () =
       second.tally([charge(new Date(NOW.getTime() + 60_000))]);
       await second.settled();
 
-      expect(inWindow(kept?.madeAt ?? "")).toBe(true);
+      expect(inWindow(writtenMadeAtOf(kept))).toBe(true);
       expect(await ledger.findSpentByCounter(counterOf(budget, clock.now()))).toBeCloseTo(2);
     },
   );

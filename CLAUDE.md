@@ -636,8 +636,9 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   a claim whose answer was lost never leaves a lease renewed with no pass behind it);
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
   checked where it runs, and each spend is written to the root's counters the moment it is made
-  (`isRecordedElsewhere`, #333 PR 3; #727: every tallied spend, its siblings' and its parent's too,
-  the state's record marked with its `ledgerId` and checkpointed only once written; the child
+  (`ledger: { state: LedgerState.RecordedElsewhere }`, #333 PR 3; #727: every tallied spend, its
+  siblings' and its parent's too, the state's record marked `LedgerState.Written` with its
+  `ledgerId` and `madeAt`, #817, and checkpointed only once written; the child
   queued only once its parent's spend is in the ledger, #732) — its parent's pass takes that spend
   in with a read of the counters before its state shows it, so it counts once (#685). A remote child that pauses completes its pass at `Paused` and
   interrupts the parent's node with `{ waitingForChild: { …, remote: true } }`, forwarding the
@@ -2598,10 +2599,19 @@ const readiness: HealthReport = await app.checkReadiness();
   `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once; #771: each
   entry dated by its record's `madeAt`, pruned by the recovery sweep after
   `@Application({ retention: { costLedgerEntries } })` — default `hours(24)`, above the lease,
-  `[application.retention-invalid]` — through `deleteEntriesByMadeAtBefore(cutoff)`,
+  `[application.retention-invalid]` — through `deleteByMadeAtBefore(cutoff)`,
   which raises the store's pruning mark; a save of an entry made before the mark that the store does
   not hold is refused, `CostLedgerEntryExpiredError`, nothing added and the pass's reads failing
-  with it, so a retry that late never counts twice). Hitting a limit **fails the
+  with it, so a retry that late never counts twice; #817: `saveAll` takes `LedgerEntry` values
+  only — a `UsageRecord` with its `ledgerId`, `madeAt: Date` and `costUsd: Usd`, every save of the
+  core one, a step's end too —, a JS caller's record without them refused,
+  `CostLedgerEntryInvalidError`, by `assertLedgerEntries` that every store calls first; a record's
+  one ledger state is `UsageRecord.ledger`, read by `ledgerMarkOf`, which also reads a state kept
+  before 0.1.1). The terms (#817): **cost** is what one call cost (`costUsd`, `CostLine`,
+  `CostSource`, `CostCategory`); **spend** what was consumed against a budget (`spend`,
+  `findSpentByCounter`, `spentUsd`); **usage** tokens only (`TokenUsage`) — `UsageRecord` keeps its
+  name, a call's record with its cost. Every amount that crosses a store boundary is `Usd`; a
+  `CostReport` (JSON) keeps `…Usd: number`. Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05

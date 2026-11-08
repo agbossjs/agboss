@@ -76,7 +76,7 @@ describe("#771: the recovery sweep prunes the ledger's entries", () => {
     async ({ app, clock }) => {
       await app.ready();
       const ledger = app.resolve(CostLedgerRepository);
-      const prune = vi.spyOn(ledger, "deleteEntriesByMadeAtBefore");
+      const prune = vi.spyOn(ledger, "deleteByMadeAtBefore");
 
       await clock.advance(seconds(31));
 
@@ -90,7 +90,7 @@ describe("#771: the recovery sweep prunes the ledger's entries", () => {
       await app.ready();
       const ledger = app.resolve(CostLedgerRepository);
       const prune = vi
-        .spyOn(ledger, "deleteEntriesByMadeAtBefore")
+        .spyOn(ledger, "deleteByMadeAtBefore")
         .mockRejectedValue(new Error("disk full"));
 
       await clock.advance(seconds(31));
