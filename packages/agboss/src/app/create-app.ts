@@ -112,7 +112,8 @@ export async function buildApp(
     events: parts.leaseEvents,
     stopping: live.interruption,
   });
-  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
+  const { leaseEvents } = parts.infrastructure;
+  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, leaseEvents });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);

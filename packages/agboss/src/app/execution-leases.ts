@@ -273,6 +273,8 @@ export interface RootThreadConfig {
 /** The part of a checkpoint tuple a takeover reads: the checkpoint's id. */
 export interface HeadCheckpoint {
   readonly checkpoint: { readonly id: string };
+  /** The writes its tasks made, `[taskId, channel, value]` (#853: a task with one is not lost). */
+  readonly pendingWrites?: readonly (readonly [string, string, unknown])[] | undefined;
 }
 
 /** What reads a root's head checkpoint: a `BaseCheckpointSaver`. */

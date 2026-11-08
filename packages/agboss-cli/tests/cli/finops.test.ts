@@ -21,6 +21,14 @@ describe("CLI cost output", () => {
     expect(costTotal(report)).toBe("total $0.004428 (3 calls)");
   });
 
+  it("#853 AC3: says how many calls are of unknown cost, next to the known total", () => {
+    const lost = { ...usageRecord("agent:writer-agent", 0), costSource: CostSource.Unknown };
+    const withLost = buildCostReport([...[lost], usageRecord("researcher", 0.003378)]);
+
+    expect(costTotal(withLost)).toBe("total $0.003378 (1 calls, 1 of unknown cost)");
+    expect(costTrace(withLost)[0]).toMatch(/unknown: a lost pass \(#853\)$/);
+  });
+
   it("says how each call was priced", () => {
     const api = buildCostReport([
       { ...usageRecord("router:main", 0.00002), costSource: CostSource.Api },

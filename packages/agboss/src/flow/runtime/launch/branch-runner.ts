@@ -12,6 +12,8 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { inTreeSlot, startedVersionOf } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import { unrecordedSpendOf } from "../node-runner.js";
+import { recordLostPasses } from "../lost-pass-records.js";
+import { extractRunContext } from "../../../core/run-context.js";
 import {
   failureOfBranch,
   branchRecordOf,
@@ -126,6 +128,8 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { nodeId } = ticket;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
   const { config, frame, signal, budgetStop } = branchFrameOf(run, view);
+  const { clock } = extractRunContext(run.config, run.state.runId);
+  recordLostPasses({ node, nodeId, config: run.config, services: frame.services }, clock.now());
   run.visited = visitTimerOf(config, run.state.runId, { frame, node, state: view });
   run.budgetStop = budgetStop;
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });

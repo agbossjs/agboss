@@ -2599,7 +2599,7 @@ const readiness: HealthReport = await app.checkReadiness();
   plus, across instances, what the steps spend — other trees' and the tree's own on another instance
   — that read the counters before that spend was in the ledger (one write after it was made, #727,
   #732; each entry under its `ledgerId` — the pass's own, so a step run again after a crash bills
-  and counts again, while a record kept in a durable state counts once —, added once by
+  and counts again — and the lost pass is an Unknown-cost entry, below —, while a record kept in a durable state counts once —, added once by
   `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once; #771: each
   entry dated by its record's `madeAt`, pruned by the recovery sweep after
   `@Application({ retention: { costLedgerEntries } })` — default `hours(24)`, above the lease,
@@ -2620,6 +2620,7 @@ const readiness: HealthReport = await app.checkReadiness();
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
 today; tenant-daily-budget allows $40`).
+  **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them when the execution finishes. Found from the tree's lease log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (the step's task has no write): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too) records one — a call inside a child workflow, a lease released by a graceful stop past `shutdownTimeout`, and an execution that fails or is cancelled after it (the metric) are not counted.
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
   `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /

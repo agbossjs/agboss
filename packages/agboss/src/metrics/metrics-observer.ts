@@ -27,6 +27,7 @@ export function metricsObserverOf(meter: Meter): ExecutionObserver {
   const handedOver = counterOf(meter, METRICS.handedOver);
   const ended = counterOf(meter, METRICS.executionsEnded);
   const compensations = counterOf(meter, METRICS.compensations);
+  const unknownCosts = counterOf(meter, METRICS.unknownCosts);
   return {
     onExecutionLeaseTakeover: (event: ExecutionLeaseTakeoverEvent) => {
       takeovers.add(1, { reason: event.reason });
@@ -36,6 +37,9 @@ export function metricsObserverOf(meter: Meter): ExecutionObserver {
     },
     onExecutionEnd: (event: ExecutionEndEvent) => {
       ended.add(1, { workflow: event.workflow.name, outcome: ExecutionOutcome.Finished });
+      // #853: its lost passes, once — an execution's end is announced once
+      const { unknownCalls } = event.spend;
+      if (unknownCalls > 0) unknownCosts.add(unknownCalls, { workflow: event.workflow.name });
     },
     onExecutionError: (event: ExecutionErrorEvent) => {
       ended.add(1, { workflow: event.workflow.name, outcome: outcomeOf(event.error) });

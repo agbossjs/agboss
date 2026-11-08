@@ -30,6 +30,7 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
 import type { EndedTreeUndo } from "./tree-unwind.js";
+import { lostPassesAtTake, withLostPasses } from "./lost-passes-at-take.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = () => lazyLoad(import("./cancel-requests.js"));
@@ -58,7 +59,7 @@ class TreeMover implements TreeMoves {
     return this.drained(state, call, await this.parts.leases.hold(treeOf(state)), { pass });
   }
 
-  async resumed(answer: RecordedAnswer, call: TreeCall): Promise<ExecutionOutput> {
+  async resumed(answer: RecordedAnswer, given: TreeCall): Promise<ExecutionOutput> {
     const { deps, paused, leases } = this.parts;
     const { pause, run } = answer;
     const state = await withTreeOrigin(deps, {
@@ -80,10 +81,11 @@ class TreeMover implements TreeMoves {
         );
       }
       const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed);
-      const lease = await leases.hold(treeOf(state), call.signal, take);
+      const lease = await leases.hold(treeOf(state), given.signal, take);
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
+      const call = await this.#withLostPasses(state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
         throw error;
@@ -101,7 +103,7 @@ class TreeMover implements TreeMoves {
 
   async recovered(
     interrupted: InterruptedRun,
-    call: TreeCall,
+    given: TreeCall,
   ): Promise<ExecutionOutput | undefined> {
     if (this.#isBusy(interrupted)) return undefined;
     const { runId, threadId, tenantId, startedVersion } = interrupted;
@@ -114,6 +116,7 @@ class TreeMover implements TreeMoves {
     const lease = await this.parts.leases.tryHold(treeOf(state), take);
     if (lease === undefined) return undefined;
     if ((await this.endedAtTake(state, lease)) !== undefined) return undefined;
+    const call = await this.#withLostPasses(state, given);
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(
       async (error: unknown) => {
         await lease.release();
@@ -136,6 +139,16 @@ class TreeMover implements TreeMoves {
     if (await (await cancelRequests()).endIfCancelled(this.parts, interrupted)) return true;
     if (!(await isUnwinding(this.parts.trees, treeOf(interrupted)))) return false;
     return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
+  }
+
+  /**
+   * `call` with the passes the tree's previous holders lost at its head checkpoint (#853), read once
+   * the lease is held: its steps pending there record one Unknown-cost entry per lost pass.
+   */
+  async #withLostPasses(state: TreeState, call: TreeCall): Promise<TreeCall> {
+    const { deps, leaseEvents } = this.parts;
+    const sources = { checkpoints: deps.pause, leaseEvents, log: deps.log };
+    return withLostPasses(call, await lostPassesAtTake(sources, state));
   }
 
   /**

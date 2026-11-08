@@ -314,6 +314,7 @@ exporter to a Collector); none given → no metrics, nothing loaded. `testWith(A
 | `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`              | `sum`                                    |
 | `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome` | `sum`                                    |
 | `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `status`  | `sum`                                    |
+| `agboss.instance.costs.unknown`                                                         | counter                                                     | `workflow`            | `sum`                                    |
 
 Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
 the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +

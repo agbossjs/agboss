@@ -35,6 +35,13 @@ export enum CostSource {
   PriceTable = "price-table",
   /** Reported by a paid tool (or a service step) itself. */
   Tool = "tool",
+  /**
+   * Not known (#853): a pass of a step that lost its lease before the step ended — a crash, a frozen
+   * instance — whose recovery ran the step again. Its calls may have been sent and billed, or not:
+   * the record has no amount (`costUsd` 0) and counts nothing against a budget; reports count it
+   * apart (`CostReport.unknownCalls`).
+   */
+  Unknown = "unknown",
 }
 
 /** One model call: who made it, on which model, what it cost. */
@@ -82,8 +89,15 @@ export interface CostLine extends TokenUsage {
  * always reports all of it.
  */
 export interface CostReport {
+  /** The known total: what every call of known cost cost. */
   readonly totalUsd: number;
+  /** The calls of known cost. */
   readonly calls: number;
+  /**
+   * The lost passes of a step whose cost is not known (#853, `CostSource.Unknown`): each a pass that
+   * lost its lease mid step, run again by a recovery — none in `totalUsd`, `calls` or the sums.
+   */
+  readonly unknownCalls: number;
   readonly cacheReadTokens: number;
   readonly byCaller: Readonly<Record<string, number>>;
   /** Every category is present (0 when unused). */
@@ -239,8 +253,13 @@ function sumBy(
   return sums;
 }
 
-export function buildCostReport(records: readonly UsageRecord[]): CostReport {
-  const trace = records.map((record): CostLine => ({
+/** Whether `record` is a lost pass's, of no known cost (#853). */
+export const isUnknownCost = (record: Pick<UsageRecord, "costSource">): boolean =>
+  record.costSource === CostSource.Unknown;
+
+export function buildCostReport(all: readonly UsageRecord[]): CostReport {
+  const records = all.filter((record) => !isUnknownCost(record));
+  const trace = all.map((record): CostLine => ({
     ...withoutLedgerMarks(record),
     category: costCategoryOf(record.caller),
   }));
@@ -254,13 +273,15 @@ export function buildCostReport(records: readonly UsageRecord[]): CostReport {
     [CostCategory.Retrieval]: 0,
   };
   for (const line of trace) byCategory[line.category] += line.costUsd;
+  const known = trace.filter((line) => !isUnknownCost(line));
   return {
     totalUsd: totalCost(records),
     calls: records.length,
+    unknownCalls: all.length - records.length,
     cacheReadTokens: records.reduce((sum, record) => sum + record.cacheReadTokens, 0),
-    byCaller: sumBy(trace, (line) => line.caller),
+    byCaller: sumBy(known, (line) => line.caller),
     byCategory,
-    byModel: sumBy(trace, (line) => line.model),
+    byModel: sumBy(known, (line) => line.model),
     trace,
   };
 }
