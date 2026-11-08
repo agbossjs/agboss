@@ -14,7 +14,7 @@ export interface LostPassSite {
   /** The node's id on the path: a copy's own (`critic-agent#2`). */
   readonly nodeId: string;
   readonly config: RunnableConfig | undefined;
-  readonly services: Pick<FrameServices, "reportUsage">;
+  readonly services: Pick<FrameServices, "reportUsage"> | undefined;
 }
 
 /**
@@ -28,5 +28,5 @@ export function recordLostPasses(site: LostPassSite, now: Date): void {
   const { taskId, lost } = lostTokensOfTask(site.config);
   if (lost === undefined) return;
   const step = { nodeId: site.nodeId, taskId, caller: `${site.node.kind}:${site.nodeId}` };
-  for (const record of unknownCostRecordsOf(lost, step, now)) site.services.reportUsage?.(record);
+  for (const record of unknownCostRecordsOf(lost, step, now)) site.services?.reportUsage?.(record);
 }

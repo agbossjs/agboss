@@ -1536,18 +1536,18 @@ export interface CostReport {
     readonly byModel: Readonly<Record<string, number>>;
     // (undocumented)
     readonly cacheReadTokens: number;
-    // (undocumented)
     readonly calls: number;
-    // (undocumented)
     readonly totalUsd: number;
     readonly trace: readonly CostLine[];
+    readonly unknownCalls: number;
 }
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
-    Tool = "tool"
+    Tool = "tool",
+    Unknown = "unknown"
 }
 
 // @public
@@ -7647,21 +7647,19 @@ export interface WrittenLedgerMark {
 // src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "outputTokens".
 // src/finops/usage.ts:26:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
 // src/finops/usage.ts:27:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
-// src/finops/usage.ts:42:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:43:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:45:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:71:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:72:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:73:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:74:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:75:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:91:3 - (ae-undocumented) Missing documentation for "byModel".
-// src/finops/usage.ts:228:1 - (ae-undocumented) Missing documentation for "totalCost".
+// src/finops/usage.ts:49:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:50:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:51:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:52:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:78:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:79:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:82:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:105:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:242:1 - (ae-undocumented) Missing documentation for "totalCost".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
