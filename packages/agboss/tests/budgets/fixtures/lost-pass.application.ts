@@ -8,9 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   start,
-  type ActionHandler,
-  type InputOf,
-  type OutputOf,
+  type Produced,
   type ExecutionEndEvent,
   type OnExecutionEnd,
   type OnModelStart,
@@ -144,10 +142,10 @@ export class ReviewerAgent {}
   output: ReportDto,
   deps: [ExecutionContext],
 })
-export class HoldReportAction implements ActionHandler<HoldReportAction> {
+export class HoldReportAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: InputOf<HoldReportAction>): Promise<OutputOf<HoldReportAction>> {
+  async execute(input: { readonly report: Produced<ReportDto, unknown> }): Promise<ReportDto> {
     lostPassSeen.holds += 1;
     if (lostPassLevers.isHolding) {
       lostPassLevers.isHolding = false;
@@ -227,8 +225,11 @@ export class DrafterAgent {}
   input: { report: ReportDto, check: CheckDto },
   output: ReportDto,
 })
-export class MergeReportAction implements ActionHandler<MergeReportAction> {
-  execute(input: InputOf<MergeReportAction>): Promise<OutputOf<MergeReportAction>> {
+export class MergeReportAction {
+  execute(input: {
+    readonly report: Produced<ReportDto, unknown>;
+    readonly check: Produced<CheckDto, unknown>;
+  }): Promise<ReportDto> {
     return Promise.resolve({ text: `${input.report.value.text}: ${input.check.value.verdict}` });
   }
 }

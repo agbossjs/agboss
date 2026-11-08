@@ -2,6 +2,7 @@ import type { Price, ResolvedModelSettings } from "../config/types.js";
 import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
 import { CostCategory, costCategoryOf } from "./cost-category.js";
+import { CostSource } from "./cost-source.js";
 import { servedByOf } from "./served-by.js";
 import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
 
@@ -25,23 +26,6 @@ export interface TokenUsage {
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
   readonly cacheWriteTokens: number;
-}
-
-/** Where a call's cost comes from. */
-export enum CostSource {
-  /** Reported by the provider: exact. */
-  Api = "api",
-  /** Tokens × the model's configured price. */
-  PriceTable = "price-table",
-  /** Reported by a paid tool (or a service step) itself. */
-  Tool = "tool",
-  /**
-   * Not known (#853): a pass of a step that lost its lease before the step ended — a crash, a frozen
-   * instance — whose recovery ran the step again. Its calls may have been sent and billed, or not:
-   * the record has no amount (`costUsd` 0) and counts nothing against a budget; reports count it
-   * apart (`CostReport.unknownCalls`).
-   */
-  Unknown = "unknown",
 }
 
 /** One model call: who made it, on which model, what it cost. */
@@ -72,6 +56,7 @@ export interface UsageRecord extends TokenUsage {
 }
 
 export { CostCategory, costCategoryOf } from "./cost-category.js";
+export { CostSource } from "./cost-source.js";
 
 /** One call of the turn, in order. */
 export interface CostLine extends TokenUsage {
@@ -253,13 +238,8 @@ function sumBy(
   return sums;
 }
 
-/** Whether `record` is a lost pass's, of no known cost (#853). */
-export const isUnknownCost = (record: Pick<UsageRecord, "costSource">): boolean =>
-  record.costSource === CostSource.Unknown;
-
-export function buildCostReport(all: readonly UsageRecord[]): CostReport {
-  const records = all.filter((record) => !isUnknownCost(record));
-  const trace = all.map((record): CostLine => ({
+export function buildCostReport(records: readonly UsageRecord[]): CostReport {
+  const trace = records.map((record): CostLine => ({
     ...withoutLedgerMarks(record),
     category: costCategoryOf(record.caller),
   }));
@@ -273,11 +253,12 @@ export function buildCostReport(all: readonly UsageRecord[]): CostReport {
     [CostCategory.Retrieval]: 0,
   };
   for (const line of trace) byCategory[line.category] += line.costUsd;
-  const known = trace.filter((line) => !isUnknownCost(line));
+  // a lost pass's record (#853): in the trace, of no amount, counted apart from the calls
+  const known = trace.filter((line) => line.costSource !== CostSource.Unknown);
   return {
     totalUsd: totalCost(records),
-    calls: records.length,
-    unknownCalls: all.length - records.length,
+    calls: known.length,
+    unknownCalls: trace.length - known.length,
     cacheReadTokens: records.reduce((sum, record) => sum + record.cacheReadTokens, 0),
     byCaller: sumBy(known, (line) => line.caller),
     byCategory,

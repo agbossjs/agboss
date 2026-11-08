@@ -21,8 +21,8 @@ export interface LostPasses {
   readonly checkpointId: string;
   /** The lease token of each lost pass, oldest first: a pass's identity in the tree. */
   readonly tokens: readonly number[];
-  /** The tasks at the checkpoint with writes: finished (or paused) by a lost pass, not lost. */
-  readonly settledTaskIds: ReadonlySet<string>;
+  /** The tasks a lost pass finished at the checkpoint (a write of theirs there): not lost. */
+  readonly settledTaskIds: readonly string[];
 }
 
 /** A takeover row of the lease log, as far as lost passes read it. */
@@ -55,7 +55,12 @@ export function lostPassesOf(
       tokens.add(row.previousToken);
   if (tokens.size === 0) return undefined;
   const sorted = [...tokens].sort((left, right) => left - right);
-  return { rootExecutionId, checkpointId, tokens: sorted, settledTaskIds: new Set(settledTaskIds) };
+  return {
+    rootExecutionId,
+    checkpointId,
+    tokens: sorted,
+    settledTaskIds: [...new Set(settledTaskIds)],
+  };
 }
 
 /** What a task of a graph's superstep knows of itself: its id and the checkpoint it runs from. */
@@ -63,8 +68,18 @@ export interface TaskConfig {
   readonly configurable?: Readonly<Record<string, unknown>> | undefined;
 }
 
-const isLostPasses = (value: unknown): value is LostPasses =>
-  typeof value === "object" && value !== null && "checkpointId" in value && "tokens" in value;
+/** Whether `value` is lost passes as a recovery hands them on — anything else is none. */
+const isLostPasses = (value: unknown): value is LostPasses => {
+  if (typeof value !== "object" || value === null) return false;
+  const tokens: unknown = Reflect.get(value, "tokens");
+  return (
+    typeof Reflect.get(value, "rootExecutionId") === "string" &&
+    typeof Reflect.get(value, "checkpointId") === "string" &&
+    Array.isArray(tokens) &&
+    tokens.every((token) => Number.isInteger(token)) &&
+    Array.isArray(Reflect.get(value, "settledTaskIds"))
+  );
+};
 
 /**
  * The lost passes of the task `config` runs, if any: the pass carries lost passes, the task is of
@@ -85,7 +100,7 @@ export function lostTokensOfTask(config: TaskConfig | undefined): {
   // the root graph's own superstep: its tasks run from the root's checkpoint (namespace "")
   const from: unknown = Reflect.get(map, "");
   const isRootTask = Object.keys(map).length === 1 && from === lost.checkpointId;
-  return isRootTask && !lost.settledTaskIds.has(taskId)
+  return isRootTask && !lost.settledTaskIds.includes(taskId)
     ? { taskId, lost }
     : { taskId, lost: undefined };
 }

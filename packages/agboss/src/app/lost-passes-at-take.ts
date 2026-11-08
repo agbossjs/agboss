@@ -3,7 +3,7 @@ import type { LeaseEventsReader } from "./app-deps-parts.js";
 import type { RootCheckpoints } from "./execution-leases.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { TreeCall } from "./live-runs.js";
-import type { TreeState } from "./tree-move-types.js";
+import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
  * What a pass that takes a tree over reads to find the passes its previous holders lost (#853): the
@@ -15,6 +15,9 @@ export interface LostPassSources {
   readonly leaseEvents?: LeaseEventsReader | undefined;
   readonly log: FrameworkLog;
 }
+
+/** LangGraph's channels of a task's writes that run it again: an interrupt, its resume, an error. */
+const RERUN_CHANNELS: ReadonlySet<string> = new Set(["__interrupt__", "__resume__", "__error__"]);
 
 /**
  * The passes lost at the tree's head checkpoint, or `undefined` (none, or nothing to read them
@@ -36,7 +39,10 @@ export async function lostPassesAtTake(
       state.tenantId,
       state.runId,
     );
-    const settled = (head.pendingWrites ?? []).map(([taskId]) => taskId);
+    // a pause's or a failure's write leaves its task to run again: only another write finished it
+    const settled = (head.pendingWrites ?? [])
+      .filter(([, channel]) => !RERUN_CHANNELS.has(channel))
+      .map(([taskId]) => taskId);
     return lostPassesOf(state.runId, head.checkpoint.id, rows, settled);
   } catch (error) {
     sources.log.warn(
@@ -53,3 +59,20 @@ export const withLostPasses = (call: TreeCall, lost: LostPasses | undefined): Tr
   lost === undefined
     ? call
     : { ...call, configurable: { ...call.configurable, [LOST_PASSES_KEY]: lost } };
+
+/**
+ * `call` with the passes the tree's previous holders lost at its head checkpoint (#853), read once
+ * the lease is held: its steps pending there record one Unknown-cost entry per lost pass.
+ */
+export async function callWithLostPasses(
+  parts: Pick<TreeMoveParts, "deps" | "leaseEvents">,
+  state: TreeState,
+  call: TreeCall,
+): Promise<TreeCall> {
+  const sources = {
+    checkpoints: parts.deps.pause,
+    leaseEvents: parts.leaseEvents,
+    log: parts.deps.log,
+  };
+  return withLostPasses(call, await lostPassesAtTake(sources, state));
+}

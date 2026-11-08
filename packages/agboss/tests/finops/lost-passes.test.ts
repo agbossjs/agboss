@@ -1,10 +1,11 @@
 /**
  * #853 — which passes a recovery finds lost, and which tasks record them: only takeovers at the
  * head checkpoint from a lease that expired, each pass once; only tasks of the root graph's
- * superstep at that checkpoint that no lost pass wrote for. A paused task resumed, a task of a
- * child's graph, or one of a later superstep records none.
+ * superstep at that checkpoint that no lost pass finished. A task of a subgraph, or of a later
+ * superstep, records none.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { lostPassesAtTake } from "../../src/app/lost-passes-at-take.js";
 import {
   LOST_PASSES_KEY,
   lostPassesOf,
@@ -36,7 +37,7 @@ describe("#853: the passes lost at a checkpoint", () => {
       rootExecutionId: "root",
       checkpointId: "c2",
       tokens: [2, 3],
-      settledTaskIds: new Set(["t1"]),
+      settledTaskIds: ["t1"],
     });
   });
 
@@ -51,7 +52,7 @@ describe("#853: the tasks that record them", () => {
     rootExecutionId: "root",
     checkpointId: "c2",
     tokens: [1, 2],
-    settledTaskIds: new Set(["paused-task"]),
+    settledTaskIds: ["finished-task"],
   };
   const configOf = (taskId: string, map: Record<string, string>, carried: unknown = lost) => ({
     configurable: { [LOST_PASSES_KEY]: carried, __pregel_task_id: taskId, checkpoint_map: map },
@@ -61,8 +62,8 @@ describe("#853: the tasks that record them", () => {
     expect(lostTokensOfTask(configOf("task", { "": "c2" }))).toEqual({ taskId: "task", lost });
   });
 
-  it("AC2: a task a lost pass wrote for (paused, or finished) records none", () => {
-    expect(lostTokensOfTask(configOf("paused-task", { "": "c2" })).lost).toBeUndefined();
+  it("AC2: a task a lost pass finished records none", () => {
+    expect(lostTokensOfTask(configOf("finished-task", { "": "c2" })).lost).toBeUndefined();
   });
 
   it("AC2: a later superstep, a subgraph's task, or a pass that took nothing over records none", () => {
@@ -96,5 +97,57 @@ describe("#853: the tasks that record them", () => {
     expect(report.byCaller).toEqual({ "tool:x-tool": 2 });
     expect(report.byModel).not.toHaveProperty("unknown");
     expect(report.trace).toHaveLength(3);
+  });
+});
+
+describe("#853: what a taker reads", () => {
+  const state = { runId: "root", threadId: "th", tenantId: "default", startedVersion: "1" };
+  const sourcesOf = (
+    pendingWrites: readonly (readonly [string, string, unknown])[],
+    log = { warn: vi.fn() },
+  ) => ({
+    checkpoints: {
+      checkpointer: {
+        getTuple: () => Promise.resolve({ checkpoint: { id: "c2" }, pendingWrites }),
+      },
+    },
+    leaseEvents: {
+      findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: () =>
+        Promise.resolve([{ ...takeover("c2", 1), occurredAt: "" }] as never),
+    },
+    log: log as never,
+  });
+
+  it("AC2: a task paused, resumed or failed at the checkpoint is run again — lost; one with another write finished", async () => {
+    const lost = await lostPassesAtTake(
+      sourcesOf([
+        ["paused", "__interrupt__", {}],
+        ["resumed", "__resume__", {}],
+        ["failed", "__error__", {}],
+        ["finished", "usage", []],
+      ]),
+      state,
+    );
+
+    expect(lost?.settledTaskIds).toEqual(["finished"]);
+    expect(lost?.tokens).toEqual([1]);
+  });
+
+  it("a read that fails records none and says so", async () => {
+    const log = { warn: vi.fn() };
+    const sources = {
+      ...sourcesOf([], log),
+      leaseEvents: {
+        findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: () =>
+          Promise.reject(new Error("the lease log is down")),
+      },
+    };
+
+    expect(await lostPassesAtTake(sources, state)).toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(
+      "cost.unknown-unrecorded",
+      expect.stringContaining("the lease log is down"),
+      { executionId: "root", tenantId: "default" },
+    );
   });
 });

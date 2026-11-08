@@ -83,6 +83,7 @@ describe("finops usage", () => {
     expect(buildCostReport([])).toEqual({
       totalUsd: 0,
       calls: 0,
+      unknownCalls: 0,
       cacheReadTokens: 0,
       byCaller: {},
       byCategory: {

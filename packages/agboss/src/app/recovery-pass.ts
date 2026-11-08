@@ -6,6 +6,7 @@ import type { TreeResume } from "../run/resume-map.js";
 import { runOptionsOf } from "./live-runs.js";
 import type { TreeCall, TreeMoveParts, TreePass } from "./tree-moves.js";
 import { treeResumeNow } from "./tree-resume.js";
+import { callWithLostPasses } from "./lost-passes-at-take.js";
 
 /** How recovery continues an interrupted tree: the pass, and the answers it takes (if any). */
 export interface RecoveryPass {
@@ -19,12 +20,14 @@ export interface RecoveryPass {
  * `undefined` when its record is no longer `running` (it ended between the listing and the lease).
  */
 export async function recoveryPassOf(
-  parts: Pick<TreeMoveParts, "deps" | "paused">,
+  parts: Pick<TreeMoveParts, "deps" | "paused" | "leaseEvents">,
   interrupted: InterruptedRun,
-  call: TreeCall,
+  given: TreeCall,
 ): Promise<RecoveryPass | undefined> {
   const { deps, paused } = parts;
   if (await recordEndedOf(deps.terns, interrupted.ternId)()) return undefined;
+  // its first pass runs again what the tree's earlier holders lost (#853)
+  const call = await callWithLostPasses(parts, interrupted, given);
   const stored = await paused.find(interrupted);
   const resume = await treeResumeNow(deps, interrupted);
   if (resume !== undefined && stored?.run.runId === interrupted.runId) {
