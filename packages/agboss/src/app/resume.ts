@@ -26,8 +26,8 @@ import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
-import { markAnswered, notPaused, refusedAfterMark } from "./answered-root.js";
-import type { AnsweredRootParts } from "./answered-root.js";
+import { markAnswered, notPaused, refusedAfterMark } from "./paused-runs.js";
+import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
@@ -214,7 +214,7 @@ export async function recordAnswer(
     answerer,
     ...(read.usage.length === 0 ? {} : { usage: read.usage }),
   };
-  // the tree has work again before its answer is recorded (#850, answered-root.ts)
+  // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);
   const at = parts.clock.now();
   const resolved = await parts.pauses.resolveByTenantIdAndPauseId(
