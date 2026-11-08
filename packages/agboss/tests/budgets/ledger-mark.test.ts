@@ -276,6 +276,24 @@ describe("#817: a record read back with its mark as this version keeps it", () =
       null,
     ])
       expect(() => withLedgerMarkRead({ ...paid(1), ledgerKey })).toThrow(TypeError);
+    expect(() => withLedgerMarkRead({ ...paid(1), ledgerKey: "a2a:m-1:price" })).toThrow(
+      `a usage record's ledgerKey is not one this version reads: "a2a:m-1:price"`,
+    );
+  });
+
+  it("#810: a record whose ledgerKey is there but undefined (a state not yet kept) reads back as it is", () => {
+    const unkeyed = { ...paid(1), ledgerKey: undefined };
+
+    expect(withLedgerMarkRead(unkeyed)).toBe(unkeyed);
+    expect(
+      withLedgerMarkRead({
+        ...unkeyed,
+        ledger: { state: LedgerState.Written, ledgerId: "p:30", madeAt: NOW },
+      }),
+    ).toEqual({
+      ...unkeyed,
+      ledger: { state: LedgerState.Written, ledgerId: "p:30", madeAt: NOW },
+    });
   });
 
   it("#810: a cost report shows no ledgerKey", () => {
