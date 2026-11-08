@@ -274,7 +274,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   `@Application({ retention: { costLedgerEntries } })` (default `hours(24)`) — see
   [Pruning the entries](#pruning-the-entries-771). A step **run again** after a crash or a
   takeover makes its spend again — its model calls are billed again, its services paid again — and
-  that counts again, under the later pass's ids: the budget errs high, never low. A service you pay
+  that counts again, under the later pass's ids: the budget errs high, never low. What the lost
+  pass sent is not known — see [A lost pass: Unknown cost](#a-lost-pass-unknown-cost-853). A service you pay
   through a deduplicated call (`OutboundCalls` replaying an earlier answer) should record its cost
   with `SpendRecorder` only when the call was sent. Before every step that can spend or reach out
   the counters are read again — the tenant's other executions count, on any instance, through the
@@ -400,6 +401,36 @@ and the counters reset on restart; `SqliteCostLedgerRepository` (#265) shares th
 instances on one file and survives a restart (a file written before budgets has its old per-workflow
 day counters dropped).
 
+#### A lost pass: Unknown cost (#853)
+
+A model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) is billed
+by its provider and leaves no amount behind. The recovery — or the resume — that takes the tree
+over and runs the step again records one ledger entry for each lost pass before the step runs:
+`CostSource.Unknown`, `costUsd` 0, under the id
+`unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`).
+
+- **Keyed by the pass, not by who finds it**: two instances that take the same lost pass over, or a
+  re-run that is lost in turn and run again, write that entry once (the ledger adds an id once); a
+  second lost pass — the re-run died too — has its own token, so its own entry. The re-run's own
+  calls are billed and counted as usual: both passes are paid, the lost one shows as Unknown.
+- **No write on the happy path**: the lost passes are read only by a pass that takes a tree over —
+  the takeovers of the tree's lease log at its head checkpoint from a lease that expired, and the
+  checkpoint's writes (a task with one finished or paused: not lost).
+- **Budgets add zero**; `result.spend.unknownCalls` counts the entries next to `totalUsd` and
+  `calls` (which hold the known costs only; the entries are in `trace`, priced
+  `unknown: a lost pass (#853)` by the CLI, whose total says `… of unknown cost`), and the metric
+  [`agboss.instance.costs.unknown`](Metrics) adds them when the execution finishes.
+
+Limits — what Unknown does not say:
+
+- **Unknown may be nothing**: a pass that took the tree over and died before it ran the step is a
+  lost pass too; the amount is never estimated.
+- **Only an agent's or a model router's step of the root workflow** (a parallel branch too); a
+  model call inside a child workflow, an action's or a tool's service spend, and a step a graceful
+  stop interrupted (its lease released, no takeover) leave no entry.
+- The metric counts an execution's entries when it finishes; one that fails or is cancelled
+  afterwards keeps them in the ledger and its record, not in the metric.
+
 #### Pruning the entries (#771)
 
 An entry exists so that a write retried after its answer was lost counts once. Only the pass that
@@ -520,6 +551,7 @@ decides what to show:
 | Field                                  | Meaning                                                                                         |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `totalUsd`, `calls`, `cacheReadTokens` | the turn in total                                                                               |
+| `unknownCalls`                         | the [lost passes of unknown cost](#a-lost-pass-unknown-cost-853) (#853), outside every sum      |
 | `byCategory`                           | `agents`, `routing`, `guards`, `review`, `tools`, `compaction`, `retrieval` — every key present |
 | `byModel`, `byCaller`                  | the same money by model and by caller                                                           |
 | `trace`                                | every call in order: caller, category, model, cost, how it was priced, tokens                   |
