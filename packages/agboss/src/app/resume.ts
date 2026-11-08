@@ -31,13 +31,16 @@ import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
+import type { TernStore } from "../terns/index.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import { runningOutcome } from "../run/execute.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
  * its tree, who answers checked against its role's `answeredBy`, the decision validated (or a
  * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
- * `Pending → Resolved` with its decision, atomically. Nothing moves the tree here; a refused
- * resume leaves the pause as it was.
+ * the resting root's record `running` again (#850), and `Pending → Resolved` with its decision,
+ * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
  */
 
 /** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
@@ -112,6 +115,8 @@ export interface AnswerParts {
   readonly clock: Clock;
   /** The execution records: who answered is written there (#267 S107). */
   readonly answers: PauseAnswerLog;
+  /** The roots' records: a resting one is `running` again before its answer is recorded (#850). */
+  readonly terns: Pick<TernStore, "completeIfStatus">;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -222,6 +227,14 @@ export async function recordAnswer(
     answerer,
     ...(read.usage.length === 0 ? {} : { usage: read.usage }),
   };
+  // the tree has work again before its answer is recorded (#850): a resume that dies between the two
+  // leaves a `running` root, which recovery continues with the answer (its resolved pauses first) —
+  // never a `paused` root with a `Resolved` pause nothing moves; dying before the answer is
+  // recorded, or a refused one, leaves a `running` root at its pause, which recovery rests again
+  if (run !== undefined) {
+    const outcome = runningOutcome(run.path, run.cost.totalUsd);
+    await parts.terns.completeIfStatus(run.ternId, ExecutionRecordStatus.Paused, outcome);
+  }
   const at = parts.clock.now();
   const resolved = await parts.pauses.resolveByTenantIdAndPauseId(
     tenantId,

@@ -2258,9 +2258,12 @@ export class PlanService {
   every checkpoint write, released when the pass ends; live while `expiresAt > now` and only then,
   for its holder too — at `now >= expiresAt` its `renew`, `yield`, `reclaim`, `confirmNow()` and
   fenced writes are refused, taken or not, and the holder takes the tree again only by `acquire`, a
-  takeover from itself, #534). A `resume` records its decision first —
-  the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
-  `NotPausedError` — then waits for the lease; the holder continues with one `Command({ resume })`
+  takeover from itself, #534). A `resume` records its decision first — the root's record of a
+  resting tree goes `paused → running` (#850), then the pause `Pending → Resolved` atomically, a
+  second resume of one pause gets `NotPausedError` — then waits for the lease (a resume that dies
+  between the two leaves a `running` root: recovery continues it with the recorded answer, once,
+  under the lease; one that dies before the answer, or is refused, leaves it to recovery, which
+  rests it at its pause again); the holder continues with one `Command({ resume })`
   mapping LangGraph's interrupt id of every answered pause, takes the decisions resolved meanwhile
   before the tree rests (the drain), and the waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
