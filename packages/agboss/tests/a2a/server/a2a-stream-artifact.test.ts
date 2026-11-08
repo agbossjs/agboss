@@ -8,7 +8,10 @@ import { TaskState, type Part, type StreamResponse, type Task } from "@a2a-js/sd
 import { InMemoryTaskStore, ResultManager, ServerCallContext } from "@a2a-js/sdk/server";
 import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { execute } from "../../helpers/flow.js";
+import type { ExecutionStreamEvent } from "../../../src/run/types.js";
 import {
+  AskStart,
   Desk,
   QuickLookup,
   RemoteDeskA2AExpose,
@@ -113,5 +116,97 @@ describe("#833: the stream's artifacts are GetTask's", () => {
     ]);
     expect(built.artifacts).toStrictEqual(read.artifacts);
     expect(joinedText(built)).toBe("Order 7 shipped.");
+  });
+});
+
+/** The text of each WORKING status update, in order. */
+const workingTextsOf = (events: readonly StreamResponse[]): string[] =>
+  events.flatMap((event) =>
+    event.payload?.$case === "statusUpdate" &&
+    event.payload.value.status?.state === TaskState.TASK_STATE_WORKING
+      ? [textOf(event.payload.value.status.message?.parts ?? [])]
+      : [],
+  );
+
+describe("#848: an agent's own tool call is streamed — no event injected", () => {
+  test("AC: SendStreamingMessage on the real server: a `calling quick-lookup-tool` WORKING update, before the answer", async ({
+    a2aServer,
+    mockLlm,
+  }) => {
+    mockLlm(Desk).thenReturn(
+      callTool(QuickLookup, { orderId: "7" }),
+      replyWith("Order 7 shipped."),
+    );
+    const { url } = await a2aServer(listener);
+
+    const { events, read } = await streamed(url);
+
+    expect(workingTextsOf(events)).toContain("calling quick-lookup-tool");
+    const calling = events.findIndex(
+      (event) =>
+        event.payload?.$case === "statusUpdate" &&
+        textOf(event.payload.value.status?.message?.parts ?? []) === "calling quick-lookup-tool",
+    );
+    const lastChunk = events.findIndex(
+      (event) => event.payload?.$case === "artifactUpdate" && event.payload.value.lastChunk,
+    );
+    expect(calling).toBeLessThan(lastChunk);
+    expect(read.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+  });
+
+  test("AC: `app.execute(…, { onStream })`: the agent's tool call is a `toolCall` event, once, before the answer's text", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(Desk).thenReturn(
+      callTool(QuickLookup, { orderId: "7" }),
+      replyWith("Order 7 shipped."),
+    );
+    const heard: ExecutionStreamEvent[] = [];
+
+    await execute(
+      app,
+      AskStart,
+      { text: "where is order 7?" },
+      {
+        onStream: (event) => heard.push(event),
+      },
+    );
+
+    expect(heard.filter((event) => event.kind === "toolCall")).toEqual([
+      { kind: "toolCall", tool: "quick-lookup-tool" },
+    ]);
+    const call = heard.findIndex((event) => event.kind === "toolCall");
+    const answer = heard.findIndex(
+      (event) => event.kind === "textDelta" && event.delta.includes("shipped"),
+    );
+    expect(call).toBeLessThan(answer);
+  });
+
+  test("a listener that throws on the tool call never fails the run: the tool runs, the run finishes", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(Desk).thenReturn(
+      callTool(QuickLookup, { orderId: "7" }),
+      replyWith("Order 7 shipped."),
+    );
+    const heard: ExecutionStreamEvent[] = [];
+
+    const result = await execute(
+      app,
+      AskStart,
+      { text: "where is order 7?" },
+      {
+        onStream: (event) => {
+          heard.push(event);
+          if (event.kind === "toolCall") throw new Error("the stream's socket closed");
+        },
+      },
+    );
+
+    expect(result.output).toEqual({ text: "Order 7 shipped." });
+    expect(result.toolCalls.map((call) => call.status)).toEqual(["succeeded"]);
+    expect(heard.some((event) => event.kind === "toolCall")).toBe(true);
   });
 });

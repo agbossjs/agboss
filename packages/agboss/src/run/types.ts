@@ -34,7 +34,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
 /** A stream event for real-time UI/CLI updates. */
 export type ExecutionStreamEvent =
   | { readonly kind: "textDelta"; readonly delta: string }
-  | { readonly kind: "toolCall"; readonly tool: string; readonly args?: unknown };
+  /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+  | { readonly kind: "toolCall"; readonly tool: string };
 
 export interface AgentExecutionOptions {
   /** The execution's id, made once by the app (its observer events use it too); default: a new one. */

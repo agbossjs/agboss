@@ -1,10 +1,39 @@
-import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { getCallbackManagerForConfig, type RunnableConfig } from "@langchain/core/runnables";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
 
+/**
+ * The custom LangChain event an agent's loop dispatches as a tool call starts (#848): its loop
+ * (ADR-0015) calls a tool itself, so no LangChain tool callback fires. Its data: `{ tool }`.
+ */
+const TOOL_CALL_EVENT = "agboss/tool-call";
+
+/**
+ * The tool call as a LangChain custom event (#848), what `dispatchCustomEvent` does, through the
+ * run's callback manager (a handler that throws is logged there, never fatal to the step).
+ */
+export async function streamedToolCall(
+  config: RunnableConfig | undefined,
+  tool: string,
+): Promise<void> {
+  const manager = await getCallbackManagerForConfig(config);
+  const parentRunId = manager?.getParentRunId();
+  if (manager !== undefined && parentRunId !== undefined) {
+    await manager.handleCustomEvent?.(TOOL_CALL_EVENT, { tool }, parentRunId);
+  }
+}
+
+/** The tool a `TOOL_CALL_EVENT` names; `undefined` for any other event. */
+function toolCallOf(eventName: string, data: unknown): string | undefined {
+  if (eventName !== TOOL_CALL_EVENT || typeof data !== "object" || data === null) return undefined;
+  const tool: unknown = Reflect.get(data, "tool");
+  return typeof tool === "string" ? tool : undefined;
+}
+
+/** The model's tokens and the agents' tool calls as they come. */
 class StreamingCallbackHandler extends BaseCallbackHandler {
   name = "StreamingCallbackHandler";
   constructor(private readonly onStream: (event: ExecutionStreamEvent) => void) {
@@ -13,8 +42,11 @@ class StreamingCallbackHandler extends BaseCallbackHandler {
   override handleLLMNewToken(token: string) {
     this.onStream({ kind: "textDelta", delta: token });
   }
-  override handleToolStart(tool: Serialized, input: string) {
-    this.onStream({ kind: "toolCall", tool: tool.id.at(-1) ?? "unknown", args: input });
+  // an agent's tool call (#848): its loop calls the tool itself, so it dispatches this event —
+  // through the same callback manager as the tokens (a listener that throws is logged, never fatal)
+  override handleCustomEvent(eventName: string, data: unknown) {
+    const tool = toolCallOf(eventName, data);
+    if (tool !== undefined) this.onStream({ kind: "toolCall", tool });
   }
 }
 
