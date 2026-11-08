@@ -436,7 +436,9 @@ the schema (SQLite, PostgreSQL migration `0023`) or in the transaction that crea
 (MongoDB) — and a mark deleted by hand (on MongoDB also one whose `prunedBefore` is no date) fails
 every save closed, nothing added: `PostgresLedgerMarkMissingError`
 (`postgres.ledger-mark-missing`), `MongoLedgerMarkMissingError` (`mongodb.ledger-mark-missing`, a
-prune deletes nothing either; a restart never seeds it again). Each message is the remedy: put the
+prune deletes nothing either; a restart never seeds it again — nor does one that makes a dropped
+`agboss_cost_entries` again while `agboss_cost_counters` holds spend: its mark has no date, only
+`recreatedAt`, the cutoff to put back, #832). Each message is the remedy: put the
 mark back no lower than any prune's cutoff (`now − retention.costLedgerEntries`). Keep it when you prune
 or empty the entries by hand.
 
