@@ -34,6 +34,20 @@ export interface RecordedElsewhereLedgerMark {
 /** Where the ledger holds a record (`UsageRecord.ledger`); absent: not in the ledger yet. */
 export type LedgerMark = WrittenLedgerMark | RecordedElsewhereLedgerMark;
 
+/**
+ * A spend's identity across passes (`UsageRecord.ledgerKey`, #810): a charge a step makes again
+ * after a takeover — an A2A call's price and its run report's excess, replayed from the accept an
+ * earlier pass recorded — is written to the ledger under `id` and dated `madeAt`, so the ledger
+ * adds it once whichever pass writes it first. A spend without one gets an id of the pass that
+ * made it (#727): made again by another pass, it is billed again.
+ */
+export interface LedgerKey {
+  /** The entry's id in the ledger: derived from what makes the spend one (a call's messageId). */
+  readonly id: string;
+  /** When the spend was first made (the `Clock`): its entry's date, what the ledger prunes by. */
+  readonly madeAt: Date;
+}
+
 /** The fields a record kept before #817 (0.1.0, and `main` before 0.1.1) marks the ledger with. */
 interface LegacyMarks {
   readonly isRecordedElsewhere?: unknown;
@@ -124,21 +138,53 @@ export function writtenLedgerIdOf(record: object): string | undefined {
 
 const MARK_FIELDS = ["ledger", "isRecordedElsewhere", "ledgerId", "madeAt"] as const;
 
-/** A record as a cost report shows it: without where the ledger holds it (of any version). */
-export function withoutLedgerMarks<T extends object>(record: T): T {
-  if (!MARK_FIELDS.some((field) => field in record)) return record;
+/** The fields of where the ledger holds a record, and the spend's identity across passes (#810). */
+const REPORT_HIDDEN = [...MARK_FIELDS, "ledgerKey"] as const;
+
+/** `record` without `fields` (the same record when it has none of them). */
+function without<T extends object>(record: T, fields: readonly string[]): T {
+  if (!fields.some((field) => field in record)) return record;
   const copy = { ...record };
-  for (const field of MARK_FIELDS) Reflect.deleteProperty(copy, field);
+  for (const field of fields) Reflect.deleteProperty(copy, field);
   return copy;
 }
 
 /**
+ * A record as a cost report shows it: without where the ledger holds it (of any version) and
+ * without its identity across passes — the budgets' bookkeeping, not its cost.
+ */
+export function withoutLedgerMarks<T extends object>(record: T): T {
+  return without(record, REPORT_HIDDEN);
+}
+
+/**
+ * A spend's identity across passes as kept (`ledgerKey`, #810): its date a `Date` again after a
+ * checkpoint's JSON; one this version cannot read fails closed — never a new id, which would count
+ * a charge made again after a takeover twice.
+ */
+function ledgerKeyOf(ledgerKey: unknown): LedgerKey {
+  // a primitive (or null) has none of the fields: refused below
+  const fields: object = new Object(ledgerKey);
+  const id: unknown = Reflect.get(fields, "id");
+  if (typeof id === "string" && id !== "")
+    return { id, madeAt: dateOf(Reflect.get(fields, "madeAt"), id) };
+  throw new TypeError(
+    `a usage record's ledgerKey is not one this version reads: ${JSON.stringify(ledgerKey)}`,
+  );
+}
+
+/**
  * `record` with its mark as this version keeps it (#817): `ledger` read back — its date a `Date`
- * again after a checkpoint's JSON — and the fields of before 0.1.1 read into it; a record without
- * a mark of any version as it is. What a restored state's usage is made of.
+ * again after a checkpoint's JSON — and the fields of before 0.1.1 read into it; its `ledgerKey`
+ * (#810) read back the same way; a record without either as it is. What a restored state's usage
+ * is made of.
  */
 export function withLedgerMarkRead<T extends object>(record: T): T {
   const mark = ledgerMarkOf(record);
-  if (mark === undefined) return withoutLedgerMarks(record);
-  return { ...withoutLedgerMarks(record), ledger: mark };
+  const read: T =
+    mark === undefined
+      ? without(record, MARK_FIELDS)
+      : { ...without(record, MARK_FIELDS), ledger: mark };
+  if (!("ledgerKey" in record) || record.ledgerKey === undefined) return read;
+  return { ...read, ledgerKey: ledgerKeyOf(record.ledgerKey) };
 }

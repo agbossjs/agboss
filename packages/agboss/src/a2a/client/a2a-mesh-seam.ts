@@ -5,7 +5,7 @@ import { MeshLoopDetectedError } from "../../mesh/mesh-errors.js";
 import { TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { takeRunReport, type RunReportIdentity } from "../../mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../mesh/outbound-mesh.js";
-import type { LedgerKey } from "../../finops/ledger-key.js";
+import type { LedgerKey } from "../../finops/ledger-mark.js";
 import { usd, type Usd } from "../../units/index.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { meshBodyHashOf, meshReportTextOf } from "../a2a-mesh-message.js";
@@ -76,10 +76,13 @@ export interface A2ACharged {
   readonly now: Date;
 }
 
-/** The ledger identity of a call's price (#810). */
+/**
+ * The ledger identity of a call's price (#810), dated by its accept as stored (a `Date` at the
+ * ledger's boundary, #817: one that is no date is refused there, nothing added).
+ */
 const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
   id: `a2a:${charged.messageId}:price`,
-  madeAt: charged.acceptedAt,
+  madeAt: new Date(charged.acceptedAt),
 });
 
 export interface A2AMeshSeam {

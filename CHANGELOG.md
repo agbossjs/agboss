@@ -87,7 +87,9 @@ costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each 
   stored table changes. A checkpoint written by 0.1.1 marks its spend only in `ledger`, which a
   0.1.0 instance does not read: upgrade every instance of an application together, as the store
   migrations of this release already ask — never a fleet of both versions, never a rollback onto
-  0.1.1's checkpoints.
+  0.1.1's checkpoints. A spend's identity across passes (#810) is dated the same way:
+  `LedgerKey.madeAt` is a `Date` (a checkpoint's ISO text read back as one; a key that cannot be
+  read fails the read), and `LedgerDated` is gone with the record's own `madeAt`.
 
 - **A question role cannot be declared** (#647) — `@ChannelRole({ ask, answer })` compiled and
   passed `agboss check`, but nothing could ask it: a tool naming it was `[channel.wrong-tool]` and

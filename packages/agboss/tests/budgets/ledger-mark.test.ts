@@ -258,6 +258,32 @@ describe("#817: a record read back with its mark as this version keeps it", () =
     const bare = paid(1);
     expect(withLedgerMarkRead(bare)).toBe(bare);
   });
+
+  it("#810: a spend's ledgerKey kept by a checkpoint reads back with its Date; one it cannot read fails closed", () => {
+    const keyed = JSON.parse(
+      JSON.stringify({ ...paid(1), ledgerKey: { id: "a2a:m-1:price", madeAt: NOW } }),
+    ) as UsageRecord;
+
+    expect(withLedgerMarkRead(keyed)).toEqual({
+      ...paid(1),
+      ledgerKey: { id: "a2a:m-1:price", madeAt: NOW },
+    });
+    for (const ledgerKey of [
+      { id: "a2a:m-1:price", madeAt: "yesterday" },
+      { id: "", madeAt: NOW.toISOString() },
+      { madeAt: NOW.toISOString() },
+      "a2a:m-1:price",
+      null,
+    ])
+      expect(() => withLedgerMarkRead({ ...paid(1), ledgerKey })).toThrow(TypeError);
+  });
+
+  it("#810: a cost report shows no ledgerKey", () => {
+    const report = buildCostReport([
+      { ...paid(1), ledgerKey: { id: "a2a:m-1:price", madeAt: NOW } },
+    ]);
+    for (const line of report.trace) expect(line).not.toHaveProperty("ledgerKey");
+  });
 });
 
 describe("#817: why a mark is not read", () => {

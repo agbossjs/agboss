@@ -1,10 +1,9 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import type { LedgerKey } from "./ledger-key.js";
 import { CostCategory, costCategoryOf } from "./cost-category.js";
 import { servedByOf } from "./served-by.js";
-import { withoutLedgerMarks, type LedgerMark } from "./ledger-mark.js";
+import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {

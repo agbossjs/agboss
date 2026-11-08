@@ -195,9 +195,7 @@ export class BudgetMeter implements BudgetCheck {
 
   /** `record` as an entry of the ledger under a new id of this pass, made now (#727, #771, #817). */
   #entryOf(record: UsageRecord): LedgerEntry {
-    // a spend of its own identity (#810) keeps it: whichever pass writes it, the ledger adds it once
-    const { ledgerKey } = record;
-    return ledgerEntryOf(record, ledgerKey?.id ?? this.#ids.mint(), ledgerKey?.madeAt ?? this.clock.now());
+    return ledgerEntryOf(record, this.#ids.mint(), this.clock.now());
   }
 
   /**

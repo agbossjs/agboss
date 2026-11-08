@@ -119,7 +119,11 @@ export interface CounterSnapshot {
   readonly recorded: number;
 }
 
-/** `record` as an entry of the ledger under `ledgerId`, made at `madeAt`, its cost in `Usd` (#817). */
+/**
+ * `record` as an entry of the ledger under `ledgerId`, made at `madeAt`, its cost in `Usd` (#817)
+ * — a spend of its own identity (`ledgerKey`, #810) under that one instead: whichever pass writes
+ * it, the ledger adds it once.
+ */
 export const ledgerEntryOf = (
   record: UsageRecord,
   ledgerId: string,
@@ -127,8 +131,8 @@ export const ledgerEntryOf = (
 ): LedgerEntry => ({
   ...record,
   costUsd: usd(record.costUsd),
-  ledgerId,
-  madeAt,
+  ledgerId: record.ledgerKey?.id ?? ledgerId,
+  madeAt: record.ledgerKey?.madeAt ?? madeAt,
 });
 
 /** A record this pass writes to the ledger; one recorded elsewhere is there already (#333 PR 3). */

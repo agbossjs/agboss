@@ -164,7 +164,10 @@ const withLedgerKey = (
     ? spent
     : {
         ...spent,
-        ledgerKey: { id: identity.id, madeAt: reportMadeAtOf(report?.issuedAt, identity) },
+        ledgerKey: {
+          id: identity.id,
+          madeAt: new Date(reportMadeAtOf(report?.issuedAt, identity)),
+        },
       };
 
 /**
