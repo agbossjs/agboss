@@ -196,7 +196,12 @@ export function workingThen(): AgentScript {
   };
 }
 
+/** The id of the task a mesh receiver refuses. */
+const REFUSED_TASK_ID = "task-refused";
+
 export class SdkAgent {
+  /** The last task the mesh receiver refused, as it keeps it. */
+  #refusedTask: unknown;
   readonly received: ReceivedRequest[] = [];
   /** Tasks held working by `workingThen()`, by id. */
   readonly held = new Map<
@@ -359,11 +364,25 @@ export class SdkAgent {
     }
     const refused = this.#meshRefusal(body);
     if (refused !== undefined) return Response.json(refused, { headers: this.#echoOf(headers) });
+    const kept = this.#refusedRead(raw);
+    if (kept !== undefined) return kept;
     const context = new ServerCallContext({ requestedVersion: headers["a2a-version"] ?? "1.0" });
     const answer =
       this.#dedupe(body) ?? (await this.#transport.handle(raw as Record<string, unknown>, context));
     this.#remember(body, answer);
     return this.#reply(body.method, answer, this.#echoOf(headers));
+  }
+
+  /** A GetTask of the task it refused: kept as refused, as an AGBoss agent keeps it (#849). */
+  #refusedRead(raw: unknown): Response | undefined {
+    const body = raw as {
+      readonly id?: unknown;
+      readonly method?: unknown;
+      readonly params?: { readonly id?: unknown };
+    };
+    if (body.method !== "GetTask" || body.params?.id !== REFUSED_TASK_ID) return undefined;
+    if (this.#refusedTask === undefined) return undefined;
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: this.#refusedTask });
   }
 
   /** The extensions an answer echoes: the mesh, when asked of an agent that activates it. */
@@ -426,7 +445,7 @@ export class SdkAgent {
       metadata: { [A2A_MESH_EXTENSION]: { code: limit.code, details: limit.details } },
     };
     const task = {
-      id: "task-refused",
+      id: REFUSED_TASK_ID,
       contextId: "ctx-refused",
       status: {
         state: "TASK_STATE_REJECTED",
@@ -434,6 +453,7 @@ export class SdkAgent {
         timestamp: new Date(0).toISOString(),
       },
     };
+    this.#refusedTask = task;
     return { jsonrpc: "2.0", id: body.id, result: { task } };
   }
 

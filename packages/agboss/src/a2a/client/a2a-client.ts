@@ -22,18 +22,17 @@ import {
 import { A2AClientOperation } from "./a2a-client-errors.js";
 import { a2aClientServicesOf, type A2AClientServices } from "./a2a-client-services.js";
 import { A2AMesh } from "./a2a-guard-errors.js";
-import { chargedOf, settledChargeOf, settledPeerOf } from "./a2a-charges.js";
+import {
+  chargedOf,
+  recordRefused,
+  refusedCall,
+  settledChargeOf,
+  settledPeerOf,
+} from "./a2a-charges.js";
 import { AGBOSS_MESH, type A2AMeshActivation } from "./a2a-mesh-seam.js";
 import { originPolicyOf } from "./a2a-origins.js";
-import { failureOf, isInterrupted, outputOf } from "./a2a-outcome.js";
-import {
-  answerPartsOf,
-  dataOf,
-  inputPartsOf,
-  partsOf,
-  textOf,
-  type A2AMessageInput,
-} from "./a2a-parts.js";
+import { outputOf, untypedResultOf } from "./a2a-outcome.js";
+import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
 import { waitForTask } from "./a2a-wait.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
 
@@ -111,7 +110,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * or a stateless message. FAILED, REJECTED and CANCELED throw as for `execute`.
    */
   public async send(message: A2AMessageInput, call: A2AClientCall = {}): Promise<A2ATaskResult> {
-    return this.#resultOf(await this.#call(partsOf(message), undefined, call));
+    return untypedResultOf(await this.#call(partsOf(message), undefined, call), this.#agent);
   }
 
   /** Continues a task that waits for input (INPUT_REQUIRED) with `answer`, as `send` does. */
@@ -120,7 +119,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     answer: A2AMessageInput,
     call: A2AClientCall = {},
   ): Promise<A2ATaskResult> {
-    return this.#resultOf(await this.#call(partsOf(answer), taskId, call));
+    return untypedResultOf(await this.#call(partsOf(answer), taskId, call), this.#agent);
   }
 
   /** The task as the agent has it now. */
@@ -189,7 +188,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
   /**
    * One call: the card, the accept (its price charged then), the wait (a report's excess then) —
    * both charged on every pass under the call's own ledger identity, so a takeover that replays the
-   * accept charges each once (#810 AC5).
+   * accept charges each once (#810 AC5). A call the agent refused at the accept (`REJECTED` with a
+   * mesh limit, #849) charges neither, on any pass, while the agent's task says so (`refusedCall`).
    */
   async #call(
     parts: readonly Part[],
@@ -217,6 +217,19 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     });
     const price = this.contract?.price;
     const charged = chargedOf(accepted, clock);
+    if (accepted.isRefused) {
+      return refusedCall({
+        agent: this.#agent,
+        taskId: accepted.taskId,
+        read: (taskId) => this.getTask(taskId, call),
+        charge: () => {
+          activation.charge(price, charged);
+        },
+        record: () => {
+          recordRefused(activation, accepted, this.contract?.application ?? this.#agent);
+        },
+      });
+    }
     activation.charge(price, charged);
     const task = await this.#waited(wire, accepted, clock, call);
     activation.settle(task, price, settledChargeOf(charged, clock));
@@ -243,17 +256,5 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
       signal: call.signal,
       onEvent: call.onEvent,
     });
-  }
-
-  /** An untyped call's result: an interrupted task given back, any other failure thrown. */
-  #resultOf(settled: Settled): A2ATaskResult {
-    const { task, peer } = settled;
-    const { message } = settled.accepted;
-    const failure =
-      task === undefined || isInterrupted(task) ? undefined : failureOf(task, this.#agent);
-    if (failure !== undefined) throw failure;
-    const answer = task ?? message;
-    const parts = answer === undefined ? [] : answerPartsOf(answer);
-    return { task, message, text: textOf(parts), data: dataOf(parts)?.value, peer };
   }
 }

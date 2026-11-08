@@ -1,8 +1,11 @@
 import { TaskState, type Message, type Task, type TaskStatus } from "@a2a-js/sdk";
 import type { DtoClass } from "../../dto/types.js";
+import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
-import { answerPartsOf, rawOutputOf } from "./a2a-parts.js";
+import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
+import type { A2ARemotePeer } from "./a2a-card.js";
+import type { A2ATaskResult } from "./a2a-client-options.js";
 import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
 import {
   A2ATaskCanceledError,
@@ -47,6 +50,17 @@ function meshFailureOf(status: TaskStatus): { readonly code: unknown; readonly d
   const read = (key: string): unknown =>
     typeof entry === "object" && entry !== null ? Reflect.get(entry, key) : undefined;
   return { code: read("code"), details: read("details") };
+}
+
+/**
+ * The mesh limit an AGBoss agent refused a task with before anything ran (#849): a `REJECTED` task
+ * whose status names a loop or the hop limit, with its facts (`rejectedStatusOf`); else `undefined`
+ * — any other REJECTED task, or any other state, is no refusal.
+ */
+export function meshRefusalOf(task: Task): MeshLimitError | undefined {
+  const { status } = task;
+  if (status?.state !== TaskState.TASK_STATE_REJECTED) return undefined;
+  return meshLimitErrorOf(meshFailureOf(status));
 }
 
 /**
@@ -111,4 +125,23 @@ export function outputOf(
     throw new A2ARemoteCallError({ agent, reason, taskId: task?.id });
   }
   return raw.value;
+}
+
+/** An untyped call's result: an interrupted task given back, any other failure thrown. */
+export function untypedResultOf(
+  settled: {
+    readonly task: Task | undefined;
+    readonly accepted: { readonly message: Message | undefined };
+    readonly peer: A2ARemotePeer;
+  },
+  agent: string,
+): A2ATaskResult {
+  const { task, peer } = settled;
+  const { message } = settled.accepted;
+  const failure = task === undefined || isInterrupted(task) ? undefined : failureOf(task, agent);
+  if (failure !== undefined) throw failure;
+  const answer = task ?? message;
+  // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data
+  const parts = answer === undefined ? [] : answerPartsOf(answer);
+  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, peer };
 }

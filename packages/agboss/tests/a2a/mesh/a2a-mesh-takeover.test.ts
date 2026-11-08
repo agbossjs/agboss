@@ -21,9 +21,12 @@ import {
   caller,
   CallerApplication,
   CallerWorkflowStart,
+  PRICE,
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
-import { peer, resetPeer } from "./fixtures/peer/peer.application.js";
+import { A2AProtocolError } from "../../../src/a2a/index.js";
+import { HopsLimitExceededError } from "../../../src/index.js";
+import { peer, resetPeer, StrictPeerApplication } from "./fixtures/peer/peer.application.js";
 import { executionSpentOf, servePeer, type ServedPeer } from "./fixtures/serve-peer.js";
 
 const two = testWith(CallerApplication, { instances: 2, allowNetwork: ["127.0.0.1"] });
@@ -71,11 +74,12 @@ async function takenOverByB(clock: VirtualClock, leases: TestLeases, a: TestApp)
  */
 async function started(
   apps: readonly TestApp[],
+  Peer?: typeof StrictPeerApplication,
 ): Promise<{ readonly a: TestApp; readonly b: TestApp; readonly call: Promise<unknown> }> {
   const [a, b] = [instance(apps, 0), instance(apps, 1)];
   await a.ready();
   await b.ready();
-  served.push(await servePeer(new VirtualClock()));
+  served.push(await servePeer(new VirtualClock(), Peer));
   const call = execute(a, CallerWorkflowStart, { text: "is invoice 7 paid?" });
   call.catch(() => undefined);
   return { a, b, call };
@@ -156,6 +160,66 @@ describe("#810 AC5: a takeover that replays the accept charges price + report ex
       expect(peer.runs).toHaveLength(1);
       expect(caller.ends[0]?.spend.totalUsd).toBeCloseTo(3);
       expect(await executionSpentOf(b, ROOT)).toBeCloseTo(3);
+    },
+    30_000,
+  );
+});
+
+describe("#849: a call the peer REJECTED charges nothing, a takeover's replay of the accept neither", () => {
+  two(
+    "A's call is refused (past the peer's maxMeshHops), A dies before the failure is durable → B replays the accept: 0",
+    async ({ apps, clock, leases }) => {
+      caller.freezeAfterError = 1;
+      const { a, b, call } = await started(apps, StrictPeerApplication);
+      await untilReached(() => caller.frozen.length === 1, "A frozen after its refused call");
+      await settle();
+      expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
+      // pass 1 charged nothing: the peer refused before anything ran
+      expect(await executionSpentOf(b, ROOT)).toBe(0);
+
+      await takenOverByB(clock, leases, a);
+      await untilReached(
+        () => caller.callErrors.slice(1).some((error) => error instanceof HopsLimitExceededError),
+        "B's replayed call refused",
+      );
+      await settle();
+
+      expect(caller.sends).toHaveLength(1); // B replayed the accept: nothing sent again
+      expect(peer.runs).toEqual([]); // nothing ran at the peer
+      // B's pass heard the same refusal from the accept A recorded (a fenced write may come first)
+      expect(
+        caller.callErrors.slice(1).some((error) => error instanceof HopsLimitExceededError),
+      ).toBe(true);
+      expect(await executionSpentOf(b, ROOT)).toBe(0);
+      leases.thaw(a);
+      for (const letGo of caller.frozen.splice(0)) letGo();
+      await settle();
+      expect(await rejectionOf(call)).toBeDefined();
+      expect(await executionSpentOf(b, ROOT)).toBe(0);
+    },
+    30_000,
+  );
+
+  two(
+    "a stored refusal the peer now contradicts (its task COMPLETED) on B's replay: charged the price, no output",
+    async ({ apps, clock, leases }) => {
+      caller.freezeAfterError = 1;
+      const { a, b } = await started(apps, StrictPeerApplication);
+      await untilReached(() => caller.frozen.length === 1, "A frozen after its refused call");
+      await settle();
+      expect(await executionSpentOf(b, ROOT)).toBe(0);
+
+      caller.isGetTaskCompleted = true; // the peer lies from now on
+      await takenOverByB(clock, leases, a);
+      await untilReached(
+        () => caller.callErrors.some((error) => error instanceof A2AProtocolError),
+        "B's replay finds the refusal contradicted",
+      );
+      await settle();
+
+      expect(caller.sends).toHaveLength(1); // B replayed the accept: nothing sent again
+      expect(caller.answers).toEqual([]);
+      expect(await executionSpentOf(b, ROOT)).toBeCloseTo(PRICE);
     },
     30_000,
   );

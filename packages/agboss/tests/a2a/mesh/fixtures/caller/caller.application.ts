@@ -45,7 +45,11 @@ export const caller: {
   token: string;
   /** Answers to drop: a SendMessage the peer accepted whose answer never arrives. */
   loseSendAnswers: number;
+  /** #849: a lying peer — its GetTask answers say the task COMPLETED with an output. */
+  isGetTaskCompleted: boolean;
   freezeAfterCall: number;
+  /** How many coming runs of the step freeze after their call failed (before the failure is durable). */
+  freezeAfterError: number;
   readonly frozen: (() => void)[];
   readonly answers: string[];
   readonly callErrors: unknown[];
@@ -56,7 +60,9 @@ export const caller: {
   origin: undefined,
   token: CALLER_TOKEN,
   loseSendAnswers: 0,
+  isGetTaskCompleted: false,
   freezeAfterCall: 0,
+  freezeAfterError: 0,
   frozen: [],
   answers: [],
   callErrors: [],
@@ -69,7 +75,9 @@ export function resetCaller(): void {
   caller.origin = undefined;
   caller.token = CALLER_TOKEN;
   caller.loseSendAnswers = 0;
+  caller.isGetTaskCompleted = false;
   caller.freezeAfterCall = 0;
+  caller.freezeAfterError = 0;
   for (const list of [caller.frozen, caller.answers, caller.callErrors, caller.ends]) {
     list.length = 0;
   }
@@ -87,20 +95,44 @@ export class CallerExecutionBudget implements BudgetHandler {
   }
 }
 
-/** The peer's address as the test serves it: `http://peer.test` → its loopback port. */
-const routed: typeof fetch = async (input, init) => {
+/** The text a lying peer's COMPLETED task answers: never to reach the caller's step. */
+export const FREE_WORK = "work the peer refused, done for free";
+
+/** A GetTask answer rewritten as a lying peer's (#849): COMPLETED, with an output artifact. */
+async function completedAnswerOf(response: Response): Promise<Response> {
+  const body = (await response.json()) as { result?: Record<string, unknown> };
+  const task = body.result ?? {};
+  const result = {
+    ...task,
+    status: { state: "TASK_STATE_COMPLETED" },
+    artifacts: [{ artifactId: "output", parts: [{ text: FREE_WORK }] }],
+  };
+  return Response.json({ ...body, result }, { status: response.status });
+}
+
+/** The body of a request of `method` (its JSON-RPC text names it); `undefined` for another. */
+const bodyOf = (init: RequestInit | undefined, method: string): string | undefined =>
+  typeof init?.body === "string" && init.body.includes(`"${method}"`) ? init.body : undefined;
+
+/** The URL a request goes to: `http://peer.test` → the peer's loopback port. */
+function targetOf(input: Parameters<typeof fetch>[0]): string {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   if (caller.origin === undefined) throw new TypeError("fetch failed: the peer is not served");
-  const target = url.startsWith(PEER_ORIGIN)
-    ? `${caller.origin}${url.slice(PEER_ORIGIN.length)}`
-    : url;
-  const isSend = typeof init?.body === "string" && init.body.includes('"SendMessage"');
-  if (isSend) caller.sends.push(init.body as string);
-  const response = await fetch(target, init);
-  if (isSend && caller.loseSendAnswers > 0) {
+  return url.startsWith(PEER_ORIGIN) ? `${caller.origin}${url.slice(PEER_ORIGIN.length)}` : url;
+}
+
+/** The peer's address as the test serves it: `http://peer.test` → its loopback port. */
+const routed: typeof fetch = async (input, init) => {
+  const send = bodyOf(init, "SendMessage");
+  if (send !== undefined) caller.sends.push(send);
+  const response = await fetch(targetOf(input), init);
+  if (send !== undefined && caller.loseSendAnswers > 0) {
     caller.loseSendAnswers -= 1;
     await response.arrayBuffer();
     throw new TypeError("fetch failed: the answer was lost");
+  }
+  if (bodyOf(init, "GetTask") !== undefined && caller.isGetTaskCompleted) {
+    return completedAnswerOf(response);
   }
   // answered as from the peer's address (the loopback is only how the test reaches it)
   return new Response(response.body, {
@@ -143,6 +175,13 @@ async function frozenAfterCall(): Promise<void> {
   await new Promise<void>((resolve) => caller.frozen.push(resolve));
 }
 
+/** Waits until let go after a failed call when the lever says so (#849). */
+async function frozenAfterError(): Promise<void> {
+  if (caller.freezeAfterError <= 0) return;
+  caller.freezeAfterError -= 1;
+  await new Promise<void>((resolve) => caller.frozen.push(resolve));
+}
+
 @Action({
   name: "ask-peer-action",
   description: "Asks the peer",
@@ -163,6 +202,7 @@ export class AskPeerAction {
       return answer;
     } catch (error) {
       caller.callErrors.push(error);
+      await frozenAfterError();
       throw error;
     }
   }

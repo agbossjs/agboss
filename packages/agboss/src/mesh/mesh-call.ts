@@ -36,4 +36,10 @@ export interface ToolCallRemote {
    * Absent when a verified report was charged.
    */
   readonly report?: false;
+  /**
+   * `true` for a call the agent refused before anything ran (#849: its task `REJECTED` at the
+   * accept — a mesh loop, a chain past its `maxMeshHops`): charged nothing, its price neither.
+   * Absent for a call the agent accepted, charged its price whatever its task's end.
+   */
+  readonly refused?: true;
 }

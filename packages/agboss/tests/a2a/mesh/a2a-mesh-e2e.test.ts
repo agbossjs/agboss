@@ -8,7 +8,11 @@
  */
 import "./fixtures/keys.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { A2A_MESH_EXTENSION, A2ATaskFailedError } from "../../../src/a2a/index.js";
+import {
+  A2A_MESH_EXTENSION,
+  A2AProtocolError,
+  A2ATaskFailedError,
+} from "../../../src/a2a/index.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -19,6 +23,7 @@ import {
   CallerApplication,
   CALLER_EXECUTION_BUDGET,
   CallerWorkflowStart,
+  FREE_WORK,
   PRICE,
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
@@ -80,6 +85,8 @@ describe("#810 AC2: a trusted caller's call is charged its verified run report, 
 
     expect(caller.callErrors[0]).toBeInstanceOf(A2ATaskFailedError);
     expect(caller.callErrors[0]).toMatchObject({ remoteCode: "limit.budget" });
+    // #849: accepted, then failed there — the price is charged all the same
+    expect(await executionSpentOf(app, "execution-1")).toBeCloseTo(PRICE);
   });
 
   test("a duplicate delivery — the accept's answer lost, the message resent — is one task, one run, charged once", async ({
@@ -122,6 +129,40 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
 
     expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
     expect(peer.runs).toEqual([]);
+  });
+
+  test("#849: a call the peer REJECTED (past its maxMeshHops) charges nothing — its price neither", async ({
+    app,
+    clock,
+  }) => {
+    served.push(await servePeer(clock, StrictPeerApplication));
+
+    const outcome = await execute(app, CallerWorkflowStart, { text: "hello" }).catch(
+      (error: unknown) => error,
+    );
+
+    expect(outcome).toBeInstanceOf(Error);
+    expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
+    expect(caller.sends).toHaveLength(1);
+    expect(await executionSpentOf(app, "execution-1")).toBe(0);
+  });
+
+  test("#849: a peer that REJECTED at the accept, then says COMPLETED: charged the price, its output never used", async ({
+    app,
+    clock,
+  }) => {
+    served.push(await servePeer(clock, StrictPeerApplication));
+    caller.isGetTaskCompleted = true;
+
+    const outcome = await execute(app, CallerWorkflowStart, { text: "hello" }).catch(
+      (error: unknown) => error,
+    );
+
+    expect(outcome).toBeInstanceOf(Error);
+    expect(caller.callErrors[0]).toBeInstanceOf(A2AProtocolError);
+    expect(caller.answers).toEqual([]);
+    expect(JSON.stringify(outcome)).not.toContain(FREE_WORK);
+    expect(await executionSpentOf(app, "execution-1")).toBeCloseTo(PRICE);
   });
 
   test("a run another hop's limit stopped is FAILED with that limit's facts: the caller rethrows the same MeshLoopDetectedError", async ({
