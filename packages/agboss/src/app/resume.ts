@@ -3,12 +3,8 @@ import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import {
-  PauseStatus,
-  type PausedExecutionRepository,
-  type PauseRecord,
-} from "../infrastructure/paused-execution.repository.js";
-import { NotPausedError } from "../run/resume-agent.js";
+import { PauseStatus, type PauseRecord } from "../infrastructure/paused-execution.repository.js";
+import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import {
   checkResume,
   type IncompatibleResumePolicy,
@@ -17,7 +13,6 @@ import {
 import type { ThreadAccess } from "../run/thread.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
-import type { PausedRunBook } from "./paused-runs.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import {
@@ -31,13 +26,15 @@ import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
+import { markAnswered, notPaused, refusedAfterMark } from "./paused-runs.js";
+import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
  * its tree, who answers checked against its role's `answeredBy`, the decision validated (or a
  * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
- * `Pending → Resolved` with its decision, atomically. Nothing moves the tree here; a refused
- * resume leaves the pause as it was.
+ * the resting root's record `running` again (#850), and `Pending → Resolved` with its decision,
+ * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
  */
 
 /** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
@@ -92,9 +89,7 @@ export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
 }
 
 /** What recording an answer needs from the workflow's app. */
-export interface AnswerParts {
-  readonly pauses: PausedExecutionRepository;
-  readonly paused: PausedRunBook;
+export interface AnswerParts extends AnsweredRootParts {
   /** Checks the caller is the thread's owner (`ThreadOwnerError` otherwise). */
   readonly owned: (access: ThreadAccess) => Promise<void>;
   /** The tool a pause approves (its input checks `overrideArguments`). */
@@ -149,9 +144,6 @@ async function answererOf(
   }
   return answeredBy;
 }
-
-const notPaused = (pauseId: string): NotPausedError =>
-  new NotPausedError(`pause ${pauseId} is not waiting for an answer`);
 
 /** The tenant's pause a resume answers; `UnknownPauseError` when the tenant has none of that id. */
 export async function pauseOf(
@@ -222,6 +214,8 @@ export async function recordAnswer(
     answerer,
     ...(read.usage.length === 0 ? {} : { usage: read.usage }),
   };
+  // the tree has work again before its answer is recorded (#850, paused-runs.ts)
+  const isMarked = await markAnswered(parts, pause, run);
   const at = parts.clock.now();
   const resolved = await parts.pauses.resolveByTenantIdAndPauseId(
     tenantId,
@@ -229,7 +223,9 @@ export async function recordAnswer(
     answer,
     at,
   );
-  if (resolved === undefined) throw notPaused(pause.pauseId);
+  if (resolved === undefined) {
+    throw isMarked ? refusedAfterMark(parts, pause) : notPaused(pause.pauseId);
+  }
   await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };
 }

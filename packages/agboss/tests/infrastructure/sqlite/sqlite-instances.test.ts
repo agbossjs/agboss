@@ -5,11 +5,19 @@
  * other; a pause survives a restart of the only instance. Every store is a SQLite implementation.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionLeaseLostError, ExecutionStatus, ResumeReason } from "../../../src/index.js";
+import {
+  ExecutionLeaseLostError,
+  ExecutionStatus,
+  NotPausedError,
+  PauseStatus,
+  ResumeReason,
+  SqlitePausedExecutionRepository,
+} from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { seconds } from "../../../src/units/index.js";
 import { execute, answerOf } from "../../helpers/flow.js";
+import { until } from "../../helpers/until.js";
 import {
   Charge,
   Clerk,
@@ -114,4 +122,155 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
       expect(resumed.output).toEqual({ text: "Charged." });
     },
   );
+});
+
+describe("#850: a resume that died between recording its answer and moving the tree", () => {
+  /** The pause store of the instance that answered, captured at its resolve. */
+  const answering: SqlitePausedExecutionRepository[] = [];
+  const statusOfPause = async (pauseId: string): Promise<PauseStatus | undefined> =>
+    (await answering[0]?.findByTenantIdAndPauseId("default", pauseId))?.status;
+
+  /** The store's own methods, read as plain functions before a test replaces them. */
+  type Own<K extends keyof SqlitePausedExecutionRepository> = (
+    this: SqlitePausedExecutionRepository,
+    ...args: Parameters<SqlitePausedExecutionRepository[K]>
+  ) => ReturnType<SqlitePausedExecutionRepository[K]>;
+  const own: {
+    readonly prototype: {
+      readonly resolveByTenantIdAndPauseId: Own<"resolveByTenantIdAndPauseId">;
+      readonly findByTenantIdAndPauseId: Own<"findByTenantIdAndPauseId">;
+    };
+  } = SqlitePausedExecutionRepository;
+  const { resolveByTenantIdAndPauseId: realResolve, findByTenantIdAndPauseId: realFind } =
+    own.prototype;
+
+  /** instance-1's next resolve: `then` decides, given the store's own resolve to call (or not). */
+  function atTheResolve(then: (resolve: () => Promise<unknown>) => Promise<undefined>): void {
+    answering.length = 0;
+    vi.spyOn(
+      SqlitePausedExecutionRepository.prototype,
+      "resolveByTenantIdAndPauseId",
+    ).mockImplementationOnce(function (this: SqlitePausedExecutionRepository, ...args) {
+      answering.push(this);
+      return then(() => realResolve.apply(this, args));
+    });
+  }
+
+  test("AC1/AC2: the other instance's recovery runs the resolved pause, once; the pause is taken", async ({
+    app,
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "10 USD" }),
+      replyWith(ReceiptDto, { text: "Charged." }),
+    );
+    for (const one of apps) await one.ready();
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
+    const answer = answerOf(paused, approve);
+    // instance-1 records the answer, then its process dies before the tree moves
+    atTheResolve(async (resolve) => {
+      await resolve();
+      kill("instance-1");
+      throw new Error("the process died");
+    });
+
+    await expect(app.resume(answer)).rejects.toThrow("the process died");
+    const resolvedThen = await statusOfPause(answer.pauseId);
+    await clock.advance(seconds(31));
+    const [recovered] = await ends(1);
+
+    expect(resolvedThen).toBe(PauseStatus.Resolved);
+    expect(recovered?.output).toEqual({ text: "Charged." });
+    expect(seen.charges).toEqual(["10 USD"]);
+    expect(seen.resumes).toEqual([{ reason: ResumeReason.Recovered, decision: approve }]);
+    expect(await statusOfPause(answer.pauseId)).toBe(PauseStatus.Taken);
+  });
+
+  test("AC1: dying before the answer is recorded, the recovery rests the tree at its pause again; a resume then runs it once", async ({
+    app,
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "10 USD" }),
+      replyWith(ReceiptDto, { text: "Charged." }),
+    );
+    for (const one of apps) await one.ready();
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
+    atTheResolve(() => {
+      kill("instance-1");
+      return Promise.reject(new Error("the process died"));
+    });
+
+    await expect(app.resume(answerOf(paused, approve))).rejects.toThrow("the process died");
+    await clock.advance(seconds(31));
+    await until(() => seen.resumes.length === 1, "the recovery of the root");
+    const pending = await statusOfPause(answerOf(paused, approve).pauseId);
+    const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
+
+    expect(seen.resumes[0]).toEqual({ reason: ResumeReason.Recovered, decision: undefined });
+    expect(pending).toBe(PauseStatus.Pending);
+    expect(resumed.output).toEqual({ text: "Charged." });
+    expect(seen.charges).toEqual(["10 USD"]);
+  });
+
+  test("AC1: a resume refused after its mark leaves the root to recovery, which rests it at its pause", async ({
+    app,
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "10 USD" }),
+      replyWith(ReceiptDto, { text: "Charged." }),
+    );
+    for (const one of apps) await one.ready();
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
+    // the store refuses the resolve, as when another resume answered between the mark and it
+    atTheResolve(() => Promise.resolve(undefined));
+
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await clock.advance(seconds(31));
+    await until(() => seen.resumes.length === 1, "the recovery of the root");
+    const pending = await statusOfPause(answerOf(paused, approve).pauseId);
+    const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
+
+    expect(pending).toBe(PauseStatus.Pending);
+    expect(resumed.output).toEqual({ text: "Charged." });
+    expect(seen.charges).toEqual(["10 USD"]);
+  });
+
+  test("AC1: a pause answered meanwhile (read again before the mark) refuses the resume; nothing is marked", async ({
+    app,
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "10 USD" }),
+      replyWith(ReceiptDto, { text: "Charged." }),
+    );
+    for (const one of apps) await one.ready();
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
+    // the resume's first read finds it pending; its read before the mark, answered
+    const reads = vi.spyOn(SqlitePausedExecutionRepository.prototype, "findByTenantIdAndPauseId");
+    reads.mockImplementationOnce(function (this: SqlitePausedExecutionRepository, ...args) {
+      return realFind.apply(this, args);
+    });
+    reads.mockImplementationOnce(async function (this: SqlitePausedExecutionRepository, ...args) {
+      const found = await realFind.apply(this, args);
+      return found && { ...found, status: PauseStatus.Resolved };
+    });
+
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await clock.advance(seconds(31));
+    const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
+
+    expect(seen.resumes).toEqual([{ reason: ResumeReason.Answered, decision: approve }]);
+    expect(resumed.output).toEqual({ text: "Charged." });
+    expect(seen.charges).toEqual(["10 USD"]);
+  });
 });
