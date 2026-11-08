@@ -685,8 +685,11 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 ## Concurrent answers
 
 A resume has two phases (Q58): **1. record the decision** — after the credential check and the
-validation, the pause goes from `Pending` to `Resolved` atomically; a second resume of the same
-`pauseId` gets `NotPausedError` and moves nothing. **2. move the tree** — the call takes the tree's
+validation, the root's record of a resting tree is made `running`, then the pause goes from
+`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `NotPausedError` and
+moves nothing. A resume whose process dies after phase 1 leaves a `running` root: recovery
+([Several instances](Several-instances#recovery)) takes its lease and continues it with the recorded
+decision, once (#850). **2. move the tree** — the call takes the tree's
 lease ([Several instances](Several-instances#the-execution-lease)) and continues with **every**
 resolved pause of the tree in one pass (one LangGraph `Command({ resume })` mapping each pause's
 interrupt id); before it lets the tree rest paused it takes the pauses resolved meanwhile (the

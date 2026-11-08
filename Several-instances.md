@@ -937,7 +937,9 @@ export class ChargeOrderAction {
 
 An execution whose instance died mid-step is continued by another instance, automatically (#265
 S30). The record of a root is `ExecutionRecordStatus.Running` while its tree moves (a resume makes
-it `running` again once it has recorded its decision). Every instance, at its start and then every
+it `running` again just before it records its decision, #850: a resume that dies between the two
+leaves a `running` root that recovery continues with that decision, never a `paused` one whose
+`Resolved` pause nothing would take). Every instance, at its start and then every
 30 seconds (the lease length, through the framework's clock):
 
 1. lists the `running` records (`ExecutionRecordRepository.findByStatus(ExecutionRecordStatus.Running,

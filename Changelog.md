@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a resume that dies after recording its answer is recovered (#850)
+
+- **Fixed**: a resume whose process died (or was killed) after the pause went `Resolved` and before
+  the tree moved left the root `paused` with a `Resolved` pause forever — never continued, never
+  swept. The resume now makes the root's record `running` before it records the answer, so the
+  recovery sweep continues the tree with that answer, once, under its lease, and the pause ends
+  `Taken`. No store contract changes. [Pauses → Concurrent answers](Pauses#concurrent-answers).
+
 ## Unreleased — 0.1.1: an agent's tool calls are streamed (#848)
 
 - **Fixed**: an agent's own tool calls reach `app.execute(…, { onStream })` as `{ kind: "toolCall",
