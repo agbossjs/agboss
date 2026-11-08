@@ -672,6 +672,9 @@ export function assertBusinessKey(key: Pick<EffectKeyFields, "name" | "businessK
 export function assertEffectName(name: string): void;
 
 // @public
+export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
+
+// @public
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
@@ -1438,10 +1441,23 @@ export class ConsoleLogger extends Logger {
 // @public
 export type ContextValues<T> = T extends ExecutionContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof ExecutionContext>>> : T extends TenantContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof TenantContext>>> & TenantValues : never;
 
-// Warning: (ae-forgotten-export) The symbol "COST_CATEGORIES" needs to be exported by the entry point index.d.ts
-//
-// @public (undocumented)
-export type CostCategory = (typeof COST_CATEGORIES)[number];
+// @public
+export enum CostCategory {
+    // (undocumented)
+    Agents = "agents",
+    // (undocumented)
+    Compaction = "compaction",
+    // (undocumented)
+    Guards = "guards",
+    // (undocumented)
+    Retrieval = "retrieval",
+    // (undocumented)
+    Review = "review",
+    // (undocumented)
+    Routing = "routing",
+    // (undocumented)
+    Tools = "tools"
+}
 
 // @public
 export interface CostCounter extends BudgetAccount {
@@ -1467,13 +1483,32 @@ export interface CostLedgerEntryExpiredErrorOptions {
     readonly prunedBefore: Date;
 }
 
+// @public
+export class CostLedgerEntryInvalidError extends AGBossError {
+    constructor(options: CostLedgerEntryInvalidErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly index: number;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface CostLedgerEntryInvalidErrorOptions {
+    readonly index: number;
+    readonly reason: string;
+}
+
 // @public (undocumented)
 export abstract class CostLedgerRepository {
-    abstract deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
     abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
     abstract ping(): Promise<void>;
-    abstract saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
+    abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
     abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
 
@@ -1509,7 +1544,11 @@ export interface CostReport {
 }
 
 // @public
-export type CostSource = "api" | "price-table" | "tool";
+export enum CostSource {
+    Api = "api",
+    PriceTable = "price-table",
+    Tool = "tool"
+}
 
 // @public
 export interface CountQuorum {
@@ -2424,6 +2463,9 @@ export function executionVersions<TName extends string>(deps: AgentExecutionDeps
     readonly configVersion: string;
     readonly configHash: string;
 };
+
+// @public
+export function expiredEntriesOf(entries: readonly LedgerEntry[], prunedBefore: Date | undefined, isHeld: (ledgerId: string) => boolean): readonly string[];
 
 // Warning: (ae-forgotten-export) The symbol "BuiltHealthCheckResult" needs to be exported by the entry point index.d.ts
 //
@@ -3629,15 +3671,28 @@ export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
 }
 
 // @public
-export interface LedgerDated {
-    readonly ledgerKey?: LedgerKey;
-    readonly madeAt?: string;
-}
+export type LedgerEntry = UsageRecord & {
+    readonly ledgerId: string;
+    readonly madeAt: Date;
+    readonly costUsd: Usd;
+};
 
 // @public
 export interface LedgerKey {
     readonly id: string;
-    readonly madeAt: string;
+    readonly madeAt: Date;
+}
+
+// @public
+export type LedgerMark = WrittenLedgerMark | RecordedElsewhereLedgerMark;
+
+// @public
+export function ledgerMarkOf(record: object): LedgerMark | undefined;
+
+// @public
+export enum LedgerState {
+    RecordedElsewhere = "recorded-elsewhere",
+    Written = "written"
 }
 
 // @public
@@ -3985,9 +4040,6 @@ export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> 
     // (undocumented)
     readonly requestHash: string;
 }
-
-// @public
-export const newEntriesOf: (records: readonly UsageRecord[], isNew: (ledgerId: string, madeAt: number) => boolean) => readonly UsageRecord[];
 
 // @public (undocumented)
 export type NewSummary = Omit<Summary, "id" | "createdAt">;
@@ -5616,6 +5668,12 @@ export abstract class RateLimitRepository {
 }
 
 // @public
+export interface RecordedElsewhereLedgerMark {
+    // (undocumented)
+    readonly state: LedgerState.RecordedElsewhere;
+}
+
+// @public
 export const remainingOf: (expiresAt: Date, now: Date) => Milliseconds;
 
 // @public
@@ -6110,7 +6168,7 @@ export class SqliteConnection implements OnDestroy {
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteEntriesByMadeAtBefore(cutoff: Date): Promise<void>;
+    deleteByMadeAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
     findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     // (undocumented)
@@ -6118,7 +6176,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
+    saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
     // (undocumented)
     saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
@@ -6862,6 +6920,11 @@ export interface ToStep {
 }
 
 // @public
+export function totalCost(entries: readonly (UsageRecord & {
+    readonly costUsd: Usd;
+})[]): Usd;
+
+// @public (undocumented)
 export function totalCost(records: readonly UsageRecord[]): number;
 
 // @public
@@ -6958,15 +7021,18 @@ export class UnknownThreadError extends AGBossError {
 }
 
 // @public
-export interface UsageRecord extends TokenUsage, LedgerDated {
+export const unrecordedEntriesOf: (entries: readonly LedgerEntry[], isNew: (ledgerId: string, madeAt: Date) => boolean) => readonly LedgerEntry[];
+
+// @public
+export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly caller: string;
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
     readonly costUsd: number;
-    readonly isRecordedElsewhere?: boolean;
-    readonly ledgerId?: string;
+    readonly ledger?: LedgerMark;
+    readonly ledgerKey?: LedgerKey;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -7217,6 +7283,14 @@ export interface WorkflowStarts {
 
 // @public
 export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
+
+// @public
+export interface WrittenLedgerMark {
+    readonly ledgerId: string;
+    readonly madeAt: Date;
+    // (undocumented)
+    readonly state: LedgerState.Written;
+}
 
 // Warnings were encountered during analysis:
 //
@@ -7560,25 +7634,34 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
-// src/finops/usage.ts:22:3 - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts:23:3 - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
-// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:39:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:69:1 - (ae-undocumented) Missing documentation for "CostCategory".
-// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:99:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:100:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:101:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:102:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:105:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/cost-category.ts:3:3 - (ae-undocumented) Missing documentation for "Agents".
+// src/finops/cost-category.ts:4:3 - (ae-undocumented) Missing documentation for "Routing".
+// src/finops/cost-category.ts:5:3 - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts:6:3 - (ae-undocumented) Missing documentation for "Review".
+// src/finops/cost-category.ts:7:3 - (ae-undocumented) Missing documentation for "Tools".
+// src/finops/cost-category.ts:8:3 - (ae-undocumented) Missing documentation for "Compaction".
+// src/finops/cost-category.ts:9:3 - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/ledger-mark.ts:22:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:31:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/usage.ts:24:3 - (ae-undocumented) Missing documentation for "inputTokens".
+// src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "outputTokens".
+// src/finops/usage.ts:26:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:27:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
+// src/finops/usage.ts:42:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:43:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:45:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:71:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:72:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:73:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:74:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:75:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:85:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:91:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:228:1 - (ae-undocumented) Missing documentation for "totalCost".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:20:3 - (ae-undocumented) Missing documentation for "Agent".
@@ -7963,11 +8046,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/a2a-task.repository.ts:217:3 - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts:219:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:118:5 - (ae-undocumented) Missing documentation for "source".
-// src/infrastructure/cost-ledger.repository.ts:32:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/cost-ledger.repository.ts:137:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:138:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:139:3 - (ae-undocumented) Missing documentation for "ledgerIds".
-// src/infrastructure/cost-ledger.repository.ts:140:3 - (ae-undocumented) Missing documentation for "prunedBefore".
+// src/infrastructure/cost-ledger.repository.ts:48:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/cost-ledger.repository.ts:112:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:113:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:114:3 - (ae-undocumented) Missing documentation for "index".
+// src/infrastructure/cost-ledger.repository.ts:115:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/cost-ledger.repository.ts:227:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:228:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:229:3 - (ae-undocumented) Missing documentation for "ledgerIds".
+// src/infrastructure/cost-ledger.repository.ts:230:3 - (ae-undocumented) Missing documentation for "prunedBefore".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -8145,12 +8232,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:146:3 - (ae-undocumented) Missing documentation for "claimFirstByStatusQueuedOrderByDepthDesc".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:175:3 - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:87:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:91:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:101:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:136:3 - (ae-undocumented) Missing documentation for "deleteEntriesByMadeAtBefore".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:164:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:90:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:94:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:104:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByMadeAtBefore".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:176:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:188:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
