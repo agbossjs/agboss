@@ -181,8 +181,11 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
     const paused = await execute(app, OrderWorkflowStart, { text: "charge twice" });
     const answered = answerNextPauseFrom(second(apps));
     hooks.beforeGuardedWrite = async () => {
-      // the first resume's own write goes at once; the other's waits until the holder ended the tree
-      if (seen.guarded.length === 0) return;
+      // each resume writes `running` twice: before it records its answer (#850) and before it takes
+      // the lease. The first resume's go at once (the first lands), and so does the other's first —
+      // it lands on the rest the holder wrote before its drain, which takes that answer; the other's
+      // last waits until the holder ended the tree
+      if (seen.guarded.length !== 3) return;
       for (let tick = 0; tick < 1000 && !seen.completed.includes("answered"); tick += 1) {
         await new Promise((resolve) => setImmediate(resolve));
       }
@@ -193,6 +196,8 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
     await clock.advance(seconds(31));
 
     expect(seen.guarded).toEqual([
+      { status: "running", landed: true },
+      { status: "running", landed: false },
       { status: "running", landed: true },
       { status: "running", landed: false },
     ]);
