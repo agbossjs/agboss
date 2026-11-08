@@ -5,8 +5,7 @@ import { resumeAgent } from "../run/resume-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { runOptionsOf } from "./live-runs.js";
 import type { TreeCall, TreeMoveParts, TreePass } from "./tree-moves.js";
-import { treeResumeNow } from "./tree-resume.js";
-import { callWithLostPasses } from "./lost-passes-at-take.js";
+import { callWithLostPasses, treeResumeNow } from "./tree-resume.js";
 
 /** How recovery continues an interrupted tree: the pass, and the answers it takes (if any). */
 export interface RecoveryPass {

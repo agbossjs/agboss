@@ -1,3 +1,5 @@
+import type * as LostPassesAtTake from "./lost-passes-at-take.js";
+import { lazyLoad } from "../infrastructure/clock.js";
 import { ResumeReason } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
@@ -68,3 +70,7 @@ export async function announceResume(
     await observer.onExecutionResume({ ...event, reason, decision, answeredBy });
   }
 }
+
+/** `call` with the passes a takeover's previous holders lost (#853), its reader loaded on first use. */
+export const callWithLostPasses: typeof LostPassesAtTake.callWithLostPasses = async (...args) =>
+  (await lazyLoad(import("./lost-passes-at-take.js"))).callWithLostPasses(...args);

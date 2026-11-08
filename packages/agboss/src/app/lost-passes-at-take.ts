@@ -1,4 +1,8 @@
-import { LOST_PASSES_KEY, lostPassesOf, type LostPasses } from "../finops/lost-passes.js";
+import {
+  LOST_PASSES_KEY,
+  lostPassesOf,
+  type LostPasses,
+} from "../flow/runtime/lost-pass-records.js";
 import type { LeaseEventsReader } from "./app-deps-parts.js";
 import type { RootCheckpoints } from "./execution-leases.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";

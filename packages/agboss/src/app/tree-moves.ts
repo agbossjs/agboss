@@ -18,7 +18,7 @@ import { isHandedOver } from "./handed-over.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
 import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
-import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
+import { announceResume, callWithLostPasses, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
@@ -29,7 +29,6 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
 import type { EndedTreeUndo } from "./tree-unwind.js";
-import { callWithLostPasses } from "./lost-passes-at-take.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = () => lazyLoad(import("./cancel-requests.js"));

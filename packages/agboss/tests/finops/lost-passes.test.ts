@@ -12,7 +12,7 @@ import {
   lostTokensOfTask,
   unknownCostRecordsOf,
   type LostPasses,
-} from "../../src/finops/lost-passes.js";
+} from "../../src/flow/runtime/lost-pass-records.js";
 import { buildCostReport, CostSource, recordToolCost } from "../../src/finops/usage.js";
 
 const takeover = (checkpointId: string | undefined, previousToken?: number) => ({
