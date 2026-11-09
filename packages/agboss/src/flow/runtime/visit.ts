@@ -202,7 +202,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     const { clock } = extractRunContext(config, state.runId);
     // an undoable action, its committer, its undo or a finish (#340): what it writes of them
     const startedAt = clock.now();
-    recordLostPasses({ node, nodeId: node.id, config, runId: state.runId, services });
+    const tally = deps.observer?.unknownCosts;
+    const lostSite = { node, nodeId: node.id, config, runId: state.runId, services, tally };
+    recordLostPasses({ ...lostSite, workflow: deps.workflow.name });
     const undoables = { node, entries: state.compensations, frame, startedAt };
     const parts = { parts: deps.compensation };
     try {

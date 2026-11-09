@@ -9,7 +9,9 @@ import {
   WorkflowStart,
   type Produced,
   type ExecutionEndEvent,
+  type ExecutionErrorEvent,
   type OnExecutionEnd,
+  type OnExecutionError,
   type OnModelStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -39,6 +41,8 @@ export const lostPassSeen = {
   saved: [] as LedgerEntry[],
   /** Each root's spend report at its end. */
   ends: [] as CostReport[],
+  /** How many roots ended failed or cancelled (#875). */
+  failures: 0,
   holds: 0,
   /** How many model calls started, on every instance. */
   modelCalls: 0,
@@ -52,6 +56,7 @@ let shared = new InMemoryCostLedgerRepository();
 export function resetLostPass(): void {
   lostPassSeen.saved.length = 0;
   lostPassSeen.ends.length = 0;
+  lostPassSeen.failures = 0;
   lostPassSeen.holds = 0;
   lostPassSeen.modelCalls = 0;
   lostPassLevers.isHolding = false;
@@ -87,14 +92,17 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
   }
 }
 
-/** Keeps each root's spend report at its end, and counts the model calls that started. */
+/** Keeps each root's spend report at its end, counts its failures, and counts the model calls that started. */
 @Injectable()
-export class SpendLog implements OnExecutionEnd, OnModelStart {
+export class SpendLog implements OnExecutionEnd, OnExecutionError, OnModelStart {
   onModelStart(): void {
     lostPassSeen.modelCalls += 1;
   }
   onExecutionEnd(event: ExecutionEndEvent): void {
     if (event.parentExecutionId === undefined) lostPassSeen.ends.push(event.spend);
+  }
+  onExecutionError(event: ExecutionErrorEvent): void {
+    if (event.parentExecutionId === undefined) lostPassSeen.failures += 1;
   }
 }
 

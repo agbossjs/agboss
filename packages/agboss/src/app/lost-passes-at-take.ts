@@ -5,6 +5,7 @@ import {
 } from "../flow/runtime/lost-pass-records.js";
 import type { LeaseEventsReader } from "./app-deps-parts.js";
 import type { RootCheckpoints } from "./execution-leases.js";
+import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { TreeCall } from "./live-runs.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
@@ -18,6 +19,10 @@ export interface LostPassSources {
   readonly checkpoints?: RootCheckpoints | undefined;
   readonly leaseEvents?: LeaseEventsReader | undefined;
   readonly log: FrameworkLog;
+  /** The instance's tally of Unknown-cost entries (#875): a failed read is counted there. */
+  readonly tally?: UnknownCostTally | undefined;
+  /** The tree's workflow: the tally's label. */
+  readonly workflow: string;
 }
 
 /** LangGraph's channels of a task's writes that run it again: an interrupt, its resume, an error. */
@@ -25,8 +30,9 @@ const RERUN_CHANNELS: ReadonlySet<string> = new Set(["__interrupt__", "__resume_
 
 /**
  * The passes lost at the tree's head checkpoint, or `undefined` (none, or nothing to read them
- * from). A read that fails records none and says so in the log: the pass goes on — what it runs
- * again is billed and counted as usual, only the lost pass's Unknown entry is missing.
+ * from). A read that fails records none and says so in the log and the instance's tally (#875): the
+ * pass goes on — what it runs again is billed and counted as usual, only the lost pass's Unknown
+ * entry is missing.
  */
 export async function lostPassesAtTake(
   sources: LostPassSources,
@@ -54,6 +60,7 @@ export async function lostPassesAtTake(
       `the lost passes of execution ${state.runId} could not be read, no Unknown-cost entry is recorded for them: ${error instanceof Error ? error.message : String(error)}`,
       { executionId: state.runId, tenantId: state.tenantId },
     );
+    sources.tally?.unrecorded(sources.workflow);
     return undefined;
   }
 }
@@ -77,6 +84,8 @@ export async function callWithLostPasses(
     checkpoints: parts.deps.pause,
     leaseEvents: parts.leaseEvents,
     log: parts.deps.log,
+    tally: parts.deps.observer.unknownCosts,
+    workflow: parts.deps.config.name,
   };
   return withLostPasses(call, await lostPassesAtTake(sources, state));
 }

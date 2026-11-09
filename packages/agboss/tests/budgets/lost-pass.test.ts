@@ -8,11 +8,19 @@
 import { beforeEach, describe, expect } from "vitest";
 import { BudgetPeriod, BudgetScope, CostSource, type LedgerEntry } from "../../src/index.js";
 import { counterOf } from "../../src/budgets/execution-budgets.js";
-import { replyWith, testWith, waitFor, type VirtualClock } from "../../src/testing/index.js";
+import { ModelFailure } from "../../src/models/model-failure.js";
+import {
+  failWith,
+  replyWith,
+  testWith,
+  waitFor,
+  type VirtualClock,
+} from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import type { TestLeases } from "../../src/testing/leases.js";
 import { hours, seconds, usd } from "../../src/units/index.js";
 import { until } from "../helpers/until.js";
+import { collect, instanceMeters } from "../metrics/support/metric-reader.js";
 import { execute } from "../helpers/flow.js";
 import { instance } from "../app/fixtures/fence-takeover.js";
 import {
@@ -34,6 +42,20 @@ import {
 const one = testWith(LostPassApplication);
 const two = testWith(LostPassApplication, { instances: 2 });
 const three = testWith(LostPassApplication, { instances: 3 });
+const meters = instanceMeters(2);
+const meteredTwo = testWith(LostPassApplication, {
+  instances: meters.map((meter) => ({ meterProvider: meter.provider })),
+});
+
+/** `agboss.instance.costs.unknown` of the workflow, summed over the instances' meters (#875). */
+async function unknownCostsCounted(): Promise<number> {
+  let sum = 0;
+  for (const meter of meters) {
+    const points = (await collect(meter)).get("agboss.instance.costs.unknown")?.points ?? [];
+    for (const point of points) sum += point.value;
+  }
+  return sum;
+}
 
 beforeEach(() => {
   resetLostPass();
@@ -232,6 +254,30 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
       expect(report?.totalUsd).toBe(0.01);
       leases.thaw(a);
       leases.thaw(taker);
+    },
+  );
+});
+
+describe("#875: the metric counts a lost pass whatever the execution's end", () => {
+  meteredTwo(
+    "AC1: a recovery whose re-run fails still counts its Unknown entry",
+    async ({ apps, clock, leases, mockLlm }) => {
+      const [a] = apps;
+      if (a === undefined) throw new Error("two instances");
+      const before = await unknownCostsCounted();
+      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockLlm(WriterAgent)
+        .thenReturn(waitFor(hours(2)), replyWith(ReportDto, { text: "never heard" }))
+        .thenReturnAlways(failWith(ModelFailure.ServerError));
+      await startedOn(a, apps);
+
+      await loseLease(a, clock, leases);
+      await until(() => lostPassSeen.failures === 1, "the recovered execution's failure");
+
+      expect(lostPassSeen.ends).toEqual([]);
+      expect(unknownIdsOf(lostPassSeen.saved)).toHaveLength(1);
+      expect((await unknownCostsCounted()) - before).toBe(1);
+      leases.thaw(a);
     },
   );
 });

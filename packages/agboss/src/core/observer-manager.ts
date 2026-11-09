@@ -39,6 +39,18 @@ import type {
 } from "./observability.js";
 import type { ObserverHook, ExecutionObserver } from "./observer-hooks.js";
 
+/**
+ * The instance's tally of a lost pass's Unknown-cost entries (#875): its metrics' counters, given
+ * to the observer manager when the app has a meter provider — read by the runtime, never by a
+ * project's observer.
+ */
+export interface UnknownCostTally {
+  /** A pass recorded `count` Unknown-cost entries for a step of `workflow`, before running it again. */
+  recorded(workflow: string, count: number): void;
+  /** A pass of `workflow` could not read its tree's lost passes: their entries are not recorded. */
+  unrecorded(workflow: string): void;
+}
+
 /** What an event goes through before any observer sees it (the PII observability mask, #120). */
 export type EventMask = (event: unknown) => Promise<unknown>;
 
@@ -58,18 +70,21 @@ const ignore: ObserverFailure = () => undefined;
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
   /**
    * `builtIn`: the framework's own observers (#485: the instance's metrics) — called first, on the
-   * event as it is: they read enums and names only, so no mask runs for them.
+   * event as it is: they read enums and names only, so no mask runs for them. `unknownCosts`: the
+   * instance's tally of Unknown-cost entries (#875); absent = not counted.
    */
   constructor(
     private readonly observers: readonly ExecutionObserver[],
     private readonly onFailure: ObserverFailure = ignore,
     private readonly mask: EventMask = unmasked,
     private readonly builtIn: readonly ExecutionObserver[] = [],
+    readonly unknownCosts?: UnknownCostTally,
   ) {}
 
   /** The same observers, every event masked first (a workflow's PII policies, #120 AC7). */
   masked(mask: EventMask): ExecutionObserverManager {
-    return new ExecutionObserverManager(this.observers, this.onFailure, mask, this.builtIn);
+    const { observers, onFailure, builtIn, unknownCosts } = this;
+    return new ExecutionObserverManager(observers, onFailure, mask, builtIn, unknownCosts);
   }
 
   private async each<TEvent>(
