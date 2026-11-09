@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -64,6 +64,15 @@ describe("the command ships apart from the framework (#101, #205)", () => {
       for (const dir of [packDir, unpackDir, emptyDir, cacheDir]) {
         mkdirSync(dir, { recursive: true });
       }
+      // The packed CLI's dependency tree comes from the machine's npm content cache, the one
+      // `npm ci` warmed (CI's setup-node restores it), offline where it has them (#868): a cold
+      // install of that tree from the registry took ~119 s against this test's 120 s. Only the
+      // content cache is shared; npx's install of the two tarballs (`_npx`) stays in this test's
+      // own cache directory and goes with it, so a run never reuses an earlier run's packed CLI.
+      const { stdout: sharedCache } = await run("npm", ["config", "get", "cache"], { cwd: tmp });
+      const sharedContent = join(sharedCache.trim(), "_cacache");
+      mkdirSync(sharedContent, { recursive: true });
+      symlinkSync(sharedContent, join(cacheDir, "_cacache"), "dir");
 
       await run("npm", ["pack", "--pack-destination", packDir], { cwd: frameworkDir });
       await run("npm", ["pack", "--pack-destination", packDir], { cwd: cliDir });
@@ -81,6 +90,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
             AGBOSS_CLI_PACKAGE_SPEC: cliTarball,
             AGBOSS_NO_STAR: "1",
             npm_config_cache: cacheDir,
+            npm_config_prefer_offline: "true",
           },
         },
       );
