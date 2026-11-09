@@ -496,7 +496,9 @@ readonly LedgerEntry[])`: a `LedgerEntry` is a `UsageRecord` with its `ledgerId`
 Date` and its `costUsd: Usd`, so a record without an identity — which the contract before added on
   every save, a retry counted again — does not compile, and a JS caller's (or a cast's) is refused
   at run time: `CostLedgerEntryInvalidError` (`cost-ledger.entry-invalid`: `index`, `reason`),
-  nothing added, by `assertLedgerEntries(entries)` — what every store calls first. The core saves
+  nothing added, by `assertLedgerEntries(entries)` — what every store calls first; a prune's cutoff
+  that is no valid `Date` likewise: `CostLedgerCutoffInvalidError` (`cost-ledger.cutoff-invalid`:
+  `reason`, #869), nothing pruned, by `assertLedgerCutoff(cutoff)`. The core saves
   every spend as an entry, a step's end and an evaluation's judge calls too. The store helpers take
   and give `Date`: `unrecordedEntriesOf(entries, isNew: (ledgerId, madeAt: Date) => boolean)` (was
   `newEntriesOf`, its callback given ms) and `expiredEntriesOf(entries, prunedBefore: Date |

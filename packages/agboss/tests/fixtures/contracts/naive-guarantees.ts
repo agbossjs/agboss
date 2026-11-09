@@ -10,6 +10,7 @@ import {
   CostLedgerRepository,
   counterKeyOf,
   expiredEntriesOf,
+  invalidLedgerCutoffErrorOf,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
   type BudgetAccount,
@@ -236,10 +237,9 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
-    if (this.isCutoffChecked && Number.isNaN(new Date(cutoff).getTime()))
-      return Promise.reject(new TypeError("the cutoff is no valid Date"));
-    if (this.isCutoffChecked && !(cutoff instanceof Date))
-      return Promise.reject(new TypeError("the cutoff is no Date"));
+    // the cutoff refused as every store refuses it (#869): only the naive one takes any
+    const refused = this.isCutoffChecked ? invalidLedgerCutoffErrorOf(cutoff) : undefined;
+    if (refused !== undefined) return Promise.reject(refused);
     const mark = this.markOf(cutoff);
     const kept = this.#prunedBefore;
     this.#prunedBefore = kept !== undefined && kept.getTime() > mark.getTime() ? kept : mark;

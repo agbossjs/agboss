@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
 import { ledgerEntryOf } from "../../src/budgets/budget-check.js";
 import { recordToolCost } from "../../src/finops/usage.js";
 import {
+  assertLedgerCutoff,
   assertLedgerEntries,
   assertValidDate,
+  CostLedgerCutoffInvalidError,
   CostLedgerEntryInvalidError,
   expiredEntriesOf,
   invalidDateErrorOf,
@@ -94,6 +96,24 @@ describe("#817: a date that is no date is refused, as a cutoff or a mark", () =>
     }).not.toThrow();
   });
 
+  it("#869: assertLedgerCutoff refuses a cutoff that is no valid Date with the ledger's code", () => {
+    for (const cutoff of [new Date(Number.NaN), "2026-11-04", 0, undefined])
+      expect(() => {
+        assertLedgerCutoff(cutoff);
+      }).toThrow(
+        expect.objectContaining({
+          constructor: CostLedgerCutoffInvalidError,
+          name: "CostLedgerCutoffInvalidError",
+          code: "cost-ledger.cutoff-invalid",
+          reason: `the cutoff is no valid Date: ${String(cutoff)}`,
+          message: `the ledger was handed no valid Date as its prune's cutoff: the cutoff is no valid Date: ${String(cutoff)} — nothing was pruned and the pruning mark stays where it was; prune with a valid Date`,
+        }),
+      );
+    expect(() => {
+      assertLedgerCutoff(MADE_AT);
+    }).not.toThrow();
+  });
+
   it("expiredEntriesOf fails closed on a mark that is no date, and names nothing without a mark", () => {
     const never = () => true;
 
@@ -141,7 +161,7 @@ describe("#817: a date that is no date is refused, as a cutoff or a mark", () =>
   });
 });
 
-describe("#817: a store refuses a cutoff that is no date, naming it", () => {
+describe("#817, #869: a store refuses a cutoff that is no date, naming it, with the ledger's code", () => {
   it.each([
     ["in memory", () => new InMemoryCostLedgerRepository()],
     ["SQLite", () => new SqliteCostLedgerRepository(connectionTo(temporarySqlitePath()))],
@@ -149,7 +169,7 @@ describe("#817: a store refuses a cutoff that is no date, naming it", () => {
     const ledger = ledgerOf();
 
     await expect(ledger.deleteByMadeAtBefore(new Date(Number.NaN))).rejects.toThrow(
-      new TypeError("the cutoff is no valid Date: Invalid Date"),
+      new CostLedgerCutoffInvalidError("the cutoff is no valid Date: Invalid Date"),
     );
   });
 });

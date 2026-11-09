@@ -132,8 +132,9 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     },
   },
   {
-    // #817: a cutoff that is no date compares false with every entry — it would lower the mark
-    name: "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+    // #817: a cutoff that is no date compares false with every entry — it would lower the mark;
+    // #869: refused with the ledger's code in every store, as an invalid entry is
+    name: "#817, #869: a prune whose cutoff is no valid Date is refused (cost-ledger.cutoff-invalid), and the mark stays where it was",
     run: async ({ first, second }) => {
       const old = entry("run-1:pass-g:0", 0.25, "2026-10-18T08:00:00.000Z");
       await first.saveAll([tenantDay], [old]);
@@ -141,7 +142,10 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       const invalid: readonly unknown[] = [new Date(Number.NaN), "2026-10-18T10:00:00.000Z", 0];
 
       for (const cutoff of invalid)
-        await expect(first.deleteByMadeAtBefore(cutoff as Date)).rejects.toThrow();
+        await expect(first.deleteByMadeAtBefore(cutoff as Date)).rejects.toMatchObject({
+          code: "cost-ledger.cutoff-invalid",
+          reason: `the cutoff is no valid Date: ${String(cutoff)}`,
+        });
       await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject(
         expired([old.ledgerId], "2026-10-18T09:00:00.000Z"),
       );

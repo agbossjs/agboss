@@ -107,6 +107,7 @@ export {
   type OutboundCallUnreconciledErrorOptions,
 } from "./app/outbound-calls.js";
 export {
+  CostLedgerCutoffInvalidError,
   CostLedgerEntryExpiredError,
   CostLedgerEntryInvalidError,
   type CostLedgerEntryExpiredErrorOptions,

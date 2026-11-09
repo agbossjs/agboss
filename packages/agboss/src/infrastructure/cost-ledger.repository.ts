@@ -171,6 +171,43 @@ export function assertValidDate(date: unknown, what: string): asserts date is Da
   if (invalid !== undefined) throw invalid;
 }
 
+/**
+ * A prune handed a cutoff that is no valid `Date` (#817, #869): one compares false with every entry
+ * and would lower the pruning mark, so it is refused — nothing pruned, the mark where it was. What
+ * a JS caller (or a cast) can pass; every store refuses it with this code (`assertLedgerCutoff`).
+ */
+export class CostLedgerCutoffInvalidError extends AGBossError {
+  static override readonly code: string = "cost-ledger.cutoff-invalid";
+  override name = "CostLedgerCutoffInvalidError";
+  /** What is wrong with the cutoff: `the cutoff is no valid Date: <what it got>`. */
+  readonly reason: string;
+
+  constructor(reason: string) {
+    super(
+      `the ledger was handed no valid Date as its prune's cutoff: ${reason} — nothing was pruned and the pruning mark stays where it was; prune with a valid Date`,
+    );
+    this.reason = reason;
+  }
+}
+
+/**
+ * Refuses a prune's cutoff that is no valid `Date` (#869) — what a store calls first in
+ * `deleteByMadeAtBefore`, before it reads or writes anything: throws
+ * `CostLedgerCutoffInvalidError`.
+ */
+export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date {
+  const refused = invalidLedgerCutoffErrorOf(cutoff);
+  if (refused !== undefined) throw refused;
+}
+
+/** The refusal of a prune's `cutoff` (#869) when it is no valid `Date`, else `undefined`. */
+export function invalidLedgerCutoffErrorOf(
+  cutoff: unknown,
+): CostLedgerCutoffInvalidError | undefined {
+  const invalid = invalidDateErrorOf(cutoff, "the cutoff");
+  return invalid === undefined ? undefined : new CostLedgerCutoffInvalidError(invalid.message);
+}
+
 /** The refusal of `date` as `what` (#817) when it is no valid `Date`, else `undefined`. */
 export function invalidDateErrorOf(date: unknown, what: string): TypeError | undefined {
   return isDate(date) && !Number.isNaN(date.getTime())
@@ -298,9 +335,9 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
-    // a cutoff that is no date would lower the mark: refused (#817)
-    const invalid = invalidDateErrorOf(cutoff, "the cutoff");
-    if (invalid !== undefined) return Promise.reject(invalid);
+    // a cutoff that is no date would lower the mark: refused with the ledger's code (#817, #869)
+    const refused = invalidLedgerCutoffErrorOf(cutoff);
+    if (refused !== undefined) return Promise.reject(refused);
     this.#mark.prunedBefore = Math.max(this.#mark.prunedBefore, cutoff.getTime());
     for (const [ledgerId, madeAt] of this.#entries)
       if (madeAt < this.#mark.prunedBefore) this.#entries.delete(ledgerId);

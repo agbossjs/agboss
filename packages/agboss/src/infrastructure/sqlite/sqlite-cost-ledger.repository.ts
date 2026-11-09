@@ -7,7 +7,7 @@ import {
   CostLedgerEntryExpiredError,
   CostLedgerRepository,
   expiredEntriesOf,
-  invalidDateErrorOf,
+  invalidLedgerCutoffErrorOf,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
   type BudgetAccount,
@@ -154,9 +154,9 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
-    // a cutoff that is no date would lower the mark: refused (#817)
-    const invalid = invalidDateErrorOf(cutoff, "the cutoff");
-    if (invalid !== undefined) return Promise.reject(invalid);
+    // a cutoff that is no date would lower the mark: refused with the ledger's code (#817, #869)
+    const refused = invalidLedgerCutoffErrorOf(cutoff);
+    if (refused !== undefined) return Promise.reject(refused);
     this.connection.transaction(() => {
       const kept = this.#prunedBefore()?.getTime() ?? Number.NEGATIVE_INFINITY;
       const prunedBefore = Math.max(kept, cutoff.getTime());
