@@ -103,6 +103,7 @@ describe("#817: a date that is no date is refused, as a cutoff or a mark", () =>
       }).toThrow(
         expect.objectContaining({
           constructor: CostLedgerCutoffInvalidError,
+          name: "CostLedgerCutoffInvalidError",
           code: "cost-ledger.cutoff-invalid",
           reason: `the cutoff is no valid Date: ${String(cutoff)}`,
           message: `the ledger was handed no valid Date as its prune's cutoff: the cutoff is no valid Date: ${String(cutoff)} — nothing was pruned and the pruning mark stays where it was; prune with a valid Date`,
