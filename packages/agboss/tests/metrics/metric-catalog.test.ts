@@ -14,6 +14,7 @@ import {
   HandOverReason,
   LeaseTakeoverReason,
   type CompensationEndEvent,
+  type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
   type StepHandedOverEvent,
@@ -43,6 +44,7 @@ const DOCUMENTED = {
   "agboss.instance.lease.takeovers": [MetricKind.Counter, "{takeover}", ["reason"]],
   "agboss.instance.steps.handed_over": [MetricKind.Counter, "{step}", ["reason"]],
   "agboss.instance.executions.ended": [MetricKind.Counter, "{execution}", ["workflow", "outcome"]],
+  "agboss.instance.costs.unknown": [MetricKind.Counter, "{pass}", ["workflow"]],
   "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "status"]],
 } as const;
 
@@ -133,6 +135,32 @@ describe("#485 AC4: the catalog", () => {
       { workflow: "remote-item-workflow", outcome: "failed" },
       { workflow: "remote-item-workflow", status: "failed" },
     ]);
+  });
+});
+
+describe("#853 AC3: the lost passes of unknown cost", () => {
+  it("AC3: an execution's end adds its Unknown entries by workflow; one with none adds nothing", async () => {
+    const { provider, reader } = instanceMeter();
+    const observer = metricsObserverOf(provider.getMeter("test"));
+    const workflow = {
+      name: "lost-pass-workflow",
+      version: "1",
+      startedVersion: "1",
+      configHash: "c",
+    };
+    const endOf = (unknownCalls: number) =>
+      eventOf<ExecutionEndEvent>({
+        executionId: "e-1",
+        workflow,
+        spend: { unknownCalls } as never,
+      });
+
+    await observer.onExecutionEnd?.(endOf(2));
+    await observer.onExecutionEnd?.(endOf(0));
+    await observer.onExecutionEnd?.(endOf(1));
+
+    const unknown = (await collect({ provider, reader })).get("agboss.instance.costs.unknown");
+    expect(unknown?.points).toEqual([{ attributes: { workflow: "lost-pass-workflow" }, value: 3 }]);
   });
 });
 

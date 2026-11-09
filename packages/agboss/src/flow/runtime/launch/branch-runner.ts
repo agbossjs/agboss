@@ -12,6 +12,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { inTreeSlot, startedVersionOf } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import { unrecordedSpendOf } from "../node-runner.js";
+import { recordBranchLostPasses } from "../lost-pass-records.js";
 import {
   failureOfBranch,
   branchRecordOf,
@@ -196,6 +197,8 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { live } = run;
+  // first (#853): a branch cancelled before it runs keeps its lost passes too
+  recordBranchLostPasses(run);
   await live.quorum?.ready;
   const stop = AbortSignal.any([
     executionSignalOf(run.config, run.state.runId),
@@ -205,7 +208,7 @@ async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd>
   if (!isTaken) {
     passThroughStops(run.config, run.state.runId);
     leaveQuorum(live, run.ticket);
-    return { status: BranchStatus.Cancelled, read: [], update: {} };
+    return { status: BranchStatus.Cancelled, read: [], update: { usage: [...run.services] } };
   }
   run.deps.scheduler?.started(run.scheduled);
   try {

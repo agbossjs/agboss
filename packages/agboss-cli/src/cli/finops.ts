@@ -6,6 +6,7 @@ const BASIS: Readonly<Record<CostSource, (line: CostLine) => string>> = {
     `${String(line.inputTokens)} in / ${String(line.outputTokens)} out`,
   [CostSource.Api]: () => "api-priced",
   [CostSource.Tool]: () => "tool-reported",
+  [CostSource.Unknown]: () => "unknown: a lost pass (#853)",
 };
 
 const usd = (value: number): string => `$${value.toFixed(6)}`;
@@ -18,9 +19,9 @@ export function costSummary(cost: CostReport): string {
   return parts.length === 0 ? "no paid calls" : parts.join(" · ");
 }
 
-/** "total $0.003471 (7 calls)" */
+/** "total $0.003471 (7 calls)", "total $0.003471 (7 calls, 1 of unknown cost)" */
 export const costTotal = (cost: CostReport): string =>
-  `total ${usd(cost.totalUsd)} (${String(cost.calls)} calls)`;
+  `total ${usd(cost.totalUsd)} (${String(cost.calls)} calls${cost.unknownCalls > 0 ? `, ${String(cost.unknownCalls)} of unknown cost` : ""})`;
 
 /** One line per call, in order: n. caller  model  cost  tokens in/out. */
 export function costTrace(cost: CostReport): string[] {

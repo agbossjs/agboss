@@ -92,6 +92,12 @@ export const METRICS = {
     "Executions that ended on the instance, children included, by workflow and outcome",
     ["workflow", "outcome"],
   ),
+  unknownCosts: counter(
+    "agboss.instance.costs.unknown",
+    "{pass}",
+    "Lost passes of a step whose cost is not known (a crash mid model call, run again by a recovery), counted when their execution finishes on the instance, by workflow",
+    ["workflow"],
+  ),
   compensations: counter(
     "agboss.instance.compensations",
     "{action}",

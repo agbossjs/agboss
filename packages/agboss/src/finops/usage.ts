@@ -2,6 +2,7 @@ import type { Price, ResolvedModelSettings } from "../config/types.js";
 import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
 import { CostCategory, costCategoryOf } from "./cost-category.js";
+import { CostSource } from "./cost-source.js";
 import { servedByOf } from "./served-by.js";
 import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
 
@@ -25,16 +26,6 @@ export interface TokenUsage {
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
   readonly cacheWriteTokens: number;
-}
-
-/** Where a call's cost comes from. */
-export enum CostSource {
-  /** Reported by the provider: exact. */
-  Api = "api",
-  /** Tokens × the model's configured price. */
-  PriceTable = "price-table",
-  /** Reported by a paid tool (or a service step) itself. */
-  Tool = "tool",
 }
 
 /** One model call: who made it, on which model, what it cost. */
@@ -65,6 +56,7 @@ export interface UsageRecord extends TokenUsage {
 }
 
 export { CostCategory, costCategoryOf } from "./cost-category.js";
+export { CostSource } from "./cost-source.js";
 
 /** One call of the turn, in order. */
 export interface CostLine extends TokenUsage {
@@ -82,8 +74,15 @@ export interface CostLine extends TokenUsage {
  * always reports all of it.
  */
 export interface CostReport {
+  /** The known total: what every call of known cost cost. */
   readonly totalUsd: number;
+  /** The calls of known cost. */
   readonly calls: number;
+  /**
+   * The lost passes of a step whose cost is not known (#853, `CostSource.Unknown`): each a pass that
+   * lost its lease mid step, run again by a recovery — none in `totalUsd`, `calls` or the sums.
+   */
+  readonly unknownCalls: number;
   readonly cacheReadTokens: number;
   readonly byCaller: Readonly<Record<string, number>>;
   /** Every category is present (0 when unused). */
@@ -254,13 +253,16 @@ export function buildCostReport(records: readonly UsageRecord[]): CostReport {
     [CostCategory.Retrieval]: 0,
   };
   for (const line of trace) byCategory[line.category] += line.costUsd;
+  // a lost pass's record (#853): in the trace, of no amount, counted apart from the calls
+  const known = trace.filter((line) => line.costSource !== CostSource.Unknown);
   return {
     totalUsd: totalCost(records),
-    calls: records.length,
+    calls: known.length,
+    unknownCalls: trace.length - known.length,
     cacheReadTokens: records.reduce((sum, record) => sum + record.cacheReadTokens, 0),
-    byCaller: sumBy(trace, (line) => line.caller),
+    byCaller: sumBy(known, (line) => line.caller),
     byCategory,
-    byModel: sumBy(trace, (line) => line.model),
+    byModel: sumBy(known, (line) => line.model),
     trace,
   };
 }

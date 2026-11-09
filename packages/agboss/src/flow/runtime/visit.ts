@@ -44,6 +44,7 @@ import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
 import { recordOfNode } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
+import { recordLostPasses } from "./lost-pass-records.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before it runs (`checkVisit`), the node run,
@@ -201,6 +202,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     const { clock } = extractRunContext(config, state.runId);
     // an undoable action, its committer, its undo or a finish (#340): what it writes of them
     const startedAt = clock.now();
+    recordLostPasses({ node, nodeId: node.id, config, runId: state.runId, services });
     const undoables = { node, entries: state.compensations, frame, startedAt };
     const parts = { parts: deps.compensation };
     try {

@@ -19,7 +19,11 @@ const mocks = vi.hoisted(() => ({ treeResumeNow: vi.fn() }));
 vi.mock("../../src/app/tree-origin.js", () => ({
   withTreeOrigin: (_deps: unknown, state: unknown) => Promise.resolve(state),
 }));
-vi.mock("../../src/app/tree-resume.js", () => ({ treeResumeNow: mocks.treeResumeNow }));
+vi.mock("../../src/app/tree-resume.js", () => ({
+  treeResumeNow: mocks.treeResumeNow,
+  // #853: no lost passes to carry — the call as it is
+  callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
+}));
 
 const recordOf = (overrides: Partial<Tern> = {}): Tern =>
   ({

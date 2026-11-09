@@ -14,17 +14,16 @@ import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf } from "./current-output.js";
-import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
 import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
-import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
+import { announceResume, callWithLostPasses, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
-import { rootTakeOf } from "./execution-leases.js";
+import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
@@ -58,7 +57,7 @@ class TreeMover implements TreeMoves {
     return this.drained(state, call, await this.parts.leases.hold(treeOf(state)), { pass });
   }
 
-  async resumed(answer: RecordedAnswer, call: TreeCall): Promise<ExecutionOutput> {
+  async resumed(answer: RecordedAnswer, given: TreeCall): Promise<ExecutionOutput> {
     const { deps, paused, leases } = this.parts;
     const { pause, run } = answer;
     const state = await withTreeOrigin(deps, {
@@ -80,10 +79,11 @@ class TreeMover implements TreeMoves {
         );
       }
       const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed);
-      const lease = await leases.hold(treeOf(state), call.signal, take);
+      const lease = await leases.hold(treeOf(state), given.signal, take);
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
+      const call = await callWithLostPasses(this.parts, state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
         throw error;
