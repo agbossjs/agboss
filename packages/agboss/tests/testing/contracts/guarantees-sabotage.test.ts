@@ -102,7 +102,7 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
 
   it("#817: a ledger that takes any cutoff lowers its mark and counts a pruned entry again", () => {
     expect(failedOf("a ledger that takes any cutoff")).toEqual([
-      "#817: a prune whose cutoff is no valid Date is refused, and the mark stays where it was",
+      "#817, #869: a prune whose cutoff is no valid Date is refused (cost-ledger.cutoff-invalid), and the mark stays where it was",
     ]);
   });
 

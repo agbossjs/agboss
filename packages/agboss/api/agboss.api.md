@@ -672,6 +672,9 @@ export function assertBusinessKey(key: Pick<EffectKeyFields, "name" | "businessK
 export function assertEffectName(name: string): void;
 
 // @public
+export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date;
+
+// @public
 export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
 
 // @public
@@ -1462,6 +1465,16 @@ export enum CostCategory {
 // @public
 export interface CostCounter extends BudgetAccount {
     readonly period: string;
+}
+
+// @public
+export class CostLedgerCutoffInvalidError extends AGBossError {
+    constructor(reason: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+    readonly reason: string;
 }
 
 // @public
@@ -8049,10 +8062,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/cost-ledger.repository.ts:113:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/cost-ledger.repository.ts:114:3 - (ae-undocumented) Missing documentation for "index".
 // src/infrastructure/cost-ledger.repository.ts:115:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/cost-ledger.repository.ts:227:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:228:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:229:3 - (ae-undocumented) Missing documentation for "ledgerIds".
-// src/infrastructure/cost-ledger.repository.ts:230:3 - (ae-undocumented) Missing documentation for "prunedBefore".
+// src/infrastructure/cost-ledger.repository.ts:180:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:181:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:264:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/cost-ledger.repository.ts:265:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/cost-ledger.repository.ts:266:3 - (ae-undocumented) Missing documentation for "ledgerIds".
+// src/infrastructure/cost-ledger.repository.ts:267:3 - (ae-undocumented) Missing documentation for "prunedBefore".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".

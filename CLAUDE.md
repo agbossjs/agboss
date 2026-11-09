@@ -2609,7 +2609,9 @@ const readiness: HealthReport = await app.checkReadiness();
   with it, so a retry that late never counts twice; #817: `saveAll` takes `LedgerEntry` values
   only — a `UsageRecord` with its `ledgerId`, `madeAt: Date` and `costUsd: Usd`, every save of the
   core one, a step's end too —, a JS caller's record without them refused,
-  `CostLedgerEntryInvalidError`, by `assertLedgerEntries` that every store calls first; a record's
+  `CostLedgerEntryInvalidError`, by `assertLedgerEntries` that every store calls first — a prune's
+  cutoff that is no valid `Date` likewise, `CostLedgerCutoffInvalidError` by `assertLedgerCutoff`
+  (#869); a record's
   one ledger state is `UsageRecord.ledger`, read by `ledgerMarkOf`, which also reads a state kept
   before 0.1.1). The terms (#817): **cost** is what one call cost (`costUsd`, `CostLine`,
   `CostSource`, `CostCategory`); **spend** what was consumed against a budget (`spend`,
