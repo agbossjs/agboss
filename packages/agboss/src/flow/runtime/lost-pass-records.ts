@@ -155,10 +155,14 @@ export interface LostPassSite {
   /** The execution's id: its run's clock dates the records. */
   readonly runId: string;
   readonly services: Pick<FrameServices, "reportUsage"> | undefined;
-  /** The instance's tally of Unknown-cost entries (#875); absent = not counted. */
-  readonly tally?: UnknownCostTally | undefined;
-  /** The workflow whose step it is: the tally's label. */
-  readonly workflow: string;
+  /**
+   * The instance's tally of Unknown-cost entries on its observer manager (#875; absent = not
+   * counted), and the workflow whose step it is: the tally's label.
+   */
+  readonly deps: {
+    readonly observer?: { readonly unknownCosts?: UnknownCostTally | undefined } | undefined;
+    readonly workflow: { readonly name: string };
+  };
 }
 
 /**
@@ -177,7 +181,7 @@ export function recordLostPasses(site: LostPassSite): void {
   const now = extractRunContext(site.config, site.runId).clock.now();
   const records = unknownCostRecordsOf(lost, step, now);
   for (const record of records) reportUsage(record);
-  site.tally?.recorded(site.workflow, records.length);
+  site.deps.observer?.unknownCosts?.recorded(site.deps.workflow.name, records.length);
 }
 
 /**
@@ -195,7 +199,6 @@ export function recordBranchLostPasses(run: BranchFrameRun): void {
     config,
     runId: state.runId,
     services: { reportUsage },
-    tally: deps.observer?.unknownCosts,
-    workflow: deps.workflow.name,
+    deps,
   });
 }

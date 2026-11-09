@@ -100,8 +100,7 @@ describe("#853: the tasks that record them", () => {
       nodeId: "writer-agent",
       runId: "root",
       services: { reportUsage },
-      tally,
-      workflow: "lost-pass-workflow",
+      deps: { observer: { unknownCosts: tally }, workflow: { name: "lost-pass-workflow" } },
     };
 
     recordLostPasses({ ...site, config: configOf("task", { "": "c2" }) });

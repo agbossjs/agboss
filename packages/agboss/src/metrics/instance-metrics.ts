@@ -122,7 +122,7 @@ export class InstanceMetrics {
   constructor(sources: MetricSources) {
     this.#meter = sources.meterProvider.getMeter(METER_NAME, versionOf());
     this.observer = metricsObserverOf(this.#meter);
-    this.unknownCosts = unknownCostTallyOf(this.#meter);
+    this.unknownCosts = unknownCostTallyOf(this.#meter, sources.log);
     this.#registrations = [
       clusterGaugesOf(this.#meter, sources),
       instanceGaugesOf(this.#meter, sources, this.heldLeases),

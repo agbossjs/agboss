@@ -150,7 +150,7 @@ describe("#875: the lost passes of unknown cost", () => {
   it("AC1: each Unknown entry is counted as a pass records it, by workflow — not again at the execution's end or error", async () => {
     const { provider, reader } = instanceMeter();
     const meter = provider.getMeter("test");
-    const tally = unknownCostTallyOf(meter);
+    const tally = unknownCostTallyOf(meter, { warn: vi.fn() } as never);
     const observer = metricsObserverOf(meter);
 
     tally.recorded("lost-pass-workflow", 2);
@@ -168,7 +168,7 @@ describe("#875: the lost passes of unknown cost", () => {
 
   it("AC2: each failed read of a tree's lost passes is counted, by workflow", async () => {
     const { provider, reader } = instanceMeter();
-    const tally = unknownCostTallyOf(provider.getMeter("test"));
+    const tally = unknownCostTallyOf(provider.getMeter("test"), { warn: vi.fn() } as never);
 
     tally.unrecorded("lost-pass-workflow");
     tally.unrecorded("lost-pass-workflow");
@@ -179,6 +179,27 @@ describe("#875: the lost passes of unknown cost", () => {
     expect(unrecorded?.points).toEqual([
       { attributes: { workflow: "lost-pass-workflow" }, value: 2 },
     ]);
+  });
+
+  it("a counter that throws is a warning, never the step's or the takeover's failure", () => {
+    const failing = {
+      add: () => {
+        throw new Error("exporter down");
+      },
+    };
+    const meter = { createCounter: () => failing } as never;
+    const log = { warn: vi.fn() };
+    const tally = unknownCostTallyOf(meter, log as never);
+
+    expect(() => {
+      tally.recorded("lost-pass-workflow", 1);
+      tally.unrecorded("lost-pass-workflow");
+    }).not.toThrow();
+    expect(log.warn).toHaveBeenCalledTimes(2);
+    expect(log.warn).toHaveBeenCalledWith(
+      "metrics.unknown-cost-uncounted",
+      expect.stringContaining("exporter down"),
+    );
   });
 });
 

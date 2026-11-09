@@ -280,4 +280,33 @@ describe("#875: the metric counts a lost pass whatever the execution's end", () 
       leases.thaw(a);
     },
   );
+
+  meteredTwo(
+    "AC1: a recovery cancelled during its re-run still counts its Unknown entry",
+    async ({ apps, clock, leases, mockLlm }) => {
+      const [a] = apps;
+      if (a === undefined) throw new Error("two instances");
+      const before = await unknownCostsCounted();
+      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockLlm(WriterAgent).thenReturn(
+        waitFor(hours(2)),
+        replyWith(ReportDto, { text: "never heard" }),
+        waitFor(hours(2)),
+        replyWith(ReportDto, { text: "cancelled before it" }),
+      );
+      for (const each of apps) await each.ready();
+      const call = execute(a, LostPassWorkflowStart, { text: "write it" }, { threadId: "t-875" });
+      call.catch(() => undefined);
+      await until(() => lostPassSeen.modelCalls >= 1, "the model call under way");
+
+      await loseLease(a, clock, leases);
+      await until(() => lostPassSeen.modelCalls >= 2, "the re-run's model call under way");
+      expect(await instance(apps, 1).cancel("t-875")).toEqual({ cancelled: true });
+      await until(() => lostPassSeen.failures === 1, "the cancelled execution's end");
+
+      expect(lostPassSeen.ends).toEqual([]);
+      expect((await unknownCostsCounted()) - before).toBe(1);
+      leases.thaw(a);
+    },
+  );
 });
