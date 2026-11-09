@@ -2721,6 +2721,9 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   the providers' gateway as `createApp` does (#439: `BuildOptions.gatewayOverProviders`, internal — the
   chat extensions loaded, a transport `@ModelProvider` created by the test app's container on its
   first call, its hooks first), so an offline transport records with no key; a replay creates none.
+  Under `CI` a mode that would call real models (`RECORD`, `RECORD_STALE`, `AUTO` with no cassette;
+  `vcr.mode` or `AGBOSS_VCR_MODE`) fails the test app's start, `[vcr.record-in-ci]`, unless
+  `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
 - Replacing a class in the application (#267 S104): `testWith(App, { overrides:
 [override(RefundApprovalRole, AutoApproveChannel)] })` — the same `override(Class, Replacement)`
   as the unit runners, a class created instead of another over any listed one; a channel role's
