@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { setTimeout as sleep } from "node:timers/promises";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkCommandOf, watchedFolderOf } from "../../src/cli/dev.js";
 import { isSourceChange, watchSources } from "../../src/cli/watch.js";
 
@@ -29,24 +30,50 @@ async function until(check: () => boolean, timeout = 5_000): Promise<void> {
   }
 }
 
-const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const DEBOUNCE = 100;
 
-/** The loop on a fresh folder, its passes recorded; `stop()` ends it and waits for the last pass. */
-function watching(passDuration = 0) {
+/**
+ * The loop on a fresh folder, its passes recorded; `stop()` ends it and waits for the last pass.
+ * The debounce runs on fake timers (#878): it fires only when a test advances it, after the
+ * watcher itself has reported the changes (`write` resolves then), so no machine load splits or
+ * merges a burst.
+ * Each pass waits until the test releases it (`release()`), so "during a pass" is not a race.
+ */
+function watching() {
   const folder = folderIn(tmpdir(), "agboss-dev-");
   const passes: (readonly string[])[] = [];
+  const passEnds: (() => void)[] = [];
+  const seenFiles = new Set<string>();
+  const waiters: (() => void)[] = [];
+  const notify = (): void => {
+    for (const waiter of waiters.splice(0)) waiter();
+  };
+  /** Resolves once `check` holds, re-checked on each watcher event and pass. */
+  const when = (check: () => boolean): Promise<void> =>
+    new Promise((resolve) => {
+      const look = (): void => {
+        if (check()) resolve();
+        else waiters.push(look);
+      };
+      look();
+    });
   const controller = new AbortController();
   let running = 0;
   let overlaps = 0;
   const loop = watchSources({
     folder,
-    debounce: 100,
+    debounce: DEBOUNCE,
     signal: controller.signal,
+    onEvent: (file) => {
+      seenFiles.add(file);
+      notify();
+    },
     pass: async (changed) => {
       passes.push(changed);
       running += 1;
       if (running > 1) overlaps += 1;
-      await pause(passDuration);
+      notify();
+      await new Promise<void>((resolve) => passEnds.push(resolve));
       running -= 1;
     },
   });
@@ -54,24 +81,58 @@ function watching(passDuration = 0) {
     folder,
     passes,
     overlaps: (): number => overlaps,
+    /**
+     * Writes each file, again until the watcher has reported it (bounded): a watcher just opened,
+     * or one under heavy file churn (FSEvents coalescing), may not report a single write.
+     */
+    write: async (files: Readonly<Record<string, string>>, deadline = 10_000): Promise<void> => {
+      const started = Date.now();
+      const unseen = (): string[] => Object.keys(files).filter((name) => !seenFiles.has(name));
+      while (unseen().length > 0) {
+        if (Date.now() - started > deadline)
+          throw new Error(`the watcher reported only ${JSON.stringify([...seenFiles])}`);
+        for (const name of unseen()) writeFileSync(join(folder, name), files[name] ?? "");
+        await Promise.race([when(() => unseen().length === 0), sleep(50)]);
+      }
+    },
+    /** Resolves once `count` passes have started. */
+    started: (count: number): Promise<void> => when(() => passes.length >= count),
+    /** Ends the oldest running pass and lets the loop take its end in. */
+    release: async (): Promise<void> => {
+      await when(() => passEnds.length > 0);
+      passEnds.shift()?.();
+      await new Promise((resolve) => setImmediate(resolve));
+    },
+    /** Fires a debounce armed by the changes seen so far. */
+    debounce: (): void => {
+      vi.advanceTimersByTime(DEBOUNCE);
+    },
     stop: async (): Promise<void> => {
       controller.abort();
+      for (const end of passEnds.splice(0)) end();
       await loop;
     },
   };
 }
 
 describe("#268 AC6: the watch loop", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("one pass at start, then one per burst of changes (debounced)", async () => {
     const watch = watching();
-    await until(() => watch.passes.length === 1);
-    await pause(150);
+    await watch.started(1);
+    await watch.release();
 
-    writeFileSync(join(watch.folder, "a.agent.ts"), "export {};\n");
     writeFileSync(join(watch.folder, "a.prompt.md"), "one\n");
-    writeFileSync(join(watch.folder, "a.prompt.md"), "two\n");
-    await until(() => watch.passes.length === 2);
-    await pause(300);
+    await watch.write({ "a.agent.ts": "export {};\n", "a.prompt.md": "two\n" });
+    expect(watch.passes).toHaveLength(1); // the burst waits for its quiet time
+    watch.debounce();
+    await watch.started(2);
     await watch.stop();
 
     expect(watch.passes).toHaveLength(2);
@@ -80,16 +141,17 @@ describe("#268 AC6: the watch loop", () => {
   });
 
   it("a change during a pass makes one more pass after it; passes never overlap", async () => {
-    const watch = watching(600);
-    await until(() => watch.passes.length === 1);
-    await pause(150);
+    const watch = watching();
+    await watch.started(1);
 
-    // the start's pass runs for 600 ms: both changes land while it runs
-    writeFileSync(join(watch.folder, "c.workflow.ts"), "export {};\n");
-    await pause(150);
-    writeFileSync(join(watch.folder, "d.workflow.ts"), "export {};\n");
-    await until(() => watch.passes.length === 2, 3_000);
-    await pause(600);
+    // the start's pass is still running: both changes land while it runs
+    await watch.write({ "c.workflow.ts": "export {};\n" });
+    watch.debounce();
+    await watch.write({ "d.workflow.ts": "export {};\n" });
+    watch.debounce();
+    expect(watch.passes).toHaveLength(1);
+    await watch.release();
+    await watch.started(2);
     await watch.stop();
 
     expect(watch.passes).toHaveLength(2);
@@ -97,17 +159,37 @@ describe("#268 AC6: the watch loop", () => {
     expect(watch.overlaps()).toBe(0);
   });
 
+  it("#878: a debounce still armed when a pass ends starts no empty pass after the next one", async () => {
+    const watch = watching();
+    await watch.started(1);
+
+    await watch.write({ "c.workflow.ts": "export {};\n" });
+    watch.debounce(); // fires during the start's pass: one more pass is due
+    await watch.write({ "d.workflow.ts": "export {};\n" }); // its debounce is armed, not fired
+    await watch.release(); // the pass due runs at once, with both
+    await watch.started(2);
+    await watch.release();
+    watch.debounce(); // d's debounce, were it still armed
+    await watch.stop();
+
+    expect([...(watch.passes[1] ?? [])].sort()).toEqual(["c.workflow.ts", "d.workflow.ts"]);
+    expect(watch.passes.slice(1).filter((changed) => changed.length === 0)).toEqual([]);
+  });
+
   it("dependencies, builds and the generated files never start a pass", async () => {
     const watch = watching();
-    await until(() => watch.passes.length === 1);
-    await pause(150);
+    await watch.started(1);
+    await watch.release();
 
-    for (const folder of ["node_modules", "dist", ".agboss"]) {
-      mkdirSync(join(watch.folder, folder));
-      writeFileSync(join(watch.folder, folder, "types.d.ts"), "export {};\n");
-    }
-    writeFileSync(join(watch.folder, "notes.txt"), "not a source\n");
-    await pause(400);
+    for (const folder of ["node_modules", "dist", ".agboss"]) mkdirSync(join(watch.folder, folder));
+    await watch.write({
+      [join("node_modules", "types.d.ts")]: "export {};\n",
+      [join("dist", "types.d.ts")]: "export {};\n",
+      [join(".agboss", "types.d.ts")]: "export {};\n",
+      "notes.txt": "not a source\n",
+    });
+    watch.debounce();
+    await new Promise((resolve) => setImmediate(resolve));
     await watch.stop();
 
     expect(watch.passes).toEqual([[]]);
@@ -270,8 +352,17 @@ describe("#268 AC6: agboss dev end to end", () => {
     const exited = new Promise<number | null>((resolve) => child.once("exit", resolve));
     try {
       await until(typesHave('"first-workflow-start"'), 60_000);
-      writeFileSync(application, applicationSource("second"));
-      await until(typesHave('"second-workflow-start"'), 60_000);
+      // written again every 2 s until the types follow (#878): under heavy file churn the
+      // watcher may not report one write
+      let writtenAt = 0;
+      await until(() => {
+        if (typesHave('"second-workflow-start"')()) return true;
+        if (Date.now() - writtenAt > 2_000) {
+          writeFileSync(application, applicationSource("second"));
+          writtenAt = Date.now();
+        }
+        return false;
+      }, 60_000);
     } finally {
       child.kill("SIGTERM");
     }

@@ -18,6 +18,8 @@ export interface WatchOptions {
   readonly signal: AbortSignal;
   /** One pass: regenerates the types and reports what it found. */
   readonly pass: (changed: readonly string[]) => Promise<void>;
+  /** Told of each file the watcher reports, a source or not, before the loop looks at it. */
+  readonly onEvent?: (file: string) => void;
 }
 
 /** Folders a change in never starts a pass: dependencies, builds, the generated files. */
@@ -64,6 +66,8 @@ export async function watchSources(options: WatchOptions): Promise<void> {
     });
   };
   const flush = (): void => {
+    // a pass's end flushes at once: a debounce still armed would fire a pass of nothing after it
+    if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
     if (isRunning) {
       isPending = true;
@@ -74,6 +78,7 @@ export async function watchSources(options: WatchOptions): Promise<void> {
     runPass(files);
   };
   const onChange = (file: string): void => {
+    options.onEvent?.(file.split(/[\\/]/).join(sep));
     if (signal.aborted || !isSourceChange(file)) return;
     changed.add(file.split(/[\\/]/).join(sep));
     if (timer !== undefined) clearTimeout(timer);
