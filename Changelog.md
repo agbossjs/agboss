@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the Unknown-cost metric counts every end (#875)
+
+- **Changed**: `agboss.instance.costs.unknown` counts a lost pass's Unknown-cost entries as the
+  pass records them — a failed or cancelled execution's too; before, only a finished one's.
+- **Added**: `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`) counts the takeovers
+  whose read of the lost passes failed (`cost.unknown-unrecorded`).
+
 ## Unreleased — 0.1.1: the VCR refuses to record under CI (#839)
 
 - **Changed — breaking**: under `CI` a VCR test whose mode would call real models — `RECORD`,

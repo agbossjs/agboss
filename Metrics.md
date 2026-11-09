@@ -66,7 +66,8 @@ value — and the log warns `metrics.child-queue-unreadable` once per failure st
 | `agboss.instance.steps.handed_over` (`…_total`) | counter | `{step}` | `reason` | [hand-overs](Observability#hand-overs-501) of its steps |
 | `agboss.instance.executions.ended` (`…_total`) | counter | `{execution}` | `workflow`, `outcome` | executions that ended on it, children included: `finished` (`onExecutionEnd`), `failed` or `cancelled` (`onExecutionError`) |
 | `agboss.instance.compensations` (`…_total`) | counter | `{action}` | `workflow`, `status` | [automatic undo actions](Observability#automatic-undo) that ended on it: `compensated` or `failed` |
-| `agboss.instance.costs.unknown` (`…_total`) | counter | `{pass}` | `workflow` | [lost passes of unknown cost](FinOps#a-lost-pass-unknown-cost-853) of the executions that finished on it (#853) |
+| `agboss.instance.costs.unknown` (`…_total`) | counter | `{pass}` | `workflow` | [lost passes of unknown cost](FinOps#a-lost-pass-unknown-cost-853) its passes recorded, whether the execution then finished, failed or was cancelled (#853, #875) |
+| `agboss.instance.costs.unknown_unrecorded` (`…_total`) | counter | `{read}` | `workflow` | its takeovers whose read of the lost passes failed: no Unknown entry recorded for them, logged `cost.unknown-unrecorded` (#875) |
 
 The four slot gauges exist only when the application sets `maxConcurrentSteps`. Counters count
 since the instance started.

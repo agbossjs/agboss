@@ -420,7 +420,11 @@ over and runs the step again records one ledger entry for each lost pass before 
 - **Budgets add zero**; `result.spend.unknownCalls` counts the entries next to `totalUsd` and
   `calls` (which hold the known costs only; the entries are in `trace`, priced
   `unknown: a lost pass (#853)` by the CLI, whose total says `… of unknown cost`), and the metric
-  [`agboss.instance.costs.unknown`](Metrics) adds them when the execution finishes.
+  [`agboss.instance.costs.unknown`](Metrics) adds them as the pass records them — whether the
+  execution then finishes, fails or is cancelled (#875).
+- **A read that fails records none**: when the takeover cannot read the lease log or the
+  checkpoint, the pass goes on without the entries; the log says `cost.unknown-unrecorded` and
+  [`agboss.instance.costs.unknown_unrecorded`](Metrics) adds one (#875).
 
 Limits — what Unknown does not say:
 
@@ -430,8 +434,8 @@ Limits — what Unknown does not say:
   cancelled before it runs included); a model call inside a child workflow, an action's or a
   tool's service spend, and a step a graceful stop interrupted (its lease released, no takeover)
   leave no entry.
-- The metric counts an execution's entries when it finishes; one that fails or is cancelled
-  afterwards keeps them in the ledger and its record, not in the metric.
+- The metric counts what each pass records: a re-run lost again before its checkpoint has its taker
+  record the same entries again — written once in the ledger, counted again in the metric.
 
 #### Pruning the entries (#771)
 
