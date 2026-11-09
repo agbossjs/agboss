@@ -47,6 +47,8 @@ vi.mock("../../src/app/tree-resume.js", () => ({
   treeResumeNow: mocks.treeResumeNow,
   markTaken: mocks.markTaken,
   announceResume: () => Promise.resolve(),
+  // #853: no lost passes to carry — the call as it is
+  callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
 }));
 vi.mock("../../src/app/observed-pass.js", () => ({ observedPass: mocks.observedPass }));
 vi.mock("../../src/app/current-output.js", () => ({ currentOutputOf: mocks.currentOutputOf }));
