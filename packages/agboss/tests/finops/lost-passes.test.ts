@@ -10,10 +10,15 @@ import {
   LOST_PASSES_KEY,
   lostPassesOf,
   lostTokensOfTask,
+  recordLostPasses,
   unknownCostRecordsOf,
   type LostPasses,
 } from "../../src/flow/runtime/lost-pass-records.js";
 import { buildCostReport, CostSource, recordToolCost } from "../../src/finops/usage.js";
+import { NodeKind } from "../../src/flow/ast.js";
+
+/** The instance's tally of Unknown-cost entries, as its metrics keep it (#875). */
+const tallyOf = () => ({ recorded: vi.fn(), unrecorded: vi.fn() });
 
 const takeover = (checkpointId: string | undefined, previousToken?: number) => ({
   kind: "takeover",
@@ -87,6 +92,26 @@ describe("#853: the tasks that record them", () => {
     expect(records.every((record) => record.costUsd === 0)).toBe(true);
   });
 
+  it("#875 AC1: the instance's tally counts each record as the step records it, by workflow", () => {
+    const tally = tallyOf();
+    const reportUsage = vi.fn();
+    const site = {
+      node: { kind: NodeKind.Agent, id: "writer-agent" } as never,
+      nodeId: "writer-agent",
+      runId: "root",
+      services: { reportUsage },
+      deps: { observer: { unknownCosts: tally }, workflow: { name: "lost-pass-workflow" } },
+    };
+
+    recordLostPasses({ ...site, config: configOf("task", { "": "c2" }) });
+    recordLostPasses({ ...site, config: configOf("finished-task", { "": "c2" }) });
+    recordLostPasses({ ...site, config: configOf("task", { "": "c3" }) });
+
+    expect(reportUsage).toHaveBeenCalledTimes(2);
+    expect(tally.recorded.mock.calls).toEqual([["lost-pass-workflow", 2]]);
+    expect(tally.unrecorded).not.toHaveBeenCalled();
+  });
+
   it("AC3: the report counts them apart from the known total and calls", () => {
     const step = { nodeId: "writer-agent", taskId: "task", caller: "agent:writer-agent" };
     const records = [...unknownCostRecordsOf(lost, step, new Date(0)), recordToolCost("x-tool", 2)];
@@ -116,6 +141,7 @@ describe("#853: what a taker reads", () => {
         Promise.resolve([{ ...takeover("c2", 1), occurredAt: "" }] as never),
     },
     log: log as never,
+    workflow: "lost-pass-workflow",
   });
 
   it("AC2: a task paused, resumed or failed at the checkpoint is run again — lost; one with another write finished", async () => {
@@ -133,10 +159,12 @@ describe("#853: what a taker reads", () => {
     expect(lost?.tokens).toEqual([1]);
   });
 
-  it("a read that fails records none and says so", async () => {
+  it("#875 AC2: a read that fails records none, says so and is counted", async () => {
     const log = { warn: vi.fn() };
+    const tally = tallyOf();
     const sources = {
       ...sourcesOf([], log),
+      tally,
       leaseEvents: {
         findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: () =>
           Promise.reject(new Error("the lease log is down")),
@@ -149,5 +177,14 @@ describe("#853: what a taker reads", () => {
       expect.stringContaining("the lease log is down"),
       { executionId: "root", tenantId: "default" },
     );
+    expect(tally.unrecorded.mock.calls).toEqual([["lost-pass-workflow"]]);
+    expect(tally.recorded).not.toHaveBeenCalled();
+  });
+
+  it("#875 AC2: a read that succeeds counts nothing unrecorded", async () => {
+    const tally = tallyOf();
+
+    expect(await lostPassesAtTake({ ...sourcesOf([]), tally }, state)).toBeDefined();
+    expect(tally.unrecorded).not.toHaveBeenCalled();
   });
 });

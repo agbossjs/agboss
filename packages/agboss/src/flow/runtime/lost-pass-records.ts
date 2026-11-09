@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../finops/usage.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { NodeKind } from "../ast.js";
+import type { UnknownCostTally } from "../../core/observer-manager.js";
 import type { FrameServices } from "../context/frame.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
 import type { BranchFrameRun } from "./launch/branch-view.js";
@@ -154,21 +155,33 @@ export interface LostPassSite {
   /** The execution's id: its run's clock dates the records. */
   readonly runId: string;
   readonly services: Pick<FrameServices, "reportUsage"> | undefined;
+  /**
+   * The instance's tally of Unknown-cost entries on its observer manager (#875; absent = not
+   * counted), and the workflow whose step it is: the tally's label.
+   */
+  readonly deps: {
+    readonly observer?: { readonly unknownCosts?: UnknownCostTally | undefined } | undefined;
+    readonly workflow: { readonly name: string };
+  };
 }
 
 /**
  * The lost passes of a visit's step, recorded before it runs again (#853): only in the first
  * superstep of a pass that took the tree over, for a step whose task no lost pass finished — one
  * record of unknown cost each, tallied (written to the ledger at once, under the lost pass's own
- * id) and kept with the visit's spend. Nothing on any other visit.
+ * id) and kept with the visit's spend — and counted by the instance's tally as they are recorded
+ * (#875), whatever the execution's end. Nothing on any other visit.
  */
 export function recordLostPasses(site: LostPassSite): void {
   if (!callsModel(site.node)) return;
   const { taskId, lost } = lostTokensOfTask(site.config);
-  if (lost === undefined) return;
+  const reportUsage = site.services?.reportUsage;
+  if (lost === undefined || reportUsage === undefined) return;
   const step = { nodeId: site.nodeId, taskId, caller: `${site.node.kind}:${site.nodeId}` };
   const now = extractRunContext(site.config, site.runId).clock.now();
-  for (const record of unknownCostRecordsOf(lost, step, now)) site.services?.reportUsage?.(record);
+  const records = unknownCostRecordsOf(lost, step, now);
+  for (const record of records) reportUsage(record);
+  site.deps.observer?.unknownCosts?.recorded(site.deps.workflow.name, records.length);
 }
 
 /**
@@ -179,12 +192,13 @@ export function recordBranchLostPasses(run: BranchFrameRun): void {
   const reportUsage = (record: UsageRecord): void => {
     run.services.push(countedServiceSpend(run.deps.limits, run.node, run.state.path, record));
   };
-  const { node, config, ticket, state } = run;
+  const { node, config, ticket, state, deps } = run;
   recordLostPasses({
     node,
     nodeId: ticket.nodeId,
     config,
     runId: state.runId,
     services: { reportUsage },
+    deps,
   });
 }

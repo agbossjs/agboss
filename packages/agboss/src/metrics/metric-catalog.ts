@@ -95,7 +95,13 @@ export const METRICS = {
   unknownCosts: counter(
     "agboss.instance.costs.unknown",
     "{pass}",
-    "Lost passes of a step whose cost is not known (a crash mid model call, run again by a recovery), counted when their execution finishes on the instance, by workflow",
+    "Lost passes of a step whose cost is not known (a crash mid model call, run again by a recovery), counted as the instance's pass records their Unknown-cost entries — whether the execution then finishes, fails or is cancelled — by workflow",
+    ["workflow"],
+  ),
+  unknownCostsUnrecorded: counter(
+    "agboss.instance.costs.unknown_unrecorded",
+    "{read}",
+    "Takeovers on the instance whose read of the tree's lost passes failed, so none of their Unknown-cost entries is recorded (logged as cost.unknown-unrecorded), by workflow",
     ["workflow"],
   ),
   compensations: counter(

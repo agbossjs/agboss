@@ -7,12 +7,13 @@ import type {
 } from "@opentelemetry/api";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
+import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { frameworkPackageJson } from "../package-json.js";
 import { METRICS, type MetricSpec } from "./metric-catalog.js";
-import { metricsObserverOf } from "./metrics-observer.js";
+import { metricsObserverOf, unknownCostTallyOf } from "./metrics-observer.js";
 import { HeldLeaseTally } from "./held-lease-tally.js";
 
 /**
@@ -113,12 +114,15 @@ export class InstanceMetrics {
   readonly observer: ExecutionObserver;
   /** Where the instance's held leases count themselves. */
   readonly heldLeases = new HeldLeaseTally();
+  /** Where a pass counts the Unknown-cost entries it records, or fails to (#875). */
+  readonly unknownCosts: UnknownCostTally;
   readonly #meter: Meter;
   readonly #registrations: readonly Registration[];
 
   constructor(sources: MetricSources) {
     this.#meter = sources.meterProvider.getMeter(METER_NAME, versionOf());
     this.observer = metricsObserverOf(this.#meter);
+    this.unknownCosts = unknownCostTallyOf(this.#meter, sources.log);
     this.#registrations = [
       clusterGaugesOf(this.#meter, sources),
       instanceGaugesOf(this.#meter, sources, this.heldLeases),

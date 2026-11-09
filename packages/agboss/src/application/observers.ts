@@ -1,6 +1,10 @@
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
-import { ExecutionObserverManager, type ObserverFailure } from "../core/observer-manager.js";
+import {
+  ExecutionObserverManager,
+  type ObserverFailure,
+  type UnknownCostTally,
+} from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { resolveListed } from "./application-container.js";
 import type { AssembledApplication } from "./assemble.js";
@@ -62,7 +66,10 @@ export async function observersOf(
   const { assembled, shared, log, seams, mask, infrastructure } = parts;
   const metrics = await instanceMetricsOf(meterProvider, parts);
   const projection = await a2aTaskProjectionOf(parts);
-  const builtIn = [...(metrics === undefined ? [] : [metrics.observer]), ...projection];
+  const builtIn = {
+    observers: [...(metrics === undefined ? [] : [metrics.observer]), ...projection],
+    unknownCosts: metrics?.unknownCosts,
+  };
   const observer = observerManagerOf(assembled, shared, options, log, seams, builtIn);
   const heldLeases = metrics?.heldLeases;
   return {
@@ -102,6 +109,12 @@ async function a2aTaskProjectionOf(parts: ObservedParts): Promise<readonly Execu
   return [new A2ATaskProjection({ tasks, clock, log: parts.log, control })];
 }
 
+/** The framework's own observers, and the instance's tally of Unknown-cost entries (#875). */
+export interface BuiltInObservers {
+  readonly observers?: readonly ExecutionObserver[];
+  readonly unknownCosts?: UnknownCostTally | undefined;
+}
+
 /**
  * The manager of the application's observers, each created now (its hooks run with the others'),
  * after the framework's own (`builtIn`: the instance's metrics, the A2A task projection).
@@ -112,10 +125,12 @@ export function observerManagerOf(
   options: ContainerOptions,
   log: FrameworkLog,
   seams: ObserverSeams = {},
-  builtIn: readonly ExecutionObserver[] = [],
+  builtIn: BuiltInObservers = {},
 ): ExecutionObserverManager {
   // each listed class is checked at assembly to implement observer hooks
   const observers = resolveListed(application, options, assembled.observers) as ExecutionObserver[];
   const all = [...observers, ...(seams.observers ?? [])];
-  return new ExecutionObserverManager(all, failureLoggedTo(log), undefined, builtIn);
+  const { observers: framework = [], unknownCosts } = builtIn;
+  const failed = failureLoggedTo(log);
+  return new ExecutionObserverManager(all, failed, undefined, framework, unknownCosts);
 }

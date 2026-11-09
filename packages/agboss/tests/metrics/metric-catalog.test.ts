@@ -22,7 +22,7 @@ import {
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { METRICS, MetricKind } from "../../src/metrics/metric-catalog.js";
-import { metricsObserverOf } from "../../src/metrics/metrics-observer.js";
+import { metricsObserverOf, unknownCostTallyOf } from "../../src/metrics/metrics-observer.js";
 import { execute } from "../helpers/flow.js";
 import {
   resetRemoteLog,
@@ -45,6 +45,7 @@ const DOCUMENTED = {
   "agboss.instance.steps.handed_over": [MetricKind.Counter, "{step}", ["reason"]],
   "agboss.instance.executions.ended": [MetricKind.Counter, "{execution}", ["workflow", "outcome"]],
   "agboss.instance.costs.unknown": [MetricKind.Counter, "{pass}", ["workflow"]],
+  "agboss.instance.costs.unknown_unrecorded": [MetricKind.Counter, "{read}", ["workflow"]],
   "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "status"]],
 } as const;
 
@@ -138,29 +139,67 @@ describe("#485 AC4: the catalog", () => {
   });
 });
 
-describe("#853 AC3: the lost passes of unknown cost", () => {
-  it("AC3: an execution's end adds its Unknown entries by workflow; one with none adds nothing", async () => {
-    const { provider, reader } = instanceMeter();
-    const observer = metricsObserverOf(provider.getMeter("test"));
-    const workflow = {
-      name: "lost-pass-workflow",
-      version: "1",
-      startedVersion: "1",
-      configHash: "c",
-    };
-    const endOf = (unknownCalls: number) =>
-      eventOf<ExecutionEndEvent>({
-        executionId: "e-1",
-        workflow,
-        spend: { unknownCalls } as never,
-      });
+describe("#875: the lost passes of unknown cost", () => {
+  const workflow = {
+    name: "lost-pass-workflow",
+    version: "1",
+    startedVersion: "1",
+    configHash: "c",
+  };
 
-    await observer.onExecutionEnd?.(endOf(2));
-    await observer.onExecutionEnd?.(endOf(0));
-    await observer.onExecutionEnd?.(endOf(1));
+  it("AC1: each Unknown entry is counted as a pass records it, by workflow — not again at the execution's end or error", async () => {
+    const { provider, reader } = instanceMeter();
+    const meter = provider.getMeter("test");
+    const tally = unknownCostTallyOf(meter, { warn: vi.fn() } as never);
+    const observer = metricsObserverOf(meter);
+
+    tally.recorded("lost-pass-workflow", 2);
+    tally.recorded("lost-pass-workflow", 1);
+    await observer.onExecutionEnd?.(
+      eventOf<ExecutionEndEvent>({ workflow, spend: { unknownCalls: 2 } as never }),
+    );
+    await observer.onExecutionError?.(
+      eventOf<ExecutionErrorEvent>({ workflow, error: new ExecutionCancelledError("cancelled") }),
+    );
 
     const unknown = (await collect({ provider, reader })).get("agboss.instance.costs.unknown");
     expect(unknown?.points).toEqual([{ attributes: { workflow: "lost-pass-workflow" }, value: 3 }]);
+  });
+
+  it("AC2: each failed read of a tree's lost passes is counted, by workflow", async () => {
+    const { provider, reader } = instanceMeter();
+    const tally = unknownCostTallyOf(provider.getMeter("test"), { warn: vi.fn() } as never);
+
+    tally.unrecorded("lost-pass-workflow");
+    tally.unrecorded("lost-pass-workflow");
+
+    const unrecorded = (await collect({ provider, reader })).get(
+      "agboss.instance.costs.unknown_unrecorded",
+    );
+    expect(unrecorded?.points).toEqual([
+      { attributes: { workflow: "lost-pass-workflow" }, value: 2 },
+    ]);
+  });
+
+  it("a counter that throws is a warning, never the step's or the takeover's failure", () => {
+    const failing = {
+      add: () => {
+        throw new Error("exporter down");
+      },
+    };
+    const meter = { createCounter: () => failing } as never;
+    const log = { warn: vi.fn() };
+    const tally = unknownCostTallyOf(meter, log as never);
+
+    expect(() => {
+      tally.recorded("lost-pass-workflow", 1);
+      tally.unrecorded("lost-pass-workflow");
+    }).not.toThrow();
+    expect(log.warn).toHaveBeenCalledTimes(2);
+    expect(log.warn).toHaveBeenCalledWith(
+      "metrics.unknown-cost-uncounted",
+      expect.stringContaining("exporter down"),
+    );
   });
 });
 
