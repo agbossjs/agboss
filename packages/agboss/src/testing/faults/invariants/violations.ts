@@ -17,6 +17,11 @@ export enum FaultInvariant {
   TreesFinish = "trees-finish",
   /** The store history has an order the sequential model of the fencing stores explains (#533). */
   Linearizable = "linearizable",
+  /**
+   * One execution per A2A task, its end for good (#811): no state after a terminal one, one root
+   * under its id, nothing run by a task settled start-lost, no effect after a cancel it was told.
+   */
+  A2ATasksOnce = "a2a-tasks-once",
 }
 
 /** One broken invariant, said plainly. */

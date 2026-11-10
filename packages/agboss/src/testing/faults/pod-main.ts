@@ -29,6 +29,8 @@ import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-l
 import { heldStoreState, reportHeldOperations } from "./held-stores.js";
 import { processHoldPoints } from "./hold-points.js";
 import { commandDone, type PodParts } from "./pod-control.js";
+import { podA2AListenerOf } from "./pod-a2a.js";
+import { keepsA2ATasks as keepsA2ATasksOf } from "./fixture/fault.a2a.js";
 import { POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
 
 /** The store set of the module at `path`. */
@@ -128,7 +130,8 @@ process.on("message", (message: ToPod) => {
   void answer(parts, message);
 });
 const optedOut = optedOutStoresOf(stores);
-send({
-  kind: "event",
-  event: { type: "ready", instanceId, pid: process.pid, optedOut, storeTime },
-});
+// #811 AC4: a set that keeps A2A tasks is served over A2A — whether it keeps them, and the URL
+const keepsA2ATasks = keepsA2ATasksOf(stores.providers);
+const a2aUrl = (await podA2AListenerOf(built.app, stores))?.url ?? null;
+const ready = { instanceId, pid: process.pid, optedOut, storeTime, keepsA2ATasks, a2aUrl };
+send({ kind: "event", event: { type: "ready", ...ready } });

@@ -57,7 +57,9 @@ describe("#808 AC2: the version check, the push methods, unknown methods", () =>
     expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
   });
 
-  test("every push method is -32003; GetExtendedAgentCard is -32007", async ({ a2aServer }) => {
+  test("every push method is -32003; GetExtendedAgentCard, not declared, is -32004 (spec §3.3.4)", async ({
+    a2aServer,
+  }) => {
     const { url } = await a2aServer(listener);
     const methods = [
       "CreateTaskPushNotificationConfig",
@@ -73,7 +75,10 @@ describe("#808 AC2: the version check, the push methods, unknown methods", () =>
     );
 
     expect(codes).toEqual([-32003, -32003, -32003, -32003]);
-    expect(errorOf(await rpc(url, "GetExtendedAgentCard", {})).code).toBe(-32007);
+    expect(errorOf(await rpc(url, "GetExtendedAgentCard", {}))).toMatchObject({
+      code: -32004,
+      message: "this agent has no extended agent card",
+    });
   });
 
   test("an unknown method is -32601, a body that is no JSON -32700 or -32602", async ({

@@ -130,7 +130,11 @@ async function replayed(
   if (running === undefined) return undefined;
   await running;
   const again = await parts.tasks.findByMessage(kept);
-  return isKeptReply(again?.reply) ? replayOf(task, again.reply) : undefined;
+  if (!isKeptReply(again?.reply)) return undefined;
+  // #811: the task as it is after the wait, never as read before it — the run awaited moved it
+  const read = await parts.tasks.findById(taskKeyOf(task));
+  if (read === undefined) throw taskNotFound();
+  return replayOf(await repairedOf(parts, read), again.reply);
 }
 
 /** The caller's task a follow-up names, checked against its context. */

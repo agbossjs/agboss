@@ -48,9 +48,33 @@ export class FaultScenarioFailedError extends Error {
   override name = "FaultScenarioFailedError";
 }
 
+/**
+ * A scenario that cannot run on this store set (#811 AC4: an A2A scenario on a set that keeps no
+ * A2A tasks): nothing is checked, and the suite reports the case skipped with this reason — never
+ * as passed.
+ */
+export class FaultScenarioSkippedError extends Error {
+  override name = "FaultScenarioSkippedError";
+}
+
 /** A live pod to read the facts with when a scenario stopped early: the last one started. */
 const anyLivePod = (cluster: FaultCluster): FaultPod | undefined =>
   cluster.pods.findLast((pod) => pod.isRunning);
+
+/** The scenario run: its reader, or — stopped early — a live pod and why it stopped. */
+async function ranScenario(
+  scenario: RunnableFaultScenario,
+  cluster: FaultCluster,
+): Promise<{ readonly reader: FaultPod | undefined; readonly stopped?: Error }> {
+  try {
+    return { reader: await scenario.run(cluster) };
+  } catch (error) {
+    // #811 AC4: one this set cannot run is checked on nothing
+    if (error instanceof FaultScenarioSkippedError) throw error;
+    const stopped = error instanceof Error ? error : new Error(JSON.stringify(error));
+    return { reader: anyLivePod(cluster), stopped };
+  }
+}
 
 /**
  * The scenario run and its facts checked: the invariants first — also when the scenario stopped
@@ -60,14 +84,7 @@ async function checkedRun(
   scenario: RunnableFaultScenario,
   cluster: FaultCluster,
 ): Promise<FaultRun> {
-  let reader: FaultPod | undefined;
-  let stopped: Error | undefined;
-  try {
-    reader = await scenario.run(cluster);
-  } catch (error) {
-    stopped = error instanceof Error ? error : new Error(JSON.stringify(error));
-    reader = anyLivePod(cluster);
-  }
+  const { reader, stopped } = await ranScenario(scenario, cluster);
   if (reader === undefined) throw stopped ?? new Error(`${scenario.id} gave no pod to read with`);
   // the history read on the store's own time (#533), as its set declares it (#799): the
   // linearizability checker maps it so
@@ -77,7 +94,9 @@ async function checkedRun(
   const violations = faultViolationsOf(run);
   const notes = [...cluster.expectations, ...(stopped === undefined ? [] : [String(stopped)])];
   if (violations.length > 0) throw new FaultInvariantError(scenario.id, violations, notes);
-  if (stopped !== undefined) throw stopped;
+  // stopped early: why, with every expectation that failed before (#811), the stop as its cause
+  if (stopped !== undefined)
+    throw new FaultScenarioFailedError(`${scenario.id}: ${notes.join("; ")}`, { cause: stopped });
   if (notes.length > 0) throw new FaultScenarioFailedError(`${scenario.id}: ${notes.join("; ")}`);
   return run;
 }

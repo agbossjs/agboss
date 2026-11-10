@@ -14,13 +14,15 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../src/index.js";
+import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
 import { FaultStoreTime, type FaultStoreSet } from "../../src/testing/faults/index.js";
 
 /**
  * #484 — the core's own store set under the fault suite: every SQLite store on one file that
  * several pods (processes) open, the way two instances share a file on one disk. The business rows
  * of the fixture's charge are a table of that file, written in the fenced effect's `BEGIN
- * IMMEDIATE` transaction (synchronously, as the SQLite store's work must be).
+ * IMMEDIATE` transaction (synchronously, as the SQLite store's work must be). It keeps A2A tasks too
+ * (#811 AC4): its pods serve the fixture over A2A, and the A2A scenarios run.
  */
 
 /** The table of the fixture's business rows. */
@@ -44,6 +46,8 @@ export const sqliteFaultStoreClasses = [
   SqliteFencedEffectRepository,
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
+  // #811 AC4: the A2A tasks on the same file — the pods serve the fixture over A2A
+  SqliteA2ATaskRepository,
 ];
 
 export const faultStores: FaultStoreSet<DatabaseSync> = {

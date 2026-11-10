@@ -22,6 +22,17 @@
  *
  * #533 item 5: every run's store history also fails the linearizability checker (`linearizable`).
  *
+ * #811 AC4 — the A2A scenarios bite (`broken-a2a-stores.ts`):
+ * - a lease store that says "kept" to an id kept before (`KeepingAgainSqliteExecutionLeaseRepository`):
+ *   17's and 17b's read repair fence nothing — the task's id kept twice, and the thawed start runs
+ *   the task settled start-lost;
+ * - a tree store that never reads a cancel request back (`CancelBlindSqliteExecutionTreeRepository`):
+ *   17b's thawed start runs past its tree's cancel; 18's running pass is never stopped, and let go
+ *   after two leases it charges and pays more than a lease after the cancel request; 18c's resumed
+ *   tree, which the cancel finds running again (#850), completes though its cancel was accepted;
+ * - that store resolving a withdrawn pause too (`StalePausesSqlitePausedExecutionRepository`): 18b's
+ *   resume after the cancel runs, and the reservation is undone twice.
+ *
  * #657, #658 — the payment's own integration broken, on the real store set: every gateway error
  * taken for a definite failure (as before #657), scenario 14's lost answer is resent after the
  * gateway forgot its key; no key retention declared (#658), scenario 15's replay of an expired key
@@ -43,6 +54,15 @@ import {
   s14EveryErrorDefinite,
   s15TrustedAsLookup,
 } from "../../src/testing/faults/scenarios/s14-s15-key-expiry.js";
+import {
+  s17AcceptCrash,
+  s17bIdKeptCrash,
+} from "../../src/testing/faults/scenarios/s17-a2a-accept-crash.js";
+import {
+  s18bCancelFirst,
+  s18cResumedNotRun,
+  s18ResumeFirst,
+} from "../../src/testing/faults/scenarios/s18-a2a-resume-vs-cancel.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 
 const unfenced = sqliteFaultTarget(
@@ -60,6 +80,15 @@ const forgetful = sqliteFaultTarget(
 const forgedToken = sqliteFaultTarget(
   fileURLToPath(new URL("./forged-token.fault-stores.ts", import.meta.url)),
 );
+const keepingAgain = sqliteFaultTarget(
+  fileURLToPath(new URL("./keeping-again.fault-stores.ts", import.meta.url)),
+);
+const cancelBlind = sqliteFaultTarget(
+  fileURLToPath(new URL("./cancel-blind.fault-stores.ts", import.meta.url)),
+);
+const stalePauses = sqliteFaultTarget(
+  fileURLToPath(new URL("./stale-pauses.fault-stores.ts", import.meta.url)),
+);
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-retire.fault-stores.ts", import.meta.url)),
 );
@@ -73,7 +102,7 @@ async function failureOf(
     () => undefined,
     (failure: unknown) => failure,
   );
-  expect(error).toBeInstanceOf(FaultInvariantError);
+  expect(error, String(error)).toBeInstanceOf(FaultInvariantError);
   return error as FaultInvariantError;
 }
 
@@ -160,6 +189,73 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
         expect.stringMatching(/o-15 reached the gateway 2 times \(from a, b\)/u),
         "o-15 was paid 2 times at the gateway",
       ]),
+    );
+  }, 120_000);
+});
+
+/** The messages of `failure`'s violations of one-execution-per-A2A-task. */
+const a2aMessagesOf = (failure: FaultInvariantError): readonly string[] =>
+  failure.violations
+    .filter((found) => found.invariant === FaultInvariant.A2ATasksOnce)
+    .map((found) => found.message);
+
+/** A task settled start-lost that ran the order's steps anyway. */
+const RAN_START_LOST =
+  /^task \S+ was settled a2a\.start-lost, yet ran reserve on a, charge\.before on a/u;
+
+/** The task's id kept twice — b's fence and a's start — the second start under one task. */
+const KEPT_TWICE =
+  /^execution id \S+ was kept 2 times \(by [ab], [ab]\): two starts under one task$/u;
+
+describe("#811 AC4: a broken store fails the A2A scenario that targets it", () => {
+  it("a lease store that keeps an id twice: 17's fence fences nothing — the id kept twice, the start-lost task run", async () => {
+    const failure = await failureOf(s17AcceptCrash, keepingAgain);
+    expect(a2aMessagesOf(failure)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(KEPT_TWICE),
+        expect.stringMatching(RAN_START_LOST),
+      ]),
+    );
+  }, 120_000);
+
+  it("a lease store that keeps an id twice: 17b's fence wins over the kept id — kept twice, the frozen start runs", async () => {
+    const failure = await failureOf(s17bIdKeptCrash, keepingAgain);
+    expect(a2aMessagesOf(failure)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(KEPT_TWICE),
+        expect.stringMatching(RAN_START_LOST),
+      ]),
+    );
+  }, 120_000);
+
+  it("a tree store blind to cancel requests: 17b's thawed start runs past its tree's cancel", async () => {
+    const failure = await failureOf(s17bIdKeptCrash, cancelBlind);
+    expect(a2aMessagesOf(failure)).toContainEqual(expect.stringMatching(RAN_START_LOST));
+  }, 120_000);
+
+  it("a tree store blind to cancel requests: 18's pass, never stopped and let go, charges and pays past a lease after the cancel", async () => {
+    const failure = await failureOf(s18ResumeFirst, cancelBlind);
+    expect(a2aMessagesOf(failure)).toContainEqual(
+      expect.stringMatching(
+        /^task \S+ committed fencedEffect\.write by a, outboundCall\.saveIfAbsent by a more than a lease after its tree's cancel request: its holder never read it$/u,
+      ),
+    );
+    expect(failure.notes).toContain(
+      "a's pass was not stopped within two leases of the cancel: its charge was let go",
+    );
+  }, 120_000);
+
+  it("a tree store blind to cancel requests: 18c's resumed tree, its cancel accepted, completes", async () => {
+    // within its lease of the request, so no invariant's: the scenario's own check of the end
+    await expect(runFaultScenario(s18cResumedNotRun, cancelBlind)).rejects.toThrow(
+      /^s18c-a2a-resumed-cancel-before-pass: the task ended \{[^}]*"state":"TASK_STATE_COMPLETED"\} after its cancel request$/u,
+    );
+  }, 120_000);
+
+  it("a pause store that resolves a withdrawn pause and keeps the run: 18b's resume after the cancel runs — undone twice", async () => {
+    const failure = await failureOf(s18bCancelFirst, stalePauses);
+    expect(a2aMessagesOf(failure)).toContainEqual(
+      expect.stringMatching(/^task \S+ was canceled, and its reservation was released 2 times$/u),
     );
   }, 120_000);
 });

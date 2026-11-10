@@ -123,3 +123,17 @@ export const POD_VARIABLES = {
   /** `@Application({ maxConcurrentSteps })` of the pod. */
   maxConcurrentSteps: "AGBOSS_FAULT_MAX_CONCURRENT_STEPS",
 } as const;
+
+/** What a pod's `ready` says of A2A (#811 AC4): whether its set keeps A2A tasks, its listener. */
+export interface PodA2A {
+  readonly keepsA2ATasks: boolean;
+  readonly a2aUrl: string | undefined;
+}
+
+/** The A2A of a `ready` event, checked — else what is wrong with it: never guessed. */
+export function podA2AOf(ready: PodEvent): PodA2A | string {
+  const { keepsA2ATasks, a2aUrl } = ready;
+  if (typeof keepsA2ATasks !== "boolean" || !(a2aUrl === null || typeof a2aUrl === "string"))
+    return `a ready event with keepsA2ATasks ${JSON.stringify(keepsA2ATasks)} and a2aUrl ${JSON.stringify(a2aUrl)} — a boolean, and a URL or null`;
+  return { keepsA2ATasks, a2aUrl: a2aUrl ?? undefined };
+}

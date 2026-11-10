@@ -1400,7 +1400,16 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
   `FaultStoreTime.Database` for stores on the database's own clock, read at 1, `FaultStoreTime.Host`
   for the pods' clock, read at `timeScale`; none refuses the pod, `[fault-suite.store-time]`), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 26 scenarios (#720:
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 31 scenarios (#811 AC4: on a
+  set that lists an `A2ATaskRepository` the pods serve the fixture over A2A — `a2aHttpListener` on
+  127.0.0.1, its URL in the pod's `ready` — with an approved order, a question its caller answers;
+  `s17-a2a-accept-crash` / `s17b-a2a-id-kept-crash`, a pod frozen after an A2A task's
+  `saveIfAbsent` / after keeping its id — another pod's read settles it `FAILED a2a.start-lost`
+  (fence won / a cancel request, then one start timeout later), the thawed start runs nothing;
+  `s18-a2a-resume-vs-cancel` / `s18b-a2a-cancel-vs-resume` / `s18c-a2a-resumed-cancel-before-pass`,
+  a follow-up's resume racing a `CancelTask` on two pods in both orders — `CANCELED`, undone once,
+  nothing charged, the late resume `-32004`; held at `StoreHoldPoint.A2ATaskSaveIfAbsent`,
+  `LeaseClaimExecutionId`, `PauseFind` (a resume before its mark, #850), `PauseResolve`; a set that keeps no A2A tasks skips them with the reason; #720:
   `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —
   the lease its reclaim kept goes back, the child runs once; `HoldRequest.loseAnswer` at
   `HoldPhase.After`, `StoreAnswerLostError`; #657, #658:
@@ -1414,7 +1423,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too), `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard once, #562),
-  `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `linearizable` (#533: the history
+  `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `a2a-tasks-once` (#811, on every task id the run names: no state after a terminal one, told or written; the accepted status writes one version chain; the id kept once; nothing run by a task settled start-lost; no effect committed after a canceled task's cancel became durable, none more than a lease after any tree's cancel request), `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
   public API
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
@@ -1862,7 +1871,8 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `A2ASecurity.bearer()` / `.apiKey({ header })` / `.oauth2ClientCredentials(…)` / `.mtls()`, one
   JSONRPC 1.0 interface at `publicUrl` + `base`) and JSON-RPC 2.0 at `POST <base>` — `SendMessage`
   (blocking, or `returnImmediately`), `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`,
-  `SubscribeToTask` (server-sent events: the task first); push methods `-32003`, no or a `0.3`
+  `SubscribeToTask` (server-sent events: the task first); push methods `-32003`, `GetExtendedAgentCard`
+  `-32004` (none declared, spec §3.3.4, #811), the card's `Last-Modified` its first request's time, no or a `0.3`
   `A2A-Version` `-32009` (`src/a2a/server/`). The caller resolver runs after the body is read
   (`maxBodySize`, default 1 MB, else `413`) and decoded once, by the SDK's own decoder, for its
   `A2ACallerRequest { operation: A2AOperation, taskId?, http }` (a refusal is `401` / `403`); the
@@ -1875,7 +1885,10 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
   their backend or on a kind known to be shared — an allow-list, `postgres`, `mongodb`
   (`PostgresA2ATaskRepository`, `MongoA2ATaskRepository`; Redis keeps none) —, else `[a2a.task-store-not-shared]` at assembly;
-  `ListTasks.totalSize` counts every task its filters match; a task outlives its connection — a disconnect never cancels it (#806);
+  `ListTasks.totalSize` counts every task its filters match, `statusTimestampAfter` keeps a status at or after
+  it (`>=`, a2a.proto's words; #811); the official A2A TCK (`a2aproject/a2a-tck`, pinned) runs in CI
+  (`a2a-tck`, `scripts/a2a-tck.mjs`) against the conformance agent `tests/a2a-tck/` — each requirement
+  that does not pass named with why in `tests/a2a-tck/tck-expected.json` (Wiki → A2A-Conformance); a task outlives its connection — a disconnect never cancels it (#806);
   `CancelTask` cancels that task only, before its start too (its id fenced: `CANCELED`); a pause its
   caller answers is `INPUT_REQUIRED` (a follow-up with the `taskId` resumes it: `{ pauseId?,
 decision }` or a text reply; another task's pause `-32602`; a resume that loses its pause to a

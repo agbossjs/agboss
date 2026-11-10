@@ -23,6 +23,7 @@ import {
 import {
   callerOptionsOf,
   endedUnstarted,
+  logSubjectOf,
   taskKeyOf,
   type A2ARequestCaller,
   type A2AServerParts,
@@ -116,6 +117,23 @@ async function refusedStart(
   await endedUnstarted(parts, task, failedStatusOf(refusal));
 }
 
+/**
+ * The task just saved, as the store has it now; one the store lost right after saving it is the
+ * request failed (`-32603`), never the stale saved record answered as if nothing happened.
+ */
+async function currentTaskOf(parts: A2AServerParts, saved: A2ATaskRecord): Promise<A2ATaskRecord> {
+  const current = await parts.tasks.findById(taskKeyOf(saved));
+  if (current === undefined) {
+    parts.log.warn(
+      "a2a.task-vanished",
+      `task ${saved.taskId} was saved and is gone: the request failed`,
+      logSubjectOf(taskKeyOf(saved)),
+    );
+    throw new A2AInternalError();
+  }
+  return current;
+}
+
 /** A message accepted before: its task, if the same content; `-32602` otherwise. */
 async function acceptedBefore(
   parts: A2AServerParts,
@@ -194,7 +212,10 @@ export async function acceptedTask(
       case A2ATaskSaveStatus.Saved:
         // a rejected task is over as accepted: nothing ever runs under its id
         if (limit === undefined) started(parts, caller, save.task, sent);
-        return save.task;
+        // #811 (s17): the task as it is now, never as it was saved — this pass may have been held
+        // after the save while another instance settled it (a2a.start-lost): an answer of the
+        // saved SUBMITTED would move a terminal task back for this caller
+        return currentTaskOf(parts, save.task);
       case A2ATaskSaveStatus.MessageTaken:
         return acceptedBefore(parts, caller, save.message, sent);
       // Stryker disable next-line ConditionalExpression: the last case — falling out of the switch goes on to the next attempt, as `continue` does

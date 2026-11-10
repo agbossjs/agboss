@@ -5,7 +5,11 @@ import { FaultInvariantError } from "./invariants/violations.js";
 import { ATOMIC_FENCING_CASE, checkAtomicFencing } from "./opt-out-check.js";
 import { killPods } from "./pod.js";
 import { faultSuitePlanOf, type FaultSuiteOptions } from "./fault-suite-plan.js";
-import { runFaultScenario } from "./scenario.js";
+import {
+  FaultScenarioSkippedError,
+  runFaultScenario,
+  type RunnableFaultScenario,
+} from "./scenario.js";
 import type { FaultSabotage } from "./scenarios/sabotages.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 
@@ -69,6 +73,24 @@ export async function sabotaged(
   ).toContainEqual(expect.stringMatching(sabotage.evidence));
 }
 
+/**
+ * A scenario's case: it runs and every invariant holds — or, one this set cannot run (#811 AC4: an
+ * A2A scenario on a set that keeps no A2A tasks), the case is skipped with the reason.
+ */
+async function scenarioCase(
+  scenario: RunnableFaultScenario,
+  options: FaultSuiteOptions,
+  expect: Vitest.ExpectStatic,
+  context: TestContext,
+): Promise<void> {
+  const run = await runFaultScenario(scenario, options).catch((error: unknown) => {
+    if (error instanceof FaultScenarioSkippedError) context.skip(error.message);
+    throw error;
+  });
+  // checked already (a failure names every violation); the assertion a test makes
+  expect(faultViolationsOf(run)).toEqual([]);
+}
+
 /** Registers the fault suite on `options`' store set. */
 export function faultSuite(options: FaultSuiteOptions): void {
   if (vitest === undefined)
@@ -106,15 +128,10 @@ export function faultSuite(options: FaultSuiteOptions): void {
       }
       it(
         title,
-        async () => {
-          if (sabotage !== undefined) {
-            await sabotaged(sabotage, options, expect);
-            return;
-          }
-          const run = await runFaultScenario(scenario, options);
-          // checked already (a failure names every violation); the assertion a test makes
-          expect(faultViolationsOf(run)).toEqual([]);
-        },
+        (context: TestContext) =>
+          sabotage === undefined
+            ? scenarioCase(scenario, options, expect, context)
+            : sabotaged(sabotage, options, expect),
         timeout,
       );
     }

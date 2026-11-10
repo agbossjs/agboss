@@ -105,14 +105,15 @@ async function bindingOf<TStart extends Class>(
   // exportsOf checked it is an @A2AExpose
   if (meta?.kind !== "a2a-expose")
     throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+  const clock = app.resolve(Clock);
   const card = agentCardOf({
     expose: meta.meta,
     skills,
     application: mesh.application,
     url: checked.url,
     idempotencyRetention: mesh.a2aTaskRetention,
+    madeAt: clock.now(),
   });
-  const clock = app.resolve(Clock);
   const parts = {
     app,
     tasks: app.resolve(A2ATaskRepository),

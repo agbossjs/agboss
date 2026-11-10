@@ -25,7 +25,11 @@ describe("framework and examples apart (#91)", () => {
     // the application every fault pod runs, published with `@agboss/core/testing/faults` only
     const fixture = join(framework, "testing", "faults", "fixture");
 
-    expect(sources(framework).filter(decorated)).toEqual([join(fixture, "order.workflow.ts")]);
+    // its order, and the approval an A2A task rests at (#811)
+    expect(sources(framework).filter(decorated)).toEqual([
+      join(fixture, "approval.workflow.ts"),
+      join(fixture, "order.workflow.ts"),
+    ]);
   });
 
   it("#489 AC2: the only in-repo example is flow-patterns (job-scout lives in agbossjs/agboss-examples)", () => {

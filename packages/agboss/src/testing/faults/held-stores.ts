@@ -7,6 +7,9 @@ import { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.r
 import { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
+import { A2ATaskRepository } from "../../infrastructure/a2a-task.repository.js";
+import { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
+import { A2A_TASK_METHODS, PAUSE_METHODS } from "./a2a-points.js";
 import {
   HoldPhase,
   processHoldPoints,
@@ -32,7 +35,7 @@ import { TREE_METHODS } from "./tree-points.js";
 
 /**
  * `withHoldPoints(Store)` (#484 AC5): any store of the lease, fenced-effect, outbound-call,
- * child-queue, history or tree contract (#607), with the store hold points of `StoreHoldPoint` — a subclass that, around
+ * child-queue, history, tree (#607), A2A task or pause (#811) contract, with the store hold points of `StoreHoldPoint` — a subclass that, around
  * each of the contract's operations, waits at the operation's point before the store is asked and
  * after it answered (when a test armed a hold there), records the operation's invoke and complete
  * in the history, and refuses or hangs while the process's store outage lasts. The store's own
@@ -133,6 +136,8 @@ const CONTRACTS: readonly (readonly [Class, Readonly<Record<string, StoreMethod>
   [ChildExecutionQueueRepository, CHILD_QUEUE_METHODS],
   [ExecutionHistoryRepository, HISTORY_METHODS],
   [ExecutionTreeRepository, TREE_METHODS],
+  [A2ATaskRepository, A2A_TASK_METHODS],
+  [PausedExecutionRepository, PAUSE_METHODS],
 ];
 
 /** The methods of the contract `store` implements; `undefined` for another class. */
@@ -232,7 +237,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore {
   const methods = heldMethodsOf(store);
   if (methods === undefined)
     throw new TypeError(
-      `withHoldPoints(${store.name}): not a lease, fenced-effect, outbound-call, child-queue, history or tree store`,
+      `withHoldPoints(${store.name}): not a lease, fenced-effect, outbound-call, child-queue, history, tree, A2A task or pause store`,
     );
   // an abstract-typed class is extended as the concrete store it is (a listed provider)
   const Concrete = concreteOf(store);

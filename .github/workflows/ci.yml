@@ -112,6 +112,32 @@ jobs:
           name: mutation-report-${{ matrix.shard }}
           path: packages/agboss/reports/mutation/
 
+  # #811: the official A2A TCK (a2aproject/a2a-tck, pinned in tck-expected.json) against the
+  # AGBoss conformance agent (packages/agboss/tests/a2a-tck/) on JSON-RPC — as published, then with
+  # tck-defects.patch — each requirement that does not pass named there with why. Python in the
+  # TCK's own venv (`uv sync --frozen`). Not in `make check` (a network clone, ~2 min).
+  a2a-tck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+      - run: npm ci
+      - run: node scripts/a2a-tck.mjs --dir "$RUNNER_TEMP/a2a-tck"
+      - name: Upload the TCK's reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2a-tck-reports
+          path: |
+            ${{ runner.temp }}/a2a-tck/official/
+            ${{ runner.temp }}/a2a-tck/patched/
+          if-no-files-found: ignore
+
   packed-project:
     runs-on: ubuntu-24.04
     steps:
