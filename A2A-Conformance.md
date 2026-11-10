@@ -58,9 +58,10 @@ prints every requirement that does not pass with its reason.
 
 - **DM-ART-001 (MUST), its file variants**: the `tck-artifact-file` / `tck-artifact-file-url`
   scenarios need an artifact with a file part; AGBoss 0.1.1 has no file parts (an output is text or
-  one `data` part). Its text and data variants pass.
+  one `data` part). Its text and data variants pass. File parts: #859.
 - **DM-MSG-001 (MUST)**: the `tck-message-response` scenario needs a stateless `Message` answer;
   every AGBoss send is a durable task (one task = one execution). The spec allows either answer.
+  A direct `Message` answer: #860.
 - **CORE-HIST-004 (MAY)**: no task history beyond the status message.
 
 ## Fixed by the TCK (#811)
