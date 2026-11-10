@@ -6,6 +6,7 @@ import {
   OutboundCallEventOutcome,
   type ExecutionLeaseEventRecord,
 } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { OutboundCallStatus } from "../../../src/infrastructure/outbound-call.repository.js";
 import type { OutboundCallRecord } from "../../../src/infrastructure/outbound-call-record.js";
 import type { FaultRun, PodEventFact } from "../../../src/testing/faults/facts.js";
 import {
@@ -309,7 +310,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       output: lease("b", 2),
     });
     const refund = { ...key(1), idempotencyKey: "root-1:refund", name: "refund" };
-    const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay" };
+    const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay", attemptOwner: "x" };
     const ship = { ...key(1), idempotencyKey: "root-1:ship", name: "ship" };
     // a's stale writes after b's grant, never answered: the rows hold the refund and the payment
     unanswered(history, {
@@ -361,7 +362,13 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
           { ...effect("ship", 1), replayedFrom: { executionId: "other" } },
         ] as ExecutionLeaseEventRecord[],
         outboundCalls: [
-          { leaseExecutionId: "root-1", name: "pay", token: 1 },
+          {
+            leaseExecutionId: "root-1",
+            name: "pay",
+            token: 1,
+            status: OutboundCallStatus.Pending,
+            attemptOwner: "x",
+          },
         ] as Partial<OutboundCallRecord>[] as OutboundCallRecord[],
       },
     ];
@@ -375,6 +382,84 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
     // the same unanswered writes with no row holding them: nothing to say
     expect(violationsOf(run)).toEqual([]);
+  });
+
+  it("#876: an outbound row's state names its last write — an answered intent does not explain a completion", () => {
+    const { run, history } = healthy();
+    const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay", attemptOwner: "x" };
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundSaveIfAbsent,
+      key: "root-1",
+      input: pay,
+      output: true,
+    });
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseAcquire,
+      key: "root-1",
+      output: lease("b", 2),
+    });
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundMarkCompleted,
+      key: "root-1",
+      input: pay,
+    });
+    const outboundCalls = [
+      {
+        leaseExecutionId: "root-1",
+        name: "pay",
+        token: 1,
+        status: OutboundCallStatus.Completed,
+        attemptOwner: "x",
+      },
+    ] as Partial<OutboundCallRecord>[] as OutboundCallRecord[];
+    const trees = run.trees.map((tree) => ({ ...tree, outboundCalls }));
+    expect(violationsOf({ ...run, trees }).map((found) => found.message)).toEqual([
+      expect.stringMatching(
+        /^outboundCall\.markCompleted of root-1 at token 1 \(a\) was accepted after epoch 2 was granted to b: a stale write \(never answered/u,
+      ),
+    ]);
+  });
+
+  it("#876: a pending row names its claim — an answered intent does not explain a stale new attempt", () => {
+    const { run, history } = healthy();
+    const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay" };
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundSaveIfAbsent,
+      key: "root-1",
+      input: { ...pay, attemptOwner: "x" },
+      output: true,
+    });
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseAcquire,
+      key: "root-1",
+      output: lease("b", 2),
+    });
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundMarkPending,
+      key: "root-1",
+      input: { ...pay, claim: { attempt: 2, attemptOwner: "y" } },
+    });
+    const outboundCalls = [
+      {
+        leaseExecutionId: "root-1",
+        name: "pay",
+        token: 1,
+        status: OutboundCallStatus.Pending,
+        attemptOwner: "y",
+      },
+    ] as Partial<OutboundCallRecord>[] as OutboundCallRecord[];
+    const trees = run.trees.map((tree) => ({ ...tree, outboundCalls }));
+    expect(violationsOf({ ...run, trees }).map((found) => found.message)).toEqual([
+      expect.stringMatching(
+        /^outboundCall\.markPending of root-1 at token 1 \(a\) .* a stale write/u,
+      ),
+    ]);
   });
 
   it("#876: of several unanswered writes a row holds, one that could be let through rightly is the row", () => {

@@ -128,9 +128,17 @@ const s05eZombieDiesUnanswered: RunnableFaultScenario = {
     await takenOverBy(cluster, b, key);
     const second = await heldAt(cluster, b, point, key);
     a.thaw();
-    // the store kills a before it answers: the release's ack dies with it
-    await Promise.allSettled([release(a, frozen), a.exited]);
-    expectThat(cluster, !a.isRunning, "the store let a's stale write through and a still runs");
+    // the store kills a before it answers: the release's ack dies with it (an ack: a lives)
+    const acked = await release(a, frozen).then(
+      () => true,
+      () => false,
+    );
+    await (acked ? Promise.resolve() : a.exited);
+    expectThat(
+      cluster,
+      !acked && !a.isRunning,
+      "a's stale write was to kill a before its answer; a runs",
+    );
     await release(b, second);
     await cluster.ended(key);
     return b;

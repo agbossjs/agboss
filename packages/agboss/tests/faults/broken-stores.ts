@@ -113,11 +113,15 @@ export class KilledAfterStaleSqliteFencedEffectRepository extends UnfencedSqlite
     const current = currentEpochOf(this.#database, key);
     const outcome = await super.runInTransaction(key, work);
     if (key.token >= current) return outcome;
-    this.#database
+    const { changes } = this.#database
       .prepare(
         "UPDATE fenced_effect_results SET token = ? WHERE scope_key = ? AND idempotency_key = ? AND name = ?",
       )
       .run(key.token, key.scopeKey, key.idempotencyKey, key.name);
+    if (changes !== 1)
+      throw new Error(
+        `the sabotage stored no stale write of ${key.name} (${String(changes)} rows)`,
+      );
     process.kill(process.pid, "SIGKILL");
     return outcome;
   }

@@ -33,6 +33,8 @@ export interface FencedWrite {
   readonly scopeKey: string;
   readonly idempotencyKey: string;
   readonly name: string;
+  /** An outbound call's write: the attempt's owner it writes (#876: what its row names it by). */
+  readonly attemptOwner?: string;
   /** When it was asked. */
   readonly invokedAt: string;
   readonly id: string;
@@ -102,13 +104,17 @@ export function finishesOf(history: OperationHistory): ReadonlyMap<string, strin
 
 /** What a fenced write's invoke says of it. */
 function fencedWriteOf(invoke: HistoryOperation["invoke"]): FencedWrite {
-  const { leaseExecutionId, token, scopeKey, idempotencyKey, name } = invoke.input as {
-    leaseExecutionId: string;
-    token: number;
-    scopeKey: string;
-    idempotencyKey: string;
-    name: string;
-  };
+  const { leaseExecutionId, token, scopeKey, idempotencyKey, name, attemptOwner, claim } =
+    invoke.input as {
+      leaseExecutionId: string;
+      token: number;
+      scopeKey: string;
+      idempotencyKey: string;
+      name: string;
+      attemptOwner?: string;
+      claim?: { attemptOwner?: string };
+    };
+  const owner = attemptOwner ?? claim?.attemptOwner;
   return {
     operation: invoke.operation,
     key: leaseExecutionId,
@@ -117,6 +123,7 @@ function fencedWriteOf(invoke: HistoryOperation["invoke"]): FencedWrite {
     scopeKey,
     idempotencyKey,
     name,
+    ...(owner === undefined ? {} : { attemptOwner: owner }),
     invokedAt: invoke.at,
     id: invoke.id,
   };

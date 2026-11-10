@@ -1,6 +1,7 @@
 import { ExecutionLeaseEventKind } from "../../../infrastructure/execution-lease-event.repository.js";
 import type { FaultRun } from "../facts.js";
 import { compareAt } from "../operation-history.js";
+import { OutboundCallStatus } from "../../../infrastructure/outbound-call.repository.js";
 import { StoreHoldPoint } from "../store-points.js";
 import {
   acceptedWritesOf,
@@ -91,6 +92,17 @@ function writeViolations(
   );
 }
 
+/** A fenced effect's write, as the history names its operation. */
+const FENCED_EFFECT_WRITE: string = StoreHoldPoint.FencedEffectWrite;
+
+/** The state each outbound-call write leaves its row in: what tells which write the row's last is. */
+const LEFT_AT: Readonly<Record<string, OutboundCallStatus>> = {
+  [StoreHoldPoint.OutboundSaveIfAbsent]: OutboundCallStatus.Pending,
+  [StoreHoldPoint.OutboundMarkPending]: OutboundCallStatus.Pending,
+  [StoreHoldPoint.OutboundMarkCompleted]: OutboundCallStatus.Completed,
+  [StoreHoldPoint.OutboundMarkFailed]: OutboundCallStatus.Failed,
+};
+
 /** A fenced write the store's rows hold (#876): the token it was written at, and whose it is. */
 interface WrittenRow {
   readonly token: number;
@@ -98,9 +110,16 @@ interface WrittenRow {
 }
 
 /**
- * The store's own record of its fenced writes, as the run's end read it: each fenced effect's
- * stored token (a lease-log row's `writtenToken`, as the store answered it; a business key's replay
- * of another step's write left out) and each outbound call's (its row's token: its last write's).
+ * The store's own record of its fenced writes, as the run's end read it, through the public API:
+ * - each fenced effect's stored token, as the store answered it to a later call of the key (a
+ *   lease-log row's `writtenToken`; a business key's replay of another step's write left out) — a
+ *   write whose pod died is never checkpointed, so its step runs again on the next holder and the
+ *   tree must finish (`trees-finish`): that call reads the row back;
+ * - each outbound call's row: its token, its state and its attempt's owner are its last write's —
+ *   what tells that write from the others of the call; a stale write a later one moved on from is
+ *   out of reach here (the later write is checked on its own).
+ * The fenced effects' rows are read as the store answered them to the step's next call, not from its
+ * table (no store reads its results back but by key); a key nobody calls again is out of reach.
  */
 function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
   return run.trees.flatMap((tree) => [
@@ -112,7 +131,7 @@ function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
             {
               token: row.writtenToken,
               holds: (write) =>
-                write.operation === StoreHoldPoint.FencedEffectWrite &&
+                write.operation === FENCED_EFFECT_WRITE &&
                 write.scopeKey === row.scopeKey &&
                 write.idempotencyKey === row.step.idempotencyKey &&
                 write.name === row.name,
@@ -123,7 +142,8 @@ function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
     ...tree.outboundCalls.map((row): WrittenRow => ({
       token: row.token,
       holds: (write) =>
-        write.operation !== StoreHoldPoint.FencedEffectWrite &&
+        LEFT_AT[write.operation] === row.status &&
+        write.attemptOwner === row.attemptOwner &&
         write.key === row.leaseExecutionId &&
         write.name === row.name,
     })),
@@ -134,7 +154,8 @@ function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
  * #876: a fenced write never answered — its pod died between the write and the record — that the
  * store's rows hold (written at its token, and no answered write of it at that token) is checked
  * as an accepted one. Several unanswered writes of it at that token: a violation only when none of
- * them could have been let through rightly (any one of them is the row).
+ * them could have been let through rightly (any one of them is the row). A row no write of the
+ * history explains is left alone: a dying pod's invoke may be lost on its way to the test.
  */
 function unansweredViolations(
   run: FaultRun,
