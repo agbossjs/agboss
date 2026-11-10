@@ -18,20 +18,31 @@ export interface Grant {
 }
 
 /**
- * A fenced write the store's lease check let through (#840): any answer but an error — a write
- * that ran, and one that found its key already there (`replayed`, `false`), since every fenced
- * write checks the lease first and a refused one throws `ExecutionFencedError`.
+ * A fenced write the store was asked (#876: answered or not). One the store's lease check let
+ * through (#840) is an `AcceptedWrite`: any answer but an error — a write that ran, and one that
+ * found its key already there (`replayed`, `false`), since every fenced write checks the lease
+ * first and a refused one throws `ExecutionFencedError`.
  */
-export interface AcceptedWrite {
+export interface FencedWrite {
   readonly operation: string;
   /** The lease's execution: the key of its grants. */
   readonly key: string;
   readonly token: number;
   readonly instanceId: string;
-  /** When it was asked, and when the store answered. */
+  /** Which fenced write of the key it is (#876: what the store's rows name it by). */
+  readonly scopeKey: string;
+  readonly idempotencyKey: string;
+  readonly name: string;
+  /** An outbound call's write: the attempt's owner it writes (#876: what its row names it by). */
+  readonly attemptOwner?: string;
+  /** When it was asked. */
   readonly invokedAt: string;
-  readonly completedAt: string;
   readonly id: string;
+}
+
+/** A fenced write the store answered: when it did. */
+export interface AcceptedWrite extends FencedWrite {
+  readonly completedAt: string;
 }
 
 /** The lease operations that grant one. */
@@ -91,23 +102,48 @@ export function finishesOf(history: OperationHistory): ReadonlyMap<string, strin
   return finished;
 }
 
+/** What a fenced write's invoke says of it. */
+function fencedWriteOf(invoke: HistoryOperation["invoke"]): FencedWrite {
+  const { leaseExecutionId, token, scopeKey, idempotencyKey, name, attemptOwner, claim } =
+    invoke.input as {
+      leaseExecutionId: string;
+      token: number;
+      scopeKey: string;
+      idempotencyKey: string;
+      name: string;
+      attemptOwner?: string;
+      claim?: { attemptOwner?: string };
+    };
+  const owner = attemptOwner ?? claim?.attemptOwner;
+  return {
+    operation: invoke.operation,
+    key: leaseExecutionId,
+    token,
+    instanceId: invoke.instanceId,
+    scopeKey,
+    idempotencyKey,
+    name,
+    ...(owner === undefined ? {} : { attemptOwner: owner }),
+    invokedAt: invoke.at,
+    id: invoke.id,
+  };
+}
+
 /** Every fenced write the store's lease check let through: answered, not refused. */
 export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWrite[] {
-  return completed(history).flatMap(({ invoke, complete }) => {
-    if (!WRITES.has(invoke.operation)) return [];
-    const { leaseExecutionId, token } = invoke.input as { leaseExecutionId: string; token: number };
-    return [
-      {
-        operation: invoke.operation,
-        key: leaseExecutionId,
-        token,
-        instanceId: invoke.instanceId,
-        invokedAt: invoke.at,
-        completedAt: complete.at,
-        id: invoke.id,
-      },
-    ];
-  });
+  return completed(history)
+    .filter(({ invoke }) => WRITES.has(invoke.operation))
+    .map(({ invoke, complete }) => ({ ...fencedWriteOf(invoke), completedAt: complete.at }));
+}
+
+/**
+ * Every fenced write the store was asked and never answered (#876): its pod died between the
+ * write and the record. Whether it was let through only the store's rows tell.
+ */
+export function unansweredWritesOf(history: OperationHistory): readonly FencedWrite[] {
+  return history.operations
+    .filter(({ invoke, complete }) => complete === undefined && WRITES.has(invoke.operation))
+    .map(({ invoke }) => fencedWriteOf(invoke));
 }
 
 /** How many times each child's queue row was completed (`childQueue.complete` answered `true`). */

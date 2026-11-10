@@ -33,6 +33,8 @@ import type { Milliseconds } from "../../src/units/index.js";
  * - `OptedOutSqliteFencedEffectRepository` (#584): declares `LeaseCheck.WithoutDoubleChargeProtection`.
  * - `ForgedTokenSqliteFencedEffectRepository` (#840): a write at a forged token — one no lease was
  *   ever granted at — let through, so the history holds a write no grant explains.
+ * - `KilledAfterStaleSqliteFencedEffectRepository` (#876): a write at a stale token let through and
+ *   stored at that token, its pod killed (SIGKILL) before the answer — only the store's row tells.
  */
 
 /** The lease's current epoch in the file. */
@@ -83,6 +85,45 @@ export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFence
       effectKeyForTesting(key, { token: key.token + FORGED_TOKEN_OFFSET }),
       work,
     );
+  }
+}
+
+/**
+ * #876: a fenced-effect store that lets a stale token through (as `UnfencedSqliteFencedEffectRepository`),
+ * stores the write at the stale token it was asked, and kills its own pod (SIGKILL) before it
+ * answers: the history holds the write's invoke and no answer.
+ */
+@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+export class KilledAfterStaleSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
+  readonly #database: DatabaseSync;
+
+  constructor(
+    sqliteConnection: SqliteConnection,
+    clock: StoreClock,
+    settings: FencedEffectSettings,
+  ) {
+    super(sqliteConnection, clock, settings);
+    this.#database = sqliteConnection.database;
+  }
+
+  protected override async runInTransaction<TResult>(
+    key: EffectKey,
+    work: FencedEffectWork<DatabaseSync, TResult>,
+  ): Promise<FencedEffectOutcome<TResult>> {
+    const current = currentEpochOf(this.#database, key);
+    const outcome = await super.runInTransaction(key, work);
+    if (key.token >= current) return outcome;
+    const { changes } = this.#database
+      .prepare(
+        "UPDATE fenced_effect_results SET token = ? WHERE scope_key = ? AND idempotency_key = ? AND name = ?",
+      )
+      .run(key.token, key.scopeKey, key.idempotencyKey, key.name);
+    if (changes !== 1)
+      throw new Error(
+        `the sabotage stored no stale write of ${key.name} (${String(changes)} rows)`,
+      );
+    process.kill(process.pid, "SIGKILL");
+    return outcome;
   }
 }
 
