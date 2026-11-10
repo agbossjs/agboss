@@ -27,7 +27,7 @@ import {
   type Collected,
   type InstanceMeter,
 } from "./support/metric-reader.js";
-import { settle } from "../app/fixtures/fence-takeover.js";
+import { HeldLease } from "../../src/app/held-lease.js";
 import { first, untilSettled, watched } from "./support/runs.js";
 
 const maxOf = (collections: readonly Collected[], name: string): number =>
@@ -71,15 +71,20 @@ async function runLooking(
   closeGate();
   const call = execute(first(apps), MetricsBatchWorkflowStart, itemsOf(count));
   const progress = watched(call);
+  // #800: the tree ends when its root's lease is released — its record kept, its children ended —
+  // a few turns before the caller's promise settles; an idle read from then on is the end
+  const releases = vi.spyOn(HeldLease.prototype, "release");
+  const hasEnded = (): boolean => {
+    const root = remoteLog.readings[0]?.rootExecutionId;
+    return releases.mock.contexts.some(
+      (lease) => lease instanceof HeldLease && lease.rootExecutionId === root,
+    );
+  };
   const demands: number[] = [];
   let looks = 0;
   const look = async (): Promise<void> => {
     const signals = signalsOf(await collectAll(meters));
-    if (progress.isSettled()) return;
-    // #800: the tree's lease goes when it ends, a few turns before the caller's promise settles —
-    // an idle read there is the end, not a moving tree, when the call settles right after
-    if (signals.idle) await settle();
-    if (progress.isSettled()) return;
+    if (progress.isSettled() || hasEnded()) return;
     looks += 1;
     demands.push(signals.demand);
     expect(signals.idle, `look ${String(looks)}: the tree still moves`).toBe(false);
@@ -92,6 +97,7 @@ async function runLooking(
   // a look at every turn while the children finish, then the clock until the tree ends
   for (let turn = 0; turn < 200 && !progress.isSettled(); turn += 1) await look();
   await untilSettled(call, clock, look);
+  releases.mockRestore();
   return { looks, demands };
 }
 
