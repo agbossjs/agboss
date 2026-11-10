@@ -32,6 +32,18 @@ export enum StoreHoldPoint {
   HistorySave = "executionHistory.save",
   /** A key of a tree saved (#607: an undo's done mark, `tree-points.ts`), keyed by its family. */
   TreeSaveIfAbsent = "executionTree.saveIfAbsent",
+  /** An execution id kept (#591, #811: a starter's reserved A2A task id, or a sweep's fence of it). */
+  LeaseClaimExecutionId = "lease.claimExecutionId",
+  /** An A2A task accepted with its first message (#811, `a2a-points.ts`), keyed by the task's id. */
+  A2ATaskSaveIfAbsent = "a2aTask.saveIfAbsent",
+  /** An A2A task's status written by compare-and-set (#811), keyed by the task's id. */
+  A2ATaskStatusWrite = "a2aTask.compareAndSetStatus",
+  /** A pause answered: its atomic `Pending → Resolved` (#811), keyed by the pause's id. */
+  PauseResolve = "pause.resolve",
+  /** A pause withdrawn: its atomic `Pending → Cancelled` (#811), keyed by the pause's id. */
+  PauseCancel = "pause.cancel",
+  /** A pause read by its id (#811: a resume reads it before it marks its root running, #850). */
+  PauseFind = "pause.find",
 }
 
 /** How one wrapped method is read. */
@@ -120,6 +132,12 @@ export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   retire: onLease(StoreHoldPoint.LeaseRetire),
   yield: onLease(StoreHoldPoint.LeaseYield),
   reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
+  claimExecutionId: {
+    point: StoreHoldPoint.LeaseClaimExecutionId,
+    keyOf: (args) => (args[0] as { readonly executionId: string }).executionId,
+    inputOf: first,
+    outputOf: (kept) => ({ kept }),
+  },
 };
 
 /** The fenced-effect store's transaction (`runInTransaction`, what every write goes through). */

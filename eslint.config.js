@@ -51,6 +51,8 @@ export default tseslint.config(
       "scratch/**",
       // the types `agboss check` / `check:types` generate (#272)
       "**/.agboss",
+      // the official A2A TCK's clone and venv (scripts/a2a-tck.mjs, #811)
+      ".a2a-tck",
     ],
   },
   js.configs.recommended,

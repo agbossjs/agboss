@@ -18,6 +18,8 @@ import {
   type GatewayCall,
   type PodCommand,
   type PodEvent,
+  podA2AOf,
+  type PodA2A,
 } from "./pod-protocol.js";
 
 /**
@@ -88,6 +90,8 @@ export class FaultPod {
   optedOut: readonly string[] = [];
   /** What its store set decides a lease's time by (#799), as the pod read it from the set. */
   storeTime: FaultStoreTime | undefined;
+  /** Whether its set keeps A2A tasks — what decides if A2A scenarios run — and its listener (#811). */
+  a2a: PodA2A = { keepsA2ATasks: false, a2aUrl: undefined };
   #output = "";
   #commands = 0;
   readonly #watchers = new Set<() => void>();
@@ -250,5 +254,12 @@ export async function launchPod(launch: PodLaunch): Promise<FaultPod> {
   pod.instanceId = String(ready.instanceId);
   pod.optedOut = Array.isArray(ready.optedOut) ? ready.optedOut.map(String) : [];
   pod.storeTime = Object.values(FaultStoreTime).find((time) => time === ready.storeTime);
+  // #811 AC4: what the pod says of A2A is checked, never guessed
+  const a2a = podA2AOf(ready);
+  if (typeof a2a === "string") {
+    await pod.kill();
+    throw new FaultWaitError(`pod ${launch.name}: ${a2a}`);
+  }
+  pod.a2a = a2a;
   return pod;
 }

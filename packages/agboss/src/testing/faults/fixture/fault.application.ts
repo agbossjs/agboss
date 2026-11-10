@@ -14,6 +14,8 @@ import { heldMethodsOf, withHoldPoints } from "../held-stores.js";
 import { FaultModelProvider } from "./fault.model-provider.js";
 import { FaultObserver } from "./fault.observer.js";
 import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
+import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
+import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
 import { FaultPodLink } from "./pod-link.js";
 
 /**
@@ -61,16 +63,38 @@ export const heldProvidersOf = (providers: readonly Class[]): Class[] =>
     heldMethodsOf(provider) === undefined ? provider : withHoldPoints(provider),
   );
 
+/**
+ * What the application adds to serve A2A (#811 AC4) on a store set that keeps A2A tasks: the
+ * approved order's workflow, the expose, its caller resolver and the question's channel; none on
+ * another set, whose application stays as it was.
+ */
+interface FaultA2AParts {
+  readonly workflows: readonly Class[];
+  readonly exposes: readonly Class[];
+  readonly providers: readonly Class[];
+}
+
+function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
+  if (!keepsA2ATasks(stores.providers)) return { workflows: [], exposes: [], providers: [] };
+  return {
+    workflows: [FaultApprovalWorkflow],
+    exposes: [FaultA2AExpose],
+    providers: [FaultCallerResolver, FaultCallerChannel],
+  };
+}
+
 /** The fixture's application on `stores`, with the pod's `settings`. */
 export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSettings = {}): Class {
   const { shutdownTimeout, maxConcurrentSteps } = settings;
+  const a2a = a2aPartsOf(stores);
   return Application({
     name: "fault-application",
     version: "1.0.0",
     environment: faultEnvironmentOf(stores.environment.contract),
     // #825: the fenced charge and the payment are under business keys: one key for every pod
     idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
-    workflows: [FaultOrderWorkflow, FaultBatchWorkflow],
+    workflows: [FaultOrderWorkflow, FaultBatchWorkflow, ...a2a.workflows],
+    ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
     retention: { executionRecords: hours(24) },
@@ -82,6 +106,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
+      ...a2a.providers,
     ],
   })(faultApplicationClass());
 }

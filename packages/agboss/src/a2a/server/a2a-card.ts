@@ -33,13 +33,16 @@ export interface AgentCardSource {
    * long (`@Application({ retention: { a2aTasks } })`); an unfinished one never goes.
    */
   readonly idempotencyRetention: number;
+  /** When the card was made (the listener's first request): its `Last-Modified` (#811). */
+  readonly madeAt: Date;
 }
 
-/** The card as served: its JSON text and its entity tag. */
+/** The card as served: its JSON text, its entity tag and when it was made (an HTTP date). */
 export interface ServedAgentCard {
   readonly card: AgentCard;
   readonly json: string;
   readonly etag: string;
+  readonly lastModified: string;
 }
 
 function schemeOf(scheme: A2ASecurityScheme): SecurityScheme {
@@ -154,5 +157,5 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
   };
   const json = JSON.stringify(AgentCard.toJSON(card));
   const etag = `"${createHash("sha256").update(json).digest("base64url")}"`;
-  return { card, json, etag };
+  return { card, json, etag, lastModified: source.madeAt.toUTCString() };
 }

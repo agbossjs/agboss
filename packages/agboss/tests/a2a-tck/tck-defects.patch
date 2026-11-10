@@ -1,0 +1,52 @@
+diff --git a/tck/requirements/base.py b/tck/requirements/base.py
+index 665c136..3225247 100644
+--- a/tck/requirements/base.py
++++ b/tck/requirements/base.py
+@@ -6,6 +6,7 @@ following PRD Section 5.1.1.
+ 
+ from __future__ import annotations
+ 
++import itertools
+ import uuid
+ 
+ from dataclasses import dataclass, field
+@@ -22,13 +23,17 @@ if TYPE_CHECKING:
+ _SESSION = uuid.uuid4().hex[:8]
+ 
+ 
++_CALLS = itertools.count(1)
++
++
+ def tck_id(name: str) -> str:
+     """Generate a session-unique TCK identifier.
+ 
+     Each test run produces fresh IDs, preventing collisions with tasks
+-    left over from previous runs on the same SUT.
++    left over from previous runs on the same SUT. Each call gives another
++    one (a message's id is unique, a2a.proto Message.message_id).
+     """
+-    return f"tck-{name}-{_SESSION}"
++    return f"tck-{name}-{_SESSION}-{next(_CALLS)}"
+ 
+ 
+ class RequirementLevel(Enum):
+diff --git a/tck/requirements/core_operations.py b/tck/requirements/core_operations.py
+index 77e7692..7269c12 100644
+--- a/tck/requirements/core_operations.py
++++ b/tck/requirements/core_operations.py
+@@ -8,6 +8,7 @@ multi-turn interactions (contextId/taskId).
+ from __future__ import annotations
+ 
+ from tck.requirements.base import (
++    CONTENT_TYPE_NOT_SUPPORTED_ERROR,
+     CANCEL_TASK_BINDING,
+     EXTENSION_SUPPORT_REQUIRED_ERROR,
+     GET_TASK_BINDING,
+@@ -108,6 +109,7 @@ CORE_OPERATIONS_REQUIREMENTS: list[RequirementSpec] = [
+         binding=SEND_MESSAGE_BINDING,
+         proto_request_type="SendMessageRequest",
+         expected_behavior="ContentTypeNotSupportedError returned",
++        expected_error=CONTENT_TYPE_NOT_SUPPORTED_ERROR,
+         spec_url=f"{SPEC_BASE}311-send-message",
+         tags=[CORE, SEND_MESSAGE, ERROR],
+         sample_input={

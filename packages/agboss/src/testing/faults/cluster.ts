@@ -84,8 +84,7 @@ export class FaultCluster {
         this.#notify();
       },
       onEvent: (from, event) => {
-        this.events.push({ ...event, pod: from.name });
-        this.#notify();
+        this.note(from, event);
       },
       onGateway: (from, id, call) => void this.gateway.call(from, id, call),
     });
@@ -151,7 +150,7 @@ export class FaultCluster {
         else
           reject(
             new FaultWaitError(
-              `no ${what} within ${String(timeout / 1000)} s; events: ${this.#lastEvents()}`,
+              `no ${what} within ${String(timeout / 1000)} s; events: ${JSON.stringify(this.events.slice(-60))}`,
             ),
           );
       };
@@ -165,6 +164,15 @@ export class FaultCluster {
     });
   }
 
+  /**
+   * Keeps an event of `pod` — one it sent, or what the test saw of it (#811: an A2A answer read
+   * over its listener) — in order with every other; the invariants read them all.
+   */
+  note(pod: FaultPod, event: PodEvent): void {
+    this.events.push({ ...event, pod: pod.name });
+    this.#notify();
+  }
+
   #notify(): void {
     for (const watch of [...this.#watchers]) watch();
   }
@@ -172,10 +180,6 @@ export class FaultCluster {
   /** Resolves once `condition` holds, looked at on every event and operation; bounded. */
   async until(what: string, condition: () => boolean): Promise<void> {
     await this.next(what, () => condition());
-  }
-
-  #lastEvents(): string {
-    return JSON.stringify(this.events.slice(-60));
   }
 
   /** The `nth` event (from 1) `matches` accepts, of any pod; bounded. */

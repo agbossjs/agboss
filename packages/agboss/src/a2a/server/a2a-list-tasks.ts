@@ -28,13 +28,30 @@ function stateFilterOf(state: TaskState): A2ATaskState | undefined {
   return found;
 }
 
-/** The time `statusTimestampAfter` names; `undefined` for none. */
+/** An RFC 3339 time with its offset: one instant, whatever the server's zone (#811). */
+const RFC_3339_TIME = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})";
+const RFC_3339 = new RegExp(`^${RFC_3339_TIME}$`, "i");
+
+/** An RFC 3339 time whose fraction has a digit other than 0 past the millisecond's. */
+const BELOW_MILLISECOND = /\.\d{3}\d*[1-9]/;
+
+/**
+ * The store's bound for `statusTimestampAfter` (#811): the tasks whose status changed at or after it
+ * — the proto's own words, "a status timestamp time greater than or equal to this value"
+ * (a2a.proto `ListTasksRequest.status_timestamp_after`; the official TCK tests no boundary, the
+ * SDK's own store filters `>`). Status times are kept to the millisecond and the store keeps those
+ * strictly after its bound, so the bound is one millisecond before the first millisecond at or after
+ * the time asked — a time with a fraction below the millisecond rounded up to it. `undefined` for none.
+ */
 function statusAtAfterOf(params: ListTasksRequest): Date | undefined {
   if (params.statusTimestampAfter === undefined) return undefined;
-  const after = Date.parse(params.statusTimestampAfter);
+  const after = RFC_3339.test(params.statusTimestampAfter)
+    ? Date.parse(params.statusTimestampAfter)
+    : Number.NaN;
   if (Number.isNaN(after))
     throw invalidParams("a2a.invalid-timestamp", "statusTimestampAfter is not an RFC 3339 time");
-  return new Date(after);
+  const isBelowMillisecond = BELOW_MILLISECOND.test(params.statusTimestampAfter);
+  return new Date(after + (isBelowMillisecond ? 1 : 0) - 1);
 }
 
 /** The page size asked, else the default; one out of 1 to 100 is `-32602`. */

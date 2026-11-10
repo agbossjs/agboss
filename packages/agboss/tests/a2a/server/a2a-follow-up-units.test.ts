@@ -226,6 +226,70 @@ describe("#824: a follow-up sent again", () => {
     expect(script.warnings).toEqual([]);
   });
 
+  it("#811: its first still deciding here, the task moved meanwhile: the resend answers the task as it is now", async () => {
+    const script = scriptOf({ state: pausedOn("p-1") });
+    const { tasks, task } = await setUp(script);
+    const message = decide("f-1");
+    const record = {
+      ...keyOf("f-1"),
+      requestHash: requestHashOf("unit-workflow-start", message),
+      taskId: "task-1",
+      savedAt: NINE,
+    };
+    await tasks.saveMessageIfAbsent(record);
+    /** The first follow-up's run here: while the resend waits, it is accepted and its run ends. */
+    class FinishingRuns extends LocalRuns {
+      override async settledOf(): Promise<void> {
+        await tasks.saveReplyIfAbsent(keyOf("f-1"), { accepted: true, answered: task.version });
+        const done = { state: A2ATaskState.Completed, pendingPauses: [], finish: "f", output: 1 };
+        await tasks.compareAndSetStatus(
+          { tenantId: task.tenantId, taskId: task.taskId },
+          task.version,
+          { ...done, spentUsd: 0 },
+          NINE,
+        );
+      }
+    }
+    const parts = unitParts(script, tasks, { runs: new FinishingRuns() });
+
+    const replayed = await followedUpTask(parts, callerOf(), message);
+
+    expect(script.resumes).toHaveLength(0); // replayed, never resumed again
+    expect(replayed.task.status.state).toBe(A2ATaskState.Completed);
+    expect(replayed.answered).toBe(task.version);
+  });
+
+  it("#811: its first still deciding here, its task gone once it was answered: not found", async () => {
+    const script = scriptOf({ state: pausedOn("p-1") });
+    const { tasks, task } = await setUp(script);
+    const message = decide("f-1");
+    const record = {
+      ...keyOf("f-1"),
+      requestHash: requestHashOf("unit-workflow-start", message),
+      taskId: "task-1",
+      savedAt: NINE,
+    };
+    await tasks.saveMessageIfAbsent(record);
+    const seen = { isAnswered: false };
+    /** The first follow-up's run here: while the resend waits, it is accepted. */
+    class AnsweringRuns extends LocalRuns {
+      override async settledOf(): Promise<void> {
+        await tasks.saveReplyIfAbsent(keyOf("f-1"), { accepted: true, answered: task.version });
+        seen.isAnswered = true;
+      }
+    }
+    // the task's row is gone once the answer was kept; its message record is not
+    const gone = Object.assign(Object.create(tasks) as InMemoryA2ATaskRepository, {
+      findById: (key: Parameters<InMemoryA2ATaskRepository["findById"]>[0]) =>
+        seen.isAnswered ? Promise.resolve(undefined) : tasks.findById(key),
+    });
+    const parts = unitParts(script, gone, { runs: new AnsweringRuns() });
+
+    expect(await refusalOf(followedUpTask(parts, callerOf(), message))).toBe(
+      "TaskNotFoundError: task not found",
+    );
+  });
+
   it("none kept and none deciding here: decided again — even if a reply was kept since elsewhere", async () => {
     const script = scriptOf({ state: pausedOn("p-1") });
     const { tasks } = await setUp(script);

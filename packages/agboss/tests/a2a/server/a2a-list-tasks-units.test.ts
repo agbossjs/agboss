@@ -74,7 +74,8 @@ describe("#824: ListTasks", () => {
         ownerId: "dana",
         contextId: "ctx-1",
         state: A2ATaskState.Working,
-        statusAtAfter: new Date("2026-01-05T09:00:00Z"),
+        // at or after the time asked (#811): the store keeps those strictly after a millisecond less
+        statusAtAfter: new Date("2026-01-05T08:59:59.999Z"),
         pageSize: 3,
         pageToken: "t",
       },
@@ -105,9 +106,19 @@ describe("#824: ListTasks", () => {
     expect(await of({ status: 99 as TaskState })).toBe(
       "RequestMalformedError a2a.unknown-state: no such task state",
     );
-    expect(await of({ statusTimestampAfter: "yesterday" })).toBe(
-      "RequestMalformedError a2a.invalid-timestamp: statusTimestampAfter is not an RFC 3339 time",
-    );
+    // no time, a time of no offset (the server's zone would decide), a date only, a bare number
+    for (const statusTimestampAfter of [
+      "yesterday",
+      "2026-11-07T10:00:00",
+      "Nov 7 2026",
+      "1",
+      "x2026-11-07T10:00:00Z",
+      "+002026-11-07T10:00:00Z", // an extended year Date.parse reads, no RFC 3339 time
+      "2026-11-07T10:00:00Zx",
+    ])
+      expect(await of({ statusTimestampAfter })).toBe(
+        "RequestMalformedError a2a.invalid-timestamp: statusTimestampAfter is not an RFC 3339 time",
+      );
     expect(await of({ pageToken: "forged" })).toBe(
       "RequestMalformedError a2a.invalid-page-token: the page token is not one this agent gave",
     );
@@ -133,5 +144,67 @@ describe("#824: ListTasks", () => {
     expect(declined.tasks[0]?.artifacts).toStrictEqual([]);
     expect(asked.tasks[0]?.artifacts).toHaveLength(1);
     expect(asked.tasks[0]?.artifacts[0]?.name).toBe("unit-workflow-finish");
+  });
+});
+
+describe("#811: statusTimestampAfter keeps the tasks whose status is at or after it (a2a.proto: >=)", () => {
+  /** A store of three tasks whose statuses changed at :00.000, :00.001 and :00.002. */
+  async function threeTasks() {
+    const tasks = new InMemoryA2ATaskRepository(new InMemoryDatabase());
+    const at = (ms: number) => new Date(Date.parse("2026-01-05T09:00:00.000Z") + ms);
+    for (const ms of [0, 1, 2]) {
+      const task = await savedTask(tasks, {
+        taskId: `task-${String(ms)}`,
+        messageId: `m-${String(ms)}`,
+      });
+      await tasks.compareAndSetStatus(
+        { tenantId: task.tenantId, taskId: task.taskId },
+        task.version,
+        COMPLETED,
+        at(ms),
+      );
+    }
+    return unitParts(scriptOf(), tasks);
+  }
+
+  const timesOf = async (parts: ReturnType<typeof unitParts>, after: string) =>
+    (await listedTasks(parts, callerOf(), request({ statusTimestampAfter: after }))).tasks
+      .map((task) => task.status?.timestamp)
+      .sort();
+
+  it("a task whose status is at the time asked is listed; one before it is not", async () => {
+    const parts = await threeTasks();
+
+    expect(await timesOf(parts, "2026-01-05T09:00:00.001Z")).toEqual([
+      "2026-01-05T09:00:00.001Z",
+      "2026-01-05T09:00:00.002Z",
+    ]);
+    expect(await timesOf(parts, "2026-01-05T09:00:00.000Z")).toHaveLength(3);
+    expect(await timesOf(parts, "2026-01-05T09:00:00.003Z")).toEqual([]);
+  });
+
+  it("a fraction below the millisecond: at or after it is the next millisecond on", async () => {
+    const parts = await threeTasks();
+
+    expect(await timesOf(parts, "2026-01-05T09:00:00.0005Z")).toEqual([
+      "2026-01-05T09:00:00.001Z",
+      "2026-01-05T09:00:00.002Z",
+    ]);
+    expect(await timesOf(parts, "2026-01-05T09:00:00.0010000Z")).toEqual([
+      "2026-01-05T09:00:00.001Z",
+      "2026-01-05T09:00:00.002Z",
+    ]);
+    // a digit past the millisecond's anywhere in the fraction: the next millisecond on
+    for (const after of ["2026-01-05T09:00:00.0000001Z", "2026-01-05T09:00:00.0001000Z"])
+      expect(await timesOf(parts, after)).toEqual([
+        "2026-01-05T09:00:00.001Z",
+        "2026-01-05T09:00:00.002Z",
+      ]);
+    // a lower-case offset designator is RFC 3339 too
+    expect(await timesOf(parts, "2026-01-05T09:00:00.002z")).toEqual(["2026-01-05T09:00:00.002Z"]);
+    // another offset, the same instant
+    expect(await timesOf(parts, "2026-01-05T11:00:00.002+02:00")).toEqual([
+      "2026-01-05T09:00:00.002Z",
+    ]);
   });
 });

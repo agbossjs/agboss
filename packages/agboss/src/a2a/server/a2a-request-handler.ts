@@ -29,7 +29,7 @@ import { restingTask } from "./a2a-task-wait.js";
 import { wireTaskOf } from "./a2a-task-view.js";
 import {
   A2AInternalError,
-  extendedCardNotConfigured,
+  extendedCardUnsupported,
   invalidParams,
   pushNotSupported,
   unsupportedOperation,
@@ -54,7 +54,7 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
   }
 
   getAuthenticatedExtendedAgentCard(): Promise<AgentCard> {
-    return Promise.reject(extendedCardNotConfigured());
+    return Promise.reject(extendedCardUnsupported());
   }
 
   sendMessage(params: SendMessageRequest, context: ServerCallContext): Promise<Message | Task> {

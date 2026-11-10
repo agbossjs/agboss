@@ -227,3 +227,44 @@ describe("#824: a start the app refused", () => {
     expect(read?.status).toStrictEqual(SUBMITTED);
   });
 });
+
+describe("#811 (s17): the answer is the task as it is now, never as it was saved", () => {
+  it("settled by another instance between its save and the answer: the answer says so", async () => {
+    const tasks = newTasks();
+    const save = tasks.saveIfAbsent.bind(tasks);
+    // another instance's read repair settles the task right after this pass saved it
+    tasks.saveIfAbsent = async (task: NewA2ATask) => {
+      const saved = await save(task);
+      if (saved.status === A2ATaskSaveStatus.Saved) {
+        const lost = { state: A2ATaskState.Failed, pendingPauses: [], errorCode: "a2a.start-lost" };
+        const key = { tenantId: saved.task.tenantId, taskId: saved.task.taskId };
+        await tasks.compareAndSetStatus(key, saved.task.version, lost, NINE);
+      }
+      return saved;
+    };
+    const parts = unitParts(scriptOf(), tasks);
+
+    const task = await acceptedTask(parts, callerOf(), hello());
+    await settle();
+
+    expect(task.status).toMatchObject({ state: A2ATaskState.Failed, errorCode: "a2a.start-lost" });
+    expect(task.version).toBe(2);
+  });
+
+  it("a task the store lost right after saving it: the request failed, logged, never the stale answer", async () => {
+    const tasks = newTasks();
+    tasks.findById = () => Promise.resolve(undefined);
+    const script = scriptOf();
+    const parts = unitParts(script, tasks);
+
+    const refused = await refusalOf(acceptedTask(parts, callerOf(), hello()));
+    await settle();
+
+    expect(refused).toBe("A2AInternalError: the request failed");
+    expect(script.warnings).toEqual([
+      expect.stringMatching(
+        /^a2a\.task-vanished task \S+ was saved and is gone: the request failed /,
+      ),
+    ]);
+  });
+});

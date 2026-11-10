@@ -138,9 +138,13 @@ export async function sendEvents(
   }
 }
 
-/** Serves the card, with its entity tag (`304` for the same one). */
+/** Serves the card, with its entity tag (`304` for the same one) and when it was made (#811). */
 export function sendCard(req: IncomingMessage, res: ServerResponse, card: ServedAgentCard): void {
-  const headers = { etag: card.etag, "cache-control": "max-age=300" };
+  const headers = {
+    etag: card.etag,
+    "last-modified": card.lastModified,
+    "cache-control": "max-age=300",
+  };
   if (req.headers["if-none-match"] === card.etag) {
     res.writeHead(HTTP_NOT_MODIFIED, headers).end();
     return;

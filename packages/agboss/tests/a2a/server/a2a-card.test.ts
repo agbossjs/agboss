@@ -127,6 +127,22 @@ describe("#808 AC1: the Agent Card", () => {
     expect(again.status).toBe(304);
   });
 
+  orders(
+    "#811: the card says when it was made (Last-Modified, the TCK's CARD-CACHE-003), the same on every read",
+    async ({ a2aServer, clock }) => {
+      const { url } = await a2aServer({
+        expose: OrdersA2AExpose,
+        callerResolver: BearerCallerResolver,
+      });
+      const madeAt = clock.now().toUTCString();
+      const first = (await cardAt(url)).response.headers.get("last-modified");
+      await clock.advance("1m");
+      const later = (await cardAt(url)).response.headers.get("last-modified");
+
+      expect([first, later]).toEqual([madeAt, madeAt]);
+    },
+  );
+
   orders("the official SDK client discovers the agent by its card", async ({ a2aServer }) => {
     const { url } = await a2aServer({
       expose: OrdersA2AExpose,

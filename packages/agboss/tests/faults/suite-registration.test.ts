@@ -8,6 +8,7 @@ import { sabotaged } from "../../src/testing/faults/fault-suite.js";
 import { FaultInvariant } from "../../src/testing/faults/index.js";
 import { ATOMIC_FENCING_CASE } from "../../src/testing/faults/opt-out-check.js";
 import { SCENARIOS } from "../../src/testing/faults/scenarios/index.js";
+import { NO_A2A_TASKS } from "../../src/testing/faults/scenarios/a2a-kit.js";
 import { SABOTAGES, type FaultSabotage } from "../../src/testing/faults/scenarios/sabotages.js";
 import {
   runContractFixtures,
@@ -19,7 +20,10 @@ import { sqliteFaultTarget } from "./sqlite-target.js";
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures(["fault-suite-skips.contract-fixture.ts"]);
+  run = await runContractFixtures([
+    "fault-suite-skips.contract-fixture.ts",
+    "fault-suite-no-a2a.contract-fixture.ts",
+  ]);
 }, 300_000);
 
 const casesOf = (suite: string): readonly FixtureCase[] =>
@@ -56,6 +60,20 @@ describe("#831 AC2: the suite shows what it leaves out", () => {
     );
     expect(sabotages[0]?.note).toMatch(/^sabotages: false — /u);
     expect(cases.filter((found) => found.state === "skip")).toHaveLength(TOTAL - 1);
+  });
+});
+
+describe("#811 AC4: a store set that keeps no A2A tasks", () => {
+  it("skips every A2A scenario with the reason — none passed, none failed", () => {
+    const cases = casesOf("fault suite (SQLite, no A2A tasks)");
+    const a2a = SCENARIOS.filter((scenario) => /^s1[78]/u.test(scenario.id));
+    const of = a2a.map((scenario) => cases.find((found) => found.name === scenario.title));
+
+    expect(a2a).toHaveLength(5);
+    expect(of.map((found) => ({ state: found?.state, note: found?.note }))).toEqual(
+      a2a.map(() => ({ state: "skip", note: NO_A2A_TASKS })),
+    );
+    expect(cases.filter((found) => found.state === "fail")).toEqual([]);
   });
 });
 

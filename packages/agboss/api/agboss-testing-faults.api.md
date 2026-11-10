@@ -33,6 +33,7 @@ export interface FaultEnvironment {
 
 // @public
 export enum FaultInvariant {
+    A2ATasksOnce = "a2a-tasks-once",
     ChildrenOnce = "children-once",
     EffectsOnce = "effects-once",
     FinishedWorkUntouched = "finished-work-untouched",
@@ -201,6 +202,8 @@ export class StoreAnswerLostError extends Error {
 
 // @public
 export enum StoreHoldPoint {
+    A2ATaskSaveIfAbsent = "a2aTask.saveIfAbsent",
+    A2ATaskStatusWrite = "a2aTask.compareAndSetStatus",
     // (undocumented)
     ChildClaim = "childQueue.claim",
     // (undocumented)
@@ -209,6 +212,7 @@ export enum StoreHoldPoint {
     HistorySave = "executionHistory.save",
     // (undocumented)
     LeaseAcquire = "lease.acquire",
+    LeaseClaimExecutionId = "lease.claimExecutionId",
     // (undocumented)
     LeaseReclaim = "lease.reclaim",
     // (undocumented)
@@ -231,6 +235,9 @@ export enum StoreHoldPoint {
     OutboundMarkPending = "outboundCall.markPending",
     // (undocumented)
     OutboundSaveIfAbsent = "outboundCall.saveIfAbsent",
+    PauseCancel = "pause.cancel",
+    PauseFind = "pause.find",
+    PauseResolve = "pause.resolve",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }
 
@@ -247,11 +254,11 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/hold-points.ts:46:3 - (ae-undocumented) Missing documentation for "point".
 // src/testing/faults/hold-points.ts:47:3 - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/hold-points.ts:48:3 - (ae-undocumented) Missing documentation for "key".
-// src/testing/faults/invariants/violations.ts:24:3 - (ae-undocumented) Missing documentation for "invariant".
-// src/testing/faults/invariants/violations.ts:25:3 - (ae-undocumented) Missing documentation for "message".
-// src/testing/faults/invariants/violations.ts:30:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/invariants/violations.ts:33:5 - (ae-undocumented) Missing documentation for "scenario".
-// src/testing/faults/invariants/violations.ts:34:5 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/invariants/violations.ts:29:3 - (ae-undocumented) Missing documentation for "invariant".
+// src/testing/faults/invariants/violations.ts:30:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/faults/invariants/violations.ts:35:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/invariants/violations.ts:38:5 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:39:5 - (ae-undocumented) Missing documentation for "violations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".

@@ -1,6 +1,5 @@
 import {
   ContentTypeNotSupportedError,
-  ExtendedAgentCardNotConfiguredError,
   PushNotificationNotSupportedError,
   RequestMalformedError,
   TaskNotCancelableError,
@@ -45,9 +44,16 @@ export const contentTypeNotSupported = (): A2AError =>
 export const pushNotSupported = (): A2AError =>
   new PushNotificationNotSupportedError({ message: "push notifications are not supported" });
 
-/** `-32007`: no extended card. */
-export const extendedCardNotConfigured = (): A2AError =>
-  new ExtendedAgentCardNotConfiguredError({ message: "no extended agent card" });
+/**
+ * `-32004`: no extended card — the card declares `capabilities.extendedAgentCard: false`, and an
+ * operation of a capability not declared is `UnsupportedOperationError` (spec §3.3.4; `-32007` is
+ * for an agent that declares one and has none configured; the TCK's CORE-CAP-003, #811).
+ */
+export const extendedCardUnsupported = (): A2AError =>
+  new UnsupportedOperationError({
+    message: "this agent has no extended agent card",
+    metadata: { code: "a2a.no-extended-card" },
+  });
 
 /** An unexpected failure: a plain error with a fixed text, which the binding sends as `-32603`. */
 export class A2AInternalError extends Error {
