@@ -1,7 +1,15 @@
 import { ExecutionLeaseEventKind } from "../../../infrastructure/execution-lease-event.repository.js";
 import type { FaultRun } from "../facts.js";
 import { compareAt } from "../operation-history.js";
-import { acceptedWritesOf, finishesOf, grantsOf, type Grant } from "./store-history.js";
+import { StoreHoldPoint } from "../store-points.js";
+import {
+  acceptedWritesOf,
+  finishesOf,
+  grantsOf,
+  unansweredWritesOf,
+  type FencedWrite,
+  type Grant,
+} from "./store-history.js";
 import { FaultInvariant, violation, type FaultViolation } from "./violations.js";
 
 /**
@@ -12,6 +20,9 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
  *   token fails closed, never passes for want of a grant to compare it with);
  * - no write is accepted at token N once epoch N + k was granted (its grant answered before the
  *   write was asked): the zombie's write is refused;
+ * - a write never answered (#876: its pod died before the answer) that the store's rows hold — the
+ *   fenced effects' stored tokens in the lease log, the outbound calls' rows — is checked as one
+ *   accepted;
  * - the lease log has one takeover per token of an execution;
  * - no lease of finished work is granted again (#520).
  */
@@ -47,41 +58,111 @@ function epochViolations(keys: ReadonlyMap<string, readonly Grant[]>): FaultViol
   );
 }
 
+/** What is wrong with a let-through `write`: not its epoch's holder's, or after a newer grant. */
+function writeProblems(write: FencedWrite, keys: ReadonlyMap<string, readonly Grant[]>): string[] {
+  const grants = keys.get(write.key) ?? [];
+  const own = grants.find((grant) => grant.epoch === write.token);
+  const found: string[] = [];
+  if (own === undefined)
+    found.push(
+      `${write.operation} of ${write.key} at token ${String(write.token)} (${write.instanceId}, ${write.id}) was accepted, but no lease of ${write.key} was granted at epoch ${String(write.token)}`,
+    );
+  else if (own.holder !== write.instanceId)
+    found.push(
+      `${write.operation} of ${write.key} at token ${String(write.token)} was accepted from ${write.instanceId}, but ${own.holder} held that epoch`,
+    );
+  const newer = grants.find(
+    (grant) => grant.epoch > write.token && compareAt(grant.at, write.invokedAt) < 0,
+  );
+  if (newer !== undefined)
+    found.push(
+      `${write.operation} of ${write.key} at token ${String(write.token)} (${write.instanceId}) was accepted after epoch ${String(newer.epoch)} was granted to ${newer.holder}: a stale write`,
+    );
+  return found;
+}
+
 /** Every accepted write is its epoch's holder's, and none follows a newer grant. */
 function writeViolations(
   run: FaultRun,
   keys: ReadonlyMap<string, readonly Grant[]>,
 ): FaultViolation[] {
-  return acceptedWritesOf(run.history).flatMap((write) => {
-    const grants = keys.get(write.key) ?? [];
-    const own = grants.find((grant) => grant.epoch === write.token);
-    const found: FaultViolation[] = [];
-    if (own === undefined)
-      found.push(
-        violation(
-          FaultInvariant.OneOwner,
-          `${write.operation} of ${write.key} at token ${String(write.token)} (${write.instanceId}, ${write.id}) was accepted, but no lease of ${write.key} was granted at epoch ${String(write.token)}`,
+  return acceptedWritesOf(run.history).flatMap((write) =>
+    writeProblems(write, keys).map((problem) => violation(FaultInvariant.OneOwner, problem)),
+  );
+}
+
+/** A fenced write the store's rows hold (#876): the token it was written at, and whose it is. */
+interface WrittenRow {
+  readonly token: number;
+  readonly holds: (write: FencedWrite) => boolean;
+}
+
+/**
+ * The store's own record of its fenced writes, as the run's end read it: each fenced effect's
+ * stored token (a lease-log row's `writtenToken`, as the store answered it; a business key's replay
+ * of another step's write left out) and each outbound call's (its row's token: its last write's).
+ */
+function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
+  return run.trees.flatMap((tree) => [
+    ...tree.leaseEvents.flatMap((row): WrittenRow[] =>
+      row.kind === ExecutionLeaseEventKind.FencedEffect &&
+      row.writtenToken !== undefined &&
+      row.replayedFrom === undefined
+        ? [
+            {
+              token: row.writtenToken,
+              holds: (write) =>
+                write.operation === StoreHoldPoint.FencedEffectWrite &&
+                write.scopeKey === row.scopeKey &&
+                write.idempotencyKey === row.step.idempotencyKey &&
+                write.name === row.name,
+            },
+          ]
+        : [],
+    ),
+    ...tree.outboundCalls.map((row): WrittenRow => ({
+      token: row.token,
+      holds: (write) =>
+        write.operation !== StoreHoldPoint.FencedEffectWrite &&
+        write.key === row.leaseExecutionId &&
+        write.name === row.name,
+    })),
+  ]);
+}
+
+/**
+ * #876: a fenced write never answered — its pod died between the write and the record — that the
+ * store's rows hold (written at its token, and no answered write of it at that token) is checked
+ * as an accepted one. Several unanswered writes of it at that token: a violation only when none of
+ * them could have been let through rightly (any one of them is the row).
+ */
+function unansweredViolations(
+  run: FaultRun,
+  keys: ReadonlyMap<string, readonly Grant[]>,
+): FaultViolation[] {
+  const answered = acceptedWritesOf(run.history);
+  const unanswered = unansweredWritesOf(run.history);
+  const found = new Map<string, FaultViolation[]>();
+  for (const row of writtenRowsOf(run)) {
+    const atRow = (write: FencedWrite): boolean => write.token === row.token && row.holds(write);
+    if (answered.some(atRow)) continue;
+    const candidates = unanswered
+      .filter(atRow)
+      .map((write) => ({ write, problems: writeProblems(write, keys) }));
+    if (candidates.length === 0 || candidates.some(({ problems }) => problems.length === 0))
+      continue;
+    for (const { write, problems } of candidates)
+      found.set(
+        write.id,
+        problems.map((problem) =>
+          violation(
+            FaultInvariant.OneOwner,
+            `${problem} (never answered: its pod died before the answer, and the store's row holds the write at token ${String(row.token)})`,
+          ),
         ),
       );
-    else if (own.holder !== write.instanceId)
-      found.push(
-        violation(
-          FaultInvariant.OneOwner,
-          `${write.operation} of ${write.key} at token ${String(write.token)} was accepted from ${write.instanceId}, but ${own.holder} held that epoch`,
-        ),
-      );
-    const newer = grants.find(
-      (grant) => grant.epoch > write.token && compareAt(grant.at, write.invokedAt) < 0,
-    );
-    if (newer !== undefined)
-      found.push(
-        violation(
-          FaultInvariant.OneOwner,
-          `${write.operation} of ${write.key} at token ${String(write.token)} (${write.instanceId}) was accepted after epoch ${String(newer.epoch)} was granted to ${newer.holder}: a stale write`,
-        ),
-      );
-    return found;
-  });
+  }
+  return [...found.values()].flat();
 }
 
 /** One takeover row per token of an execution. */
@@ -127,6 +208,7 @@ export function oneOwnerViolations(run: FaultRun): FaultViolation[] {
   return [
     ...epochViolations(keys),
     ...writeViolations(run, keys),
+    ...unansweredViolations(run, keys),
     ...takeoverViolations(run),
     ...finishedViolations(run, grants),
   ];

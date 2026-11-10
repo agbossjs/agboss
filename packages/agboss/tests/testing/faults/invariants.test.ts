@@ -6,6 +6,7 @@ import {
   OutboundCallEventOutcome,
   type ExecutionLeaseEventRecord,
 } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import type { OutboundCallRecord } from "../../../src/infrastructure/outbound-call-record.js";
 import type { FaultRun, PodEventFact } from "../../../src/testing/faults/facts.js";
 import {
   assertFaultInvariants,
@@ -60,6 +61,24 @@ function operation(
     phase: OperationPhase.Complete,
     at: String(at + 1n),
     ...(fields.error === undefined ? { output: fields.output ?? null } : { error: fields.error }),
+  });
+}
+
+/** A store operation asked and never answered (#876): its pod died before the answer. */
+function unanswered(
+  history: OperationHistory,
+  fields: { process: string; operation: StoreHoldPoint; key: string; input: unknown },
+): void {
+  at += 10n;
+  history.record({
+    id: `${fields.process}#${String(at)}`,
+    process: fields.process,
+    instanceId: fields.process,
+    operation: fields.operation,
+    key: fields.key,
+    phase: OperationPhase.Invoke,
+    input: fields.input,
+    at: String(at),
   });
 }
 
@@ -279,6 +298,116 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
         /^outboundCall\.markPending of root-1 at token 8 \(a, a#\d+\) was accepted, but no lease of root-1 was granted at epoch 8$/u,
       ),
     ]);
+  });
+
+  it("#876 AC1: a write never answered that the store's rows hold is checked against the grants", () => {
+    const { run, history } = healthy();
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseAcquire,
+      key: "root-1",
+      output: lease("b", 2),
+    });
+    const refund = { ...key(1), idempotencyKey: "root-1:refund", name: "refund" };
+    const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay" };
+    const ship = { ...key(1), idempotencyKey: "root-1:ship", name: "ship" };
+    // a's stale writes after b's grant, never answered: the rows hold the refund and the payment
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: refund,
+    });
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundSaveIfAbsent,
+      key: "root-1",
+      input: pay,
+    });
+    // refused, then died: no row holds it at its token (b wrote the ship at 2)
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: ship,
+    });
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: { ...ship, token: 2 },
+      output: { status: "ran", token: 2 },
+    });
+    const effect = (name: string, writtenToken: number) =>
+      ({
+        kind: ExecutionLeaseEventKind.FencedEffect,
+        executionId: "root-1",
+        scopeKey: "root-1",
+        name,
+        outcome: FencedEffectEventOutcome.Replayed,
+        step: { nodeId: "n", visitNumber: 1, idempotencyKey: `root-1:${name}` },
+        writtenToken,
+      }) as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
+    const [tree] = run.trees;
+    const trees = [
+      {
+        rootExecutionId: "root-1",
+        // the charge's row at 1 is the answered write's; a business key's replay names another step
+        leaseEvents: [
+          ...(tree?.leaseEvents ?? []),
+          effect("charge", 1),
+          effect("refund", 1),
+          effect("ship", 2),
+          { ...effect("ship", 1), replayedFrom: { executionId: "other" } },
+        ] as ExecutionLeaseEventRecord[],
+        outboundCalls: [
+          { leaseExecutionId: "root-1", name: "pay", token: 1 },
+        ] as Partial<OutboundCallRecord>[] as OutboundCallRecord[],
+      },
+    ];
+    expect(violationsOf({ ...run, trees }).map((found) => found.message)).toEqual([
+      expect.stringMatching(
+        /^fencedEffect\.write of root-1 at token 1 \(a\) was accepted after epoch 2 was granted to b: a stale write \(never answered: its pod died before the answer, and the store's row holds the write at token 1\)$/u,
+      ),
+      expect.stringMatching(
+        /^outboundCall\.saveIfAbsent of root-1 at token 1 \(a\) was accepted after epoch 2 was granted to b: a stale write \(never answered/u,
+      ),
+    ]);
+    // the same unanswered writes with no row holding them: nothing to say
+    expect(violationsOf(run)).toEqual([]);
+  });
+
+  it("#876: of several unanswered writes a row holds, one that could be let through rightly is the row", () => {
+    const { run, history } = healthy();
+    const refund = { ...key(1), idempotencyKey: "root-1:refund", name: "refund" };
+    // a's refund before b's grant (rightful), then again after it (stale): either is the row
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: refund,
+    });
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseAcquire,
+      key: "root-1",
+      output: lease("b", 2),
+    });
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: refund,
+    });
+    const row = {
+      kind: ExecutionLeaseEventKind.FencedEffect,
+      scopeKey: "root-1",
+      name: "refund",
+      step: { nodeId: "n", visitNumber: 1, idempotencyKey: "root-1:refund" },
+      writtenToken: 1,
+    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
+    const trees = [{ rootExecutionId: "root-1", leaseEvents: [row], outboundCalls: [] }];
+    expect(violationsOf({ ...run, trees })).toEqual([]);
   });
 
   it("two takeovers of one token in the lease log", () => {

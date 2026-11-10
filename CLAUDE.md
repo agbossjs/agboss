@@ -1421,7 +1421,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   / `s13-clock-behind` — a pod's clock ten leases off, `FaultPodOptions.clockSkew`; a pod's stores keep
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
-  at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too), `finished-work-untouched`,
+  at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too; #876: a write never answered — its pod died — that the store's rows hold, checked as accepted), `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard once, #562),
   `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `a2a-tasks-once` (#811, on every task id the run names: no state after a terminal one, told or written; the accepted status writes one version chain; the id kept once; nothing run by a task settled start-lost; no effect committed after a canceled task's cancel became durable, none more than a lease after any tree's cancel request), `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
