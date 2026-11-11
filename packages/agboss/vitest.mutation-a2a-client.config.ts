@@ -11,7 +11,7 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
-      "tests/a2a/client/a2a-client-{units,accept.units,mesh.units,hardening,wire,in-execution,files}.test.ts",
+      "tests/a2a/client/a2a-client-{units,accept.units,mesh.units,hardening,wire,in-execution,files,direct}.test.ts",
       "tests/mesh/mesh-audience.test.ts",
       "tests/mcp/mcp-mesh-trust.test.ts",
       // #810: the mesh end to end, the takeover's charges

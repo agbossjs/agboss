@@ -17,6 +17,8 @@ export default defineConfig({
       "tests/a2a/mesh/*.test.ts",
       // #859: file parts in messages and artifacts
       "tests/a2a/files/*.test.ts",
+      // #860: the direct replies' server path and the store rules
+      "tests/a2a/direct/*.test.ts",
     ],
   },
 });

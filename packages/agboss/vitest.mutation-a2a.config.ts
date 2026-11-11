@@ -22,6 +22,9 @@ export default defineConfig({
       // #810: the mesh end to end, a task file of before it
       "tests/a2a/mesh/*.test.ts",
       "tests/infrastructure/sqlite/sqlite-a2a-task-mesh.test.ts",
+      // #860: a run no recovery continues, a direct reply's task-less path
+      "tests/app/without-recovery.test.ts",
+      "tests/a2a/direct/*.test.ts",
     ],
   },
 });

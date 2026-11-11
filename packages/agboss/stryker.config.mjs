@@ -238,6 +238,25 @@ const SHARDS = {
       audienceRefusalOf("src/mesh/mesh-verification.ts"),
     ],
   },
+  // #860: the direct replies — one run per message, a resend or a duplicate served the kept reply,
+  // a lost attempt settled once, the store in memory and SQLite, no recovery of a direct run, the
+  // assembly rule of a stateless skill, the client's retention of a direct skill; #900: a decision
+  // holds no file descriptor
+  "a2a-direct": {
+    configFile: "vitest.mutation-a2a-direct.config.ts",
+    mutate: [
+      "src/a2a/server/a2a-direct-reply.ts",
+      "src/a2a/server/a2a-direct-run.ts",
+      "src/a2a/server/a2a-direct-view.ts",
+      "src/a2a/server/a2a-forged-files.ts",
+      "src/a2a/a2a-message-skill-rule.ts",
+      "src/a2a/client/a2a-call-peer.ts",
+      "src/infrastructure/in-memory-a2a-direct-message.repository.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.ts",
+      "src/infrastructure/a2a-direct-message-expiry.ts",
+    ],
+  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";
