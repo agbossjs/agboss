@@ -5,7 +5,7 @@
  * the drain takes each pass's answers once, looks for more only while the tree rests paused and
  * forgets the tree only when it finished.
  */
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotPausedError } from "../../src/run/resume-agent.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
@@ -116,12 +116,13 @@ function partsOf(lease = leaseOf()) {
     tryHold: vi.fn(() => Promise.resolve(lease)),
   };
   const paused = { find: vi.fn(() => Promise.resolve(undefined)), drop: vi.fn() };
+  const findByTenantIdAndRunId = vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined));
   const parts: TreeMoveParts = {
     deps: {
       config: { version: "2.0.0", name: "desk-workflow" },
       terns: {
         completeIfStatus: vi.fn(() => Promise.resolve(true)),
-        findByTenantIdAndRunId: vi.fn(() => Promise.resolve(undefined)),
+        findByTenantIdAndRunId,
       },
       pause: undefined,
       log: { warn },
@@ -132,7 +133,7 @@ function partsOf(lease = leaseOf()) {
     trees: {},
     clock: {},
   } as never;
-  const terns = (parts.deps as unknown as { terns: { findByTenantIdAndRunId: Mock } }).terns;
+  const terns = { findByTenantIdAndRunId };
   return { parts, lease, leases, paused, warn, terns, moves: treeMovesOf(parts) };
 }
 
