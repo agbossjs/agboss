@@ -153,8 +153,9 @@ export abstract class A2ADirectMessageRepository {
 
   /**
    * Removes at most `limit` messages accepted before `cutoff` — the oldest first, with the claims
-   * of their ids, and the claims left by removed `InFlight` ones — and gives back the messages it
-   * removed (their attempts' files go next).
+   * of their ids — and at most `limit` claims more left by messages removed before (a failed
+   * attempt's), and gives back the messages it removed (their attempts' files go next). Atomic
+   * against a resend of a failed message: a message kept keeps its claim.
    */
   abstract deleteByCreatedAtBefore(
     cutoff: Date,

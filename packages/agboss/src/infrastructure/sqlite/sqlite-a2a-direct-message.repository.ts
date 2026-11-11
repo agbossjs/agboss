@@ -165,15 +165,23 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
           .all(cutoff.toISOString(), checkedDirectMessageLimit(limit))
           .map(directMessageOf);
         const remove = database.prepare(`DELETE FROM a2a_direct_messages WHERE ${MESSAGE_KEY}`);
-        for (const message of gone) remove.run(...messageKeyOf(message));
-        // the claims of the removed, and those whose message went before (a failed attempt's)
+        const unclaim = database.prepare(
+          `DELETE FROM a2a_messages WHERE ${MESSAGE_KEY} AND task_id = ?`,
+        );
+        for (const message of gone) {
+          remove.run(...messageKeyOf(message));
+          unclaim.run(...messageKeyOf(message), DIRECT_MESSAGE_CLAIM);
+        }
+        // at most `limit` claims more, of messages that went before (a failed attempt's)
         database
           .prepare(
-            `DELETE FROM a2a_messages WHERE task_id = ? AND saved_at < ? AND NOT EXISTS (
-               SELECT 1 FROM a2a_direct_messages d WHERE d.tenant_id = a2a_messages.tenant_id
-                 AND d.owner_id = a2a_messages.owner_id AND d.message_id = a2a_messages.message_id)`,
+            `DELETE FROM a2a_messages WHERE rowid IN (SELECT m.rowid FROM a2a_messages m
+               WHERE m.task_id = ? AND m.saved_at < ? AND NOT EXISTS (
+                 SELECT 1 FROM a2a_direct_messages d WHERE d.tenant_id = m.tenant_id
+                   AND d.owner_id = m.owner_id AND d.message_id = m.message_id)
+               ORDER BY m.saved_at LIMIT ?)`,
           )
-          .run(DIRECT_MESSAGE_CLAIM, cutoff.toISOString());
+          .run(DIRECT_MESSAGE_CLAIM, cutoff.toISOString(), limit);
         return gone;
       }),
     );

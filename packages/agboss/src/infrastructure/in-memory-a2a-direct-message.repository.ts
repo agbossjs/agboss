@@ -197,11 +197,16 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
       .sort(([, a], [, b]) => a.createdAt.getTime() - b.createdAt.getTime())
       .slice(0, limit);
     for (const [row] of gone) messages.delete(row);
-    // the claims of the removed, and those whose message went before (a failed attempt's)
-    for (const [row, claim] of claims) {
-      const isOld = claim.savedAt.getTime() < cutoff.getTime();
-      if (claim.taskId === DIRECT_MESSAGE_CLAIM && isOld && !messages.has(row)) claims.delete(row);
-    }
+    for (const [row] of gone)
+      if (claims.get(row)?.taskId === DIRECT_MESSAGE_CLAIM) claims.delete(row);
+    // at most `limit` claims more, of messages that went before (a failed attempt's)
+    const orphans = [...claims.entries()].filter(
+      ([row, claim]) =>
+        claim.taskId === DIRECT_MESSAGE_CLAIM &&
+        claim.savedAt.getTime() < cutoff.getTime() &&
+        !messages.has(row),
+    );
+    for (const [row] of orphans.slice(0, limit)) claims.delete(row);
     return gone.map(([, kept]) => kept);
   }
 

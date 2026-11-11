@@ -91,4 +91,27 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
       expect(await first.tasks.findByMessage(keyOf(newMessage("m-2")))).toBeDefined();
     },
   },
+  {
+    name: "a resend of a failed message and the sweep at once: a message kept keeps its id's claim",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await savedMessage(first.messages, newMessage("m-1"));
+      await first.messages.deleteIfInFlight(keyOf(newMessage("m-1")), "run-m-1");
+      const resent = newMessage("m-1", {
+        attemptId: "run-2",
+        createdAt: at(90),
+        startedAt: at(90),
+      });
+
+      const [save] = await Promise.all([
+        first.messages.saveIfAbsent({ ...resent, expiresAt: at(120) }),
+        second.messages.deleteByCreatedAtBefore(at(60), 10),
+      ]);
+
+      const kept = await first.messages.findByKey(keyOf(resent));
+      const task = await second.tasks.saveIfAbsent(newTask("t-1", { messageId: "m-1" }));
+      if (save.status === A2ADirectMessageSaveStatus.Saved && kept !== undefined)
+        expect(task.status).toBe(A2ATaskSaveStatus.MessageTaken);
+      expect(kept === undefined).toBe(task.status === A2ATaskSaveStatus.Saved);
+    },
+  },
 ];
