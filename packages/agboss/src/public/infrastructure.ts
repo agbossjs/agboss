@@ -127,13 +127,16 @@ export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export type { Brand } from "../types/brand.js";
 // calls that leave the system (#505): the store's contract, its in-memory default, the service,
 // its verdicts and outcome, its settings
-// (the rows at its store's boundary — intent, claim, lease, … — are in `@agboss/core/stores`, #890)
+// (the rows only its store reads — claim, state, lease, … — are in `@agboss/core/stores`, #890; an
+// intent and its step are what a record an application reads is made of)
 export {
   OutboundCallRepository,
   OutboundCallStatus,
   type OutboundCallFailure,
+  type OutboundCallIntent,
   type OutboundCallPage,
   type OutboundCallRecord,
+  type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 export { NotSentTrust } from "../app/outbound-call-contract.js";

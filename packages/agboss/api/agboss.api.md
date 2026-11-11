@@ -3316,8 +3316,6 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallIntent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
     // (undocumented)
@@ -4642,6 +4640,21 @@ export interface OutboundCallInFlightErrorOptions {
 }
 
 // @public
+export interface OutboundCallIntent {
+    readonly attempt: number;
+    readonly attemptOwner: string;
+    readonly executionId: string;
+    readonly idempotencyKey: string;
+    readonly operation: string;
+    readonly request: string;
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly step: OutboundCallStep;
+    readonly target: string;
+    readonly workflow: string;
+}
+
+// @public
 export type OutboundCallKey = EffectKeyFields & OutboundCallKeyMark;
 
 // @public
@@ -4853,6 +4866,14 @@ export enum OutboundCallStatus {
     Completed = "completed",
     Failed = "failed",
     Pending = "pending"
+}
+
+// @public
+export interface OutboundCallStep {
+    // (undocumented)
+    readonly nodeId: string;
+    // (undocumented)
+    readonly visitNumber: number;
 }
 
 // @public
@@ -8234,6 +8255,9 @@ export interface WrittenLedgerMark {
 // src/infrastructure/outbound-call-pages.ts:23:3 - (ae-undocumented) Missing documentation for "calls".
 // src/infrastructure/outbound-call-record.ts:10:3 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/outbound-call-record.ts:13:3 - (ae-undocumented) Missing documentation for "message".
+// src/infrastructure/outbound-call-record.ts:18:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/outbound-call-record.ts:19:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/outbound-call-record.ts:45:3 - (ae-undocumented) Missing documentation for "step".
 // src/infrastructure/outbound-call-record.ts:50:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-record.ts:53:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/outbound-call.repository.ts:170:3 - (ae-undocumented) Missing documentation for "store".

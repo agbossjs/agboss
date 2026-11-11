@@ -31,13 +31,14 @@ const STORE_HELPERS = [
   "OutboundCallLeaseState",
 ] as const;
 
-/** The store-boundary rows of an outbound-call store, gone from the root's API report. */
+/**
+ * The store-boundary rows of an outbound-call store, gone from the root's API report (an intent and
+ * its step stay there too: `OutboundCallRecord`, which an application reads, is made of them).
+ */
 const ROWS = [
-  "OutboundCallIntent",
   "OutboundCallClaim",
   "OutboundCallState",
   "OutboundCallLease",
-  "OutboundCallStep",
   "OutboundCallStatusQuery",
 ] as const;
 
