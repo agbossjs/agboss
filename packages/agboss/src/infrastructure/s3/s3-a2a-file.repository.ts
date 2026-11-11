@@ -17,37 +17,25 @@ import {
 import { Clock } from "../clock.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { S3Client, type S3Location } from "./s3-client.js";
+import {
+  entryBodyOf,
+  fileBytesOf,
+  fileKeyOf,
+  indexEntryOf,
+  indexKeyOf,
+  objectBodyOf,
+  ownerFolderOf,
+  ownerOfEntryBody,
+  prefixProblemOf,
+  segmentOf,
+  storedMetadataOf,
+  textOf,
+  type IndexEntry,
+  type StoredMetadata,
+} from "./s3-a2a-file-layout.js";
 
-/** The longest piece of an id in a key, so that with its mark a segment stays ≤ 255 bytes. */
-const PIECE = 254;
-
-/**
- * A key's part for any text: base64url, so no id is ever a path of its own; one longer than a
- * segment may be (#904: MinIO and S3 refuse a segment above 255 bytes — a 200-character tenant id
- * is up to 800) cut into pieces, each but the last ending with `.` (never a base64url character).
- */
-const segmentOf = (text: string): string => {
-  const encoded = Buffer.from(text, "utf8").toString("base64url");
-  const pieces: string[] = [];
-  for (let at = 0; at < encoded.length; at += PIECE) pieces.push(encoded.slice(at, at + PIECE));
-  return pieces.join("./");
-};
-const textOf = (segment: string): string =>
-  Buffer.from(segment.replaceAll("./", ""), "base64url").toString("utf8");
-
-/** One id's part in a key, as `segmentOf` writes it: its pieces, the last unmarked. */
-const ID = String.raw`(?:[\w-]+\.\/)*[\w-]+`;
-
-/** An owner's index key: `owners/<tenant>/<owner>/<saved at>/<file>`. */
-const ENTRY = new RegExp(String.raw`^owners\/(${ID})\/(${ID})\/(\d+)\/(${ID})$`);
-
-/** How a file's metadata rides its object: one user-metadata header, base64url JSON. */
-const META = "agboss";
-
-type StoredMetadata = Omit<A2AFileMetadata, "createdAt"> & { readonly createdAt: string };
-
-/** The width of a save's time in an owner's index key: sorted as text, in time order. */
-const TIME_WIDTH = 15;
+/** How much of a file's object is read for its metadata: past it, the whole object. */
+const METADATA_READ = 16 * 1024;
 
 /** What the store reads from the environment. */
 function locationOf(context: ApplicationContext): S3Location & { readonly prefix: string } {
@@ -70,16 +58,23 @@ function locationOf(context: ApplicationContext): S3Location & { readonly prefix
       accessKeyId: required("a2aS3AccessKeyId"),
       secretAccessKey: required("a2aS3SecretAccessKey"),
     },
-    prefix: text("a2aS3Prefix") ?? "agboss-a2a-files/",
+    prefix: checkedPrefix(text("a2aS3Prefix") ?? "agboss-a2a-files/"),
   };
 }
 
+/** The prefix, if it leaves room for every key (#904). */
+function checkedPrefix(prefix: string): string {
+  const problem = prefixProblemOf(prefix);
+  if (problem !== undefined) throw new Error(`S3A2AFileRepository: ${problem}`);
+  return prefix;
+}
+
 /**
- * The files in an S3 bucket (#859): one object per file — its bytes, its metadata in a user-metadata
- * header — written only when absent (`If-None-Match: *`, so of two saves one is kept and the other
+ * The files in an S3 bucket (#859): one object per file — its metadata, then its bytes
+ * (`s3-a2a-file-layout.ts`) — written only when absent (`If-None-Match: *`, so of two saves one is kept and the other
  * compared with it), and one empty object per file in its owner's index,
- * `owners/<tenant>/<owner>/<saved at>/<file>`, what the sweep lists — every id base64url, a long one
- * in pieces of at most 255 bytes. Every instance reaches the
+ * `owners/<tenant>/<owner>/<saved at>/<file>` (its body the owner), what the sweep lists — every
+ * key within S3's limits for every valid id (#904). Every instance reaches the
  * bucket: the store for files above 256 KB on shared leases. Pure `fetch` and Signature Version 4;
  * an S3-compatible store on `a2aS3Endpoint`. The bucket's own lifecycle rules are a safety net, never
  * the retention.
@@ -114,32 +109,38 @@ export class S3A2AFileRepository extends A2AFileRepository {
 
   async save(file: NewA2AFile): Promise<void> {
     const stored: StoredMetadata = { ...metadataOf(file), createdAt: file.createdAt.toISOString() };
-    const meta = { [META]: Buffer.from(JSON.stringify(stored)).toString("base64url") };
-    const isNew = await this.#client.putIfAbsent(this.#fileKey(file), file.bytes, meta);
+    const body = objectBodyOf(stored, file.bytes);
+    const isNew = await this.#client.putIfAbsent(this.#fileKey(file), body, {});
     if (!isNew) {
       const kept = await this.findMetadata(file);
       if (kept !== undefined && !isSameFile(kept, file))
         throw new A2AFileConflictError(file.fileId);
     }
     // the index after the file: a file the sweep finds is there; one written twice is one key
-    await this.#client.putIfAbsent(this.#ownerKey(file), new Uint8Array(), {});
+    const entry = `${this.#prefix}${indexKeyOf(file)}`;
+    await this.#client.putIfAbsent(entry, entryBodyOf(file), {});
   }
 
-  findBytes(key: A2AFileKey): Promise<Uint8Array | undefined> {
-    return this.#client.get(this.#fileKey(key));
+  async findBytes(key: A2AFileKey): Promise<Uint8Array | undefined> {
+    const body = await this.#client.get(this.#fileKey(key));
+    return body === undefined ? undefined : fileBytesOf(body);
   }
 
   async findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined> {
-    const head = await this.#client.head(this.#fileKey(key));
-    const encoded = head?.metadata[META];
-    if (encoded === undefined) return undefined;
-    const stored = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as StoredMetadata;
+    const fileKey = this.#fileKey(key);
+    const head = await this.#client.get(fileKey, METADATA_READ);
+    if (head === undefined) return undefined;
+    // a metadata longer than the read (a very long filename): the whole object
+    const stored =
+      storedMetadataOf(head) ?? storedMetadataOf((await this.#client.get(fileKey)) ?? head);
+    if (stored === undefined) return undefined;
     return metadataOf({ ...stored, createdAt: new Date(stored.createdAt) });
   }
 
   /**
    * The owners in the index's key order: listed from `StartAfter` past `after`'s own keys, stopped
    * at the `limit`-th owner with a file saved before `cutoff` — never the whole bucket for a page.
+   * An owner named by a digest is read from its entry's body.
    */
   async findOwnersByCreatedAtBefore(
     cutoff: Date,
@@ -149,51 +150,40 @@ export class S3A2AFileRepository extends A2AFileRepository {
     checkedPageLimit(limit);
     const index = `${this.#prefix}owners/`;
     // `~` sorts after the digits of every saved time: past every key of `after`, before the next owner's
-    const startAfter = after === undefined ? undefined : `${this.#ownerIndexOf(after)}~`;
+    const startAfter = after === undefined ? undefined : `${this.#prefix}${ownerFolderOf(after)}~`;
     const found = new Map<string, A2AFileOwner>();
     for await (const key of this.#client.keys(index, startAfter)) {
-      const entry = this.#entryOf(key);
+      const entry = indexEntryOf(key.slice(this.#prefix.length));
       if (entry === undefined || entry.savedAt >= cutoff.getTime()) continue;
-      found.set(ownerOrderOf(entry), { tenantId: entry.tenantId, ownerId: entry.ownerId });
+      const owner = await this.#ownerOf(key, entry);
+      if (owner === undefined) continue;
+      found.set(ownerOrderOf(owner), owner);
       if (found.size >= limit) break;
     }
     return [...found.values()];
   }
 
   async deleteByOwner(owner: A2AFileOwner): Promise<void> {
-    for await (const key of this.#client.keys(this.#ownerIndexOf(owner))) {
-      const entry = this.#entryOf(key);
+    for await (const key of this.#client.keys(`${this.#prefix}${ownerFolderOf(owner)}`)) {
+      const entry = indexEntryOf(key.slice(this.#prefix.length));
       if (entry === undefined) continue;
       // the file first, its index entry after: a sweep cut short finds it again
-      await this.#client.delete(this.#fileKey(entry));
+      await this.#client.delete(`${this.#prefix}${fileKeyOf(entry.tenant, entry.file)}`);
       await this.#client.delete(key);
     }
   }
 
   #fileKey(key: A2AFileKey): string {
-    return `${this.#prefix}files/${segmentOf(key.tenantId)}/${segmentOf(key.fileId)}`;
+    return `${this.#prefix}${fileKeyOf(segmentOf(key.tenantId), segmentOf(key.fileId))}`;
   }
 
-  /** The index's folder of one owner, `…/owners/<tenant>/<owner>/`. */
-  #ownerIndexOf(owner: A2AFileOwner): string {
-    return `${this.#prefix}owners/${segmentOf(owner.tenantId)}/${segmentOf(owner.ownerId)}/`;
-  }
-
-  #ownerKey(file: A2AFileMetadata): string {
-    const savedAt = String(file.createdAt.getTime()).padStart(TIME_WIDTH, "0");
-    return `${this.#ownerIndexOf(file)}${savedAt}/${segmentOf(file.fileId)}`;
-  }
-
-  /** What an owner's index key names; `undefined` for a key of no index entry. */
-  #entryOf(key: string) {
-    const match = ENTRY.exec(key.slice(this.#prefix.length));
-    if (match === null) return undefined;
-    const [, tenant = "", owner = "", savedAt = "0", file = ""] = match;
-    return {
-      tenantId: textOf(tenant),
-      ownerId: textOf(owner),
-      savedAt: Number(savedAt),
-      fileId: textOf(file),
-    };
+  /** The owner of an index entry: from its key, else (a digest) from its body. */
+  async #ownerOf(key: string, entry: IndexEntry): Promise<A2AFileOwner | undefined> {
+    const tenantId = textOf(entry.tenant);
+    const ownerId = textOf(entry.owner);
+    if (tenantId !== undefined && ownerId !== undefined) return { tenantId, ownerId };
+    const body = await this.#client.get(key);
+    // gone between the listing and the read: removed with its owner
+    return body === undefined ? undefined : ownerOfEntryBody(body);
   }
 }

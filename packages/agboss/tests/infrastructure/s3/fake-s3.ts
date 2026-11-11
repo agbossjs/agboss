@@ -68,6 +68,14 @@ export class FakeS3 {
         headers.forEach((value, name) => {
           if (name.startsWith("x-amz-meta-")) metadata[name] = value;
         });
+        // as S3 and MinIO refuse them: user metadata above 2 KB
+        const metadataSize = Object.entries(metadata).reduce(
+          (total, [name, value]) =>
+            total + bytesOf(name.slice("x-amz-meta-".length)) + bytesOf(value),
+          0,
+        );
+        if (metadataSize > 2048)
+          return new Response("<Error><Code>MetadataTooLarge</Code></Error>", { status: 400 });
         this.objects.set(key, { body, metadata });
         return new Response("", { status: 200 });
       }
@@ -78,10 +86,13 @@ export class FakeS3 {
         return found === undefined
           ? new Response(null, { status: 404 })
           : new Response(null, { status: 200, headers: found.metadata });
-      default:
-        return found === undefined
-          ? new Response("", { status: 404 })
-          : new Response(Buffer.from(found.body), { status: 200 });
+      default: {
+        if (found === undefined) return new Response("", { status: 404 });
+        const range = /^bytes=0-(\d+)$/.exec(headers.get("range") ?? "");
+        if (range === null) return new Response(Buffer.from(found.body), { status: 200 });
+        const end = Math.min(Number(range[1]) + 1, found.body.byteLength);
+        return new Response(Buffer.from(found.body.subarray(0, end)), { status: 206 });
+      }
     }
   }
 

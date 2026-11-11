@@ -107,9 +107,10 @@ export class S3Client {
     return true;
   }
 
-  /** An object's bytes; `undefined` when there is none. */
-  async get(key: string): Promise<Uint8Array | undefined> {
-    const response = await this.#send("GET", this.#urlOf(key));
+  /** An object's bytes — its first `firstBytes` only, when given; `undefined` when there is none. */
+  async get(key: string, firstBytes?: number): Promise<Uint8Array | undefined> {
+    const range = firstBytes === undefined ? {} : { range: `bytes=0-${String(firstBytes - 1)}` };
+    const response = await this.#send("GET", this.#urlOf(key), { headers: range });
     if (response.status === 404) return undefined;
     if (!response.ok) throw new S3RequestError("GET", response.status);
     return new Uint8Array(await response.arrayBuffer());
