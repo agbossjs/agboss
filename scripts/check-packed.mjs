@@ -8,7 +8,8 @@
 //   - negative: the same test under a plain vitest config, without agbossVitest() — it must fail with
 //     workflowOf's TestSetupError (AC4: the error, and proof that this job catches a regression);
 //   - #791: neither install holds a package of FORBIDDEN_PACKAGES (`extract-zip`), and `agboss
-//     studio` from the packed CLI serves the project's graphs on the LangGraph server, then stops.
+//     studio` from the packed CLI serves the project's graphs on the LangGraph server, then stops;
+//   - #904: an application whose finish returns WorkflowFinishFileDto passes `agboss check`.
 // `npm run check:packed` (builds first); CI's packed-project job. Not part of `make check`.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -23,6 +24,8 @@ import { coreFramesOf, missingMapSources, missingSourceWarnings } from "./packed
 import {
   CORE_FAILURE_TEST,
   CORE_FAILURE_TEST_FILE,
+  FILES_APPLICATION,
+  FILES_APPLICATION_FILE,
   OUTSIDE_GRAPH,
   PLAIN_VITEST_CONFIG,
   PROJECT,
@@ -152,6 +155,10 @@ function positive(project) {
   coreStackTrace(project);
   run("positive: agboss describe", binOf(project, "agboss"), ["describe"], project);
   run("positive: agboss check", binOf(project, "agboss"), ["check"], project);
+  mkdirSync(dirname(join(project, FILES_APPLICATION_FILE)), { recursive: true });
+  writeFileSync(join(project, FILES_APPLICATION_FILE), FILES_APPLICATION);
+  const check = ["check", "--application", FILES_APPLICATION_FILE];
+  run("positive: agboss check of a file finish (#904)", binOf(project, "agboss"), check, project);
 }
 
 function negative(project) {

@@ -9,7 +9,7 @@ import type { LedgerKey } from "../../finops/ledger-mark.js";
 import { usd, type Usd } from "../../units/index.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { meshBodyHashOf, meshReportTextOf } from "../a2a-mesh-message.js";
-import type { A2ARemotePeer } from "./a2a-card.js";
+import { cardExtensionsOf, type A2ARemotePeer } from "./a2a-card.js";
 import { A2AMesh, A2AMeshUnsupportedError } from "./a2a-guard-errors.js";
 
 /**
@@ -118,7 +118,7 @@ const withoutMesh = (peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation 
 
 /** Whether the agent's card declares the mesh extension. */
 const declaresMesh = (card: AgentCard): boolean =>
-  card.capabilities?.extensions.some((extension) => extension.uri === A2A_MESH_EXTENSION) === true;
+  cardExtensionsOf(card).some((extension) => extension.uri === A2A_MESH_EXTENSION);
 
 /**
  * A call to an entry the calling tree already passed through is a loop: refused before sending,

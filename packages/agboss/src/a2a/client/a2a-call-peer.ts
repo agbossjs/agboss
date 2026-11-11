@@ -2,7 +2,7 @@ import type { AgentCard } from "@a2a-js/sdk";
 import { millisecondsOf } from "../../mesh/mesh-durations.js";
 import { minutes, type Milliseconds } from "../../units/index.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
+import { A2APeerKind, cardExtensionsOf, type A2ARemotePeer } from "./a2a-card.js";
 
 /**
  * The peer one call relies on (#860, design §4.3.3): an AGBoss agent's skill that answers with a
@@ -21,7 +21,7 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 /** The params of the card's entry for `uri`; `{}` without them. */
 const paramsOf = (card: AgentCard, uri: string): Readonly<Record<string, unknown>> => {
-  const params = card.capabilities?.extensions.find((entry) => entry.uri === uri)?.params;
+  const params = cardExtensionsOf(card).find((entry) => entry.uri === uri)?.params;
   return isRecord(params) ? params : {};
 };
 

@@ -6,6 +6,7 @@
  */
 import { Role, TaskState, type Part } from "@a2a-js/sdk";
 import { describe, expect } from "vitest";
+import { DEFAULT_A2A_FILE_MEDIA_TYPES } from "../../../src/a2a/files/a2a-file-options.js";
 import { withFileTransport } from "../../../src/a2a/files/a2a-file-seam.js";
 import { testWith } from "../../../src/testing/index.js";
 import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
@@ -401,7 +402,9 @@ describe("#859: what is checked before the message's id is looked up", () => {
 });
 
 describe("#859: the Agent Card publishes the files a skill takes and gives", () => {
-  test("its input and output modes list the skill's file media types", async ({ a2aServer }) => {
+  test("its input modes list the skill's file media types; #904 item 5 AC5.2: its output modes what A2AFiles.save takes, the application's", async ({
+    a2aServer,
+  }) => {
     const { url } = await a2aServer(listener);
 
     const card = (await (await fetch(`${url}/.well-known/agent-card.json`)).json()) as {
@@ -411,7 +414,8 @@ describe("#859: the Agent Card publishes the files a skill takes and gives", () 
 
     const types = ["application/pdf", "text/plain", "image/png"];
     expect(card.skills[0]?.inputModes).toEqual(["application/json", ...types]);
-    expect(card.skills[0]?.outputModes).toEqual([...types, "application/json"]);
+    // no application a2aFiles: the default media types, application/json among them (its data)
+    expect(card.skills[0]?.outputModes).toEqual(DEFAULT_A2A_FILE_MEDIA_TYPES);
     expect(card.defaultInputModes).toEqual(["application/json", ...types]);
   });
 });

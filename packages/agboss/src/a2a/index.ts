@@ -78,6 +78,7 @@ export {
 export { a2aHttpListener, type A2AHttpListenerOptions } from "./a2a-http.js";
 export {
   A2AExpose,
+  A2ACardFileFields,
   A2AReply,
   type A2AExposeOptions,
   type A2AExposedSkillOptions,

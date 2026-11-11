@@ -131,6 +131,44 @@ const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
     },
   },
   {
+    name: "#904: a tenant id of 200 characters, three-byte ones too: its file is saved, read, found by the sweep and removed",
+    run: async ({ first, second }) => {
+      const tenants = ["t".repeat(200), "€".repeat(200)];
+      for (const tenantId of tenants) await first.save(fileOf({ tenantId }));
+
+      const owners = await second.findOwnersByCreatedAtBefore(TEN, 10);
+      const read = await Promise.all(
+        tenants.map((tenantId) => second.findMetadata({ tenantId, fileId: "task-1.0" })),
+      );
+      for (const tenantId of tenants) await second.deleteByOwner({ tenantId, ownerId: "task-1" });
+
+      expect(owners).toEqual(
+        expect.arrayContaining(tenants.map((tenantId) => ({ tenantId, ownerId: "task-1" }))),
+      );
+      expect(read).toEqual(tenants.map((tenantId) => metaOf(fileOf({ tenantId }))));
+      expect(await first.findOwnersByCreatedAtBefore(TEN, 10)).toEqual([]);
+    },
+  },
+  {
+    name: "#904: the longest ids together — a tenant, an owner and a file id of 200 three-byte characters, a long filename: saved, read, found by the sweep and removed",
+    run: async ({ first, second }) => {
+      const owner = { tenantId: "€".repeat(200), ownerId: "₤".repeat(200) };
+      const file = fileOf({ ...owner, fileId: `${"₿".repeat(198)}.0`, filename: "я".repeat(255) });
+      await first.save(file);
+
+      const owners = await second.findOwnersByCreatedAtBefore(TEN, 10);
+      const meta = await second.findMetadata(file);
+      const bytes = await second.findBytes(file);
+      await second.deleteByOwner(owner);
+
+      expect(owners).toEqual([owner]);
+      expect(meta).toEqual(metaOf(file));
+      expect(Buffer.from(bytes ?? [])).toEqual(Buffer.from(file.bytes));
+      expect(await first.findMetadata(file)).toBeUndefined();
+      expect(await first.findOwnersByCreatedAtBefore(TEN, 10)).toEqual([]);
+    },
+  },
+  {
     name: "a page holds a whole number of owners from 1: another limit is a RangeError",
     run: async ({ first }) => {
       await expect(first.findOwnersByCreatedAtBefore(TEN, 0)).rejects.toBeInstanceOf(RangeError);

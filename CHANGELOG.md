@@ -644,6 +644,31 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   `-32602 a2a.file-field-in-data`, nothing resumed, as a start's data part naming a file field is:
   a file's descriptor is the server's, made when a file part is admitted. The scan is iterative and
   bounded (64 levels, 10 000 values, else `-32602 a2a.answer-shape`).
+- **A2A files hardened after the acceptance of #859** (#904):
+  - **No file by url from a special-purpose address**: every range of the IANA special-purpose
+    registries that is not globally reachable is refused (`100.64.0.0/10`, `192.0.0.0/24`,
+    `198.18.0.0/15`, the documentation ranges, `240.0.0.0/4`, multicast, `fec0::/10`, `fc00::/7`,
+    `fe80::/10`, `2001::/23`, `64:ff9b:1::/48`, …), and an IPv6 address carrying an IPv4 one — IPv4-mapped,
+    -translated, -compatible, NAT64 `64:ff9b::/96`, 6to4 `2002::/16` — is checked as that IPv4
+    (`[64:ff9b::a9fe:a9fe]` was connected to). A url with a user or a password is refused
+    (`-32602 a2a.file-origin-denied`), on a redirect too — it was sent as `Authorization: Basic`.
+  - **Concurrent duplicates of one message fetch its file once** on a listener: they join the fetch
+    in flight; the last request to leave aborts it. Across instances each fetches at most once.
+  - **`S3A2AFileRepository` keeps every valid id**: every key segment within 255 bytes and every key
+    within 1024 (a long id in pieces, one past 300 characters as its digest), the metadata in the
+    object's body (S3 and MinIO refuse user metadata above 2 KB); `a2aS3Prefix` is at most 99 bytes
+    (refused at start otherwise). A tenant id above 191 characters was `XMinioInvalidObjectName`.
+  - **The card never asks for a file field in the data part**: `@A2AExpose({ cardFileFields })` —
+    `A2ACardFileFields.Extension` (default: out of the skill's `input` schema and `required`, declared
+    in the skills extension as `files: { <field>: { list, optional, mediaTypes } }`) or
+    `A2ACardFileFields.Marker` (in it as `{ "x-agboss-file-part": true, description }`, never
+    required); a skill may set its own (`skills: { [id]: { cardFileFields } }`,
+    `[a2a.file-options-invalid]`); `describe --json` names it per export; the AGBoss client's
+    schema check reads either. `outputModes` list what `A2AFiles.save` takes (the application's
+    media types), and a skill's settings are read from its own expose when two export one start.
+  - `agboss check` types an application whose finish returns `WorkflowFinishFileDto` (the generator
+    knew `@agboss/core/dto` only); `[application.retention-invalid]` names only the fields at fault;
+    `A2AClient` reads a card without `capabilities.extensions` as one declaring none (it threw).
 - **A business key's fingerprint is required, and keyed by an idempotency secret of its own** (#825,
   from the 0.1.1 API review, G1b and G5) — under a business key a fenced effect without a
   `fingerprint` had none, so two effects with the same business key and other work (a charge and a

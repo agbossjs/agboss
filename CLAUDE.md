@@ -1898,8 +1898,8 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   else in order; never from the data part, `a2a.file-field-in-data`), bounded by
   `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`, each file's bytes
   checked against its media type, a url fetched once at the admission — `https:` on
-  `allowedFileOrigins`, manual redirects ≤ 3, no private address, `fileFetchTimeout`, the request's
-  end —; a finish with file fields answers with file parts; steps use `A2AFiles` (`read` / `save` /
+  `allowedFileOrigins`, manual redirects ≤ 3, no special-purpose address (embedded IPv4 checked as IPv4) and no userinfo, #904, `fileFetchTimeout`, the request's
+  end —; the card never asks for a file field in data — `@A2AExpose({ cardFileFields })`, `A2ACardFileFields.Extension` (out of `input`, in the skills extension's `files`) or `.Marker` (`x-agboss-file-part`), per skill too, #904; a finish with file fields answers with file parts; steps use `A2AFiles` (`read` / `save` /
   `fromUrl`); bytes ride inline with no `A2AFileRepository` listed (`[a2a.inline-files-without-store]`
   above 64 KB, `[a2a.file-store-required]` above 256 KB) or in the store under the task
   (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository`, `S3A2AFileRepository`;

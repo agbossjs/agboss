@@ -1,4 +1,4 @@
-import type { AgentCard } from "@a2a-js/sdk";
+import type { AgentCard, AgentExtension } from "@a2a-js/sdk";
 import { AGENT_CARD_PATH } from "@a2a-js/sdk";
 import { DefaultAgentCardResolver } from "@a2a-js/sdk/client";
 import type { DtoClass } from "../../dto/types.js";
@@ -7,6 +7,13 @@ import { incompatibilitiesOf } from "../../federation/schema-compat.js";
 import { millisecondsOf } from "../../mesh/mesh-durations.js";
 import type { Milliseconds } from "../../units/index.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import { withoutFileFields } from "../a2a-card-file-fields.js";
+import { fileFieldsOf } from "../files/a2a-file.dto.js";
+import {
+  declaredFileFieldsOf,
+  fileFieldDifferencesOf,
+  type DeclaredFileField,
+} from "./a2a-card-files.js";
 import {
   A2AClientOperation,
   A2AContractError,
@@ -57,6 +64,8 @@ export type A2ARemotePeer =
 interface SkillSchemas {
   readonly input: JsonSchema | undefined;
   readonly outputs: Readonly<Record<string, JsonSchema>>;
+  /** Its file fields (#904): in the extension's `files`, or marked in `input`. */
+  readonly files: ReadonlyMap<string, DeclaredFileField>;
 }
 
 /** A card checked for a client: the card, the peer it describes. */
@@ -107,12 +116,21 @@ function usableInterfaceUrlsOf(raw: Readonly<Record<string, unknown>>): readonly
   );
 }
 
+/**
+ * The extensions a card declares (#904): none when it leaves `capabilities` or its `extensions`
+ * out, as a foreign agent's minimal card may.
+ */
+export const cardExtensionsOf = (card: AgentCard): readonly AgentExtension[] => {
+  const extensions: unknown = card.capabilities?.extensions;
+  return Array.isArray(extensions) ? (extensions as AgentExtension[]) : [];
+};
+
 /** The params of the card's entry for an extension, if it declares one. */
 function extensionParamsOf(
   card: AgentCard,
   uri: string,
 ): Readonly<Record<string, unknown>> | undefined {
-  const entry = card.capabilities?.extensions.find((extension) => extension.uri === uri);
+  const entry = cardExtensionsOf(card).find((extension) => extension.uri === uri);
   if (entry === undefined) return undefined;
   return isRecord(entry.params) ? entry.params : {};
 }
@@ -189,6 +207,7 @@ function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefine
   const outputs = isRecord(entry.outputs) ? entry.outputs : {};
   return {
     input: isRecord(entry.input) ? entry.input : undefined,
+    files: declaredFileFieldsOf(entry),
     outputs: Object.fromEntries(
       Object.entries(outputs).filter((pair): pair is [string, JsonSchema] => isRecord(pair[1])),
     ),
@@ -199,8 +218,12 @@ function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefine
 function differencesOf(schemas: SkillSchemas, expected: CardExpectation): readonly string[] {
   const found: string[] = [];
   if (expected.input !== undefined && schemas.input !== undefined) {
-    const sent = jsonSchemaOf(expected.input);
-    found.push(...incompatibilitiesOf(schemas.input, sent).map((reason) => `input: ${reason}`));
+    // #904: the data part compared without the file fields, each side's; the file fields apart
+    const own = new Set(fileFieldsOf(expected.input).map((field) => field.name));
+    const sent = withoutFileFields(jsonSchemaOf(expected.input), own);
+    const accepted = withoutFileFields(schemas.input, new Set(schemas.files.keys()));
+    found.push(...incompatibilitiesOf(accepted, sent).map((reason) => `input: ${reason}`));
+    found.push(...fileFieldDifferencesOf(expected.input, schemas.files));
   }
   if (expected.output !== undefined) {
     const accepted = jsonSchemaOf(expected.output);

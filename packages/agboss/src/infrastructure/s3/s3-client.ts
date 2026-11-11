@@ -29,11 +29,6 @@ export class S3RequestError extends Error {
   }
 }
 
-/** An object's head: its user metadata. */
-export interface S3Head {
-  readonly metadata: Readonly<Record<string, string>>;
-}
-
 const EMPTY_HASH = sha256Hex("");
 
 /** `&amp;` and its kin back to text (keys in a listing are XML). */
@@ -107,24 +102,14 @@ export class S3Client {
     return true;
   }
 
-  /** An object's bytes; `undefined` when there is none. */
-  async get(key: string): Promise<Uint8Array | undefined> {
-    const response = await this.#send("GET", this.#urlOf(key));
+  /** An object's bytes — its first `firstBytes` only, when given; `undefined` when there is none. */
+  async get(key: string, firstBytes?: number): Promise<Uint8Array | undefined> {
+    const range: Record<string, string> =
+      firstBytes === undefined ? {} : { range: `bytes=0-${String(firstBytes - 1)}` };
+    const response = await this.#send("GET", this.#urlOf(key), { headers: range });
     if (response.status === 404) return undefined;
     if (!response.ok) throw new S3RequestError("GET", response.status);
     return new Uint8Array(await response.arrayBuffer());
-  }
-
-  /** An object's user metadata; `undefined` when there is none. */
-  async head(key: string): Promise<S3Head | undefined> {
-    const response = await this.#send("HEAD", this.#urlOf(key));
-    if (response.status === 404) return undefined;
-    if (!response.ok) throw new S3RequestError("HEAD", response.status);
-    const metadata: Record<string, string> = {};
-    response.headers.forEach((value, name) => {
-      if (name.startsWith("x-amz-meta-")) metadata[name.slice("x-amz-meta-".length)] = value;
-    });
-    return { metadata };
   }
 
   async delete(key: string): Promise<void> {

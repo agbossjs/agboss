@@ -187,7 +187,9 @@ function retentionProblem(field: keyof RetentionOptions, value: unknown): string
   return undefined;
 }
 
-const HINT = "@Application({ retention: { fencedEffects: hours(24), meshAnswers: minutes(30) } })";
+/** The fix: the fields named set (#904: a field's problem names that field, nothing unrelated). */
+const hintOf = (...fields: readonly string[]): string =>
+  `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 
 /** A retention renamed before 0.1.1 (#889): refused naming its new name, never a silent default. */
 const RENAMED: Readonly<Record<string, string>> = {
@@ -206,8 +208,8 @@ const unknownFieldProblem = (field: string): string =>
  */
 export function retentionViolations(application: string, options: unknown): RuleViolation[] {
   if (options === undefined) return [];
-  const fail = (text: string): RuleViolation =>
-    violation("application.retention-invalid", `its retention${text} — ${HINT}`, [application]);
+  const fail = (text: string, hint = hintOf("fencedEffects", "meshAnswers")): RuleViolation =>
+    violation("application.retention-invalid", `its retention${text} — ${hint}`, [application]);
   if (!isPlainObject(options))
     return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
   const known = new Set<string>(RETENTION_FIELDS);
@@ -218,7 +220,7 @@ export function retentionViolations(application: string, options: unknown): Rule
       .map((field) => fail(unknownFieldProblem(field))),
     ...RETENTION_FIELDS.flatMap((field) => {
       const problem = retentionProblem(field, given[field]);
-      return problem === undefined ? [] : [fail(`.${field} ${problem}`)];
+      return problem === undefined ? [] : [fail(`.${field} ${problem}`, hintOf(field))];
     }),
     ...fileRetentionViolations(given, fail),
   ];
@@ -227,16 +229,13 @@ export function retentionViolations(application: string, options: unknown): Rule
 /** #859: `a2aFiles` above `a2aTasks` (as given or by default) keeps files no task reads. */
 function fileRetentionViolations(
   given: Readonly<Record<string, unknown>>,
-  fail: (text: string) => RuleViolation,
+  fail: (text: string, hint: string) => RuleViolation,
 ): RuleViolation[] {
   const files = given.a2aFiles;
   const tasks = given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
   if (typeof files !== "number" || typeof tasks !== "number" || files <= tasks) return [];
-  return [
-    fail(
-      `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`,
-    ),
-  ];
+  const problem = `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`;
+  return [fail(problem, hintOf("a2aTasks", "a2aFiles"))];
 }
 
 /** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */

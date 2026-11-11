@@ -10,6 +10,7 @@ import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import type { A2AFileOptions } from "../../../src/a2a/files/a2a-file-options.js";
 import { Application, type ApplicationOptions } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
+import { retentionViolations } from "../../../src/application/retention.js";
 import { assemblyWarningsOf } from "../../../src/application/start-log.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import type { Provider } from "../../../src/components/injection.js";
@@ -159,5 +160,20 @@ describe("#859: the file options and their retention, checked at assembly", () =
 
     expect((await outcomeOf(longer)).violations).toEqual(["application.retention-invalid"]);
     expect((await outcomeOf(shorter)).violations).toEqual([]);
+  });
+
+  it("#904 item 5 AC5.3: a2aFiles' refusal names a2aFiles and a2aTasks only, its fix among them", () => {
+    const messages = [
+      ...retentionViolations("files-application", { a2aFiles: hours(48) }),
+      ...retentionViolations("files-application", { a2aFiles: 0 }),
+    ].map((found) => found.message);
+
+    expect(messages).toEqual([
+      expect.stringContaining(
+        "— @Application({ retention: { a2aTasks: hours(24), a2aFiles: hours(24) } })",
+      ),
+      expect.stringContaining("— @Application({ retention: { a2aFiles: hours(24) } })"),
+    ]);
+    expect(messages.filter((text) => /fencedEffects|meshAnswers/.test(text))).toEqual([]);
   });
 });

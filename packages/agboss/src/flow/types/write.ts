@@ -53,14 +53,29 @@ export interface FlowTypesResult {
   readonly notes: readonly string[];
 }
 
+/** An entry of the package a project imports classes from, and how its module is loaded. */
+export interface PackageEntry {
+  readonly specifier: string;
+  readonly load: () => Promise<Readonly<Record<string, unknown>>>;
+}
+
 /**
  * The package's own entries a project imports standard classes from (`WorkflowStartTextDto` from
- * `@agboss/core/dto`): an installed package is not a project module, so it is never in tsx's record.
+ * `@agboss/core/dto`, #904: `WorkflowFinishFileDto` and `A2AFileDto` from `@agboss/core/a2a`) — every
+ * entry that exports a DTO class (`tests/flow/types/package-entries.test.ts` holds it so): an
+ * installed package is not a project module, so it is never in tsx's record.
  */
-const packageModules = async (): Promise<readonly LoadedModule[]> => [
-  { file: "@agboss/core/dto", exports: await lazyLoad(import("../../dto/index.js")) },
-  { file: "@agboss/core", exports: await lazyLoad(import("../../index.js")) },
+export const PACKAGE_ENTRIES: readonly PackageEntry[] = [
+  { specifier: "@agboss/core/dto", load: () => lazyLoad(import("../../dto/index.js")) },
+  { specifier: "@agboss/core/a2a", load: () => lazyLoad(import("../../a2a/index.js")) },
+  { specifier: "@agboss/core", load: () => lazyLoad(import("../../index.js")) },
 ];
+
+/** The package's entries as loaded modules, in the order a class is looked for. */
+export const packageModules = async (): Promise<readonly LoadedModule[]> =>
+  Promise.all(
+    PACKAGE_ENTRIES.map(async (entry) => ({ file: entry.specifier, exports: await entry.load() })),
+  );
 
 /** Loads the modules, generates the types and writes them (unless generation failed). */
 export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult> {

@@ -1,3 +1,4 @@
+import type { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
 import type { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import type { JsonSchema } from "../dto/schema.js";
 
@@ -21,6 +22,8 @@ export interface A2AExportContract {
   readonly outputs: readonly (ContractDto & { readonly finish: string })[];
   /** How it answers (#860): a task, or a direct message (`@A2AExpose({ skills: { [start]: { reply } } })`). */
   readonly reply: A2AReply;
+  /** How its card describes its file fields (#904, `@A2AExpose({ cardFileFields })`). */
+  readonly cardFileFields: A2ACardFileFields;
 }
 
 /** An `@McpExpose` tool: an exported start or tool. */

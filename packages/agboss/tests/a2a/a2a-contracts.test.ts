@@ -118,6 +118,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
           },
         ],
         reply: "task",
+        cardFileFields: "extension",
       },
       expect.objectContaining({ kind: "a2a", start: "refund-workflow-start" }),
       {

@@ -18,7 +18,7 @@ import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
 import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "./files/a2a-file-options.js";
-import { fileTransportOf } from "./files/a2a-file-seam.js";
+import { fileFetchesOf, fileTransportOf } from "./files/a2a-file-seam.js";
 
 /** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
 export interface A2AHttpListenerOptions<TStart extends Class> {
@@ -123,6 +123,7 @@ const serverFilesOf = (app: A2AApp, options: A2AHttpListenerOptions<Class>) => (
   store: app.resolve(A2AFileRepository),
   transport: fileTransportOf(options),
   timeout: options.fileFetchTimeout ?? DEFAULT_FILE_FETCH_TIMEOUT,
+  fetches: fileFetchesOf(options),
 });
 
 /** The options of an `@A2AExpose` (`exportsOf` checked it is one). */

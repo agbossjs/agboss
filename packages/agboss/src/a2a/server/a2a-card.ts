@@ -4,6 +4,7 @@ import { isoDurationOf } from "../../mesh/mesh-durations.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { A2ASecuritySchemeKind, type A2ASecurityScheme } from "../a2a-security.js";
+import { cardSkillInputOf } from "./a2a-card-files.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 
 /**
@@ -96,13 +97,16 @@ const inputModesOf = (skill: ServedSkill): string[] =>
     ...(skill.inputFiles.length === 0 ? [] : skill.fileLimits.allowedMediaTypes),
   ]);
 
-/** What a skill's finishes give: a file finish its files' media types (#859), its data JSON. */
+/**
+ * What a skill's finishes give: a file finish the media types its files may be (#859; #904: what
+ * `A2AFiles.save` takes, the application's), its data JSON.
+ */
 const outputModesOf = (skill: ServedSkill): string[] =>
   unique(
     skill.outputs.flatMap((output) =>
       output.fileFields.length === 0
         ? [output.mediaType]
-        : [...skill.fileLimits.allowedMediaTypes, ...(output.hasData ? [A2AMediaType.Json] : [])],
+        : [...skill.outputFileMediaTypes, ...(output.hasData ? [A2AMediaType.Json] : [])],
     ),
   );
 
@@ -111,7 +115,8 @@ function skillsParamsOf(skills: readonly ServedSkill[]): Record<string, unknown>
   const entries = skills.map((skill) => [
     skill.id,
     {
-      input: skill.inputSchema,
+      // #904: its file fields as its card describes them, never asked for in the data part
+      ...cardSkillInputOf(skill),
       schemaHash: skill.inputSchemaHash,
       reply: skill.reply,
       outputs: Object.fromEntries(skill.outputs.map((output) => [output.finish, output.schema])),

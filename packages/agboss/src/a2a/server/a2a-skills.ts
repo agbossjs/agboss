@@ -13,6 +13,7 @@ import { finishDtosOf } from "../files/a2a-file-tier.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import { DecidedBy } from "../../flow/decorators/router.js";
 import type { A2AReply } from "../a2a-expose.decorator.js";
+import type { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
 import {
@@ -62,8 +63,15 @@ export interface ServedSkill {
   readonly inputFiles: readonly A2AFileField[];
   /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
   readonly fileLimits: A2AFileLimits;
+  /**
+   * The media types its finishes' files may be (#904): what `A2AFiles.save` takes — the
+   * application's `a2aFiles`, else the defaults; a skill's own `files` bound what it takes only.
+   */
+  readonly outputFileMediaTypes: readonly string[];
   /** How it answers (#860): a task, or a direct message. */
   readonly reply: A2AReply;
+  /** How its card describes its file fields (#904). */
+  readonly cardFileFields: A2ACardFileFields;
   /** Whether its workflow can call a model (an agent, a model router): a lost reply's cost is unknown. */
   readonly callsModel: boolean;
 }
@@ -125,7 +133,9 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
   if (declaration?.kind !== NodeKind.Start)
     throw new ComponentError(`[a2a.not-a-start] ${start.name} is not a @WorkflowStart`);
   const { name, description, input } = declaration.options;
-  const found = contracts.exports.find((entry) => entry.kind === "a2a" && entry.start === name);
+  const found = contracts.exports.find(
+    (entry) => entry.kind === "a2a" && entry.start === name && entry.expose === sources.expose.name,
+  );
   if (found?.kind !== "a2a")
     throw new ComponentError(
       `[application.expose-unknown-start] ${name} is not a start of the application's workflows`,
@@ -141,6 +151,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
     ...skillFilesOf(input, name, sources),
     reply: found.reply,
+    cardFileFields: found.cardFileFields,
     callsModel: startCallsModel(start, sources.workflows),
   };
 }
@@ -150,10 +161,11 @@ function skillFilesOf(
   input: WorkflowStartInput,
   name: string,
   sources: SkillSources,
-): Pick<ServedSkill, "inputFiles" | "fileLimits"> {
+): Pick<ServedSkill, "inputFiles" | "fileLimits" | "outputFileMediaTypes"> {
   return {
     inputFiles: typeof input === "function" ? fileFieldsOf(input) : [],
     fileLimits: fileLimitsOf(sources.files, sources.expose.skills?.[name]?.files),
+    outputFileMediaTypes: fileLimitsOf(sources.files, undefined).allowedMediaTypes,
   };
 }
 

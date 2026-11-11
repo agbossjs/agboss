@@ -1,3 +1,4 @@
+import { FileFetches } from "./a2a-file-fetches.js";
 import type { FileTransport } from "./a2a-file-transport.js";
 
 /**
@@ -17,4 +18,18 @@ export const withFileTransport = <T extends object>(options: T, transport: FileT
 export const fileTransportOf = (options: object): FileTransport | undefined => {
   const found: unknown = Reflect.get(options, FILE_TRANSPORT);
   return typeof found === "function" ? (found as FileTransport) : undefined;
+};
+
+const FILE_FETCHES = Symbol("agboss.a2a.file-fetches");
+
+/** Listener options with a test's own fetches in flight (#904: to see a duplicate join one). */
+export const withFileFetches = <T extends object>(options: T, fetches: FileFetches): T => ({
+  ...options,
+  [FILE_FETCHES]: fetches,
+});
+
+/** The fetches in flight the options carry; a new set by default. */
+export const fileFetchesOf = (options: object): FileFetches => {
+  const found: unknown = Reflect.get(options, FILE_FETCHES);
+  return found instanceof FileFetches ? found : new FileFetches();
 };
