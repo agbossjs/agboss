@@ -11,8 +11,9 @@ import { EnvironmentField } from "../../environments/contract.js";
 /**
  * The SQLite file of an application instance (#265 S32): one `DatabaseSync` (`node:sqlite`, loaded
  * on first use) on the environment's `sqlitePath`, shared by every SQLite implementation the
- * application lists — two instances open two connections to one file. `journal_mode=WAL` (readers
- * never block the writer), `busy_timeout` (a writer waits for the other's lock), and every atomic
+ * application lists — two instances open two connections to one file. `busy_timeout` first (a writer
+ * waits for the other's lock), `journal_mode=WAL` (readers never block the writer; its switch on a new
+ * file, tried again while busy, #911), and every atomic
  * operation in one `BEGIN IMMEDIATE` transaction. The driver is synchronous: a transaction is one
  * group of statements with no `await` inside, and a busy wait blocks this instance's event loop.
  * Time values are parameters from the framework's clock, never SQLite's own.
@@ -33,14 +34,42 @@ const ColumnRow = z.looseObject({ name: z.string() });
 const IndexRow = z.looseObject({ name: z.string(), unique: z.number() });
 const IndexColumnRow = z.looseObject({ name: z.string().nullable() });
 
+/** SQLite's `SQLITE_BUSY` result code. */
+const SQLITE_BUSY = 5;
+
+/** The longest pause between two tries of the WAL switch (milliseconds); the pauses start at 1 and double. */
+const LONGEST_PAUSE = 50;
+
+/**
+ * `PRAGMA journal_mode = WAL` (#911). On a new file, several connections opening it at once make
+ * SQLite answer `SQLITE_BUSY` to the switch itself, at once and whatever the busy timeout (its busy
+ * handler is not asked where waiting could deadlock) — so a busy answer is tried again, with a
+ * growing pause, for `busyTimeout` in all, then fails as before. The pauses add up to the bound: no
+ * clock is read, and nothing here waits on a time that a test's `Clock` would have to advance.
+ */
+function switchToWal(database: DatabaseSync, busyTimeout: number): void {
+  for (let waited = 0, next = 1; ;) {
+    try {
+      database.exec("PRAGMA journal_mode = WAL");
+      return;
+    } catch (error) {
+      const isBusy = error instanceof Error && "errcode" in error && error.errcode === SQLITE_BUSY;
+      if (!isBusy || waited >= busyTimeout) throw error;
+      const length = Math.min(next, busyTimeout - waited);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, length);
+      waited += length;
+      next = Math.min(next * 2, LONGEST_PAUSE);
+    }
+  }
+}
+
 /** Opens (creating its folder) a database on `path` with the pragmas every SQLite store relies on. */
 export function openSqliteDatabase(path: string, busyTimeout: number = BUSY_TIMEOUT): DatabaseSync {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const { DatabaseSync: Database } = process.getBuiltinModule("node:sqlite");
   const database = new Database(path, { timeout: busyTimeout });
-  database.exec(
-    `PRAGMA journal_mode = WAL; PRAGMA busy_timeout = ${String(busyTimeout)}; PRAGMA foreign_keys = ON;`,
-  );
+  database.exec(`PRAGMA busy_timeout = ${String(busyTimeout)}; PRAGMA foreign_keys = ON;`);
+  switchToWal(database, busyTimeout);
   return database;
 }
 
