@@ -1768,10 +1768,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
-// src/describe/contracts-types.ts:68:3 - (ae-undocumented) Missing documentation for "exports".
-// src/describe/contracts-types.ts:69:3 - (ae-undocumented) Missing documentation for "imports".
-// src/describe/contracts-types.ts:70:3 - (ae-undocumented) Missing documentation for "schemas".
-// src/describe/contracts-types.ts:71:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
+// src/describe/contracts-types.ts:71:3 - (ae-undocumented) Missing documentation for "exports".
+// src/describe/contracts-types.ts:72:3 - (ae-undocumented) Missing documentation for "imports".
+// src/describe/contracts-types.ts:73:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/contracts-types.ts:74:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".

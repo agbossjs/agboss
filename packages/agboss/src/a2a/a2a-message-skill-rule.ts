@@ -200,7 +200,7 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
 }
 
 /**
- * `[a2a.message-skill-*]`, `[a2a.unknown-skill-option]` and (#904) `[a2a.card-file-fields-invalid]`
+ * `[a2a.message-skill-*]`, `[a2a.unknown-skill-option]` and (#904) `[a2a.file-options-invalid]`
  * of an application.
  */
 export function messageSkillViolations(options: ApplicationOptions): RuleViolation[] {

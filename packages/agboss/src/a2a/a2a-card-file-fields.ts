@@ -63,7 +63,7 @@ export const cardFileFieldsOf = (expose: CardFileFieldsSource, start: string): A
 const VALUES = new Set<unknown>(Object.values(A2ACardFileFields));
 
 /**
- * `[a2a.card-file-fields-invalid]`, a value that is none of the enum's (a JS caller, a cast), and
+ * `[a2a.file-options-invalid]`, a value that is none of the enum's (a JS caller, a cast), and
  * `[a2a.unknown-skill-option]`, one set for a skill the expose does not export.
  */
 export function cardFileFieldsViolations(
@@ -96,7 +96,7 @@ function invalidValues(name: string, expose: CardFileFieldsSource, where: string
     .filter(([, value]) => value !== undefined && !VALUES.has(value))
     .map(([at]) =>
       violation(
-        "a2a.card-file-fields-invalid",
+        "a2a.file-options-invalid",
         `${name}'s ${at} is not an A2ACardFileFields (Extension or Marker)`,
         [where],
       ),

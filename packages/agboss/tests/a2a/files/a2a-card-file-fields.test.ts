@@ -198,6 +198,6 @@ describe("#904 item 5 AC5.1: the setting, checked and described", () => {
 
     expect(
       cardFileFieldsViolations("x-a2a-expose", expose, new Set([START]), "app").map((v) => v.code),
-    ).toEqual(["a2a.unknown-skill-option", "a2a.card-file-fields-invalid"]);
+    ).toEqual(["a2a.unknown-skill-option", "a2a.file-options-invalid"]);
   });
 });

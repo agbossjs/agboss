@@ -160,6 +160,12 @@ export enum A2ACancelOutcome {
 }
 
 // @public
+export enum A2ACardFileFields {
+    Extension = "extension",
+    Marker = "marker"
+}
+
+// @public
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
     constructor(options?: A2AClientOptions);
     agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
@@ -406,6 +412,7 @@ export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: 
 
 // @public
 export interface A2AExposedSkillOptions {
+    readonly cardFileFields?: A2ACardFileFields;
     readonly examples?: readonly string[];
     readonly files?: A2AFileOptions;
     readonly reply?: A2AReply;
@@ -414,6 +421,7 @@ export interface A2AExposedSkillOptions {
 
 // @public
 export interface A2AExposeOptions {
+    readonly cardFileFields?: A2ACardFileFields;
     readonly defaultSkill?: Class;
     readonly description: string;
     readonly exports: readonly Class[];
@@ -1353,12 +1361,12 @@ export class WorkflowFinishFilesDto {
 // src/infrastructure/local-disk-a2a-file.repository.ts:93:9 - (ae-undocumented) Missing documentation for "findMetadata".
 // src/infrastructure/local-disk-a2a-file.repository.ts:100:9 - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
 // src/infrastructure/local-disk-a2a-file.repository.ts:109:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:79:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:91:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:95:9 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:108:3 - (ae-undocumented) Missing documentation for "findBytes".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:112:9 - (ae-undocumented) Missing documentation for "findMetadata".
-// src/infrastructure/s3/s3-a2a-file.repository.ts:143:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:94:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:106:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:110:9 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:124:9 - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:129:9 - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:166:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:41:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:51:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:55:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
