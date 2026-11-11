@@ -57,7 +57,7 @@ const isClassValue = (value: unknown): value is Class =>
   typeof value === "function" && /^class[\s{]/u.test(Function.prototype.toString.call(value));
 
 /** `provide(TOKEN, Class)`: the container creates the class for the token (#891). */
-export function provide<T>(token: InjectionToken<T>, cls: Class<T>): ClassProvider<T>;
+export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;
 /**
  * `provide(token, value)`: the value, tied strictly to its token's type — never a class, which
  * `provide(TOKEN, Class)` gives the container to create.
