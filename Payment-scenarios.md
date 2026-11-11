@@ -179,7 +179,7 @@ version.
   - Recovery continues a tree only on a version whose config hash matches, unless the workflow's
     `onIncompatibleResume` says `"resume"`.
   - A changed request shape under the same business key is a different fingerprint:
-    `IdempotencyKeyConflictError`, refused, never charged.
+    `BusinessKeyConflictError`, refused, never charged.
 - **Guarantee:** P1, P3. Assumptions: A1, A6.
 - **Boundary:** while intents are in flight, keep three things the same across versions: the
   business key's text, the effect's name and the request the fingerprint is made of. Set
@@ -231,7 +231,7 @@ tool calls with two step keys.
 - **AGBoss:** a business key, `effectKeyOf(executionContext, "charge", { businessKey:
   \`order:${orderId}\` })`. The second call gets the first's receipt (`Replayed`; `Joined` while the
   first is still sending on this instance). A call for the same order with another amount is
-  `IdempotencyKeyConflictError`, and nothing is sent.
+  `BusinessKeyConflictError`, and nothing is sent.
 - **Guarantee:** P2, P3. Assumption: A8 (one idempotency key on every instance, #825).
 - **Boundary:** make the business key from the order the execution works on, never from text the
   model wrote. An approval (a pause) or a tool interceptor can stop a charge the model should not
@@ -314,7 +314,7 @@ The card is declined. The customer tries another card for the same order.
 - **Wrong:** a new business key for every try: a try that timed out and was in fact charged is
   charged again by the next try.
 - **AGBoss:** the same business key with another request is another fingerprint:
-  `IdempotencyKeyConflictError`, refused, nothing sent.
+  `BusinessKeyConflictError`, refused, nothing sent.
 - **Guarantee:** P2.
 - **Boundary:** the application numbers payment attempts on its order row (`order:42:attempt:2`).
   It moves to the next attempt only once the previous one is **known** to be declined, never after
@@ -432,7 +432,7 @@ The customer cancels (void) while fulfilment captures the same authorization.
   voided is never refunded.
 - **AGBoss:** one business key for the authorization's outcome, `disposition:<authorization>`, with
   the action in the request. The second action is another fingerprint:
-  `IdempotencyKeyConflictError`, and its execution takes the other route (a refund after a
+  `BusinessKeyConflictError`, and its execution takes the other route (a refund after a
   capture).
 - **Guarantee:** P2, P3.
 - **Boundary:** without such a key, the gateway's own state machine decides (a void after a capture
@@ -478,7 +478,7 @@ keeps a regression test in the core.
 | # | Race | Fixed by |
 | --- | --- | --- |
 | R15 | Two executions with one business key both read a `Failed` (or dead-lease `Pending`) intent and both send a new attempt | A compare-and-set on status, attempt and attempt owner, in one fenced transaction |
-| R16 | A concurrent call with the same business key and another amount joins the one in flight and gets its receipt | Joining only on an equal fingerprint; otherwise `IdempotencyKeyConflictError` |
+| R16 | A concurrent call with the same business key and another amount joins the one in flight and gets its receipt | Joining only on an equal fingerprint; otherwise `BusinessKeyConflictError` |
 | R17 | Personal data and business keys in stored intents, results, failure texts and errors | Masking at write with the calling frame's policies (fails closed); business keys named by an HMAC handle |
 | R18 | The lease released on a cancel while a step body that ignores its signal is still sending | A holder releases its lease only once the attempts under it settled |
 | R19 | An expired lease renewed back to life after another pod acted on "expired" | Renewals check expiry; `leaseStateOf` closes an expired lease in the same atomic step |

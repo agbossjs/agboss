@@ -17,7 +17,7 @@ mark still at its own token and writes. Only the lease itself knows that another
 ## Decision
 
 - **A repository contract, generic over the store's transaction:** `FencedEffectRepository<TTransaction>`
-  with `saveResultIfAbsent(key, work)`, the key from `effectKeyOf(executionContext, name)`. The
+  with `runOnce(key, work)`, the key from `effectKeyOf(executionContext, name)`. The
   business rows of the write go in the same transaction (`InMemoryFencedEffectTransaction`, SQLite's
   `DatabaseSync`, a PostgreSQL client), so the application keeps no fencing or idempotency table.
 - **The lease is checked in the same transaction**, before the mark: the lease row of the key's scope,
@@ -35,7 +35,7 @@ mark still at its own token and writes. Only the lease itself knows that another
   across instances the transaction serializes them.
 - **SQLite runs the work synchronously**, with a guard: its transactions are one synchronous group
   of statements on one connection shared by every store, and they do not nest. An asynchronous
-  work rolls back with `FencedEffectAsyncWorkError`. PostgreSQL (#482) may wait: one client per
+  work rolls back with `SyncWorkRequiredError`. PostgreSQL (#482) may wait: one client per
   transaction.
 - **Limits are settings, not code:** `@Application({ fencedEffects: { maxResultSize }, retention: { fencedEffects } })`,
   64 KB and 24 h by default; the recovery sweep removes rows past the retention, never when a tree

@@ -3,6 +3,42 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the store entry, FencedEffects, the errors, Turn, the prune verbs (#890, API review G8)
+
+- **Added — `@agboss/core/stores`**: the store-implementer entry ([Your own store](Your-own-store)) —
+  the contracts, every type they name, the rows at a store's boundary (`OutboundCallIntent`,
+  `OutboundCallClaim`, `OutboundCallState`, `OutboundCallLease`, `OutboundCallLeaseState`,
+  `OutboundCallStep`, `OutboundCallStatusQuery`, `InMemoryFencedEffectTransaction`) and the core's
+  store helpers (`assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf`, `isKeyFingerprint`,
+  `replayedFromOf`, `storedKeyFactsOf`, `effectKeyIdentityOf`, `pendingOutboundCallOf`,
+  `remainingOf`, `idGeneratorNameOf`, `assertLedgerEntries`, `assertLedgerCutoff`,
+  `expiredEntriesOf`, `unrecordedEntriesOf`). **Changed — breaking**: the rows and helpers left the
+  root entry. **Migration:** a store imports them from `@agboss/core/stores`.
+- **Added — `FencedEffects`**: the fenced effect's app-facing service, a core service a component
+  injects (`deps: [ExecutionContext, FencedEffects]`) over the listed store —
+  `runOnce(key, work)`, the work's transaction typed by the component (`(database: DatabaseSync) => …`).
+  **Changed — breaking**: `FencedEffectRepository.saveResultIfAbsent` → `runOnce`. **Migration:**
+  inject `FencedEffects` instead of a store's class ([Several instances](Several-instances#the-fenced-effect-500)).
+- **Changed — breaking (errors)**: `IdempotencyKeyConflictError` → `BusinessKeyConflictError`
+  (`fenced-effect.business-key-conflict`), `DuplicateThreadIdError` → `ThreadIdsExhaustedError`
+  (`run.thread-ids-exhausted`), `FencedEffectAsyncWorkError` → `SyncWorkRequiredError`
+  (`fenced-effect.sync-work-required`), no aliases; one options bag, its keys the error's fields
+  (`effect`, `call`, `cause` among them), for `InvalidMintedIdError`, `ThreadIdsExhaustedError`,
+  `FingerprintNotJsonError`, `InvalidBusinessKeyError`, `BusinessKeyConflictError`, the
+  outbound-call errors and `QuestionFailedError({ question, cause })`;
+  `OutboundCallUnreconciledError.reason` a code (`reconcile.unknown`, `reconcile.threw`,
+  `reconcile.no-verdict`, `key-retention.passed`; the text in `detail`) and
+  `OutboundCallResultNotStoredError.reason` one of three codes; `ExecutionFencedError.of({
+  scopeKey, token, observedToken })` reads a scope key, `new ExecutionFencedError(…)` takes every
+  fact and never throws; a static `code` is its literal.
+- **Changed — breaking (records)**: `Tern`, `NewTern`, `TernOutcome`, `TernStatus`, `TernStep` →
+  `Turn`, `NewTurn`, `TurnOutcome`, `TurnStatus`, `TurnStep`; the `Tern*` names stay as deprecated
+  aliases until 0.2.
+- **Changed — breaking (stores)**: `PausedExecutionRepository.deleteResolvedBefore` →
+  `deleteByResolvedAtBefore`, `MeshRequestRepository.deleteCreatedBefore` → `deleteByCreatedAtBefore`.
+  **Fixed**: a `Resolved` pause no step took when its tree ends is marked `Taken` and removed after
+  `retention.pauseRecords` ([Pauses](Pauses)) — it stayed `Resolved` forever.
+
 ## Unreleased — 0.1.1: A2A file parts in messages and artifacts (#859)
 
 - **Added**: `raw` and `url` file parts — a skill whose input DTO has `A2AFileDto` fields takes

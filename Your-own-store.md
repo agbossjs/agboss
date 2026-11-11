@@ -10,6 +10,17 @@ agbossjs/redis are next. It covers:
 - how to get that step on SQL and on databases without SQL transactions;
 - how to prove it with `storeConformance` (#526), and under real faults with `faultSuite` (#484).
 
+A store imports what it is written with from **`@agboss/core/stores`** (#890): the contracts it
+extends, every type their members name, the rows at a store's boundary an application never reads
+(`OutboundCallIntent`, `OutboundCallClaim`, `OutboundCallState`, `OutboundCallLease`,
+`OutboundCallLeaseState`, `OutboundCallStep`, `OutboundCallStatusQuery`,
+`InMemoryFencedEffectTransaction`) and the core's store helpers below — none of which the root
+entry `@agboss/core` has: an application lists your store in `@Application({ providers })` and
+injects the core's services (`FencedEffects`, `OutboundCalls`), never your class. Its records are
+the core's own types (`Turn`, `NewTurn`, `TurnOutcome`, `Summary`, …): sign your methods with them,
+never with local aliases, or your API report shows them as forgotten exports. Durations and amounts
+come from `@agboss/core/units`.
+
 ## The two promises
 
 Everything below serves two promises the framework makes to an application on several instances:
@@ -34,7 +45,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | `ExecutionLeaseRepository` | `acquire` | read the tree's lease, decide it is free (released, expired, never finished), write the new holder at `token + 1` | two instances both take a free lease: **two owners** move one tree |
 | | `claimExecutionId` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — a fenced effect replays the other's result |
 | | `renew`, `release`, `yield`, `reclaim`, `retire` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
-| `FencedEffectRepository` | `saveResultIfAbsent` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
+| `FencedEffectRepository` | `runOnce` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
 | `OutboundCallRepository` | every fenced method | the same lease and mark check, in the same step as the read or the write of the intent | a zombie records or completes an intent the new holder is about to send: **two sends** |
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
 | | `leaseStateOf` | read the other execution's lease and, if it expired at the token, close it (released, `superseded`) | the holder renews in the gap and keeps sending, while this caller reconciles and resends: **two senders** |
@@ -124,16 +135,16 @@ A fenced effect's or an outbound call's key comes from `effectKeyOf(executionCon
 literal nor a spread copy compiles as one, and a key the framework did not make is refused at run
 time. Your store's own tests make one with `effectKeyForTesting(fields, changes?)` of
 `@agboss/core/testing/contracts` — `effectKeyForTesting(key, { token: 2 })`, never a spread. A store keeps a few rules about it,
-and `@agboss/core` exports each one (#526 AC5). Don't copy them:
+and `@agboss/core/stores` exports each one (#526 AC5, #890). Don't copy them:
 
 | Helper | Use |
 | --- | --- |
 | `assertEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
 | `assertBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
-| `fingerprintErrorOf(key)` | beside them for a fenced effect (#825): `FingerprintRequiredError` for a business key with neither a `fingerprint` nor `FingerprintPolicy.None` (the base class's `saveResultIfAbsent` checks it before `runInTransaction`) |
+| `fingerprintErrorOf(key)` | beside them for a fenced effect (#825): `FingerprintRequiredError` for a business key with neither a `fingerprint` nor `FingerprintPolicy.None` (the base class's `runOnce` checks it before `runInTransaction`) |
 | `effectKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
 | `storedKeyFactsOf(key)` | what the row keeps of the key: its fingerprint and its step |
-| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyKeyConflictError` (never a replay) — during a rotation the previous idempotency key's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
+| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `BusinessKeyConflictError` (never a replay) — during a rotation the previous idempotency key's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
 | `pendingOutboundCallOf(key, intent, recordedAt)` | the record `saveIfAbsent` writes: the intent, `Pending` under the key's lease and token, its business identity |
 
 ## Recipes: SQL
@@ -275,14 +286,14 @@ agbossjs/mongodb is the reference ([MongoDB](MongoDB)); what it learnt:
 - Mind `transactionLifetimeLimitSeconds` (60 s by default): a long work aborts. Store a receipt,
   not a document.
 
-```ts no-check: needs the mongodb driver — the shape of saveResultIfAbsent's transaction
+```ts no-check: needs the mongodb driver — the shape of runOnce's transaction
 await session.withTransaction(async () => {
   const id = { _id: JSON.stringify([tenantId, leaseExecutionId]) };
   // a write that always changes the document: the lease is locked for this transaction
   await leases.updateOne(id, [{ $set: { checkedAt: "$$NOW", checks: { $add: [{ $ifNull: ["$checks", 0] }, 1] } } }], { session });
   const lease = await leases.findOne(id, { session });
   if (!lease || lease.released || lease.token !== token || lease.expiresAt <= lease.checkedAt)
-    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.token });
+    throw ExecutionFencedError.of({ scopeKey, token, observedToken: lease?.token });
   // …the mark ($max), a business key's lock, the stored result by effectKeyIdentityOf(key), the work, the result
 });
 ```

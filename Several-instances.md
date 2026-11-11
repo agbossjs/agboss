@@ -385,7 +385,7 @@ ON CONFLICT (idempotency_key) DO NOTHING;
 
 A refused write throws `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`; `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken` —
-built by `fence.fencedError(highest)` in the step or `new ExecutionFencedError({ scopeKey, token,
+built by `fence.fencedError(highest)` in the step or `ExecutionFencedError.of({ scopeKey, token,
 observedToken })` in a repository that has only what it wrote). It is a **hand-over**, wherever it
 is thrown and however it is wrapped (a `cause` chain, an `AggregateError`, a cycle): the runtime
 looks for it first — in a visit, a launch's branch, a child's exit, an undo, an agent's tool call
@@ -447,18 +447,23 @@ execution … is no longer queued".
 The check above is the same in every application that writes business rows: a mark per scope, the
 idempotency key, and their order — **a stale token is refused before the key is read**, so a zombie
 never receives the new holder's result. For rows in the store's own database the framework makes it
-one call, and the application defines no fencing or idempotency table:
+one call, and the application defines no fencing or idempotency table. A component injects the
+application's **`FencedEffects`** (#890: a core service, `deps: [ExecutionContext, FencedEffects]`,
+over the listed store — never a store's class, so moving from SQLite to PostgreSQL changes
+`@Application({ providers })` only) and calls `runOnce(key, work)`; the work names the listed
+store's transaction type:
 
 ```ts no-check: a fragment of a step; the full action is in README → Several instances
 const key = effectKeyOf(this.executionContext, "charge");
-const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(
+const { status, result } = await this.fencedEffects.runOnce(
   key,
-  (database) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
+  (database: DatabaseSync) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
 );
 ```
 
 `FencedEffectRepository<TTransaction>` is infrastructure, like the lease store: the built-in
-`InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`), or
+`InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`, from
+`@agboss/core/stores`), or
 `SqliteFencedEffectRepository` (the `work` gets the connection's `DatabaseSync`), listed in
 `@Application({ providers })`. In **one transaction**, in this order:
 
@@ -481,7 +486,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   its result or its error) — a map of the calls in flight, never component state. Across instances
   the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.
 - **SQLite runs `work` synchronously**: a returned promise rolls back with
-  `FencedEffectAsyncWorkError` (`fenced-effect.async-work`) — do the step's I/O before the call or
+  `SyncWorkRequiredError` (`fenced-effect.sync-work-required`) — do the step's I/O before the call or
   after it. The in-memory store takes an asynchronous `work` (one transaction per scope at a time)
   and checks the lease and the mark again before it commits.
 - **The key** is `effectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
@@ -525,8 +530,8 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
 
 A store of another database (PostgreSQL, #482) extends the contract, declares its backend in `static store`,
 implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
-`FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers
-(#526: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `saveResultIfAbsent` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
+`FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers of `@agboss/core/stores`
+(#526, #890: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `runOnce` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
 `effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
@@ -593,9 +598,12 @@ same on every attempt, replay and holder.
   (`OutboundCallSendStatus.Joined`) or its error. Two instances recording one key at the same
   moment: the second is in flight, nothing sent.
 - **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
-  a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason`) — also when
-  `reconcile` throws (its error the `cause`) or gives no verdict. Nothing is sent; the intent stays
-  `Pending` for an operator or a retry policy; `.onError(OutboundCallUnreconciledError, …)` takes it.
+  a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason` — a code, #890:
+  `reconcile.unknown`, `reconcile.threw`, `reconcile.no-verdict`, `key-retention.passed` — and
+  `detail`, what was said, masked) — also when `reconcile` throws (its error the `cause`) or gives
+  no verdict. Nothing is sent; the intent stays `Pending` for an operator or a retry policy;
+  `.onError(OutboundCallUnreconciledError, …)` takes it — agboss-examples' `11-safe-payments` ends
+  its capture workflow at an operator's finish that way (`tests/operator-path.test.ts`).
 - **A send that fails, for certain or not (#657).** An error `send` throws is a failure only when
   the call says so: `isDefiniteFailure(error)` returns `true` — the other system answered that it
   did not carry the call out (a validation error, a decline). Then the intent is `Failed` with the
@@ -853,10 +861,10 @@ export class ChargeOrderAction {
   the old one `previousIdempotencyKeyField` — a fingerprint is then compared under both
   (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
   recorded before the rotation and retried during it replays or is reconciled: no
-  `IdempotencyKeyConflictError`, no second call. Remove the previous field once nothing recorded
+  `BusinessKeyConflictError`, no second call. Remove the previous field once nothing recorded
   under it can be retried; what is left of it then fails closed — a conflict, nothing sent — never a
   second charge (`tests/app/idempotency-key-rotation.test.ts`).
-- **Another fingerprint is refused:** `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+- **Another fingerprint is refused:** `BusinessKeyConflictError` (`fenced-effect.business-key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
   `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
   own (#334), else the application's `piiKeyField` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
@@ -986,11 +994,11 @@ export class RecoveryCounter implements OnExecutionResume {
 **The same sweep keeps the pause records small** (#267 S107): at each look it removes, across
 tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
 `@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
-through `PausedExecutionRepository.deleteResolvedBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
+through `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
 the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
 taken or withdrawn pause gets `NotPausedError`, after it `UnknownPauseError`; a `Pending` pause is
 never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
-`PausedExecutionRepository` implements `deleteResolvedBefore` too — one statement over the records'
+`PausedExecutionRepository` implements `deleteByResolvedAtBefore` too — one statement over the records'
 status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who
 answered each pause is not in these records: it is written into the execution records when the
 pause is resolved (`ExecutionRecordRepository.savePauseAnswer`), so the sweep never changes
@@ -1416,11 +1424,14 @@ What `@agboss/postgres` needed and the core now gives every store outside it:
   channels it changed, as LangGraph does, so a saver that writes a value only for the versions it is
   given (LangGraph's `PostgresSaver`, blobs by channel and version) passes without a wrapper writing
   every channel; the core runs the suite on LangGraph's `MemorySaver` and on such a saver.
-- **Every type a contract names is exported** by the root entry — `Tern`, `NewTern`, `TernOutcome`,
+- **Every type a contract names is exported** by the root entry or `@agboss/core/stores` (#890: the
+  store-implementer entry, which re-exports the contracts and every type they name, and alone has
+  the rows at a store's boundary and the store helpers) — `Turn`, `NewTurn`, `TurnOutcome`,
   `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`, `ExecutionData`, `CostReport`, `Usd`,
   `Milliseconds`, … — never derived with `Parameters` / `ReturnType`; a test of the core fails when a
   contract's member names one that is not. A ledger sums the entries `saveAll` hands it with the
-  core's own **`totalCost(entries)`** (#521, a `Usd`), never a copy of it, over
+  core's own **`totalCost(entries)`** (#521, a `Usd`), never a copy of it, over (each of
+  `@agboss/core/stores`)
   **`unrecordedEntriesOf(entries, isNew)`** (#727, #817): each entry whose id it inserts in the same
   transaction (`isNew(ledgerId, madeAt: Date)` answers whether the insert added it) — an entry
   counts once —, after **`assertLedgerEntries(entries)`** refused anything but a `LedgerEntry` and
@@ -1525,7 +1536,7 @@ the woken step's token-1 write is refused and its call rejects with `ExecutionFe
 instance is resumed at the end of its test.
 
 The fenced effect is tested the same way (#500): a step frozen **before** its
-`saveResultIfAbsent` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
+`runOnce` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
 is frozen before its own effect; a step frozen **after** it (a crash before the checkpoint) lets
 `apps[1]` replay the stored result, the write made once. Unit runners give the store their held
 lease (`fence: { token }`; `isLost` or a clock past `trustedUntil` refuses).

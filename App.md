@@ -127,7 +127,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
 | `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots, who answered each pause (`savePauseAnswer`, #267 S107) | in memory |
 | `CostLedgerRepository`      | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`) | in memory        |
-| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey` — by tenant, tree and step key, #663 —, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteResolvedBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
+| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey` — by tenant, tree and step key, #663 —, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteByResolvedAtBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
@@ -190,9 +190,9 @@ generator can give a new tree an old root's id, and with it that tree's pauses; 
 on the same database as the pause store.
 
 A minted **thread** id the tenant already has is minted again (#550), up to 100 times; a generator
-that never gives a free one fails the execution with `DuplicateThreadIdError`
-(`run.duplicate-thread-id`; `generator`, `tries`, never an id, #613) before any thread is written.
-`idGeneratorNameOf(generator)` names the project's class (never the framework's check) for a store of
+that never gives a free one fails the execution with `ThreadIdsExhaustedError`
+(`run.thread-ids-exhausted`; `generator`, `tries`, never an id, #613) before any thread is written.
+`idGeneratorNameOf(generator)` (`@agboss/core/stores`, #890) names the project's class (never the framework's check) for a store of
 your own that refuses a minted id the same way.
 
 ```ts

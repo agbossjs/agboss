@@ -495,9 +495,12 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 **Retention** (#267 S107): a resolved record (`Taken`, `Cancelled`) is kept
 `@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
 removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
-`PausedExecutionRepository.deleteResolvedBefore(cutoff)`. Within the window a late answer gets
+`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`. Within the window a late answer gets
 `NotPausedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
-`Resolved` one no pass took yet) is never removed, however old.
+`Resolved` one no pass took yet) is never removed, however old. When the tree ends — finished,
+failed or cancelled — a `Resolved` pause no step took (an answer a cancel won over) is marked
+`Taken`, its answer kept and no channel told, so the sweep removes it after the retention like any
+other (#890, #811 s18c); before, it stayed `Resolved` forever.
 
 ## Who answered: `result.record.pauses`
 

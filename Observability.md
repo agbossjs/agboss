@@ -351,7 +351,7 @@ export class ZombieWriteAlert implements OnStepHandedOver {
 
 ## Fenced effects (#501)
 
-Each call of a step's fenced effect (`FencedEffectRepository.saveResultIfAbsent`, #500 —
+Each call of a step's fenced effect (`FencedEffectRepository.runOnce`, #500 —
 [Several instances](Several-instances#the-fenced-effect-500)) is told by `onFencedEffect`:
 `FencedEffectEvent` is a node event — the step that called it — with the effect's `name`, the
 call's `scopeKey` and `token`, `outcome` (`FencedEffectEventOutcome.Ran`, `Replayed` — the stored
