@@ -92,6 +92,8 @@ describe("#268 AC12: agboss rag index over the application", () => {
     expect(call.code).toBe(0);
     expect(tenant).toContain("required when the application declares a tenant context");
     expect(tenant).not.toContain("(default: default)");
+    // #891: plain words for what happens without it
+    expect(tenant).toContain('without it: the tenant "default"');
   });
 
   it("an unknown --rag: exit 2, a hint and the list; nothing is indexed", async () => {

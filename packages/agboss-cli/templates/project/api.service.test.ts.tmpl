@@ -1,14 +1,13 @@
-import { testExecutionContext } from "@agboss/core/testing";
-import { describe, expect, it } from "vitest";
+import { testWith } from "@agboss/core/testing";
+import { expect } from "vitest";
+import { {{application}} } from "{{applicationFrom}}";
 import { ApiService } from "../../src/services/api.service.js";
 
-describe("ApiService", () => {
-  it("builds URLs on the environment's API", () => {
-    const { application } = testExecutionContext({
-      application: { environment: { apiUrl: "https://api.example.com" } },
-    }).tenant;
-    const api = new ApiService(application);
+// the service as the application builds it: its environment is the test one next to the application file
+const test = testWith({{application}});
 
-    expect(api.url("/status")).toBe("https://api.example.com/status");
-  });
+test("ApiService builds URLs on the environment's API", async ({ app }) => {
+  await app.ready();
+
+  expect(app.resolve(ApiService).url("/status")).toBe("https://api.test.example.com/status");
 });

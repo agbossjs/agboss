@@ -47,10 +47,7 @@ export const usageError = (command: string, code: string, message: string): CliE
  * A `--tenant <id>` as given, once it is a key's text (#580, the rules of #552): else a usage error
  * naming the rule, never the id — a tenant id no tenant can have would read nothing, silently.
  */
-export function checkedTenantOption(
-  command: string,
-  tenant: string | undefined,
-): string | undefined {
+export function tenantOptionOf(command: string, tenant: string | undefined): string | undefined {
   const rule = tenant === undefined ? undefined : keyTextRuleOf(tenant);
   if (rule === undefined) return tenant;
   throw usageError(

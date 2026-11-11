@@ -1409,6 +1409,18 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
 
 ### Fixed — other
 
+- **`agboss rag index` is atomic per tenant and stops on Ctrl+C; the terminal answers questions
+  in an explicit mode** (#891, API review G11): `SqliteFtsConnector.index()` reads every document
+  first and writes every change in one transaction — an interrupted run (an abort, an unreadable
+  document) leaves the tenant's index as it found it, never a partial one the first retrieval would
+  take as built; SIGINT / SIGTERM abort the signal `agboss rag index` indexes under (`rag.interrupted`,
+  exit 1; was a signal that never aborted). A question pause's answer in the terminal is the typed
+  answer only on a line starting with `{` — which must be JSON, else it is asked again — and a
+  free-text reply otherwise (`42`, `["a"]` too), as the prompt says; the request is built typed (no
+  cast). `--tenant`'s help reads "without it: the tenant "default""; `agboss migrate`'s summary
+  names `@agboss/core`; `agboss create`'s `tests/services/api.service.test.ts` runs on
+  `testWith(<Project>Application)`.
+
 - **`agboss rag index` without `--tenant` built the `default` tenant's index in a multi-tenant
   application** (#797) — and reported success, while the tenant meant stayed unbuilt; `records
 export` already refused the same omission. In an application that declares a tenant context
