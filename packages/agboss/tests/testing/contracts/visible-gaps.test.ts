@@ -87,6 +87,7 @@ describe("#799 AC5: what a set does not check is skipped, never passed", () => {
 
     expect(skipped.map((found) => found.name)).toEqual(
       UNCLAIMED([
+        "a2aFile",
         "a2aTask",
         "checkpointSaver",
         "childExecutionQueue",

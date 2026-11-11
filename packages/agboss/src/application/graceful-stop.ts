@@ -14,7 +14,7 @@ import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 import type { AuditLogWriter } from "../app/execution-leases.js";
 
-import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
+import { a2aExpiriesOf } from "./a2a-expiries.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -222,7 +222,7 @@ export function stopOf(
     fencedEffectRetention: assembled.fencedEffects.retention,
     auditLog: parts.infrastructure.auditLog,
     auditLogRetention: assembled.auditLogRetention,
-    expiries: [a2aTaskExpiryOf(parts.infrastructure.a2aTasks, assembled.a2aTaskRetention)],
+    expiries: a2aExpiriesOf(parts.infrastructure, assembled),
     outboundCalls: parts.infrastructure.outboundCalls,
     outboundCallRetention: assembled.outboundCalls.retention,
     ledger: parts.infrastructure.costLedger,

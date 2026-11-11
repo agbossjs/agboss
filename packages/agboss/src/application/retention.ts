@@ -69,6 +69,12 @@ export interface RetentionOptions {
    * never removed. Default `hours(24)`.
    */
   readonly a2aTasks?: Milliseconds;
+  /**
+   * The files of an A2A task (#859, `A2AFileRepository`) after the task is over — never while it is
+   * not: a paused, `INPUT_REQUIRED` task keeps them however long it waits. At most `a2aTasks`: a
+   * file outliving its task is read by no one. Default `a2aTasks`.
+   */
+  readonly a2aFiles?: Milliseconds;
 }
 
 /** The retentions an application runs with: each set one, else its default (`executionRecords` stays unset). */
@@ -82,21 +88,23 @@ export interface ApplicationRetention {
   readonly outboundCalls: Milliseconds;
   readonly meshAnswers: Milliseconds;
   readonly a2aTasks: Milliseconds;
+  readonly a2aFiles: Milliseconds;
 }
 
 /** The defaults of every retention but `executionRecords` (unset = nothing kept). */
-export const DEFAULT_RETENTION: Readonly<Omit<ApplicationRetention, "executionRecords">> =
-  Object.freeze({
-    pauseRecords: hours(24),
-    auditLog: hours(24),
-    // a pass retries a lost write at its next read of the counters, seconds later: only a pass
-    // asleep for a day meets the refusal
-    costLedgerEntries: hours(24),
-    fencedEffects: DEFAULT_FENCED_EFFECT_RETENTION,
-    outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
-    meshAnswers: DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
-    a2aTasks: hours(24),
-  });
+export const DEFAULT_RETENTION: Readonly<
+  Omit<ApplicationRetention, "executionRecords" | "a2aFiles">
+> = Object.freeze({
+  pauseRecords: hours(24),
+  auditLog: hours(24),
+  // a pass retries a lost write at its next read of the counters, seconds later: only a pass
+  // asleep for a day meets the refusal
+  costLedgerEntries: hours(24),
+  fencedEffects: DEFAULT_FENCED_EFFECT_RETENTION,
+  outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
+  meshAnswers: DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
+  a2aTasks: hours(24),
+});
 
 /** Every field of `RetentionOptions`: a key outside them is a typo, never a silent default. */
 const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
@@ -108,6 +116,7 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "outboundCalls",
   "meshAnswers",
   "a2aTasks",
+  "a2aFiles",
 ];
 
 /**
@@ -119,6 +128,10 @@ const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
   "outboundCalls",
   "costLedgerEntries",
 ]);
+
+/** #859: how long an A2A task's files are kept once it is over — by default as long as the task. */
+const fileRetentionOf = (given: RetentionOptions): Milliseconds =>
+  given.a2aFiles ?? given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
 
 /** `@Application({ retention })` with the defaults filled in. */
 export function retentionOf(options: RetentionOptions | undefined): ApplicationRetention {
@@ -132,6 +145,7 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
     meshAnswers: given.meshAnswers ?? DEFAULT_RETENTION.meshAnswers,
     a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
+    a2aFiles: fileRetentionOf(given),
   };
 }
 
@@ -186,6 +200,22 @@ export function retentionViolations(application: string, options: unknown): Rule
       const problem = retentionProblem(field, given[field]);
       return problem === undefined ? [] : [fail(`.${field} ${problem}`)];
     }),
+    ...fileRetentionViolations(given, fail),
+  ];
+}
+
+/** #859: `a2aFiles` above `a2aTasks` (as given or by default) keeps files no task reads. */
+function fileRetentionViolations(
+  given: Readonly<Record<string, unknown>>,
+  fail: (text: string) => RuleViolation,
+): RuleViolation[] {
+  const files = given.a2aFiles;
+  const tasks = given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
+  if (typeof files !== "number" || typeof tasks !== "number" || files <= tasks) return [];
+  return [
+    fail(
+      `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`,
+    ),
   ];
 }
 
@@ -250,6 +280,7 @@ export interface AssembledRetentions {
   readonly executionRecordRetention?: Milliseconds;
   readonly auditLogRetention: Milliseconds;
   readonly a2aTaskRetention: Milliseconds;
+  readonly a2aFileRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
   readonly meshAnswerRetention: Milliseconds;
 }
@@ -261,6 +292,7 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
     : { executionRecordRetention: retention.executionRecords }),
   auditLogRetention: retention.auditLog,
   a2aTaskRetention: retention.a2aTasks,
+  a2aFileRetention: retention.a2aFiles,
   ledgerEntryRetention: retention.costLedgerEntries,
   meshAnswerRetention: retention.meshAnswers,
 });

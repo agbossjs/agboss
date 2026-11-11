@@ -284,7 +284,14 @@ describe("#849: a stored refusal is read back once, fail-closed", () => {
         { task: undefined, accepted: { message: undefined }, peer },
         "peer-a2a-agent",
       ),
-    ).toEqual({ task: undefined, message: undefined, text: undefined, data: undefined, peer });
+    ).toEqual({
+      task: undefined,
+      message: undefined,
+      text: undefined,
+      data: undefined,
+      files: [],
+      peer,
+    });
   });
 });
 

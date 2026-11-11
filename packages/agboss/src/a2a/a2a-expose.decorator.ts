@@ -1,13 +1,16 @@
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import type { A2ASecurityScheme } from "./a2a-security.js";
+import type { A2AFileOptions } from "./files/a2a-file-options.js";
 
-/** What the Agent Card says of one exported start (#808): its tags and examples. */
+/** What the Agent Card says of one exported start (#808): its tags and examples; its files (#859). */
 export interface A2AExposedSkillOptions {
   /** Keywords of the skill; default the application's name. */
   readonly tags?: readonly string[];
   /** Example requests. */
   readonly examples?: readonly string[];
+  /** How much it takes as files (#859), over `@Application({ a2aFiles })` field by field. */
+  readonly files?: A2AFileOptions;
 }
 
 /** `@A2AExpose({ name, version, description, exports, skills?, provider?, security? })` (#398 PR 3, #808). */

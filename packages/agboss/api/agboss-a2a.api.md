@@ -165,6 +165,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
     cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
     readonly contract: A2AClientContract | undefined;
+    downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array>;
     execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
     protected getHeaders(): Promise<Record<string, string>>;
     getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
@@ -194,6 +195,21 @@ export interface A2AClientContract {
     readonly output?: DtoClass;
     readonly price?: Usd;
     readonly skill?: string;
+}
+
+// @public
+export const A2AClientFile: {
+    readonly fromBytes: (bytes: Uint8Array, options: A2AClientFileOptions) => A2AFileDto;
+    readonly fromUrl: (url: string, options: A2AClientFileOptions) => A2AFileDto;
+    readonly toPart: (file: A2AFileDto, field?: string) => Part;
+};
+
+// @public
+export interface A2AClientFileOptions {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
 }
 
 // @public
@@ -258,6 +274,14 @@ export enum A2AContractRule {
 }
 
 // @public
+export interface A2ADownloadOptions {
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxSize?: Bytes;
+    // (undocumented)
+    readonly signal?: AbortSignal;
+}
+
+// @public
 export type A2AEvent = {
     readonly type: "progress";
     readonly payload: {
@@ -306,6 +330,7 @@ export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: 
 // @public
 export interface A2AExposedSkillOptions {
     readonly examples?: readonly string[];
+    readonly files?: A2AFileOptions;
     readonly tags?: readonly string[];
 }
 
@@ -324,6 +349,175 @@ export interface A2AExposeOptions {
 }
 
 // @public
+export class A2AFileConflictError extends AGBossError {
+    constructor(fileId: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileContent {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export class A2AFileDto {
+    // (undocumented)
+    fileId?: string;
+    // (undocumented)
+    filename?: string;
+    // (undocumented)
+    inline?: string;
+    // (undocumented)
+    mediaType: string;
+    // (undocumented)
+    sha256?: string;
+    // (undocumented)
+    sizeBytes?: number;
+    // (undocumented)
+    url?: string;
+}
+
+// @public
+export interface A2AFileField {
+    // (undocumented)
+    readonly isList: boolean;
+    // (undocumented)
+    readonly isOptional: boolean;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export interface A2AFileKey {
+    // (undocumented)
+    readonly fileId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AFileMetadata extends A2AFileKey {
+    readonly createdAt: Date;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly ownerId: string;
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: number;
+}
+
+// @public
+export interface A2AFileOptions {
+    readonly allowedFileOrigins?: readonly string[];
+    readonly allowedMediaTypes?: readonly string[];
+    readonly maxFiles?: number;
+    readonly maxFileSize?: Bytes;
+    readonly maxTotalFileSize?: Bytes;
+}
+
+// @public
+export interface A2AFileOwner {
+    // (undocumented)
+    readonly ownerId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AFileReference {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export enum A2AFileRefusal {
+    MediaType = "media-type",
+    MediaTypeMismatch = "media-type-mismatch",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large",
+    UrlInvalid = "url-invalid"
+}
+
+// @public
+export class A2AFileRefusedError extends AGBossError {
+    constructor(options: A2AFileRefusedErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly refusal: A2AFileRefusal;
+}
+
+// @public
+export interface A2AFileRefusedErrorOptions {
+    // (undocumented)
+    readonly mediaType?: string;
+    // (undocumented)
+    readonly refusal: A2AFileRefusal;
+    // (undocumented)
+    readonly sizeBytes?: number;
+}
+
+// @public (undocumented)
+export abstract class A2AFileRepository {
+    abstract deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    abstract findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    abstract findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    abstract ping(): Promise<void>;
+    abstract save(file: NewA2AFile): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class A2AFiles {
+    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
+    constructor(store: A2AFileRepository, clock: Clock);
+    fromUrl(url: string, reference: A2AFileReference): A2AFileDto;
+    read(file: A2AFileDto): Promise<Uint8Array>;
+    save(content: A2AFileContent): Promise<A2AFileDto>;
+}
+
+// @public
+export enum A2AFileSource {
+    Inline = "inline",
+    Stored = "stored",
+    Url = "url"
+}
+
+// @public
+export class A2AFileUnavailableError extends AGBossError {
+    constructor(reason: A2AFileUnavailableReason);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly reason: A2AFileUnavailableReason;
+}
+
+// @public
+export enum A2AFileUnavailableReason {
+    ByReference = "by-reference",
+    DigestMismatch = "digest-mismatch",
+    DownloadFailed = "download-failed",
+    NotFound = "not-found",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large"
+}
+
+// @public
 export function a2aHttpListener<TStart extends Class>(app: A2AApp, options: A2AHttpListenerOptions<TStart>): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
@@ -331,7 +525,7 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
     readonly base?: string;
     readonly callerResolver: Class<A2ACallerResolver<TStart>>;
     readonly expose: Class;
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly fileFetchTimeout?: Milliseconds;
     readonly maxBodySize?: Bytes;
     readonly maxTaskDuration?: Milliseconds;
     readonly publicUrl: string;
@@ -456,6 +650,9 @@ export interface A2AProtocolErrorOptions {
     readonly protocolVersions?: readonly string[];
     readonly rpcCode?: number | undefined;
 }
+
+// @public
+export type A2AReceivedFile = A2AFileDto;
 
 // @public
 export class A2ARemoteCallError extends AGBossError {
@@ -668,6 +865,7 @@ export enum A2ATaskInterruption {
 export interface A2ATaskResult {
     // (undocumented)
     readonly data: unknown;
+    readonly files: readonly A2AReceivedFile[];
     // (undocumented)
     readonly message: Message | undefined;
     // (undocumented)
@@ -684,7 +882,57 @@ export { AgentSkill }
 
 export { Artifact }
 
+// @public
+export const DEFAULT_A2A_FILE_MEDIA_TYPES: readonly string[];
+
+// @public
+export class InMemoryA2AFileRepository extends A2AFileRepository {
+    // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
+    constructor(database: InMemoryDatabase);
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    // (undocumented)
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class LocalDiskA2AFileRepository extends A2AFileRepository {
+    // Warning: (ae-forgotten-export) The symbol "ApplicationContext" needs to be exported by the entry point index.d.ts
+    constructor(applicationContext: ApplicationContext);
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    // (undocumented)
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    readonly folder: string;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
 export { Message }
+
+// @public
+export interface NewA2AFile extends A2AFileMetadata {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+}
 
 export { Part }
 
@@ -703,6 +951,24 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> extends Built
     readonly caller: A2ACaller<TStart>;
     // (undocumented)
     readonly kind: A2ACallerResolutionKind.Resolved;
+}
+
+// @public
+export class S3A2AFileRepository extends A2AFileRepository {
+    constructor(applicationContext: ApplicationContext, clock: Clock, fetcher?: typeof fetch);
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
 }
 
 // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
@@ -744,8 +1010,6 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     //
     // (undocumented)
     saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
-    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
@@ -753,6 +1017,18 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 export { Task }
 
 export { TaskState }
+
+// @public
+export class WorkflowFinishFileDto {
+    // (undocumented)
+    file: A2AFileDto;
+}
+
+// @public
+export class WorkflowFinishFilesDto {
+    // (undocumented)
+    files: A2AFileDto[];
+}
 
 // Warnings were encountered during analysis:
 //
@@ -799,15 +1075,18 @@ export { TaskState }
 // src/a2a/client/a2a-client-errors.ts:168:3 - (ae-undocumented) Missing documentation for "rule".
 // src/a2a/client/a2a-client-errors.ts:169:3 - (ae-undocumented) Missing documentation for "skill".
 // src/a2a/client/a2a-client-errors.ts:170:3 - (ae-undocumented) Missing documentation for "differences".
-// src/a2a/client/a2a-client-options.ts:25:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/client/a2a-client-options.ts:26:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/client/a2a-client-options.ts:33:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
-// src/a2a/client/a2a-client-options.ts:80:3 - (ae-undocumented) Missing documentation for "task".
-// src/a2a/client/a2a-client-options.ts:81:3 - (ae-undocumented) Missing documentation for "message".
-// src/a2a/client/a2a-client-options.ts:82:3 - (ae-undocumented) Missing documentation for "text".
-// src/a2a/client/a2a-client-options.ts:83:3 - (ae-undocumented) Missing documentation for "data".
-// src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/client/a2a-client.ts:56:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-client-files.ts:30:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/client/a2a-client-files.ts:31:3 - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/client/a2a-client-options.ts:27:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/client/a2a-client-options.ts:28:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/client/a2a-client-options.ts:35:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
+// src/a2a/client/a2a-client-options.ts:82:3 - (ae-undocumented) Missing documentation for "task".
+// src/a2a/client/a2a-client-options.ts:83:3 - (ae-undocumented) Missing documentation for "message".
+// src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "text".
+// src/a2a/client/a2a-client-options.ts:85:3 - (ae-undocumented) Missing documentation for "data".
+// src/a2a/client/a2a-client-options.ts:88:3 - (ae-undocumented) Missing documentation for "peer".
+// src/a2a/client/a2a-client.ts:60:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-download.ts:15:3 - (ae-undocumented) Missing documentation for "signal".
 // src/a2a/client/a2a-guard-errors.ts:20:3 - (ae-undocumented) Missing documentation for "agent".
 // src/a2a/client/a2a-guard-errors.ts:21:3 - (ae-undocumented) Missing documentation for "origin".
 // src/a2a/client/a2a-guard-errors.ts:22:3 - (ae-undocumented) Missing documentation for "site".
@@ -862,6 +1141,30 @@ export { TaskState }
 // src/a2a/client/a2a-task-errors.ts:160:3 - (ae-undocumented) Missing documentation for "contextId".
 // src/a2a/client/a2a-task-errors.ts:161:3 - (ae-undocumented) Missing documentation for "deadlineAt".
 // src/a2a/client/a2a-task-errors.ts:162:3 - (ae-undocumented) Missing documentation for "cancel".
+// src/a2a/files/a2a-file-errors.ts:19:3 - (ae-undocumented) Missing documentation for "refusal".
+// src/a2a/files/a2a-file-errors.ts:20:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-file-errors.ts:21:3 - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/a2a/files/a2a-file-errors.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts:27:3 - (ae-undocumented) Missing documentation for "refusal".
+// src/a2a/files/a2a-file-errors.ts:59:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts:60:3 - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/files/a2a-file.dto.ts:18:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-file.dto.ts:21:3 - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/files/a2a-file.dto.ts:24:3 - (ae-undocumented) Missing documentation for "fileId".
+// src/a2a/files/a2a-file.dto.ts:31:3 - (ae-undocumented) Missing documentation for "sha256".
+// src/a2a/files/a2a-file.dto.ts:34:3 - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/a2a/files/a2a-file.dto.ts:37:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/files/a2a-file.dto.ts:45:3 - (ae-undocumented) Missing documentation for "inline".
+// src/a2a/files/a2a-file.dto.ts:83:3 - (ae-undocumented) Missing documentation for "file".
+// src/a2a/files/a2a-file.dto.ts:89:3 - (ae-undocumented) Missing documentation for "files".
+// src/a2a/files/a2a-file.dto.ts:94:3 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/files/a2a-file.dto.ts:95:3 - (ae-undocumented) Missing documentation for "isList".
+// src/a2a/files/a2a-file.dto.ts:96:3 - (ae-undocumented) Missing documentation for "isOptional".
+// src/a2a/files/a2a-files.service.ts:10:3 - (ae-undocumented) Missing documentation for "bytes".
+// src/a2a/files/a2a-files.service.ts:11:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-files.service.ts:12:3 - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/files/a2a-files.service.ts:17:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-files.service.ts:18:3 - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/types.ts:11:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/a2a/types.ts:12:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/a2a/types.ts:13:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -872,6 +1175,38 @@ export { TaskState }
 // src/a2a/types.ts:36:3 - (ae-undocumented) Missing documentation for "status".
 // src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "finish".
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/a2a-file.repository.ts:28:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts:29:3 - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts:35:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts:40:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts:41:3 - (ae-undocumented) Missing documentation for "mediaType".
+// src/infrastructure/a2a-file.repository.ts:42:3 - (ae-undocumented) Missing documentation for "filename".
+// src/infrastructure/a2a-file.repository.ts:45:3 - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/infrastructure/a2a-file.repository.ts:52:3 - (ae-undocumented) Missing documentation for "bytes".
+// src/infrastructure/a2a-file.repository.ts:57:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts:59:15 - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts:64:1 - (ae-undocumented) Missing documentation for "A2AFileRepository".
+// src/infrastructure/in-memory-a2a-file.repository.ts:24:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-file.repository.ts:30:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/in-memory-a2a-file.repository.ts:45:3 - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/in-memory-a2a-file.repository.ts:50:3 - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/in-memory-a2a-file.repository.ts:55:3 - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-file.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/local-disk-a2a-file.repository.ts:48:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/local-disk-a2a-file.repository.ts:63:9 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/local-disk-a2a-file.repository.ts:68:9 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/local-disk-a2a-file.repository.ts:87:9 - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/local-disk-a2a-file.repository.ts:93:9 - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/local-disk-a2a-file.repository.ts:100:9 - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
+// src/infrastructure/local-disk-a2a-file.repository.ts:109:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:79:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:91:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:95:9 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:108:3 - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:112:9 - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/s3/s3-a2a-file.repository.ts:143:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:41:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:50:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:54:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".

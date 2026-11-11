@@ -15,6 +15,8 @@ export default defineConfig({
       "tests/a2a/a2a-task-store-rule*.test.ts",
       // #810: the mesh end to end
       "tests/a2a/mesh/*.test.ts",
+      // #859: file parts in messages and artifacts
+      "tests/a2a/files/*.test.ts",
     ],
   },
 });

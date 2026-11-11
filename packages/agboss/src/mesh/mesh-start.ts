@@ -22,6 +22,9 @@ export function meshSettingsFor(
     clock: app.resolve(Clock),
     idempotencyRetention: assembled.meshAnswerRetention,
     a2aTaskRetention: assembled.a2aTaskRetention,
+    a2aFileRetention: assembled.a2aFileRetention,
+    a2aFiles: assembled.a2aFiles,
+    workflows: assembled.workflows.map((workflow) => workflow.graph.type),
     exposes: assembled.exposes,
     contracts: async () =>
       (await lazyLoad(import("../describe/contracts.js"))).contractsOf(assembled),

@@ -4,7 +4,7 @@ import { isoDurationOf } from "../../mesh/mesh-durations.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { A2ASecuritySchemeKind, type A2ASecurityScheme } from "../a2a-security.js";
-import type { ServedSkill } from "./a2a-skills.js";
+import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 
 /**
  * The Agent Card of a listener (#808, spec §4.4 and §8): served at
@@ -84,6 +84,23 @@ function schemeOf(scheme: A2ASecurityScheme): SecurityScheme {
 
 const unique = (values: readonly string[]): string[] => [...new Set(values)];
 
+/** What a skill's messages carry (#859: and the media types of the files it takes). */
+const inputModesOf = (skill: ServedSkill): string[] =>
+  unique([
+    skill.inputMediaType,
+    ...(skill.inputFiles.length === 0 ? [] : skill.fileLimits.allowedMediaTypes),
+  ]);
+
+/** What a skill's finishes give: a file finish its files' media types (#859), its data JSON. */
+const outputModesOf = (skill: ServedSkill): string[] =>
+  unique(
+    skill.outputs.flatMap((output) =>
+      output.fileFields.length === 0
+        ? [output.mediaType]
+        : [...skill.fileLimits.allowedMediaTypes, ...(output.hasData ? [A2AMediaType.Json] : [])],
+    ),
+  );
+
 /** The skills extension's params: each skill's input and finishes' JSON Schemas. */
 function skillsParamsOf(skills: readonly ServedSkill[]): Record<string, unknown> {
   const entries = skills.map((skill) => [
@@ -141,16 +158,16 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
     securitySchemes: Object.fromEntries(security.map((scheme) => [scheme.name, schemeOf(scheme)])),
     // any one of the declared schemes
     securityRequirements: security.map((scheme) => ({ schemes: { [scheme.name]: { list: [] } } })),
-    defaultInputModes: unique(skills.map((skill) => skill.inputMediaType)),
-    defaultOutputModes: unique(skills.flatMap((skill) => skill.outputs.map((o) => o.mediaType))),
+    defaultInputModes: unique(skills.flatMap(inputModesOf)),
+    defaultOutputModes: unique(skills.flatMap(outputModesOf)),
     skills: skills.map((skill) => ({
       id: skill.id,
       name: skill.id,
       description: skill.description,
       tags: [...(expose.skills?.[skill.id]?.tags ?? [application])],
       examples: [...(expose.skills?.[skill.id]?.examples ?? [])],
-      inputModes: [skill.inputMediaType],
-      outputModes: unique(skill.outputs.map((output) => output.mediaType)),
+      inputModes: inputModesOf(skill),
+      outputModes: outputModesOf(skill),
       securityRequirements: [],
     })),
     signatures: [],

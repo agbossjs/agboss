@@ -4,6 +4,7 @@ import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
+import { receivedFileOf } from "./a2a-client-files.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
 import type { A2ATaskResult } from "./a2a-client-options.js";
 import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
@@ -143,5 +144,6 @@ export function untypedResultOf(
   const answer = task ?? message;
   // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data
   const parts = answer === undefined ? [] : answerPartsOf(answer);
-  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, peer };
+  const files = parts.flatMap((part) => receivedFileOf(part) ?? []);
+  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, files, peer };
 }

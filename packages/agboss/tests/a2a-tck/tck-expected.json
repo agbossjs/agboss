@@ -12,13 +12,11 @@
       "patch": null,
       "jsonrpc": {
         "total": 87,
-        "passed": 61,
-        "failed": 11,
+        "passed": 63,
+        "failed": 9,
         "skipped": 15
       },
       "failedTests": [
-        "tests.compatibility.core_operations.test_artifacts.TestFileArtifact::test_task_has_file_artifact[jsonrpc]",
-        "tests.compatibility.core_operations.test_artifacts.TestFileUrlArtifact::test_task_has_file_url_artifact[jsonrpc]",
         "tests.compatibility.core_operations.test_artifacts.TestMessageResponse::test_returns_message_with_text_part[jsonrpc]",
         "tests.compatibility.core_operations.test_requirements::test_must_requirement[CORE-EXECUTION-MODE-001-jsonrpc]",
         "tests.compatibility.core_operations.test_requirements::test_must_requirement[CORE-EXECUTION-MODE-002-jsonrpc]",
@@ -34,7 +32,6 @@
         "CORE-MULTI-002a": "tck-defect: one messageId per session for different messages",
         "CORE-MULTI-003": "tck-defect: one messageId per session for different messages",
         "CORE-SEND-003": "tck-defect: no expected_error declared",
-        "DM-ART-001": "no-file-parts",
         "DM-MSG-001": "always-a-task",
         "CORE-MULTI-001": "tck-defect: one messageId per session for different messages",
         "CORE-MULTI-002": "tck-defect: one messageId per session for different messages"
@@ -58,17 +55,14 @@
       "patch": "tck-defects.patch",
       "jsonrpc": {
         "total": 99,
-        "passed": 80,
-        "failed": 4,
+        "passed": 82,
+        "failed": 2,
         "skipped": 15
       },
       "failedTests": [
-        "tests.compatibility.core_operations.test_artifacts.TestFileArtifact::test_task_has_file_artifact[jsonrpc]",
-        "tests.compatibility.core_operations.test_artifacts.TestFileUrlArtifact::test_task_has_file_url_artifact[jsonrpc]",
         "tests.compatibility.core_operations.test_artifacts.TestMessageResponse::test_returns_message_with_text_part[jsonrpc]"
       ],
       "fail": {
-        "DM-ART-001": "no-file-parts",
         "DM-MSG-001": "always-a-task",
         "CORE-HIST-004": "history-is-the-status-message"
       },
@@ -78,7 +72,6 @@
   "reasons": {
     "tck-defect: one messageId per session for different messages": "The TCK's tck_id(prefix) is one id per session (tck/requirements/base.py), so several requirements send the same messageId with other content. A message's id is unique (a2a.proto Message.message_id); AGBoss deduplicates every messageId per tenant and owner and refuses one reused with other content (-32602, the payment guarantee, #805). tck-defects.patch gives each call its own id.",
     "tck-defect: no expected_error declared": "CORE-SEND-003 says a raw part of an unsupported media type MUST be ContentTypeNotSupportedError, and AGBoss answers -32005 ContentTypeNotSupportedError (ErrorInfo CONTENT_TYPE_NOT_SUPPORTED); the requirement declares no expected_error, so the TCK takes any error as a failure. tck-defects.patch declares it.",
-    "no-file-parts": "The tck-artifact-file / tck-artifact-file-url scenarios need an artifact with a file part. AGBoss 0.1.1 has no file parts (epic #805, what it does not do): an output is text or one data part. The text and data variants of DM-ART-001 pass. File parts come with #859.",
     "always-a-task": "The tck-message-response scenario needs a stateless Message answer. Every AGBoss send is a durable task (one task = one execution, #805); the spec allows either (SendMessage answers a Task or a Message). A direct Message answer comes with #860.",
     "history-is-the-status-message": "MAY: AGBoss keeps no task history beyond the status message in 0.1.1 (design §4.1.5, historyLength honoured as the status message only)."
   },

@@ -207,4 +207,14 @@ export {
   type NewA2ATask,
 } from "../infrastructure/a2a-task.repository.js";
 export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
+// #859: the A2A tasks' files (infrastructure, listed in `@Application({ providers })`)
+export {
+  A2AFileConflictError,
+  A2AFileRepository,
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "../infrastructure/a2a-file.repository.js";
+export type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 export type { RetentionOptions } from "../application/retention.js";

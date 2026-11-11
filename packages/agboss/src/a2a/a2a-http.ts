@@ -11,6 +11,10 @@ import { callerResolverOf, writeRejection } from "./a2a-caller-gate.js";
 import { exportsOf } from "./a2a-exports.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
+import type { ServedSkill } from "./server/a2a-skills.js";
+import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { DEFAULT_FILE_FETCH_TIMEOUT } from "./files/a2a-file-options.js";
+import { fileTransportOf } from "./files/a2a-file-seam.js";
 
 /** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
 export interface A2AHttpListenerOptions<TStart extends Class> {
@@ -31,8 +35,13 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
   readonly publicUrl: string;
   /** The listener's path (`"/a2a"` → `POST /a2a`, the card at `/a2a/.well-known/agent-card.json`); default none. */
   readonly base?: string;
-  /** The largest request body read (`kilobytes(1024)` by default): over it → `413`, nothing run. */
+  /**
+   * The largest request body read: over it → `413`, nothing run. By default `kilobytes(1024)`, or
+   * more when a skill takes files (#859): room for its `maxTotalFileSize` as base64 and 256 KB more.
+   */
   readonly maxBodySize?: Bytes;
+  /** How long a file by `url` may take to fetch at a message's admission (#859): `seconds(10)`. */
+  readonly fileFetchTimeout?: Milliseconds;
   /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request. */
   readonly maxTaskDuration?: Milliseconds;
 }
@@ -44,6 +53,24 @@ const nameOf = (error: unknown): string => (error instanceof Error ? error.name 
 
 /** The default `maxBodySize`: 1 MB. */
 const MAX_BODY_SIZE = kilobytes(1024);
+
+/**
+ * The listener's `maxBodySize` (#859): as given, else 1 MB — or, when a skill takes more files, its
+ * largest `maxTotalFileSize` as base64 (4 bytes for 3) and 256 KB for the rest of the message.
+ */
+export function maxBodySizeOf(
+  given: Bytes | undefined,
+  skills: readonly Pick<ServedSkill, "inputFiles" | "fileLimits">[],
+): Bytes {
+  if (given !== undefined) return given;
+  const largest = Math.max(
+    0,
+    ...skills.flatMap((skill) =>
+      skill.inputFiles.length === 0 ? [] : [skill.fileLimits.maxTotalFileSize],
+    ),
+  );
+  return Math.max(MAX_BODY_SIZE, Math.ceil((largest * 4) / 3) + kilobytes(256)) as Bytes;
+}
 
 /** A listener's `publicUrl` + `base`, checked: an absolute http(s) URL, no query or fragment. */
 function interfaceUrlOf(publicUrl: string, base: string): string {
@@ -87,6 +114,13 @@ function builtAppOf(app: A2AApp) {
   return { mesh, control };
 }
 
+/** Where the listener's files are kept and how one by url is fetched (#859). */
+const serverFilesOf = (app: A2AApp, options: A2AHttpListenerOptions<Class>) => ({
+  store: app.resolve(A2AFileRepository),
+  transport: fileTransportOf(options),
+  timeout: options.fileFetchTimeout ?? DEFAULT_FILE_FETCH_TIMEOUT,
+});
+
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
 async function bindingOf<TStart extends Class>(
   app: A2AApp,
@@ -100,14 +134,16 @@ async function bindingOf<TStart extends Class>(
   const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
     await serverModules();
   const { mesh, control } = builtAppOf(app);
-  const skills = servedSkillsOf(checked.exports, await mesh.contracts());
   const meta = componentOf(options.expose);
   // exportsOf checked it is an @A2AExpose
   if (meta?.kind !== "a2a-expose")
     throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+  const expose = meta.meta;
+  const sources = { contracts: await mesh.contracts(), workflows: mesh.workflows, expose };
+  const skills = servedSkillsOf(checked.exports, { ...sources, files: mesh.a2aFiles });
   const clock = app.resolve(Clock);
   const card = agentCardOf({
-    expose: meta.meta,
+    expose,
     skills,
     application: mesh.application,
     url: checked.url,
@@ -125,6 +161,7 @@ async function bindingOf<TStart extends Class>(
     log: frameworkLogOf(app.resolve(Logger), clock),
     maxTaskDuration: options.maxTaskDuration,
     mesh,
+    files: serverFilesOf(app, options),
   };
   return {
     card,
@@ -133,7 +170,7 @@ async function bindingOf<TStart extends Class>(
     mesh,
     log: parts.log,
     base: options.base ?? "",
-    maxBodySize: options.maxBodySize ?? MAX_BODY_SIZE,
+    maxBodySize: maxBodySizeOf(options.maxBodySize, skills),
   };
 }
 

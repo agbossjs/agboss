@@ -1,4 +1,5 @@
 import { Part, type Task } from "@a2a-js/sdk";
+import { createHash } from "node:crypto";
 import { NotSentTrust } from "../../app/outbound-call-contract.js";
 import { OutboundCallReconciliation, type OutboundCallLookup } from "../../app/outbound-calls.js";
 import type { OutboundCallNotSent } from "../../app/outbound-call-types.js";
@@ -45,13 +46,30 @@ export function notSentOf(peer: A2ARemotePeer): OutboundCallNotSent {
 }
 
 /** What the intent stores of a call's request: the parts as their wire JSON, the peer's trust. */
+/**
+ * A part as the call's intent stores it: a `raw` file as its fingerprint only (#859 — its SHA-256,
+ * size, media type and name), so a file never fills the intent past `maxPayloadSize`.
+ */
+function storedPartOf(part: Part): unknown {
+  const { content } = part;
+  if (content?.$case !== "raw") return Part.toJSON(part);
+  return {
+    raw: {
+      sha256: createHash("sha256").update(content.value).digest("hex"),
+      sizeBytes: content.value.byteLength,
+    },
+    mediaType: part.mediaType,
+    filename: part.filename,
+  };
+}
+
 export const acceptRequestOf = (call: AcceptCall): AcceptRequest => ({
   agent: call.agent,
   url: call.url,
   skill: call.skill ?? null,
   contextId: call.contextId ?? null,
   taskId: call.taskId ?? null,
-  parts: JSON.stringify(call.parts.map((part) => Part.toJSON(part))),
+  parts: JSON.stringify(call.parts.map(storedPartOf)),
   peer: { kind: call.peer.kind, idempotencyRetention: call.peer.idempotencyRetention ?? null },
 });
 

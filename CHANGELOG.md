@@ -1074,6 +1074,32 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **File parts in A2A messages and artifacts** (#859, epic #805) — a skill whose input DTO holds
+  `A2AFileDto` fields (`@Nested(A2AFileDto)`, `@ListOf(A2AFileDto)`) takes `raw` and `url` file
+  parts: each into the field its `metadata["https://agboss.dev/a2a/skills/v1"].field` names, else
+  in order; never from a data part (`-32602 a2a.file-field-in-data`), and only at a DTO's top level
+  (`[a2a.nested-file-field]`). Bounded by
+  `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })` (`maxFileSize`,
+  `maxTotalFileSize`, `maxFiles`, `allowedMediaTypes`, `allowedFileOrigins`; 64 KB, 64 KB, 5, images
+  / PDF / text / Markdown / CSV / JSON, none by default; `[a2a.file-options-invalid]`), each file's
+  bytes checked against its media type (magic bytes, UTF-8; `-32602 a2a.media-type-mismatch`, a
+  type not taken `-32005`), a file by url fetched once at the admission — `https:` on an allowed
+  origin only, redirects by hand (≤ 3, each origin checked), never a private address, the read
+  stopped past `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })`
+  (10 s) — and a resend never fetches again. A finish whose output holds files (`WorkflowFinishFileDto`,
+  `WorkflowFinishFilesDto`, any DTO with file fields) answers with file parts in its artifact; steps
+  read and make files with the `A2AFiles` service (`read`, `save`, `fromUrl`); the card lists the
+  media types in `inputModes` / `outputModes`; `maxBodySize` grows with `maxTotalFileSize`. Files ride
+  inline in the task's records with no store listed (`[a2a.inline-files-without-store]` above 64
+  KB, `[a2a.file-store-required]` above 256 KB) or in an `A2AFileRepository`
+  (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository` on `a2aFilesPath`,
+  `S3A2AFileRepository` — plain `fetch`, Signature Version 4, `a2aS3Bucket` / `a2aS3Region` /
+  `a2aS3Endpoint?` / `a2aS3AccessKeyId` / `a2aS3SecretAccessKey`; `a2aFileContract`
+  in `@agboss/core/testing/contracts`; `[a2a.file-store-not-shared]` for one host's store on shared
+  leases), removed `retention.a2aFiles` (default `a2aTasks`, at most it) after the task is over —
+  never while it waits. The client sends `A2AClientFile.fromBytes(…)` / `.fromUrl(…)`, reads file
+  parts into the output DTO (a foreign agent's too), gives `A2ATaskResult.files` and
+  `client.downloadFile(file)`. The official TCK's `DM-ART-001` file variants pass.
 - **The AGBoss mesh over A2A v1.0, both sides** (#810, epic #805) — the A2A server checks a
   `SendMessage`'s envelope (`message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`) before
   the caller resolver and before anything runs: its audience first, against the application's own

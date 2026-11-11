@@ -6,6 +6,8 @@
 // the execution as a declared context field. Everything past that is AGBoss as an application
 // serves it.
 import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { WorkflowFinishFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { A2AFiles } from "../../src/a2a/files/a2a-files.service.js";
 import {
   A2ACallerResolution,
   type A2ACaller,
@@ -86,21 +88,45 @@ const TEXTS: Readonly<Record<string, string>> = {
   "stream-artifact-chunked": "chunk-1 chunk-2",
 };
 
-/** A scenario's answer: a text, a data value, or a question for its caller. */
+/** The file the file scenarios answer with (`tck-artifact-file`, `-url`, #859). */
+const TCK_FILE = { filename: "output.txt", mediaType: "text/plain" } as const;
+
+/** What a scenario answers with. */
+type TckAnswer = Variant<
+  typeof WorkflowFinishTextDto | typeof TckDataDto | typeof TckAskDto | typeof WorkflowFinishFileDto
+>;
+
+/** A scenario's answer: a text, a data value, a file, or a question for its caller. */
 @Action({
   name: "tck-scenario-action",
   description: "Answers as the TCK scenario of the message says",
   input: { message: WorkflowStartTextDto },
-  output: oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto),
-  deps: [TckExecutionContext],
+  output: oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto),
+  deps: [TckExecutionContext, A2AFiles],
 })
 export class TckScenarioAction {
-  constructor(private readonly tckExecutionContext: TckExecutionContext) {}
+  constructor(
+    private readonly tckExecutionContext: TckExecutionContext,
+    private readonly a2aFiles: A2AFiles,
+  ) {}
 
-  execute(_input: {
+  async execute(_input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<Variant<typeof WorkflowFinishTextDto | typeof TckDataDto | typeof TckAskDto>> {
+  }): Promise<TckAnswer> {
     const scenario = this.tckExecutionContext.scenario ?? "complete-task";
+    if (scenario === "artifact-file") {
+      const bytes = new TextEncoder().encode("Generated file content");
+      const file = await this.a2aFiles.save({ ...TCK_FILE, bytes });
+      return variant(WorkflowFinishFileDto, { file });
+    }
+    if (scenario === "artifact-file-url") {
+      const file = this.a2aFiles.fromUrl("https://example.com/output.txt", TCK_FILE);
+      return variant(WorkflowFinishFileDto, { file });
+    }
+    return this.#answerOf(scenario);
+  }
+
+  #answerOf(scenario: string): Promise<TckAnswer> {
     if (scenario === "reject-task") return Promise.reject(new TckRejectedError("rejected"));
     if (scenario === "artifact-data")
       return Promise.resolve(variant(TckDataDto, { key: "value", count: 42 }));
@@ -171,6 +197,13 @@ export class TckWorkflowStart {}
 export class TckTextFinish {}
 
 @WorkflowFinish({
+  name: "tck-file-workflow-finish",
+  description: "A file answer",
+  output: WorkflowFinishFileDto,
+})
+export class TckFileFinish {}
+
+@WorkflowFinish({
   name: "tck-data-workflow-finish",
   description: "A data answer",
   output: TckDataDto,
@@ -184,9 +217,10 @@ export class TckDataFinish {}
     start(TckWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(TckScenarioAction)
-      .returns(oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto))
+      .returns(oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto))
       .switch(
         caseOf(WorkflowFinishTextDto).toFinish(TckTextFinish),
+        caseOf(WorkflowFinishFileDto).toFinish(TckFileFinish),
         caseOf(TckDataDto).toFinish(TckDataFinish),
         caseOf(TckAskDto)
           .toQuestion(TckInputQuestion)

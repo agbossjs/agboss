@@ -16,6 +16,8 @@ import { hasSensitiveFields } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
+import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
+import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -47,6 +49,10 @@ export interface WarningSources {
   /** Its declared contexts: a `sensitive` field of theirs makes tokens too (#644). */
   readonly tenantContext?: Class;
   readonly executionContext?: Class;
+  /** The application's name, exposes and `a2aFiles` (#859): where its A2A files ride. */
+  readonly name?: string;
+  readonly exposes?: readonly Class[];
+  readonly a2aFiles?: A2AFileOptions | undefined;
 }
 
 const IN_MEMORY_LEDGER: AssemblyWarning = {
@@ -143,6 +149,18 @@ const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
 const launchesAnywhere = (workflows: readonly AssembledWorkflow[]): boolean =>
   workflows.some((workflow) => launchesOnAnyInstance(workflow.graph.nodes.values()));
 
+/** `[a2a.inline-files-without-store]` (#859), when its A2A files ride inline above 64 KB. */
+function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {
+  const message = inlineFilesWarningOf({
+    name: sources.name ?? "the application",
+    providers: sources.providers,
+    exposes: sources.exposes ?? [],
+    workflows: sources.workflows.map((workflow) => workflow.graph.type),
+    a2aFiles: sources.a2aFiles,
+  });
+  return message === undefined ? [] : [{ code: "a2a.inline-files-without-store", message }];
+}
+
 /**
  * The assembly warnings (#261): tenant or application budgets on an in-memory ledger; possible
  * pauses with in-memory paused executions or checkpoints; children on any instance on an in-memory
@@ -172,6 +190,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
   return [
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),
     ...notAtomicStoresOf(sources.providers).map(notAtomic),
+    ...inlineFilesOf(sources),
   ];
 }
 

@@ -23,6 +23,8 @@ import { registerFencedEffectContract } from "./fenced-effect.contract.js";
 import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
 import { a2aTaskContract } from "./a2a-task.contract.js";
+import { a2aFileContract } from "./a2a-file.contract.js";
+import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
 import type { OutboundCallTarget } from "./outbound-call-data.js";
 import { registerOutboundCallContract } from "./outbound-call.contract.js";
 import { pausedExecutionContract } from "./paused-execution.contract.js";
@@ -62,6 +64,8 @@ export interface StoreSet<TTransaction = unknown> {
   readonly meshRequest?: StoreEntry<MeshRequestRepository>;
   /** The A2A tasks (#807). */
   readonly a2aTask?: StoreEntry<A2ATaskRepository>;
+  /** The A2A tasks' files (#859). */
+  readonly a2aFile?: StoreEntry<A2AFileRepository>;
   readonly outboundCall?: StoreEntry<OutboundCallTarget>;
   readonly pausedExecution?: StoreEntry<PausedExecutionRepository>;
   readonly rateLimit?: StoreEntry<RateLimitRepository>;
@@ -164,6 +168,7 @@ export function storeConformance<TTransaction>(
   });
   each(set, stores.meshRequest, meshRequestContract);
   each(set, stores.a2aTask, a2aTaskContract);
+  each(set, stores.a2aFile, a2aFileContract);
   const outboundCall = each(set, stores.outboundCall, (target) => {
     registerOutboundCallContract(target, fencing);
   });

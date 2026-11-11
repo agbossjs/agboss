@@ -1,4 +1,6 @@
 import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
+import { nestedFileFieldsOf } from "../files/a2a-file.dto.js";
+import type { A2AReceivedFile } from "./a2a-client-files.js";
 import { ComponentError, componentOf } from "../../components/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -81,6 +83,8 @@ export interface A2ATaskResult {
   readonly message: Message | undefined;
   readonly text: string | undefined;
   readonly data: unknown;
+  /** The answer's files (#859), in order: each one's bytes inline (`raw`) or by `url`. */
+  readonly files: readonly A2AReceivedFile[];
   readonly peer: A2ARemotePeer;
 }
 
@@ -158,6 +162,14 @@ export function typedContractOf(
   contract: A2AClientContract | undefined,
 ): TypedContract {
   if (contract?.input !== undefined && contract.output !== undefined) {
+    // #859: a file below the top level would travel in the data part — refused, as at assembly
+    const nested = [contract.input, contract.output].flatMap((dto) =>
+      nestedFileFieldsOf(dto).map((path) => `${dto.name}.${path}`),
+    );
+    if (nested.length > 0)
+      throw new ComponentError(
+        `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds an A2AFileDto below the top level — an A2A file is a part of its own, in a top-level field`,
+      );
     return { ...contract, input: contract.input, output: contract.output };
   }
   throw new ComponentError(

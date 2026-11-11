@@ -60,6 +60,11 @@ export class CardCache {
     this.#ttl = options.ttl ?? DEFAULT_CARD_TTL;
   }
 
+  /** The client's one fetch (#859: a file by `url` is downloaded through it): its origins, its headers. */
+  get fetch(): typeof fetch {
+    return this.#fetch;
+  }
+
   /** The card and its SDK client: the kept one while fresh, else fetched and checked again. */
   async wireOf(clock: Pick<Clock, "now">, signal: AbortSignal | undefined): Promise<Wire> {
     const { url, agent, contract, policy } = this.#options;

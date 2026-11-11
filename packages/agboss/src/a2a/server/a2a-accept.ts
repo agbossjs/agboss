@@ -3,7 +3,6 @@ import { executeWithoutInputCheck } from "../../app/execute-without-input-check.
 import { DurableExecutionStatus } from "../../app/execution-control.js";
 import { DuplicateExecutionIdError } from "../../core/errors.js";
 import { failedStatusOf, rejectedStatusOf } from "../tasks/task-status.js";
-import { meshRefusalOf } from "../../mesh/mesh-admission.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { withInboundMesh } from "../../mesh/inbound-mesh.js";
 import { inboundMeshOfA2A } from "./a2a-mesh-admission.js";
@@ -14,12 +13,7 @@ import {
   type A2ATaskRecord,
   type NewA2ATask,
 } from "../../infrastructure/a2a-task.repository.js";
-import {
-  checkedCallerKey,
-  inputOfMessage,
-  requestHashOf,
-  skillOfMessage,
-} from "./a2a-message-input.js";
+import { checkedCallerKey, requestHashOf, skillOfMessage } from "./a2a-message-input.js";
 import {
   callerOptionsOf,
   endedUnstarted,
@@ -29,6 +23,9 @@ import {
   type A2AServerParts,
 } from "./a2a-server-parts.js";
 import type { ServedSkill } from "./a2a-skills.js";
+import { isFilePart } from "./a2a-message-files.js";
+import { meshFieldsOf, meshLimitOf } from "./a2a-accept-mesh.js";
+import { inputForOf, keptFiles, type StartInput } from "./a2a-start-input.js";
 import { A2AInternalError, invalidParams, taskNotFound } from "./a2a-wire-errors.js";
 
 /**
@@ -51,12 +48,13 @@ import { A2AInternalError, invalidParams, taskNotFound } from "./a2a-wire-errors
 /** How many minted task ids are tried before the generator is taken as broken. */
 const MINT_ATTEMPTS = 3;
 
-/** What one new message asks: its skill, its input and its hash. */
+/** What one new message asks: its skill, its hash, and its input under a task's id (#859: its files). */
 interface NewMessage {
   readonly message: Message;
   readonly skill: ServedSkill;
-  readonly input: unknown;
   readonly requestHash: string;
+  /** The input, checked, with its files admitted for the task — and the files to keep before it. */
+  readonly inputFor: (taskId: string) => Promise<StartInput>;
 }
 
 /** Starts the task's execution under its reserved id, here, detached from the request. */
@@ -64,7 +62,7 @@ function started(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
   task: A2ATaskRecord,
-  sent: NewMessage,
+  sent: { readonly skill: ServedSkill; readonly input: unknown },
 ): void {
   // it runs here already (a resend while it starts): one run is enough to ask for
   if (parts.runs.settledOf(taskKeyOf(task)) !== undefined) return;
@@ -146,72 +144,65 @@ async function acceptedBefore(
   const task = await parts.tasks.findById({ tenantId: caller.tenantId, taskId: kept.taskId });
   // the message's task is gone (swept): it is no more
   if (task === undefined) throw taskNotFound();
-  if (task.status.state === A2ATaskState.Submitted) started(parts, caller, task, sent);
+  if (task.status.state === A2ATaskState.Submitted) {
+    // it waits to start (its first accept stopped before): its input again, its files kept already
+    const { input, toSave } = await sent.inputFor(task.taskId);
+    await keptFiles(parts, toSave);
+    started(parts, caller, task, { skill: sent.skill, input });
+  }
   return task;
 }
 
-/**
- * The chain limit the message meets at this skill: checked on every envelope, trusted or not — a
- * caller only makes its own request fail with it.
- */
-function meshLimitOf(
-  parts: A2AServerParts,
-  caller: A2ARequestCaller,
-  skill: ServedSkill,
-): MeshLimitError | undefined {
-  const { application, maxMeshHops } = parts.mesh;
-  const receiver = { entry: { application, start: skill.id }, maxMeshHops };
-  return meshRefusalOf(receiver, caller.mesh.envelope);
-}
-
-/** What a task keeps of its caller: the peer the resolver named, a trusted message's body hash. */
-function meshFieldsOf(caller: A2ARequestCaller): Pick<NewA2ATask, "callerPeer" | "meshBodyHash"> {
-  const { trusted } = caller.mesh;
-  const { peer } = caller.caller;
-  return {
-    ...(peer === undefined ? {} : { callerPeer: peer }),
-    ...(trusted === undefined ? {} : { meshBodyHash: trusted.bodyHash }),
+/** A new message with no task yet, and what its task is keyed and placed by. */
+interface Unaccepted {
+  readonly sent: NewMessage;
+  readonly key: {
+    readonly tenantId: string;
+    readonly ownerId: string | undefined;
+    readonly messageId: string;
   };
+  readonly contextId: string;
+  readonly limit: MeshLimitError | undefined;
 }
 
-/** The task of a new message: accepted now (and started), or the one it was accepted for. */
-export async function acceptedTask(
+/** The new task of one minted id, saved with its input files kept first; the save's outcome. */
+async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unaccepted: Unaccepted) {
+  const { sent, key, contextId, limit } = unaccepted;
+  // minted through the application's checked generator: a key's text
+  const taskId = parts.ids.newExecutionId();
+  // a rejected task runs nothing: its files are neither fetched nor kept
+  const start = limit === undefined ? await sent.inputFor(taskId) : undefined;
+  await keptFiles(parts, start?.toSave ?? []);
+  const task: NewA2ATask = {
+    ...key,
+    taskId,
+    contextId,
+    skill: sent.skill.id,
+    status:
+      limit === undefined
+        ? { state: A2ATaskState.Submitted, pendingPauses: [] }
+        : rejectedStatusOf(limit),
+    acceptedAt: parts.clock.now(),
+    requestHash: sent.requestHash,
+    ...meshFieldsOf(caller),
+  };
+  return { save: await parts.tasks.saveIfAbsent(task), start };
+}
+
+/** The task of a message no task was found for: minted, saved and started — or found after all. */
+async function minted(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
-  message: Message,
+  unaccepted: Unaccepted,
 ): Promise<A2ATaskRecord> {
-  const skill = skillOfMessage(message, parts.skills);
-  const input = inputOfMessage(message, skill);
-  const messageId = checkedCallerKey("messageId", message.messageId);
-  const contextId =
-    message.contextId === ""
-      ? parts.ids.newThreadId()
-      : checkedCallerKey("contextId", message.contextId);
-  const sent: NewMessage = { message, skill, input, requestHash: requestHashOf(skill.id, message) };
-  const key = { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId };
-  const kept = await parts.tasks.findByMessage(key);
-  if (kept !== undefined) return acceptedBefore(parts, caller, kept, sent);
-  const limit = meshLimitOf(parts, caller, skill);
+  const { sent } = unaccepted;
   for (let attempt = 0; attempt < MINT_ATTEMPTS; attempt += 1) {
-    const task: NewA2ATask = {
-      ...key,
-      // minted through the application's checked generator: a key's text
-      taskId: parts.ids.newExecutionId(),
-      contextId,
-      skill: skill.id,
-      status:
-        limit === undefined
-          ? { state: A2ATaskState.Submitted, pendingPauses: [] }
-          : rejectedStatusOf(limit),
-      acceptedAt: parts.clock.now(),
-      requestHash: sent.requestHash,
-      ...meshFieldsOf(caller),
-    };
-    const save = await parts.tasks.saveIfAbsent(task);
+    const { save, start } = await savedUnder(parts, caller, unaccepted);
     switch (save.status) {
       case A2ATaskSaveStatus.Saved:
         // a rejected task is over as accepted: nothing ever runs under its id
-        if (limit === undefined) started(parts, caller, save.task, sent);
+        if (start !== undefined)
+          started(parts, caller, save.task, { skill: sent.skill, input: start.input });
         // #811 (s17): the task as it is now, never as it was saved — this pass may have been held
         // after the save while another instance settled it (a2a.start-lost): an answer of the
         // saved SUBMITTED would move a terminal task back for this caller
@@ -224,4 +215,32 @@ export async function acceptedTask(
     }
   }
   throw new A2AInternalError();
+}
+
+/** The task of a new message: accepted now (and started), or the one it was accepted for. */
+export async function acceptedTask(
+  parts: A2AServerParts,
+  caller: A2ARequestCaller,
+  message: Message,
+): Promise<A2ATaskRecord> {
+  const skill = skillOfMessage(message, parts.skills);
+  const inputFor = inputForOf(parts, caller, message, skill);
+  // #859: a message without files is checked before anything is read or kept, as before
+  // Stryker disable next-line StringLiteral: no file, so no file id: any task id checks the same
+  if (message.parts.every((part) => !isFilePart(part))) await inputFor("");
+  const messageId = checkedCallerKey("messageId", message.messageId);
+  const contextId =
+    message.contextId === ""
+      ? parts.ids.newThreadId()
+      : checkedCallerKey("contextId", message.contextId);
+  const sent: NewMessage = {
+    message,
+    skill,
+    requestHash: requestHashOf(skill.id, message),
+    inputFor,
+  };
+  const key = { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId };
+  const kept = await parts.tasks.findByMessage(key);
+  if (kept !== undefined) return acceptedBefore(parts, caller, kept, sent);
+  return minted(parts, caller, { sent, key, contextId, limit: meshLimitOf(parts, caller, skill) });
 }

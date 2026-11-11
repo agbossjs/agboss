@@ -24,6 +24,8 @@ import type { AdmittedRequest } from "./a2a-admitted.js";
 import type { A2ARequestMesh } from "./a2a-mesh-admission.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
+import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import type { FileTransport } from "../files/a2a-file-transport.js";
 
 /**
  * What every operation of the server works with (#808): the app, its task store, its trees by id,
@@ -47,6 +49,17 @@ export interface A2AServerParts {
    * signing key (what signs a trusted task's run report).
    */
   readonly mesh: MeshSettings;
+  /** Where the tasks' files are kept, and how one by `url` is fetched (#859). */
+  readonly files: A2AServerFiles;
+}
+
+/** A listener's files (#859): the store, the fetch of a file by `url` and its bound. */
+export interface A2AServerFiles {
+  /** The application's `A2AFileRepository`; the built-in default keeps none (inline). */
+  readonly store: A2AFileRepository;
+  /** A test's own transport; `undefined`: the built-in `node:https` one. */
+  readonly transport: FileTransport | undefined;
+  readonly timeout: Milliseconds;
 }
 
 /** The admitted caller of one request, and the request's own end (its connection closed). */

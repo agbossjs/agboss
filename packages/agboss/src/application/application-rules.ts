@@ -32,6 +32,8 @@ import {
 import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
 import { a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
+import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
+import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { keyFieldViolations } from "./key-field-rules.js";
 
 /**
@@ -204,6 +206,9 @@ export function applicationRuleViolations(
     ...storeBackendViolations(options.name, options.providers ?? []),
     // an application serving A2A on shared leases keeps its tasks shared too (#824)
     ...a2aTaskStoreViolations(options),
+    // and its files where every instance reads them, within the tier no store needs (#859)
+    ...a2aFileStoreViolations(options),
+    ...nestedFileFieldViolations(options),
     ...meshRuleViolations(
       options.name,
       options.mesh,

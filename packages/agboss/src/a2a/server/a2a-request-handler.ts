@@ -66,7 +66,7 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
       );
       const isImmediate = params.configuration?.returnImmediately === true;
       const shown = isImmediate ? task : await restingTask(this.parts, task, signal, answered);
-      return wireTaskOf(shown, this.parts);
+      return await wireTaskOf(shown, this.parts);
     });
   }
 
@@ -86,14 +86,14 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
     return this.#guarded("GetTask", async () => {
       const caller = callerOf(context, A2AOperation.GetTask, params.id);
       const task = await ownedTask(this.parts, caller, params.id);
-      return wireTaskOf(task, this.parts);
+      return await wireTaskOf(task, this.parts);
     });
   }
 
   cancelTask(params: CancelTaskRequest, context: ServerCallContext): Promise<Task> {
     return this.#guarded("CancelTask", async () => {
       const caller = callerOf(context, A2AOperation.CancelTask, params.id);
-      return wireTaskOf(await canceledTask(this.parts, caller, params.id), this.parts);
+      return await wireTaskOf(await canceledTask(this.parts, caller, params.id), this.parts);
     });
   }
 

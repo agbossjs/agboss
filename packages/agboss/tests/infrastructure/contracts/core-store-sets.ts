@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
@@ -40,6 +41,7 @@ import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
 
 /** Every in-memory store of the core. */
 export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => ({
+  a2aFile: inMemoryTarget(({ database }) => new InMemoryA2AFileRepository(database)),
   a2aTask: inMemoryTarget(({ database }) => new InMemoryA2ATaskRepository(database)),
   checkpointSaver: inMemoryTarget((seam) =>
     sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
