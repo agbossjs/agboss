@@ -6,8 +6,9 @@
  * required. A foreign validator (ajv) accepts a data part without file fields under either; the
  * AGBoss client's schema check reads both; `describe --json` names the setting.
  */
-import Ajv from "ajv";
+import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
+import type { Class } from "../../../src/components/injection.js";
 import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import {
   cardFileFieldsViolations,
@@ -86,7 +87,7 @@ async function entryOf(url: string): Promise<SkillEntry> {
   return entry;
 }
 
-const serve = (expose: object) => ({ expose, callerResolver: BearerCallerResolver });
+const serve = (expose: Class) => ({ expose, callerResolver: BearerCallerResolver });
 
 describe("#904 item 5 AC5.1: the card's file fields", () => {
   test("Extension (the default): out of input and required, declared in the extension's files", async ({

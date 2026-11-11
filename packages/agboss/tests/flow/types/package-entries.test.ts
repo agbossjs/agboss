@@ -34,8 +34,8 @@ export class FileOutWorkflowStart {}
   output: WorkflowFinishFileDto,
 })
 export class FileOutAction {
-  execute(): WorkflowFinishFileDto {
-    throw new Error("never run: only typed");
+  execute(): Promise<WorkflowFinishFileDto> {
+    return Promise.reject(new Error("never run: only typed"));
   }
 }
 
