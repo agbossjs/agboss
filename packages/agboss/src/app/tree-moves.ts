@@ -25,6 +25,8 @@ import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repos
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";
+import { notPaused } from "./paused-runs.js";
+import { rootRecordOf } from "./ended-tree.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
@@ -83,6 +85,13 @@ class TreeMover implements TreeMoves {
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
+      // the tree failed after the answer was recorded (#901): its holder's drain took the answer and
+      // its pass stopped (a cancel request, gone with the tree's keys), the pause left `Resolved`
+      // and the paused run of the rest before still stored — no pass moves an ended tree
+      if (await this.#isFailed(state)) {
+        await lease.release();
+        throw notPaused(pause.pauseId);
+      }
       const call = await callWithLostPasses(this.parts, state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
@@ -144,6 +153,12 @@ class TreeMover implements TreeMoves {
    */
   #isBusy(interrupted: InterruptedRun): boolean {
     return this.#resuming.has(interrupted.runId);
+  }
+
+  /** Whether the root's record ended without a finish (failed, cancelled, guarded): it is final. */
+  async #isFailed(state: TreeState): Promise<boolean> {
+    const status = (await rootRecordOf(this.parts.deps, state))?.status;
+    return status === ExecutionRecordStatus.Failed || status === ExecutionRecordStatus.Guarded;
   }
 
   /**

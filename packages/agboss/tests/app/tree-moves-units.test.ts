@@ -5,7 +5,8 @@
  * the drain takes each pass's answers once, looks for more only while the tree rests paused and
  * forgets the tree only when it finished.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { NotPausedError } from "../../src/run/resume-agent.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
 import { treeMovesOf, type TreeMoveParts } from "../../src/app/tree-moves.js";
@@ -118,7 +119,10 @@ function partsOf(lease = leaseOf()) {
   const parts: TreeMoveParts = {
     deps: {
       config: { version: "2.0.0", name: "desk-workflow" },
-      terns: { completeIfStatus: vi.fn(() => Promise.resolve(true)) },
+      terns: {
+        completeIfStatus: vi.fn(() => Promise.resolve(true)),
+        findByTenantIdAndRunId: vi.fn(() => Promise.resolve(undefined)),
+      },
       pause: undefined,
       log: { warn },
     },
@@ -128,7 +132,8 @@ function partsOf(lease = leaseOf()) {
     trees: {},
     clock: {},
   } as never;
-  return { parts, lease, leases, paused, warn, moves: treeMovesOf(parts) };
+  const terns = (parts.deps as unknown as { terns: { findByTenantIdAndRunId: Mock } }).terns;
+  return { parts, lease, leases, paused, warn, terns, moves: treeMovesOf(parts) };
 }
 
 const call = { signal: new AbortController().signal } as never;
@@ -285,6 +290,38 @@ describe("#633: a root that is ending", () => {
     mocks.endUnwindingIfFree.mockResolvedValue(true);
 
     expect(await moves.endIfEnding(INTERRUPTED)).toBe(true);
+  });
+});
+
+describe("#901: a resume whose tree failed after its answer was recorded", () => {
+  it.each(["failed", "guarded"])(
+    "its root's record %s at the take: the lease given back, NotPausedError, no pass",
+    async (status) => {
+      const { moves, paused, lease, terns } = partsOf();
+      terns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
+      mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
+      paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+
+      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(NotPausedError);
+      expect(lease.released()).toBe(1);
+      expect(mocks.observedPass).not.toHaveBeenCalled();
+      expect(mocks.treeResumeNow).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["running on its thread", { threadId: "thread-1", status: "running" }],
+    ["failed on another thread", { threadId: "thread-2", status: "failed" }],
+  ])("a record %s: the pass runs", async (_case, record) => {
+    const { moves, paused, terns } = partsOf();
+    terns.findByTenantIdAndRunId.mockResolvedValue(record);
+    mocks.treeResumeNow.mockResolvedValueOnce(resumeOf("pause-1"));
+    paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+    mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Finished));
+
+    await moves.resumed(answerOf("1.0.0"), call);
+
+    expect(mocks.observedPass).toHaveBeenCalledOnce();
   });
 });
 
