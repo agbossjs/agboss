@@ -42,7 +42,11 @@ const IPV6_RANGES: readonly (readonly [string, string, string])[] = [
   ["64:ff9b:1::/48 local-use NAT64", "64:ff9b:1::", "64:ff9b:1:ffff:ffff:ffff:ffff:ffff"],
   ["100::/64 discard-only", "100::", "100::ffff:ffff:ffff:ffff"],
   ["100:0:0:1::/64 dummy prefix", "100:0:0:1::", "100::1:ffff:ffff:ffff:ffff"],
-  ["2001::/23 IETF protocol assignments (Teredo)", "2001::", "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff"],
+  [
+    "2001::/23 IETF protocol assignments (Teredo)",
+    "2001::",
+    "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff",
+  ],
   ["2001:db8::/32 documentation", "2001:db8::", "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"],
   ["3fff::/20 documentation", "3fff::", "3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff"],
   ["5f00::/16 segment routing", "5f00::", "5f00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"],
@@ -53,7 +57,14 @@ const IPV6_RANGES: readonly (readonly [string, string, string])[] = [
 ];
 
 /** Public neighbours of the ranges above: never refused. */
-const PUBLIC = ["1.1.1.1", "100.128.0.0", "172.32.0.1", "192.0.1.255", "198.20.0.0", "223.255.255.255"];
+const PUBLIC = [
+  "1.1.1.1",
+  "100.128.0.0",
+  "172.32.0.1",
+  "192.0.1.255",
+  "198.20.0.0",
+  "223.255.255.255",
+];
 const PUBLIC_V6 = ["2606:4700:4700::1111", "2001:200::1", "2001:db9::1", "fbff::1"];
 
 /** `a.b.c.d` as two hextets, `abcd:ef01`. */
@@ -75,13 +86,19 @@ const EMBEDDED: readonly (readonly [string, (ipv4: string) => string])[] = [
 ];
 
 describe("#904 item 2: the IANA special-purpose ranges are never fetched from", () => {
-  it.each(IPV4_RANGES)("AC2.1 IPv4 %s: its first and last address refused", (_range, first, last) => {
-    expect([isDeniedAddress(first), isDeniedAddress(last)]).toEqual([true, true]);
-  });
+  it.each(IPV4_RANGES)(
+    "AC2.1 IPv4 %s: its first and last address refused",
+    (_range, first, last) => {
+      expect([isDeniedAddress(first), isDeniedAddress(last)]).toEqual([true, true]);
+    },
+  );
 
-  it.each(IPV6_RANGES)("AC2.1 IPv6 %s: its first and last address refused", (_range, first, last) => {
-    expect([isDeniedAddress(first), isDeniedAddress(last)]).toEqual([true, true]);
-  });
+  it.each(IPV6_RANGES)(
+    "AC2.1 IPv6 %s: its first and last address refused",
+    (_range, first, last) => {
+      expect([isDeniedAddress(first), isDeniedAddress(last)]).toEqual([true, true]);
+    },
+  );
 
   it("AC2.1 the public neighbours of those ranges pass", () => {
     expect([...PUBLIC, ...PUBLIC_V6].filter(isDeniedAddress)).toEqual([]);
@@ -110,7 +127,10 @@ const ipv4Within = (first: string, last: string, offset: number): string => {
 };
 
 const anyBlockedIpv4 = fc
-  .tuple(fc.constantFrom(...IPV4_RANGES), fc.double({ min: 0, max: 1, maxExcluded: true, noNaN: true }))
+  .tuple(
+    fc.constantFrom(...IPV4_RANGES),
+    fc.double({ min: 0, max: 1, maxExcluded: true, noNaN: true }),
+  )
   .map(([[, first, last], offset]) => ipv4Within(first, last, offset));
 
 const anyBlockedAddress = fc.oneof(
@@ -135,7 +155,10 @@ describe("#904 item 2 AC2.3: no address of a blocked range is ever connected to 
     await fc.assert(
       fc.asyncProperty(anyBlockedAddress, async (address) => {
         const host = address.startsWith("[") || !address.includes(":") ? address : `[${address}]`;
-        const literal = httpsFileTransport(new URL(`https://${host}/file`), new AbortController().signal);
+        const literal = httpsFileTransport(
+          new URL(`https://${host}/file`),
+          new AbortController().signal,
+        );
 
         expect(isDeniedAddress(address)).toBe(true);
         expect(await lookedUp(address.replace(/^\[|\]$/g, ""))).toBe("A2A_FILE_ADDRESS_DENIED");
@@ -161,7 +184,7 @@ const fetchOf = (transport: FileFetch["transport"], url: string): FileFetch => (
 const codeOf = async (work: Promise<unknown>): Promise<unknown> =>
   work.then(
     () => "fetched",
-    (error: unknown) =>
+    (error: unknown): unknown =>
       Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code") ??
       Reflect.get(Object(error), "message"),
   );
@@ -171,12 +194,18 @@ describe("#904 item 3: a url with userinfo is refused", () => {
     const script = scriptedTransport({ [`${ORIGIN}/a`]: { body: PDF } });
 
     const codes = await Promise.all(
-      ["https://u:p@files.example/a", "https://u@files.example/a", "https://:p@files.example/a"].map(
-        (url) => codeOf(fetchedFile(fetchOf(script.transport, url))),
-      ),
+      [
+        "https://u:p@files.example/a",
+        "https://u@files.example/a",
+        "https://:p@files.example/a",
+      ].map((url) => codeOf(fetchedFile(fetchOf(script.transport, url)))),
     );
 
-    expect(codes).toEqual(["a2a.file-origin-denied", "a2a.file-origin-denied", "a2a.file-origin-denied"]);
+    expect(codes).toEqual([
+      "a2a.file-origin-denied",
+      "a2a.file-origin-denied",
+      "a2a.file-origin-denied",
+    ]);
     expect(script.asked).toEqual([]);
   });
 

@@ -20,7 +20,11 @@ import { ClassLocator } from "../../../src/flow/types/locate.js";
 import { packageModules } from "../../../src/flow/types/write.js";
 import { start } from "../../helpers/flow.js";
 
-@WorkflowStart({ name: "file-out-workflow-start", description: "A text", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "file-out-workflow-start",
+  description: "A text",
+  input: WorkflowStartTextDto,
+})
 export class FileOutWorkflowStart {}
 
 @Action({
@@ -98,8 +102,8 @@ describe("#904 item 1: the generator knows every built-in DTO's entry", () => {
     }
 
     expect(exported.length).toBeGreaterThan(0);
-    expect(exported.filter(([, dto]) => locator.fileOf(dto) === undefined).map(([at]) => at)).toEqual(
-      [],
-    );
+    expect(
+      exported.filter(([, dto]) => locator.fileOf(dto) === undefined).map(([at]) => at),
+    ).toEqual([]);
   });
 });

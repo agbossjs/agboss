@@ -187,9 +187,7 @@ function retentionProblem(field: keyof RetentionOptions, value: unknown): string
   return undefined;
 }
 
-const HINT = "@Application({ retention: { fencedEffects: hours(24), meshAnswers: minutes(30) } })";
-
-/** The fix of one field's problem (#904): that field set, nothing unrelated named. */
+/** The fix: the fields named set (#904: a field's problem names that field, nothing unrelated). */
 const hintOf = (...fields: readonly string[]): string =>
   `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 
@@ -210,7 +208,7 @@ const unknownFieldProblem = (field: string): string =>
  */
 export function retentionViolations(application: string, options: unknown): RuleViolation[] {
   if (options === undefined) return [];
-  const fail = (text: string, hint = HINT): RuleViolation =>
+  const fail = (text: string, hint = hintOf("fencedEffects", "meshAnswers")): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${hint}`, [application]);
   if (!isPlainObject(options))
     return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
@@ -236,12 +234,8 @@ function fileRetentionViolations(
   const files = given.a2aFiles;
   const tasks = given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
   if (typeof files !== "number" || typeof tasks !== "number" || files <= tasks) return [];
-  return [
-    fail(
-      `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`,
-      hintOf("a2aTasks", "a2aFiles"),
-    ),
-  ];
+  const problem = `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`;
+  return [fail(problem, hintOf("a2aTasks", "a2aFiles"))];
 }
 
 /** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */
