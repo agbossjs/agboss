@@ -53,33 +53,33 @@ interface SkillProblem {
   readonly text: string;
 }
 
-/** The declared `deps` of a class, any kind (a node's options, a component's meta). */
-function depsOf(cls: Class): readonly Token[] {
-  const declared = declarationOf(cls)?.options ?? componentOf(cls)?.meta;
+/** The declared `deps` of a token, any kind (a node's options, a component's meta); none for others. */
+function depsOf(token: Token): readonly Token[] {
+  const declared = declarationOf(token)?.options ?? componentOf(token)?.meta;
   const deps: unknown = declared !== undefined && "deps" in declared ? declared.deps : undefined;
   // a decorator records `deps` as the tokens it was given
+  // Stryker disable next-line ArrayDeclaration: a text in place of no deps is a token of nothing
   return Array.isArray(deps) ? (deps as readonly Token[]) : [];
 }
 
-/** Whether a token changes things outside the run: an effect store, `OutboundCalls`, an A2A client. */
-const isEffect = (token: Token): boolean =>
-  EFFECT_TOKENS.has(token) ||
-  (typeof token === "function" && componentOf(token)?.kind === "a2a-agent");
+/**
+ * Whether a token changes things outside the run: an effect store, `OutboundCalls`, an A2A client —
+ * each a class.
+ */
+const isEffect = (token: Token): token is Class =>
+  EFFECT_TOKENS.has(token) || componentOf(token)?.kind === "a2a-agent";
 
-/** The first effect `cls`'s `deps` reach, through the classes it injects; `undefined` for none. */
-function effectOf(cls: Class, seen = new Set<Token>()): Token | undefined {
-  for (const token of depsOf(cls)) {
-    if (seen.has(token)) continue;
-    seen.add(token);
-    if (isEffect(token)) return token;
-    const deeper = typeof token === "function" ? effectOf(token, seen) : undefined;
+/** The first effect `token`'s `deps` reach, through the tokens it injects; `undefined` for none. */
+function effectOf(token: Token, seen = new Set<Token>()): Class | undefined {
+  for (const dep of depsOf(token)) {
+    if (seen.has(dep)) continue;
+    seen.add(dep);
+    if (isEffect(dep)) return dep;
+    const deeper = effectOf(dep, seen);
     if (deeper !== undefined) return deeper;
   }
   return undefined;
 }
-
-const nameOfToken = (token: Token): string =>
-  typeof token === "function" ? token.name : "an injected effect";
 
 /** The problems of one tool of an agent. */
 function toolProblems(agent: string, tool: Class): SkillProblem[] {
@@ -124,7 +124,7 @@ function effectProblem(cls: Class): SkillProblem | undefined {
     ? undefined
     : {
         code: "a2a.message-skill-effect",
-        text: `${cls.name} injects ${nameOfToken(effect)}, which changes things outside the run`,
+        text: `${cls.name} injects ${effect.name}, which changes things outside the run`,
       };
 }
 
@@ -140,32 +140,38 @@ function nodeProblems(node: Class): SkillProblem[] {
   ];
 }
 
-/** The workflow of the application whose flow starts at `start`. */
-const workflowOf = (workflows: readonly Class[], start: Class): Class | undefined =>
-  withChildWorkflows(workflows).find((workflow) => {
+/** The nodes of the application's workflow whose flow starts at `start`; `undefined` for none. */
+function flowOf(workflows: readonly Class[], start: Class): readonly Class[] | undefined {
+  for (const workflow of withChildWorkflows(workflows)) {
     const declared = declarationOf(workflow);
-    return (
-      declared?.kind === NodeKind.Workflow && flowClassesOf(declared.options.flow).includes(start)
-    );
-  });
+    if (declared?.kind !== NodeKind.Workflow) continue;
+    const nodes = flowClassesOf(declared.options.flow);
+    if (nodes.includes(start)) return nodes;
+  }
+  return undefined;
+}
 
 /** The problems of one direct-reply skill: its workflow's nodes, each problem once. */
-function skillProblems(workflow: Class): SkillProblem[] {
-  const declared = declarationOf(workflow);
-  if (declared?.kind !== NodeKind.Workflow) return [];
-  const problems = [...new Set(flowClassesOf(declared.options.flow))].flatMap(nodeProblems);
+function skillProblems(nodes: readonly Class[]): SkillProblem[] {
+  const problems = [...new Set(nodes)].flatMap(nodeProblems);
   const seen = new Set<string>();
   return problems.filter(
     ({ code, text }) => !seen.has(`${code} ${text}`) && seen.add(`${code} ${text}`),
   );
 }
 
+/** The exports of an `@A2AExpose` that answer with a direct message, each with its skill's name. */
+function messageSkillEntriesOf(expose: A2AExposeOptions): (readonly [string, Class])[] {
+  return expose.exports.flatMap((start) => {
+    const name = declarationOf(start)?.options.name;
+    const isMessage = name !== undefined && expose.skills?.[name]?.reply === A2AReply.Message;
+    return isMessage ? [[name, start] as const] : [];
+  });
+}
+
 /** The exports of an `@A2AExpose` that answer with a direct message (#860). */
 export const messageSkillsOf = (expose: A2AExposeOptions): readonly Class[] =>
-  expose.exports.filter((start) => {
-    const name = declarationOf(start)?.options.name;
-    return name !== undefined && expose.skills?.[name]?.reply === A2AReply.Message;
-  });
+  messageSkillEntriesOf(expose).map(([, start]) => start);
 
 /** What an `@A2AExpose`'s own options get wrong: a reply for no export, a default of none. */
 function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[] {
@@ -199,10 +205,9 @@ export function messageSkillViolations(options: ApplicationOptions): RuleViolati
     const meta = componentOf(cls);
     if (meta?.kind !== "a2a-expose") return [];
     const expose = meta.meta;
-    const skills = messageSkillsOf(expose).flatMap((start) => {
-      const workflow = workflowOf(options.workflows, start);
-      const skill = declarationOf(start)?.options.name ?? start.name;
-      return (workflow === undefined ? [] : skillProblems(workflow)).map(({ code, text }) =>
+    const skills = messageSkillEntriesOf(expose).flatMap(([skill, start]) => {
+      const nodes = flowOf(options.workflows, start);
+      return (nodes === undefined ? [] : skillProblems(nodes)).map(({ code, text }) =>
         violation(
           code,
           `${skill} answers with a direct message (A2AReply.Message) and must be stateless, but ${text} — answer with a task (A2AReply.Task) or drop it`,

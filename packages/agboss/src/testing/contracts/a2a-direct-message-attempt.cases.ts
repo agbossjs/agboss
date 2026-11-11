@@ -93,4 +93,13 @@ export const A2A_DIRECT_MESSAGE_ATTEMPT_CASES: readonly ContractCase<A2ADirectMe
       expect(same.status).toBe(A2ADirectMessageSaveStatus.Saved);
     },
   },
+  {
+    name: "a message not kept has no attempt: none completed, taken over or removed; the store answers its ping",
+    run: async ({ first }: Instances): Promise<void> => {
+      await expect(first.messages.ping()).resolves.toBeUndefined();
+      expect(await first.messages.completeIfInFlight(KEY, "run-m-1", REPLY, at(5))).toBeUndefined();
+      expect(await first.messages.retakeIfExpired(KEY, "run-m-1", NEXT, at(99))).toBeUndefined();
+      expect(await first.messages.deleteIfInFlight(KEY, "run-m-1")).toBe(false);
+    },
+  },
 ];

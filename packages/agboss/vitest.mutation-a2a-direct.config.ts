@@ -14,8 +14,10 @@ export default defineConfig({
     include: [
       "tests/a2a/direct/*.test.ts",
       "tests/infrastructure/a2a-direct-message.contract.test.ts",
+      "tests/infrastructure/a2a-direct-message-units.test.ts",
       "tests/app/without-recovery.test.ts",
       "tests/a2a/client/a2a-client-direct.test.ts",
+      "tests/a2a/client/a2a-call-peer-units.test.ts",
       "tests/a2a/files/a2a-forged-decision.test.ts",
       "tests/a2a-tck/tck-sut.test.ts",
     ],

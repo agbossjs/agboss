@@ -39,6 +39,22 @@ const nested = (depth: number): unknown => {
 };
 
 describe("#900: a decision's file descriptors", () => {
+  it("each refusal says what is wrong", () => {
+    const messageOf = (decision: unknown): string => {
+      try {
+        refuseFileDescriptorsIn(decision);
+        return "accepted";
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+
+    expect([messageOf({ attachment: FORGED }), messageOf(nested(65))]).toEqual([
+      "a file is sent as a file part only",
+      "the answer is nested too deep or is too large",
+    ]);
+  });
+
   it("a descriptor at the top, in a field, deep in a list — each refused; a mediaType alone is no file", () => {
     for (const source of ["fileId", "sha256", "inline", "url"])
       expect(codeOf({ mediaType: "text/plain", [source]: "x" })).toBe("a2a.file-field-in-data");

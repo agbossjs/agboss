@@ -51,14 +51,18 @@ const Reply = z.strictObject({
 function replyOf(
   row: z.infer<typeof DirectRow>,
 ): Pick<A2ADirectMessageRecord, "reply" | "completedAt"> {
-  const isCompleted = row.state === A2ADirectMessageState.Completed;
-  if (isCompleted !== (row.reply !== null && row.completed_at !== null))
-    throw new Error(`a2a_direct_messages row ${row.message_id}: its state and its reply disagree`);
-  if (row.reply === null || row.completed_at === null) return {};
-  const reply = Reply.parse(JSON.parse(row.reply));
+  const { reply, completed_at: completedAt } = row;
+  const disagree = () =>
+    new Error(`a2a_direct_messages row ${row.message_id}: its state and its reply disagree`);
+  if (row.state === A2ADirectMessageState.InFlight) {
+    if (reply !== null || completedAt !== null) throw disagree();
+    return {};
+  }
+  if (reply === null || completedAt === null) throw disagree();
+  const kept = Reply.parse(JSON.parse(reply));
   return {
-    reply: { finish: reply.finish, output: reply.output, spentUsd: reply.spentUsd },
-    completedAt: new Date(row.completed_at),
+    reply: { finish: kept.finish, output: kept.output, spentUsd: kept.spentUsd },
+    completedAt: new Date(completedAt),
   };
 }
 

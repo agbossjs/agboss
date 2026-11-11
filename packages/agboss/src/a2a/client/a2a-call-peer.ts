@@ -29,7 +29,8 @@ const paramsOf = (card: AgentCard, uri: string): Readonly<Record<string, unknown
 function isMessageSkill(card: AgentCard, skill: string | undefined): boolean {
   const declared = paramsOf(card, A2A_SKILLS_EXTENSION).skills;
   if (!isRecord(declared)) return false;
-  const named = skill ?? (card.skills.length === 1 ? card.skills[0]?.id : undefined);
+  const ids = card.skills.map((each) => each.id);
+  const named = skill ?? (ids.length === 1 ? ids[0] : undefined);
   const entry = named === undefined ? undefined : declared[named];
   return isRecord(entry) && entry.reply === "message";
 }

@@ -61,7 +61,7 @@ async function attemptOf(parts: A2AServerParts, sent: DirectMessage) {
 const droppedFiles = (parts: A2AServerParts, tenantId: string, attemptId: string) =>
   parts.files.store.deleteByOwner({ tenantId, ownerId: attemptId });
 
-/** The reply of an attempt this call holds, kept; the message as it is after. */
+/** The reply of an attempt this call holds, kept; `undefined` when it was taken over meanwhile. */
 async function ran(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
@@ -69,14 +69,8 @@ async function ran(
   sent: { readonly skill: ServedSkill; readonly input: unknown },
 ): Promise<A2ADirectMessageRecord | undefined> {
   const reply = await ranAttempt(parts, caller, held, sent);
-  const kept = await parts.direct.messages.completeIfInFlight(
-    held,
-    held.attemptId,
-    reply,
-    parts.clock.now(),
-  );
-  // taken over meanwhile (the run outlived its row): the message as the store has it
-  return kept ?? (await parts.direct.messages.findByKey(held));
+  // taken over meanwhile (the run outlived its row): the next round reads it as the store has it
+  return parts.direct.messages.completeIfInFlight(held, held.attemptId, reply, parts.clock.now());
 }
 
 /** A new message: saved and run, or the row another call saved first. */

@@ -1,10 +1,11 @@
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { withoutRecovery, withReservedExecutionId } from "../../app/tree-control.js";
-import { ExecutionStatus, type ExecutionOptions, type ExecutionOutput } from "../../app/types.js";
+import type { ExecutionOptions, ExecutionOutput } from "../../app/types.js";
 import type {
   A2ADirectMessageRecord,
   A2ADirectMessageReply,
 } from "../../infrastructure/a2a-direct-message.repository.js";
+import { definedOf } from "../../infrastructure/clock.js";
 import { withInboundMesh } from "../../mesh/inbound-mesh.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { inboundMeshOfA2A } from "./a2a-mesh-admission.js";
@@ -70,10 +71,9 @@ function optionsOf(
 
 /** The reply of a run that reached a finish; a run that rests paused is no reply (a bug: refused). */
 function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
-  // Stryker disable next-line ConditionalExpression: a direct skill cannot pause (assembly), a guard
-  if (result.status !== ExecutionStatus.Finished || result.finish === undefined)
-    throw new A2AInternalError();
-  return { finish: result.finish.name, output: result.output, spentUsd: result.spend.totalUsd };
+  // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+  const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
+  return { finish: finish.name, output: result.output, spentUsd: result.spend.totalUsd };
 }
 
 /** The attempt's run, to its reply; its row removed and `-32603` when it fails. */

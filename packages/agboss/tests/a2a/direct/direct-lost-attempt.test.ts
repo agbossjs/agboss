@@ -87,6 +87,7 @@ describe("#860: the sweep of the direct messages", () => {
         ledgerId: "unknown:a2a-msg:default:run-lost",
         costSource: CostSource.Unknown,
         costUsd: 0,
+        model: "unknown",
         caller: "a2a-message:quote-workflow-start",
       }),
     ]);

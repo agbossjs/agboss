@@ -40,10 +40,9 @@ export function refuseFileDescriptorsIn(answer: unknown): void {
   const pending: { readonly value: unknown; readonly depth: number }[] = [
     { value: answer, depth: 0 },
   ];
-  for (let seen = 0; pending.length > 0; seen += 1) {
+  for (let seen = 0; ; seen += 1) {
     const next = pending.pop();
-    // Stryker disable next-line ConditionalExpression: the loop's condition says one is there
-    if (next === undefined) break;
+    if (next === undefined) return;
     if (seen >= MAX_NODES || next.depth > MAX_DEPTH) throw tooDeep();
     if (isRecord(next.value) && isDescriptor(next.value))
       throw invalidParams("a2a.file-field-in-data", "a file is sent as a file part only");

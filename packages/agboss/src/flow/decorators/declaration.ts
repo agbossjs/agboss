@@ -61,15 +61,15 @@ export type ComponentDeclaration =
   | WorkflowDeclaration
   | QuestionDeclaration;
 
-const declarations = new WeakMap<Class, ComponentDeclaration>();
+const declarations = new WeakMap<object, ComponentDeclaration>();
 
 /** Called by the v2 decorators. */
 export function recordDeclaration(target: Class, declaration: ComponentDeclaration): void {
   declarations.set(target, declaration);
 }
 
-/** What a v2 decorator recorded on a class; undefined for an undecorated one. */
-export function declarationOf(target: Class): ComponentDeclaration | undefined {
+/** What a v2 decorator recorded on a class; undefined for an undecorated one (or no class). */
+export function declarationOf(target: object): ComponentDeclaration | undefined {
   return declarations.get(target);
 }
 

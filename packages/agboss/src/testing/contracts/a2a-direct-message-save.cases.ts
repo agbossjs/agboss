@@ -48,6 +48,7 @@ export const A2A_DIRECT_MESSAGE_SAVE_CASES: readonly ContractCase<A2ADirectMessa
       expect(await second.messages.findByKey(keyOf(EXPECTED))).toEqual(EXPECTED);
       const plain = await savedMessage(first.messages, newMessage("m-2", { callsModel: false }));
       expect(plain).not.toHaveProperty("callerPeer");
+      expect(plain).not.toHaveProperty("meshBodyHash");
       expect((await second.messages.findByKey(keyOf(plain)))?.callsModel).toBe(false);
     },
   },

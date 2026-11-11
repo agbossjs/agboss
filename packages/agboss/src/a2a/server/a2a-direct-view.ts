@@ -1,5 +1,9 @@
 import { Role, type Message } from "@a2a-js/sdk";
-import type { A2ADirectMessageRecord } from "../../infrastructure/a2a-direct-message.repository.js";
+import type {
+  A2ADirectMessageRecord,
+  A2ADirectMessageReply,
+} from "../../infrastructure/a2a-direct-message.repository.js";
+import { definedOf } from "../../infrastructure/clock.js";
 import { encodeRunReport } from "../../mesh/mesh-report.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { finishPartsOf, type TaskViewParts } from "./a2a-task-view.js";
@@ -15,15 +19,17 @@ import { finishPartsOf, type TaskViewParts } from "./a2a-task-view.js";
 /** The id of a direct reply: its attempt's, so a resend gets the same message. */
 export const replyMessageIdOf = (attemptId: string): string => `${attemptId}:reply`;
 
-/** The run report of a trusted caller's completed reply; `undefined` for any other. */
+/** The run report of a trusted caller's completed reply; none for any other. */
 function reportOf(
   message: A2ADirectMessageRecord,
+  reply: A2ADirectMessageReply,
   mesh: TaskViewParts["mesh"],
 ): Record<string, unknown> {
   const key = mesh.keys.signingKey;
-  const { reply, meshBodyHash, completedAt } = message;
-  if (reply === undefined || completedAt === undefined) return {};
+  const { meshBodyHash } = message;
   if (meshBodyHash === undefined || key === undefined) return {};
+  // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+  const completedAt = definedOf(message.completedAt, "a reply is kept with its date");
   const facts = {
     issuer: mesh.application,
     executionId: message.attemptId,
@@ -39,9 +45,8 @@ export async function wireReplyOf(
   message: A2ADirectMessageRecord,
   parts: TaskViewParts,
 ): Promise<Message> {
-  const { reply } = message;
-  // Stryker disable next-line ConditionalExpression: the invariant, never false while it holds
-  if (reply === undefined) throw new Error("a direct message is shown once it has a reply");
+  // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+  const reply = definedOf(message.reply, "a direct message is shown once it has a reply");
   const skill = parts.skills.find((served) => served.id === message.skill);
   const owner = { tenantId: message.tenantId, ownerId: message.attemptId, ...reply };
   const shown = await finishPartsOf(owner, skill, parts.files.store);
@@ -54,7 +59,7 @@ export async function wireReplyOf(
     parts: [...shown.parts],
     metadata: {
       [A2A_SKILLS_EXTENSION]: { finish: reply.finish, ...missing },
-      ...reportOf(message, parts.mesh),
+      ...reportOf(message, reply, parts.mesh),
     },
     extensions: [],
     referenceTaskIds: [],
