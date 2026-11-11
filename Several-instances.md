@@ -89,7 +89,9 @@ export const sqliteStores = [
 - **One connection per application instance**, shared by its SQLite stores and opened when the
   first one is created; two instances (two processes, or `testWith(App, { instances: 2 })`) open
   two connections to one file. The file is in WAL mode (readers never block the writer) with a
-  `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs); the
+  `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs). Several instances may
+  open one new file at once: the switch to WAL, which SQLite can refuse at once on a fresh file,
+  is tried again within the busy timeout (#911); the
   connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is the DI token
   of that connection (a subclass names it in its `deps`, [below](#extending-a-sqlite-implementation));
   the container creates it — project code never constructs it.
