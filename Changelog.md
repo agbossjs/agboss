@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: provide(TOKEN, Class), EXECUTION_ID_STORE, SchemaSetup (#891, API review G11)
+
+- **Added — `provide(TOKEN, Class)`** (`ClassProvider`): the container creates the class for an
+  `InjectionToken`, registered under the token only — no `new`, and no second implementation of a
+  contract the class extends (no `[di.ambiguous-implementation]`); two classes, or a class and a
+  value, for one token are `[di.conflicting-values]` ([Components](Components)).
+- **Added — `EXECUTION_ID_STORE` / `ExecutionIdStore`**: where a coordination lease store
+  (`@agboss/redis`) keeps the execution ids it hands out — the application gives it a durable lease
+  store, `provide(EXECUTION_ID_STORE, PostgresExecutionLeaseRepository)` (or Mongo's).
+- **Added — `SchemaSetup { Check, MigrateOnStart }`** (`@agboss/core/stores`, re-exported by
+  `@agboss/postgres` and `@agboss/mongodb`): what a database store package does with its schema at
+  start — `Check` (the default) refuses a missing, older or newer schema, `MigrateOnStart` migrates
+  first.
+- **Fixed — `agbossVitest()` inlines every `@agboss` package** (`/@agboss\//`): a store package
+  shares the test's core — external, it loaded a second core whose decorators the test's did not see.
+
 ## Unreleased — 0.1.1: `agboss rag index` atomic and interruptible, the terminal's answer mode (#891, API review G11)
 
 - **Fixed**: `SqliteFtsConnector.index()` (what `agboss rag index` runs) builds a tenant's index
