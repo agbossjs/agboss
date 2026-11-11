@@ -73,7 +73,8 @@ Breaking changes and notable additions, newest first. The API reports
   `MongoA2ADirectMessageRepository`, `a2aDirectMessageContract`) on the task store's backend
   (`[a2a.message-store-not-shared]`), one `messageId` one message across both reply modes,
   `retention.a2aMessages` (default `minutes(15)`, the card's `messageIdempotencyRetention`); a lost
-  attempt records one `CostSource.Unknown` entry; the client trusts a resend to such a skill only
+  attempt is one call of unknown cost in its run's kept record (`spend.unknownCalls`), and the sweep
+  never removes a live attempt; the client trusts a resend to such a skill only
   within that retention. The TCK's `DM-MSG-001` passes: 67 of 67 `MUST`
   ([A2A → direct replies](A2A#direct-replies--a2areplymessage-860)).
 - **Fixed** (#900): a pause's decision holding an `A2AFileDto`-shaped object at any depth is

@@ -318,10 +318,17 @@ export class QuotesA2AExpose {}
 - **Bounded attempts.** An attempt's run stops at 25 s (and when its caller disconnects: its model
   calls abort, its step slots free) within its row's 30 s in flight; it is never continued by a
   recovery (an instance taking its lease over ends it as cancelled) — its caller waits for this
-  pass alone. An attempt lost to a crash is taken over by exactly one resend or by the sweep, which
-  records one entry of unknown cost (`CostSource.Unknown`, ledger id
-  `unknown:a2a-msg:<tenantId>:<attemptId>`, `agboss.instance.costs.unknown`) for a skill that can
-  call a model, and removes its files. A failed attempt keeps nothing: a resend runs it again.
+  pass alone. That instance keeps, for a skill that can call a model, one call of unknown cost in
+  the run's record, as a lost pass of #853: `spend.unknownCalls` 1, a line `lost-pass:<workflow>`
+  of no amount (`CostSource.Unknown`, ledger key `unknown:lost-run:<tenantId>:<runId>`) — what
+  `agboss records export` writes — counted in `agboss.instance.costs.unknown`. The message of an
+  attempt lost to a crash is taken over by exactly one resend or by the sweep, which removes its
+  files. A failed attempt keeps nothing: a resend runs it again.
+- **A live attempt is never swept.** The sweep removes completed replies only, the oldest first,
+  once `retention.a2aMessages` passed since their message was accepted; an attempt in flight keeps
+  its row, its id's claim and its reply to come however old its message is. A message taken over
+  is accepted anew — its retention counts from the takeover — so a reply a takeover keeps is never
+  thrown away under a waiting resend.
 - **The client.** `A2AClient` takes a `Message` answer without waiting for a task; a message with no
   output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
   "message"`, an ambiguous send is resent with its `messageId` only within the card's
