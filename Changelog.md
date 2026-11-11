@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: `agboss rag index` atomic and interruptible, the terminal's answer mode (#891, API review G11)
+
+- **Fixed**: `SqliteFtsConnector.index()` (what `agboss rag index` runs) builds a tenant's index
+  whole — every document read first, every change written in one transaction — so an interrupted
+  run leaves the index it found, never a partial one the first retrieval would take as built
+  ([Knowledge bases](Knowledge-bases)); Ctrl+C aborts the signal `agboss rag index` indexes under
+  (exit 1, `rag.interrupted`; the signal never aborted before) ([CLI](CLI)).
+- **Changed**: a question pause answered in the terminal (`agboss chat` / `run`) is the typed answer
+  only on a line starting with `{`, which must be JSON (else it is asked again, never sent as a
+  reply); any other line is a free-text reply, `42` and `["a"]` too — the prompt says so.
+- **Docs / scaffold**: `--tenant`'s help on `rag index` reads "without it: the tenant "default"";
+  `agboss migrate`'s summary names `@agboss/core`; `agboss create` writes
+  `tests/services/api.service.test.ts` on `testWith(<Project>Application)`.
 ## Unreleased — 0.1.1: A2A skills that answer with a direct Message (#860)
 
 - **Added**: `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } }, defaultSkill? })` — a
