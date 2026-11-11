@@ -38,8 +38,9 @@ import {
  *   `INPUT_REQUIRED` write (its rest announced, its lease still held); the follow-up's resume on a
  *   records its answer and waits for the lease; the first pass's drain takes that answer and is
  *   held after its `WORKING` write (the answered pass announced, not begun); b's cancel finds the
- *   tree running and requests its cancel; the drain's pass stops at its first renewal, the tree
- *   ends `CANCELED` and its keys go — the request with them. The waiting resume then takes the
+ *   tree running and requests its cancel; a's next background renewal reads it before the drain's
+ *   pass moves, so that pass stops before it stores a step (its checkpoint still at the pause);
+ *   the tree ends `CANCELED` and its keys go — the request with them. The waiting resume takes the
  *   free lease: it reads the tree's end (`-32004`) and moves nothing, though the pause it answered
  *   is still `Resolved` and the paused run of the first rest still stored.
  * Never both resumed with effects and canceled (`a2a-tasks-once`).
@@ -162,7 +163,7 @@ export const s18dDrainTookAnswer: RunnableFaultScenario = {
   run: async (cluster) => {
     const a = await a2aPod(cluster, "a");
     const b = await a2aPod(cluster, "b");
-    const { A2ATaskStatusWrite, PauseResolve } = StoreHoldPoint;
+    const { A2ATaskStatusWrite, LeaseRenew, PauseResolve } = StoreHoldPoint;
     // a's status writes, each held once it is durable: the start's WORKING, the rest's
     // INPUT_REQUIRED, the drained pass's WORKING
     await holdStore(a, A2ATaskStatusWrite, undefined, { phase: HoldPhase.After, times: 3 });
@@ -187,6 +188,15 @@ export const s18dDrainTookAnswer: RunnableFaultScenario = {
       isResumedFirst(cluster, a, b),
       `the resume was to win: ${transitionsOf(cluster, a, b)}`,
     );
+    // the holder reads the request at its next background renewal, before the drain's pass moves
+    // (as in #901's run): a renewal held, then the one after it — which comes only once the first's
+    // check, the request's read, is done — so the pass starts on an aborted watch, no step stored
+    await holdStore(a, LeaseRenew, taskId);
+    const renewal = await heldAt(cluster, a, LeaseRenew, taskId);
+    await holdStore(a, LeaseRenew, taskId);
+    await release(a, renewal);
+    const next = await heldAt(cluster, a, LeaseRenew, taskId, 2);
+    await release(a, next);
     await release(a, drained);
     const resumed = await resume;
     expectThat(
