@@ -143,6 +143,30 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type OnExecutionStart,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type OnCompensationEnd,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnCompensationStart,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnExecutionLeaseTakeover,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnExecutionPause,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnExecutionRejected,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnExecutionResume,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnFencedEffect,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnLaunchItemsTruncated,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnOutboundCall,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnQuorumDecided,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnStepHandedOver,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type OnValuesOutdated,
+  /** @deprecated Import from "@agboss/core" (#195). */
   PiiPolicy,
   /** @deprecated Import from "@agboss/core" (#195). */
   PromptError,

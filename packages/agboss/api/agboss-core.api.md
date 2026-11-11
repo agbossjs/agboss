@@ -41,11 +41,6 @@ export type AnswersOf<Q extends DecisionQuestions> = {
     readonly [K in keyof Q]: AnswerOf<Q[K]>;
 };
 
-// Warning: (ae-forgotten-export) The symbol "OnExecutionLeaseTakeover" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnStepHandedOver" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnFencedEffect" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnOutboundCall" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
 
@@ -154,15 +149,6 @@ export interface DecisionRequest<Q extends DecisionQuestions = DecisionQuestions
 // @public
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
 
-// Warning: (ae-forgotten-export) The symbol "OnExecutionPause" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnExecutionResume" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnExecutionRejected" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnValuesOutdated" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnLaunchItemsTruncated" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnQuorumDecided" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnCompensationStart" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnCompensationEnd" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
 
@@ -371,6 +357,18 @@ export interface OnChannelStart {
 }
 
 // @public
+export interface OnCompensationEnd {
+    // Warning: (ae-forgotten-export) The symbol "CompensationEndEvent" needs to be exported by the entry point index.d.ts
+    onCompensationEnd(event: CompensationEndEvent): HookResult;
+}
+
+// @public
+export interface OnCompensationStart {
+    // Warning: (ae-forgotten-export) The symbol "CompensationStartEvent" needs to be exported by the entry point index.d.ts
+    onCompensationStart(event: CompensationStartEvent): HookResult;
+}
+
+// @public
 export interface OnDestroy {
     onDestroy(): Promise<void> | void;
 }
@@ -392,11 +390,47 @@ export interface OnExecutionError {
 }
 
 // @public
+export interface OnExecutionLeaseTakeover {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseTakeoverEvent" needs to be exported by the entry point index.d.ts
+    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionPause {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionPause(event: ExecutionPauseEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionRejected {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionResume {
+    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionResume(event: ExecutionResumeEvent): HookResult;
+}
+
+// @public
 export interface OnExecutionStart {
     // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): HookResult;
+}
+
+// @public
+export interface OnFencedEffect {
+    // Warning: (ae-forgotten-export) The symbol "FencedEffectEvent" needs to be exported by the entry point index.d.ts
+    onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 
 // @public (undocumented)
@@ -423,6 +457,12 @@ export interface OnJudgeStart {
     onJudgeStart(event: JudgeStartEvent): HookResult;
 }
 
+// @public
+export interface OnLaunchItemsTruncated {
+    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point index.d.ts
+    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
+}
+
 // @public (undocumented)
 export interface OnModelEnd {
     // (undocumented)
@@ -433,6 +473,18 @@ export interface OnModelEnd {
 export interface OnModelStart {
     // (undocumented)
     onModelStart(event: ModelStartEvent): HookResult;
+}
+
+// @public
+export interface OnOutboundCall {
+    // Warning: (ae-forgotten-export) The symbol "OutboundCallEvent" needs to be exported by the entry point index.d.ts
+    onOutboundCall(event: OutboundCallEvent): HookResult;
+}
+
+// @public
+export interface OnQuorumDecided {
+    // Warning: (ae-forgotten-export) The symbol "QuorumDecidedEvent" needs to be exported by the entry point index.d.ts
+    onQuorumDecided(event: QuorumDecidedEvent): HookResult;
 }
 
 // @public (undocumented)
@@ -465,6 +517,12 @@ export interface OnStart {
 }
 
 // @public
+export interface OnStepHandedOver {
+    // Warning: (ae-forgotten-export) The symbol "StepHandedOverEvent" needs to be exported by the entry point index.d.ts
+    onStepHandedOver(event: StepHandedOverEvent): HookResult;
+}
+
+// @public
 export interface OnStop {
     onStop(): Promise<void> | void;
 }
@@ -479,6 +537,14 @@ export interface OnToolEnd {
 export interface OnToolStart {
     // (undocumented)
     onToolStart(event: ToolStartEvent): HookResult;
+}
+
+// @public
+export interface OnValuesOutdated {
+    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
 
 // Warning: (ae-forgotten-export) The symbol "DeclarativePiiPolicyOptions" needs to be exported by the entry point index.d.ts
@@ -683,6 +749,9 @@ export class WorkflowSettings {
 // src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:133:3 - (ae-undocumented) Missing documentation for "update".
 // src/core/observer-hooks.ts:47:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-hooks.ts:51:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-hooks.ts:55:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-hooks.ts:63:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
 // src/core/observer-hooks.ts:67:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
 // src/core/observer-hooks.ts:75:3 - (ae-undocumented) Missing documentation for "onExecutionError".
 // src/core/observer-hooks.ts:77:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
@@ -720,6 +789,7 @@ export class WorkflowSettings {
 // src/core/observer-hooks.ts:127:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
 // src/core/observer-hooks.ts:129:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/flow/decorators/workflow.ts:116:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
