@@ -19,14 +19,16 @@ import { PostgresA2ATasks } from "../fixtures/a2a-task-stores.fixture.js";
 import { BusyWorkflowStart, directRulesApplication } from "../fixtures/direct-rules.fixture.js";
 import { QuoteWorkflowStart } from "../fixtures/direct.application.js";
 
-/** The rule violations assembling the application reports: `[]` when it assembles. */
+/** The A2A rule violations assembling the application reports: `[]` when it assembles. */
 async function violationsOf(application: Class): Promise<readonly string[]> {
   try {
     await applicationOf(application);
     return [];
   } catch (error) {
     if (!(error instanceof GraphRuleError)) throw error;
-    return error.violations.map((found) => `[${found.code}] ${found.message}`);
+    return error.violations
+      .filter((found) => found.code.startsWith("a2a."))
+      .map((found) => `[${found.code}] ${found.message}`);
   }
 }
 

@@ -17,8 +17,17 @@ import { FencedEffectRepository } from "../../../src/infrastructure/fenced-effec
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
-import { BoardLookupTool, PingTool } from "../../tool-interceptors/components.fixture.js";
-import { TckCallerChannel, TckWorkflow, TckWorkflowStart } from "../../a2a-tck/tck.application.js";
+import {
+  BoardLookupTool,
+  JobBoardServer,
+  PingTool,
+} from "../../tool-interceptors/components.fixture.js";
+import {
+  TckCallerChannel,
+  TckExecutionContext,
+  TckWorkflow,
+  TckWorkflowStart,
+} from "../../a2a-tck/tck.application.js";
 import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
 
 type Message = { readonly message: Produced<WorkflowStartTextDto, unknown> };
@@ -96,6 +105,14 @@ export class ReserveAction {
 @WorkflowStart({ name: "busy-workflow-start", description: "Busy", input: WorkflowStartTextDto })
 export class BusyWorkflowStart {}
 
+/** A second start of the busy workflow: its agent — the whole workflow is checked. */
+@WorkflowStart({
+  name: "busy-agent-workflow-start",
+  description: "Busy",
+  input: WorkflowStartTextDto,
+})
+export class BusyAgentWorkflowStart {}
+
 @WorkflowFinish({
   name: "busy-workflow-finish",
   description: "Done",
@@ -119,6 +136,8 @@ export class BusyWorkflowFinish {}
       .toAgent(BusyAgent)
       .toFinish(BusyWorkflowFinish),
   ],
+  mcp: [JobBoardServer],
+  providers: [LedgerService, LedgerWriter],
 })
 export class BusyWorkflow {}
 
@@ -153,6 +172,7 @@ export function directRulesApplication(
     workflows: workflow === undefined ? [] : [workflow, QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers: [...providers, ...(exported === TckWorkflowStart ? [TckCallerChannel] : [])],
+    ...(exported === TckWorkflowStart ? { executionContext: TckExecutionContext } : {}),
     exposes: [RulesA2AExpose],
   })
   class RulesApplication {}
