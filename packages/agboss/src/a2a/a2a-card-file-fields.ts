@@ -1,7 +1,17 @@
 import type { JsonSchema } from "../dto/schema.js";
 
-/** The JSON Schema keyword a `Marker` file field's schema carries. */
+/**
+ * The JSON Schema keyword a `Marker` file field's schema carries (#904); its value is the field's
+ * declaration (#916), as `Extension` declares it in the skills extension.
+ */
 export const FILE_PART_KEYWORD = "x-agboss-file-part";
+
+/** A file field as a card declares it: one file or a list, optional or not, its media types. */
+export interface CardFileField {
+  readonly list: boolean;
+  readonly optional: boolean;
+  readonly mediaTypes: readonly string[];
+}
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
