@@ -15,7 +15,7 @@ import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
-import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
+import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
 import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, callWithLostPasses, markTaken, treeResumeNow } from "./tree-resume.js";
@@ -54,6 +54,8 @@ class TreeMover implements TreeMoves {
   constructor(private readonly parts: TreeMoveParts) {}
 
   async first(state: TreeState, call: TreeCall, pass: TreePass): Promise<ExecutionOutput> {
+    // #860: a run no recovery continues says so before its first pass, in its tree's keys
+    await markedIfWithoutRecovery(call, this.parts.trees, treeOf(state));
     return this.drained(state, call, await this.parts.leases.hold(treeOf(state)), { pass });
   }
 

@@ -1,11 +1,5 @@
 import { lazyLoad } from "../infrastructure/clock.js";
-import {
-  isWithoutRecovery,
-  markedWithoutRecovery,
-  runIdOf,
-  treeControlOf,
-  type TreeControl,
-} from "./tree-control.js";
+import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
@@ -203,8 +197,6 @@ export async function buildApp(
         : (call.threadId ?? "");
       const origin = values.mesh?.trusted?.origin;
       const tree = { runId, threadId, tenantId, startedVersion: deps.config.version, origin };
-      // #860: a run no recovery continues says so before its first pass, in its tree's keys
-      if (isWithoutRecovery(call)) await markedWithoutRecovery(trees, tenantId, runId);
       await deps.observer.onExecutionStart(executionEventAt(tree, deps));
       const begun = { start: checked.name, input: checked.input, threadId };
       const result = await moves.first(tree, call, (moving, signal) =>

@@ -102,6 +102,12 @@ function outputsOf(
   });
 }
 
+/** Whether the workflow of `start` can call a model. */
+const startCallsModel = (start: Class, workflows: readonly Class[]): boolean =>
+  (workflowPartsOf(workflows).find((part) => part.nodes.includes(start))?.nodes ?? []).some(
+    callsModel,
+  );
+
 /** What a listener's skills are built from besides the exports. */
 export interface SkillSources {
   readonly contracts: ContractsSnapshot;
@@ -135,7 +141,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
     ...skillFilesOf(input, name, sources),
     reply: found.reply,
-    callsModel: (workflowPartsOf(sources.workflows).find((part) => part.nodes.includes(start))?.nodes ?? []).some(callsModel),
+    callsModel: startCallsModel(start, sources.workflows),
   };
 }
 

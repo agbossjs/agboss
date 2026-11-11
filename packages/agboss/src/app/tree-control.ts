@@ -1,4 +1,3 @@
-import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import {
@@ -64,21 +63,6 @@ export const withoutRecovery = <TOptions extends object>(options: TOptions): TOp
 /** Whether a transport asked that no recovery continue this run. */
 export const isWithoutRecovery = (options: object): boolean =>
   Reflect.get(options, WITHOUT_RECOVERY) === true;
-
-/**
- * The reserved tree key of a run no recovery continues: written before its first pass, read only by
- * an instance taking its lease over (`cancel-requests.ts`), gone with the tree's keys.
- */
-export const WITHOUT_RECOVERY_KEY = "@agboss/without-recovery";
-
-/** Marks the tree of `rootExecutionId` as no recovery's to continue. */
-export async function markedWithoutRecovery(
-  trees: Pick<ExecutionTreeRepository, "saveIfAbsentInTree">,
-  tenantId: string,
-  rootExecutionId: string,
-): Promise<void> {
-  await trees.saveIfAbsentInTree({ tenantId, rootExecutionId }, WITHOUT_RECOVERY_KEY, true);
-}
 
 /** One tree of a workflow by its id (#807), loaded on first use. */
 const executionTrees = () => lazyLoad(import("./execution-trees.js"));

@@ -30,8 +30,9 @@ export interface LostAttemptSources {
 }
 
 /** The ledger id of a lost attempt's entry: one per attempt, ever. */
-export const lostAttemptLedgerIdOf = (lost: Pick<A2ADirectMessageRecord, "tenantId" | "attemptId">) =>
-  `unknown:a2a-msg:${lost.tenantId}:${lost.attemptId}`;
+export const lostAttemptLedgerIdOf = (
+  lost: Pick<A2ADirectMessageRecord, "tenantId" | "attemptId">,
+): string => `unknown:a2a-msg:${lost.tenantId}:${lost.attemptId}`;
 
 /** The entry of unknown cost of a lost attempt. */
 const unknownEntryOf = (lost: A2ADirectMessageRecord, madeAt: Date): LedgerEntry => ({

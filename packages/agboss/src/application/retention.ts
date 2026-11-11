@@ -145,6 +145,15 @@ const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
 const fileRetentionOf = (given: RetentionOptions): Milliseconds =>
   given.a2aFiles ?? given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
 
+/** The A2A retentions (#807, #859, #860) with their defaults. */
+const a2aRetentionOf = (
+  given: RetentionOptions,
+): Pick<ApplicationRetention, "a2aTasks" | "a2aFiles" | "a2aMessages"> => ({
+  a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
+  a2aFiles: fileRetentionOf(given),
+  a2aMessages: given.a2aMessages ?? DEFAULT_RETENTION.a2aMessages,
+});
+
 /** `@Application({ retention })` with the defaults filled in. */
 export function retentionOf(options: RetentionOptions | undefined): ApplicationRetention {
   const given = options ?? {};
@@ -156,9 +165,7 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     fencedEffects: given.fencedEffects ?? DEFAULT_RETENTION.fencedEffects,
     outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
     meshAnswers: given.meshAnswers ?? DEFAULT_RETENTION.meshAnswers,
-    a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
-    a2aFiles: fileRetentionOf(given),
-    a2aMessages: given.a2aMessages ?? DEFAULT_RETENTION.a2aMessages,
+    ...a2aRetentionOf(given),
   };
 }
 

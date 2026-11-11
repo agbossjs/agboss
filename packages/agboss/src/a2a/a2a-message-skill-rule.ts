@@ -19,9 +19,9 @@ import { A2AReply, type A2AExposeOptions } from "./a2a-expose.decorator.js";
  * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools, no `@McpTool`
  * (`[a2a.message-skill-tool]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's
- * files (`A2AFiles`) is allowed. A `reply` set for no exported start is `[a2a.message-skill-unknown]`
+ * files (`A2AFiles`) is allowed. A `reply` set for no exported start is `[a2a.unknown-skill-option]`
  * (a misspelt one would answer with a task); a `defaultSkill` that is no export
- * `[a2a.default-skill-unknown]`.
+ * `[a2a.unknown-skill-option]` too.
  */
 
 /** The tokens whose use changes things outside the run: a fenced effect, a call that leaves. */
@@ -33,19 +33,18 @@ interface SkillProblem {
   readonly text: string;
 }
 
-/** The declared `deps` of a class, any kind. */
+/** The declared `deps` of a class, any kind (a node's options, a component's meta). */
 function depsOf(cls: Class): readonly Token[] {
-  const declared = declarationOf(cls);
-  if (declared !== undefined)
-    return "deps" in declared.options ? ((declared.options.deps as readonly Token[]) ?? []) : [];
-  const meta = componentOf(cls)?.meta;
-  return meta !== undefined && "deps" in meta ? (meta.deps as readonly Token[]) : [];
+  const declared = declarationOf(cls)?.options ?? componentOf(cls)?.meta;
+  const deps: unknown = declared !== undefined && "deps" in declared ? declared.deps : undefined;
+  // a decorator records `deps` as the tokens it was given
+  return Array.isArray(deps) ? (deps as readonly Token[]) : [];
 }
 
 /** Whether a token changes things outside the run: an effect store, `OutboundCalls`, an A2A client. */
 const isEffect = (token: Token): boolean =>
   EFFECT_TOKENS.has(token) ||
-  (typeof token === "function" && componentOf(token as Class)?.kind === "a2a-agent");
+  (typeof token === "function" && componentOf(token)?.kind === "a2a-agent");
 
 /** The first effect `cls`'s `deps` reach, through the classes it injects; `undefined` for none. */
 function effectOf(cls: Class, seen = new Set<Token>()): Token | undefined {
@@ -53,14 +52,14 @@ function effectOf(cls: Class, seen = new Set<Token>()): Token | undefined {
     if (seen.has(token)) continue;
     seen.add(token);
     if (isEffect(token)) return token;
-    const deeper = typeof token === "function" ? effectOf(token as Class, seen) : undefined;
+    const deeper = typeof token === "function" ? effectOf(token, seen) : undefined;
     if (deeper !== undefined) return deeper;
   }
   return undefined;
 }
 
 const nameOfToken = (token: Token): string =>
-  typeof token === "function" ? token.name : String((token as { description?: string }).description ?? token);
+  typeof token === "function" ? token.name : "an injected effect";
 
 /** The problems of one tool of an agent. */
 function toolProblems(agent: string, tool: Class): SkillProblem[] {
@@ -81,31 +80,41 @@ function toolProblems(agent: string, tool: Class): SkillProblem[] {
   return found;
 }
 
+/** What a node is, by its kind: a child, a question, an undo; none for any other. */
+function kindProblem(node: Class, name: string): SkillProblem | undefined {
+  const declared = declarationOf(node);
+  if (isThisWorkflow(node) || declared?.kind === NodeKind.Workflow)
+    return { code: "a2a.message-skill-child", text: `it launches ${name}` };
+  if (declared?.kind === NodeKind.Question)
+    return { code: "a2a.message-skill-pause", text: `${name} asks its caller` };
+  if (declared?.kind !== NodeKind.Action) return undefined;
+  const { compensateWith, committedBy } = declared.options;
+  return compensateWith === undefined && committedBy === undefined
+    ? undefined
+    : { code: "a2a.message-skill-compensation", text: `${name} declares its undo` };
+}
+
+/** The effect a class's services reach, as a problem; none for none. */
+function effectProblem(cls: Class): SkillProblem | undefined {
+  const effect = effectOf(cls);
+  return effect === undefined
+    ? undefined
+    : {
+        code: "a2a.message-skill-effect",
+        text: `${cls.name} injects ${nameOfToken(effect)}, which changes things outside the run`,
+      };
+}
+
 /** The problems of one node of the skill's workflow. */
 function nodeProblems(node: Class): SkillProblem[] {
   const declared = declarationOf(node);
   const name = declared?.options.name ?? node.name;
-  const found: SkillProblem[] = [];
-  if (isThisWorkflow(node) || declared?.kind === NodeKind.Workflow)
-    found.push({ code: "a2a.message-skill-child", text: `it launches ${name}` });
-  if (declared?.kind === NodeKind.Question)
-    found.push({ code: "a2a.message-skill-pause", text: `${name} asks its caller` });
-  if (declared?.kind === NodeKind.Action) {
-    const { compensateWith, committedBy } = declared.options;
-    if (compensateWith !== undefined || committedBy !== undefined)
-      found.push({ code: "a2a.message-skill-compensation", text: `${name} declares its undo` });
-  }
   const tools = declared?.kind === NodeKind.Agent ? (declared.options.tools ?? []) : [];
-  for (const tool of tools) found.push(...toolProblems(name, tool));
-  for (const cls of [node, ...tools]) {
-    const effect = effectOf(cls);
-    if (effect !== undefined)
-      found.push({
-        code: "a2a.message-skill-effect",
-        text: `${cls.name} injects ${nameOfToken(effect)}, which changes things outside the run`,
-      });
-  }
-  return found;
+  return [
+    ...[kindProblem(node, name)].flatMap((problem) => problem ?? []),
+    ...tools.flatMap((tool) => toolProblems(name, tool)),
+    ...[node, ...tools].flatMap((cls) => effectProblem(cls) ?? []),
+  ];
 }
 
 /** The workflow of the application whose flow starts at `start`. */
@@ -138,7 +147,7 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
     .filter(([name, skill]) => skill.reply !== undefined && !names.has(name))
     .map(([name]) =>
       violation(
-        "a2a.message-skill-unknown",
+        "a2a.unknown-skill-option",
         `${expose.name} sets the reply of ${name}, which it does not export — name an exported start`,
         [where],
       ),
@@ -147,7 +156,7 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
   if (fallback !== undefined && !expose.exports.includes(fallback))
     found.push(
       violation(
-        "a2a.default-skill-unknown",
+        "a2a.unknown-skill-option",
         `${expose.name}'s defaultSkill ${fallback.name} is not one of its exports`,
         [where],
       ),
@@ -155,7 +164,7 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
   return found;
 }
 
-/** `[a2a.message-skill-*]` and `[a2a.default-skill-unknown]` of an application. */
+/** `[a2a.message-skill-*]` and `[a2a.unknown-skill-option]` of an application. */
 export function messageSkillViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
   // Stryker disable next-line ArrayDeclaration: no exposes, no skills either way

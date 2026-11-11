@@ -3,12 +3,6 @@ import {
   A2ADirectMessageRepository,
   A2ADirectMessageSaveStatus,
   A2ADirectMessageState,
-  checkedDirectMessageLimit,
-  DIRECT_MESSAGE_CLAIM,
-  directMessageClaimOf,
-  directSaveOf,
-  isExpiredAttempt,
-  savedA2ADirectMessageOf,
   type A2ADirectMessageAttempt,
   type A2ADirectMessageKey,
   type A2ADirectMessageRecord,
@@ -16,6 +10,14 @@ import {
   type A2ADirectMessageSave,
   type NewA2ADirectMessage,
 } from "../a2a-direct-message.repository.js";
+import {
+  checkedDirectMessageLimit,
+  DIRECT_MESSAGE_CLAIM,
+  directMessageClaimOf,
+  directSaveOf,
+  isExpiredAttempt,
+  savedA2ADirectMessageOf,
+} from "../a2a-direct-message-claims.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import {
   answerOf,

@@ -12,6 +12,8 @@ import { exportsOf } from "./a2a-exports.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 import type { ServedSkill } from "./server/a2a-skills.js";
+import type { A2ADirectParts } from "./server/a2a-server-parts.js";
+import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
 import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
@@ -123,6 +125,25 @@ const serverFilesOf = (app: A2AApp, options: A2AHttpListenerOptions<Class>) => (
   timeout: options.fileFetchTimeout ?? DEFAULT_FILE_FETCH_TIMEOUT,
 });
 
+/** The options of an `@A2AExpose` (`exportsOf` checked it is one). */
+function exposeOptionsOf(expose: Class): A2AExposeOptions {
+  const meta = componentOf(expose);
+  if (meta?.kind !== "a2a-expose")
+    throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+  return meta.meta;
+}
+
+/** What the listener's direct-reply skills work with (#860): the replies, the ledger, the default. */
+const directPartsOf = (
+  app: A2AApp,
+  skills: readonly ServedSkill[],
+  defaultSkill: Class | undefined,
+): A2ADirectParts => ({
+  messages: app.resolve(A2ADirectMessageRepository),
+  ledger: app.resolve(CostLedgerRepository),
+  defaultSkill: skills.find((skill) => skill.start === defaultSkill),
+});
+
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
 async function bindingOf<TStart extends Class>(
   app: A2AApp,
@@ -136,11 +157,7 @@ async function bindingOf<TStart extends Class>(
   const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
     await serverModules();
   const { mesh, control } = builtAppOf(app);
-  const meta = componentOf(options.expose);
-  // exportsOf checked it is an @A2AExpose
-  if (meta?.kind !== "a2a-expose")
-    throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
-  const expose = meta.meta;
+  const expose = exposeOptionsOf(options.expose);
   const sources = { contracts: await mesh.contracts(), workflows: mesh.workflows, expose };
   const skills = servedSkillsOf(checked.exports, { ...sources, files: mesh.a2aFiles });
   const clock = app.resolve(Clock);
@@ -165,11 +182,7 @@ async function bindingOf<TStart extends Class>(
     maxTaskDuration: options.maxTaskDuration,
     mesh,
     files: serverFilesOf(app, options),
-    direct: {
-      messages: app.resolve(A2ADirectMessageRepository),
-      ledger: app.resolve(CostLedgerRepository),
-      defaultSkill: skills.find((skill) => skill.start === expose.defaultSkill),
-    },
+    direct: directPartsOf(app, skills, expose.defaultSkill),
   };
   return {
     card,

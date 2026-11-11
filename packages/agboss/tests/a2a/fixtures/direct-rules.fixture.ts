@@ -30,7 +30,9 @@ import {
 } from "../../a2a-tck/tck.application.js";
 import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
 
-type Message = { readonly message: Produced<WorkflowStartTextDto, unknown> };
+interface Message {
+  readonly message: Produced<WorkflowStartTextDto, unknown>;
+}
 
 /** A service two hops from the effect store: what a tool injects. */
 @Injectable({ deps: [FencedEffectRepository] })

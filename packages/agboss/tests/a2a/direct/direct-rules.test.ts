@@ -83,8 +83,8 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
 
     expect(violations).toEqual(
       expect.arrayContaining([
-        "[a2a.message-skill-unknown] rules-a2a-expose sets the reply of quote-workflow-startt, which it does not export — name an exported start",
-        "[a2a.default-skill-unknown] rules-a2a-expose's defaultSkill QuoteWorkflowStart is not one of its exports",
+        "[a2a.unknown-skill-option] rules-a2a-expose sets the reply of quote-workflow-startt, which it does not export — name an exported start",
+        "[a2a.unknown-skill-option] rules-a2a-expose's defaultSkill QuoteWorkflowStart is not one of its exports",
       ]),
     );
   });

@@ -1,5 +1,9 @@
 import type { GraphDeps } from "../graph/deps.js";
-import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
+import type {
+  ExecutionTree,
+  ExecutionTreeRepository,
+} from "../infrastructure/execution-tree.repository.js";
+import { isWithoutRecovery } from "./tree-control.js";
 import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
@@ -83,4 +87,19 @@ export async function passEnded(
 ): Promise<void> {
   await live.stepsClosed(treeOf(state), deps.stepEntries);
   deps.compensation?.registry.forget(treeOf(state));
+}
+
+/**
+ * The reserved tree key of a run no recovery continues: written before its first pass, read only by
+ * an instance taking its lease over (`cancel-requests.ts`), gone with the tree's keys.
+ */
+export const WITHOUT_RECOVERY_KEY = "@agboss/without-recovery";
+
+/** Marks a new root's tree as no recovery's to continue when its call asks so, before its first pass. */
+export async function markedIfWithoutRecovery(
+  call: object,
+  trees: Pick<ExecutionTreeRepository, "saveIfAbsentInTree">,
+  tree: ExecutionTree,
+): Promise<void> {
+  if (isWithoutRecovery(call)) await trees.saveIfAbsentInTree(tree, WITHOUT_RECOVERY_KEY, true);
 }
