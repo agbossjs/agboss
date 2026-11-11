@@ -11,7 +11,12 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { definedOf } from "../infrastructure/clock.js";
 import { kilobytes } from "../units/index.js";
-import { fileOptionsViolations, type A2AFileOptions } from "./files/a2a-file-options.js";
+import { declarationOf } from "../flow/decorators/declaration.js";
+import {
+  cardFileFieldsViolations,
+  fileOptionsViolations,
+  type A2AFileOptions,
+} from "./files/a2a-file-options.js";
 import { fileTierSizeOf } from "./files/a2a-file-tier.js";
 
 /**
@@ -65,16 +70,25 @@ function optionsViolations(options: ApplicationOptions): RuleViolation[] {
   const skills = (options.exposes ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
     if (meta?.kind !== "a2a-expose") return [];
-    return Object.entries(meta.meta.skills ?? {}).flatMap(([skill, settings]) =>
+    const files = Object.entries(meta.meta.skills ?? {}).flatMap(([skill, settings]) =>
       fileOptionsViolations(`${meta.meta.name}'s skill ${skill} files`, settings.files, [
         meta.meta.name,
       ]),
     );
+    // #904: how its card describes file fields
+    const exported = new Set(meta.meta.exports.map((start) => declarationOf(start)?.options.name));
+    return [
+      ...files,
+      ...cardFileFieldsViolations(meta.meta.name, meta.meta, exported, options.name),
+    ];
   });
   return [...own, ...skills];
 }
 
-/** `[a2a.file-store-required]`, `[a2a.file-store-not-shared]` and `[a2a.file-options-invalid]`. */
+/**
+ * `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`, `[a2a.file-options-invalid]` and (#904)
+ * a card file fields setting for a skill not exported, `[a2a.unknown-skill-option]`.
+ */
 export function a2aFileStoreViolations(options: ApplicationOptions): RuleViolation[] {
   const sources: FileTierSources = {
     name: options.name,

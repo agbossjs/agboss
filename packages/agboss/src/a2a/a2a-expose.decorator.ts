@@ -8,8 +8,8 @@ import type { A2AFileOptions } from "./files/a2a-file-options.js";
 export { A2AReply } from "./a2a-message-skill-rule.js";
 import type { A2AReply } from "./a2a-message-skill-rule.js";
 // #904: how the card describes file fields, beside the rule that checks it
-export { A2ACardFileFields } from "./a2a-card-file-fields.js";
-import type { A2ACardFileFields } from "./a2a-card-file-fields.js";
+export { A2ACardFileFields } from "./files/a2a-file-options.js";
+import type { A2ACardFileFields } from "./files/a2a-file-options.js";
 
 /**
  * What the Agent Card says of one exported start (#808): its tags and examples; its files (#859);

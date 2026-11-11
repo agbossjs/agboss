@@ -1,7 +1,7 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
-import { A2ACardFileFields } from "../../../../src/a2a/a2a-card-file-fields.js";
+import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js";
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../../src/infrastructure/cost-ledger.repository.js";

@@ -10,10 +10,8 @@ import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
-import {
-  cardFileFieldsViolations,
-  FILE_PART_KEYWORD,
-} from "../../../src/a2a/a2a-card-file-fields.js";
+import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
+import { cardFileFieldsViolations } from "../../../src/a2a/files/a2a-file-options.js";
 import { checkCard } from "../../../src/a2a/client/a2a-card.js";
 import { A2AClient } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";

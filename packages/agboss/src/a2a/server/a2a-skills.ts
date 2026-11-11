@@ -13,7 +13,7 @@ import { finishDtosOf } from "../files/a2a-file-tier.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import { DecidedBy } from "../../flow/decorators/router.js";
 import type { A2AReply } from "../a2a-expose.decorator.js";
-import type { A2ACardFileFields } from "../a2a-card-file-fields.js";
+import type { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
 import {

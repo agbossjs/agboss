@@ -1,9 +1,6 @@
 import type { JsonSchema } from "../../dto/schema.js";
-import {
-  A2ACardFileFields,
-  FILE_PART_KEYWORD,
-  withoutFileFields,
-} from "../a2a-card-file-fields.js";
+import { FILE_PART_KEYWORD, withoutFileFields } from "../a2a-card-file-fields.js";
+import { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { ServedSkill } from "./a2a-skills.js";
 
 /**
