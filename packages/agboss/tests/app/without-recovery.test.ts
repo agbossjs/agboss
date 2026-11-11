@@ -6,6 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { withoutRecovery } from "../../src/app/tree-control.js";
+import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { ExecutionLeaseLostError, ResumeReason } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -127,5 +128,21 @@ describe("#860: a run no recovery continues", () => {
     await expect(call).rejects.toBeInstanceOf(ExecutionLeaseLostError);
     expect(recovered?.output).toEqual({ text: "Done." });
     expect(seen.resumes.map((resume) => resume.reason)).toEqual([ResumeReason.Recovered]);
+  });
+
+  test("the mark is the reserved tree key @agboss/without-recovery, written once, before the first pass — none without it", async ({
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    const saves = vi.spyOn(InMemoryExecutionTreeRepository.prototype, "saveIfAbsentInTree");
+    const [first] = await pair(apps);
+    const { call } = await holding(first, true);
+
+    const marks = saves.mock.calls.filter(([, key]) => key === "@agboss/without-recovery");
+    levers.letGo?.();
+    await call;
+
+    expect(marks.map(([, , value]) => value)).toEqual([true]);
   });
 });

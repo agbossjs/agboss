@@ -57,7 +57,7 @@ export async function isEndedAtTakeover(
 ): Promise<boolean> {
   if (await isCancelRequested(trees, tree)) return true;
   try {
-    return (await trees.findByIdInTree(tree, WITHOUT_RECOVERY_KEY)) !== undefined;
+    return (await trees.findByIdInTree(tree, WITHOUT_RECOVERY_KEY)) === true;
   } catch {
     return false;
   }
