@@ -1,21 +1,10 @@
 import type { AgentCard, AgentExtension } from "@a2a-js/sdk";
 import { AGENT_CARD_PATH } from "@a2a-js/sdk";
 import { DefaultAgentCardResolver } from "@a2a-js/sdk/client";
-import type { DtoClass } from "../../dto/types.js";
-import { jsonSchemaOf, type JsonSchema } from "../../dto/schema.js";
-import { incompatibilitiesOf } from "../../federation/schema-compat.js";
 import { millisecondsOf } from "../../mesh/mesh-durations.js";
 import type { Milliseconds } from "../../units/index.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import { withoutFileFields } from "../a2a-card-file-fields.js";
-import { fileFieldsOf } from "../files/a2a-file.dto.js";
-import {
-  declaredFileFieldsOf,
-  declaredOutputFileFieldsOf,
-  fileFieldDifferencesOf,
-  outputFileFieldDifferencesOf,
-  type DeclaredFileFields,
-} from "./a2a-card-files.js";
+import { schemaDifferencesOf, skillSchemasOf, type SchemaExpectation } from "./a2a-card-schemas.js";
 import {
   A2AClientOperation,
   A2AContractError,
@@ -62,20 +51,6 @@ export type A2ARemotePeer =
       readonly mesh: boolean;
     };
 
-/** The JSON Schemas an AGBoss peer declares for one skill. */
-interface SkillSchemas {
-  readonly input: JsonSchema | undefined;
-  readonly outputs: Readonly<Record<string, FinishSchema>>;
-  /** Its file fields (#904): in the extension's `files`, or marked in `input`. */
-  readonly files: DeclaredFileFields;
-}
-
-/** One finish's output on the card: its data schema and its file fields (#916 item 4). */
-interface FinishSchema {
-  readonly schema: JsonSchema;
-  readonly files: DeclaredFileFields;
-}
-
 /** A card checked for a client: the card, the peer it describes. */
 export interface CheckedCard {
   readonly card: AgentCard;
@@ -83,11 +58,9 @@ export interface CheckedCard {
 }
 
 /** What the client declares: its skill, its DTOs. */
-export interface CardExpectation {
+export interface CardExpectation extends SchemaExpectation {
   readonly agent: string;
   readonly skill: string | undefined;
-  readonly input: DtoClass | undefined;
-  readonly output: DtoClass | undefined;
 }
 
 /** The bindings this client speaks (the SDK's JSON-RPC and HTTP+JSON transports). */
@@ -207,51 +180,14 @@ export function skillOf(card: AgentCard, expected: CardExpectation): string | un
   return only !== undefined && others.length === 0 ? only.id : undefined;
 }
 
-/** The schemas an AGBoss peer's skills extension declares for `skill`. */
-function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefined {
+/** The skills extension's entry of `skill` on an AGBoss peer's card. */
+function skillEntryOf(
+  card: AgentCard,
+  skill: string,
+): Readonly<Record<string, unknown>> | undefined {
   const skills = extensionParamsOf(card, A2A_SKILLS_EXTENSION)?.skills;
   const entry = isRecord(skills) ? skills[skill] : undefined;
-  if (!isRecord(entry)) return undefined;
-  const outputs = isRecord(entry.outputs) ? entry.outputs : {};
-  return {
-    input: isRecord(entry.input) ? entry.input : undefined,
-    files: declaredFileFieldsOf(entry),
-    outputs: Object.fromEntries(
-      Object.entries(outputs).flatMap(([finish, schema]) =>
-        isRecord(schema)
-          ? [[finish, { schema, files: declaredOutputFileFieldsOf(entry, finish) }]]
-          : [],
-      ),
-    ),
-  };
-}
-
-/** The differences between a skill's schemas and the client's DTOs (`input: …`, `output (f): …`). */
-function differencesOf(schemas: SkillSchemas, expected: CardExpectation): readonly string[] {
-  const found: string[] = [];
-  if (expected.input !== undefined && schemas.input !== undefined) {
-    // #904: the data part compared without the file fields, each side's; the file fields apart
-    const own = new Set(fileFieldsOf(expected.input).map((field) => field.name));
-    const sent = withoutFileFields(jsonSchemaOf(expected.input), own);
-    const accepted = withoutFileFields(schemas.input, new Set(schemas.files.keys()));
-    found.push(...incompatibilitiesOf(accepted, sent).map((reason) => `input: ${reason}`));
-    found.push(...fileFieldDifferencesOf(expected.input, schemas.files));
-  }
-  if (expected.output !== undefined) found.push(...outputDifferencesOf(schemas, expected.output));
-  return found;
-}
-
-/** #916 item 4: each finish's data compared without the file fields, each side's; the files apart. */
-function outputDifferencesOf(schemas: SkillSchemas, output: DtoClass): readonly string[] {
-  const own = new Set(fileFieldsOf(output).map((field) => field.name));
-  const accepted = withoutFileFields(jsonSchemaOf(output), own);
-  return Object.entries(schemas.outputs).flatMap(([finish, given]) => [
-    ...incompatibilitiesOf(
-      accepted,
-      withoutFileFields(given.schema, new Set(given.files.keys())),
-    ).map((reason) => `output (${finish}): ${reason}`),
-    ...outputFileFieldDifferencesOf(output, given.files, finish),
-  ]);
+  return isRecord(entry) ? entry : undefined;
 }
 
 /**
@@ -271,9 +207,9 @@ export function checkCard(card: AgentCard, expected: CardExpectation): void {
       skill,
     });
   }
-  const schemas = skillSchemasOf(card, skill);
-  if (schemas === undefined) return;
-  const differences = differencesOf(schemas, expected);
+  const entry = skillEntryOf(card, skill);
+  if (entry === undefined) return;
+  const differences = schemaDifferencesOf(skillSchemasOf(entry), expected);
   if (differences.length === 0) return;
   throw new A2AContractError({
     agent: expected.agent,
