@@ -7,7 +7,8 @@
 import { TaskState, type Task } from "@a2a-js/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import { sdkClientOf, textMessage } from "../a2a/server/sdk-client.js";
-import { scenarioOfMessageId, serveTckSut, type TckSut } from "./tck-serve.js";
+import { routedBody, scenarioOfMessageId, serveTckSut, type TckSut } from "./tck-serve.js";
+import { A2A_SKILLS_EXTENSION } from "../../src/a2a/a2a-extension-uris.js";
 
 const served: TckSut[] = [];
 afterEach(async () => {
@@ -41,6 +42,45 @@ describe("#811: the TCK's scenario from its messageId", () => {
     expect(scenarioOfMessageId("tck-complete-task")).toBeUndefined();
     expect(scenarioOfMessageId("tck-complete-task-0123abcG")).toBeUndefined();
     expect(scenarioOfMessageId("m-1")).toBeUndefined();
+  });
+});
+
+describe("#860 AC1: DM-MSG-001's scenario is the direct-reply skill", () => {
+  it("AC1: tck-message-response-* answers with a Message of its text, no task; others stay tasks", async () => {
+    const sut = await serveTckSut(0);
+    served.push(sut);
+    const client = await sdkClientOf(sut.url, undefined);
+
+    const direct = await client.sendMessage(send("tck-message-response-0123abcd-1"));
+    const task = taskOf(await client.sendMessage(send("tck-complete-task-0123abcd-2")));
+
+    expect("messageId" in direct).toBe(true);
+    if (!("messageId" in direct)) return;
+    expect(direct.parts[0]?.content).toEqual({ $case: "text", value: "Direct message response" });
+    expect(direct.taskId).toBe("");
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+  });
+
+  it("AC1: the adapter names the skill in a message-response body only, the rest as it came", () => {
+    const body = (messageId: string, metadata?: unknown) =>
+      Buffer.from(
+        JSON.stringify({
+          params: { message: { messageId, ...(metadata === undefined ? {} : { metadata }) } },
+        }),
+      );
+    const other = body("tck-complete-task-0123abcd");
+
+    const routed = JSON.parse(
+      routedBody(body("tck-message-response-0123abcd", { a: 1 })).toString(),
+    ) as {
+      params: { message: { metadata: Record<string, unknown> } };
+    };
+
+    expect(routed.params.message.metadata).toEqual({
+      a: 1,
+      [A2A_SKILLS_EXTENSION]: { skill: "tck-message-workflow-start" },
+    });
+    expect(routedBody(other)).toBe(other);
   });
 });
 

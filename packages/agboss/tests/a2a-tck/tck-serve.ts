@@ -1,7 +1,7 @@
 // #811 — serves the conformance application for the official A2A TCK on 127.0.0.1: the real
 // `a2aHttpListener` behind a loopback adapter that names each message's TCK scenario in a header
 // (`TCK_SCENARIO_HEADER`, from its messageId — the TCK's in-band signal), the body passed on as it
-// came. Run: `npx tsx tests/a2a-tck/tck-serve.ts [port]`; it prints `tck-sut ready <url>`.
+// came, but a `message-response` send's, which names the direct-reply skill (#860). Run: `npx tsx tests/a2a-tck/tck-serve.ts [port]`; it prints `tck-sut ready <url>`.
 import {
   createServer,
   request,
@@ -10,6 +10,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { a2aHttpListener } from "../../src/a2a/a2a-http.js";
+import { A2A_SKILLS_EXTENSION } from "../../src/a2a/a2a-extension-uris.js";
 import { createApp } from "../../src/application/create-app.js";
 import type { App } from "../../src/app/types.js";
 import {
@@ -28,6 +29,24 @@ export function scenarioOfMessageId(messageId: string): string | undefined {
   const tck = /^tck-(.+?)-[0-9a-f]{8}(?:-\d+)?$/.exec(messageId);
   if (tck?.[1] !== undefined) return tck[1];
   return messageId.startsWith("test-resubscribe") ? "resubscribe" : undefined;
+}
+
+/** The scenario a direct-reply skill answers (#860, DM-MSG-001), and that skill. */
+export const MESSAGE_SCENARIO = "message-response";
+const MESSAGE_SKILL = "tck-message-workflow-start";
+
+/**
+ * The body as the listener gets it: a `message-response` send names the direct-reply skill in its
+ * message's metadata (`A2A_SKILLS_EXTENSION`), which the TCK does not; any other body as it came.
+ */
+export function routedBody(body: Buffer): Buffer {
+  if (scenarioOfBody(body) !== MESSAGE_SCENARIO) return body;
+  const parsed = JSON.parse(body.toString("utf8")) as {
+    params: { message: { metadata?: Record<string, unknown> } };
+  };
+  const { message } = parsed.params;
+  message.metadata = { ...message.metadata, [A2A_SKILLS_EXTENSION]: { skill: MESSAGE_SKILL } };
+  return Buffer.from(JSON.stringify(parsed), "utf8");
 }
 
 /** The scenario of a JSON-RPC send's body; `undefined` for anything else. */
@@ -130,7 +149,7 @@ export async function serveTckSut(port = 0): Promise<TckSut> {
   front.on("request", (req, res) => {
     bodyOf(req)
       .then((body) => {
-        forward(innerPort, req, res, body);
+        forward(innerPort, req, res, req.method === "POST" ? routedBody(body) : body);
       })
       .catch((error: unknown) => {
         dropped(req, res, error);

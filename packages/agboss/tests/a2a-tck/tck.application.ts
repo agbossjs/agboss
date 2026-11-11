@@ -1,11 +1,13 @@
-// #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: one
-// exported skill (the TCK names none) whose paths end at a text finish, at a DTO finish (a `data`
-// artifact) or at a pause its caller answers (INPUT_REQUIRED). Which path a message takes is the
+// #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
+// skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
+// finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
+// that answers with a direct `Message` (`A2AReply.Message`, `tck-message-response-*`), which
+// `tck-serve.ts` names in the message's metadata. Which path a message takes is the
 // TCK's scenario — its in-band signal is the messageId's prefix (`tck-complete-task-<session>`),
 // which no workflow sees: `tck-serve.ts` puts it in a header and the caller resolver passes it to
 // the execution as a declared context field. Everything past that is AGBoss as an application
 // serves it.
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
 import { WorkflowFinishFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { A2AFiles } from "../../src/a2a/files/a2a-files.service.js";
 import {
@@ -248,11 +250,55 @@ export class TckCallerResolver implements A2ACallerResolver<Class> {
   }
 }
 
+/** The direct reply of `tck-message-response` (DM-MSG-001): its text, no task. */
+@Action({
+  name: "tck-message-action",
+  description: "Answers with the TCK's direct message",
+  input: { message: WorkflowStartTextDto },
+  output: WorkflowFinishTextDto,
+})
+export class TckMessageAction {
+  execute(_input: {
+    readonly message: Produced<WorkflowStartTextDto, unknown>;
+  }): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: "Direct message response" });
+  }
+}
+
+@WorkflowStart({
+  name: "tck-message-workflow-start",
+  description: "A message of the A2A TCK answered with a direct message",
+  input: WorkflowStartTextDto,
+})
+export class TckMessageWorkflowStart {}
+
+@WorkflowFinish({
+  name: "tck-message-workflow-finish",
+  description: "The direct message",
+  output: WorkflowFinishTextDto,
+})
+export class TckMessageFinish {}
+
+@Workflow({
+  name: "tck-message-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TckMessageWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAction(TckMessageAction)
+      .returns(WorkflowFinishTextDto)
+      .toFinish(TckMessageFinish),
+  ],
+})
+export class TckMessageWorkflow {}
+
 @A2AExpose({
   name: "tck-a2a-expose",
   version: "1.0.0",
   description: "The AGBoss conformance agent of the A2A TCK",
-  exports: [TckWorkflowStart],
+  exports: [TckWorkflowStart, TckMessageWorkflowStart],
+  skills: { "tck-message-workflow-start": { reply: A2AReply.Message } },
+  defaultSkill: TckWorkflowStart,
 })
 export class TckA2AExpose {}
 
@@ -261,7 +307,7 @@ export class TckA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   executionContext: TckExecutionContext,
-  workflows: [TckWorkflow],
+  workflows: [TckWorkflow, TckMessageWorkflow],
   providers: [TckCallerChannel, TckCallerResolver],
   exposes: [TckA2AExpose],
   budgets: TEST_BUDGETS,
