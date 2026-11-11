@@ -1462,6 +1462,12 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
 
 ### Fixed — other
 
+- **Several instances starting at once on a new SQLite file all start** (#911): the second one
+  failed with `database is locked` while opening — SQLite answers the switch to WAL of a fresh
+  file with `SQLITE_BUSY` at once, whatever the busy timeout. `openSqliteDatabase` now sets
+  `busy_timeout` first and tries the switch again while it is busy, with a growing pause bounded
+  by the busy timeout (a file already in WAL is not switched); a file held locked still fails.
+
 - **`agboss rag index` is atomic per tenant and stops on Ctrl+C; the terminal answers questions
   in an explicit mode** (#891, API review G11): `SqliteFtsConnector.index()` reads every document
   first and writes every change in one transaction — an interrupted run (an abort, an unreadable
