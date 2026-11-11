@@ -45,6 +45,12 @@ export interface ToolOptions<
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
+  /**
+   * Whether the tool only reads (#860): it changes nothing outside — no write, no payment, no
+   * message sent. An agent of a skill that answers with a direct A2A message (`A2AReply.Message`)
+   * may call only such tools (`[a2a.message-skill-tool]`). Unset: it may change things.
+   */
+  readonly readOnly?: boolean;
   /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s). */
   readonly timeout?: Milliseconds;
   /**

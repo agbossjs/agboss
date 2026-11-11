@@ -1,3 +1,4 @@
+import { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
@@ -82,6 +83,7 @@ function a2aExportsOf(
         workflow: workflow.name,
         input: dtos.ofShape(declaration.options.input),
         outputs,
+        reply: meta.meta.skills?.[declaration.options.name]?.reply ?? A2AReply.Task,
       },
     ];
   });

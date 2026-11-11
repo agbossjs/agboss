@@ -1,6 +1,7 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
+import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
 import { DEFAULT_A2A_FILE_LIMITS } from "../../../../src/a2a/files/a2a-file-options.js";
@@ -50,6 +51,7 @@ export const UNIT_MESH: MeshSettings = {
   idempotencyRetention: 0,
   a2aTaskRetention: 0,
   a2aFileRetention: 0,
+  a2aMessageRetention: 0,
   a2aFiles: undefined,
   workflows: [],
   exposes: [],
@@ -82,6 +84,8 @@ export const TEXT_SKILL: ServedSkill = {
   ],
   inputFiles: [],
   fileLimits: DEFAULT_A2A_FILE_LIMITS,
+  reply: A2AReply.Task,
+  callsModel: false,
 };
 
 /** What the scripted control and app were asked, and what they answer. */

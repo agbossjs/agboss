@@ -23,6 +23,7 @@ export function meshSettingsFor(
     idempotencyRetention: assembled.meshAnswerRetention,
     a2aTaskRetention: assembled.a2aTaskRetention,
     a2aFileRetention: assembled.a2aFileRetention,
+    a2aMessageRetention: assembled.a2aMessageRetention,
     a2aFiles: assembled.a2aFiles,
     workflows: assembled.workflows.map((workflow) => workflow.graph.type),
     exposes: assembled.exposes,

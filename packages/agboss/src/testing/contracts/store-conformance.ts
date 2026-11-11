@@ -24,6 +24,10 @@ import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
 import { a2aTaskContract } from "./a2a-task.contract.js";
 import { a2aFileContract } from "./a2a-file.contract.js";
+import {
+  a2aDirectMessageContract,
+  type A2ADirectMessageStores,
+} from "./a2a-direct-message.contract.js";
 import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
 import type { OutboundCallTarget } from "./outbound-call-data.js";
 import { registerOutboundCallContract } from "./outbound-call.contract.js";
@@ -66,6 +70,8 @@ export interface StoreSet<TTransaction = unknown> {
   readonly a2aTask?: StoreEntry<A2ATaskRepository>;
   /** The A2A tasks' files (#859). */
   readonly a2aFile?: StoreEntry<A2AFileRepository>;
+  /** The direct A2A messages' replies (#860), with the A2A task store beside them. */
+  readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
   readonly outboundCall?: StoreEntry<OutboundCallTarget>;
   readonly pausedExecution?: StoreEntry<PausedExecutionRepository>;
   readonly rateLimit?: StoreEntry<RateLimitRepository>;
@@ -169,6 +175,7 @@ export function storeConformance<TTransaction>(
   each(set, stores.meshRequest, meshRequestContract);
   each(set, stores.a2aTask, a2aTaskContract);
   each(set, stores.a2aFile, a2aFileContract);
+  each(set, stores.a2aDirectMessage, a2aDirectMessageContract);
   const outboundCall = each(set, stores.outboundCall, (target) => {
     registerOutboundCallContract(target, fencing);
   });

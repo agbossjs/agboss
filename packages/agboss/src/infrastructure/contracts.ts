@@ -25,6 +25,8 @@ import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-req
 import { A2ATaskRepository } from "./a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "./in-memory-a2a-task.repository.js";
 import { A2AFileRepository, InlineA2AFileRepository } from "./a2a-file.repository.js";
+import { A2ADirectMessageRepository } from "./a2a-direct-message.repository.js";
+import { InMemoryA2ADirectMessageRepository } from "./in-memory-a2a-direct-message.repository.js";
 import {
   ExecutionHistoryRepository,
   InMemoryExecutionHistoryRepository,
@@ -77,6 +79,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [A2ATaskRepository, InMemoryA2ATaskRepository],
   [A2AFileRepository, InlineA2AFileRepository],
+  [A2ADirectMessageRepository, InMemoryA2ADirectMessageRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
@@ -145,6 +148,8 @@ export interface Infrastructure {
   readonly a2aTasks: A2ATaskRepository;
   /** The A2A tasks' files (#859); the built-in default keeps none (they ride inline). */
   readonly a2aFiles: A2AFileRepository;
+  /** The direct A2A messages' replies (#860): `A2AReply.Message` skills, by `messageId`. */
+  readonly a2aDirectMessages: A2ADirectMessageRepository;
   /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
@@ -193,6 +198,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   a2aTasks: resolve(A2ATaskRepository) as A2ATaskRepository,
   a2aFiles: resolve(A2AFileRepository) as A2AFileRepository,
+  a2aDirectMessages: resolve(A2ADirectMessageRepository) as A2ADirectMessageRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,

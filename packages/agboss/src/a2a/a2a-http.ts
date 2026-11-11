@@ -148,6 +148,7 @@ async function bindingOf<TStart extends Class>(
     application: mesh.application,
     url: checked.url,
     idempotencyRetention: mesh.a2aTaskRetention,
+    messageIdempotencyRetention: mesh.a2aMessageRetention,
     madeAt: clock.now(),
   });
   const parts = {

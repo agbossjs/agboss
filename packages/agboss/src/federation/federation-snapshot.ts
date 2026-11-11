@@ -1,3 +1,4 @@
+import { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import { z } from "zod";
 import type { ContractsSnapshot } from "../describe/contracts-types.js";
 import type { FederationMember } from "./federation-types.js";
@@ -20,6 +21,8 @@ const A2A_EXPORT = z.object({
   workflow: z.string(),
   input: DTO.nullable(),
   outputs: z.array(DTO.extend({ finish: z.string() })),
+  // #860: a snapshot written before it has no reply — its skills answered with tasks
+  reply: z.enum(A2AReply).default(A2AReply.Task),
 });
 
 const MCP_EXPORT = z.object({

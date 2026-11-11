@@ -5,7 +5,7 @@ import {
   DEFAULT_OUTBOUND_CALL_RETENTION,
 } from "../infrastructure/fenced-effect-settings.js";
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
-import { hours, type Milliseconds } from "../units/index.js";
+import { hours, minutes, type Milliseconds } from "../units/index.js";
 import { shownValueOf } from "../core/shown-value.js";
 
 /**
@@ -75,6 +75,13 @@ export interface RetentionOptions {
    * file outliving its task is read by no one. Default `a2aTasks`.
    */
   readonly a2aFiles?: Milliseconds;
+  /**
+   * A direct A2A message's reply (#860, `A2AReply.Message`, `A2ADirectMessageRepository`) after it
+   * was accepted — and with it its `messageId`: a resend within it gets the same reply, the skill
+   * never runs twice; after it the id is free. Published on the Agent Card as the mesh extension's
+   * `messageIdempotencyRetention`. Above the lease. Default `minutes(15)`.
+   */
+  readonly a2aMessages?: Milliseconds;
 }
 
 /** The retentions an application runs with: each set one, else its default (`executionRecords` stays unset). */
@@ -89,6 +96,7 @@ export interface ApplicationRetention {
   readonly meshAnswers: Milliseconds;
   readonly a2aTasks: Milliseconds;
   readonly a2aFiles: Milliseconds;
+  readonly a2aMessages: Milliseconds;
 }
 
 /** The defaults of every retention but `executionRecords` (unset = nothing kept). */
@@ -104,6 +112,7 @@ export const DEFAULT_RETENTION: Readonly<
   outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
   meshAnswers: DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
   a2aTasks: hours(24),
+  a2aMessages: minutes(15),
 });
 
 /** Every field of `RetentionOptions`: a key outside them is a typo, never a silent default. */
@@ -117,16 +126,19 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "meshAnswers",
   "a2aTasks",
   "a2aFiles",
+  "a2aMessages",
 ];
 
 /**
  * The retentions of rows a fenced write relies on: removed sooner than the lease (30 s), a mark,
- * an intent or a ledger entry would let a zombie's late write — or a retried one — through.
+ * an intent or a ledger entry would let a zombie's late write — or a retried one — through; a
+ * direct message's row (#860) would go while its reply is still being made, and a resend run again.
  */
 const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
   "fencedEffects",
   "outboundCalls",
   "costLedgerEntries",
+  "a2aMessages",
 ]);
 
 /** #859: how long an A2A task's files are kept once it is over — by default as long as the task. */
@@ -146,6 +158,7 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     meshAnswers: given.meshAnswers ?? DEFAULT_RETENTION.meshAnswers,
     a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
     a2aFiles: fileRetentionOf(given),
+    a2aMessages: given.a2aMessages ?? DEFAULT_RETENTION.a2aMessages,
   };
 }
 
@@ -281,6 +294,8 @@ export interface AssembledRetentions {
   readonly auditLogRetention: Milliseconds;
   readonly a2aTaskRetention: Milliseconds;
   readonly a2aFileRetention: Milliseconds;
+  /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
+  readonly a2aMessageRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
   readonly meshAnswerRetention: Milliseconds;
 }
@@ -293,6 +308,7 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
   auditLogRetention: retention.auditLog,
   a2aTaskRetention: retention.a2aTasks,
   a2aFileRetention: retention.a2aFiles,
+  a2aMessageRetention: retention.a2aMessages,
   ledgerEntryRetention: retention.costLedgerEntries,
   meshAnswerRetention: retention.meshAnswers,
 });

@@ -1,4 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
+import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
+import { SqliteA2ADirectMessageRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
@@ -43,6 +45,10 @@ import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
 export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => ({
   a2aFile: inMemoryTarget(({ database }) => new InMemoryA2AFileRepository(database)),
   a2aTask: inMemoryTarget(({ database }) => new InMemoryA2ATaskRepository(database)),
+  a2aDirectMessage: inMemoryTarget(({ database }) => ({
+    messages: new InMemoryA2ADirectMessageRepository(database),
+    tasks: new InMemoryA2ATaskRepository(database),
+  })),
   checkpointSaver: inMemoryTarget((seam) =>
     sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
   ),
@@ -86,6 +92,10 @@ export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => (
 /** Every SQLite store of the core. */
 export const sqliteStores = (): StoreSet<DatabaseSync> => ({
   a2aTask: sqliteTarget(({ connection }) => new SqliteA2ATaskRepository(connection())),
+  a2aDirectMessage: sqliteTarget(({ connection }) => ({
+    messages: new SqliteA2ADirectMessageRepository(connection()),
+    tasks: new SqliteA2ATaskRepository(connection()),
+  })),
   checkpointSaver: sqliteTarget(({ connection }) => new SqliteCheckpointSaver(connection())),
   childExecutionQueue: sqliteTarget(
     ({ clock, application, connection }) =>
