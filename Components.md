@@ -561,8 +561,12 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 ```
 
 - `providers` registers what components inject: classes (`@Injectable({ deps })`, created by the
-  container) and values (`provide(TOKEN, value)` for an `InjectionToken<T>`; a raw
-  `{ provide, useValue }` does not compile). The core provides `ExecutionContext` (the current
+  container), values (`provide(TOKEN, value)` for an `InjectionToken<T>`; a raw
+  `{ provide, useValue }` does not compile) and classes for a token (`provide(TOKEN, Class)`, #891:
+  the container creates the class, its own `deps` injected, and registers it under that token only —
+  a dependency on a contract it extends never finds it there, so
+  `provide(EXECUTION_ID_STORE, PostgresExecutionLeaseRepository)` gives a Redis lease store its
+  durable ids without a second lease store; a class listed too is one instance). The core provides `ExecutionContext` (the current
   execution, [above](#the-execution-context)), `JudgeModel` (a judge's own model,
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
   components — their spend during a tool call is the tool's) and the context levels —

@@ -19,13 +19,16 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
 
 `agbossVitest(test?)` (`@agboss/core/testing/vitest`) returns the `test` options of a vitest config:
 
-- `server.deps.inline` gains `/@agboss\/core/`. Installed from npm, `@agboss/core` is an external
+- `server.deps.inline` gains `/@agboss\//`. Installed from npm, `@agboss/core` is an external
   dependency of vitest: Node loads it, and every project file the core loads by path — the
   `*.application.ts` `workflowOf(W)` finds next to `W`, the application's environments, eval suites —
   bypasses vite. Node cannot run their decorators, and even through tsx they would be a second module
   graph, whose application lists another class object than the test's `W`. Inlined, the core and
   every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
-  is inlined anyway, which is why only the published package showed it.)
+  is inlined anyway, which is why only the published package showed it.) #891: the pattern is
+  `/@agboss\//`, every `@agboss` package — a store package (`@agboss/mongodb`, `@agboss/redis`,
+  `@agboss/postgres`) left external would load a core of its own, its classes undecorated for the
+  test's.
 - `setupFiles` gains `@agboss/core/testing/setup`, once.
 - Inlined, vite reads the core's source maps: `@agboss/core` and `@agboss/cli` ship their `src/`
   beside `dist/` (#645), so a test run prints no "Sourcemap … points to missing source files" and a
