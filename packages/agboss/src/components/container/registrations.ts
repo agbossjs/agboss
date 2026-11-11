@@ -1,5 +1,12 @@
 import { isDeepStrictEqual } from "node:util";
-import { InjectionToken, tokenName, type Class, type Provider, type Token } from "../injection.js";
+import {
+  InjectionToken,
+  isClassProvider,
+  tokenName,
+  type Class,
+  type Provider,
+  type Token,
+} from "../injection.js";
 import { ComponentError } from "../metadata.js";
 
 /**
@@ -50,6 +57,8 @@ export class Registrations {
   readonly #valueOwners = new Map<Token, string>();
   readonly #classes = new Map<Class, string>();
   readonly #replacements = new Map<Class, Class>();
+  /** A class for a token (#891: `provide(EXECUTION_ID_STORE, Class)`): found under that token only. */
+  readonly #tokenClasses = new Map<Token, Class>();
 
   constructor(
     modules: readonly ProviderModule[],
@@ -60,7 +69,8 @@ export class Registrations {
     for (const module of modules) {
       const owner = ownerOf(module);
       for (const provider of module.providers) {
-        if ("provide" in provider) this.#addValue(provider.provide, provider.useValue, owner);
+        if (isClassProvider(provider)) this.#addClass(provider.provide, provider.useClass, owner);
+        else if ("provide" in provider) this.#addValue(provider.provide, provider.useValue, owner);
         else if (!this.#classes.has(provider)) this.#classes.set(provider, owner);
       }
     }
@@ -69,10 +79,21 @@ export class Registrations {
   #addValue(token: Token, value: unknown, owner: string): void {
     checkValueToken(token, owner);
     const first = this.#valueOwners.get(token);
-    if (first !== undefined && !isDeepStrictEqual(this.#values.get(token), value)) {
+    const isConflict =
+      this.#tokenClasses.has(token) || !isDeepStrictEqual(this.#values.get(token), value);
+    if (first !== undefined && isConflict) {
       throw conflictingValues(token, first, owner);
     }
     this.#values.set(token, value);
+    this.#valueOwners.set(token, first ?? owner);
+  }
+
+  #addClass(token: Token, cls: Class, owner: string): void {
+    const first = this.#valueOwners.get(token);
+    if (first !== undefined && this.#tokenClasses.get(token) !== cls) {
+      throw conflictingValues(token, first, owner);
+    }
+    this.#tokenClasses.set(token, cls);
     this.#valueOwners.set(token, first ?? owner);
   }
 
@@ -98,6 +119,8 @@ export class Registrations {
    */
   find(token: Token, dependant: string): Registration | undefined {
     if (this.#values.has(token)) return { kind: "value", value: this.#values.get(token) };
+    const tokenClass = this.#tokenClasses.get(token);
+    if (tokenClass !== undefined) return this.#resolvedClass(tokenClass);
     if (token instanceof InjectionToken) return undefined;
     const replacement = this.#replacements.get(token);
     if (replacement !== undefined) return { kind: "class", cls: replacement };
@@ -105,8 +128,14 @@ export class Registrations {
     if (found.length > 1) throw this.#ambiguous(token, found, dependant);
     const cls = found[0] ?? this.defaults.get(token);
     if (cls === undefined) return undefined;
-    // the contract gets what its implementation resolves to: a test's mock of that class too, and
-    // its replacement (#890: `override(SqliteFencedEffectRepository, …)` reaches `FencedEffects`)
+    return this.#resolvedClass(cls);
+  }
+
+  /**
+   * What a class found for a token resolves to: a test's mock of that class too, and its
+   * replacement (#890: `override(SqliteFencedEffectRepository, …)` reaches `FencedEffects`).
+   */
+  #resolvedClass(cls: Class): Registration {
     if (this.#values.has(cls)) return { kind: "value", value: this.#values.get(cls) };
     return { kind: "class", cls: this.#replacements.get(cls) ?? cls };
   }

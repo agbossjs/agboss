@@ -1269,7 +1269,10 @@ export const quorumPaths = [
   `@Action`, a code `@Router`, `@InputGuardrail` / `@OutputGuardrail`, `@PiiPolicy`, `@Channel`): `deps` are checked
   against the constructor by the compiler and injected by the container. A token is a class or an
   `InjectionToken<T>`; values go in with `provide(TOKEN, value)` (a raw `{ provide, useValue }`
-  does not compile). A dependency without a provider fails at assembly (`Consumer: "TOKEN" is not
+  does not compile), a class the container creates for a token with `provide(TOKEN, Class)` (#891:
+  registered under that token only — `provide(EXECUTION_ID_STORE, PostgresExecutionLeaseRepository)`
+  is the ids of a Redis lease store, never a second lease store; its instance the container's one of
+  that class). A dependency without a provider fails at assembly (`Consumer: "TOKEN" is not
 registered …`); a class in `providers` without a decorator fails with `[di.undecorated-provider]`.
 - **One container per application instance, no scopes (#261):** one instance per class (a class
   listed by two workflows is one instance), created at start. A dependency on a contract gets the

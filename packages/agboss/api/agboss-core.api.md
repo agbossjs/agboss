@@ -104,6 +104,13 @@ export interface ChoiceQuestion<O extends string = string> {
 // @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
+// @public
+export interface ClassProvider<T = unknown> {
+    readonly [classProviderBrand]: true;
+    readonly provide: InjectionToken<T>;
+    readonly useClass: Class<T>;
+}
+
 // @public (undocumented)
 export class ComponentError extends Error {
     // (undocumented)
@@ -583,10 +590,13 @@ export interface PromptProblem {
 export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
 
 // @public
-export function provide<T>(token: InjectionToken<T> | Class<T>, value: T): ValueProvider<T>;
+export function provide<T>(token: InjectionToken<T>, cls: Class<T>): ClassProvider<T>;
 
 // @public
-export type Provider = Class | ValueProvider;
+export function provide<T>(token: InjectionToken<T> | Class<T>, value: T extends abstract new (...args: never[]) => unknown ? never : T): ValueProvider<T>;
+
+// @public
+export type Provider = Class | ValueProvider | ClassProvider;
 
 // Warning: (ae-forgotten-export) The symbol "RagRetrieval" needs to be exported by the entry point index.d.ts
 //
@@ -713,9 +723,9 @@ export class WorkflowSettings {
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
-// src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
-// src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
-// src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
+// src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "provide".
+// src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "useValue".
+// src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts:166:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:171:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:122:1 - (ae-undocumented) Missing documentation for "ComponentError".

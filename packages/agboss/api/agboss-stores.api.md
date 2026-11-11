@@ -1659,6 +1659,12 @@ export interface ResumeVersions {
 }
 
 // @public
+export enum SchemaSetup {
+    Check = "check",
+    MigrateOnStart = "migrate-on-start"
+}
+
+// @public
 export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
 
 // @public
@@ -2074,8 +2080,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".

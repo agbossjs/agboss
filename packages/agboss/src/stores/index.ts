@@ -16,6 +16,10 @@ import "../polyfills/symbol-metadata.js";
 
 export * from "./contract-types.js";
 
+// what a database store package does with its schema at start (#891): `@agboss/postgres` and
+// `@agboss/mongodb` take it and give it to their applications
+export { SchemaSetup } from "./schema-setup.js";
+
 // the rows at an outbound-call store's boundary (#505): an intent, its claim, its lease
 export { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 export type {
