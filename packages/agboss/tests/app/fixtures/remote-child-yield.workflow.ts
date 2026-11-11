@@ -68,6 +68,8 @@ export function openGate(): void {
 }
 
 export function resetYield(): void {
+  announceHold.until = Promise.resolve();
+  announceHold.entered = 0;
   yieldSeen.runs.length = 0;
   yieldSeen.pauseIds.length = 0;
   yieldSeen.starts.length = 0;
@@ -281,6 +283,19 @@ export class YieldReviewsWorkflowStart {}
 })
 export class YieldReviewsWorkflow {}
 
+/** #917: holds the announcement of every child's end until `release()` (open by default). */
+export const announceHold = {
+  until: Promise.resolve(),
+  entered: 0,
+  hold(): () => void {
+    let release = (): void => undefined;
+    this.until = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return release;
+  },
+};
+
 /** Every execution's start and end, by workflow name and execution id. */
 @Injectable()
 export class YieldLog implements OnExecutionStart, OnExecutionEnd {
@@ -288,7 +303,12 @@ export class YieldLog implements OnExecutionStart, OnExecutionEnd {
     yieldSeen.starts.push(`${event.workflow.name} ${event.executionId}`);
   }
 
-  onExecutionEnd(event: ExecutionEndEvent): void {
+  async onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
+    // #917: a child's announcement held by the test; its end is recorded once let through
+    if (event.parentExecutionId !== undefined) {
+      announceHold.entered += 1;
+      await announceHold.until;
+    }
     yieldSeen.ends.push(`${event.workflow.name} ${event.executionId}`);
   }
 }

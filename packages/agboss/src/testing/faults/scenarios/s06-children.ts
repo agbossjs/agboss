@@ -58,6 +58,15 @@ export const s06FinishedChild: RunnableFaultScenario = {
     a.freeze();
     await release(b, onB.held);
     await cluster.ended(onB.executionId);
+    // the end is announced while the worker still holds the child's lease (#917): wait for the finish
+    await cluster.until(`the finish of ${onB.executionId}'s lease`, () =>
+      cluster.history.events.some(
+        (event) =>
+          event.phase === OperationPhase.Complete &&
+          event.operation === StoreHoldPoint.LeaseRetire &&
+          event.key === onB.executionId,
+      ),
+    );
     a.thaw();
     await release(a, ask);
     const answered = (): OperationEvent | undefined =>
