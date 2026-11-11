@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { agbossVitest } from "../../src/testing/vitest.js";
 
 const SETUP = "@agboss/core/testing/setup";
-const CORE = /@agboss\/core/;
+const CORE = /@agboss\//;
 
 describe("AC5: agbossVitest() inlines AGBoss and registers its setup file", () => {
   it("AC5: with no options it gives the inlined core and the setup file only", () => {
@@ -54,14 +54,14 @@ describe("AC5: agbossVitest() inlines AGBoss and registers its setup file", () =
   });
 
   it("AC5: an inline list that already has the core's pattern gets no second one", () => {
-    expect(
-      agbossVitest({ server: { deps: { inline: [/@agboss\/core/, "my-lib"] } } }).server,
-    ).toEqual({ deps: { inline: [CORE, "my-lib"] } });
+    expect(agbossVitest({ server: { deps: { inline: [/@agboss\//, "my-lib"] } } }).server).toEqual({
+      deps: { inline: [CORE, "my-lib"] },
+    });
   });
 
   it("AC5: a pattern of the same text with other flags is the user's own, the core is appended", () => {
-    expect(agbossVitest({ server: { deps: { inline: [/@agboss\/core/i] } } }).server).toEqual({
-      deps: { inline: [/@agboss\/core/i, CORE] },
+    expect(agbossVitest({ server: { deps: { inline: [/@agboss\//i] } } }).server).toEqual({
+      deps: { inline: [/@agboss\//i, CORE] },
     });
   });
 
@@ -110,5 +110,20 @@ describe("AC5: agbossVitest() inlines AGBoss and registers its setup file", () =
     agbossVitest({ setupFiles, server: { deps: { inline } } });
 
     expect([setupFiles, inline]).toEqual([["./a.ts"], ["my-lib"]]);
+  });
+});
+
+describe("#891: a store package shares the test's core", () => {
+  it("#891 AC6: every @agboss package is inlined — a store's classes are decorated by the same core", () => {
+    const inline = agbossVitest().server?.deps?.inline;
+    const patterns = Array.isArray(inline) ? inline.filter((entry) => entry instanceof RegExp) : [];
+
+    for (const file of [
+      "/app/node_modules/@agboss/core/dist/index.js",
+      "/app/node_modules/@agboss/mongodb/dist/index.js",
+      "/app/node_modules/@agboss/redis/dist/index.js",
+      "/app/node_modules/@agboss/postgres/dist/index.js",
+    ])
+      expect(patterns.some((pattern) => pattern.test(file))).toBe(true);
   });
 });

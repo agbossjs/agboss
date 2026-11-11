@@ -2766,8 +2766,9 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
   `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
   Vitest's own on anything else. The project's `vitest.config.ts` wraps its `test` options in
-  `agbossVitest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\/core/`
-  — installed from npm the core is external to vitest, and every file it loads by path (the
+  `agbossVitest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\//`
+  (#891: every `@agboss` package — a store package external to vitest loads a core of its own, its
+  classes undecorated for the test's) — installed from npm the core is external to vitest, and every file it loads by path (the
   application `workflowOf(W)` finds next to `W`, environments, eval suites) would bypass vite: no
   decorators, a second module graph — and `setupFiles` gains `@agboss/core/testing/setup` (once;
   the user's arrays merged, the rest passed through). Without it `workflowOf(W)` throws
