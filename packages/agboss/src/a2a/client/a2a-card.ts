@@ -7,6 +7,13 @@ import { incompatibilitiesOf } from "../../federation/schema-compat.js";
 import { millisecondsOf } from "../../mesh/mesh-durations.js";
 import type { Milliseconds } from "../../units/index.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import { withoutFileFields } from "../a2a-card-file-fields.js";
+import { fileFieldsOf } from "../files/a2a-file.dto.js";
+import {
+  declaredFileFieldsOf,
+  fileFieldDifferencesOf,
+  type DeclaredFileField,
+} from "./a2a-card-files.js";
 import {
   A2AClientOperation,
   A2AContractError,
@@ -57,6 +64,8 @@ export type A2ARemotePeer =
 interface SkillSchemas {
   readonly input: JsonSchema | undefined;
   readonly outputs: Readonly<Record<string, JsonSchema>>;
+  /** Its file fields (#904): in the extension's `files`, or marked in `input`. */
+  readonly files: ReadonlyMap<string, DeclaredFileField>;
 }
 
 /** A card checked for a client: the card, the peer it describes. */
@@ -198,6 +207,7 @@ function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefine
   const outputs = isRecord(entry.outputs) ? entry.outputs : {};
   return {
     input: isRecord(entry.input) ? entry.input : undefined,
+    files: declaredFileFieldsOf(entry),
     outputs: Object.fromEntries(
       Object.entries(outputs).filter((pair): pair is [string, JsonSchema] => isRecord(pair[1])),
     ),
@@ -208,8 +218,12 @@ function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefine
 function differencesOf(schemas: SkillSchemas, expected: CardExpectation): readonly string[] {
   const found: string[] = [];
   if (expected.input !== undefined && schemas.input !== undefined) {
-    const sent = jsonSchemaOf(expected.input);
-    found.push(...incompatibilitiesOf(schemas.input, sent).map((reason) => `input: ${reason}`));
+    // #904: the data part compared without the file fields, each side's; the file fields apart
+    const own = new Set(fileFieldsOf(expected.input).map((field) => field.name));
+    const sent = withoutFileFields(jsonSchemaOf(expected.input), own);
+    const accepted = withoutFileFields(schemas.input, new Set(schemas.files.keys()));
+    found.push(...incompatibilitiesOf(accepted, sent).map((reason) => `input: ${reason}`));
+    found.push(...fileFieldDifferencesOf(expected.input, schemas.files));
   }
   if (expected.output !== undefined) {
     const accepted = jsonSchemaOf(expected.output);

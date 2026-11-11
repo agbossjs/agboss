@@ -1,3 +1,4 @@
+import { cardFileFieldsOf } from "../a2a/a2a-card-file-fields.js";
 import { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
@@ -84,6 +85,7 @@ function a2aExportsOf(
         input: dtos.ofShape(declaration.options.input),
         outputs,
         reply: meta.meta.skills?.[declaration.options.name]?.reply ?? A2AReply.Task,
+        cardFileFields: cardFileFieldsOf(meta.meta, declaration.options.name),
       },
     ];
   });

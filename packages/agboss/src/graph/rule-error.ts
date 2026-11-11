@@ -1,3 +1,5 @@
+import type { A2ARuleCode } from "../a2a/a2a-rule-codes.js";
+
 /** Codes of the assembly rules — stable, for people and for tests. */
 export type RuleCode =
   | "graph.not-a-node"
@@ -91,19 +93,8 @@ export type RuleCode =
   | "application.idempotency-key-required"
   | "application.idempotency-key-shared"
   | "application.pii-key-shared"
-  // an application serving A2A keeps its tasks where its instances share them (#824)
-  | "a2a.task-store-not-shared"
-  | "a2a.message-store-not-shared"
-  | "a2a.message-skill-pause"
-  | "a2a.message-skill-effect"
-  | "a2a.message-skill-tool"
-  | "a2a.message-skill-compensation"
-  | "a2a.message-skill-child"
-  | "a2a.unknown-skill-option"
-  | "a2a.file-options-invalid"
-  | "a2a.file-store-required"
-  | "a2a.file-store-not-shared"
-  | "a2a.nested-file-field"
+  // an application's A2A serving (#824, #859, #860, #904)
+  | A2ARuleCode
   | "application.outbound-calls-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"

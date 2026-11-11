@@ -7,6 +7,9 @@ import type { A2AFileOptions } from "./files/a2a-file-options.js";
 // loads the rule, never this decorator)
 export { A2AReply } from "./a2a-message-skill-rule.js";
 import type { A2AReply } from "./a2a-message-skill-rule.js";
+// #904: how the card describes file fields, beside the rule that checks it
+export { A2ACardFileFields } from "./a2a-card-file-fields.js";
+import type { A2ACardFileFields } from "./a2a-card-file-fields.js";
 
 /**
  * What the Agent Card says of one exported start (#808): its tags and examples; its files (#859);
@@ -21,9 +24,11 @@ export interface A2AExposedSkillOptions {
   readonly files?: A2AFileOptions;
   /** A task (`A2AReply.Task`, the default) or a direct message (`A2AReply.Message`, #860). */
   readonly reply?: A2AReply;
+  /** How its card describes its file fields (#904), over the expose's `cardFileFields`. */
+  readonly cardFileFields?: A2ACardFileFields;
 }
 
-/** `@A2AExpose({ name, version, description, exports, skills?, defaultSkill?, provider?, security? })` (#398 PR 3, #808, #860). */
+/** `@A2AExpose({ name, version, description, exports, skills?, defaultSkill?, provider?, security?, cardFileFields? })` (#398 PR 3, #808, #860, #904). */
 export interface A2AExposeOptions {
   /** `billing-a2a-expose` — kebab-case, ending with `-a2a-expose` (`[name.kind-suffix]`): the card's `name`. */
   readonly name: string;
@@ -48,6 +53,12 @@ export interface A2AExposeOptions {
    * them accepted. Described only: the listener's caller resolver enforces it.
    */
   readonly security?: readonly A2ASecurityScheme[];
+  /**
+   * How the card describes its skills' file fields (#904): out of the data `input` schema, in the
+   * skills extension's `files` (`A2ACardFileFields.Extension`, the default), or in it as
+   * `x-agboss-file-part` markers, never required (`A2ACardFileFields.Marker`); a skill may set its own.
+   */
+  readonly cardFileFields?: A2ACardFileFields;
 }
 
 /**

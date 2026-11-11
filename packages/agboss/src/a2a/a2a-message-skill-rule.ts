@@ -11,6 +11,7 @@ import { isThisWorkflow } from "../flow/this-workflow.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
+import { cardFileFieldsViolations } from "./a2a-card-file-fields.js";
 
 /**
  * A skill that answers with a direct message (#860, `A2AReply.Message`) is stateless, checked at
@@ -198,7 +199,10 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
   return found;
 }
 
-/** `[a2a.message-skill-*]` and `[a2a.unknown-skill-option]` of an application. */
+/**
+ * `[a2a.message-skill-*]`, `[a2a.unknown-skill-option]` and (#904) `[a2a.card-file-fields-invalid]`
+ * of an application.
+ */
 export function messageSkillViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
   // Stryker disable next-line ArrayDeclaration: no exposes, no skills either way
@@ -216,6 +220,13 @@ export function messageSkillViolations(options: ApplicationOptions): RuleViolati
         ),
       );
     });
-    return [...optionProblems(expose, where), ...skills];
+    const exported = new Set(
+      expose.exports.map((start) => declarationOf(start)?.options.name ?? ""),
+    );
+    return [
+      ...optionProblems(expose, where),
+      ...cardFileFieldsViolations(expose.name, expose, exported, where),
+      ...skills,
+    ];
   });
 }
