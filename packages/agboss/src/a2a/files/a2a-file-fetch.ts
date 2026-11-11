@@ -11,7 +11,8 @@ import {
 /**
  * The fetch of a file by `url` at a message's admission (#859, SSRF-safe): `GET` only, from an
  * `https:` origin in `allowedFileOrigins` (none listed: no file by reference), redirects followed by
- * hand — at most `MAX_REDIRECTS`, each target's origin checked the same —, never a private address
+ * hand — at most `MAX_REDIRECTS`, each target's origin checked the same —, never a url with userinfo
+ * (#904: on a redirect neither), never a private address
  * (the transport's lookup), the body read only up to `maxBytes` (one more byte aborts it, nothing
  * buffered past it), the whole of it bound to the request's end and the fetch timeout. Every
  * refusal is `-32602` with a stable code and nothing of the caller's URL.
@@ -39,6 +40,9 @@ const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 function allowedUrlOf(text: string, allowed: readonly string[], isRedirect: boolean): URL {
   if (!URL.canParse(text)) throw refused("a2a.file-url-invalid", "the file's url is not a URL");
   const url = new URL(text);
+  // #904: never a user or a password — Node would send them as `Authorization: Basic`
+  if (url.username !== "" || url.password !== "")
+    throw refused("a2a.file-origin-denied", "the file's url carries a user or a password");
   if (url.protocol === "https:" && allowed.includes(url.origin)) return url;
   if (isRedirect)
     throw refused("a2a.file-origin-denied", "the file's url redirects to an origin not allowed");

@@ -1,4 +1,4 @@
-import type { AgentCard } from "@a2a-js/sdk";
+import type { AgentCard, AgentExtension } from "@a2a-js/sdk";
 import { AGENT_CARD_PATH } from "@a2a-js/sdk";
 import { DefaultAgentCardResolver } from "@a2a-js/sdk/client";
 import type { DtoClass } from "../../dto/types.js";
@@ -107,12 +107,21 @@ function usableInterfaceUrlsOf(raw: Readonly<Record<string, unknown>>): readonly
   );
 }
 
+/**
+ * The extensions a card declares (#904): none when it leaves `capabilities` or its `extensions`
+ * out, as a foreign agent's minimal card may.
+ */
+export const cardExtensionsOf = (card: AgentCard): readonly AgentExtension[] => {
+  const extensions: unknown = card.capabilities?.extensions;
+  return Array.isArray(extensions) ? (extensions as AgentExtension[]) : [];
+};
+
 /** The params of the card's entry for an extension, if it declares one. */
 function extensionParamsOf(
   card: AgentCard,
   uri: string,
 ): Readonly<Record<string, unknown>> | undefined {
-  const entry = card.capabilities?.extensions.find((extension) => extension.uri === uri);
+  const entry = cardExtensionsOf(card).find((extension) => extension.uri === uri);
   if (entry === undefined) return undefined;
   return isRecord(entry.params) ? entry.params : {};
 }
