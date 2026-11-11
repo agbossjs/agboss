@@ -71,7 +71,7 @@ export function provide<T>(
   value: T | Class<T>,
 ): ValueProvider<T> | ClassProvider<T> {
   if (token instanceof InjectionToken && isClassValue(value))
-    return { provide: token, useClass: value as Class<T>, [classProviderBrand]: true };
+    return { provide: token, useClass: value, [classProviderBrand]: true };
   return { provide: token, useValue: value as T, [valueProviderBrand]: true };
 }
 
