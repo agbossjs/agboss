@@ -644,6 +644,21 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   `-32602 a2a.file-field-in-data`, nothing resumed, as a start's data part naming a file field is:
   a file's descriptor is the server's, made when a file part is admitted. The scan is iterative and
   bounded (64 levels, 10 000 values, else `-32602 a2a.answer-shape`).
+- **A file by url is never fetched through a proxy** (#916, after #904) — with `NODE_USE_ENV_PROXY=1`
+  (or `--use-env-proxy`) and `HTTPS_PROXY` set, the fetch went through Node's global agent and its
+  proxy: the guarded lookup checked the proxy's address only, and the proxy resolved the file's host
+  itself, so a name resolving to a loopback or private address was reached through the tunnel
+  (directly and by a redirect). The fetch now has its own `https.Agent` — its own pool, the guarded
+  lookup, no proxy, whatever the environment or `https.globalAgent` say — so such a name is refused
+  `-32602 a2a.file-address-denied` and the proxy is never asked to tunnel to it. A deployment whose
+  egress must go through a proxy cannot take files by url (raw file parts are unaffected).
+- **The card describes the file fields of a skill's outputs too, and a `Marker` card declares each
+  one** (#916): a finish's file fields are out of its output schema and declared in the skills
+  extension's `outputFiles` by finish (`Extension`), or marked in it (`Marker`); a `Marker` is now
+  `{ "x-agboss-file-part": { list, optional, mediaTypes }, description }` (was `true`), so the AGBoss
+  client's card check finds a missing required file field, a file field declared as text, one file
+  against a list and an optional file the skill requires under `Marker` as under `Extension` — and
+  checks its output DTO's file fields against each finish's.
 - **A2A files hardened after the acceptance of #859** (#904):
   - **No file by url from a special-purpose address**: every range of the IANA special-purpose
     registries that is not globally reachable is refused (`100.64.0.0/10`, `192.0.0.0/24`,
@@ -661,8 +676,8 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   - **The card never asks for a file field in the data part**: `@A2AExpose({ cardFileFields })` —
     `A2ACardFileFields.Extension` (default: out of the skill's `input` schema and `required`, declared
     in the skills extension as `files: { <field>: { list, optional, mediaTypes } }`) or
-    `A2ACardFileFields.Marker` (in it as `{ "x-agboss-file-part": true, description }`, never
-    required); a skill may set its own (`skills: { [id]: { cardFileFields } }`,
+    `A2ACardFileFields.Marker` (in it as `{ "x-agboss-file-part": … , description }`, never
+    required; #916: the declaration as its value); a skill may set its own (`skills: { [id]: { cardFileFields } }`,
     `[a2a.file-options-invalid]`); `describe --json` names it per export; the AGBoss client's
     schema check reads either. `outputModes` list what `A2AFiles.save` takes (the application's
     media types), and a skill's settings are read from its own expose when two export one start.

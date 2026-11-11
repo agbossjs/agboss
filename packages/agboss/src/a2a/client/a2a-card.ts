@@ -11,8 +11,10 @@ import { withoutFileFields } from "../a2a-card-file-fields.js";
 import { fileFieldsOf } from "../files/a2a-file.dto.js";
 import {
   declaredFileFieldsOf,
+  declaredOutputFileFieldsOf,
   fileFieldDifferencesOf,
-  type DeclaredFileField,
+  outputFileFieldDifferencesOf,
+  type DeclaredFileFields,
 } from "./a2a-card-files.js";
 import {
   A2AClientOperation,
@@ -63,9 +65,15 @@ export type A2ARemotePeer =
 /** The JSON Schemas an AGBoss peer declares for one skill. */
 interface SkillSchemas {
   readonly input: JsonSchema | undefined;
-  readonly outputs: Readonly<Record<string, JsonSchema>>;
+  readonly outputs: Readonly<Record<string, FinishSchema>>;
   /** Its file fields (#904): in the extension's `files`, or marked in `input`. */
-  readonly files: ReadonlyMap<string, DeclaredFileField>;
+  readonly files: DeclaredFileFields;
+}
+
+/** One finish's output on the card: its data schema and its file fields (#916 item 4). */
+interface FinishSchema {
+  readonly schema: JsonSchema;
+  readonly files: DeclaredFileFields;
 }
 
 /** A card checked for a client: the card, the peer it describes. */
@@ -209,7 +217,11 @@ function skillSchemasOf(card: AgentCard, skill: string): SkillSchemas | undefine
     input: isRecord(entry.input) ? entry.input : undefined,
     files: declaredFileFieldsOf(entry),
     outputs: Object.fromEntries(
-      Object.entries(outputs).filter((pair): pair is [string, JsonSchema] => isRecord(pair[1])),
+      Object.entries(outputs).flatMap(([finish, schema]) =>
+        isRecord(schema)
+          ? [[finish, { schema, files: declaredOutputFileFieldsOf(entry, finish) }]]
+          : [],
+      ),
     ),
   };
 }
@@ -225,14 +237,21 @@ function differencesOf(schemas: SkillSchemas, expected: CardExpectation): readon
     found.push(...incompatibilitiesOf(accepted, sent).map((reason) => `input: ${reason}`));
     found.push(...fileFieldDifferencesOf(expected.input, schemas.files));
   }
-  if (expected.output !== undefined) {
-    const accepted = jsonSchemaOf(expected.output);
-    for (const [finish, given] of Object.entries(schemas.outputs)) {
-      const reasons = incompatibilitiesOf(accepted, given);
-      found.push(...reasons.map((reason) => `output (${finish}): ${reason}`));
-    }
-  }
+  if (expected.output !== undefined) found.push(...outputDifferencesOf(schemas, expected.output));
   return found;
+}
+
+/** #916 item 4: each finish's data compared without the file fields, each side's; the files apart. */
+function outputDifferencesOf(schemas: SkillSchemas, output: DtoClass): readonly string[] {
+  const own = new Set(fileFieldsOf(output).map((field) => field.name));
+  const accepted = withoutFileFields(jsonSchemaOf(output), own);
+  return Object.entries(schemas.outputs).flatMap(([finish, given]) => [
+    ...incompatibilitiesOf(
+      accepted,
+      withoutFileFields(given.schema, new Set(given.files.keys())),
+    ).map((reason) => `output (${finish}): ${reason}`),
+    ...outputFileFieldDifferencesOf(output, given.files, finish),
+  ]);
 }
 
 /**

@@ -4,7 +4,7 @@ import { isoDurationOf } from "../../mesh/mesh-durations.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { A2ASecuritySchemeKind, type A2ASecurityScheme } from "../a2a-security.js";
-import { cardSkillInputOf } from "./a2a-card-files.js";
+import { cardSkillInputOf, cardSkillOutputsOf } from "./a2a-card-files.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 
 /**
@@ -115,11 +115,11 @@ function skillsParamsOf(skills: readonly ServedSkill[]): Record<string, unknown>
   const entries = skills.map((skill) => [
     skill.id,
     {
-      // #904: its file fields as its card describes them, never asked for in the data part
+      // #904, #916: its file fields as its card describes them, never asked for in a data part
       ...cardSkillInputOf(skill),
       schemaHash: skill.inputSchemaHash,
       reply: skill.reply,
-      outputs: Object.fromEntries(skill.outputs.map((output) => [output.finish, output.schema])),
+      ...cardSkillOutputsOf(skill),
     },
   ]);
   return { skills: Object.fromEntries(entries) };

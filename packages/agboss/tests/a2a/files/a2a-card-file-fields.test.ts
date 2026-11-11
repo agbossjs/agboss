@@ -2,8 +2,8 @@
  * #904 item 5 (AC5.1): the Agent Card never asks for a file field in the data part. As set by
  * `@A2AExpose({ cardFileFields })` (a skill may set its own): `Extension`, the default — the file
  * fields out of the data `input` schema and its `required`, declared in the skills extension's
- * `files` — or `Marker` — each one in it as `{ "x-agboss-file-part": true, description }`, never
- * required. A foreign validator (ajv) accepts a data part without file fields under either; the
+ * `files` — or `Marker` — each one in it as `{ "x-agboss-file-part": { list, optional, mediaTypes },
+ * description }` (#916), never required. A foreign validator (ajv) accepts a data part without file fields under either; the
  * AGBoss client's schema check reads both; `describe --json` names the setting.
  */
 import { Ajv } from "ajv";
@@ -109,10 +109,13 @@ describe("#904 item 5 AC5.1: the card's file fields", () => {
 
     expect(entry.input.properties).toMatchObject({
       document: {
-        [FILE_PART_KEYWORD]: true,
+        [FILE_PART_KEYWORD]: { list: false, optional: false, mediaTypes: FILES.allowedMediaTypes },
         description: expect.stringContaining("the document to review"),
       },
-      pages: { [FILE_PART_KEYWORD]: true, description: expect.stringContaining("file parts") },
+      pages: {
+        [FILE_PART_KEYWORD]: { list: true, optional: true, mediaTypes: FILES.allowedMediaTypes },
+        description: expect.stringContaining("file parts"),
+      },
       note: { type: "string" },
     });
     expect(entry.input.required).toBeUndefined();

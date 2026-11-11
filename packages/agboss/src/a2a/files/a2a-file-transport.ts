@@ -1,4 +1,4 @@
-import { request } from "node:https";
+import { Agent, request } from "node:https";
 import type { IncomingMessage } from "node:http";
 import { isIP } from "node:net";
 import { ADDRESS_DENIED, guardedLookupOf, isDeniedAddress } from "./a2a-file-address.js";
@@ -7,7 +7,7 @@ import { ADDRESS_DENIED, guardedLookupOf, isDeniedAddress } from "./a2a-file-add
  * One `GET` of a file by `url` (#859): what the fetch of a file sees of the network — a status, a
  * redirect's `Location`, the body as it arrives. The built-in one is `node:https` with the guarded
  * lookup (no private address, ever), no redirect followed and no header but `accept`; a test passes
- * its own (`a2aHttpListener`'s internal seam).
+ * its own (`a2aHttpListener`'s internal seam). It never goes through a proxy (#916).
  */
 export interface FileHttpResponse {
   readonly status: number;
@@ -39,7 +39,15 @@ const responseOf = (message: IncomingMessage): FileHttpResponse => {
 const isDenied = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === ADDRESS_DENIED;
 
-/** The built-in transport: `https:` only, the guarded lookup, the request bound to `signal`. */
+/**
+ * The file fetch's own agent (#916): its own pool, the guarded lookup on every connection, and no
+ * proxy — whatever `NODE_USE_ENV_PROXY`, `--use-env-proxy`, `HTTPS_PROXY` or a replaced
+ * `https.globalAgent` say. Behind a proxy the lookup would check the proxy's address only and the
+ * proxy would resolve the file's host itself, so a file by url is always fetched directly.
+ */
+const FILE_AGENT = new Agent({ lookup: guardedLookupOf(), keepAlive: false });
+
+/** The built-in transport: `https:` only, its own agent, the request bound to `signal`. */
 export const httpsFileTransport: FileTransport = (url, signal) => {
   // an IP literal is connected to without a lookup: checked here
   const host = url.hostname.replace(/^\[|\]$/g, "");
@@ -49,7 +57,7 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
     const sent = request(url, {
       method: "GET",
       headers: { accept: "*/*" },
-      lookup: guardedLookupOf(),
+      agent: FILE_AGENT,
       signal,
     });
     sent.once("response", (message) => {

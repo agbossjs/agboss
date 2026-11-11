@@ -120,18 +120,20 @@ export function fileOptionsViolations(
 }
 
 /**
- * How an Agent Card describes a skill's file fields (#904): they are sent as file parts, never in
- * the data part, so the skill's data `input` schema must not ask for them.
+ * How an Agent Card describes a skill's file fields (#904), its input's and its finishes' (#916):
+ * they are sent as file parts, never in a data part, so no data schema of the skill asks for them.
  */
 export enum A2ACardFileFields {
   /**
-   * Out of the data `input` schema (and its `required`), declared in the skills extension as
-   * `files: { <field>: { list, optional, mediaTypes } }` — the default.
+   * Out of the data `input` schema and each finish's output schema (and their `required`), declared
+   * in the skills extension as `files: { <field>: { list, optional, mediaTypes } }` and, by finish,
+   * `outputFiles: { <finish>: { <field>: … } }` (#916) — the default.
    */
   Extension = "extension",
   /**
-   * In the data `input` schema, each one's schema `{ "x-agboss-file-part": true, description }` and
-   * never `required`: a validator that does not know the keyword asks nothing of it in data.
+   * In the data schemas, each one's schema `{ "x-agboss-file-part": { list, optional, mediaTypes },
+   * description }` (#916: the declaration `Extension` makes) and never `required`: a validator that
+   * does not know the keyword asks nothing of it in data.
    */
   Marker = "marker",
 }
