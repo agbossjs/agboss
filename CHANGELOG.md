@@ -39,7 +39,8 @@ export`), `@Application({ retention: { leaseEvents } })` → `retention.auditLog
     (`"reclaimed"`), the verb of `ExecutionLeaseRepository.reclaim`; the `reason` label of the
     takeover counter says `reclaimed` too.
   - The four hooks of the audit log are one exported type, `AuditLogHooks`, and every hook returns
-    the exported `HookResult` — `ExecutionObserver` names no unexported type.
+    the exported `HookResult` — `ExecutionObserver` names no unexported type; the deprecated
+    `@agboss/core/core` re-exports every `On*` hook it is made of too (no hook is a forgotten export there).
   - **Metrics:** `agboss.cluster.children.oldest_queued_seconds` → `agboss.cluster.children.oldest_queued.age`
     (unit `s`; no unit in the name), `agboss.instance.lease.takeovers` →
     `agboss.instance.leases.takeovers`, and `agboss.instance.compensations` labels its

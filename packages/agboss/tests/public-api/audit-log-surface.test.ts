@@ -94,9 +94,14 @@ describe("#889 AC3: the observer's hooks are exported", () => {
       );
   });
 
-  it("AC3: everything ExecutionObserver is made of is exported by the root entry", () => {
-    const forgotten = forgottenIn(reportOf("agboss.api.md"));
-    expect(forgotten.filter((symbol) => /^On[A-Z]|Hooks$|^HookResult$/u.test(symbol))).toEqual([]);
+  it("AC3: everything ExecutionObserver is made of is exported by every entry that exports it", () => {
+    for (const name of reportNames)
+      expect(
+        forgottenIn(reportOf(name)).filter((symbol) =>
+          /^On[A-Z]|Hooks$|^HookResult$/u.test(symbol),
+        ),
+        name,
+      ).toEqual([]);
   });
 
   it("AC3: AuditLogHooks is the four hooks, each returning HookResult", () => {
