@@ -39,7 +39,7 @@ function isMessageSkill(card: AgentCard, skill: string | undefined): boolean {
 function messageRetentionOf(card: AgentCard): Milliseconds {
   const declared = paramsOf(card, A2A_MESH_EXTENSION).messageIdempotencyRetention;
   const retention = typeof declared === "string" ? millisecondsOf(declared) : undefined;
-  return retention !== undefined && retention > 0 ? retention : DEFAULT_MESSAGE_RETENTION;
+  return retention === undefined || retention <= 0 ? DEFAULT_MESSAGE_RETENTION : retention;
 }
 
 /** The peer a call to `skill` relies on. */

@@ -101,7 +101,15 @@ describe("#860: a SQLite row of a direct message", () => {
       row({ state: "completed", completed_at: NINE.toISOString() }),
     ];
 
-    for (const each of rows) expect(() => directMessageOf(each)).toThrow(DISAGREE);
+    const refusalOf = (each: unknown): unknown => {
+      try {
+        return directMessageOf(each);
+      } catch (error) {
+        return error instanceof Error ? error.message : error;
+      }
+    };
+
+    expect(rows.map(refusalOf)).toEqual([DISAGREE, DISAGREE, DISAGREE, DISAGREE]);
   });
 
   it("whose reply is not the JSON of a reply is refused", () => {

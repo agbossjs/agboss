@@ -132,6 +132,7 @@ function effectProblem(cls: Class): SkillProblem | undefined {
 function nodeProblems(node: Class): SkillProblem[] {
   const declared = declarationOf(node);
   const name = declared?.options.name ?? node.name;
+  // Stryker disable next-line ArrayDeclaration: a text in place of no tools is no tool, no problem
   const tools = declared?.kind === NodeKind.Agent ? (declared.options.tools ?? []) : [];
   return [
     ...[kindProblem(node, name)].flatMap((problem) => problem ?? []),
@@ -151,8 +152,8 @@ function flowOf(workflows: readonly Class[], start: Class): readonly Class[] | u
   return undefined;
 }
 
-/** The problems of one direct-reply skill: its workflow's nodes, each problem once. */
-function skillProblems(nodes: readonly Class[]): SkillProblem[] {
+/** The problems of one direct-reply skill: its workflow's nodes (none: no workflow), each once. */
+function skillProblems(nodes: readonly Class[] | undefined): SkillProblem[] {
   const problems = [...new Set(nodes)].flatMap(nodeProblems);
   const seen = new Set<string>();
   return problems.filter(
@@ -207,7 +208,7 @@ export function messageSkillViolations(options: ApplicationOptions): RuleViolati
     const expose = meta.meta;
     const skills = messageSkillEntriesOf(expose).flatMap(([skill, start]) => {
       const nodes = flowOf(options.workflows, start);
-      return (nodes === undefined ? [] : skillProblems(nodes)).map(({ code, text }) =>
+      return skillProblems(nodes).map(({ code, text }) =>
         violation(
           code,
           `${skill} answers with a direct message (A2AReply.Message) and must be stateless, but ${text} — answer with a task (A2AReply.Task) or drop it`,

@@ -43,12 +43,13 @@ const retentionOf = (card: AgentCard, skill?: string) =>
   callPeerOf(card, PEER, skill).idempotencyRetention;
 
 describe("#860: whether a card's skill answers with a direct message", () => {
-  it("not for a card without capabilities, without the skills extension, or one that lists no skills", () => {
+  it("not for a card without capabilities, without the skills extension, of no params, or one that lists no skills", () => {
     expect([
       retentionOf(cardOf({ capabilities: false }), "ask"),
       retentionOf(cardOf({}), "ask"),
       retentionOf(cardOf({ declared: {} }), "ask"),
-    ]).toEqual([hours(24), hours(24), hours(24)]);
+      retentionOf(cardOf({ declared: null }), "ask"),
+    ]).toEqual([hours(24), hours(24), hours(24), hours(24)]);
   });
 
   it("not for skills given as a list: they name no skill", () => {
