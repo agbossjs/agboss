@@ -10,6 +10,9 @@ import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js
 import { dtoSchemaHashOf } from "../../flow/runtime/join-keys.js";
 import type { DtoClass } from "../../dto/types.js";
 import { finishDtosOf } from "../files/a2a-file-tier.js";
+import { workflowPartsOf } from "../../describe/contracts-parts.js";
+import { DecidedBy } from "../../flow/decorators/router.js";
+import type { A2AReply } from "../a2a-expose.decorator.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
 import {
@@ -59,6 +62,17 @@ export interface ServedSkill {
   readonly inputFiles: readonly A2AFileField[];
   /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
   readonly fileLimits: A2AFileLimits;
+  /** How it answers (#860): a task, or a direct message. */
+  readonly reply: A2AReply;
+  /** Whether its workflow can call a model (an agent, a model router): a lost reply's cost is unknown. */
+  readonly callsModel: boolean;
+}
+
+/** Whether a node calls a model: an agent, or a router its model decides. */
+function callsModel(node: Class): boolean {
+  const declared = declarationOf(node);
+  if (declared?.kind === NodeKind.Agent) return true;
+  return declared?.kind === NodeKind.Router && declared.options.decidedBy !== DecidedBy.Code;
 }
 
 const schemaOf = (contracts: ContractsSnapshot, dto: string | undefined): JsonSchema | null =>
@@ -87,6 +101,12 @@ function outputsOf(
     };
   });
 }
+
+/** Whether the workflow of `start` can call a model. */
+const startCallsModel = (start: Class, workflows: readonly Class[]): boolean =>
+  (workflowPartsOf(workflows).find((part) => part.nodes.includes(start))?.nodes ?? []).some(
+    callsModel,
+  );
 
 /** What a listener's skills are built from besides the exports. */
 export interface SkillSources {
@@ -120,6 +140,8 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     inputSchemaHash: found.input?.schemaHash ?? null,
     outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
     ...skillFilesOf(input, name, sources),
+    reply: found.reply,
+    callsModel: startCallsModel(start, sources.workflows),
   };
 }
 

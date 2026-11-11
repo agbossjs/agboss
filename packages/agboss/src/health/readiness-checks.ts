@@ -57,6 +57,7 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     ...(isInlineFileStore(stores.a2aFiles)
       ? []
       : [[stores.a2aFiles, () => stores.a2aFiles.ping()] satisfies [object, () => Promise<void>]]),
+    [stores.a2aDirectMessages, () => stores.a2aDirectMessages.ping()],
     [stores.executionHistory, () => stores.executionHistory.ping()],
     [stores.auditLog, () => stores.auditLog.ping()],
     [saver, () => pingCheckpointSaver(saver)],

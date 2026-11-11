@@ -7,14 +7,14 @@ import {
   type Task,
   type TaskStatus,
 } from "@a2a-js/sdk";
-import type { A2ATaskRecord, A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
+import type { A2ATaskRecord } from "../../infrastructure/a2a-task.repository.js";
 import { A2ATaskState } from "../../infrastructure/a2a-task.repository.js";
 import { encodeRunReport } from "../../mesh/mesh-report.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
-import { fileOutputPartsOf } from "./a2a-output-parts.js";
+import { fileOutputPartsOf, type OutputOwner } from "./a2a-output-parts.js";
 
 /**
  * A kept task as A2A v1.0 shows it (#808, design §3): its state, its status message — the pauses a
@@ -78,15 +78,36 @@ export const wireStatusOf = (task: A2ATaskRecord): TaskStatus => ({
 });
 
 /** The output's parts: its text for a text finish, else one `data` part. */
-function outputPartsOf(status: A2ATaskStatus, skill: ServedSkill | undefined): Part[] {
-  const output = skill?.outputs.find((entry) => entry.finish === status.finish);
+function plainPartsOf(finish: string, output: unknown, skill: ServedSkill | undefined): Part[] {
+  const served = skill?.outputs.find((entry) => entry.finish === finish);
   const text: unknown =
-    typeof status.output === "object" && status.output !== null
-      ? Reflect.get(status.output, "text")
-      : undefined;
-  return output?.mediaType === A2AMediaType.Text && typeof text === "string"
+    typeof output === "object" && output !== null ? Reflect.get(output, "text") : undefined;
+  return served?.mediaType === A2AMediaType.Text && typeof text === "string"
     ? [textPart(text)]
-    : [dataPart(status.output)];
+    : [dataPart(output)];
+}
+
+/** A finish's output on the wire, as a task's artifact or a direct reply carries it (#860). */
+export interface FinishParts {
+  readonly parts: readonly Part[];
+  /** Its stored files that could not be served (#859). */
+  readonly missingFiles: number;
+}
+
+/**
+ * A finish's output as its parts (#859, #860): file parts and a data part for a finish with file
+ * fields — its stored files served only as the owner's (a task, a direct reply's attempt) —, else
+ * its text or one data part.
+ */
+export async function finishPartsOf(
+  owner: OutputOwner & { readonly finish: string },
+  skill: ServedSkill | undefined,
+  files: A2AFileRepository,
+): Promise<FinishParts> {
+  const served = skill?.outputs.find((entry) => entry.finish === owner.finish);
+  if (served === undefined || served.fileFields.length === 0)
+    return { parts: plainPartsOf(owner.finish, owner.output, skill), missingFiles: 0 };
+  return fileOutputPartsOf(owner, served, files, dataPart);
 }
 
 /**
@@ -104,20 +125,18 @@ export async function outputArtifactOf(
 ): Promise<Artifact | undefined> {
   const { status } = task;
   if (status.state !== A2ATaskState.Completed || status.finish === undefined) return undefined;
-  const served = skill?.outputs.find((entry) => entry.finish === status.finish);
-  const withFiles =
-    served === undefined || served.fileFields.length === 0
-      ? undefined
-      : await fileOutputPartsOf(task, served, files, dataPart);
-  const missing =
-    withFiles === undefined || withFiles.missingFiles === 0
-      ? {}
-      : { missingFiles: withFiles.missingFiles };
+  const owner = { tenantId: task.tenantId, ownerId: task.taskId, output: status.output };
+  const { parts, missingFiles } = await finishPartsOf(
+    { ...owner, finish: status.finish },
+    skill,
+    files,
+  );
+  const missing = missingFiles === 0 ? {} : { missingFiles };
   return {
     artifactId: outputArtifactIdOf(task.taskId),
     name: status.finish,
     description: "",
-    parts: withFiles === undefined ? outputPartsOf(status, skill) : [...withFiles.parts],
+    parts: [...parts],
     metadata: { [A2A_SKILLS_EXTENSION]: { finish: status.finish, ...missing } },
     extensions: [],
   };

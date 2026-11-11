@@ -7,13 +7,26 @@
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { MessageContent } from '@langchain/core/messages';
 
+// @public
+export function a2aDirectMessageContract(target: ContractTarget<A2ADirectMessageStores>): void;
+
+// @public
+export interface A2ADirectMessageStores {
+    // Warning: (ae-forgotten-export) The symbol "A2ADirectMessageRepository" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly messages: A2ADirectMessageRepository;
+    // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly tasks: A2ATaskRepository;
+}
+
 // Warning: (ae-forgotten-export) The symbol "A2AFileRepository" needs to be exported by the entry point index.d.ts
 //
 // @public
 export function a2aFileContract(target: ContractTarget<A2AFileRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function a2aTaskContract(target: ContractTarget<A2ATaskRepository>): void;
 
@@ -244,6 +257,7 @@ export interface StoreInstanceContext {
 
 // @public
 export interface StoreSet<TTransaction = unknown> {
+    readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
     readonly a2aFile?: StoreEntry<A2AFileRepository>;
     readonly a2aTask?: StoreEntry<A2ATaskRepository>;
     // (undocumented)
@@ -292,6 +306,8 @@ export interface VirtualClockOptions {
 
 // Warnings were encountered during analysis:
 //
+// src/testing/contracts/a2a-direct-message-data.ts:19:3 - (ae-undocumented) Missing documentation for "messages".
+// src/testing/contracts/a2a-direct-message-data.ts:20:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
 // src/testing/contracts/rag-connector-data.ts:46:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
 // src/testing/contracts/sabotage-run.ts:23:3 - (ae-undocumented) Missing documentation for "name".
@@ -300,20 +316,20 @@ export interface VirtualClockOptions {
 // src/testing/contracts/store-conformance-check.ts:38:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/store-conformance-check.ts:39:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "problems".
-// src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
-// src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
-// src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "costLedger".
-// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "executionHistory".
-// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "executionLease".
-// src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "executionAuditLog".
-// src/testing/contracts/store-conformance.ts:61:3 - (ae-undocumented) Missing documentation for "executionRecord".
-// src/testing/contracts/store-conformance.ts:62:3 - (ae-undocumented) Missing documentation for "executionTree".
-// src/testing/contracts/store-conformance.ts:63:3 - (ae-undocumented) Missing documentation for "fencedEffect".
-// src/testing/contracts/store-conformance.ts:64:3 - (ae-undocumented) Missing documentation for "meshRequest".
-// src/testing/contracts/store-conformance.ts:69:3 - (ae-undocumented) Missing documentation for "outboundCall".
-// src/testing/contracts/store-conformance.ts:70:3 - (ae-undocumented) Missing documentation for "pausedExecution".
-// src/testing/contracts/store-conformance.ts:71:3 - (ae-undocumented) Missing documentation for "rateLimit".
-// src/testing/contracts/store-conformance.ts:80:3 - (ae-undocumented) Missing documentation for "stores".
+// src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
+// src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
+// src/testing/contracts/store-conformance.ts:61:3 - (ae-undocumented) Missing documentation for "costLedger".
+// src/testing/contracts/store-conformance.ts:62:3 - (ae-undocumented) Missing documentation for "executionHistory".
+// src/testing/contracts/store-conformance.ts:63:3 - (ae-undocumented) Missing documentation for "executionLease".
+// src/testing/contracts/store-conformance.ts:64:3 - (ae-undocumented) Missing documentation for "executionAuditLog".
+// src/testing/contracts/store-conformance.ts:65:3 - (ae-undocumented) Missing documentation for "executionRecord".
+// src/testing/contracts/store-conformance.ts:66:3 - (ae-undocumented) Missing documentation for "executionTree".
+// src/testing/contracts/store-conformance.ts:67:3 - (ae-undocumented) Missing documentation for "fencedEffect".
+// src/testing/contracts/store-conformance.ts:68:3 - (ae-undocumented) Missing documentation for "meshRequest".
+// src/testing/contracts/store-conformance.ts:75:3 - (ae-undocumented) Missing documentation for "outboundCall".
+// src/testing/contracts/store-conformance.ts:76:3 - (ae-undocumented) Missing documentation for "pausedExecution".
+// src/testing/contracts/store-conformance.ts:77:3 - (ae-undocumented) Missing documentation for "rateLimit".
+// src/testing/contracts/store-conformance.ts:86:3 - (ae-undocumented) Missing documentation for "stores".
 
 // (No @packageDocumentation comment for this package)
 

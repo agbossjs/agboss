@@ -33,6 +33,7 @@ import {
   settledPeerOf,
 } from "./a2a-charges.js";
 import { activatedMeshOf } from "./a2a-activation.js";
+import { callPeerOf } from "./a2a-call-peer.js";
 import { originPolicyOf } from "./a2a-origins.js";
 import { outputOf, untypedResultOf } from "./a2a-outcome.js";
 import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
@@ -205,7 +206,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     const accepted = await accept({
       agent: this.#agent,
       url: this.url,
-      peer: wire.checked.peer,
+      // #860: a direct-reply skill's messageId is deduplicated for its message retention only
+      peer: callPeerOf(wire.checked.card, wire.checked.peer, skill),
       client: wire.client,
       clock,
       parts,
@@ -234,7 +236,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     }
     activation.charge(price, charged);
     const task = await this.#waited(wire, accepted, clock, call);
-    activation.settle(task, price, settledChargeOf(charged, clock));
+    // #860: a direct reply settles on its message (its run report rides its metadata)
+    activation.settle(task ?? accepted.message, price, settledChargeOf(charged, clock));
     const peer = settledPeerOf(activation, accepted, this.contract?.application ?? this.#agent);
     return { accepted, task, peer };
   }

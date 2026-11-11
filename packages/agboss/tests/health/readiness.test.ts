@@ -65,6 +65,11 @@ describe("#300 AC2: readiness", () => {
       { name: "InMemoryMeshRequestRepository", kind: HealthComponentKind.Store, status: "healthy" },
       { name: "InMemoryA2ATaskRepository", kind: HealthComponentKind.Store, status: "healthy" },
       {
+        name: "InMemoryA2ADirectMessageRepository",
+        kind: HealthComponentKind.Store,
+        status: "healthy",
+      },
+      {
         name: "InMemoryExecutionHistoryRepository",
         kind: HealthComponentKind.Store,
         status: "healthy",

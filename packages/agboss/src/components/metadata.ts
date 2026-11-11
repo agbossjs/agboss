@@ -13,6 +13,8 @@ export interface ToolMeta {
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
+  /** Whether it only reads (#860): what a direct-reply A2A skill's agents may call. */
+  readonly readOnly?: boolean;
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */

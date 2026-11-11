@@ -1,4 +1,5 @@
 import type { App } from "../app/types.js";
+import type { UnknownCostTally } from "../core/observer-manager.js";
 import { rememberA2AClientServicesOf } from "../a2a/client/a2a-client-services.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
@@ -13,6 +14,7 @@ import { rememberContextMeshSettings, type MeshSettings } from "./mesh-settings.
 export function meshSettingsFor(
   assembled: AssembledApplication,
   app: Pick<App, "resolve">,
+  unknownCosts?: UnknownCostTally,
 ): MeshSettings {
   const context = app.resolve(ApplicationContext);
   const settings: MeshSettings = {
@@ -23,6 +25,8 @@ export function meshSettingsFor(
     idempotencyRetention: assembled.meshAnswerRetention,
     a2aTaskRetention: assembled.a2aTaskRetention,
     a2aFileRetention: assembled.a2aFileRetention,
+    a2aMessageRetention: assembled.a2aMessageRetention,
+    unknownCosts,
     a2aFiles: assembled.a2aFiles,
     workflows: assembled.workflows.map((workflow) => workflow.graph.type),
     exposes: assembled.exposes,

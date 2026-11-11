@@ -138,7 +138,8 @@ export function composeApp(
   const remembered = appWorkflowOf(first.app);
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
-  const mesh = meshSettingsFor(assembled, app);
+  // the instance's one observer manager: every workflow's is it (#875, #860)
+  const mesh = meshSettingsFor(assembled, app, first.deps.observer.unknownCosts);
   rememberMeshSettings(app, () => mesh);
   return app;
 }

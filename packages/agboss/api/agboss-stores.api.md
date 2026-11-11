@@ -7,6 +7,82 @@
 import type { MessageContent } from '@langchain/core/messages';
 
 // @public
+export interface A2ADirectMessageAttempt {
+    readonly attemptId: string;
+    readonly expiresAt: Date;
+    // (undocumented)
+    readonly startedAt: Date;
+}
+
+// @public
+export interface A2ADirectMessageKey {
+    // (undocumented)
+    readonly messageId: string;
+    readonly ownerId: string | undefined;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+    readonly callerPeer?: string;
+    readonly callsModel: boolean;
+    readonly completedAt?: Date;
+    readonly contextId: string;
+    readonly createdAt: Date;
+    readonly meshBodyHash?: string;
+    readonly reply?: A2ADirectMessageReply;
+    readonly requestHash: string;
+    readonly skill: string;
+    // (undocumented)
+    readonly state: A2ADirectMessageState;
+}
+
+// @public
+export interface A2ADirectMessageReply {
+    // (undocumented)
+    readonly finish: string;
+    // (undocumented)
+    readonly output: unknown;
+    readonly spentUsd: number;
+}
+
+// @public
+export abstract class A2ADirectMessageRepository {
+    abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    abstract findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    abstract ping(): Promise<void>;
+    abstract retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    abstract saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    static readonly store: StoreDescriptor;
+}
+
+// @public (undocumented)
+export type A2ADirectMessageSave = {
+    readonly status: A2ADirectMessageSaveStatus.Saved | A2ADirectMessageSaveStatus.Kept;
+    readonly message: A2ADirectMessageRecord;
+} | {
+    readonly status: A2ADirectMessageSaveStatus.Taken;
+};
+
+// @public
+export enum A2ADirectMessageSaveStatus {
+    Kept = "kept",
+    Saved = "saved",
+    Taken = "taken"
+}
+
+// @public
+export enum A2ADirectMessageState {
+    Completed = "completed",
+    InFlight = "in-flight"
+}
+
+// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -489,6 +565,12 @@ export enum CostSource {
     Tool = "tool",
     Unknown = "unknown"
 }
+
+// @public
+export const DIRECT_MESSAGE_CLAIM = "";
+
+// @public
+export const directMessageClaimOf: (message: NewA2ADirectMessage) => A2AMessageRecord;
 
 // @public
 export type EffectKey = EffectKeyFields & EffectKeyMark;
@@ -1129,6 +1211,9 @@ export abstract class MeshRequestRepository {
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
     abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
 }
+
+// @public
+export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
 export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> {
@@ -1901,6 +1986,14 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/step-records.ts:72:3 - (ae-undocumented) Missing documentation for "endedAt".
 // src/flow/runtime/tool-calls.ts:60:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/runtime/tool-calls.ts:67:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/infrastructure/a2a-direct-message.repository.ts:30:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-direct-message.repository.ts:33:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-direct-message.repository.ts:38:3 - (ae-undocumented) Missing documentation for "finish".
+// src/infrastructure/a2a-direct-message.repository.ts:39:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/a2a-direct-message.repository.ts:48:3 - (ae-undocumented) Missing documentation for "startedAt".
+// src/infrastructure/a2a-direct-message.repository.ts:61:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-direct-message.repository.ts:92:1 - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
+// src/infrastructure/a2a-direct-message.repository.ts:116:3 - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/a2a-task.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Submitted".
 // src/infrastructure/a2a-task.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Working".
 // src/infrastructure/a2a-task.repository.ts:25:3 - (ae-undocumented) Missing documentation for "InputRequired".

@@ -92,9 +92,12 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * `FencedEffects`, the fenced effect's app-facing service (a core service the container makes, so
  * never loaded lazily; the store's module is at its line limit), and a workflow's container options
  * (`app/workflow-lifecycle.ts`: a workflow on its own runs it on its infrastructure's store), modules
- * of their own.
+ * of their own.; 1,549 at #860: the direct A2A
+ * messages' store contract and its in-memory default (a built-in contract's default is resolved at
+ * the root, as every store's) and the direct-reply skills' assembly rule — the server's reply path,
+ * the SQLite store, the sweep and the client's retention load on first use.
  */
-const MODULE_BUDGET = 1_546;
+const MODULE_BUDGET = 1_549;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

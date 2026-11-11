@@ -87,6 +87,7 @@ jobs:
             a2a-tasks,
             a2a-server,
             a2a-client,
+            a2a-direct,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}

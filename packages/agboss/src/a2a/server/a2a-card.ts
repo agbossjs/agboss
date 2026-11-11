@@ -33,6 +33,11 @@ export interface AgentCardSource {
    * long (`@Application({ retention: { a2aTasks } })`); an unfinished one never goes.
    */
   readonly idempotencyRetention: number;
+  /**
+   * How long a direct-reply skill's `messageId` is deduplicated (#860): its reply is kept this long
+   * (`@Application({ retention: { a2aMessages } })`) — what a client's resend of one relies on.
+   */
+  readonly messageIdempotencyRetention: number;
   /** When the card was made (the listener's first request): its `Last-Modified` (#811). */
   readonly madeAt: Date;
 }
@@ -108,6 +113,7 @@ function skillsParamsOf(skills: readonly ServedSkill[]): Record<string, unknown>
     {
       input: skill.inputSchema,
       schemaHash: skill.inputSchemaHash,
+      reply: skill.reply,
       outputs: Object.fromEntries(skill.outputs.map((output) => [output.finish, output.schema])),
     },
   ]);
@@ -119,14 +125,17 @@ const extensionsOf = (source: AgentCardSource): AgentExtension[] => [
   {
     uri: A2A_MESH_EXTENSION,
     description:
-      "The AGBoss mesh: the caller's signed envelope in message.metadata[uri].envelope (call chain, budget, deadline), the signed run report in task.metadata[uri].report",
+      "The AGBoss mesh: the caller's signed envelope in message.metadata[uri].envelope (call chain, budget, deadline), the signed run report in task.metadata[uri].report (a direct reply's in message.metadata[uri].report)",
     required: false,
-    params: { idempotencyRetention: isoDurationOf(source.idempotencyRetention) },
+    params: {
+      idempotencyRetention: isoDurationOf(source.idempotencyRetention),
+      messageIdempotencyRetention: isoDurationOf(source.messageIdempotencyRetention),
+    },
   },
   {
     uri: A2A_SKILLS_EXTENSION,
     description:
-      "The skills' input and output JSON Schemas; message.metadata[uri].skill names the skill a message runs",
+      "The skills' input and output JSON Schemas and how each answers (reply: task | message); message.metadata[uri].skill names the skill a message runs",
     required: false,
     params: skillsParamsOf(source.skills),
   },

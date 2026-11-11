@@ -11,7 +11,7 @@ import {
   A2ARemoteCallReason,
 } from "./a2a-client-errors.js";
 import type { A2AMeshSigned } from "./a2a-mesh-seam.js";
-import { safeTaskIdOf } from "./a2a-task-errors.js";
+import { hasSafeIds, safeTaskIdOf } from "./a2a-task-errors.js";
 import { A2ANotSentError } from "./a2a-transport.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
 
@@ -168,10 +168,11 @@ function resultOf(
   mesh: boolean,
   facts: AcceptFacts,
 ): AcceptResult {
-  if ("messageId" in answer) {
+  // #860: a direct reply's ids are checked as a task's are
+  const isMessage = "messageId" in answer;
+  if (isMessage && hasSafeIds(answer))
     return { kind: "message", message: JSON.stringify(Message.toJSON(answer)), mesh, ...facts };
-  }
-  const taskId = safeTaskIdOf(answer.id);
+  const taskId = isMessage ? undefined : safeTaskIdOf(answer.id);
   const contextId = safeTaskIdOf(answer.contextId);
   if (taskId === undefined || contextId === undefined) {
     throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });

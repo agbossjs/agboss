@@ -3,7 +3,15 @@ import { recordComponent } from "../components/metadata.js";
 import type { A2ASecurityScheme } from "./a2a-security.js";
 import type { A2AFileOptions } from "./files/a2a-file-options.js";
 
-/** What the Agent Card says of one exported start (#808): its tags and examples; its files (#859). */
+// #860: how a skill answers, defined beside the assembly rule that reads it (the root import
+// loads the rule, never this decorator)
+export { A2AReply } from "./a2a-message-skill-rule.js";
+import type { A2AReply } from "./a2a-message-skill-rule.js";
+
+/**
+ * What the Agent Card says of one exported start (#808): its tags and examples; its files (#859);
+ * how it answers (#860).
+ */
 export interface A2AExposedSkillOptions {
   /** Keywords of the skill; default the application's name. */
   readonly tags?: readonly string[];
@@ -11,9 +19,11 @@ export interface A2AExposedSkillOptions {
   readonly examples?: readonly string[];
   /** How much it takes as files (#859), over `@Application({ a2aFiles })` field by field. */
   readonly files?: A2AFileOptions;
+  /** A task (`A2AReply.Task`, the default) or a direct message (`A2AReply.Message`, #860). */
+  readonly reply?: A2AReply;
 }
 
-/** `@A2AExpose({ name, version, description, exports, skills?, provider?, security? })` (#398 PR 3, #808). */
+/** `@A2AExpose({ name, version, description, exports, skills?, defaultSkill?, provider?, security? })` (#398 PR 3, #808, #860). */
 export interface A2AExposeOptions {
   /** `billing-a2a-expose` — kebab-case, ending with `-a2a-expose` (`[name.kind-suffix]`): the card's `name`. */
   readonly name: string;
@@ -23,8 +33,14 @@ export interface A2AExposeOptions {
   readonly description: string;
   /** The workflow starts it serves (`@WorkflowStart` classes of the application's workflows): its skills. */
   readonly exports: readonly Class[];
-  /** Per exported start's name: its tags and examples on the card. */
+  /** Per exported start's name: its tags and examples on the card, how it answers (#860). */
   readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
+  /**
+   * The skill a message runs when it names none (#860) — a foreign caller that sends no
+   * `metadata[A2A_SKILLS_EXTENSION].skill` to an agent of several skills; one of `exports`
+   * (`[a2a.default-skill-unknown]`). Unset: with several skills a message must name one.
+   */
+  readonly defaultSkill?: Class;
   /** Who runs the agent: the card's `provider`. */
   readonly provider?: { readonly organization: string; readonly url: string };
   /**

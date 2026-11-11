@@ -185,6 +185,9 @@ export {
   type NewA2ATask,
 } from "../infrastructure/a2a-task.repository.js";
 export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
+// #860: the direct A2A messages' replies (infrastructure, listed in `@Application({ providers })`)
+export * from "../infrastructure/a2a-direct-message.repository.js";
+export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 // #859: the A2A tasks' files (infrastructure, listed in `@Application({ providers })`)
 export {
   A2AFileConflictError,

@@ -1905,6 +1905,25 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
   their backend or on a kind known to be shared — an allow-list, `postgres`, `mongodb`
   (`PostgresA2ATaskRepository`, `MongoA2ATaskRepository`; Redis keeps none) —, else `[a2a.task-store-not-shared]` at assembly;
+  **a direct reply (#860):** `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } }, defaultSkill? })`
+  answers `SendMessage` with a `Message`, no task (its finish's parts, file parts too; `returnImmediately`
+  ignored; `SendStreamingMessage` one frame, the message; `GetTask` / a follow-up naming it `-32001`; a
+  message naming no skill runs `defaultSkill`) — a stateless workflow, checked on every node at assembly
+  (`[a2a.message-skill-pause]`, `-effect` — a fenced effect, `OutboundCalls` or an `@A2AAgent` any `deps`
+  reach —, `-tool` — only `@Tool({ readOnly: true })`, no `@McpTool` —, `-compensation`, `-child`;
+  `[a2a.unknown-skill-option]`); its reply kept in `A2ADirectMessageRepository` (in memory by default,
+  `SqliteA2ADirectMessageRepository`, PostgreSQL / MongoDB ones; `a2aDirectMessageContract`) on its task
+  store's backend (`[a2a.message-store-not-shared]`), its id claimed among the task store's messages in
+  one atomic write (one `messageId`, one message across both modes: `-32602 a2a.message-id-reused`) — a
+  resend within `retention.a2aMessages` (default `minutes(15)`, the card's mesh
+  `messageIdempotencyRetention`) gets it, a concurrent one waits (polling on the `Clock`, bounded), the
+  model called once; an attempt runs at most 25 s (and stops at the caller's disconnect) inside its row's
+  30 s, is never recovered (`withoutRecovery`, `app/tree-control.ts`: an instance taking its lease over
+  ends it as cancelled), and a lost one is taken over once — by a resend or the sweep — with one
+  `CostSource.Unknown` entry for a model skill (`unknown:a2a-msg:<tenantId>:<attemptId>`); the client
+  trusts a resend to such a skill only within `messageIdempotencyRetention` (`callPeerOf`, 15 min by
+  default); a pause's decision holding an `A2AFileDto`-shaped object at any depth is `-32602
+a2a.file-field-in-data` (#900);
   `ListTasks.totalSize` counts every task its filters match, `statusTimestampAfter` keeps a status at or after
   it (`>=`, a2a.proto's words; #811); the official A2A TCK (`a2aproject/a2a-tck`, pinned) runs in CI
   (`a2a-tck`, `scripts/a2a-tck.mjs`) against the conformance agent `tests/a2a-tck/` — each requirement
@@ -2195,7 +2214,7 @@ passed (a skipped one fails it, S2 Q6).
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles } })` (#834,
+auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages } })` (#834,
   `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
   refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,

@@ -53,5 +53,10 @@ export {
 } from "../infrastructure/cost-ledger.repository.js";
 // a lease's time left as its store says it (#533)
 export { remainingOf } from "../infrastructure/execution-lease.repository.js";
+// a direct A2A message's claim of its id among the A2A task store's messages (#860)
+export {
+  DIRECT_MESSAGE_CLAIM,
+  directMessageClaimOf,
+} from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 // the class a refusal of minted ids names (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";

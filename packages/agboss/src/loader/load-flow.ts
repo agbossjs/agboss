@@ -35,7 +35,7 @@ export interface FlowLoadOptions {
 
 const isFlowWorkflow = (value: unknown): value is Class =>
   typeof value === "function" &&
-  declarationOf(value as Class)?.kind === NodeKind.Workflow &&
+  declarationOf(value)?.kind === NodeKind.Workflow &&
   !isThisWorkflow(value as Class);
 
 const isApplication = (value: unknown): value is Class =>

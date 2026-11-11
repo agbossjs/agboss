@@ -39,6 +39,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
+    readonly readOnly?: boolean;
     // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeout?: Milliseconds;
     readonly toolInterceptors?: readonly Class[];
@@ -53,8 +54,8 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 // src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "prompt".
 // src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/decorators.ts:47:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:62:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:63:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:68:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:69:3 - (ae-undocumented) Missing documentation for "output".
 
 // (No @packageDocumentation comment for this package)
 

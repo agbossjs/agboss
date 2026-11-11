@@ -1,3 +1,4 @@
+import type { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import type { JsonSchema } from "../dto/schema.js";
 
 /** The shapes of `describe --json`'s `application.contracts` (#398 PR 3; `contracts.ts`). */
@@ -18,6 +19,8 @@ export interface A2AExportContract {
   /** The start's input; `null` when it is a map of fields, not one DTO. */
   readonly input: ContractDto | null;
   readonly outputs: readonly (ContractDto & { readonly finish: string })[];
+  /** How it answers (#860): a task, or a direct message (`@A2AExpose({ skills: { [start]: { reply } } })`). */
+  readonly reply: A2AReply;
 }
 
 /** An `@McpExpose` tool: an exported start or tool. */
