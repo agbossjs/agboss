@@ -169,6 +169,12 @@ function resultOf(
   facts: AcceptFacts,
 ): AcceptResult {
   if ("messageId" in answer) {
+    // #860: a direct reply's ids are checked as a task's are — an empty contextId is none
+    const isSafe = [answer.messageId, answer.contextId]
+      .filter((id) => id !== "")
+      .every((id) => safeTaskIdOf(id) !== undefined);
+    if (!isSafe)
+      throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
     return { kind: "message", message: JSON.stringify(Message.toJSON(answer)), mesh, ...facts };
   }
   const taskId = safeTaskIdOf(answer.id);

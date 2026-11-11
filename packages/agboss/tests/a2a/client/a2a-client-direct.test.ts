@@ -112,6 +112,22 @@ describe("#860 AC2: a Message answer inside an execution", () => {
     expect(parts.errors[0]).toBeInstanceOf(A2ARemoteCallError);
   });
 
+  it("AC2: a message whose ids are not ids (an unsafe contextId) is MalformedAnswer, nothing kept of it", async () => {
+    const forged: AgentScript = async (context, bus) => {
+      const message = { ...agentMessage(context, []), contextId: `${"x".repeat(200)}\n` };
+      bus.publish(AgentEvent.message(message));
+      bus.finished();
+    };
+    const parts = await callerOf({ agent: new SdkAgent({ script: forged }) });
+    apps.push(parts.app);
+
+    await parts.ask("price?").catch(() => undefined);
+
+    expect(parts.errors).toEqual([
+      expect.objectContaining({ reason: A2ARemoteCallReason.MalformedAnswer }),
+    ]);
+  });
+
   it("AC2: the reply is the output, no task waited for; an ambiguous send is resent with its messageId", async () => {
     const agent = new SdkAgent({
       script: dataEcho,
