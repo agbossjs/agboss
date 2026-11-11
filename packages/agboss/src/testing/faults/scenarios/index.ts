@@ -17,7 +17,12 @@ import { s13ClockAhead, s13ClockBehind } from "./s13-clock-skew.js";
 import { s14AmbiguousAnswer, s15KeyExpired } from "./s14-s15-key-expiry.js";
 import { s16ClaimAnswerLost } from "./s16-claim-answer-lost.js";
 import { s17AcceptCrash, s17bIdKeptCrash } from "./s17-a2a-accept-crash.js";
-import { s18bCancelFirst, s18cResumedNotRun, s18ResumeFirst } from "./s18-a2a-resume-vs-cancel.js";
+import {
+  s18bCancelFirst,
+  s18cResumedNotRun,
+  s18dDrainTookAnswer,
+  s18ResumeFirst,
+} from "./s18-a2a-resume-vs-cancel.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -52,6 +57,7 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s18ResumeFirst,
   s18bCancelFirst,
   s18cResumedNotRun,
+  s18dDrainTookAnswer,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

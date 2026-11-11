@@ -3,9 +3,9 @@ import { systemClock, waitOf } from "../../../infrastructure/clock.js";
 import { HoldPhase } from "../hold-points.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";
-import { a2aCall, a2aCallInFlight, a2aPod, approval } from "./a2a-kit.js";
+import { a2aCall, a2aCallInFlight, a2aPod, approval, FaultSkill, orderMessage } from "./a2a-kit.js";
 import { FaultStepPoint } from "../fixture/pod-link.js";
-import { expectThat, heldStep, holdStep, release } from "./kit.js";
+import { expectThat, heldAt, heldStep, holdStep, holdStore, release } from "./kit.js";
 import {
   canceledOnBoth,
   isAccepted,
@@ -34,6 +34,14 @@ import {
  *   requests the tree's cancel; the resume is let go two leases later, and whichever pass takes the
  *   tree (a's, or a recovery's) reads the request and moves nothing. A tree that never reads it
  *   commits more than a lease after its cancel request: the invariant's to judge.
+ * - 18d, resume while the first pass still holds the tree (#901): a's first pass is held after its
+ *   `INPUT_REQUIRED` write (its rest announced, its lease still held); the follow-up's resume on a
+ *   records its answer and waits for the lease; the first pass's drain takes that answer and is
+ *   held after its `WORKING` write (the answered pass announced, not begun); b's cancel finds the
+ *   tree running and requests its cancel; the drain's pass stops at its first renewal, the tree
+ *   ends `CANCELED` and its keys go — the request with them. The waiting resume then takes the
+ *   free lease: it reads the tree's end (`-32004`) and moves nothing, though the pause it answered
+ *   is still `Resolved` and the paused run of the first rest still stored.
  * Never both resumed with effects and canceled (`a2a-tasks-once`).
  */
 
@@ -135,6 +143,61 @@ export const s18cResumedNotRun: RunnableFaultScenario = {
     const ended = await a2aCall(cluster, a, "GetTask", { id: taskId });
     if (!isCanceled(ended)) {
       // the request never read: the invariant judges what the tree committed after it
+      expectThat(
+        cluster,
+        false,
+        `the task ended ${JSON.stringify(ended)} after its cancel request`,
+      );
+      return b;
+    }
+    await canceledOnBoth(cluster, [a, b], taskId);
+    return b;
+  },
+};
+
+export const s18dDrainTookAnswer: RunnableFaultScenario = {
+  id: "s18d-a2a-drain-took-answer-cancel",
+  title:
+    "18d: an A2A task answered while its first pass still holds it; the drain takes the answer and a cancel on another pod stops that pass — the waiting resume runs nothing, CANCELED",
+  run: async (cluster) => {
+    const a = await a2aPod(cluster, "a");
+    const b = await a2aPod(cluster, "b");
+    const { A2ATaskStatusWrite, PauseResolve } = StoreHoldPoint;
+    // a's status writes, each held once it is durable: the start's WORKING, the rest's
+    // INPUT_REQUIRED, the drained pass's WORKING
+    await holdStore(a, A2ATaskStatusWrite, undefined, { phase: HoldPhase.After, times: 3 });
+    const order = orderMessage("m-o-18d", "o-18d", FaultSkill.Approval);
+    const accepted = a2aCallInFlight(cluster, a, "SendMessage", order);
+    await release(a, await heldAt(cluster, a, A2ATaskStatusWrite));
+    const taskId = (await accepted).taskId ?? "";
+    expectThat(cluster, taskId !== "", "the order's message got no task");
+    // the rest written (a caller reads INPUT_REQUIRED), the first pass still holding the lease
+    const rested = await heldAt(cluster, a, A2ATaskStatusWrite, taskId, 2);
+    await holdStore(a, PauseResolve, undefined, { phase: HoldPhase.After });
+    const resume = a2aCallInFlight(cluster, a, "SendMessage", approval("m-o-18d-yes", taskId));
+    // the answer recorded: the resume waits for the lease the first pass holds
+    await release(a, await heldAt(cluster, a, PauseResolve));
+    await release(a, rested);
+    // the drain took the answer: its pass is announced, not begun — the cancel lands before it moves
+    const drained = await heldAt(cluster, a, A2ATaskStatusWrite, taskId, 3);
+    const cancel = await a2aCall(cluster, b, "CancelTask", { id: taskId });
+    expectThat(cluster, isAccepted(cancel), `the cancel was refused: ${JSON.stringify(cancel)}`);
+    expectThat(
+      cluster,
+      isResumedFirst(cluster, a, b),
+      `the resume was to win: ${transitionsOf(cluster, a, b)}`,
+    );
+    await release(a, drained);
+    const resumed = await resume;
+    expectThat(
+      cluster,
+      resumed.errorCode === undefined || resumed.errorCode === -32004,
+      `the resume after the cancel answered ${JSON.stringify(resumed)}`,
+    );
+    await cluster.ended(taskId);
+    const ended = await a2aCall(cluster, a, "GetTask", { id: taskId });
+    if (!isCanceled(ended)) {
+      // the ended tree moved again: the invariant judges what it committed after the request
       expectThat(
         cluster,
         false,

@@ -14,5 +14,6 @@ faultSuite({
     "s18-a2a-resume-vs-cancel",
     "s18b-a2a-cancel-vs-resume",
     "s18c-a2a-resumed-cancel-before-pass",
+    "s18d-a2a-drain-took-answer-cancel",
   ],
 });

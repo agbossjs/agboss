@@ -1400,7 +1400,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
   `FaultStoreTime.Database` for stores on the database's own clock, read at 1, `FaultStoreTime.Host`
   for the pods' clock, read at `timeScale`; none refuses the pod, `[fault-suite.store-time]`), with SIGTERM / SIGKILL / SIGSTOP /
-  SIGCONT and a TCP proxy per pod (a file database: a store outage), 31 scenarios (#811 AC4: on a
+  SIGCONT and a TCP proxy per pod (a file database: a store outage), 32 scenarios (#811 AC4: on a
   set that lists an `A2ATaskRepository` the pods serve the fixture over A2A — `a2aHttpListener` on
   127.0.0.1, its URL in the pod's `ready` — with an approved order, a question its caller answers;
   `s17-a2a-accept-crash` / `s17b-a2a-id-kept-crash`, a pod frozen after an A2A task's
@@ -1408,8 +1408,12 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (fence won / a cancel request, then one start timeout later), the thawed start runs nothing;
   `s18-a2a-resume-vs-cancel` / `s18b-a2a-cancel-vs-resume` / `s18c-a2a-resumed-cancel-before-pass`,
   a follow-up's resume racing a `CancelTask` on two pods in both orders — `CANCELED`, undone once,
-  nothing charged, the late resume `-32004`; held at `StoreHoldPoint.A2ATaskSaveIfAbsent`,
-  `LeaseClaimExecutionId`, `PauseFind` (a resume before its mark, #850), `PauseResolve`; a set that keeps no A2A tasks skips them with the reason; #720:
+  nothing charged, the late resume `-32004`; `s18d-a2a-drain-took-answer-cancel` (#901), the
+  answer taken by the first pass's drain, whose pass a cancel request stops — the waiting resume
+  reads the tree's failed record at its take and moves nothing (`-32004`), though its pause is still
+  `Resolved`; held at `StoreHoldPoint.A2ATaskSaveIfAbsent`,
+  `LeaseClaimExecutionId`, `PauseFind` (a resume before its mark, #850), `PauseResolve`,
+  `A2ATaskStatusWrite`; a set that keeps no A2A tasks skips them with the reason; #720:
   `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —
   the lease its reclaim kept goes back, the child runs once; `HoldRequest.loseAnswer` at
   `HoldPhase.After`, `StoreAnswerLostError`; #657, #658:
