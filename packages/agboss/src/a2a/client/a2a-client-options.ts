@@ -24,6 +24,8 @@ export interface A2AClientContract {
   readonly application?: string;
   /** The agent's skill (an AGBoss application's exported start); optional with one skill. */
   readonly skill?: string;
+  /** The skill's finishes the client takes (#916); unset: every finish of the skill. */
+  readonly finishes?: readonly string[];
   readonly input?: DtoClass;
   readonly output?: DtoClass;
   /** What one call costs, charged to the calling step's budgets (the mesh's report may raise it). */
@@ -112,6 +114,7 @@ export function contractOfClass(target: object): A2AClientContract | undefined {
   return definedOf<A2AClientContract>({
     application: callee?.application,
     skill: callee?.skill,
+    finishes: callee?.finishes,
     input,
     output,
     price,

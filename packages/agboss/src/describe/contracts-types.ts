@@ -45,7 +45,12 @@ export interface ContractUse {
 export interface A2AImportContract {
   readonly kind: "a2a";
   readonly client: string;
-  readonly target: { readonly application: string; readonly start: string };
+  /** `finishes` (#916): the start's finishes the client takes; absent: every one. */
+  readonly target: {
+    readonly application: string;
+    readonly start: string;
+    readonly finishes?: readonly string[];
+  };
   readonly usedBy: readonly ContractUse[];
   readonly input: ContractDto;
   readonly output: ContractDto;

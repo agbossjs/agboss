@@ -104,6 +104,7 @@ export type RuleCode =
   | "a2a.file-store-required"
   | "a2a.file-store-not-shared"
   | "a2a.nested-file-field"
+  | "a2a.unknown-finish"
   | "application.outbound-calls-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"

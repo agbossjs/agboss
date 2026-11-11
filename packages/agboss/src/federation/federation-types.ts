@@ -17,6 +17,8 @@ export enum FederationProblemCode {
   DuplicateApplication = "federation.duplicate-application",
   SnapshotSchema = "federation.snapshot-schema",
   VersionNotBumped = "federation.version-not-bumped",
+  /** #916: a consumer names a finish (`target.finishes`) its target's start does not have. */
+  UnknownFinish = "federation.unknown-finish",
 }
 
 /** A workflow of an application that a problem touches. */

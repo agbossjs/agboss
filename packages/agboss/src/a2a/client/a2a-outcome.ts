@@ -5,6 +5,7 @@ import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
 import { receivedFileOf } from "./a2a-client-files.js";
+import { assertTakenFinish } from "./a2a-finish.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
 import type { A2ATaskResult } from "./a2a-client-options.js";
 import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
@@ -109,17 +110,20 @@ export function failureOf(task: Task, agent: string): Error | undefined {
 /**
  * A typed call's raw output (#809 AC1): the COMPLETED task's artifact — or a stateless message's
  * parts — read for `output` (a data part, text for a text finish). A task that ended otherwise
- * throws its failure; an answer with no readable output is `A2ARemoteCallError`.
+ * throws its failure; an answer at a finish outside `finishes` (#916) `A2AUnexpectedFinishError`;
+ * an answer with no readable output is `A2ARemoteCallError`.
  */
 export function outputOf(
   agent: string,
   output: DtoClass,
   task: Task | undefined,
   message: Message | undefined,
+  finishes?: readonly string[],
 ): unknown {
   const failure = task === undefined ? undefined : failureOf(task, agent);
   if (failure !== undefined) throw failure;
   const answer = task ?? message;
+  assertTakenFinish(agent, finishes, answer);
   const raw = answer === undefined ? undefined : rawOutputOf(output, answerPartsOf(answer));
   if (raw === undefined) {
     const reason = task === undefined ? A2ARemoteCallReason.NoTask : A2ARemoteCallReason.NoOutput;

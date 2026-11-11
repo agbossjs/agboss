@@ -43,6 +43,10 @@ export {
   type A2ATaskInterruptedErrorOptions,
 } from "./client/a2a-task-errors.js";
 export {
+  A2AUnexpectedFinishError,
+  type A2AUnexpectedFinishErrorOptions,
+} from "./client/a2a-finish.js";
+export {
   A2AMesh,
   A2AMeshUnsupportedError,
   A2AOriginError,

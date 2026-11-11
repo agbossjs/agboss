@@ -107,7 +107,7 @@ const textPart = (text: string): Part => ({
   mediaType: "text/plain",
 });
 
-const dataPart = (data: unknown): Part => ({
+export const dataPart = (data: unknown): Part => ({
   content: { $case: "data", value: data },
   metadata: undefined,
   filename: "",

@@ -105,7 +105,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     const read = storedFileReaderOf(this.#services());
     const parts = await inputPartsOf(contract.input, validate(contract.input, input), read);
     const { task, accepted } = await this.#call(parts, undefined, call);
-    const raw = outputOf(this.#agent, contract.output, task, accepted.message);
+    const finishes = this.contract?.finishes;
+    const raw = outputOf(this.#agent, contract.output, task, accepted.message, finishes);
     // the contract's output DTO is the class's `TOut` (the decorator ties them)
     return validate(contract.output, raw) as TOut;
   }

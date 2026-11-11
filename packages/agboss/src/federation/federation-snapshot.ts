@@ -39,7 +39,11 @@ const MCP_EXPORT = z.object({
 const A2A_IMPORT = z.object({
   kind: z.literal("a2a"),
   client: z.string(),
-  target: z.object({ application: z.string(), start: z.string() }),
+  target: z.object({
+    application: z.string(),
+    start: z.string(),
+    finishes: z.array(z.string()).optional(),
+  }),
   usedBy: z.array(USE),
   input: DTO,
   output: DTO,

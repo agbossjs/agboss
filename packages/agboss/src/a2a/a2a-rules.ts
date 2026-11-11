@@ -7,6 +7,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
+import { targetFinishesViolations } from "./a2a-target-finishes-rule.js";
 
 /**
  * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
@@ -93,8 +94,10 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
     if (meta?.kind !== "a2a-agent") return [];
     const { name } = meta.meta;
     // #809: the target is optional — a foreign agent has no application, one skill needs no name
-    const found = contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where);
-    return found;
+    return [
+      ...contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where),
+      ...targetFinishesViolations(meta.meta, where),
+    ];
   });
 }
 
