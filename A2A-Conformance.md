@@ -56,10 +56,16 @@ prints every requirement that does not pass with its reason.
 
 ### What AGBoss 0.1.1 does not do (expected failures)
 
-- **DM-MSG-001 (MUST)**: the `tck-message-response` scenario needs a stateless `Message` answer;
-  every AGBoss send is a durable task (one task = one execution). The spec allows either answer.
-  A direct `Message` answer: #860.
 - **CORE-HIST-004 (MAY)**: no task history beyond the status message.
+
+## Passing since #860
+
+- **DM-MSG-001 (MUST)**: the conformance agent exposes a second skill, `tck-message-workflow-start`,
+  that answers with a direct `Message` (`A2AReply.Message`, "Direct message response"); the TCK
+  names no skill, so the adapter (`tck-serve.ts`) names it in a `tck-message-response-*` message's
+  `metadata[A2A_SKILLS_EXTENSION].skill`, and every other scenario runs the expose's `defaultSkill`,
+  the task skill. 67 of 67 `MUST` requirements pass — see
+  [A2A → direct replies](A2A#direct-replies--a2areplymessage-860).
 
 ## Passing since #859
 

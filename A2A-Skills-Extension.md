@@ -15,6 +15,7 @@ client; to be mirrored at agboss.dev.)
       "<skill id>": {
         "input": { "type": "object", "properties": {} },
         "schemaHash": "<64 hex>",
+        "reply": "task",
         "outputs": { "<finish name>": { "type": "object" } }
       }
     }
@@ -24,7 +25,9 @@ client; to be mirrored at agboss.dev.)
 
 - A skill's id is the exported `@WorkflowStart`'s name; `input` its input DTO's JSON Schema (`null`
   for a text start), `outputs` one schema per finish it can end at, `schemaHash` the input's hash —
-  what `agboss check --federation` compares.
+  what `agboss check --federation` compares; `reply` how it answers (#860): `"task"` (a task, its
+  output an artifact) or `"message"` (a direct `Message`, no task; a client resends to it only
+  within the mesh extension's `messageIdempotencyRetention`).
 - A client with DTOs compares them with these before anything is sent (`[a2a.schema-mismatch]`).
 
 ## In a message — `message.metadata[uri].skill`

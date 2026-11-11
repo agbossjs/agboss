@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A skills that answer with a direct Message (#860)
+
+- **Added**: `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } }, defaultSkill? })` — a
+  skill answers `SendMessage` with a `Message`, no task (`SendStreamingMessage`: one frame), its
+  stateless workflow checked at assembly (`[a2a.message-skill-pause]`, `-effect`, `-tool`,
+  `-compensation`, `-child`, `[a2a.unknown-skill-option]`; `@Tool({ readOnly: true })` is new); its
+  replies in `A2ADirectMessageRepository` (`InMemoryA2ADirectMessageRepository`,
+  `SqliteA2ADirectMessageRepository`, `PostgresA2ADirectMessageRepository`,
+  `MongoA2ADirectMessageRepository`, `a2aDirectMessageContract`) on the task store's backend
+  (`[a2a.message-store-not-shared]`), one `messageId` one message across both reply modes,
+  `retention.a2aMessages` (default `minutes(15)`, the card's `messageIdempotencyRetention`); a lost
+  attempt records one `CostSource.Unknown` entry; the client trusts a resend to such a skill only
+  within that retention. The TCK's `DM-MSG-001` passes: 67 of 67 `MUST`
+  ([A2A → direct replies](A2A#direct-replies--a2areplymessage-860)).
+- **Fixed** (#900): a pause's decision holding an `A2AFileDto`-shaped object at any depth is
+  `-32602 a2a.file-field-in-data`.
+
 ## Unreleased — 0.1.1: the store entry, FencedEffects, the errors, Turn, the prune verbs (#890, API review G8)
 
 - **Added — `@agboss/core/stores`**: the store-implementer entry ([Your own store](Your-own-store)) —

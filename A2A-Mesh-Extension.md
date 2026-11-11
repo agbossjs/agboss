@@ -13,7 +13,7 @@ agboss.dev.)
 {
   "uri": "https://agboss.dev/a2a/mesh/v1",
   "required": false,
-  "params": { "idempotencyRetention": "PT86400S" }
+  "params": { "idempotencyRetention": "PT86400S", "messageIdempotencyRetention": "PT900S" }
 }
 ```
 
@@ -21,6 +21,10 @@ agboss.dev.)
   `messageId` per caller — the same message resent within it gets the same task. Its presence makes
   the agent an **AGBoss peer** to a client: an ambiguous send may be resent with the same
   `messageId` within it, never to any other agent.
+- `params.messageIdempotencyRetention` (#860): how long a skill that answers with a direct
+  `Message` (`reply: "message"` in the skills extension) keeps its reply — a resend to it is trusted
+  within this only; absent, a client assumes 15 minutes. A direct reply's run report rides
+  `message.metadata[uri].report`, as a task's rides `task.metadata[uri].report`.
 
 ## Activation
 

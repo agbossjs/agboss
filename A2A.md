@@ -245,6 +245,66 @@ or the DTO's only file field), never a descriptor from a data part; `send` gives
 `A2ATaskResult.files`; `client.downloadFile(file, { maxSize?, signal? })` gives the bytes — a
 `url` through the client's own fetch, on its origins only.
 
+A pause's decision never carries a file (#900): a follow-up `{ pauseId?, decision }` holding an
+object shaped as an `A2AFileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — at
+any depth is `-32602 a2a.file-field-in-data`, nothing resumed (the scan bounded: 64 levels, 10 000
+values, else `a2a.answer-shape`).
+
+### Direct replies — `A2AReply.Message` (#860)
+
+A skill may answer with a `Message` instead of a task — a quote, a lookup, a classification:
+nothing to pause for, nothing to follow up.
+
+```ts no-check: the two starts and their workflows are not written out on this page
+import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+
+@A2AExpose({
+  name: "quotes-a2a-expose",
+  version: "1.0.0",
+  description: "Answers price questions at once; acknowledges orders as tasks",
+  exports: [QuoteWorkflowStart, OrderWorkflowStart],
+  skills: { "quote-workflow-start": { reply: A2AReply.Message } }, // default A2AReply.Task
+  defaultSkill: QuoteWorkflowStart, // a message that names no skill runs it
+})
+export class QuotesA2AExpose {}
+```
+
+- **The answer.** `SendMessage` returns a `Message` (no `taskId`): the finish's output as a text
+  part, a data part or file parts (#859), `metadata[skills-uri].finish` its finish and, for a
+  trusted caller, the signed run report in `metadata[mesh-uri].report`. `returnImmediately` changes
+  nothing; `SendStreamingMessage` is one frame — the message — then the end; `GetTask` of it, or a
+  follow-up naming the skill with a `taskId`, is `-32001`.
+- **Stateless, checked at assembly** on every node of the skill's workflow (fail closed: a node
+  another start reaches counts): no pause (a question step, a question role, a tool with a
+  channel — `[a2a.message-skill-pause]`), no fenced effect, `OutboundCalls` or `@A2AAgent` in any
+  `deps` a node or a tool reaches (`[a2a.message-skill-effect]`), only `@Tool({ readOnly: true })`
+  tools and no `@McpTool` (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
+  (`[a2a.message-skill-compensation]`), no child workflow or recursion
+  (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`A2AFiles`) is fine. A
+  `reply` for no export, a `defaultSkill` that is none: `[a2a.unknown-skill-option]`.
+- **Once per `messageId`.** The reply is kept in the application's `A2ADirectMessageRepository`
+  (in memory by default; `SqliteA2ADirectMessageRepository`, `PostgresA2ADirectMessageRepository`,
+  `MongoA2ADirectMessageRepository`; your own passes `a2aDirectMessageContract`) for
+  `@Application({ retention: { a2aMessages } })` (default `minutes(15)`, published on the card as
+  the mesh extension's `messageIdempotencyRetention`): a resend gets the same message, a concurrent
+  duplicate waits for it (the store read every 250 ms, bounded) — the model is called and charged
+  once. A message's id is claimed among the A2A task store's messages in the same atomic write, so
+  one id is one message across both reply modes: another message under it, a task's or a direct
+  one, is `-32602 a2a.message-id-reused`. So the direct store lives on the task store's backend —
+  `[a2a.message-store-not-shared]` otherwise.
+- **Bounded attempts.** An attempt's run stops at 25 s (and when its caller disconnects: its model
+  calls abort, its step slots free) within its row's 30 s in flight; it is never continued by a
+  recovery (an instance taking its lease over ends it as cancelled) — its caller waits for this
+  pass alone. An attempt lost to a crash is taken over by exactly one resend or by the sweep, which
+  records one entry of unknown cost (`CostSource.Unknown`, ledger id
+  `unknown:a2a-msg:<tenantId>:<attemptId>`, `agboss.instance.costs.unknown`) for a skill that can
+  call a model, and removes its files. A failed attempt keeps nothing: a resend runs it again.
+- **The client.** `A2AClient` takes a `Message` answer without waiting for a task; a message with no
+  output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
+  "message"`, an ambiguous send is resent with its `messageId` only within the card's
+  `messageIdempotencyRetention` (15 min when it declares none) — never the tasks' 24 h; past it the
+  call fails closed, `OutboundCallUnreconciledError`.
+
 ## 4. The client side — A2A v1.0 (#809)
 
 The client speaks A2A v1.0 (`https://a2a-protocol.org/v1.0.0/specification/`) on the official SDK;
