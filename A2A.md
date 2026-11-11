@@ -209,7 +209,23 @@ one, `@ListOf(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file
 with `fromUrl(url, { mediaType, filename })`. A finish whose output holds files —
 `WorkflowFinishFileDto { file }`, `WorkflowFinishFilesDto { files }`, or any DTO with file fields —
 answers with one file part per file (`metadata[skills-uri].field` naming its field), then one
-`data` part of its other fields. The card lists the media types in `inputModes` / `outputModes`.
+`data` part of its other fields. The card lists the media types a skill takes in `inputModes` and
+what `A2AFiles.save` takes — the application's `a2aFiles`, else the defaults — in `outputModes`
+(#904).
+
+**The card never asks for a file field in the data part** (#904): `@A2AExpose({ cardFileFields })`,
+per skill too (`skills: { [id]: { cardFileFields } }`, over the expose's; an invalid value or a
+skill not exported is `[a2a.file-options-invalid]` / `[a2a.unknown-skill-option]`):
+
+| `A2ACardFileFields` | The skill's `input` schema in the skills extension |
+| --- | --- |
+| `Extension` (default) | the file fields left out (and out of `required`), declared beside it as `files: { <field>: { list, optional, mediaTypes } }` |
+| `Marker` | each file field kept as `{ "x-agboss-file-part": true, description }`, never in `required` — a strict ajv compiles it once the keyword is declared (`ajv.addVocabulary(["x-agboss-file-part"])`) |
+
+Either way a standard validator accepts a data part without file fields; the entry names the mode
+(`cardFileFields`), `agboss describe --json` names it per export, and the AGBoss client's schema
+check compares its input DTO without its file fields, then its file fields with the declared ones
+(a missing required one, a list against one file, one the skill does not take as a file).
 
 | Rule | What happens |
 | --- | --- |
@@ -218,8 +234,9 @@ answers with one file part per file (`metadata[skills-uri].field` naming its fie
 | a file below the top level | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `A2AFileDto` in top-level fields only; a client built with such a contract refuses to call |
 | limits | `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`: `maxFileSize` (64 KB), `maxTotalFileSize` (64 KB), `maxFiles` (5) — `-32602 a2a.file-too-large` / `a2a.files-too-large` / `a2a.too-many-files`; `[a2a.file-options-invalid]` at assembly |
 | media types | `allowedMediaTypes` (PNG, JPEG, WebP, GIF, PDF, plain text, Markdown, CSV, JSON): another `-32005 a2a.file-media-type`; the bytes checked against the declared type (signatures, valid UTF-8, JSON) — `-32602 a2a.media-type-mismatch` |
-| a file by `url` | fetched once at the admission, before the task is kept: `https:` on an origin of `allowedFileOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of loopback, private, link-local, CGNAT or unique-local ranges (the lookup's answer checked, `a2a.file-address-denied`), the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`) |
+| a file by `url` | fetched once at the admission, before the task is kept: `https:` on an origin of `allowedFileOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of a range of the IANA special-purpose registries that is not globally reachable — loopback, private, link-local, CGNAT, `192.0.0.0/24`, benchmarking, documentation, reserved, multicast, unique-local, site-local, `2001::/23`, `64:ff9b:1::/48`, … — nor an IPv6 one carrying such an IPv4 (IPv4-mapped, -translated, -compatible, NAT64 `64:ff9b::/96`, 6to4: checked as that IPv4; #904) (the lookup's answer checked, `a2a.file-address-denied`), never a url with a user or a password (`a2a.file-origin-denied`, on a redirect too; #904), the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`) |
 | a resend | the same `messageId` with the same bytes (their SHA-256) or url gets the same task, nothing fetched again; other bytes `-32602 a2a.message-id-reused` |
+| concurrent duplicates | the same message sent again while its file is fetched joins that fetch: each url fetched once on a listener (the last request to leave aborts it); across instances each fetches at most once (#904) |
 | a follow-up | text or data only: a file `-32005` |
 | `maxBodySize` | unset: 1 MB, or room for the largest `maxTotalFileSize` as base64 and 256 KB more |
 
@@ -230,7 +247,7 @@ records (the checkpoint, the task's output) — silently up to 64 KB, with the w
 `LocalDiskA2AFileRepository` on the environment's `a2aFilesPath`, `S3A2AFileRepository` — a bucket
 every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
 `a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
-`a2aS3SecretAccessKey` —, or your own, proved by
+`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 99 bytes (#904) —, or your own, proved by
 `a2aFileContract`); on leases the instances share, one host's store with files above 256 KB is
 `[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
 artifact serves only its own. They are removed `@Application({ retention: { a2aFiles } })` after

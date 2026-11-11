@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A files hardened after #859's acceptance (#904)
+
+- **Added**: `@A2AExpose({ cardFileFields: A2ACardFileFields.Extension | A2ACardFileFields.Marker })`,
+  per skill too — the card never asks for a file field in the data part: out of the skill's `input`
+  schema, declared in the skills extension's `files` (default), or kept as `x-agboss-file-part`
+  markers, never required; `describe --json` names it; the AGBoss client reads either
+  ([A2A → files](A2A#files--raw-and-url-parts-859)).
+- **Fixed — SSRF**: every non-globally-reachable IANA special-purpose range is refused, embedded IPv4
+  (mapped, translated, compatible, NAT64, 6to4) checked as IPv4; a url with userinfo is
+  `a2a.file-origin-denied`, on a redirect too.
+- **Fixed**: `S3A2AFileRepository` keeps every valid id (segments ≤ 255 bytes, keys ≤ 1024, metadata
+  in the body; `a2aS3Prefix` ≤ 99 bytes); concurrent duplicates fetch a url once per listener; the
+  card's `outputModes` list what `A2AFiles.save` takes; `agboss check` types a `WorkflowFinishFileDto`
+  finish; `A2AClient` reads a card without `capabilities.extensions`; `[application.retention-invalid]`
+  names only the fields at fault.
+
 ## Unreleased — 0.1.1: `agboss rag index` atomic and interruptible, the terminal's answer mode (#891, API review G11)
 
 - **Fixed**: `SqliteFtsConnector.index()` (what `agboss rag index` runs) builds a tenant's index
@@ -16,6 +32,7 @@ Breaking changes and notable additions, newest first. The API reports
 - **Docs / scaffold**: `--tenant`'s help on `rag index` reads "without it: the tenant "default"";
   `agboss migrate`'s summary names `@agboss/core`; `agboss create` writes
   `tests/services/api.service.test.ts` on `testWith(<Project>Application)`.
+
 ## Unreleased — 0.1.1: A2A skills that answer with a direct Message (#860)
 
 - **Added**: `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } }, defaultSkill? })` — a
