@@ -36,7 +36,10 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 FencedEffects]`) over the listed `FencedEffectRepository`: `runOnce(key, work)`, the work's
     transaction typed by the component (`(database: DatabaseSync) => …` on SQLite) — never a
     store's class in business code. The store's own `saveResultIfAbsent(key, work)` →
-    `runOnce(key, work)` (it runs `work`; it never was a cache put).
+    `runOnce(key, work)` (it runs `work`; it never was a cache put). A test's
+    `override(ListedStore, Replacement)` now reaches a contract the listed class implements (what
+    `FencedEffects` injects), as a mock of that class already did; a workflow on its own (eval,
+    replay, Studio) runs `FencedEffects` on the store of its infrastructure.
   - **Errors:** `IdempotencyKeyConflictError` → `BusinessKeyConflictError`
     (`fenced-effect.business-key-conflict`), `DuplicateThreadIdError` → `ThreadIdsExhaustedError`
     (`run.thread-ids-exhausted`), `FencedEffectAsyncWorkError` → `SyncWorkRequiredError`

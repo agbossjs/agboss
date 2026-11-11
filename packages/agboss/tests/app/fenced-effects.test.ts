@@ -12,16 +12,43 @@ import {
   ExecutionContext,
   FencedEffectRepository,
   FencedEffects,
+  FencedEffectSettings,
+  ExecutionLeaseRepository,
+  InMemoryFencedEffectRepository,
+  Injectable,
+  StoreClock,
   effectKeyOf,
+  type EffectKey,
+  type FencedEffectOutcome,
+  type FencedEffectWork,
   type Produced,
 } from "../../src/index.js";
-import { testAction } from "../../src/testing/index.js";
+import { override, testAction } from "../../src/testing/index.js";
+import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { FENCED_EFFECTS_OUTSIDE_APPLICATION } from "../../src/app/fenced-effects.js";
 import { lifecycleOf } from "../../src/app/workflow-lifecycle.js";
+import type { InMemoryFencedEffectTransaction } from "../../src/stores/index.js";
 import { ChargeReceiptDto } from "./fixtures/fenced-effect.workflow.js";
 
 /** How often each order's work ran. */
 const worked: string[] = [];
+
+/** The keys a test's replacement of the in-memory store was called with. */
+const replaced: string[] = [];
+
+/** A test's replacement of the listed store, by its own class (`override(Store, …)`). */
+@Injectable({
+  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+})
+class RecordingFencedEffectRepository extends InMemoryFencedEffectRepository {
+  override runOnce<TResult>(
+    key: EffectKey,
+    work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
+  ): Promise<FencedEffectOutcome<TResult>> {
+    replaced.push(key.name);
+    return super.runOnce(key, work);
+  }
+}
 
 @Action({
   name: "fenced-receipt-action",
@@ -99,5 +126,18 @@ describe("#890 AC2: a workflow on its own (eval, replay, Studio) runs FencedEffe
     const application = {} as never;
 
     expect(lifecycleOf({ application }, infrastructure).options.overrides).toBeUndefined();
+  });
+});
+
+describe("#890 AC2: a test's replacement of the listed store reaches FencedEffects", () => {
+  it("AC2: override(InMemoryFencedEffectRepository, …) is what FencedEffects runs on", async () => {
+    replaced.length = 0;
+    const run = testAction(FencedReceiptAction, {
+      overrides: [override(InMemoryFencedEffectRepository, RecordingFencedEffectRepository)],
+    });
+
+    await run({ message: { value: { text: "order-2" } } } as never);
+
+    expect(replaced).toEqual(["receipt"]);
   });
 });
