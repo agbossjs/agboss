@@ -222,7 +222,12 @@ export function stopOf(
     fencedEffectRetention: assembled.fencedEffects.retention,
     auditLog: parts.infrastructure.auditLog,
     auditLogRetention: assembled.auditLogRetention,
-    expiries: a2aExpiriesOf(parts.infrastructure, assembled),
+    // the instance's one observer manager: every workflow's is it (#875)
+    expiries: a2aExpiriesOf(
+      parts.infrastructure,
+      assembled,
+      workflows[0]?.deps.observer.unknownCosts,
+    ),
     outboundCalls: parts.infrastructure.outboundCalls,
     outboundCallRetention: assembled.outboundCalls.retention,
     ledger: parts.infrastructure.costLedger,

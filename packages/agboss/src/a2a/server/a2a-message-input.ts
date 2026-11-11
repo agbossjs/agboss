@@ -38,8 +38,15 @@ const dataOf = (parts: readonly Part[]): { readonly value: unknown } | undefined
     : undefined;
 };
 
-/** The skill a new message runs; `-32602` when it names none of several, or an unknown one. */
-export function skillOfMessage(message: Message, skills: readonly ServedSkill[]): ServedSkill {
+/**
+ * The skill a new message runs: the one it names, else the only one, else the expose's
+ * `defaultSkill` (#860); `-32602` when it names none of several without a default, or an unknown one.
+ */
+export function skillOfMessage(
+  message: Message,
+  skills: readonly ServedSkill[],
+  fallback?: ServedSkill,
+): ServedSkill {
   const meta: unknown = message.metadata?.[A2A_SKILLS_EXTENSION];
   const named: unknown =
     typeof meta === "object" && meta !== null ? Reflect.get(meta, "skill") : undefined;
@@ -47,6 +54,7 @@ export function skillOfMessage(message: Message, skills: readonly ServedSkill[])
   if (named === undefined) {
     const [only] = skills;
     if (skills.length === 1 && only !== undefined) return only;
+    if (fallback !== undefined) return fallback;
     throw invalidParams("a2a.skill-required", "name the skill to run", ids);
   }
   const found = skills.find((skill) => skill.id === named);

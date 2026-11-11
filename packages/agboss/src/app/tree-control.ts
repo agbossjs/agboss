@@ -1,3 +1,4 @@
+import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import {
@@ -45,6 +46,39 @@ export function withReservedExecutionId<TOptions extends object>(
 export const reservedExecutionIdOf = (options: object): string | undefined =>
   // only `withReservedExecutionId` sets it, to a checked text
   Reflect.get(options, RESERVED_EXECUTION_ID) as string | undefined;
+
+/**
+ * A run no recovery continues (#860, internal): a transport that answers its caller from the run
+ * alone — a direct A2A message — and keeps no task to show a later pass to. An instance that takes
+ * its tree over (a recovery) ends it as cancelled without a pass, as a cancel request: the caller
+ * is gone, a second pass would call its models again for no one.
+ */
+const WITHOUT_RECOVERY: unique symbol = Symbol("agboss.without-recovery");
+
+/** The execution options of a run no recovery continues. */
+export const withoutRecovery = <TOptions extends object>(options: TOptions): TOptions => ({
+  ...options,
+  [WITHOUT_RECOVERY]: true,
+});
+
+/** Whether a transport asked that no recovery continue this run. */
+export const isWithoutRecovery = (options: object): boolean =>
+  Reflect.get(options, WITHOUT_RECOVERY) === true;
+
+/**
+ * The reserved tree key of a run no recovery continues: written before its first pass, read only by
+ * an instance taking its lease over (`cancel-requests.ts`), gone with the tree's keys.
+ */
+export const WITHOUT_RECOVERY_KEY = "@agboss/without-recovery";
+
+/** Marks the tree of `rootExecutionId` as no recovery's to continue. */
+export async function markedWithoutRecovery(
+  trees: Pick<ExecutionTreeRepository, "saveIfAbsentInTree">,
+  tenantId: string,
+  rootExecutionId: string,
+): Promise<void> {
+  await trees.saveIfAbsentInTree({ tenantId, rootExecutionId }, WITHOUT_RECOVERY_KEY, true);
+}
 
 /** One tree of a workflow by its id (#807), loaded on first use. */
 const executionTrees = () => lazyLoad(import("./execution-trees.js"));

@@ -9,6 +9,7 @@ import { CompensationFailedError } from "../flow/compensation.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
+import { WITHOUT_RECOVERY_KEY } from "./tree-control.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { recordEndedOf } from "./recovery-pass.js";
@@ -42,6 +43,22 @@ export async function isCancelRequested(
 ): Promise<boolean> {
   try {
     return (await trees.findByIdInTree(tree, CANCEL_REQUEST_KEY)) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a lease taken over ends the tree without a pass: a cancel request, or a run no recovery
+ * continues (#860); a store error reads as neither (asked again later).
+ */
+export async function isEndedAtTakeover(
+  trees: ExecutionTreeRepository,
+  tree: ExecutionTree,
+): Promise<boolean> {
+  if (await isCancelRequested(trees, tree)) return true;
+  try {
+    return (await trees.findByIdInTree(tree, WITHOUT_RECOVERY_KEY)) !== undefined;
   } catch {
     return false;
   }
@@ -92,7 +109,7 @@ export async function endedAtTake(
   state: TreeState,
   lease: HeldExecutionLease,
 ): Promise<Error | undefined> {
-  if (!(await isCancelRequested(parts.trees, treeOf(state)))) return undefined;
+  if (!(await isEndedAtTakeover(parts.trees, treeOf(state)))) return undefined;
   try {
     return await endCancelled(parts, state, lease);
   } finally {
@@ -158,7 +175,7 @@ export async function endIfCancelled(
   parts: CancelParts,
   state: TreeState & SweptRoot,
 ): Promise<boolean> {
-  if (!(await isCancelRequested(parts.trees, treeOf(state)))) return false;
+  if (!(await isEndedAtTakeover(parts.trees, treeOf(state)))) return false;
   await endHeld(parts, state, state);
   return true;
 }

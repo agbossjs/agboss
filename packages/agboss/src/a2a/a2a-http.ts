@@ -13,6 +13,8 @@ import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 import type { ServedSkill } from "./server/a2a-skills.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
+import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "./files/a2a-file-options.js";
 import { fileTransportOf } from "./files/a2a-file-seam.js";
 
@@ -163,6 +165,11 @@ async function bindingOf<TStart extends Class>(
     maxTaskDuration: options.maxTaskDuration,
     mesh,
     files: serverFilesOf(app, options),
+    direct: {
+      messages: app.resolve(A2ADirectMessageRepository),
+      ledger: app.resolve(CostLedgerRepository),
+      defaultSkill: skills.find((skill) => skill.start === expose.defaultSkill),
+    },
   };
   return {
     card,

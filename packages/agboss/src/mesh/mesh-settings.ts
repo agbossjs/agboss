@@ -1,4 +1,5 @@
 import type { KeyObject } from "node:crypto";
+import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { Class } from "../components/injection.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
 import type { ContractsSnapshot } from "../describe/contracts-types.js";
@@ -31,6 +32,8 @@ export interface MeshSettings {
    * deduplicates a direct-reply skill's `messageId` for, its card's mesh `messageIdempotencyRetention`.
    */
   readonly a2aMessageRetention: number;
+  /** The instance's tally of Unknown-cost entries (#875): a lost direct reply's is counted there. */
+  readonly unknownCosts?: UnknownCostTally | undefined;
   /** `@Application({ a2aFiles })` (#859): what the A2A skills take as files, and steps save. */
   readonly a2aFiles: A2AFileOptions | undefined;
   /** The application's workflows (#859: where an exported start's finishes are). */

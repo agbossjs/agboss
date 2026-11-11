@@ -26,6 +26,8 @@ import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
 import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
 import type { FileTransport } from "../files/a2a-file-transport.js";
+import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct-message.repository.js";
+import type { CostLedgerRepository } from "../../infrastructure/cost-ledger.repository.js";
 
 /**
  * What every operation of the server works with (#808): the app, its task store, its trees by id,
@@ -51,6 +53,16 @@ export interface A2AServerParts {
   readonly mesh: MeshSettings;
   /** Where the tasks' files are kept, and how one by `url` is fetched (#859). */
   readonly files: A2AServerFiles;
+  /** The direct-reply skills' replies (#860), and what a lost attempt's Unknown cost is written to. */
+  readonly direct: A2ADirectParts;
+}
+
+/** What the direct-reply skills (#860, `A2AReply.Message`) work with. */
+export interface A2ADirectParts {
+  readonly messages: A2ADirectMessageRepository;
+  readonly ledger: CostLedgerRepository;
+  /** The skill a message that names none runs (`@A2AExpose({ defaultSkill })`), if any. */
+  readonly defaultSkill: ServedSkill | undefined;
 }
 
 /** A listener's files (#859): the store, the fetch of a file by `url` and its bound. */

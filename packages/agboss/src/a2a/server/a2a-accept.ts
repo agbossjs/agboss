@@ -223,7 +223,7 @@ export async function acceptedTask(
   caller: A2ARequestCaller,
   message: Message,
 ): Promise<A2ATaskRecord> {
-  const skill = skillOfMessage(message, parts.skills);
+  const skill = skillOfMessage(message, parts.skills, parts.direct.defaultSkill);
   const inputFor = inputForOf(parts, caller, message, skill);
   // #859: a message without files is checked before anything is read or kept, as before
   // Stryker disable next-line StringLiteral: no file, so no file id: any task id checks the same

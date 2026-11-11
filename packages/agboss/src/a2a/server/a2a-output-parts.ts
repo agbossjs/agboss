@@ -1,6 +1,5 @@
 import type { Part } from "@a2a-js/sdk";
 import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
-import type { A2ATaskRecord } from "../../infrastructure/a2a-task.repository.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import {
   A2AFileSource,
@@ -29,10 +28,20 @@ export function filePartOf(file: A2AFileDto, content: Part["content"], field: st
   };
 }
 
-/** A file's content on the wire; `undefined` for a stored one its task cannot serve. */
+/**
+ * Whose output is served (#860): the store's owner of its files — a task's id, or a direct reply's
+ * attempt — and the output itself.
+ */
+export interface OutputOwner {
+  readonly tenantId: string;
+  readonly ownerId: string;
+  readonly output: unknown;
+}
+
+/** A file's content on the wire; `undefined` for a stored one its owner cannot serve. */
 async function contentOf(
   file: A2AFileDto,
-  task: A2ATaskRecord,
+  task: OutputOwner,
   store: A2AFileRepository,
 ): Promise<Part["content"] | undefined> {
   switch (fileSourceOf(file)) {
@@ -48,12 +57,12 @@ async function contentOf(
 /** A stored file's bytes, served only as its own task's and as its descriptor says. */
 async function storedContentOf(
   file: A2AFileDto,
-  task: A2ATaskRecord,
+  task: OutputOwner,
   store: A2AFileRepository,
 ): Promise<Part["content"] | undefined> {
   const key = { tenantId: task.tenantId, fileId: file.fileId ?? "" };
   const meta = await store.findMetadata(key);
-  if (meta?.ownerId !== task.taskId || meta.sha256 !== file.sha256) return undefined;
+  if (meta?.ownerId !== task.ownerId || meta.sha256 !== file.sha256) return undefined;
   const bytes = await store.findBytes(key);
   return bytes === undefined ? undefined : { $case: "raw", value: Buffer.from(bytes) };
 }
@@ -83,12 +92,12 @@ const dataOf = (
 
 /** The parts of an output whose finish holds files. */
 export async function fileOutputPartsOf(
-  task: A2ATaskRecord,
+  task: OutputOwner,
   served: ServedOutput,
   store: A2AFileRepository,
   dataPart: (value: unknown) => Part,
 ): Promise<FileOutputParts> {
-  const output = (task.status.output ?? {}) as Readonly<Record<string, unknown>>;
+  const output = (task.output ?? {}) as Readonly<Record<string, unknown>>;
   const parts: Part[] = [];
   let missingFiles = 0;
   for (const field of served.fileFields) {
