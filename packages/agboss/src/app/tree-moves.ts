@@ -13,7 +13,7 @@ import type {
 import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
-import { currentOutputOf } from "./current-output.js";
+import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
 import { observedPass } from "./observed-pass.js";
@@ -83,6 +83,10 @@ class TreeMover implements TreeMoves {
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
+      // the tree failed after the answer was recorded (#901): its holder's drain took the answer and
+      // its pass stopped (a cancel request, gone with the tree's keys), the pause left `Resolved`
+      // and the paused run of the rest before still stored — no pass moves an ended tree
+      await refusedIfFailed(deps, state, { lease, pauseId: pause.pauseId });
       const call = await callWithLostPasses(this.parts, state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();

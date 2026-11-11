@@ -64,6 +64,8 @@ export const hooks: {
   holdStarted?: () => void;
   /** Runs before a compare-and-set record write (a resume's `running`). */
   beforeGuardedWrite?: () => Promise<void>;
+  /** Runs when a pass is announced as taking a decision (`onExecutionResume`), before it moves. */
+  onResume?: () => Promise<void>;
 } = {};
 
 export function resetLease(): void {
@@ -71,6 +73,7 @@ export function resetLease(): void {
   delete hooks.afterSave;
   delete hooks.holdStarted;
   delete hooks.beforeGuardedWrite;
+  delete hooks.onResume;
 }
 
 export class ReceiptDto {
@@ -174,9 +177,10 @@ export class LeaseLog implements OnExecutionError, OnExecutionResume {
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
   }
-  onExecutionResume(event: ExecutionResumeEvent): void {
+  async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
     seen.resumes.push(event.decision);
     seen.answerers.push(event.answeredBy);
+    await hooks.onResume?.();
   }
 }
 

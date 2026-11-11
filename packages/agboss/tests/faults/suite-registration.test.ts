@@ -69,7 +69,7 @@ describe("#811 AC4: a store set that keeps no A2A tasks", () => {
     const a2a = SCENARIOS.filter((scenario) => /^s1[78]/u.test(scenario.id));
     const of = a2a.map((scenario) => cases.find((found) => found.name === scenario.title));
 
-    expect(a2a).toHaveLength(5);
+    expect(a2a).toHaveLength(6);
     expect(of.map((found) => ({ state: found?.state, note: found?.note }))).toEqual(
       a2a.map(() => ({ state: "skip", note: NO_A2A_TASKS })),
     );

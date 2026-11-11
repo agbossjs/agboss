@@ -14,6 +14,10 @@ import type { PausedRunBook } from "./paused-runs.js";
 import type { ThreadKey } from "./live-runs.js";
 import { runResultOf, withPauseAnswers } from "./result.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import type { AppDeps } from "./app-deps.js";
+import type { HeldExecutionLease } from "./execution-leases.js";
+import type { TreeState } from "./tree-move-types.js";
 
 /**
  * The stored run with only the pauses still pending now (another call may have answered some),
@@ -79,5 +83,32 @@ export async function currentOutputOf(
       output: state.output,
     },
     deps,
+  );
+}
+
+/** What a resume holds once it took the tree's lease: the lease, and the pause it answered. */
+export interface ResumeTake {
+  readonly lease: Pick<HeldExecutionLease, "release">;
+  readonly pauseId: string;
+}
+
+/**
+ * A resume's take of a tree whose root's record ended without a finish — failed (a cancel too) or
+ * guarded — is refused (#901): final, no pass moves the tree again, though the answer the resume
+ * recorded may still be `Resolved` (a drain took it and its pass stopped on a cancel) — the lease
+ * given back, `NotPausedError`, as for a resume that lost its pause to a cancel.
+ */
+export async function refusedIfFailed(
+  deps: AppDeps,
+  state: TreeState,
+  take: ResumeTake,
+): Promise<void> {
+  // the root's record by its id on its thread (`rootRecordOf`, whose module loads with an end)
+  const record = await deps.terns.findByTenantIdAndRunId(state.tenantId, state.runId);
+  const status = record?.threadId === state.threadId ? record.status : undefined;
+  if (status !== ExecutionRecordStatus.Failed && status !== ExecutionRecordStatus.Guarded) return;
+  await take.lease.release();
+  throw new NotPausedError(
+    `pause ${take.pauseId} was answered, but its tree ended before its answer ran`,
   );
 }

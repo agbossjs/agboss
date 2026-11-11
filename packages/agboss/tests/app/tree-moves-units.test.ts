@@ -6,6 +6,7 @@
  * forgets the tree only when it finished.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NotPausedError } from "../../src/run/resume-agent.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
 import { treeMovesOf, type TreeMoveParts } from "../../src/app/tree-moves.js";
@@ -51,7 +52,11 @@ vi.mock("../../src/app/tree-resume.js", () => ({
   callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
 }));
 vi.mock("../../src/app/observed-pass.js", () => ({ observedPass: mocks.observedPass }));
-vi.mock("../../src/app/current-output.js", () => ({ currentOutputOf: mocks.currentOutputOf }));
+// the current output scripted; a resume's refusal of a failed root (#901) as it is
+vi.mock("../../src/app/current-output.js", async (actual) => ({
+  ...(await actual<typeof import("../../src/app/current-output.js")>()),
+  currentOutputOf: mocks.currentOutputOf,
+}));
 vi.mock("../../src/app/result.js", () => ({
   withPauseAnswers: (result: unknown) => Promise.resolve(result),
 }));
@@ -115,10 +120,14 @@ function partsOf(lease = leaseOf()) {
     tryHold: vi.fn(() => Promise.resolve(lease)),
   };
   const paused = { find: vi.fn(() => Promise.resolve(undefined)), drop: vi.fn() };
+  const findByTenantIdAndRunId = vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined));
   const parts: TreeMoveParts = {
     deps: {
       config: { version: "2.0.0", name: "desk-workflow" },
-      terns: { completeIfStatus: vi.fn(() => Promise.resolve(true)) },
+      terns: {
+        completeIfStatus: vi.fn(() => Promise.resolve(true)),
+        findByTenantIdAndRunId,
+      },
       pause: undefined,
       log: { warn },
     },
@@ -128,7 +137,8 @@ function partsOf(lease = leaseOf()) {
     trees: {},
     clock: {},
   } as never;
-  return { parts, lease, leases, paused, warn, moves: treeMovesOf(parts) };
+  const terns = { findByTenantIdAndRunId };
+  return { parts, lease, leases, paused, warn, terns, moves: treeMovesOf(parts) };
 }
 
 const call = { signal: new AbortController().signal } as never;
@@ -285,6 +295,38 @@ describe("#633: a root that is ending", () => {
     mocks.endUnwindingIfFree.mockResolvedValue(true);
 
     expect(await moves.endIfEnding(INTERRUPTED)).toBe(true);
+  });
+});
+
+describe("#901: a resume whose tree failed after its answer was recorded", () => {
+  it.each(["failed", "guarded"])(
+    "its root's record %s at the take: the lease given back, NotPausedError, no pass",
+    async (status) => {
+      const { moves, paused, lease, terns } = partsOf();
+      terns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
+      mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
+      paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+
+      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(NotPausedError);
+      expect(lease.released()).toBe(1);
+      expect(mocks.observedPass).not.toHaveBeenCalled();
+      expect(mocks.treeResumeNow).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["running on its thread", { threadId: "thread-1", status: "running" }],
+    ["failed on another thread", { threadId: "thread-2", status: "failed" }],
+  ])("a record %s: the pass runs", async (_case, record) => {
+    const { moves, paused, terns } = partsOf();
+    terns.findByTenantIdAndRunId.mockResolvedValue(record);
+    mocks.treeResumeNow.mockResolvedValueOnce(resumeOf("pause-1"));
+    paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+    mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Finished));
+
+    await moves.resumed(answerOf("1.0.0"), call);
+
+    expect(mocks.observedPass).toHaveBeenCalledOnce();
   });
 });
 
