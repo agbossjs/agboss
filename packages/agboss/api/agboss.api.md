@@ -59,7 +59,7 @@ export interface A2ADirectMessageReply {
     readonly spentUsd: number;
 }
 
-// @public (undocumented)
+// @public
 export abstract class A2ADirectMessageRepository {
     abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
@@ -8181,8 +8181,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-direct-message.repository.ts:48:3 - (ae-undocumented) Missing documentation for "startedAt".
 // src/infrastructure/a2a-direct-message.repository.ts:61:3 - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-direct-message.repository.ts:92:1 - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
-// src/infrastructure/a2a-direct-message.repository.ts:99:1 - (ae-undocumented) Missing documentation for "A2ADirectMessageRepository".
-// src/infrastructure/a2a-direct-message.repository.ts:115:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/a2a-direct-message.repository.ts:116:3 - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/a2a-file.repository.ts:28:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-file.repository.ts:29:3 - (ae-undocumented) Missing documentation for "fileId".
 // src/infrastructure/a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "tenantId".

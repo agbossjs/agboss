@@ -96,6 +96,7 @@ export type A2ADirectMessageSave =
     }
   | { readonly status: A2ADirectMessageSaveStatus.Taken };
 
+/** The store of the direct replies (#860): the contract a store of your own `extends`. */
 export abstract class A2ADirectMessageRepository {
   /**
    * The backend the store's rows live in (as `A2ATaskRepository.store`): its task store's, whose
