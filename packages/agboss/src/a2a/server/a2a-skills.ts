@@ -62,6 +62,11 @@ export interface ServedSkill {
   readonly inputFiles: readonly A2AFileField[];
   /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
   readonly fileLimits: A2AFileLimits;
+  /**
+   * The media types its finishes' files may be (#904): what `A2AFiles.save` takes — the
+   * application's `a2aFiles`, else the defaults; a skill's own `files` bound what it takes only.
+   */
+  readonly outputFileMediaTypes: readonly string[];
   /** How it answers (#860): a task, or a direct message. */
   readonly reply: A2AReply;
   /** Whether its workflow can call a model (an agent, a model router): a lost reply's cost is unknown. */
@@ -150,10 +155,11 @@ function skillFilesOf(
   input: WorkflowStartInput,
   name: string,
   sources: SkillSources,
-): Pick<ServedSkill, "inputFiles" | "fileLimits"> {
+): Pick<ServedSkill, "inputFiles" | "fileLimits" | "outputFileMediaTypes"> {
   return {
     inputFiles: typeof input === "function" ? fileFieldsOf(input) : [],
     fileLimits: fileLimitsOf(sources.files, sources.expose.skills?.[name]?.files),
+    outputFileMediaTypes: fileLimitsOf(sources.files, undefined).allowedMediaTypes,
   };
 }
 

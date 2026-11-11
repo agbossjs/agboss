@@ -86,6 +86,7 @@ export const TEXT_SKILL: ServedSkill = {
   ],
   inputFiles: [],
   fileLimits: DEFAULT_A2A_FILE_LIMITS,
+  outputFileMediaTypes: DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes,
   reply: A2AReply.Task,
   callsModel: false,
 };

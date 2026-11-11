@@ -96,13 +96,16 @@ const inputModesOf = (skill: ServedSkill): string[] =>
     ...(skill.inputFiles.length === 0 ? [] : skill.fileLimits.allowedMediaTypes),
   ]);
 
-/** What a skill's finishes give: a file finish its files' media types (#859), its data JSON. */
+/**
+ * What a skill's finishes give: a file finish the media types its files may be (#859; #904: what
+ * `A2AFiles.save` takes, the application's), its data JSON.
+ */
 const outputModesOf = (skill: ServedSkill): string[] =>
   unique(
     skill.outputs.flatMap((output) =>
       output.fileFields.length === 0
         ? [output.mediaType]
-        : [...skill.fileLimits.allowedMediaTypes, ...(output.hasData ? [A2AMediaType.Json] : [])],
+        : [...skill.outputFileMediaTypes, ...(output.hasData ? [A2AMediaType.Json] : [])],
     ),
   );
 
