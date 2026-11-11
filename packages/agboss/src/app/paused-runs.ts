@@ -69,7 +69,10 @@ export function pausedRunBook(
 /**
  * The pauses of a tree that ended (finished, failed, cancelled): the waiting ones are cancelled —
  * `Cancelled` (`PauseResolution.Cancelled`, `at`), so a late answer gets `NotPausedError`, like an
- * answer to one already taken; the channel of a sent one is told (#337).
+ * answer to one already taken; the channel of a sent one is told (#337). An answered one no step
+ * took (`Resolved`: a resume recorded it, a cancel won before its pass ran, #811 s18c) is marked
+ * `Taken`, its answer kept and no channel told, so `deleteByResolvedAtBefore` removes it after
+ * `retention.pauseRecords` (#890 AC5).
  */
 export async function withdrawPauses(
   stores: PauseStores,
@@ -85,6 +88,8 @@ export async function withdrawPauses(
   const closing = { resolution, at };
   for (const pause of records) {
     if (pause.status === PauseStatus.Pending) await withdrawPause(stores, pause, closing);
+    else if (pause.status === PauseStatus.Resolved)
+      await stores.pauses.markTakenByTenantIdAndPauseId(tenantId, pause.pauseId);
   }
 }
 

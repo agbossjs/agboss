@@ -37,14 +37,14 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
     ["a renewal refused", new ExecutionLeaseLostError("execution-1")],
     ["the holder's own expiry (frozen or cut off)", leaseExpiredError("execution-1")],
     ["a reclaim after a remote-child wait", leaseTakenWhileYieldedError("execution-1")],
-    ["a fenced write, no token named", new ExecutionFencedError({ scopeKey: "a:b", token: 2 })],
+    ["a fenced write, no token named", ExecutionFencedError.of({ scopeKey: "a:b", token: 2 })],
     [
       "a fenced write, the same token seen",
-      new ExecutionFencedError({ scopeKey: "a:b", token: 2, observedToken: 2 }),
+      ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 2 }),
     ],
     [
       "a fenced write, an older token seen",
-      new ExecutionFencedError({ scopeKey: "a:b", token: 2, observedToken: 1 }),
+      ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 1 }),
     ],
   ])(
     "%s: the lease is over and the next take continues — no other instance as a fact",
@@ -56,7 +56,7 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
   );
 
   it("a fenced write after a newer take: the newer token, and its holder continuing", () => {
-    const { message } = new ExecutionFencedError({ scopeKey: "a:b", token: 2, observedToken: 5 });
+    const { message } = ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 5 });
 
     expect(message).toMatch(/saw token 5 — a newer take of the lease/);
     expect(message).toMatch(/the holder of token 5 continues/);
@@ -74,7 +74,7 @@ const TARGETS: readonly (readonly [string, () => ContractTarget<AnyStores>])[] =
 /** What a write of `stores` under `key` was refused with. */
 const refusalOf = (stores: AnyStores, key: ReturnType<typeof keyOf>): Promise<unknown> =>
   stores.effects
-    .saveResultIfAbsent(key, () => ({ charged: true }))
+    .runOnce(key, () => ({ charged: true }))
     .then(
       () => undefined,
       (error: unknown) => error,

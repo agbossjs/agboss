@@ -24,7 +24,7 @@ const NOWHERE: MeshLimitPlace = { path: [], spentUsd: 0, usage: [] };
 
 /** The same `(application, start)` twice in one call chain (#398 S2 Q9): always a loop. */
 export class MeshLoopDetectedError extends LimitExceededError {
-  static override readonly code: string = "limit.mesh-loop";
+  static override readonly code = "limit.mesh-loop" as const;
   override name = "MeshLoopDetectedError";
   /** The entry that was called again: the receiver's application and start. */
   readonly entry: MeshEntry;
@@ -44,7 +44,7 @@ export class MeshLoopDetectedError extends LimitExceededError {
 
 /** A call chain one hop longer than the receiver's `@Application({ maxMeshHops })` allows. */
 export class HopsLimitExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.hops";
+  static override readonly code = "limit.hops" as const;
   override name = "HopsLimitExceededError";
   /** The entry that refused the request: the receiver's application and start. */
   readonly entry: MeshEntry;

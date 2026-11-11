@@ -6,7 +6,7 @@ import { configMethods } from "./configs.js";
 import { pauseAnswerWrites, ternWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
-import type { Tern, TernStore, VersionScore } from "./types.js";
+import type { Turn, TernStore, VersionScore } from "./types.js";
 
 const SummaryRow = z.object({
   prompt_version: z.string(),
@@ -33,7 +33,7 @@ export type { ThreadIds } from "./threads.js";
 
 /** Random thread ids: a store made without an application. */
 const RANDOM_THREAD_IDS: ThreadIds = { newThreadId: randomUUID };
-type Rows = (sql: string, ...params: SQLInputValue[]) => Tern[];
+type Rows = (sql: string, ...params: SQLInputValue[]) => Turn[];
 
 function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersion" | "unscored"> {
   return {
@@ -82,7 +82,7 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
 
 /**
  * Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first; and a run's
- * latest Tern by its id (#808), however many later Terns its thread has.
+ * latest Turn by its id (#808), however many later Terns its thread has.
  */
 function statusReads(rows: Rows): Pick<TernStore, "byStatus" | "findByTenantIdAndRunId"> {
   return {

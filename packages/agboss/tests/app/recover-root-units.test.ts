@@ -12,7 +12,7 @@ import { recordEndedOf, recoveryPassOf, RootCalls } from "../../src/app/recovery
 import type { TreeMoves } from "../../src/app/tree-moves.js";
 import { IncompatibleResumeError, type IncompatibleResume } from "../../src/run/resume-guard.js";
 import type { InterruptedRun } from "../../src/run/continue-agent.js";
-import type { Tern } from "../../src/terns/index.js";
+import type { Turn } from "../../src/terns/index.js";
 
 const mocks = vi.hoisted(() => ({ treeResumeNow: vi.fn() }));
 
@@ -25,7 +25,7 @@ vi.mock("../../src/app/tree-resume.js", () => ({
   callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
 }));
 
-const recordOf = (overrides: Partial<Tern> = {}): Tern =>
+const recordOf = (overrides: Partial<Turn> = {}): Turn =>
   ({
     id: "tern-1",
     runId: "root-1",
@@ -34,7 +34,7 @@ const recordOf = (overrides: Partial<Tern> = {}): Tern =>
     configVersion: "1.0.0",
     configHash: "hash-1",
     ...overrides,
-  }) as Tern;
+  }) as Turn;
 
 function partsOf(owner?: string) {
   const moves = {

@@ -85,7 +85,7 @@ const listOf = (failures: readonly CompensationRecord[]): string =>
  */
 export class CompensationFailedError extends AGBossError {
   /** `compensation.failed`. */
-  static override readonly code: string = "compensation.failed";
+  static override readonly code = "compensation.failed" as const;
   override name = "CompensationFailedError";
   /** The undo actions that failed, newest first (each `CompensationStatus.Failed`). */
   readonly failures: readonly CompensationRecord[];

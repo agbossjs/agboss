@@ -1,6 +1,6 @@
 /**
  * #500 AC1, AC3 — the fenced effect in an application: an action charges an order and inserts its
- * row through `saveResultIfAbsent`, with no table of its own. A crash before the checkpoint makes
+ * row through `runOnce`, with no table of its own. A crash before the checkpoint makes
  * the step run again on the instance that takes the lease over: it charges nothing more and gets
  * the first receipt. Two calls on one key in one step run the write once.
  */

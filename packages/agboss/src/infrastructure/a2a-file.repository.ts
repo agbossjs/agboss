@@ -54,7 +54,7 @@ export interface NewA2AFile extends A2AFileMetadata {
 
 /** A save of a key already kept with other bytes: a file never changes (`a2a.file-conflict`). */
 export class A2AFileConflictError extends AGBossError {
-  static override readonly code: string = "a2a.file-conflict";
+  static override readonly code = "a2a.file-conflict" as const;
 
   constructor(readonly fileId: string) {
     super("a file is saved once: another file is kept under this id");

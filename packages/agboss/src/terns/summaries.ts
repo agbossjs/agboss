@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { storedTextOf, textOf, toTern } from "./schema.js";
-import type { MemoryStore, Summary, Tern } from "./types.js";
+import type { MemoryStore, Summary, Turn } from "./types.js";
 
 const SummaryRow = z.object({
   id: z.string(),
@@ -60,7 +60,7 @@ const lastCovered = (
   ).n;
 
 function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" | "turnNumber"> {
-  const terns = (sql: string, ...params: SQLInputValue[]): Tern[] =>
+  const terns = (sql: string, ...params: SQLInputValue[]): Turn[] =>
     db
       .prepare(sql)
       .all(...params)
@@ -142,7 +142,7 @@ function summaryMethods(
   };
 }
 
-/** Conversation memory on the Tern database (table `summaries`, migration 3). */
+/** Conversation memory on the Turn database (table `summaries`, migration 3). */
 export const memoryMethods = (db: DatabaseSync, now: () => Date): MemoryStore => ({
   ...turnReads(db),
   ...summaryMethods(db, now),

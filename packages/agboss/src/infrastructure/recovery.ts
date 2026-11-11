@@ -9,7 +9,7 @@ import type { CostLedgerRepository } from "./cost-ledger.repository.js";
 import type { Clock } from "./clock.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
-import type { Tern } from "../terns/index.js";
+import type { Turn } from "../terns/index.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import {
   ExecutionRecordStatus,
@@ -151,7 +151,7 @@ class Sweeper implements RecoverySweep {
   }
 
   /** Starts the record's recovery; `false` when it is not this instance's to start now. */
-  #recover(record: Tern): boolean {
+  #recover(record: Turn): boolean {
     const recoverRoot = this.sources.workflows.get(record.bundle);
     // another application's record on a shared store, or one already being continued here
     if (recoverRoot === undefined || this.#inFlight.has(record.id)) return false;
@@ -229,12 +229,12 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
   return [
     {
       what: "the resolved pause records",
-      remove: (cutoff) => pauses.deleteResolvedBefore(cutoff),
+      remove: (cutoff) => pauses.deleteByResolvedAtBefore(cutoff),
       retention: sources.pauseRecordRetention,
     },
     {
       what: "the mesh requests' answers",
-      remove: meshRequests && ((cutoff) => meshRequests.deleteCreatedBefore(cutoff)),
+      remove: meshRequests && ((cutoff) => meshRequests.deleteByCreatedAtBefore(cutoff)),
       retention: sources.idempotencyRetention,
     },
     {

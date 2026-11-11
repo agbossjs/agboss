@@ -82,7 +82,7 @@ export class KeyedEffectAction {
       businessKey: input.message.value.text,
       fingerprintPolicy: FingerprintPolicy.None,
     });
-    await this.fencedEffects.saveResultIfAbsent(key, () => {
+    await this.fencedEffects.runOnce(key, () => {
       echoSeen.ran += 1;
       return { done: true };
     });

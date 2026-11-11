@@ -149,7 +149,7 @@ export class ArtifactLedger {
     const highest = ledger.highest.get(row.scopeKey) ?? 0;
     if (row.token < highest) {
       ledger.refused.push({ scopeKey: row.scopeKey, token: row.token });
-      throw new ExecutionFencedError({
+      throw ExecutionFencedError.of({
         scopeKey: row.scopeKey,
         token: row.token,
         observedToken: highest,

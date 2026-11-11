@@ -25,9 +25,9 @@ import {
   OutboundCallStatus,
   OutboundCalls,
   type EffectKey,
-  type OutboundCallIntent,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";

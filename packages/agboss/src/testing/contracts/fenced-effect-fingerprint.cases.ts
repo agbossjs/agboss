@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { IdempotencyKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
+import { BusinessKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -30,22 +30,22 @@ const storedApart = <TTransaction>(
   written: Fingerprint,
   asked: Fingerprint,
 ): Case<TTransaction> => ({
-  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is IdempotencyKeyConflictError: nothing runs`,
+  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is BusinessKeyConflictError: nothing runs`,
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
-    await first.effects.saveResultIfAbsent(
+    await first.effects.runOnce(
       businessKeyOf(await leaseOf(first, "execution-1"), written),
       writing(first.rows, "r1", count),
     );
 
     const refused = await rejectionOf(
-      second.effects.saveResultIfAbsent(
+      second.effects.runOnce(
         businessKeyOf(await leaseOf(second, "execution-2"), asked),
         writing(second.rows, "r2", count),
       ),
     );
 
-    expect(refused).toBeInstanceOf(IdempotencyKeyConflictError);
+    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
   },
@@ -55,12 +55,12 @@ const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
   name: '#574: under one business key fingerprint "" replays "": the store keeps the empty text, not none',
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
-    await first.effects.saveResultIfAbsent(
+    await first.effects.runOnce(
       businessKeyOf(await leaseOf(first, "execution-1"), ""),
       writing(first.rows, "r1", count),
     );
 
-    const again = await second.effects.saveResultIfAbsent(
+    const again = await second.effects.runOnce(
       businessKeyOf(await leaseOf(second, "execution-2"), ""),
       writing(second.rows, "r2", count),
     );
@@ -85,14 +85,8 @@ const inFlightApart = <TTransaction>(
     const lease = await leaseOf(first);
 
     const outcomes = await Promise.allSettled([
-      first.effects.saveResultIfAbsent(
-        businessKeyOf(lease, leading),
-        writing(first.rows, "r1", count),
-      ),
-      first.effects.saveResultIfAbsent(
-        businessKeyOf(lease, following),
-        writing(first.rows, "r2", count),
-      ),
+      first.effects.runOnce(businessKeyOf(lease, leading), writing(first.rows, "r1", count)),
+      first.effects.runOnce(businessKeyOf(lease, following), writing(first.rows, "r2", count)),
     ]);
 
     expect(outcomes[0]).toMatchObject({
@@ -101,7 +95,7 @@ const inFlightApart = <TTransaction>(
     });
     expect(outcomes[1]).toMatchObject({
       status: "rejected",
-      reason: expect.any(IdempotencyKeyConflictError) as unknown,
+      reason: expect.any(BusinessKeyConflictError) as unknown,
     });
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
@@ -118,17 +112,14 @@ const racingApart = <TTransaction>(): Case<TTransaction> => ({
     ];
 
     const outcomes = await Promise.allSettled([
-      first.effects.saveResultIfAbsent(businessKeyOf(one, ""), writing(first.rows, "r1", count)),
-      second.effects.saveResultIfAbsent(
-        businessKeyOf(other, null),
-        writing(second.rows, "r2", count),
-      ),
+      first.effects.runOnce(businessKeyOf(one, ""), writing(first.rows, "r1", count)),
+      second.effects.runOnce(businessKeyOf(other, null), writing(second.rows, "r2", count)),
     ]);
 
     const ran = outcomes.filter((outcome) => outcome.status === "fulfilled");
     const refused = outcomes.filter((outcome) => outcome.status === "rejected");
     expect(ran).toMatchObject([{ value: { status: FencedEffectStatus.Ran } }]);
-    expect(refused).toMatchObject([{ reason: expect.any(IdempotencyKeyConflictError) as unknown }]);
+    expect(refused).toMatchObject([{ reason: expect.any(BusinessKeyConflictError) as unknown }]);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toHaveLength(1);
   },

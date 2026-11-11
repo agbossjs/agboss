@@ -5,7 +5,7 @@ import {
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
 import type { RegistryGateway } from "../llm/registry.js";
-import type { Tern, TernRecords } from "../terns/index.js";
+import type { Turn, TernRecords } from "../terns/index.js";
 import { ADEQUATE, INADEQUATE, JUDGE_INSTRUCTIONS } from "./prompts.js";
 
 export interface EvalDeps {
@@ -33,7 +33,7 @@ export interface ScoringReport {
   readonly stoppedBy?: string;
 }
 
-export const judgeRequest = (tern: Tern): RouteRequest => ({
+export const judgeRequest = (tern: Turn): RouteRequest => ({
   instructions: JUDGE_INSTRUCTIONS,
   input: `Task:\n${tern.task}\n\nAnswer:\n${tern.replyWith}`,
   options: [
@@ -49,8 +49,8 @@ export function scoreOf(outcome: RouteOutcome): number | undefined {
   return outcome.decision.next === "adequate" ? confidence : 1 - confidence;
 }
 
-/** Scores the given Terns within the eval budget; a judge failure leaves a Tern unscored. */
-export async function scoreTerns(deps: EvalDeps, terns: readonly Tern[]): Promise<ScoringReport> {
+/** Scores the given Terns within the eval budget; a judge failure leaves a Turn unscored. */
+export async function scoreTerns(deps: EvalDeps, terns: readonly Turn[]): Promise<ScoringReport> {
   let scored = 0;
   let costUsd = 0;
   for (const tern of terns) {

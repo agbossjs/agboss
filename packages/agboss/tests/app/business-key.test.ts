@@ -2,7 +2,7 @@
  * #508 AC1–AC3 — business idempotency keys: one charge per order (`order:<id>`) whatever tool call,
  * step, execution or thread makes it. The model calling the charge tool twice charges once; two
  * executions on two threads charge once; the same order with another amount is refused with
- * `IdempotencyKeyConflictError` and nothing is charged — through the fenced effect, the tool and
+ * `BusinessKeyConflictError` and nothing is charged — through the fenced effect, the tool and
  * `OutboundCalls`. An invalid key is refused before anything runs, and no error carries the key.
  */
 import { createHash } from "node:crypto";
@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionAuditEventKind,
   FencedEffectStatus,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InvalidBusinessKeyError,
   OutboundCallInFlightError,
   OutboundCallSendStatus,
@@ -113,7 +113,9 @@ describe("#508 AC1: the model calls the charge tool twice", () => {
       ToolCallStatus.Succeeded,
       ToolCallStatus.Failed,
     ]);
-    expect(result.toolCalls[1]?.error).toMatchObject({ code: "fenced-effect.key-conflict" });
+    expect(result.toolCalls[1]?.error).toMatchObject({
+      code: "fenced-effect.business-key-conflict",
+    });
     expect(JSON.stringify(result.toolCalls[1])).not.toContain("order:42");
   });
 });
@@ -171,25 +173,25 @@ describe("#508 AC2: two executions on two threads", () => {
 });
 
 describe("#508 AC3: the same order with another amount", () => {
-  test("AC3: the same order with another amount → IdempotencyKeyConflictError, nothing charged (fenced effect)", async ({
+  test("AC3: the same order with another amount → BusinessKeyConflictError, nothing charged (fenced effect)", async ({
     app,
   }) => {
     await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 10 });
 
     await expect(
       execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 12 }),
-    ).rejects.toFailWith(IdempotencyKeyConflictError, { effect: "charge" });
+    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
     expect(ledger.charges).toEqual([{ orderId: "42", amountUsd: 10 }]);
   });
 
-  test("AC3: the same order with another amount → IdempotencyKeyConflictError, nothing sent (outbound call)", async ({
+  test("AC3: the same order with another amount → BusinessKeyConflictError, nothing sent (outbound call)", async ({
     app,
   }) => {
     await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
     await expect(
       execute(app, SendChargeStart, { orderId: "42", amountUsd: 12 }),
-    ).rejects.toFailWith(IdempotencyKeyConflictError, { effect: "charge" });
+    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
     expect(gateway.calls).toHaveLength(1);
   });
 
@@ -202,7 +204,7 @@ describe("#508 AC3: the same order with another amount", () => {
 
     const refused = execute(app, SendChargeStart, { orderId: "42", amountUsd: 12 });
 
-    await expect(refused).rejects.toFailWith(IdempotencyKeyConflictError, { effect: "charge" });
+    await expect(refused).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
     letLedgerGo();
     await expect(first).resolves.toMatchObject({ output: { chargeId: "ch-42-1" } });
     expect(gateway.calls).toHaveLength(1);
@@ -219,9 +221,9 @@ describe("#508 AC3: the same order with another amount", () => {
 
     expect(chainTextOf(error)).not.toContain("order:42");
     let conflict: unknown = error;
-    while (conflict instanceof Error && !(conflict instanceof IdempotencyKeyConflictError))
+    while (conflict instanceof Error && !(conflict instanceof BusinessKeyConflictError))
       conflict = conflict.cause;
-    expect(conflict).toBeInstanceOf(IdempotencyKeyConflictError);
+    expect(conflict).toBeInstanceOf(BusinessKeyConflictError);
     expect(conflict).toMatchObject({ businessKeyHash: expect.stringMatching(/^[0-9a-f]{12}$/u) });
   });
 });
@@ -427,16 +429,14 @@ describe("#508: two instances racing on one business key", () => {
 });
 
 /** The conflict at the end of `error`'s cause chain. */
-function conflictOf(error: unknown): IdempotencyKeyConflictError {
+function conflictOf(error: unknown): BusinessKeyConflictError {
   for (let at: unknown = error; at instanceof Error; at = at.cause)
-    if (at instanceof IdempotencyKeyConflictError) return at;
-  throw new Error("no IdempotencyKeyConflictError in the chain");
+    if (at instanceof BusinessKeyConflictError) return at;
+  throw new Error("no BusinessKeyConflictError in the chain");
 }
 
 /** The conflict of charging order 42 for $10, then $12, on `app`. */
-async function conflictOn(
-  app: Parameters<typeof execute>[0],
-): Promise<IdempotencyKeyConflictError> {
+async function conflictOn(app: Parameters<typeof execute>[0]): Promise<BusinessKeyConflictError> {
   await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 10 });
   const error = await execute(app, ChargeOrderStart, { orderId: "42", amountUsd: 12 }).catch(
     (thrown: unknown) => thrown,

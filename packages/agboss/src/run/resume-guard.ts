@@ -39,7 +39,7 @@ const label = ({ workflowVersion, configHash }: ResumeVersions): string =>
  * its own or a child workflow's (#336: a root's `configHash` covers its children).
  */
 export class IncompatibleResumeError extends AGBossError {
-  static override readonly code: string = "resume.incompatible";
+  static override readonly code = "resume.incompatible" as const;
   override name = "IncompatibleResumeError";
   readonly threadId: string;
   readonly executionId: string;

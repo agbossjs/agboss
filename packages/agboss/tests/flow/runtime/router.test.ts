@@ -43,7 +43,7 @@ describe("#272: a model router decides on its input only", () => {
     ]);
   });
 
-  it("an option that is not a route fails the run with RouterDecisionError and a failed Tern", async () => {
+  it("an option that is not a route fails the run with RouterDecisionError and a failed Turn", async () => {
     const deps = await fakeDeps({ "test/router": [routeTo("ghost-agent")] });
 
     const run = runText("hello", deps);

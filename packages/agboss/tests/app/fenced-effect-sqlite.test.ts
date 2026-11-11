@@ -9,9 +9,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ExecutionFencedError,
   ExecutionLeaseLostError,
+  FencedEffectRepository,
   FencedEffectStatus,
+  SqliteFencedEffectRepository,
 } from "../../src/index.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { override, testAction, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -128,7 +130,11 @@ describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", (
 describe("#500: a unit runner's SQLite fenced effect", () => {
   const order = { message: { value: { text: "order-1" } } } as never;
   // the SQLite stores read sqlitePath only; the fixtures' generated Environment is another shape
-  const onFile = { environment: { sqlitePath: ":memory:" } as never };
+  // #890: the action injects FencedEffects — the SQLite store is the one the test lists
+  const onFile = {
+    environment: { sqlitePath: ":memory:" } as never,
+    overrides: [override(FencedEffectRepository, SqliteFencedEffectRepository)],
+  };
 
   it("runs on the runner's held lease, then replays the receipt on the same step", async () => {
     const run = testAction(SqliteChargeOrderAction, onFile);

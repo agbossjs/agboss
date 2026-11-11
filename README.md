@@ -1370,8 +1370,10 @@ back with `findPauseAnswersByTenantIdAndRootExecutionId` — the permanent histo
 below never changes it; the pause records are operational state. A resolved pause
 record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
-(`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): within it a late answer
-is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed.
+(`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): within it a late answer
+is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed. An answered
+(`Resolved`) pause no step took when its tree ended — a cancel that won over the answer — is marked
+`Taken` then, its answer kept, and goes the same way (#890).
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
@@ -1426,7 +1428,7 @@ export class ReleaseLedger {
   stage(write: { scopeKey: string; token: number; idempotencyKey: string }): void {
     const highest = this.#highest.get(write.scopeKey) ?? 0;
     if (write.token < highest)
-      throw new ExecutionFencedError({ ...write, observedToken: highest });
+      throw ExecutionFencedError.of({ ...write, observedToken: highest });
     this.#highest.set(write.scopeKey, write.token);
     this.#written.add(write.idempotencyKey); // a replay of the same step writes nothing new
   }
@@ -1470,7 +1472,8 @@ holds only when the external system checks both atomically. A test freezes a wri
 step has a held lease (`fence: { token, isLost, renewNowFails }`).
 
 **The fenced effect** (#500) does all of that in one call, for rows in the store's own database —
-no fencing or idempotency table of the application's: `saveResultIfAbsent(effectKeyOf(
+no fencing or idempotency table of the application's: the application's `FencedEffects` (#890, a
+core service a component injects, over the listed `FencedEffectRepository`) `runOnce(effectKeyOf(
 executionContext, name), work)` checks, in one transaction, the step's lease (not its epoch,
 released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
 before any key is read, so a zombie never gets the new holder's result), then the step's key —
@@ -1480,11 +1483,12 @@ of one instance gets the first's result (`Joined`); a throwing `work` rolls ever
 built-in store is in memory; `SqliteFencedEffectRepository` (listed with
 `SqliteExecutionLeaseRepository`: the stores declare one backend in `static store`, else
 `[application.store-backend-mismatch]`, #526) gives `work` the
-connection's `DatabaseSync` and runs it synchronously — a returned promise rolls back with
-`FencedEffectAsyncWorkError`:
+connection's `DatabaseSync` (the component names its type) and runs it synchronously — a returned
+promise rolls back with `SyncWorkRequiredError`:
 
 <!-- snippet-context
-import { Action, ExecutionContext, SqliteFencedEffectRepository, effectKeyOf } from "@agboss/core";
+import type { DatabaseSync } from "node:sqlite";
+import { Action, ExecutionContext, FencedEffects, effectKeyOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class OrderDto {
   @Text() orderId!: string;
@@ -1500,18 +1504,18 @@ export class ChargeReceiptDto {
   description: "Charges the order once per step",
   input: { order: OrderDto },
   output: ChargeReceiptDto,
-  deps: [ExecutionContext, SqliteFencedEffectRepository],
+  deps: [ExecutionContext, FencedEffects], // the store is the application's: SQLite's here
 })
 export class ChargeOrderAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly sqliteFencedEffectRepository: SqliteFencedEffectRepository,
+    private readonly fencedEffects: FencedEffects,
   ) {}
 
   async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
     const { orderId } = input.order.value;
     const key = effectKeyOf(this.executionContext, "charge");
-    const { result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(key, (database) => {
+    const { result } = await this.fencedEffects.runOnce(key, (database: DatabaseSync) => {
       // synchronous: the row and the receipt commit together, with the fencing checks
       const { lastInsertRowid } = database
         .prepare("INSERT INTO charges (order_id) VALUES (?)")

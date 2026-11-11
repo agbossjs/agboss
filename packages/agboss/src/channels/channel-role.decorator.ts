@@ -315,7 +315,7 @@ export interface UninterpretableReplyErrorOptions {
  * for the role (`cause`) or an interpreter that crashed (`cause`, #267 S124 b). `reason` says why.
  */
 export class UninterpretableReplyError extends AGBossError {
-  static override readonly code: string = "pause.uninterpretable-reply";
+  static override readonly code = "pause.uninterpretable-reply" as const;
   override name = "UninterpretableReplyError";
   /** Why the reply was not read: the interpreter's own reason, or its error's message. */
   readonly reason: string;
@@ -328,6 +328,6 @@ export class UninterpretableReplyError extends AGBossError {
 
 /** A `reply` for a pause whose role declares no `replyInterpreter`: answer it with a `decision`. */
 export class ReplyInterpreterMissingError extends AGBossError {
-  static override readonly code: string = "pause.no-reply-interpreter";
+  static override readonly code = "pause.no-reply-interpreter" as const;
   override name = "ReplyInterpreterMissingError";
 }

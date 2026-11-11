@@ -29,9 +29,9 @@ const namesApart = <TTransaction>(): Case<TTransaction> => ({
     const lease = await leaseOf(first);
 
     const outcomes = await Promise.all([
-      first.effects.saveResultIfAbsent(keyOf(lease, "charge"), writing(first.rows, "a", count)),
-      first.effects.saveResultIfAbsent(keyOf(lease, "notify"), writing(first.rows, "b", count)),
-      first.effects.saveResultIfAbsent(
+      first.effects.runOnce(keyOf(lease, "charge"), writing(first.rows, "a", count)),
+      first.effects.runOnce(keyOf(lease, "notify"), writing(first.rows, "b", count)),
+      first.effects.runOnce(
         keyOf(lease, "charge", "execution-1:charge-action:2"),
         writing(first.rows, "c", count),
       ),
@@ -54,12 +54,9 @@ const scopesApart = <TTransaction>(): Case<TTransaction> => ({
     await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));
     const taken = await leaseOf(second, "execution-1");
-    await second.effects.saveResultIfAbsent(keyOf(taken), writing(second.rows, "a", count));
+    await second.effects.runOnce(keyOf(taken), writing(second.rows, "a", count));
 
-    const outcome = await first.effects.saveResultIfAbsent(
-      keyOf(other),
-      writing(first.rows, "b", count),
-    );
+    const outcome = await first.effects.runOnce(keyOf(other), writing(first.rows, "b", count));
 
     expect(outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
   },
@@ -71,7 +68,7 @@ const oversizedRefused = <TTransaction>(): Case<TTransaction> => ({
     const key = keyOf(await leaseOf(first));
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(key, (transaction) => {
+      first.effects.runOnce(key, (transaction) => {
         const inserted = first.rows.insert(transaction, "r1");
         return inserted === undefined ? OVERSIZED : inserted.then(() => OVERSIZED);
       }),
@@ -94,18 +91,18 @@ const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
     const lease = await leaseOf(first);
     const early = keyOf(lease, "early");
     const late = keyOf(lease, "late");
-    await first.effects.saveResultIfAbsent(early, writing(first.rows, "e", count));
+    await first.effects.runOnce(early, writing(first.rows, "e", count));
     await clock.advance(minutes(10));
-    await first.effects.saveResultIfAbsent(late, writing(first.rows, "l", count));
+    await first.effects.runOnce(late, writing(first.rows, "l", count));
 
     await second.effects.deleteByStoredAtBefore(new Date("2026-01-05T09:05:00.000Z"));
 
-    expect(
-      (await first.effects.saveResultIfAbsent(early, writing(first.rows, "e2", count))).status,
-    ).toBe(FencedEffectStatus.Ran);
-    expect(
-      (await first.effects.saveResultIfAbsent(late, writing(first.rows, "l2", count))).status,
-    ).toBe(FencedEffectStatus.Replayed);
+    expect((await first.effects.runOnce(early, writing(first.rows, "e2", count))).status).toBe(
+      FencedEffectStatus.Ran,
+    );
+    expect((await first.effects.runOnce(late, writing(first.rows, "l2", count))).status).toBe(
+      FencedEffectStatus.Replayed,
+    );
   },
 });
 

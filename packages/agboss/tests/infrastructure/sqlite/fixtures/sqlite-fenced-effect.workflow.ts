@@ -3,6 +3,7 @@ import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
+  FencedEffects,
   SqliteCheckpointSaver,
   SqliteConnection,
   SqliteCostLedgerRepository,
@@ -64,12 +65,13 @@ export function chargesIn(database: DatabaseSync): readonly string[] {
   description: "Charges the order once, through the SQLite fenced effect",
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
-  deps: [ExecutionContext, SqliteFencedEffectRepository],
+  // #890 AC2: the service, never the store — its transaction is the listed SQLite store's
+  deps: [ExecutionContext, FencedEffects],
 })
 export class SqliteChargeOrderAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: SqliteFencedEffectRepository,
+    private readonly fencedEffects: FencedEffects,
   ) {}
 
   async execute(input: {
@@ -79,7 +81,7 @@ export class SqliteChargeOrderAction {
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects
-      .saveResultIfAbsent(key, (database) => insertCharge(database, order, key.token))
+      .runOnce(key, (database: DatabaseSync) => insertCharge(database, order, key.token))
       .catch((error: unknown) => {
         book.runs.push({ token: key.token, status: "refused" });
         throw error;

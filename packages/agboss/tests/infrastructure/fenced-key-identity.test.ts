@@ -15,7 +15,7 @@ import {
   FINGERPRINT_LABEL,
   effectKeyOf,
   fingerprintsOf,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   IdempotencyKeyMissingError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
@@ -194,13 +194,13 @@ describe("#626: what an operator's read shows of a business key", () => {
 });
 
 describe("#626: the key errors", () => {
-  it("IdempotencyKeyConflictError: its name, code and message, with and without a handle", () => {
-    const withHandle = new IdempotencyKeyConflictError({ name: "charge", businessKeyHash: "a1b2" });
-    const without = new IdempotencyKeyConflictError({ name: "charge" });
+  it("BusinessKeyConflictError: its name, code and message, with and without a handle", () => {
+    const withHandle = new BusinessKeyConflictError({ effect: "charge", businessKeyHash: "a1b2" });
+    const without = new BusinessKeyConflictError({ effect: "charge" });
 
     expect(withHandle).toMatchObject({
-      name: "IdempotencyKeyConflictError",
-      code: "fenced-effect.key-conflict",
+      name: "BusinessKeyConflictError",
+      code: "fenced-effect.business-key-conflict",
       message:
         '"charge" was already made under the same business key (handle a1b2) with other parameters: refused, nothing ran',
     });

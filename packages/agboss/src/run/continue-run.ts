@@ -17,7 +17,7 @@ export interface ContinuedRun {
   readonly threadId: string;
   /** The tenant of its thread (#261); its context values come back from its checkpoint. */
   readonly tenantId: string;
-  /** Its record (a Tern), completed when this pass ends. */
+  /** Its record (a Turn), completed when this pass ends. */
   readonly ternId: string;
   readonly start: string;
   readonly startInput: unknown;

@@ -75,7 +75,6 @@ export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/in
 export {
   ExecutionLeaseRepository,
   LeaseCheck,
-  remainingOf,
   type ExecutionIdentity,
   type ExecutionLease,
   type PreviousLeaseHolder,

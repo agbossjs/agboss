@@ -5,7 +5,7 @@ import {
   type KeyTextRule,
 } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
-import type { Summary, Tern, TernRecords, TernStore } from "../terns/index.js";
+import type { Summary, Turn, TernRecords, TernStore } from "../terns/index.js";
 import { isTurn, toTurns } from "./turns.js";
 import { CompactionStrategy, type UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
@@ -29,13 +29,13 @@ export function isThreadId(threadId: string): boolean {
 }
 
 export class UnknownThreadError extends AGBossError {
-  static override readonly code: string = "run.unknown-thread";
+  static override readonly code = "run.unknown-thread" as const;
   override name = "UnknownThreadError";
 }
 
 /** A thread used by a caller that is not its owner (`execute`, `resume`, `cancel` with `ownerId`). */
 export class ThreadOwnerError extends AGBossError {
-  static override readonly code: string = "run.thread-owner";
+  static override readonly code = "run.thread-owner" as const;
   override name = "ThreadOwnerError";
 }
 
@@ -44,7 +44,7 @@ export class ThreadOwnerError extends AGBossError {
  * (`rule`), named in the message — never the id.
  */
 export class InvalidThreadIdError extends AGBossError {
-  static override readonly code: string = "run.invalid-thread-id";
+  static override readonly code = "run.invalid-thread-id" as const;
   override name = "InvalidThreadIdError";
   readonly rule: KeyTextRule;
 
@@ -131,7 +131,7 @@ const depthOf = (window: UncompactedTurns): number =>
 
 /** What one compaction holds of the thread: its turns not yet summarised, its latest summaries. */
 interface CompactionState {
-  readonly uncovered: readonly Tern[];
+  readonly uncovered: readonly Turn[];
   readonly summaries: readonly Summary[];
 }
 
@@ -179,7 +179,7 @@ const rawDepthOf = (reader: MemoryReader, state: CompactionState | undefined): n
 
 /** One reader's memory over the loaded turns: how many it sees, and the summaries they do not cover. */
 function readerMemory(
-  turns: readonly Tern[],
+  turns: readonly Turn[],
   depth: number,
   state: CompactionState | undefined,
 ): ReaderMemory {
@@ -199,7 +199,7 @@ async function lastTurnsOf(
   terns: TernRecords,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
   count: number,
-): Promise<readonly Tern[]> {
+): Promise<readonly Turn[]> {
   if (count === 0) return [];
   for (let page = count; ; page = Math.min(page * 2, Number.MAX_SAFE_INTEGER)) {
     const records = await terns.lastTerns(thread.tenantId, thread.threadId, page);

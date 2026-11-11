@@ -181,7 +181,7 @@ export interface FencedEffectResultTooLargeErrorOptions {
  * fails with it. Store a reference (an id, a receipt number), not the document.
  */
 export class FencedEffectResultTooLargeError extends AGBossError {
-  static override readonly code: string = "fenced-effect.result-too-large";
+  static override readonly code = "fenced-effect.result-too-large" as const;
   override name = "FencedEffectResultTooLargeError";
   readonly effect: string;
   readonly size: number;

@@ -1,9 +1,9 @@
 /**
- * #574 — the in-process join of `FencedEffectRepository.saveResultIfAbsent` under a business key:
+ * #574 — the in-process join of `FencedEffectRepository.runOnce` under a business key:
  * two calls in flight on one instance are joined only when their fingerprints are the same — none
  * and none, or one text and the same text. None and `""`, a text and the text `"null"`, texts
  * that differ only by a NUL or by where it stands, are other requests: the second reaches the
- * transaction and is `IdempotencyKeyConflictError`, as the same pair made one after the other is.
+ * transaction and is `BusinessKeyConflictError`, as the same pair made one after the other is.
  */
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -11,7 +11,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { FencedEffectStatus } from "../../src/infrastructure/fenced-effect.repository.js";
-import { IdempotencyKeyConflictError } from "../../src/infrastructure/fenced-effect-key.js";
+import { BusinessKeyConflictError } from "../../src/infrastructure/fenced-effect-key.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { businessKeyOf, leaseOf } from "../../src/testing/contracts/fenced-effect-data.js";
@@ -70,8 +70,8 @@ describe("#574: a call in flight joins another under one business key only with 
     };
 
     const [first, second] = await Promise.allSettled([
-      effects.saveResultIfAbsent(businessKeyOf(lease, leading), work("r1")),
-      effects.saveResultIfAbsent(businessKeyOf(lease, following), work("r2")),
+      effects.runOnce(businessKeyOf(lease, leading), work("r1")),
+      effects.runOnce(businessKeyOf(lease, following), work("r2")),
     ]);
 
     expect(first).toMatchObject({ status: "fulfilled", value: { status: FencedEffectStatus.Ran } });
@@ -81,7 +81,7 @@ describe("#574: a call in flight joins another under one business key only with 
             status: "fulfilled",
             value: { status: FencedEffectStatus.Joined, result: { receipt: "r1" } },
           }
-        : { status: "rejected", reason: expect.any(IdempotencyKeyConflictError) as unknown },
+        : { status: "rejected", reason: expect.any(BusinessKeyConflictError) as unknown },
     );
     expect(runs).toBe(1);
   });

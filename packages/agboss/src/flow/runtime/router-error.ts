@@ -59,7 +59,7 @@ export class RouterFailedError extends StepFailedError {
  * empty list without an `Always` route, an unknown or unreadable answer from its model. Never retried.
  */
 export class RouterDecisionError extends RouterFailedError {
-  static override readonly code: string = "step.router.invalid-decision";
+  static override readonly code = "step.router.invalid-decision" as const;
   override name = "RouterDecisionError";
   /** What was wrong with the answer. */
   readonly reason: string;

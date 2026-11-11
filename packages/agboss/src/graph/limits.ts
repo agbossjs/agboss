@@ -104,7 +104,7 @@ function budgetSentence(breach: BudgetBreach): string {
  * execution stops). `budget` is compared with `nameOf(TenantDailyBudget)`.
  */
 export class BudgetExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.budget";
+  static override readonly code = "limit.budget" as const;
   override name = "BudgetExceededError";
   /** The budget, compared with `nameOf(TenantDailyBudget)`. */
   readonly budget: ComponentRecord;
@@ -144,7 +144,7 @@ export class BudgetExceededError extends LimitExceededError {
 
 /** An execution took more agent and router steps than its workflow's `maxSteps` (#261). */
 export class StepsLimitExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.steps";
+  static override readonly code = "limit.steps" as const;
   override name = "StepsLimitExceededError";
   readonly workflow: WorkflowRecord;
   readonly maxSteps: number;

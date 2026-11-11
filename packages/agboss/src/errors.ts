@@ -8,13 +8,15 @@
 export {
   AGBossError,
   DuplicateExecutionIdError,
-  DuplicateThreadIdError,
+  ThreadIdsExhaustedError,
   ExecutionCancelledError,
   InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
   type ErrorDetails,
   type AGBossErrorOptions,
+  type InvalidMintedIdErrorOptions,
+  type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
 export { GraphRuleError, type RuleCode, type RuleViolation } from "./graph/rule-error.js";
@@ -89,7 +91,7 @@ export {
   ModelKindError,
 } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
-export { FencedEffectAsyncWorkError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+export { SyncWorkRequiredError } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export {
   InvalidNotSentTrustError,
   OutboundCallSupersededError,
@@ -104,7 +106,10 @@ export {
   OutboundCallUnreconciledError,
   type OutboundCallInFlightErrorOptions,
   type OutboundCallPayloadTooLargeErrorOptions,
+  type OutboundCallResultNotStoredErrorOptions,
+  type OutboundCallResultNotStoredReason,
   type OutboundCallUnreconciledErrorOptions,
+  type OutboundCallUnreconciledReason,
 } from "./app/outbound-calls.js";
 export {
   CostLedgerCutoffInvalidError,
@@ -115,11 +120,12 @@ export {
 } from "./infrastructure/cost-ledger.repository.js";
 export {
   FencedEffectResultTooLargeError,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
   type FencedEffectResultTooLargeErrorOptions,
-  type IdempotencyKeyConflictErrorOptions,
+  type BusinessKeyConflictErrorOptions,
+  type FingerprintNotJsonErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./infrastructure/fenced-effect.repository.js";
 export {
@@ -130,4 +136,5 @@ export {
   ExecutionFencedError,
   ExecutionLeaseLostError,
   type ExecutionFencedErrorOptions,
+  type FencedWriteRefusal,
 } from "./app/lease-lost.js";

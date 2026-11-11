@@ -131,7 +131,7 @@ describe("defineTool", () => {
 
 describe("defineTool: what rises instead of an error result (#471)", () => {
   it("a fenced write rises as the ExecutionFencedError, wrapped or not", async () => {
-    const fenced = new ExecutionFencedError({
+    const fenced = ExecutionFencedError.of({
       scopeKey: "acme:root-1",
       token: 1,
       observedToken: 2,

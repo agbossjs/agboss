@@ -73,7 +73,7 @@ export function textStartOf(graph: RuntimeGraph): RuntimeNode | undefined {
 
 /** `app.execute` from a class (or a name) that is not a `@WorkflowStart` of the app's workflow. */
 export class NotAWorkflowStartError extends AGBossError {
-  static override readonly code: string = "workflow.not-a-start";
+  static override readonly code = "workflow.not-a-start" as const;
   override name = "NotAWorkflowStartError";
 }
 

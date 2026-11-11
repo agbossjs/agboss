@@ -16,7 +16,7 @@ export interface ModelProviderFailureOptions {
  * other error of `complete()` is not retried and counted by the breaker.
  */
 export class ModelProviderFailureError extends AGBossError {
-  static override readonly code: string = "model.provider-failure";
+  static override readonly code = "model.provider-failure" as const;
   readonly failure: ModelFailure;
   readonly retryAfter: Milliseconds | undefined;
 

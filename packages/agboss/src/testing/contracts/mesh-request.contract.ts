@@ -77,7 +77,7 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
       await first.saveIfAbsent(at(NINE));
       await first.saveIfAbsent(at("2026-01-05T09:40:00.000Z", late));
 
-      await second.deleteCreatedBefore(new Date("2026-01-05T09:30:00.000Z"));
+      await second.deleteByCreatedAtBefore(new Date("2026-01-05T09:30:00.000Z"));
 
       expect(await first.findByKey(key)).toBeUndefined();
       expect(await first.findByKey(late)).toBeDefined();

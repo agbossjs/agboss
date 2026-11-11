@@ -51,7 +51,7 @@ describe.each(storeTargets(inMemory, sqlite))(
         });
         let isRun = false;
 
-        const write = first.effects.saveResultIfAbsent(keyOf(lease), () => {
+        const write = first.effects.runOnce(keyOf(lease), () => {
           isRun = true;
           return "late";
         });

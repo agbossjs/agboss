@@ -30,7 +30,7 @@ export {
  *   it from `Pending` to `Resolved` with its decision, atomically — of two concurrent resumes of
  *   one pause exactly one does (Q58). A resolved record (`Taken`, `Cancelled`) is kept for
  *   `@Application({ retention: { pauseRecords } })` after it was resolved — a late answer gets
- *   `NotPausedError` — then removed by the recovery sweep (`deleteResolvedBefore`, #267 S107).
+ *   `NotPausedError` — then removed by the recovery sweep (`deleteByResolvedAtBefore`, #267 S107).
  *
  * One per application, listed only in `@Application({ providers })`; the built-in default is in
  * memory. A pause survives a restart only when this repository and the checkpointer
@@ -123,7 +123,7 @@ export abstract class PausedExecutionRepository {
    * Removes every `Taken` and `Cancelled` pause of every tenant resolved before `cutoff` (the
    * recovery sweep, `now - retention.pauseRecords`); `Pending` and `Resolved` ones are never removed.
    */
-  abstract deleteResolvedBefore(cutoff: Date): Promise<void>;
+  abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
 }
 
 const pauseKeyOf = (tenantId: string, pauseId: string): string =>
@@ -233,7 +233,7 @@ export class InMemoryPausedExecutionRepository extends PausedExecutionRepository
     return Promise.resolve();
   }
 
-  deleteResolvedBefore(cutoff: Date): Promise<void> {
+  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
     for (const [key, pause] of this.#pauses) {
       if (isExpiredPause(pause, cutoff)) this.#pauses.delete(key);
     }

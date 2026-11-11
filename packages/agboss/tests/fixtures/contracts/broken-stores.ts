@@ -11,7 +11,7 @@ import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructu
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import type { ExecutionTree } from "../../../src/index.js";
-import type { Tern, TernOutcome } from "../../../src/terns/index.js";
+import type { Turn, TurnOutcome } from "../../../src/terns/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { MapExecutionLeaseRepository } from "./map-lease-store.js";
 
@@ -58,7 +58,7 @@ export class RowsSweepingQueueRepository extends InMemoryChildExecutionQueueRepo
 
 /** `complete` answers as if it wrote, and loses the update. */
 export class UpdateLosingRecordRepository extends InMemoryExecutionRecordRepository {
-  override complete(_id: string, _outcome: TernOutcome): Promise<void> {
+  override complete(_id: string, _outcome: TurnOutcome): Promise<void> {
     return Promise.resolve();
   }
 }
@@ -71,7 +71,7 @@ export class WindowSearchingRecordRepository extends InMemoryExecutionRecordRepo
   override async findByTenantIdAndRunId(
     tenantId: string,
     runId: string,
-  ): Promise<Tern | undefined> {
+  ): Promise<Turn | undefined> {
     const found = await super.findByTenantIdAndRunId(tenantId, runId);
     if (found === undefined) return undefined;
     const window = await this.lastTerns(tenantId, found.threadId, LAST_RECORDS);

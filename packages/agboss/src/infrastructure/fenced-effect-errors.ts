@@ -10,7 +10,7 @@ import { AGBossError, KEY_TEXT_RULE_TEXT, type KeyTextRule } from "../core/error
  * `-`, starting with a letter or a digit — it is part of the keys sent to other systems.
  */
 export class InvalidFencedEffectNameError extends AGBossError {
-  static override readonly code: string = "fenced-effect.invalid-name";
+  static override readonly code = "fenced-effect.invalid-name" as const;
   override name = "InvalidFencedEffectNameError";
 
   constructor(length: number) {
@@ -22,7 +22,8 @@ export class InvalidFencedEffectNameError extends AGBossError {
 
 /** What an invalid business key knows: the effect, and the rule it breaks — never the key itself. */
 export interface InvalidBusinessKeyErrorOptions {
-  readonly name: string;
+  /** The effect's or the call's name. */
+  readonly effect: string;
   readonly rule: KeyTextRule;
 }
 
@@ -31,24 +32,25 @@ export interface InvalidBusinessKeyErrorOptions {
  * rule of thread ids. Nothing ran; the message names the rule, never the key (it may carry an id).
  */
 export class InvalidBusinessKeyError extends AGBossError {
-  static override readonly code: string = "fenced-effect.invalid-business-key";
+  static override readonly code = "fenced-effect.invalid-business-key" as const;
   override name = "InvalidBusinessKeyError";
   readonly effect: string;
   readonly rule: KeyTextRule;
 
   constructor(options: InvalidBusinessKeyErrorOptions) {
-    super(
-      `the business key of "${options.name}" is not one (${options.rule}): ${KEY_TEXT_RULE_TEXT[options.rule]}`,
-      { details: { effect: options.name, rule: options.rule } },
-    );
-    this.effect = options.name;
-    this.rule = options.rule;
+    const { effect, rule } = options;
+    super(`the business key of "${effect}" is not one (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`, {
+      details: { effect, rule },
+    });
+    this.effect = effect;
+    this.rule = rule;
   }
 }
 
 /** What a conflict knows: the effect and the business key's handle — never the key. */
-export interface IdempotencyKeyConflictErrorOptions {
-  readonly name: string;
+export interface BusinessKeyConflictErrorOptions {
+  /** The effect's or the call's name. */
+  readonly effect: string;
   readonly businessKeyHash?: string | undefined;
 }
 
@@ -58,23 +60,30 @@ export interface IdempotencyKeyConflictErrorOptions {
  * the key nor any value is in the error (a business key carries ids): `businessKeyHash` correlates
  * it with the caller's own log.
  */
-export class IdempotencyKeyConflictError extends AGBossError {
-  static override readonly code: string = "fenced-effect.key-conflict";
-  override name = "IdempotencyKeyConflictError";
+export class BusinessKeyConflictError extends AGBossError {
+  static override readonly code = "fenced-effect.business-key-conflict" as const;
+  override name = "BusinessKeyConflictError";
   readonly effect: string;
   /** The business key's handle, when one could be made (`EffectKey.businessKeyHash`). */
   declare readonly businessKeyHash?: string;
 
-  constructor(options: IdempotencyKeyConflictErrorOptions) {
-    const { name, businessKeyHash } = options;
+  constructor(options: BusinessKeyConflictErrorOptions) {
+    const { effect, businessKeyHash } = options;
     const handle = businessKeyHash === undefined ? "" : ` (handle ${businessKeyHash})`;
     super(
-      `"${name}" was already made under the same business key${handle} with other parameters: refused, nothing ran`,
+      `"${effect}" was already made under the same business key${handle} with other parameters: refused, nothing ran`,
     );
-    this.effect = name;
+    this.effect = effect;
     // absent, not undefined, when no handle could be made
     if (businessKeyHash !== undefined) this.businessKeyHash = businessKeyHash;
   }
+}
+
+/** What a fingerprint that is not plain JSON knows: the effect, where, and what is there. */
+export interface FingerprintNotJsonErrorOptions {
+  readonly effect: string;
+  readonly path: string;
+  readonly reason: string;
 }
 
 /**
@@ -83,17 +92,22 @@ export class IdempotencyKeyConflictError extends AGBossError {
  * value, never the value.
  */
 export class FingerprintNotJsonError extends AGBossError {
-  static override readonly code: string = "fenced-effect.fingerprint-not-json";
+  static override readonly code = "fenced-effect.fingerprint-not-json" as const;
   override name = "FingerprintNotJsonError";
   readonly effect: string;
+  /** Where in the fingerprint (`$.order.placedAt`). */
   readonly path: string;
+  /** What is there instead of plain JSON (`a Date`), never its value. */
+  readonly reason: string;
 
-  constructor(effect: string, problem: { readonly path: string; readonly reason: string }) {
+  constructor(options: FingerprintNotJsonErrorOptions) {
+    const { effect, path, reason } = options;
     super(
-      `the fingerprint of "${effect}" is not plain JSON at ${problem.path}: ${problem.reason} — fingerprint: { …the plain fields of what the work does }, never a DTO instance, a Date or a function`,
-      { details: { effect, path: problem.path } },
+      `the fingerprint of "${effect}" is not plain JSON at ${path}: ${reason} — fingerprint: { …the plain fields of what the work does }, never a DTO instance, a Date or a function`,
+      { details: { effect, path } },
     );
     this.effect = effect;
-    this.path = problem.path;
+    this.path = path;
+    this.reason = reason;
   }
 }

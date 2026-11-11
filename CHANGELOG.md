@@ -20,6 +20,53 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking
 
+- **The store entry, the fenced effect's service, the errors, `Turn`, the prune verbs** (#890, API
+  review G8):
+  - **`@agboss/core/stores`**, a new entry (its report `api/agboss-stores.api.md`): what a store
+    outside the core is written with — the contracts, every type they name, the rows at a store's
+    boundary (`OutboundCallIntent`, `OutboundCallClaim`, `OutboundCallState`, `OutboundCallLease`,
+    `OutboundCallLeaseState`, `OutboundCallStep`, `OutboundCallStatusQuery`) and the core's store
+    helpers (`assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf`, `isKeyFingerprint`,
+    `replayedFromOf`, `storedKeyFactsOf`, `StoredKeyFacts`, `effectKeyIdentityOf`,
+    `pendingOutboundCallOf`, `remainingOf`, `idGeneratorNameOf`, `assertLedgerEntries`,
+    `assertLedgerCutoff`, `expiredEntriesOf`, `unrecordedEntriesOf`, `InMemoryFencedEffectTransaction`).
+    The rows and helpers left the root entry; the contracts and their records stay there too.
+    `@agboss/postgres`, `@agboss/mongodb` and `@agboss/redis` import from it.
+  - **`FencedEffects`**, a core service an application injects (`deps: [ExecutionContext,
+FencedEffects]`) over the listed `FencedEffectRepository`: `runOnce(key, work)`, the work's
+    transaction typed by the component (`(database: DatabaseSync) => …` on SQLite) — never a
+    store's class in business code. The store's own `saveResultIfAbsent(key, work)` →
+    `runOnce(key, work)` (it runs `work`; it never was a cache put). A test's
+    `override(ListedStore, Replacement)` now reaches a contract the listed class implements (what
+    `FencedEffects` injects), as a mock of that class already did; a workflow on its own (eval,
+    replay, Studio) runs `FencedEffects` on the store of its infrastructure.
+  - **Errors:** `IdempotencyKeyConflictError` → `BusinessKeyConflictError`
+    (`fenced-effect.business-key-conflict`), `DuplicateThreadIdError` → `ThreadIdsExhaustedError`
+    (`run.thread-ids-exhausted`), `FencedEffectAsyncWorkError` → `SyncWorkRequiredError`
+    (`fenced-effect.sync-work-required`) — no aliases. An options bag for every new error of two
+    facts or more, its keys the error's fields (`effect` on a fenced effect's, `call` on an
+    outbound call's, `cause` in it): `InvalidMintedIdError({ generator, method, rule })`,
+    `ThreadIdsExhaustedError({ generator, tries })`, `FingerprintNotJsonError({ effect, path,
+reason })`, `InvalidBusinessKeyError({ effect, rule })`, `BusinessKeyConflictError({ effect,
+businessKeyHash })`, `OutboundCallInFlightError({ call, … })`, `OutboundCallUnreconciledError({
+call, …, reason, detail, cause })`, `OutboundCallResultNotStoredError({ call, …, reason })`,
+    `OutboundCallSupersededError({ call, …, cause })`, `QuestionFailedError({ question, cause })`.
+    `OutboundCallUnreconciledError.reason` is a code (`reconcile.unknown`, `reconcile.threw`,
+    `reconcile.no-verdict`, `key-retention.passed`; what was said in `detail`) and
+    `OutboundCallResultNotStoredError.reason` one of `outbound-call.payload-too-large`,
+    `outbound-call.unmasked`, `outbound-call.result-unstorable`. `ExecutionFencedError.of({
+scopeKey, token, observedToken })` reads and checks a scope key; `new ExecutionFencedError(…)`
+    takes every fact and never throws. A static `code` is its literal (`as const`) on every error
+    class no other error class extends.
+  - **`Turn`:** `Tern`, `NewTern`, `TernOutcome`, `TernStatus`, `TernStep` → `Turn`, `NewTurn`,
+    `TurnOutcome`, `TurnStatus` (a closed union of its statuses), `TurnStep`; the `Tern*` names stay
+    as `@deprecated` aliases until 0.2.
+  - **Prune verbs, `deleteBy<Field>Before(cutoff)`:** `PausedExecutionRepository.deleteResolvedBefore`
+    → `deleteByResolvedAtBefore`, `MeshRequestRepository.deleteCreatedBefore` →
+    `deleteByCreatedAtBefore`. A `Resolved` pause no step took when its tree ends (an answer a
+    cancel won over, #811 s18c) is marked `Taken`, its answer kept, so the sweep removes it after
+    `retention.pauseRecords` — it stayed `Resolved` forever before.
+
 - **The execution audit log and the metric names** (#889, API review G6):
   - **The lease log is the execution audit log** — it keeps takeovers, hand-overs, fenced effects and
     outbound calls, not only leases. `ExecutionLeaseEventRepository` → `ExecutionAuditLogRepository`

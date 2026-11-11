@@ -1,5 +1,5 @@
 /**
- * #521 AC4: the SQLite Tern store keeps free text — a task, an answer, a stop reason, a summary —
+ * #521 AC4: the SQLite Turn store keeps free text — a task, an answer, a stop reason, a summary —
  * as JSON text, so a NUL character comes back (node:sqlite reads a TEXT value only up to a NUL);
  * migration 14 rewrites the rows of an older database that way, which read back as they were.
  */
@@ -8,10 +8,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore, openTernDatabase, type NewTern } from "../../src/terns/index.js";
+import { createSqliteTernStore, openTernDatabase, type NewTurn } from "../../src/terns/index.js";
 import { NUL_TEXT } from "../../src/testing/contracts/nul-text.js";
 
-const tern = (threadId: string, overrides: Partial<NewTern> = {}): NewTern => ({
+const tern = (threadId: string, overrides: Partial<NewTurn> = {}): NewTurn => ({
   runId: "run-1",
   threadId,
   tenantId: "default",
@@ -48,7 +48,7 @@ line 2', 'answered', 'done', '[]', '[]', 0, 'p', 'm', 'default');
   return path;
 }
 
-describe("#521 AC4: the SQLite Tern store keeps free text as JSON text", () => {
+describe("#521 AC4: the SQLite Turn store keeps free text as JSON text", () => {
   it("AC4: a task, an answer, a stop reason and a summary with a NUL character read back unchanged", async () => {
     const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });

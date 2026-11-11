@@ -1,7 +1,8 @@
 /**
  * #511 AC4: a store outside the core implements an infrastructure contract on the public surface
  * alone — every type a contract's members name (and the data shapes those name in turn) is
- * importable from the root entry — a unit (`Milliseconds`, `Usd`, `Bytes`) from its one home,
+ * importable from the root entry or `@agboss/core/stores` (#890: the rows at a store's boundary,
+ * which an application never reads) — a unit (`Milliseconds`, `Usd`, `Bytes`) from its one home,
  * `@agboss/core/units` (#834) —, never derived with `Parameters` / `ReturnType` from the class.
  * The contracts are the application's infrastructure (`INFRASTRUCTURE_DEFAULTS`), so a new one is
  * checked as soon as it is registered.
@@ -14,7 +15,8 @@ import { INFRASTRUCTURE_DEFAULTS } from "../../src/infrastructure/contracts.js";
 const src = new URL("../../src/", import.meta.url).pathname;
 const root = `${src}index.ts`;
 const units = `${src}units/index.ts`;
-const program = ts.createProgram([root, units], {
+const stores = `${src}stores/index.ts`;
+const program = ts.createProgram([root, units, stores], {
   module: ts.ModuleKind.NodeNext,
   moduleResolution: ts.ModuleResolutionKind.NodeNext,
   target: ts.ScriptTarget.ES2023,
@@ -31,7 +33,7 @@ function targetOf(symbol: ts.Symbol): ts.Symbol {
   return checker.getSymbolAtLocation(member.parent.name) ?? target;
 }
 
-/** The declaration a symbol stands for: `infrastructure/execution-record.repository.ts#Tern`. */
+/** The declaration a symbol stands for: `infrastructure/execution-record.repository.ts#Turn`. */
 const keyOf = (symbol: ts.Symbol): string | undefined => {
   const file = targetOf(symbol).declarations?.[0]?.getSourceFile().fileName;
   return file?.startsWith(src) === true ? `${file.slice(src.length)}#${symbol.name}` : undefined;
@@ -45,7 +47,13 @@ const unitsSource = program.getSourceFile(units);
 const unitsModule =
   unitsSource === undefined ? undefined : checker.getSymbolAtLocation(unitsSource);
 const unitExports = unitsModule === undefined ? [] : checker.getExportsOfModule(unitsModule);
-const exported = new Set([...rootExports, ...unitExports].map((symbol) => keyOf(targetOf(symbol))));
+const storesSource = program.getSourceFile(stores);
+const storesModule =
+  storesSource === undefined ? undefined : checker.getSymbolAtLocation(storesSource);
+const storeExports = storesModule === undefined ? [] : checker.getExportsOfModule(storesModule);
+const exported = new Set(
+  [...rootExports, ...unitExports, ...storeExports].map((symbol) => keyOf(targetOf(symbol))),
+);
 
 /** A member an implementer writes or calls: not `private`, not `#private`. */
 const isOwnMember = (member: ts.ClassElement): boolean =>
@@ -110,19 +118,24 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
     );
   });
 
-  it.each(CONTRACTS)("AC4: %s names only types the root entry (or /units) exports", (name) => {
-    const missing = [...contractTypesOf(name).keys()].filter((key) => !exported.has(key));
+  it.each(CONTRACTS)(
+    "AC4: %s names only types the root entry (or /units, /stores) exports",
+    (name) => {
+      const missing = [...contractTypesOf(name).keys()].filter((key) => !exported.has(key));
 
-    expect(missing).toEqual([]);
-  });
+      expect(missing).toEqual([]);
+    },
+  );
 
   it("AC4: the record types of ExecutionRecordRepository are importable from the root entry", () => {
     const names = new Set(rootExports.map((symbol) => symbol.name));
 
     for (const name of [
-      "Tern",
-      "NewTern",
-      "TernOutcome",
+      "Turn",
+      "NewTurn",
+      "TurnOutcome",
+      "TurnStatus",
+      "TurnStep",
       "Summary",
       "NewSummary",
       "ConfigSnapshot",
@@ -130,6 +143,33 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
     ]) {
       expect(names.has(name), name).toBe(true);
     }
+  });
+
+  it("#890 AC4: Turn* are the names; Tern* stay one minor as @deprecated aliases of them", () => {
+    const typeOf = (name: string): ts.Type | undefined => {
+      const symbol = rootExports.find((exportedSymbol) => exportedSymbol.name === name);
+      return symbol === undefined ? undefined : checker.getDeclaredTypeOfSymbol(targetOf(symbol));
+    };
+    const aliases = ["Tern", "NewTern", "TernOutcome", "TernStatus", "TernStep"].map((name) => {
+      const symbol = rootExports.find((exportedSymbol) => exportedSymbol.name === name);
+      const tags = symbol === undefined ? [] : targetOf(symbol).getJsDocTags(checker);
+      const alias = typeOf(name);
+      const turn = typeOf(name.replace("Tern", "Turn"));
+      const isSame =
+        alias !== undefined &&
+        turn !== undefined &&
+        checker.isTypeAssignableTo(alias, turn) &&
+        checker.isTypeAssignableTo(turn, alias);
+      return [name, tags.some((tag) => tag.name === "deprecated"), isSame];
+    });
+
+    expect(aliases).toEqual([
+      ["Tern", true, true],
+      ["NewTern", true, true],
+      ["TernOutcome", true, true],
+      ["TernStatus", true, true],
+      ["TernStep", true, true],
+    ]);
   });
 });
 

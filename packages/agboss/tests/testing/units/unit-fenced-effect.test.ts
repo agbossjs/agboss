@@ -99,7 +99,7 @@ class OwnInMemoryFencedEffectRepository extends InMemoryFencedEffectRepository {
 }
 
 const writeOnce = (store: InMemoryFencedEffectRepository, executionContext: ExecutionContext) =>
-  store.saveResultIfAbsent(effectKeyOf(executionContext, "charge"), () => "done");
+  store.runOnce(effectKeyOf(executionContext, "charge"), () => "done");
 
 @Action({
   name: "unleased-charge-action",

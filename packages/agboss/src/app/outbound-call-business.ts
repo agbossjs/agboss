@@ -1,7 +1,7 @@
 import { issuedKey } from "../infrastructure/issued-keys.js";
 import {
   fingerprintsOf,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   isKeyFingerprint,
 } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
@@ -50,7 +50,7 @@ export const callKeyOf = (key: EffectKey): string =>
 
 /**
  * Checks a found intent (#505, #508): under a business key another fingerprint is
- * `IdempotencyKeyConflictError`; for any key, a pending attempt whose owner lives is
+ * `BusinessKeyConflictError`; for any key, a pending attempt whose owner lives is
  * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
  * when this instance is sending under it now, whatever the key; under a business key also while
  * the lease that wrote it is live on another instance (released only once its attempts settled,
@@ -66,9 +66,9 @@ export async function checkedCall<TRequest, TResult>(
   const { key, options } = run;
   // #825: the current idempotency key's fingerprint, or the previous one's during a rotation
   if (key.businessKey !== undefined && !isKeyFingerprint(key, found.fingerprint))
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
+    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
   if (found.status !== OutboundCallStatus.Pending) return undefined;
-  const inFlight = new OutboundCallInFlightError({ ...options, name: key.name });
+  const inFlight = new OutboundCallInFlightError({ ...options, call: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
   if (key.businessKey === undefined) return undefined;
   // the caller holds this lease's current token: an older one of it is ended whatever its token

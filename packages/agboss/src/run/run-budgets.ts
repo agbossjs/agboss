@@ -232,7 +232,7 @@ export async function continuedExecutionBudgets<TName extends string>(
   return { meter, records: kept };
 }
 
-/** Writes spend to the budgets' counters as it happens; remembers it for the Tern. */
+/** Writes spend to the budgets' counters as it happens; remembers it for the Turn. */
 export function recorder(
   meter: BudgetMeter,
   spent: UsageRecord[],

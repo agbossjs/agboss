@@ -30,10 +30,7 @@ const writeAt = <TTransaction>(
       const lease = await leaseOf(first, "execution-1", seconds(30));
       await clock.advance(EXPIRY_EDGE_OFFSET[edge]);
 
-      const outcome = first.effects.saveResultIfAbsent(
-        keyOf(lease),
-        writing(first.rows, "r1", count),
-      );
+      const outcome = first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count));
 
       if (isRun) {
         expect(await outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
@@ -46,10 +43,7 @@ const writeAt = <TTransaction>(
       expect(count.runs).toBe(0);
       expect(await second.rows.committed()).toEqual([]);
       const next = await leaseOf(second, "execution-1", seconds(30));
-      const ran = await second.effects.saveResultIfAbsent(
-        keyOf(next),
-        writing(second.rows, "r2", count),
-      );
+      const ran = await second.effects.runOnce(keyOf(next), writing(second.rows, "r2", count));
       expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: 2 });
     },
   };
@@ -74,13 +68,10 @@ const replayAt = <TTransaction>(
       const count: WriteCount = { runs: 0 };
       const lease = await leaseOf(first, "execution-1", seconds(30));
       await clock.advance(FIRST_WRITE_AT);
-      await first.effects.saveResultIfAbsent(keyOf(lease), writing(first.rows, "r1", count));
+      await first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count));
       await clock.advance(seconds((EXPIRY_EDGE_OFFSET[edge] - FIRST_WRITE_AT) / 1000));
 
-      const again = first.effects.saveResultIfAbsent(
-        keyOf(lease),
-        writing(first.rows, "r2", count),
-      );
+      const again = first.effects.runOnce(keyOf(lease), writing(first.rows, "r2", count));
 
       if (isReplayed)
         expect(await again).toMatchObject({

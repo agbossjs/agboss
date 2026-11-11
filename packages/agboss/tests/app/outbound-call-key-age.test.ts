@@ -129,7 +129,8 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     const { outcome, gateway, frame, key } = await resendAt((RETENTION - MARGIN) as Milliseconds);
 
     expect(outcome).toBeInstanceOf(OutboundCallUnreconciledError);
-    expect((outcome as OutboundCallUnreconciledError).reason).toMatch(
+    expect((outcome as OutboundCallUnreconciledError).reason).toBe("key-retention.passed");
+    expect((outcome as OutboundCallUnreconciledError).detail).toMatch(
       /notSent\(\), but the key was first sent 86280000 ms ago; gateway keeps keys for 86400000 ms \(keyRetention\), and a resend may take 120000 ms to arrive \(attemptTimeout\)/u,
     );
     expect(gateway.payments).toHaveLength(1);
@@ -193,7 +194,10 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
 
     const outcome = await rejectionOf(frame.send(key, gatewayCharge(gateway, { reconcile })));
 
-    expect(outcome).toMatchObject({ reason: "the key may have expired" });
+    expect(outcome).toMatchObject({
+      reason: "reconcile.unknown",
+      detail: "the key may have expired",
+    });
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -277,7 +281,8 @@ describe("#658: an intent whose times were not recorded", () => {
       [undefined, undefined],
       [undefined, undefined],
     ]);
-    expect((refused as OutboundCallUnreconciledError).reason).toMatch(
+    expect((refused as OutboundCallUnreconciledError).reason).toBe("key-retention.passed");
+    expect((refused as OutboundCallUnreconciledError).detail).toMatch(
       /when the key was first sent is not recorded/u,
     );
     expect(sent.status).toBe(OutboundCallSendStatus.Sent);

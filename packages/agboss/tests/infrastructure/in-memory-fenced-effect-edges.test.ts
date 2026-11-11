@@ -88,8 +88,8 @@ describe("#533: one scope's transactions, in turn", () => {
     const [gate, started] = [closedGate(), [] as string[]];
 
     const calls = [
-      effects.saveResultIfAbsent(keyOf(lease, "charge"), startedAt(started, "charge", gate.passed)),
-      effects.saveResultIfAbsent(keyOf(lease, "notify"), startedAt(started, "notify")),
+      effects.runOnce(keyOf(lease, "charge"), startedAt(started, "charge", gate.passed)),
+      effects.runOnce(keyOf(lease, "notify"), startedAt(started, "notify")),
     ];
     await settled();
     const startedWhileWaiting = [...started];
@@ -104,19 +104,13 @@ describe("#533: one scope's transactions, in turn", () => {
     const { leases, effects } = storesOn();
     const lease = await held(leases);
     const [first, second, started] = [closedGate(), closedGate(), [] as string[]];
-    const one = effects.saveResultIfAbsent(
-      keyOf(lease, "a"),
-      startedAt(started, "a", first.passed),
-    );
-    const two = effects.saveResultIfAbsent(
-      keyOf(lease, "b"),
-      startedAt(started, "b", second.passed),
-    );
+    const one = effects.runOnce(keyOf(lease, "a"), startedAt(started, "a", first.passed));
+    const two = effects.runOnce(keyOf(lease, "b"), startedAt(started, "b", second.passed));
     first.open();
     await one;
     await settled();
 
-    const three = effects.saveResultIfAbsent(keyOf(lease, "c"), startedAt(started, "c"));
+    const three = effects.runOnce(keyOf(lease, "c"), startedAt(started, "c"));
     await settled();
     const startedBeforeTheSecondEnded = [...started];
     second.open();
@@ -130,7 +124,7 @@ describe("#533: one scope's transactions, in turn", () => {
     const { database, leases, effects } = storesOn();
     const lease = await held(leases);
 
-    await effects.saveResultIfAbsent(keyOf(lease), () => ({ receipt: "r" }));
+    await effects.runOnce(keyOf(lease), () => ({ receipt: "r" }));
     await settled();
 
     expect(database.fencedEffectLocks.size).toBe(0);
@@ -146,7 +140,7 @@ describe("#533: the scope's mark and the sweep", () => {
     const { database, leases, effects } = storesOn();
     const lease = await held(leases);
 
-    await effects.saveResultIfAbsent(keyOf(lease), () => ({ receipt: "r" }));
+    await effects.runOnce(keyOf(lease), () => ({ receipt: "r" }));
 
     expect(database.fencedEffectMarks.get(keyOf(lease).scopeKey)?.highestToken).toBe(1);
   });
@@ -154,11 +148,11 @@ describe("#533: the scope's mark and the sweep", () => {
   it("a replay under a newer token raises the mark to it", async () => {
     const { database, leases, effects } = storesOn();
     const first = await held(leases);
-    await effects.saveResultIfAbsent(keyOf(first), () => ({ receipt: "r" }));
+    await effects.runOnce(keyOf(first), () => ({ receipt: "r" }));
     await leases.release(first);
     const second = await held(leases);
 
-    const replay = await effects.saveResultIfAbsent(keyOf(second), () => ({ receipt: "again" }));
+    const replay = await effects.runOnce(keyOf(second), () => ({ receipt: "again" }));
 
     expect(replay.status).toBe(FencedEffectStatus.Replayed);
     expect(database.fencedEffectMarks.get(keyOf(second).scopeKey)?.highestToken).toBe(2);
@@ -166,7 +160,7 @@ describe("#533: the scope's mark and the sweep", () => {
 
   it("a result and a mark stored exactly at the cutoff are kept", async () => {
     const { clock, database, leases, effects } = storesOn();
-    await effects.saveResultIfAbsent(keyOf(await held(leases)), () => ({ receipt: "r" }));
+    await effects.runOnce(keyOf(await held(leases)), () => ({ receipt: "r" }));
 
     await effects.deleteByStoredAtBefore(clock.now());
 
@@ -176,9 +170,9 @@ describe("#533: the scope's mark and the sweep", () => {
   it("a step's replay names no origin: the outcome has no replayedFrom at all", async () => {
     const { leases, effects } = storesOn();
     const key = keyOf(await held(leases));
-    await effects.saveResultIfAbsent(key, () => ({ receipt: "r" }));
+    await effects.runOnce(key, () => ({ receipt: "r" }));
 
-    const replay = await effects.saveResultIfAbsent(key, () => ({ receipt: "again" }));
+    const replay = await effects.runOnce(key, () => ({ receipt: "again" }));
 
     expect(replay).toStrictEqual({
       status: FencedEffectStatus.Replayed,
@@ -196,7 +190,7 @@ describe("#533: the base class's entry checks", () => {
       businessKey: "a\u0001b",
     });
 
-    await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toBeInstanceOf(
+    await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
       InvalidFencedEffectNameError,
     );
   });
@@ -208,16 +202,14 @@ describe("#533: the base class's entry checks", () => {
       businessKey: "a\u0001b",
     });
 
-    await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toBeInstanceOf(
-      InvalidBusinessKeyError,
-    );
+    await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(InvalidBusinessKeyError);
   });
 
   it("a key whose scope does not match its parts is an InvalidFencedEffectKeyError", async () => {
     const { leases, effects } = storesOn();
     const key = effectKeyForTesting(keyOf(await held(leases)), { scopeKey: "other:scope" });
 
-    await expect(effects.saveResultIfAbsent(key, () => ({}))).rejects.toMatchObject({
+    await expect(effects.runOnce(key, () => ({}))).rejects.toMatchObject({
       name: "InvalidFencedEffectKeyError",
       message: expect.stringContaining("not a fenced effect key") as unknown,
     });
@@ -232,8 +224,8 @@ describe("#533: the base class's entry checks", () => {
     const stale = effectKeyForTesting(keyOf(lease, "charge"), { token: 12 });
 
     const [refused, ran] = await Promise.allSettled([
-      effects.saveResultIfAbsent(stale, () => ({ receipt: "stale" })),
-      effects.saveResultIfAbsent(keyOf(lease, "charge1"), () => ({ receipt: "ran" })),
+      effects.runOnce(stale, () => ({ receipt: "stale" })),
+      effects.runOnce(keyOf(lease, "charge1"), () => ({ receipt: "ran" })),
     ]);
 
     expect(refused).toMatchObject({ status: "rejected", reason: expect.any(ExecutionFencedError) });
@@ -245,7 +237,7 @@ describe("#533: the base class's entry checks", () => {
     const size = Buffer.byteLength(JSON.stringify(result), "utf8") as Bytes;
     const { leases, effects } = storesOn(new FencedEffectSettings({ maxResultSize: size }));
 
-    const outcome = await effects.saveResultIfAbsent(keyOf(await held(leases)), () => result);
+    const outcome = await effects.runOnce(keyOf(await held(leases)), () => result);
 
     expect(outcome.status).toBe(FencedEffectStatus.Ran);
   });

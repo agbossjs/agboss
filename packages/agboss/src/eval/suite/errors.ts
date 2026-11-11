@@ -15,7 +15,7 @@ export interface EvalCaseIssue {
  * turn's start input or finish output — every issue at once, before anything runs.
  */
 export class EvalCaseInvalidError extends AGBossError {
-  static override readonly code: string = "eval.case-invalid";
+  static override readonly code = "eval.case-invalid" as const;
   override name = "EvalCaseInvalidError";
 
   constructor(

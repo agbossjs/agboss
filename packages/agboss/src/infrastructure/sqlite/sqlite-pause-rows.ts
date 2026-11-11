@@ -252,7 +252,7 @@ export class SqlitePauseRows {
       .run(PauseStatus.Taken, tenantId, pauseId);
   }
 
-  deleteResolvedBefore(cutoff: Date): void {
+  deleteByResolvedAtBefore(cutoff: Date): void {
     this.database
       .prepare(
         "DELETE FROM pauses WHERE status IN (?, ?) AND resolved_at IS NOT NULL AND resolved_at < ?",

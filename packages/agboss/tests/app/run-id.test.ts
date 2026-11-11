@@ -25,7 +25,7 @@ const idsSeen = (): string[] => [
 ];
 
 describe("#238: one run id per run", () => {
-  test("AC1: observer events (the action's too), a tool's executionContext.executionId, the Tern and the result carry the same id", async ({
+  test("AC1: observer events (the action's too), a tool's executionContext.executionId, the Turn and the result carry the same id", async ({
     app,
     mockLlm,
   }) => {
@@ -88,8 +88,8 @@ describe("#238: one run id per run", () => {
   });
 });
 
-describe("#238: the Tern names the run that wrote it", () => {
-  it("the Tern of a run carries the run's id, the one its result has", async () => {
+describe("#238: the Turn names the run that wrote it", () => {
+  it("the Turn of a run carries the run's id, the one its result has", async () => {
     const deps = await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["42"] });
 
     const result = await runText("Answer", deps, { executionId: "run-given" });

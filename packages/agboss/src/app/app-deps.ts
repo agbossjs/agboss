@@ -46,6 +46,7 @@ import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js"
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
+import { lifecycleOf } from "./workflow-lifecycle.js";
 import {
   contextsOutsideExecution,
   type RuntimeContexts,
@@ -207,18 +208,6 @@ const budgetsOf = (
 
 const nameOfTool = (tool: AnyTool): string => tool.name;
 
-/** Collects the container's instances for their lifecycle hooks, keeping any hook already given. */
-function lifecycleOf(container: ContainerOptions | undefined, created: unknown[] = []) {
-  const options: ContainerOptions = {
-    ...container,
-    onCreate: (instance) => {
-      created.push(instance);
-      container?.onCreate?.(instance);
-    },
-  };
-  return { created, options };
-}
-
 /** A workflow on its own starts its components itself: a failing hook releases MCP and tracing. */
 async function startOwnComponents(
   created: unknown[],
@@ -247,7 +236,7 @@ export async function createWorkflowDeps(
   const contexts =
     parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
   const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
-  const lifecycle = lifecycleOf(options.container, parts.created);
+  const lifecycle = lifecycleOf(options.container, parts.infrastructure, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   await startModels({ resolve: bundle.resolve(services), created: lifecycle.created }); // #385
   const tools: readonly AnyTool[] = resolveTools(bundle, services);

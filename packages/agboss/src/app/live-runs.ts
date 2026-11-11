@@ -1,6 +1,6 @@
 import { ExecutionCancelledError } from "../core/errors.js";
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
-import type { TernOutcome } from "../terns/index.js";
+import type { TurnOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
@@ -175,8 +175,8 @@ export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
 /** The reason a cancelled execution's record gives (#807: what reads it back as cancelled). */
 export const CANCELLED_STOP_REASON = "the run was cancelled";
 
-/** The Tern outcome of a cancelled execution: the path it took and what it cost. */
-export const cancelledRecordOutcome = (route: readonly string[], costUsd: number): TernOutcome => ({
+/** The Turn outcome of a cancelled execution: the path it took and what it cost. */
+export const cancelledRecordOutcome = (route: readonly string[], costUsd: number): TurnOutcome => ({
   replyWith: "",
   status: "failed",
   stopReason: CANCELLED_STOP_REASON,
@@ -185,6 +185,6 @@ export const cancelledRecordOutcome = (route: readonly string[], costUsd: number
   costUsd,
 });
 
-/** The Tern outcome of a paused run that was cancelled instead of resumed. */
-export const cancelledOutcome = (run: AgentExecutionOutput): TernOutcome =>
+/** The Turn outcome of a paused run that was cancelled instead of resumed. */
+export const cancelledOutcome = (run: AgentExecutionOutput): TurnOutcome =>
   cancelledRecordOutcome(run.path, run.cost.totalUsd);

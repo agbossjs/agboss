@@ -23,7 +23,7 @@ import {
   SqliteExecutionLeaseRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
-  FencedEffectAsyncWorkError,
+  SyncWorkRequiredError,
   SqliteFencedEffectRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
@@ -178,7 +178,7 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
     stores.connection.database.exec("DELETE FROM execution_leases");
     const again = await held(stores.leases);
 
-    const refused = stores.effects.saveResultIfAbsent(keyOf(again, "other"), () => "r1");
+    const refused = stores.effects.runOnce(keyOf(again, "other"), () => "r1");
 
     await expect(refused).rejects.toBeInstanceOf(ExecutionFencedError);
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
@@ -210,8 +210,8 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
     const stores = storesOn();
     const key = keyOf(await held(stores.leases));
 
-    const ran = await stores.effects.saveResultIfAbsent(key, () => ({ then: "later" }));
-    const replayed = await stores.effects.saveResultIfAbsent(key, () => ({ then: "never" }));
+    const ran = await stores.effects.runOnce(key, () => ({ then: "later" }));
+    const replayed = await stores.effects.runOnce(key, () => ({ then: "never" }));
 
     expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, result: { then: "later" } });
     expect(replayed).toMatchObject({
@@ -223,22 +223,22 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
   it("the same step's replay names no other step: no replayedFrom at all", async () => {
     const stores = storesOn();
     const key = keyOf(await held(stores.leases));
-    await stores.effects.saveResultIfAbsent(key, () => "r1");
+    await stores.effects.runOnce(key, () => "r1");
 
-    const replayed = await stores.effects.saveResultIfAbsent(key, () => "r2");
+    const replayed = await stores.effects.runOnce(key, () => "r2");
 
     expect(replayed.status).toBe(FencedEffectStatus.Replayed);
     expect(Object.keys(replayed)).not.toContain("replayedFrom");
   });
 
-  it("FencedEffectAsyncWorkError is named so", async () => {
+  it("SyncWorkRequiredError is named so", async () => {
     const stores = storesOn();
     const key = keyOf(await held(stores.leases));
 
-    const call = stores.effects.saveResultIfAbsent(key, () => Promise.resolve("r1"));
+    const call = stores.effects.runOnce(key, () => Promise.resolve("r1"));
 
-    await expect(call).rejects.toBeInstanceOf(FencedEffectAsyncWorkError);
-    await expect(call).rejects.toMatchObject({ name: "FencedEffectAsyncWorkError" });
+    await expect(call).rejects.toBeInstanceOf(SyncWorkRequiredError);
+    await expect(call).rejects.toMatchObject({ name: "SyncWorkRequiredError" });
   });
 
   it("oneRowChanged: true for one row, an Error for any other count", () => {

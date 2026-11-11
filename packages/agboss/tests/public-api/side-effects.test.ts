@@ -88,9 +88,13 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * first use); 1,543 at #859: the A2A files' contract with its inline default, the `A2AFiles`
  * service, the file DTOs, options and errors, the storage tier's assembly rule and the client's file
  * parts, modules of their own (the service's work, the url fetch, the media checks and the client's
- * download load on first use); 1,544 with #889's audit log beside it.
+ * download load on first use); 1,544 with #889's audit log beside it; 1,546 at #890:
+ * `FencedEffects`, the fenced effect's app-facing service (a core service the container makes, so
+ * never loaded lazily; the store's module is at its line limit), and a workflow's container options
+ * (`app/workflow-lifecycle.ts`: a workflow on its own runs it on its infrastructure's store), modules
+ * of their own.
  */
-const MODULE_BUDGET = 1_544;
+const MODULE_BUDGET = 1_546;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

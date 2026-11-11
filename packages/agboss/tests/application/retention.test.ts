@@ -205,7 +205,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
     const removals: [string, { mock: { calls: unknown[][] } }, Milliseconds][] = [
       [
         "pauseRecords",
-        vi.spyOn(app.resolve(PausedExecutionRepository), "deleteResolvedBefore"),
+        vi.spyOn(app.resolve(PausedExecutionRepository), "deleteByResolvedAtBefore"),
         RETENTION.pauseRecords,
       ],
       [
@@ -235,7 +235,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       ],
       [
         "meshAnswers",
-        vi.spyOn(app.resolve(MeshRequestRepository), "deleteCreatedBefore"),
+        vi.spyOn(app.resolve(MeshRequestRepository), "deleteByCreatedAtBefore"),
         RETENTION.meshAnswers,
       ],
       [

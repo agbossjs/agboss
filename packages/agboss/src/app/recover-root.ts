@@ -4,7 +4,7 @@ import {
   type IncompatibleResumePolicy,
   type ResumeVersions,
 } from "../run/resume-guard.js";
-import type { Tern } from "../terns/index.js";
+import type { Turn } from "../terns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { withTreeOrigin } from "./tree-origin.js";
 import type { TreeMoves } from "./tree-moves.js";
@@ -13,7 +13,7 @@ import type { TreeMoves } from "./tree-moves.js";
  * Continues one `running` root of this workflow (#265 S30) when its lease is free; `signal` stops
  * it like a stop of the app. `IncompatibleResumeError` when this instance may not continue it.
  */
-export type RecoverRoot = (record: Tern, signal: AbortSignal) => Promise<void>;
+export type RecoverRoot = (record: Turn, signal: AbortSignal) => Promise<void>;
 
 /** What continuing a root needs from its workflow's app. */
 export interface RecoverRootParts {
@@ -62,7 +62,7 @@ export interface RecoveryProblem {
 }
 
 /** The problem of one record's recovery. */
-export const problemOf = (record: Tern, error: unknown): RecoveryProblem => {
+export const problemOf = (record: Turn, error: unknown): RecoveryProblem => {
   const ids = { executionId: record.runId ?? record.id, tenantId: record.tenantId };
   return error instanceof IncompatibleResumeError
     ? {

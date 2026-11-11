@@ -124,7 +124,7 @@ export class FaultChargeAction {
     const key = effectKeyOf(this.executionContext, "charge");
     const row = `charge:${this.executionContext.executionId}`;
     const receipt = { chargeId: `${row}@${String(key.token)}` };
-    const outcome = await this.fencedEffectRepository.saveResultIfAbsent(key, (transaction) => {
+    const outcome = await this.fencedEffectRepository.runOnce(key, (transaction) => {
       const inserted = this.faultBusinessRows.insert(transaction, row);
       return inserted === undefined ? receipt : inserted.then(() => receipt);
     });

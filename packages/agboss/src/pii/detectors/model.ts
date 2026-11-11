@@ -16,7 +16,7 @@ import type { ModelDetection, ModelFoundRange } from "../runtime-policy.js";
 
 /** The model did not answer what masking needs: the execution stops before the text is sent. */
 export class PiiDetectionFailedError extends PaidStepError {
-  static override readonly code: string = "pii.detection-failed";
+  static override readonly code = "pii.detection-failed" as const;
   override name = "PiiDetectionFailedError";
 }
 

@@ -228,7 +228,7 @@ describe("#633: the undo's events and its record", () => {
   });
 
   it("a fenced write of the undo: a hand-over, thrown as it is — never a failed undo", async () => {
-    const fenced = new ExecutionFencedError({
+    const fenced = ExecutionFencedError.of({
       scopeKey: scopeKeyOf("acme", "root-1"),
       token: 1,
       observedToken: 2,

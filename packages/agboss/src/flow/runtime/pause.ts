@@ -73,7 +73,7 @@ export interface PauseInterruptValue {
 
 /** A pause that was withdrawn before its answer (its branch cancelled, #267 AC10). */
 export class PauseWithdrawnError extends AGBossError {
-  static override readonly code: string = "pause.withdrawn";
+  static override readonly code = "pause.withdrawn" as const;
   override name = "PauseWithdrawnError";
 }
 

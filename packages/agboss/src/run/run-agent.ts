@@ -26,7 +26,7 @@ import { newPiiKey } from "../pii/tokens.js";
  * Public entry point: validates the input, opens or continues a thread, opens the execution's
  * budgets (each `maxSpend()` once; one exhausted → `BudgetExceededError` before any record or
  * call), runs the graph within its limits from the given start, records spend into the budgets as
- * it happens and writes a Tern for every outcome — finished, paused or failed.
+ * it happens and writes a Turn for every outcome — finished, paused or failed.
  */
 export function executeAgent<TName extends string>(
   input: unknown,
@@ -46,7 +46,7 @@ export function runOpenedAgent<TName extends string>(
   return runOnce(input, deps, options, opened);
 }
 
-/** What every Tern of the run has: its run, thread, start line, replay and versions. */
+/** What every Turn of the run has: its run, thread, start line, replay and versions. */
 const ternBaseOf = <TName extends string>(
   deps: AgentExecutionDeps<TName>,
   run: Pick<TernBase, "runId" | "threadId" | "tenantId" | "task">,

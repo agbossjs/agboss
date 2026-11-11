@@ -72,13 +72,21 @@ export function scopeOfKey(
 }
 
 /** What an external write that was refused knows: the scope it wrote for and the tokens. */
-export interface ExecutionFencedErrorOptions {
+export interface FencedWriteRefusal {
   /** `executionContext.fence.scopeKey` of the refused write. */
   readonly scopeKey: string;
   /** The token the refused write carried (`executionContext.fence.token`). */
   readonly token: number;
   /** The highest token the external system saw for the scope, when it says. */
   readonly observedToken?: number | undefined;
+}
+
+/** Every fact of a refused write (#890): its scope key and that key's parts, and the tokens. */
+export interface ExecutionFencedErrorOptions extends FencedWriteRefusal {
+  /** The scope's tenant (the scope key's first part). */
+  readonly tenantId: string;
+  /** The execution whose lease the write ran under (the scope key's second part). */
+  readonly leaseExecutionId: string;
 }
 
 class InvalidScopeKeyError extends TypeError {
@@ -92,10 +100,11 @@ class InvalidScopeKeyError extends TypeError {
  * that). A hand-over, like the
  * lease lost it extends: no `.onError`, no compensation, no failed record — the moving call rejects
  * with it, and the tree goes on where the lease is held. `fence.fencedError(observedToken)` builds it for
- * the current step; a repository that has only what it wrote builds it from the scope key.
+ * the current step; a repository that has only what it wrote builds it from the scope key
+ * (`ExecutionFencedError.of({ scopeKey, token, observedToken })`).
  */
 export class ExecutionFencedError extends ExecutionLeaseLostError {
-  static override readonly code: string = "execution.lease-lost.fenced";
+  static override readonly code = "execution.lease-lost.fenced" as const;
   override name = "ExecutionFencedError";
   readonly scopeKey: string;
   readonly tenantId: string;
@@ -104,19 +113,30 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
   readonly token: number;
   readonly observedToken: number | undefined;
 
-  constructor(options: ExecutionFencedErrorOptions) {
-    const scope = scopeOfKey(options.scopeKey);
+  /**
+   * The refusal of a write that knows only its scope key and tokens — a repository's (#890): the
+   * key read into its tenant and execution; one that is no scope key (`<tenant>:<execution>`, each
+   * URI-encoded) is a `TypeError` here, where the store builds it, never in the constructor.
+   */
+  static of(refusal: FencedWriteRefusal): ExecutionFencedError {
+    const scope = scopeOfKey(refusal.scopeKey);
     if (scope === undefined)
       throw new InvalidScopeKeyError(
-        `${JSON.stringify(options.scopeKey)} is not a scope key (executionContext.fence.scopeKey)`,
+        `${JSON.stringify(refusal.scopeKey)} is not a scope key (executionContext.fence.scopeKey)`,
       );
-    super(scope.leaseExecutionId);
-    this.scopeKey = options.scopeKey;
-    this.tenantId = scope.tenantId;
-    this.leaseExecutionId = scope.leaseExecutionId;
-    this.token = options.token;
-    this.observedToken = options.observedToken;
-    this.message = `a write of lease scope ${options.scopeKey} with token ${String(options.token)} was refused: ${fencedReasonOf(options)}`;
+    return new ExecutionFencedError({ ...refusal, ...scope });
+  }
+
+  /** Every fact given as is: it never throws — a store's `catch` builds it safely (#890). */
+  constructor(options: ExecutionFencedErrorOptions) {
+    const { scopeKey, tenantId, leaseExecutionId, token, observedToken } = options;
+    super(leaseExecutionId);
+    this.scopeKey = scopeKey;
+    this.tenantId = tenantId;
+    this.leaseExecutionId = leaseExecutionId;
+    this.token = token;
+    this.observedToken = observedToken;
+    this.message = `a write of lease scope ${scopeKey} with token ${String(token)} was refused: ${fencedReasonOf(options)}`;
   }
 }
 
@@ -125,7 +145,7 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
  * the lease; the same token or none seen is only a lease that is over — expired, released, or taken
  * by a take the refusing system did not see yet. Never a claim that another instance holds it.
  */
-function fencedReasonOf({ token, observedToken }: ExecutionFencedErrorOptions): string {
+function fencedReasonOf({ token, observedToken }: FencedWriteRefusal): string {
   if (observedToken !== undefined && observedToken > token)
     return `the external system saw token ${String(observedToken)} — a newer take of the lease: this instance stops, the holder of token ${String(observedToken)} continues the execution`;
   const seen =

@@ -102,7 +102,7 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  * `BEGIN IMMEDIATE` transaction on the instance's connection, so of two instances one writes and the
  * other replays. The work gets the connection's `DatabaseSync` and must be synchronous — the I/O of
  * a step goes before or after the call; a returned promise rolls back with
- * `FencedEffectAsyncWorkError`. Listed in `@Application({ providers })` with
+ * `SyncWorkRequiredError`. Listed in `@Application({ providers })` with
  * `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
@@ -169,7 +169,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     if (isThenable(result)) {
       // its rejection is the work's own: the effect already failed with why
       result.then(undefined, () => undefined);
-      throw new FencedEffectAsyncWorkError(key.name);
+      throw new SyncWorkRequiredError(key.name);
     }
     const text = this.storedResultOf(key, result);
     insertRowOf(database, key, now, text);
@@ -195,12 +195,12 @@ export function checkSqliteFence(database: DatabaseSync, key: EffectKey, now: nu
   const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
   if (!isHeld)
-    throw new ExecutionFencedError({ scopeKey, token, observedToken: lease?.lease_epoch });
+    throw ExecutionFencedError.of({ scopeKey, token, observedToken: lease?.lease_epoch });
   const mark = database
     .prepare("SELECT highest_token FROM fenced_effect_marks WHERE scope_key = ?")
     .get(scopeKey);
   const highest = mark === undefined ? 0 : MarkRow.parse(mark).highest_token;
-  if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
+  if (token < highest) throw ExecutionFencedError.of({ scopeKey, token, observedToken: highest });
 }
 
 /** The lease row of `(tenantId, leaseExecutionId)` on the file, if any. */
@@ -224,9 +224,9 @@ sqliteImplementation(SqliteFencedEffectRepository);
  * stored. Do the step's I/O before the call (its input) or after it (with its result), and write
  * the rows with the given `DatabaseSync` only.
  */
-export class FencedEffectAsyncWorkError extends AGBossError {
-  static override readonly code: string = "fenced-effect.async-work";
-  override name = "FencedEffectAsyncWorkError";
+export class SyncWorkRequiredError extends AGBossError {
+  static override readonly code = "fenced-effect.sync-work-required" as const;
+  override name = "SyncWorkRequiredError";
   readonly effect: string;
 
   constructor(effect: string) {

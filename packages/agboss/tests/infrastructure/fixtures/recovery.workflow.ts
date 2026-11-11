@@ -26,7 +26,7 @@ import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-databa
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import { createSqliteTernStore, type Tern } from "../../../src/terns/index.js";
+import { createSqliteTernStore, type Turn } from "../../../src/terns/index.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
@@ -264,7 +264,7 @@ export class StampedExecutionRecordRepository extends TernStoreRecordRepository 
     status: ExecutionRecordStatus,
     limit: number,
     after?: string,
-  ): Promise<Tern[]> {
+  ): Promise<Turn[]> {
     const page = await super.findByStatus(status, limit, after);
     const configHash = levers.stampedHash;
     return configHash === undefined ? page : page.map((record) => ({ ...record, configHash }));

@@ -59,9 +59,11 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
     frame.execution.lease?.assertHeld();
     const asked = { kind: PauseKind.Question, step: node.id, ask };
     const reply = await pauseStep(site, asked).catch((error: unknown) => {
-      const question = { question: node.id };
-      if (error instanceof ChannelSendError) throw new QuestionFailedError(question, error.cause);
-      if (error instanceof DtoValidationError) throw new QuestionFailedError(question, error);
+      const question = node.id;
+      if (error instanceof ChannelSendError)
+        throw new QuestionFailedError({ question, cause: error.cause });
+      if (error instanceof DtoValidationError)
+        throw new QuestionFailedError({ question, cause: error });
       throw error;
     });
     await reportNodeEvent((base) =>

@@ -23,18 +23,25 @@ export interface A2AFileRefusedErrorOptions {
 
 /** `A2AFiles.save` / `.fromUrl` refused a file (`a2a.file-refused`): nothing was kept. */
 export class A2AFileRefusedError extends AGBossError {
-  static override readonly code: string = "a2a.file-refused";
+  static override readonly code = "a2a.file-refused" as const;
   readonly refusal: A2AFileRefusal;
+  /** The media type it declared, when that is why (#890: each option is a field). */
+  readonly mediaType: string | undefined;
+  /** Its size, when that is why. */
+  readonly sizeBytes: number | undefined;
 
   constructor(options: A2AFileRefusedErrorOptions) {
-    super(`the file was refused: ${options.refusal}`, {
+    const { refusal, mediaType, sizeBytes } = options;
+    super(`the file was refused: ${refusal}`, {
       details: {
-        refusal: options.refusal,
-        ...(options.mediaType === undefined ? {} : { mediaType: options.mediaType }),
-        ...(options.sizeBytes === undefined ? {} : { sizeBytes: options.sizeBytes }),
+        refusal,
+        ...(mediaType === undefined ? {} : { mediaType }),
+        ...(sizeBytes === undefined ? {} : { sizeBytes }),
       },
     });
-    this.refusal = options.refusal;
+    this.refusal = refusal;
+    this.mediaType = mediaType;
+    this.sizeBytes = sizeBytes;
   }
 }
 
@@ -56,7 +63,7 @@ export enum A2AFileUnavailableReason {
 
 /** `A2AFiles.read` found no bytes it may give (`a2a.file-unavailable`). */
 export class A2AFileUnavailableError extends AGBossError {
-  static override readonly code: string = "a2a.file-unavailable";
+  static override readonly code = "a2a.file-unavailable" as const;
   readonly reason: A2AFileUnavailableReason;
 
   constructor(reason: A2AFileUnavailableReason) {

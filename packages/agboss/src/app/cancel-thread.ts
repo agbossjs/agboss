@@ -40,7 +40,7 @@ export async function cancelThread(
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
   const running = live.abort(thread);
-  // a running resume completes its own Tern when the abort stops it
+  // a running resume completes its own Turn when the abort stops it
   if (running) {
     await paused.drop(thread);
     return { cancelled: true };

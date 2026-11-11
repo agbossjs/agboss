@@ -80,7 +80,7 @@ describe("#533: a fenced effect's call, told to its lease", () => {
     const { effects, reports, held, recording } = effectsInFrame();
     const key = keyOf(await held("execution-1"));
 
-    await runInFrame(recording, () => effects.saveResultIfAbsent(key, () => ({ receipt: "r" })));
+    await runInFrame(recording, () => effects.runOnce(key, () => ({ receipt: "r" })));
 
     expect(reports.map((report) => report.outcome)).toEqual([FencedEffectEventOutcome.Ran]);
     expect(reports[0]?.writtenToken).toBe(1);
@@ -91,10 +91,10 @@ describe("#533: a fenced effect's call, told to its lease", () => {
     const { effects, reports, held, recording } = effectsInFrame();
     const made = businessKeyOf(keyOf(await held("execution-1")), "execution-1");
     const again = businessKeyOf(keyOf(await held("execution-2")), "execution-2");
-    await effects.saveResultIfAbsent(made, () => ({ receipt: "r" }));
+    await effects.runOnce(made, () => ({ receipt: "r" }));
 
     const replay = await runInFrame(recording, () =>
-      effects.saveResultIfAbsent(again, () => ({ receipt: "again" })),
+      effects.runOnce(again, () => ({ receipt: "again" })),
     );
 
     expect(replay.status).toBe(FencedEffectStatus.Replayed);
@@ -112,7 +112,7 @@ describe("#533: a fenced effect's call, told to its lease", () => {
     const failure = new Error("the business row is invalid");
 
     const call = runInFrame(recording, () =>
-      effects.saveResultIfAbsent(key, () => {
+      effects.runOnce(key, () => {
         throw failure;
       }),
     );
@@ -126,7 +126,7 @@ describe("#533: a fenced effect's call, told to its lease", () => {
     const key = keyOf(await held("execution-1"));
 
     const outcome = await runInFrame(unleased, () =>
-      effects.saveResultIfAbsent(key, () => ({ receipt: "r" })),
+      effects.runOnce(key, () => ({ receipt: "r" })),
     );
 
     expect(outcome.status).toBe(FencedEffectStatus.Ran);

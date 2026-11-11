@@ -41,8 +41,8 @@ export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTra
       run: async ({ first, second }) => {
         const key = keyOf(await leaseOf(first));
 
-        const ran = await first.effects.saveResultIfAbsent(key, writingNul(first.rows));
-        const replayed = await second.effects.saveResultIfAbsent(key, writingNul(second.rows));
+        const ran = await first.effects.runOnce(key, writingNul(first.rows));
+        const replayed = await second.effects.runOnce(key, writingNul(second.rows));
 
         expect(ran).toEqual({ status: FencedEffectStatus.Ran, result: RESULT, token: 1 });
         expect(replayed).toEqual({ status: FencedEffectStatus.Replayed, result: RESULT, token: 1 });

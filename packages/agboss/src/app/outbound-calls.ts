@@ -16,7 +16,10 @@ import type {
   OutboundCallSendOptions,
   OutboundCallOutcome,
   OutboundCallPayloadTooLargeErrorOptions,
+  OutboundCallResultNotStoredErrorOptions,
+  OutboundCallResultNotStoredReason,
   OutboundCallUnreconciledErrorOptions,
+  OutboundCallUnreconciledReason,
 } from "./outbound-call-types.js";
 
 export {
@@ -34,8 +37,11 @@ export type {
   OutboundCallSendOptions,
   OutboundCallOutcome,
   OutboundCallPayloadTooLargeErrorOptions,
+  OutboundCallResultNotStoredErrorOptions,
+  OutboundCallResultNotStoredReason,
   OutboundCallUnknownOptions,
   OutboundCallUnreconciledErrorOptions,
+  OutboundCallUnreconciledReason,
 } from "./outbound-call-types.js";
 
 /**
@@ -138,28 +144,31 @@ markBusinessKeyWriter(OutboundCalls);
  * `app.pendingOutboundCallsOf` for an operator. A `StepFailedError`: `.onError(…)` may take it.
  */
 export class OutboundCallUnreconciledError extends StepFailedError {
-  static override readonly code: string = "outbound-call.unreconciled";
+  static override readonly code = "outbound-call.unreconciled" as const;
   override name = "OutboundCallUnreconciledError";
   readonly call: string;
   readonly target: string;
   readonly operation: string;
   readonly idempotencyKey: string;
-  readonly reason: string;
+  readonly reason: OutboundCallUnreconciledReason;
+  /** What was said, masked: `unknown`'s own reason, the thrown error's message, the key's age. */
+  readonly detail: string;
 
-  constructor(options: OutboundCallUnreconciledErrorOptions, cause?: unknown) {
-    const { name, target, operation, idempotencyKey, reason } = options;
+  constructor(options: OutboundCallUnreconciledErrorOptions) {
+    const { call, target, operation, idempotencyKey, reason, detail, cause } = options;
     super(
-      `outbound call "${name}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled: ${reason} — nothing was sent; an operator decides (app.pendingOutboundCallsOf)`,
+      `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled (${reason}): ${detail} — nothing was sent; an operator decides (app.pendingOutboundCallsOf)`,
       [],
       cause,
-      stepCoordinatesOf(name, ComponentKind.Action),
-      { call: name, target, operation, reason },
+      stepCoordinatesOf(call, ComponentKind.Action),
+      { call, target, operation, reason, detail },
     );
-    this.call = name;
+    this.call = call;
     this.target = target;
     this.operation = operation;
     this.idempotencyKey = idempotencyKey;
     this.reason = reason;
+    this.detail = detail;
   }
 }
 
@@ -175,7 +184,7 @@ export enum OutboundCallPart {
  * its intent stays pending, so the next attempt reconciles it.
  */
 export class OutboundCallPayloadTooLargeError extends AGBossError {
-  static override readonly code: string = "outbound-call.payload-too-large";
+  static override readonly code = "outbound-call.payload-too-large" as const;
   override name = "OutboundCallPayloadTooLargeError";
   readonly call: string;
   readonly part: OutboundCallPart;
@@ -199,7 +208,7 @@ export class OutboundCallPayloadTooLargeError extends AGBossError {
  * Nothing was recorded or sent — the framework fails closed rather than store personal data raw.
  */
 export class OutboundCallUnmaskedError extends AGBossError {
-  static override readonly code: string = "outbound-call.unmasked";
+  static override readonly code = "outbound-call.unmasked" as const;
   override name = "OutboundCallUnmaskedError";
   readonly call: string;
 
@@ -222,22 +231,22 @@ export const REDACTED = "[redacted]";
  * left.
  */
 export class OutboundCallInFlightError extends StepFailedError {
-  static override readonly code: string = "outbound-call.in-flight";
+  static override readonly code = "outbound-call.in-flight" as const;
   override name = "OutboundCallInFlightError";
   readonly call: string;
   readonly target: string;
   readonly operation: string;
 
   constructor(options: OutboundCallInFlightErrorOptions) {
-    const { name, target, operation } = options;
+    const { call, target, operation } = options;
     super(
-      `outbound call "${name}" (${operation} on ${target}) is already in flight: another call holds its key and has not ended — nothing was sent`,
+      `outbound call "${call}" (${operation} on ${target}) is already in flight: another call holds its key and has not ended — nothing was sent`,
       [],
       undefined,
-      stepCoordinatesOf(name, ComponentKind.Action),
-      { call: name, target, operation },
+      stepCoordinatesOf(call, ComponentKind.Action),
+      { call, target, operation },
     );
-    this.call = name;
+    this.call = call;
     this.target = target;
     this.operation = operation;
   }
@@ -247,26 +256,26 @@ export class OutboundCallInFlightError extends StepFailedError {
  * A completed call whose result could not be stored (#508: above `maxPayloadSize`, refused by the
  * mask) was found again: the call happened — its intent is `Completed`, nothing is sent again — but
  * there is no result to replay. A `StepFailedError`: `.onError(…)` decides; the other system has
- * the result (`reason`: the code of what kept it from being stored).
+ * the result (`reason`: the code of what kept it from being stored, a closed set — #890).
  */
 export class OutboundCallResultNotStoredError extends StepFailedError {
-  static override readonly code: string = "outbound-call.result-not-stored";
+  static override readonly code = "outbound-call.result-not-stored" as const;
   override name = "OutboundCallResultNotStoredError";
   readonly call: string;
   readonly target: string;
   readonly operation: string;
-  readonly reason: string;
+  readonly reason: OutboundCallResultNotStoredReason;
 
-  constructor(options: OutboundCallInFlightErrorOptions, reason: string) {
-    const { name, target, operation } = options;
+  constructor(options: OutboundCallResultNotStoredErrorOptions) {
+    const { call, target, operation, reason } = options;
     super(
-      `outbound call "${name}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
+      `outbound call "${call}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
       [],
       undefined,
-      stepCoordinatesOf(name, ComponentKind.Action),
-      { call: name, target, operation, reason },
+      stepCoordinatesOf(call, ComponentKind.Action),
+      { call, target, operation, reason },
     );
-    this.call = name;
+    this.call = call;
     this.target = target;
     this.operation = operation;
     this.reason = reason;

@@ -62,17 +62,17 @@ describe("#825: the fingerprint's errors", () => {
       message:
         '"charge" is under a business key, whose fingerprint is keyed by the application\'s idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step',
     });
-    expect(new FingerprintNotJsonError("charge", { path: "$.at", reason: "a Date" })).toMatchObject(
-      {
-        name: "FingerprintNotJsonError",
-        code: "fenced-effect.fingerprint-not-json",
-        effect: "charge",
-        path: "$.at",
-        details: { effect: "charge", path: "$.at" },
-        message:
-          'the fingerprint of "charge" is not plain JSON at $.at: a Date — fingerprint: { …the plain fields of what the work does }, never a DTO instance, a Date or a function',
-      },
-    );
+    expect(
+      new FingerprintNotJsonError({ effect: "charge", path: "$.at", reason: "a Date" }),
+    ).toMatchObject({
+      name: "FingerprintNotJsonError",
+      code: "fenced-effect.fingerprint-not-json",
+      effect: "charge",
+      path: "$.at",
+      details: { effect: "charge", path: "$.at" },
+      message:
+        'the fingerprint of "charge" is not plain JSON at $.at: a Date — fingerprint: { …the plain fields of what the work does }, never a DTO instance, a Date or a function',
+    });
   });
 });
 

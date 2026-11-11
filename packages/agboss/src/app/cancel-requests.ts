@@ -2,7 +2,7 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
-import type { Tern } from "../terns/index.js";
+import type { Turn } from "../terns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
 import { CompensationFailedError } from "../flow/compensation.js";
@@ -164,7 +164,7 @@ export async function endIfCancelled(
 }
 
 /** A record's tree as its events name it. */
-const stateOf = (deps: AppDeps, record: Tern, runId: string): TreeState => ({
+const stateOf = (deps: AppDeps, record: Turn, runId: string): TreeState => ({
   runId,
   threadId: record.threadId,
   tenantId: record.tenantId,
@@ -175,7 +175,7 @@ const stateOf = (deps: AppDeps, record: Tern, runId: string): TreeState => ({
  * What became of a requested tree after the request: `true` when it counts as cancelled; one this
  * call ended whose undo failed rejects with `CompensationFailedError` (#340 S7 1).
  */
-async function settled(parts: CancelParts, record: Tern): Promise<boolean> {
+async function settled(parts: CancelParts, record: Turn): Promise<boolean> {
   if (record.runId === null) return false;
   const state = stateOf(parts.deps, record, record.runId);
   if (record.status === "running") return true;

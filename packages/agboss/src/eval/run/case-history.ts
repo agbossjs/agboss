@@ -3,7 +3,7 @@ import { nameOf } from "../../components/name-of.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import { finishLine, startLine } from "../../flow/runtime/history.js";
 import { executionVersions } from "../../run/versions.js";
-import type { NewTern } from "../../terns/index.js";
+import type { NewTurn } from "../../terns/index.js";
 import type { EvalPastTurn } from "../suite/cases.js";
 
 /**
@@ -20,7 +20,7 @@ export interface CaseThread {
   readonly threadId: string;
 }
 
-function ternOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTern {
+function ternOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn {
   const versions = executionVersions(deps);
   return {
     runId: null,

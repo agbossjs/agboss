@@ -7,7 +7,7 @@ import type { UsageRecord } from "../finops/usage.js";
  * the same rule rejects only that call.
  */
 export class PiiRefusedError extends PaidStepError {
-  static override readonly code: string = "pii.refused";
+  static override readonly code = "pii.refused" as const;
   override name = "PiiRefusedError";
   /** The kind that matched (`card-number`), or a project detector's label. */
   readonly kind: string;

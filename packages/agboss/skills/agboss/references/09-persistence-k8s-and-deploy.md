@@ -345,8 +345,9 @@ Autoscaling.
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
   judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
 - **The fenced effect (#500).** For rows in the store's own database, one call does the fencing and
-  the deduplication: `saveResultIfAbsent(effectKeyOf(executionContext, "charge"), (database) =>
-…)` on `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; the work is
+  the deduplication: inject `FencedEffects` (#890, never a store's class) and call
+  `runOnce(effectKeyOf(executionContext, "charge"), (database: DatabaseSync) => …)` — on the listed
+  `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; the work is
   synchronous) or the built-in in-memory store — the lease, the scope's mark and the step's key
   checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionFencedError`.
   No fencing or idempotency table of your own.
@@ -655,7 +656,10 @@ the core's SQLite record store keeps free text (#521; each contract suite has a 
 (`CostLedgerEntryInvalidError` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
 `costUsd` amount), refuses what `expiredEntriesOf(entries, prunedBefore, isHeld)` names, adds what
 `unrecordedEntriesOf(entries, isNew)` keeps (dates are `Date`, to the millisecond) and sums it with
-the core's `totalCost(entries)` (`Usd`; all root entry); `deleteByMadeAtBefore(cutoff)` prunes.
+the core's `totalCost(entries)` (`Usd`); `deleteByMadeAtBefore(cutoff)` prunes. A store imports
+what it is written with from `@agboss/core/stores` (#890): the contracts, every type they name, the
+rows at its boundary and the core's store helpers (`assertLedgerEntries`, `assertEffectName`,
+`replayedFromOf`, `remainingOf`, …) — an application's root entry has none of them.
 
 It proves that with the core's own contract suites (#481), published as
 `@agboss/core/testing/contracts` — one function per contract (`executionLeaseContract`,
@@ -746,7 +750,7 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op) and fence it
   with `executionContext.fence`: `fence.token` is the monotonic fencing token of the step's lease
   scope — the external system keeps the highest token per `fence.scopeKey` in the same transaction
-  as the key, refuses a lower one with `fence.fencedError(highest)` (or `new ExecutionFencedError({
+  as the key, refuses a lower one with `fence.fencedError(highest)` (or `ExecutionFencedError.of({
 scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
   hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
   write and `await fence.renewNow()` before a call that cannot check tokens (a webhook). Never key

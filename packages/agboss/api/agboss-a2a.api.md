@@ -110,7 +110,7 @@ export class A2ACallerRejectedError extends AGBossError {
     constructor(
     httpStatus: number,
     wireCode: string, reason: string);
-    static readonly code: string;
+    static readonly code: "a2a.caller-rejected";
     readonly httpStatus: number;
     name: string;
     readonly wireCode: string;
@@ -352,7 +352,7 @@ export interface A2AExposeOptions {
 export class A2AFileConflictError extends AGBossError {
     constructor(fileId: string);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "a2a.file-conflict";
     // (undocumented)
     readonly fileId: string;
 }
@@ -455,9 +455,11 @@ export enum A2AFileRefusal {
 export class A2AFileRefusedError extends AGBossError {
     constructor(options: A2AFileRefusedErrorOptions);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "a2a.file-refused";
+    readonly mediaType: string | undefined;
     // (undocumented)
     readonly refusal: A2AFileRefusal;
+    readonly sizeBytes: number | undefined;
 }
 
 // @public
@@ -502,7 +504,7 @@ export enum A2AFileSource {
 export class A2AFileUnavailableError extends AGBossError {
     constructor(reason: A2AFileUnavailableReason);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "a2a.file-unavailable";
     // (undocumented)
     readonly reason: A2AFileUnavailableReason;
 }
@@ -1146,8 +1148,8 @@ export class WorkflowFinishFilesDto {
 // src/a2a/files/a2a-file-errors.ts:21:3 - (ae-undocumented) Missing documentation for "sizeBytes".
 // src/a2a/files/a2a-file-errors.ts:26:3 - (ae-undocumented) Missing documentation for "code".
 // src/a2a/files/a2a-file-errors.ts:27:3 - (ae-undocumented) Missing documentation for "refusal".
-// src/a2a/files/a2a-file-errors.ts:59:3 - (ae-undocumented) Missing documentation for "code".
-// src/a2a/files/a2a-file-errors.ts:60:3 - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/files/a2a-file-errors.ts:66:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts:67:3 - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/files/a2a-file.dto.ts:18:3 - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/files/a2a-file.dto.ts:21:3 - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/files/a2a-file.dto.ts:24:3 - (ae-undocumented) Missing documentation for "fileId".

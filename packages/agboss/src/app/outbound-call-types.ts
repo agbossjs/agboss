@@ -4,7 +4,9 @@ import type { NotSentTrust } from "./outbound-call-contract.js";
 import type {
   OutboundCallSendStatus,
   OutboundCallPart,
+  OutboundCallPayloadTooLargeError,
   OutboundCallReconciliation,
+  OutboundCallUnmaskedError,
 } from "./outbound-calls.js";
 
 /**
@@ -138,13 +140,25 @@ export interface OutboundCallUnknownOptions {
   readonly reason: string;
 }
 
-/** What the store keeps an unreconciled call by, for its error. */
+/**
+ * Why a pending call could not be reconciled (#890: a closed set of codes): `reconcile` said
+ * `unknown({ reason })`, threw, or gave no verdict; or it said `notSent()` for a key past its
+ * `KeyReplay`'s `keyRetention` (#658) — a resend could be a new call.
+ */
+export type OutboundCallUnreconciledReason =
+  "reconcile.unknown" | "reconcile.threw" | "reconcile.no-verdict" | "key-retention.passed";
+
+/** What an unreconciled call knows: the call, its key's handle, why — never its request. */
 export interface OutboundCallUnreconciledErrorOptions {
-  readonly name: string;
+  readonly call: string;
   readonly target: string;
   readonly operation: string;
   readonly idempotencyKey: string;
-  readonly reason: string;
+  readonly reason: OutboundCallUnreconciledReason;
+  /** What was said, masked: `unknown`'s own reason, the thrown error's message, the key's age. */
+  readonly detail: string;
+  /** What `reconcile` threw, when it threw. */
+  readonly cause?: unknown;
 }
 
 /** What a payload too large to store knows: the call, its part, its size and the limit (bytes). */
@@ -157,7 +171,7 @@ export interface OutboundCallPayloadTooLargeErrorOptions {
 
 /** What a superseded attempt knows (#795): the call, its key's handle and both attempts. */
 export interface OutboundCallSupersededErrorOptions {
-  readonly name: string;
+  readonly call: string;
   readonly target: string;
   readonly operation: string;
   readonly idempotencyKey: string;
@@ -165,11 +179,28 @@ export interface OutboundCallSupersededErrorOptions {
   readonly attempt: number;
   /** The newer attempt that took the intent over; `undefined` when the intent could not be read. */
   readonly supersededBy: number | undefined;
+  /** What the late attempt itself answered when that was an error (a definite failure). */
+  readonly cause?: unknown;
 }
 
 /** What an in-flight call knows: the call, never its request or its business key. */
 export interface OutboundCallInFlightErrorOptions {
-  readonly name: string;
+  readonly call: string;
   readonly target: string;
   readonly operation: string;
+}
+
+/**
+ * Why a completed call's result was not stored (#890: a closed set of codes): above
+ * `maxPayloadSize`, refused for want of a mask, or any other failure to store it (its JSON, the
+ * mask itself) — the instance's log names that one's own code.
+ */
+export type OutboundCallResultNotStoredReason =
+  | typeof OutboundCallPayloadTooLargeError.code
+  | typeof OutboundCallUnmaskedError.code
+  | "outbound-call.result-unstorable";
+
+/** What a completed call without a stored result knows: the call, and why it was not stored. */
+export interface OutboundCallResultNotStoredErrorOptions extends OutboundCallInFlightErrorOptions {
+  readonly reason: OutboundCallResultNotStoredReason;
 }

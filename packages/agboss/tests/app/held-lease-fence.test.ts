@@ -218,7 +218,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       await clock.advance(seconds(31));
       const other = await executionLeasesOf(second, clock).hold(TREE);
 
-      const refusedNew = new ExecutionFencedError({
+      const refusedNew = ExecutionFencedError.of({
         scopeKey: other.scopeKey,
         token: 3,
         observedToken: 4,
@@ -227,7 +227,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       expect(lease.signal.aborted).toBe(false);
       expect(other.signal.aborted).toBe(false);
 
-      const refused = new ExecutionFencedError({
+      const refused = ExecutionFencedError.of({
         scopeKey: lease.scopeKey,
         token: 1,
         observedToken: 2,

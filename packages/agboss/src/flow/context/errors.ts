@@ -18,7 +18,7 @@ const stepLabelOf = (step: StepDescriptor): string =>
  * never `undefined` instead. Injecting the context is always allowed; only reading it fails.
  */
 export class ExecutionContextUnavailableError extends AGBossError {
-  static override readonly code: string = "context.unavailable";
+  static override readonly code = "context.unavailable" as const;
   override name = "ExecutionContextUnavailableError";
 
   /** A read outside any execution. */

@@ -21,6 +21,7 @@ import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
 import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
 import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
 import type { ToolClasses } from "./assemble-checks.js";
+import { FENCED_EFFECTS_OUTSIDE_APPLICATION, FencedEffects } from "../app/fenced-effects.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
@@ -99,6 +100,8 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     [SpendRecorder, liveSpendRecorder],
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
+  // #890: no application's container (`agboss check`, a workflow on its own) has no fenced-effect store
+  if (services.container === undefined) core.set(FencedEffects, FENCED_EFFECTS_OUTSIDE_APPLICATION);
   const container = createContainer(
     { modules: providerModulesOf(bundle), core },
     services.container,

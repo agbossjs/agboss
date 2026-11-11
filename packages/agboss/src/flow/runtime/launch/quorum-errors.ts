@@ -18,7 +18,7 @@ const describe = (cause: unknown): string =>
  * original error as its `cause`; the launch's other branches are cancelled.
  */
 export class ArbiterError extends StepFailedError {
-  static override readonly code: string = "step.arbiter";
+  static override readonly code = "step.arbiter" as const;
   override name = "ArbiterError";
   /** The arbiter's `name` (`valid-score-arbiter`). */
   readonly arbiter: string;
@@ -47,7 +47,7 @@ export interface QuorumShortfall {
  * launching step.
  */
 export class QuorumNotReachedError extends StepFailedError {
-  static override readonly code: string = "step.quorum";
+  static override readonly code = "step.quorum" as const;
   override name = "QuorumNotReachedError";
   /** The launch: `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
   readonly launch: string;

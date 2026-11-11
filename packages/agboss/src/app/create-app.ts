@@ -174,7 +174,7 @@ export async function buildApp(
         return { ...valid, contexts: values, isNew };
       });
       const { tenantId } = checked.contexts.tenant;
-      // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and
+      // one id for the whole run: its observer events, `executionContext.executionId`, its Turn and
       // its result — kept before anything of it is written, never another tree's (#591); a
       // transport's reserved id (#807: an A2A task's) is kept instead of a minted one
       const runId = await runIdOf(call, tenantId, deps.executionIds, byId.reservedIds);

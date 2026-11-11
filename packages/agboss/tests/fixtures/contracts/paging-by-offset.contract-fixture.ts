@@ -1,10 +1,7 @@
 // #825 acceptance: the paged listing's cases against stores that page the naive ways — by an offset
 // into the matching rows, and by the identity of the last row (gone once the row is removed).
-import {
-  InMemoryOutboundCallRepository,
-  type OutboundCallPage,
-  type OutboundCallStatusQuery,
-} from "../../../src/index.js";
+import { InMemoryOutboundCallRepository, type OutboundCallPage } from "../../../src/index.js";
+import { type OutboundCallStatusQuery } from "../../../src/stores/index.js";
 import { outboundCallContract } from "../../../src/testing/contracts/index.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";

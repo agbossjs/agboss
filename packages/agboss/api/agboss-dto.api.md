@@ -108,7 +108,7 @@ export interface DtoIssue {
 export class DtoValidationError extends AGBossError {
     constructor(dto: string, issues: readonly DtoIssue[]);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "dto.invalid";
     // (undocumented)
     readonly dto: string;
     // (undocumented)

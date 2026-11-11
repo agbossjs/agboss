@@ -15,7 +15,7 @@ import {
   FingerprintPolicy,
   FingerprintProblem,
   FingerprintRequiredError,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InMemoryFencedEffectRepository,
   OutboundCalls,
   type EffectKey,
@@ -41,13 +41,13 @@ beforeEach(() => {
 });
 
 describe("#825 AC1: two effects under one business key with other work", () => {
-  test("a charge, then a refund of the same order: IdempotencyKeyConflictError — the refund never replays the charge", async ({
+  test("a charge, then a refund of the same order: BusinessKeyConflictError — the refund never replays the charge", async ({
     app,
   }) => {
     await execute(app, BOOKINGS.charge.start, ORDER);
 
     await expect(execute(app, BOOKINGS.refund.start, ORDER)).rejects.toFailWith(
-      IdempotencyKeyConflictError,
+      BusinessKeyConflictError,
       { effect: "book" },
     );
     expect(books.ran).toEqual(["charge"]);
@@ -126,7 +126,7 @@ describe("#825 AC1: the fingerprint decision at the store's entry", () => {
     const store = new UnreachedStore(new FencedEffectSettings());
     let ran = 0;
 
-    const refused = store.saveResultIfAbsent(effectKeyForTesting(fields), () => {
+    const refused = store.runOnce(effectKeyForTesting(fields), () => {
       ran += 1;
       return {};
     });
@@ -147,7 +147,7 @@ describe("#825 AC1: the fingerprint decision at the store's entry", () => {
 
     const fields: EffectKeyFields = made;
     // @ts-expect-error — a copy drops the key's mark: it does not compile (a JavaScript caller's runs)
-    const refused = store.saveResultIfAbsent({ ...fields, token: made.token + 1 }, () => {
+    const refused = store.runOnce({ ...fields, token: made.token + 1 }, () => {
       ran += 1;
       return {};
     });
@@ -159,7 +159,7 @@ describe("#825 AC1: the fingerprint decision at the store's entry", () => {
   it("no key at all from JavaScript is refused as an unissued one — a rejection, never a throw", async () => {
     const store = new UnreachedStore(new FencedEffectSettings());
     for (const none of [null, undefined, "a key", 5] as unknown[]) {
-      const refused = store.saveResultIfAbsent(none as EffectKey, () => ({}));
+      const refused = store.runOnce(none as EffectKey, () => ({}));
 
       await expect(refused).rejects.toThrow(/make it with effectKeyOf/u);
     }
@@ -192,7 +192,7 @@ describe("#825 AC1, AC2: the compile-time contract", () => {
     expectTypeOf(typed).returns.toEqualTypeOf<EffectKey>();
     expectTypeOf(none).returns.toEqualTypeOf<EffectKey>();
     // @ts-expect-error — a fenced effect needs a fingerprint or FingerprintPolicy.None (#825)
-    const refused = () => store.saveResultIfAbsent(unsaid(), () => ({}));
+    const refused = () => store.runOnce(unsaid(), () => ({}));
     const sent = () => calls.send(unsaid(), {} as never);
     const bothOptions = {
       businessKey: "k",

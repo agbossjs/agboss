@@ -209,7 +209,12 @@ export class KbWorkflow {}
 })
 export class ShopA2AExpose {}
 
-@A2AExpose({ name: "quote-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [QuoteWorkflowStart] })
+@A2AExpose({
+  name: "quote-a2a-expose",
+  description: "Served over A2A",
+  version: "1.0.0",
+  exports: [QuoteWorkflowStart],
+})
 export class QuoteA2AExpose {}
 
 @McpExpose({ name: "shop-mcp-expose", version: "1.0.0", exports: [RefundWorkflowStart] })

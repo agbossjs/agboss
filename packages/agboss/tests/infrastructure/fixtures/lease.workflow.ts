@@ -23,9 +23,9 @@ import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/p
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import {
   createSqliteTernStore,
-  type NewTern,
-  type Tern,
-  type TernOutcome,
+  type NewTurn,
+  type Turn,
+  type TurnOutcome,
 } from "../../../src/terns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
@@ -200,7 +200,7 @@ export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
   override async completeIfStatus(
     ternId: string,
     expected: ExecutionRecordStatus,
-    outcome: TernOutcome,
+    outcome: TurnOutcome,
   ): Promise<boolean> {
     await hooks.beforeGuardedWrite?.();
     const landed = await super.completeIfStatus(ternId, expected, outcome);
@@ -208,12 +208,12 @@ export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
     return landed;
   }
 
-  override append(tern: NewTern): Promise<Tern> {
+  override append(tern: NewTurn): Promise<Turn> {
     seen.appended.push(tern.status);
     return super.append(tern);
   }
 
-  override complete(ternId: string, outcome: TernOutcome): Promise<void> {
+  override complete(ternId: string, outcome: TurnOutcome): Promise<void> {
     seen.completed.push(outcome.status);
     return super.complete(ternId, outcome);
   }

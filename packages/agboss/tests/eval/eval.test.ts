@@ -72,7 +72,7 @@ describe("evaluate", () => {
     });
   });
 
-  it("leaves a Tern unscored when the judge fails", async () => {
+  it("leaves a Turn unscored when the judge fails", async () => {
     const deps = await answeredRuns(1);
     const evaluation: EvalDeps = {
       terns: deps.terns,

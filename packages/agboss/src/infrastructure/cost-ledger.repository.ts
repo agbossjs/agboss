@@ -109,7 +109,7 @@ export interface CostLedgerEntryInvalidErrorOptions {
  * save adds nothing: spend without an identity could be counted on every retry.
  */
 export class CostLedgerEntryInvalidError extends AGBossError {
-  static override readonly code: string = "cost-ledger.entry-invalid";
+  static override readonly code = "cost-ledger.entry-invalid" as const;
   override name = "CostLedgerEntryInvalidError";
   readonly index: number;
   readonly reason: string;
@@ -177,7 +177,7 @@ export function assertValidDate(date: unknown, what: string): asserts date is Da
  * a JS caller (or a cast) can pass; every store refuses it with this code (`assertLedgerCutoff`).
  */
 export class CostLedgerCutoffInvalidError extends AGBossError {
-  static override readonly code: string = "cost-ledger.cutoff-invalid";
+  static override readonly code = "cost-ledger.cutoff-invalid" as const;
   override name = "CostLedgerCutoffInvalidError";
   /** What is wrong with the cutoff: `the cutoff is no valid Date: <what it got>`. */
   readonly reason: string;
@@ -261,7 +261,7 @@ export interface CostLedgerEntryExpiredErrorOptions {
  * was made than `@Application({ retention: { costLedgerEntries } })` meets it — a pass that slept that long.
  */
 export class CostLedgerEntryExpiredError extends AGBossError {
-  static override readonly code: string = "cost-ledger.entry-expired";
+  static override readonly code = "cost-ledger.entry-expired" as const;
   override name = "CostLedgerEntryExpiredError";
   readonly ledgerIds: readonly string[];
   readonly prunedBefore: Date;

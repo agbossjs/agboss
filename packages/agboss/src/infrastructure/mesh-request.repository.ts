@@ -44,7 +44,7 @@ export abstract class MeshRequestRepository {
   abstract deleteByKey(key: MeshRequestKey): Promise<void>;
 
   /** Removes every request admitted before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteCreatedBefore(cutoff: Date): Promise<void>;
+  abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
 }
 
 /** The row key of a request (`\u0000` never occurs in a name or a key). */
@@ -87,7 +87,7 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve();
   }
 
-  deleteCreatedBefore(cutoff: Date): Promise<void> {
+  deleteByCreatedAtBefore(cutoff: Date): Promise<void> {
     for (const [row, record] of this.database.meshRequests)
       if (Date.parse(record.createdAt) < cutoff.getTime()) this.database.meshRequests.delete(row);
     return Promise.resolve();

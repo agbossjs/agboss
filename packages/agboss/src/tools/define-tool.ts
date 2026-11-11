@@ -32,7 +32,7 @@ export class InvalidToolNameError extends Error {
 
 /** A tool ran past its `timeout` (its agent's model reads it as a tool error): `timed out after 5 s`. */
 export class ToolTimeoutError extends AGBossError {
-  static override readonly code: string = "tool.timeout";
+  static override readonly code = "tool.timeout" as const;
   override name = "ToolTimeoutError";
   constructor(timeout: Milliseconds) {
     super(`timed out after ${String(timeout / 1000)} s`);

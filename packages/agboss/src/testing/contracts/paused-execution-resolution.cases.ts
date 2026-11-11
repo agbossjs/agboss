@@ -143,7 +143,7 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
     },
   },
   {
-    name: "deleteResolvedBefore removes Taken and Cancelled records resolved before the cutoff only",
+    name: "deleteByResolvedAtBefore removes Taken and Cancelled records resolved before the cutoff only",
     run: async ({ first, second }: Instances): Promise<void> => {
       const keys = ["a", "b", "c", "d", "e"].map((id) => `run-1:clerk-agent:1:call-${id}`);
       for (const [index, key] of keys.entries())
@@ -153,11 +153,28 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
       await first.resolveByTenantIdAndPauseId("default", "pause-2", APPROVED_BY_MANAGER, NINE);
       await first.decideByTenantIdAndPauseId("default", "pause-3", DECIDED_ANSWER, TEN);
 
-      await second.deleteResolvedBefore(new Date("2026-01-05T09:30:00.000Z"));
+      await second.deleteByResolvedAtBefore(new Date("2026-01-05T09:30:00.000Z"));
 
       const left = await first.findAllByTenantIdAndRootExecutionId("default", "run-1");
       // the resolved one not taken yet and the pending one stay, whatever their age
       expect(left.map((pause) => pause.pauseId)).toEqual(["pause-2", "pause-3", "pause-4"]);
+    },
+  },
+  {
+    name: "#890 AC5: a Resolved pause marked Taken keeps its answer and goes with deleteByResolvedAtBefore",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(pauseOf("pause-a"));
+      await first.resolveByTenantIdAndPauseId("default", "pause-a", APPROVED_BY_MANAGER, NINE);
+
+      await second.markTakenByTenantIdAndPauseId("default", "pause-a");
+
+      expect(await first.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject({
+        status: PauseStatus.Taken,
+        resolution: PauseResolution.Replied,
+        answer: APPROVED_BY_MANAGER,
+      });
+      await second.deleteByResolvedAtBefore(new Date("2026-01-05T09:30:00.000Z"));
+      expect(await first.findByTenantIdAndPauseId("default", "pause-a")).toBeUndefined();
     },
   },
 ];

@@ -94,7 +94,7 @@ describe("#500: the in-memory fenced-effect store", () => {
     const again = await held(leases);
 
     const refused = await effects
-      .saveResultIfAbsent(keyOf(again), receipt("r1"))
+      .runOnce(keyOf(again), receipt("r1"))
       .catch((error: unknown) => error);
 
     expect(refused).toBeInstanceOf(ExecutionFencedError);
@@ -109,7 +109,7 @@ describe("#500: the in-memory fenced-effect store", () => {
     const other = storesOn(database, clock);
     let isApplied = false;
 
-    const call = effects.saveResultIfAbsent(keyOf(lease), async (transaction) => {
+    const call = effects.runOnce(keyOf(lease), async (transaction) => {
       transaction.onCommit(() => {
         isApplied = true;
       });
@@ -126,9 +126,9 @@ describe("#500: the in-memory fenced-effect store", () => {
 
   it("the sweep's deletion removes a scope's mark stored before the cutoff, and keeps a later one", async () => {
     const { clock, database, leases, effects } = storesOn();
-    await effects.saveResultIfAbsent(keyOf(await held(leases)), receipt("a"));
+    await effects.runOnce(keyOf(await held(leases)), receipt("a"));
     await clock.advance(seconds(60));
-    await effects.saveResultIfAbsent(keyOf(await held(leases, "execution-2")), receipt("b"));
+    await effects.runOnce(keyOf(await held(leases, "execution-2")), receipt("b"));
 
     await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
 
@@ -140,8 +140,8 @@ describe("#500: the in-memory fenced-effect store", () => {
     const lease = await held(leases);
 
     const outcomes = await Promise.all([
-      effects.saveResultIfAbsent(keyOf(lease, "charge"), receipt("a")),
-      effects.saveResultIfAbsent(keyOf(lease, "notify"), receipt("b")),
+      effects.runOnce(keyOf(lease, "charge"), receipt("a")),
+      effects.runOnce(keyOf(lease, "notify"), receipt("b")),
     ]);
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([
@@ -159,7 +159,7 @@ describe("#500: the in-memory fenced-effect store", () => {
       new ElsewhereExecutionLeaseRepository(),
     );
 
-    const refused = effects.saveResultIfAbsent(keyOf(await held(leases)), receipt("a"));
+    const refused = effects.runOnce(keyOf(await held(leases)), receipt("a"));
 
     await expect(refused).rejects.toBeInstanceOf(FencedEffectStoreMismatchError);
     await expect(refused).rejects.toMatchObject({
@@ -175,7 +175,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
     const { leases, effects } = storesOn();
     let runs = 0;
 
-    const call = effects.saveResultIfAbsent(
+    const call = effects.runOnce(
       effectKeyForTesting(keyOf(await held(leases)), { name: "" }),
       () => {
         runs += 1;
@@ -197,7 +197,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       const { leases, effects } = storesOn();
       let runs = 0;
 
-      const call = effects.saveResultIfAbsent(
+      const call = effects.runOnce(
         effectKeyForTesting(keyOf(await held(leases)), { ...change }),
         () => {
           runs += 1;

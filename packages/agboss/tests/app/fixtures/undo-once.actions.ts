@@ -117,7 +117,7 @@ export class RefundBookingAction {
     await reached(UndoPoint.ActionBefore, key, instanceId);
     const effect = effectKeyOf(this.executionContext, "refund");
     // in memory the work runs inside the effect's one atomic step: run is taken effect
-    await this.fencedEffectRepository.saveResultIfAbsent(effect, () => {
+    await this.fencedEffectRepository.runOnce(effect, () => {
       undoOnceSeen.refunds.push({ bookingId, instanceId });
       return { refundId: `refund-${bookingId}` };
     });

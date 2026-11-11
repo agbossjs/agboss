@@ -73,7 +73,7 @@ export class RouterDecisionError extends RouterFailedError {
     // Warning: (ae-forgotten-export) The symbol "RouterVisit" needs to be exported by the entry point index.d.ts
     constructor(step: RouterVisit, reason: string, usage?: readonly UsageRecord[]);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "step.router.invalid-decision";
     // (undocumented)
     name: string;
     readonly reason: string;

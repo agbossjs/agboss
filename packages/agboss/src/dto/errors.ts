@@ -21,7 +21,7 @@ export interface DtoIssue {
 
 /** Data that does not fit a DTO: every issue with its field path and reason. */
 export class DtoValidationError extends AGBossError {
-  static override readonly code: string = "dto.invalid";
+  static override readonly code = "dto.invalid" as const;
   override name = "DtoValidationError";
   constructor(
     readonly dto: string,

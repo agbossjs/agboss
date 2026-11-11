@@ -1,13 +1,16 @@
 import type { MessageContent } from "@langchain/core/messages";
-/** Terminology: a Tern is one question → replyWith round (one run). A thread is a client's sequence of Terns. */
+/** Terminology: a Turn is one question → replyWith round (one run). A thread is a client's sequence of Turns. */
 
 /**
- * Where a Tern is: `running` while its execution moves (#265 S30: what recovery looks for), then
+ * Where a Turn is: `running` while its execution moves (#265 S30: what recovery looks for), then
  * how it ended — `answered`, `guarded`, `failed` — or `paused`; `written` — a past turn an eval case
  * wrote into its thread, never run (#396 S6): a turn of the thread, never a run to score or replay;
- * `queued` — a child waiting for an instance to claim it (#333 PR 2: its queue row; no Tern is).
+ * `queued` — a child waiting for an instance to claim it (#333 PR 2: its queue row; no Turn is).
  */
-export const TERN_STATUSES = [
+export type TurnStatus =
+  "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+/** Every {@link TurnStatus}, in that order (the SQLite store's check of a status it reads). */
+export const TURN_STATUSES = [
   "running",
   "answered",
   "guarded",
@@ -15,16 +18,15 @@ export const TERN_STATUSES = [
   "paused",
   "queued",
   "written",
-] as const;
-export type TernStatus = (typeof TERN_STATUSES)[number];
+] as const satisfies readonly TurnStatus[];
 
-/** One step inside a Tern: what one agent answered. */
-export interface TernStep {
+/** One step inside a Turn: what one agent answered. */
+export interface TurnStep {
   readonly agent: string;
   readonly content: MessageContent;
 }
 
-export interface Tern {
+export interface Turn {
   readonly id: string;
   /** The run that wrote it (`ExecutionOutput.runId`, `executionContext.executionId`); null for Terns before #238. */
   readonly runId: string | null;
@@ -35,21 +37,21 @@ export interface Tern {
   readonly createdAt: string;
   readonly task: string;
   readonly replyWith: string;
-  readonly status: TernStatus;
+  readonly status: TurnStatus;
   readonly stopReason: string;
   readonly route: readonly string[];
-  readonly steps: readonly TernStep[];
+  readonly steps: readonly TurnStep[];
   readonly costUsd: number;
   readonly promptVersion: string;
   readonly modelVersion: string;
-  /** Id of the Tern this one replays, if any. */
+  /** Id of the Turn this one replays, if any. */
   readonly replayOf: string | null;
   /** Declared config version and hash of the resolved config (null for runs before #78). */
   readonly configVersion: string | null;
   readonly configHash: string | null;
 }
 
-export type NewTern = Omit<Tern, "id" | "createdAt">;
+export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 /** A memory note of consecutive turns of a thread (compaction). Never re-compacted. */
 export interface Summary {
@@ -89,7 +91,7 @@ export interface ConfigStore {
   ) => Promise<{ readonly drift: boolean }>;
   readonly configSnapshots: (bundle: string, version: string) => Promise<ConfigSnapshot[]>;
   /** The latest `limit` original (not replayed) answered Terns of a workflow, oldest first. */
-  readonly recentOriginals: (bundle: string, limit: number) => Promise<Tern[]>;
+  readonly recentOriginals: (bundle: string, limit: number) => Promise<Turn[]>;
 }
 
 /**
@@ -98,14 +100,14 @@ export interface ConfigStore {
  */
 export interface MemoryStore {
   /** Turns of the thread after the compaction's last summary, oldest first. */
-  readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Tern[]>;
+  readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Turn[]>;
   /** Up to `limit` turns right before `ternId`, oldest first. */
   readonly before: (
     tenantId: string,
     threadId: string,
     ternId: string,
     limit: number,
-  ) => Promise<Tern[]>;
+  ) => Promise<Turn[]>;
   /** 1-based position of a turn in its thread. */
   readonly turnNumber: (tenantId: string, threadId: string, ternId: string) => Promise<number>;
   readonly addSummary: (summary: NewSummary) => Promise<Summary>;
@@ -139,9 +141,9 @@ export interface NewThread {
   readonly threadId?: string | undefined;
 }
 
-/** What changes when a paused Tern finishes. */
-export type TernOutcome = Pick<
-  Tern,
+/** What changes when a paused Turn finishes. */
+export type TurnOutcome = Pick<
+  Turn,
   "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd"
 >;
 
@@ -180,29 +182,29 @@ export interface TernStore extends MemoryStore, ConfigStore {
     tenantId: string,
     threadId: string,
   ) => Promise<{ readonly owner: string | undefined } | undefined>;
-  readonly append: (tern: NewTern) => Promise<Tern>;
-  /** Completes a paused Tern (same id) with its final outcome. */
-  readonly complete: (ternId: string, outcome: TernOutcome) => Promise<void>;
+  readonly append: (tern: NewTurn) => Promise<Turn>;
+  /** Completes a paused Turn (same id) with its final outcome. */
+  readonly complete: (ternId: string, outcome: TurnOutcome) => Promise<void>;
   /**
-   * Compare-and-set (#265 S66 h): writes the outcome only while the Tern's status is `expected`;
+   * Compare-and-set (#265 S66 h): writes the outcome only while the Turn's status is `expected`;
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
-  completeIfStatus(ternId: string, expected: TernStatus, outcome: TernOutcome): Promise<boolean>;
+  completeIfStatus(ternId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
   /** The last `limit` Terns of a thread (its tenant and id), oldest first. */
-  readonly lastTerns: (tenantId: string, threadId: string, limit: number) => Promise<Tern[]>;
-  readonly byIds: (ids: readonly string[]) => Promise<Tern[]>;
-  /** Up to `limit` Terns with `status`, oldest first, after the Tern `after` (a page of them). */
-  readonly byStatus: (status: TernStatus, limit: number, after?: string) => Promise<Tern[]>;
-  /** The latest Tern a run of the tenant wrote (#808); `undefined` when it wrote none. */
-  readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Tern | undefined>;
+  readonly lastTerns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
+  readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
+  /** Up to `limit` Terns with `status`, oldest first, after the Turn `after` (a page of them). */
+  readonly byStatus: (status: TurnStatus, limit: number, after?: string) => Promise<Turn[]>;
+  /** The latest Turn a run of the tenant wrote (#808); `undefined` when it wrote none. */
+  readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Turn | undefined>;
   /** Original (non-replay) Terns of a prompt version, oldest first; a run in flight (`running`) is no result. */
-  readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Tern[]>;
+  readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Turn[]>;
   /** Answered Terns without a score, oldest first. */
   readonly unscored: (
     bundle: string,
     promptVersion: string | undefined,
     limit: number,
-  ) => Promise<Tern[]>;
+  ) => Promise<Turn[]>;
   readonly saveScore: (ternId: string, judge: string, score: number) => Promise<void>;
   readonly meanScore: (ternIds: readonly string[]) => Promise<number | null>;
   readonly summary: (bundle: string) => Promise<VersionScore[]>;

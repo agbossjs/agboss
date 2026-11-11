@@ -19,8 +19,8 @@ import {
   effectKeyOf,
   type EffectKey,
   type OutboundCallKey,
-  type OutboundCallIntent,
 } from "../../src/index.js";
+import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { override, testAction } from "../../src/testing/index.js";
