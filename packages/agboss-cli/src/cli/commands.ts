@@ -7,8 +7,8 @@ import {
   DRY_RUN,
   ENV,
   flag,
+  INDEX_TENANT,
   PROFILE,
-  RAG_INDEX_OPTIONS,
   START,
   text,
   THREAD,
@@ -116,7 +116,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     summary: "build / update the application's knowledge bases",
     usage: "agboss rag index [--rag <name>] [--tenant <id>] [--env <name>] [--application <path>]",
     positionals: "index",
-    options: RAG_INDEX_OPTIONS,
+    options: [APPLICATION, text("rag", "<name>", "only this knowledge base"), INDEX_TENANT, ENV],
   },
   records: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
@@ -187,7 +187,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     ],
   },
   migrate: {
-    summary: "rewrite imports of the old entries (agboss/core, /graph, …) to the new ones",
+    summary: "rewrite imports of deprecated entries (@agboss/core/core, …) to @agboss/core's",
     usage: "agboss migrate imports [<path>…] [--dry-run]",
     positionals: "imports [<path>…]",
     options: [DRY_RUN],

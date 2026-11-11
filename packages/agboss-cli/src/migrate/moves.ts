@@ -9,7 +9,7 @@ export interface Move {
 
 /** What `agboss migrate imports` rewrites: whole entries that moved, and single names. */
 export interface ImportMoves {
-  /** A deprecated entry → the entry that replaced it: `"@agboss/core/core"` → `"agboss"`. */
+  /** A deprecated entry → the entry that replaced it: `"@agboss/core/core"` → `"@agboss/core"`. */
   readonly entries: Readonly<Record<string, string>>;
   /** Names that moved on their own or were renamed, by the entry they were imported from. */
   readonly names: Readonly<Record<string, Readonly<Record<string, Move>>>>;
@@ -20,7 +20,7 @@ const FrameworkPackage = z.object({
   deprecatedExports: z.record(z.string(), z.string()).default({}),
 });
 
-/** `"./core"` → `"@agboss/core/core"`, `"."` → `"agboss"`. */
+/** `"./core"` → `"@agboss/core/core"`, `"."` → `"@agboss/core"`. */
 const specifierOf = (name: string, subpath: string): string =>
   subpath === "." ? name : `${name}/${subpath.replace(/^\.\//, "")}`;
 

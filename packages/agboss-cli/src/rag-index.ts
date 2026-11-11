@@ -8,7 +8,8 @@ import {
 } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { didYouMean } from "./cli/did-you-mean.js";
-import { checkedTenantOption, usageError } from "./cli/errors.js";
+import { CliError, tenantOptionOf, usageError } from "./cli/errors.js";
+import { stopSignal } from "./cli/stop-signal.js";
 
 /** One knowledge base of the application: its name and its connector. */
 interface KnowledgeBase {
@@ -73,30 +74,58 @@ function tenantOf(given: string | undefined, application: TenantSource): string 
 const reportLine = (name: string, report: RagIndexReport): string =>
   `${name}: ${String(report.documents)} documents, ${String(report.chunks)} chunks, ${String(report.skipped)} unchanged · $${(report.costUsd ?? 0).toFixed(6)}`;
 
-/**
- * `agboss rag index [--rag <name>] [--tenant <id>]` — builds or updates every knowledge base of the
- * application for one tenant (#700: each connector indexes into that tenant only; #797: `--tenant`
- * required when the application declares a tenant context).
- */
-export const handle: CommandHandler = async (context) => {
-  if (context.positionals[0] !== "index" || context.positionals.length > 1)
-    throw usageError("rag", "usage.missing-argument", 'expected "agboss rag index …"');
-  const given = checkedTenantOption("rag", textOption(context.values, "tenant"));
-  const loaded = await loadCliApplication(context);
-  const assembled = await assembleApplication(context, loaded);
-  const tenantId = tenantOf(given, assembled);
-  const environment = await applicationEnvironment(context, assembled);
-  const bases = selected(context, knowledgeBasesOf(assembled.workflows, environment));
-  if (bases.length === 0) context.say(`No knowledge bases in "${assembled.name}".`);
+/** Ctrl+C (or SIGTERM) during an index: the connector stopped where it was, its index as it found it. */
+const interrupted = (name: string): CliError =>
+  new CliError(
+    "internal",
+    "rag.interrupted",
+    `interrupted while indexing ${name}: its index is left as it was before this run (the knowledge bases before it are built)`,
+  );
+
+/** Each knowledge base indexed in turn for the tenant, under `signal` (Ctrl+C aborts it, #891). */
+async function indexAll(
+  context: CommandContext,
+  bases: readonly KnowledgeBase[],
+  tenantId: string,
+  signal: AbortSignal,
+): Promise<readonly ({ readonly name: string; readonly tenantId: string } & RagIndexReport)[]> {
   const indexed = [];
   for (const { name, connector } of bases) {
     if (connector.index === undefined) {
       context.say(`${name}: no index to build (the connector has none)`);
       continue;
     }
-    const report = await connector.index({ tenantId, signal: new AbortController().signal });
+    if (signal.aborted) throw interrupted(name);
+    const report = await connector.index({ tenantId, signal }).catch((error: unknown) => {
+      throw signal.aborted ? interrupted(name) : error;
+    });
     indexed.push({ name, tenantId, ...report });
     context.say(reportLine(name, report));
   }
-  return { result: { tenantId, indexed } };
+  return indexed;
+}
+
+/**
+ * `agboss rag index [--rag <name>] [--tenant <id>]` — builds or updates every knowledge base of the
+ * application for one tenant (#700: each connector indexes into that tenant only; #797: `--tenant`
+ * required when the application declares a tenant context). Ctrl+C aborts the connector's signal
+ * (#891): exit 1, `rag.interrupted` — a connector keeps its index whole or as it was
+ * (`SqliteFtsConnector` writes a tenant's index in one transaction).
+ */
+export const handle: CommandHandler = async (context) => {
+  if (context.positionals[0] !== "index" || context.positionals.length > 1)
+    throw usageError("rag", "usage.missing-argument", 'expected "agboss rag index …"');
+  const given = tenantOptionOf("rag", textOption(context.values, "tenant"));
+  const loaded = await loadCliApplication(context);
+  const assembled = await assembleApplication(context, loaded);
+  const tenantId = tenantOf(given, assembled);
+  const environment = await applicationEnvironment(context, assembled);
+  const bases = selected(context, knowledgeBasesOf(assembled.workflows, environment));
+  if (bases.length === 0) context.say(`No knowledge bases in "${assembled.name}".`);
+  const stop = stopSignal();
+  try {
+    return { result: { tenantId, indexed: await indexAll(context, bases, tenantId, stop.signal) } };
+  } finally {
+    stop.release();
+  }
 };

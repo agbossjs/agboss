@@ -91,8 +91,10 @@ describe("#659: a question pause in the terminal", () => {
 
     const done = await untilDone(paused, app, ask);
 
-    expect(ask.mock.calls[0]?.[0]).toBe('limit-question asks {"item":"laptop"} — your answer: ');
-    expect(ask.mock.calls[1]?.[0]).toMatch(/limitUsd[\s\S]*your answer: $/);
+    expect(ask.mock.calls[0]?.[0]).toBe(
+      'limit-question asks {"item":"laptop"} — your answer (a line starting with { is the typed answer as JSON, anything else a reply): ',
+    );
+    expect(ask.mock.calls[1]?.[0]).toMatch(/limitUsd[\s\S]*your answer \(.*\): $/);
     expect(done).toFinishWith(LimitWorkflowFinish, { approved: true, limitUsd: 900 });
   });
 
@@ -106,6 +108,35 @@ describe("#659: a question pause in the terminal", () => {
       ).rejects.toMatchObject({
         name: "ReplyInterpreterMissingError",
       });
+    },
+  );
+});
+
+describe("#891: the answer mode is explicit", () => {
+  asking(
+    "#891: a line starting with { that is no JSON is asked again — never sent as a free-text reply",
+    async ({ app }) => {
+      const paused = await executeWithoutInputCheck(app, LimitWorkflowStart, { item: "laptop" });
+      const ask = vi
+        .fn<(question: string) => Promise<string | undefined>>()
+        .mockResolvedValueOnce('{ "approved": tru')
+        .mockResolvedValueOnce('{ "approved": true, "limitUsd": 900 }');
+
+      const done = await untilDone(paused, app, ask);
+
+      expect(ask.mock.calls[1]?.[0]).toMatch(/^not valid JSON \(.+\) — a line starting with \{/);
+      expect(done).toFinishWith(LimitWorkflowFinish, { approved: true, limitUsd: 900 });
+    },
+  );
+
+  asking(
+    "#891: JSON that does not start with { (a list, a number) is a free-text reply, not the typed answer",
+    async ({ app }) => {
+      const paused = await executeWithoutInputCheck(app, LimitWorkflowStart, { item: "desk" });
+
+      await expect(
+        untilDone(paused, app, () => Promise.resolve('["approved"]')),
+      ).rejects.toMatchObject({ name: "ReplyInterpreterMissingError" });
     },
   );
 });

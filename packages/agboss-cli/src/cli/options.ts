@@ -60,23 +60,13 @@ export const DRY_RUN: OptionSpec = {
   help: "show what would be written, write nothing",
 };
 
-/** `agboss rag index`'s options (#700: `--tenant`, whose knowledge bases to build). */
-export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
-  APPLICATION,
-  {
-    name: "rag",
-    type: "string",
-    value: "<name>",
-    help: "only this knowledge base (its full name)",
-  },
-  {
-    name: "tenant",
-    type: "string",
-    value: "<id>",
-    help: "the tenant whose knowledge bases to build — required when the application declares a tenant context (rag.tenant-required), else default",
-  },
-  ENV,
-];
+/** `agboss rag index --tenant <id>` (#700): whose knowledge bases to build (#797: required with a tenant context). */
+export const INDEX_TENANT: OptionSpec = {
+  name: "tenant",
+  type: "string",
+  value: "<id>",
+  help: 'the tenant whose knowledge bases to build — required when the application declares a tenant context (rag.tenant-required); without it: the tenant "default"',
+};
 
 /** A string option: `--<name> <value>`. */
 export const text = (

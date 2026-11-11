@@ -52,10 +52,15 @@ const APPLICATION_SCRIPTS: Readonly<Record<string, string>> = {
  * contract, dev, staging and test (tests run on it); and the service that reads it through
  * `ApplicationContext` — the project's tools use it — with its test.
  */
-function environmentFiles(): FileToWrite[] {
+function environmentFiles(project: Names): FileToWrite[] {
+  // the service's test runs on the application as testWith builds it (#891): its test environment
+  const variables = {
+    application: `${project.pascal}Application`,
+    applicationFrom: `../../${applicationPathOf(project).replace(/\.ts$/u, ".js")}`,
+  };
   const file = (path: string, template: string): FileToWrite => ({
     path,
-    content: render(`project/${template}.tmpl`, {}),
+    content: render(`project/${template}.tmpl`, variables),
   });
   return [
     file("src/environments/app.environment.ts", "app.environment.ts"),
@@ -111,7 +116,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
     { path: ".gitignore", content: render("project/gitignore.tmpl", {}) },
     { path: "README.md", content: render("project/README.md.tmpl", variables) },
     ...codingAgentFiles(project),
-    ...environmentFiles(),
+    ...environmentFiles(project),
     ...applicationFiles(project),
     ...planWorkflow(spec, {
       dir: `src/workflows/${project.kebab}`,

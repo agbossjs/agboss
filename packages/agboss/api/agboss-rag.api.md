@@ -185,7 +185,6 @@ export interface RerankResult {
 // @public
 export class SqliteFtsConnector implements RagConnector {
     constructor(options: SqliteFtsOptions);
-    // (undocumented)
     index(input: RagIndexOptions): Promise<RagIndexReport>;
     // (undocumented)
     retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval>;
@@ -210,8 +209,7 @@ export interface SqliteFtsOptions {
 // src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts:33:3 - (ae-undocumented) Missing documentation for "model".
 // src/rag/reranker.decorator.ts:34:3 - (ae-undocumented) Missing documentation for "deps".
-// src/rag/sqlite-fts.ts:106:9 - (ae-undocumented) Missing documentation for "index".
-// src/rag/sqlite-fts.ts:140:9 - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/sqlite-fts.ts:145:9 - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts:6:3 - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts:13:3 - (ae-undocumented) Missing documentation for "documents".
 // src/rag/types.ts:14:3 - (ae-undocumented) Missing documentation for "chunks".

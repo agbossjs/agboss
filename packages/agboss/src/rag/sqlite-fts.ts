@@ -70,6 +70,13 @@ interface StoredFile {
   readonly hash: string | undefined;
 }
 
+/** One document as read from the folder: its text and the hash it is indexed at. */
+interface ReadDocument {
+  readonly source: string;
+  readonly text: string;
+  readonly hash: string;
+}
+
 const hashOf = (text: string): string => createHash("sha256").update(text).digest("hex");
 
 const Hit = z.object({ source: z.string(), text: z.string(), rank: z.number() });
@@ -92,7 +99,8 @@ async function documentsIn(folder: string | undefined): Promise<readonly string[
  *
  * A tenant never indexed is indexed by its first retrieval on this instance (#818), once and whole
  * (one transaction): later retrievals only read, even when its folder has no documents. `agboss rag
- * index` (or `index()`) updates the index after the documents change.
+ * index` (or `index()`) updates the index after the documents change — whole, in one transaction
+ * too (#891): an interrupted run leaves the index it found.
  */
 export class SqliteFtsConnector implements RagConnector {
   private db: DatabaseSync | undefined;
@@ -103,38 +111,35 @@ export class SqliteFtsConnector implements RagConnector {
 
   constructor(private readonly options: SqliteFtsOptions) {}
 
+  /**
+   * The tenant's index brought up to its folder whole or not at all (#891): every document is read
+   * first, then every change — a changed document's chunks, a gone one's removal — is written in one
+   * transaction. An abort, an unreadable document or a failure midway leaves the index as it was.
+   */
   async index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
     checkedTenantId(tenantId);
     signal.throwIfAborted();
     const db = this.open();
-    const known = new Map(
-      db
-        .prepare("SELECT source, hash FROM files WHERE tenant_id = ?")
-        .all(tenantId)
-        .map((row) => {
-          const r = FileRow.parse(row);
-          return [r.source, r.hash] as const;
-        }),
-    );
-    const folder = this.folderOf(tenantId);
-    const files = await documentsIn(folder);
-    let skipped = 0;
-    for (const source of files) {
-      const text = await readFile(join(folder ?? "", source), "utf8");
-      signal.throwIfAborted();
-      const hash = hashOf(text);
-      if (known.get(source) === hash) {
-        skipped += 1;
-        continue;
-      }
-      this.replace(db, { tenantId, source, hash }, this.chunksOf(text));
-    }
-    for (const gone of [...known.keys()].filter((source) => !files.includes(source)))
-      this.replace(db, { tenantId, source: gone, hash: undefined }, []);
+    const known = this.knownFilesOf(tenantId);
+    const documents = await this.documentsOf(tenantId, signal);
+    const changed = documents.filter(({ hash, source }) => known.get(source) !== hash);
+    const sources = new Set(documents.map(({ source }) => source));
+    const gone = [...known.keys()].filter((source) => !sources.has(source));
+    signal.throwIfAborted();
+    inTransaction(db, () => {
+      for (const { source, hash, text } of changed)
+        this.write(db, { tenantId, source, hash }, this.chunksOf(text));
+      for (const source of gone) this.write(db, { tenantId, source, hash: undefined }, []);
+    });
     const chunks = Count.parse(
       db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE tenant_id = ?").get(tenantId),
     ).n;
-    return { documents: files.length, chunks, skipped, costUsd: 0 };
+    return {
+      documents: documents.length,
+      chunks,
+      skipped: documents.length - changed.length,
+      costUsd: 0,
+    };
   }
 
   async retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
@@ -165,20 +170,42 @@ export class SqliteFtsConnector implements RagConnector {
    */
   private async buildIfEmpty(tenantId: string, signal: AbortSignal): Promise<void> {
     if (this.fileCount(tenantId) > 0) return;
-    const folder = this.folderOf(tenantId);
-    const documents: { readonly source: string; readonly text: string }[] = [];
-    for (const source of await documentsIn(folder)) {
-      const text = await readFile(join(folder ?? "", source), "utf8");
-      signal.throwIfAborted();
-      documents.push({ source, text });
-    }
+    const documents = await this.documentsOf(tenantId, signal);
     const db = this.open();
     inTransaction(db, () => {
       // another connection may have built it meanwhile: its index stands
       if (this.fileCount(tenantId) > 0) return;
-      for (const { source, text } of documents)
-        this.write(db, { tenantId, source, hash: hashOf(text) }, this.chunksOf(text));
+      for (const { source, hash, text } of documents)
+        this.write(db, { tenantId, source, hash }, this.chunksOf(text));
     });
+  }
+
+  /** Every document of the tenant's folder, read whole before anything is written. */
+  private async documentsOf(
+    tenantId: string,
+    signal: AbortSignal,
+  ): Promise<readonly ReadDocument[]> {
+    const folder = this.folderOf(tenantId);
+    const documents: ReadDocument[] = [];
+    for (const source of await documentsIn(folder)) {
+      const text = await readFile(join(folder ?? "", source), "utf8");
+      signal.throwIfAborted();
+      documents.push({ source, text, hash: hashOf(text) });
+    }
+    return documents;
+  }
+
+  /** The documents the tenant's index holds, by source, with the hash each was indexed at. */
+  private knownFilesOf(tenantId: string): ReadonlyMap<string, string> {
+    return new Map(
+      this.open()
+        .prepare("SELECT source, hash FROM files WHERE tenant_id = ?")
+        .all(tenantId)
+        .map((row) => {
+          const r = FileRow.parse(row);
+          return [r.source, r.hash] as const;
+        }),
+    );
   }
 
   private fileCount(tenantId: string): number {
@@ -194,13 +221,6 @@ export class SqliteFtsConnector implements RagConnector {
   private folderOf(tenantId: string): string | undefined {
     const { folder } = this.options;
     return typeof folder === "string" ? folder : folder(tenantId);
-  }
-
-  /** One document's chunks of one tenant replaced at once (#700: never two sets, never half). */
-  private replace(db: DatabaseSync, file: StoredFile, chunks: readonly string[]): void {
-    inTransaction(db, () => {
-      this.write(db, file, chunks);
-    });
   }
 
   /** One document's chunks of one tenant written in place of its old ones, inside a transaction. */

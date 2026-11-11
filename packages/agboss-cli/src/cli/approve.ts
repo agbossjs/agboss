@@ -3,7 +3,9 @@ import {
   PauseKind,
   type App,
   type ExecutionOutput,
+  type DecisionResumeRequest,
   type PendingPause,
+  type ReplyResumeRequest,
   type ResumeRequest,
 } from "@agboss/core";
 import type { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
@@ -23,18 +25,40 @@ export function terminalDecision(approved: boolean): ToolCallApprovalDecisionDto
 
 /** What the terminal answers a pause with: an approval's yes / no, a question's typed or free answer. */
 type TerminalAnswer =
-  | { readonly decision: unknown; readonly reply?: never }
-  | { readonly reply: string; readonly decision?: never };
+  | { readonly kind: "decision"; readonly decision: unknown }
+  | { readonly kind: "reply"; readonly reply: string }
+  | { readonly kind: "invalid"; readonly problem: string };
 
-/** A question's answer as typed (#659): a JSON object is the answer DTO, anything else a reply. */
+/** How a question's answer is typed (#891): the prompt says it, `questionAnswerOf` reads it. */
+const ANSWER_MODES = "a line starting with { is the typed answer as JSON, anything else a reply";
+
+/**
+ * A question's answer as typed (#659, #891: the mode is explicit) — a line starting with `{` is the
+ * answer DTO and must be JSON (else it is asked again, never sent as a reply); anything else is a
+ * free-text reply for the role's interpreter, `42` and `["a"]` too.
+ */
 function questionAnswerOf(text: string): TerminalAnswer {
+  if (!text.startsWith("{")) return { kind: "reply", reply: text };
   try {
-    const parsed: unknown = JSON.parse(text);
-    if (typeof parsed === "object" && parsed !== null) return { decision: parsed };
-  } catch {
-    // not JSON: a free-text reply, read by the role's interpreter
+    const decision: unknown = JSON.parse(text);
+    return { kind: "decision", decision };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { kind: "invalid", problem: `not valid JSON (${reason}) — ${ANSWER_MODES}` };
   }
-  return { reply: text };
+}
+
+/** The request that answers `pauseId` with a decision or a reply: one of the two, never both. */
+function resumeRequestOf(
+  pauseId: string,
+  answer: Exclude<TerminalAnswer, { readonly kind: "invalid" }>,
+): ResumeRequest {
+  if (answer.kind === "reply") {
+    const reply: ReplyResumeRequest = { pauseId, reply: answer.reply };
+    return reply;
+  }
+  const decision: DecisionResumeRequest = { pauseId, decision: answer.decision };
+  return decision;
 }
 
 /** Asks about one pause: an approval's yes / no, a question's answer (#659). */
@@ -45,7 +69,7 @@ async function terminalAnswer(
 ): Promise<TerminalAnswer> {
   if (pause.kind === PauseKind.Question) {
     const reply = await ask(
-      `${retry}${pause.step} asks ${JSON.stringify(pause.ask)} — your answer: `,
+      `${retry}${pause.step} asks ${JSON.stringify(pause.ask)} — your answer (${ANSWER_MODES}): `,
     );
     return questionAnswerOf((reply ?? "").trim());
   }
@@ -53,7 +77,7 @@ async function terminalAnswer(
   const reply = await ask(
     `${pause.step} wants to call ${question.tool} ${JSON.stringify(question.arguments)} — approve? [y/N] `,
   );
-  return { decision: terminalDecision(/^y(es)?$/i.test((reply ?? "").trim())) };
+  return { kind: "decision", decision: terminalDecision(/^y(es)?$/i.test((reply ?? "").trim())) };
 }
 
 /** Why a question's answer was not taken, to ask again; anything else is thrown on. */
@@ -66,8 +90,9 @@ function retryOf(error: unknown): string {
 
 /**
  * A paused run asks in the terminal, one pause after another, then continues in the same process:
- * an approval as yes / no, a question (#659) as its answer — JSON for the typed answer, else free
- * text for the role's interpreter, asked again when it is not taken. Only the pauses its thread's
+ * an approval as yes / no, a question (#659) as its answer — a line starting with `{` the typed
+ * answer as JSON, anything else free text for the role's interpreter (#891), asked again when it is
+ * not taken or is no JSON. Only the pauses its thread's
  * owner answers come with an id; a channel's own pause is answered where the channel asked (the run
  * stays paused).
  */
@@ -82,9 +107,14 @@ export async function untilDone(
   for (;;) {
     const waiting = result.pending.find((pause) => pause.pauseId !== undefined);
     if (waiting?.pauseId === undefined) return result;
-    const request = { pauseId: waiting.pauseId, ...(await terminalAnswer(waiting, ask, retry)) };
+    const answer = await terminalAnswer(waiting, ask, retry);
+    if (answer.kind === "invalid") {
+      retry = `${answer.problem}\n`;
+      continue;
+    }
+    const request = resumeRequestOf(waiting.pauseId, answer);
     try {
-      result = await busy((signal) => app.resume(request as ResumeRequest, { signal }));
+      result = await busy((signal) => app.resume(request, { signal }));
       retry = "";
     } catch (error) {
       if (waiting.kind !== PauseKind.Question) throw error;
