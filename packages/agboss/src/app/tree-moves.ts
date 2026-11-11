@@ -217,7 +217,8 @@ class TreeMover implements TreeMoves {
     const undo: EndedTreeUndo = {};
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
-      const watch = (await cancelRequests()).cancelWatchOf(this.parts.trees, state);
+      const requests = await cancelRequests();
+      const watch = requests.cancelWatchOf(this.parts.trees, state);
       lease.afterEachRenewal(watch.check);
       let planned: PlannedPass | undefined = first;
       let result: ExecutionOutput;
@@ -228,9 +229,7 @@ class TreeMover implements TreeMoves {
           await markTaken(deps, planned.resume);
           for (const pauseId of planned.resume.pauseIds) passed.add(pauseId);
         }
-        await (
-          await cancelRequests()
-        ).endIfCancelledAtRest(this.parts, state, { result, watch, lease, undo });
+        await requests.endIfCancelledAtRest(this.parts, state, { result, watch, lease, undo });
         const isPaused = result.status === ExecutionStatus.Paused;
         planned = isPaused ? await this.nextPass(state, call, passed) : undefined;
         if (planned !== undefined)
