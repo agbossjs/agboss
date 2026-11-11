@@ -112,14 +112,7 @@ async function retaken(
     await droppedFiles(parts, sent.key.tenantId, attempt.attemptId);
     return messages.findByKey(lost);
   }
-  const { ledger } = parts.direct;
-  const sources = {
-    ledger,
-    files: parts.files.store,
-    clock: parts.clock,
-    unknownCosts: parts.mesh.unknownCosts,
-  };
-  await settledLostAttempt(sources, lost);
+  await settledLostAttempt({ files: parts.files.store, clock: parts.clock }, lost);
   return ran(parts, caller, held, { skill: sent.skill, input });
 }
 

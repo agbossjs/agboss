@@ -4,7 +4,6 @@
 import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js";
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryCostLedgerRepository } from "../../../../src/infrastructure/cost-ledger.repository.js";
 import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
@@ -157,7 +156,6 @@ export function unitParts(
     // #860: no direct-reply skill here, no default skill
     direct: {
       messages: new InMemoryA2ADirectMessageRepository(new InMemoryDatabase()),
-      ledger: new InMemoryCostLedgerRepository(),
       defaultSkill: undefined,
     },
     ids: {

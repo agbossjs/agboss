@@ -160,7 +160,12 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     const kept = this.database.a2aDirectMessages.get(a2aMessageRowOf(key));
     if (kept === undefined || !isExpiredAttempt(kept, expiredAttemptId, now))
       return Promise.resolve(undefined);
-    return this.#changed(key, expiredAttemptId, (found) => ({ ...found, ...next }));
+    // accepted anew (#860 D2): its retention counts from the takeover
+    return this.#changed(key, expiredAttemptId, (found) => ({
+      ...found,
+      ...next,
+      createdAt: next.startedAt,
+    }));
   }
 
   deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean> {
@@ -193,6 +198,8 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
   #removedBefore(cutoff: Date, limit: number): readonly A2ADirectMessageRecord[] {
     const { a2aMessages: claims, a2aDirectMessages: messages } = this.database;
     const gone = [...messages.entries()]
+      // an attempt in flight keeps its message (#860 D2): a lost one leaves by `deleteIfInFlight`
+      .filter(([, kept]) => kept.state === A2ADirectMessageState.Completed)
       .filter(([, kept]) => kept.createdAt.getTime() < cutoff.getTime())
       .sort(([, a], [, b]) => a.createdAt.getTime() - b.createdAt.getTime())
       .slice(0, limit);

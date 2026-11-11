@@ -1924,8 +1924,11 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `messageIdempotencyRetention`) gets it, a concurrent one waits (polling on the `Clock`, bounded), the
   model called once; an attempt runs at most 25 s (and stops at the caller's disconnect) inside its row's
   30 s, is never recovered (`withoutRecovery`, `app/tree-control.ts`: an instance taking its lease over
-  ends it as cancelled), and a lost one is taken over once — by a resend or the sweep — with one
-  `CostSource.Unknown` entry for a model skill (`unknown:a2a-msg:<tenantId>:<attemptId>`); the client
+  ends it as cancelled, keeping in its record one call of unknown cost for a model skill,
+  `spend.unknownCalls`, under `unknown:lost-run:<tenantId>:<runId>` — `app/lost-attempt.ts`, as
+  #853's lost passes), a lost one's message taken over once — by a resend or the sweep — and only
+  completed replies swept (an attempt in flight keeps its row and claim; a takeover accepts its
+  message anew); the client
   trusts a resend to such a skill only within `messageIdempotencyRetention` (`callPeerOf`, 15 min by
   default); a pause's decision holding an `A2AFileDto`-shaped object at any depth is `-32602
 a2a.file-field-in-data` (#900);

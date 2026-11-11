@@ -69,7 +69,8 @@ export const A2A_DIRECT_MESSAGE_ATTEMPT_CASES: readonly ContractCase<A2ADirectMe
       const kept = await first.messages.findByKey(KEY);
       expect(kept).toEqual(won[0]);
       expect(kept?.state).toBe(A2ADirectMessageState.InFlight);
-      expect(kept?.createdAt).toEqual(newMessage("m-1").createdAt);
+      // accepted anew by the takeover (#860 D2): its retention counts from it
+      expect(kept?.createdAt).toEqual(NEXT.startedAt);
       // the old attempt's reply is refused: only the new one completes it
       expect(
         await first.messages.completeIfInFlight(KEY, "run-m-1", REPLY, at(40)),
