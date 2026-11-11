@@ -13,7 +13,7 @@ import type {
 import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
-import { currentOutputOf } from "./current-output.js";
+import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
 import { observedPass } from "./observed-pass.js";
@@ -25,8 +25,6 @@ import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repos
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";
-import { notPaused } from "./paused-runs.js";
-import { rootRecordOf } from "./ended-tree.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
@@ -88,10 +86,7 @@ class TreeMover implements TreeMoves {
       // the tree failed after the answer was recorded (#901): its holder's drain took the answer and
       // its pass stopped (a cancel request, gone with the tree's keys), the pause left `Resolved`
       // and the paused run of the rest before still stored — no pass moves an ended tree
-      if (await this.#isFailed(state)) {
-        await lease.release();
-        throw notPaused(pause.pauseId);
-      }
+      await refusedIfFailed(deps, state, { lease, pauseId: pause.pauseId });
       const call = await callWithLostPasses(this.parts, state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
@@ -153,12 +148,6 @@ class TreeMover implements TreeMoves {
    */
   #isBusy(interrupted: InterruptedRun): boolean {
     return this.#resuming.has(interrupted.runId);
-  }
-
-  /** Whether the root's record ended without a finish (failed, cancelled, guarded): it is final. */
-  async #isFailed(state: TreeState): Promise<boolean> {
-    const status = (await rootRecordOf(this.parts.deps, state))?.status;
-    return status === ExecutionRecordStatus.Failed || status === ExecutionRecordStatus.Guarded;
   }
 
   /**

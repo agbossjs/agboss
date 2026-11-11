@@ -52,7 +52,11 @@ vi.mock("../../src/app/tree-resume.js", () => ({
   callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
 }));
 vi.mock("../../src/app/observed-pass.js", () => ({ observedPass: mocks.observedPass }));
-vi.mock("../../src/app/current-output.js", () => ({ currentOutputOf: mocks.currentOutputOf }));
+// the current output scripted; a resume's refusal of a failed root (#901) as it is
+vi.mock("../../src/app/current-output.js", async (actual) => ({
+  ...(await actual<typeof import("../../src/app/current-output.js")>()),
+  currentOutputOf: mocks.currentOutputOf,
+}));
 vi.mock("../../src/app/result.js", () => ({
   withPauseAnswers: (result: unknown) => Promise.resolve(result),
 }));

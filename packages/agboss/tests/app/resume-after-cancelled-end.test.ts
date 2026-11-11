@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import { NotPausedError, type ExecutionOutput } from "../../src/index.js";
+import { NotPausedError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { execute } from "../helpers/flow.js";
@@ -71,7 +71,7 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
           paused.run.tenantId,
           pending.pauseId,
         );
-        return stored?.status === "resolved";
+        return stored?.status === PauseStatus.Resolved;
       }, "the other instance recorded its answer");
     };
     // the holder's drain took that answer: before its pass moves, another instance requests the
