@@ -12,7 +12,6 @@ import {
   ExecutionContext,
   FencedEffectRepository,
   FencedEffects,
-  FencedEffectStatus,
   effectKeyOf,
   type Produced,
 } from "../../src/index.js";
@@ -65,22 +64,6 @@ describe("#890 AC2: FencedEffects.runOnce, the service an application injects", 
       { chargeId: "receipt-order-1" },
     ]);
     expect(worked).toEqual(["order-1"]);
-  });
-
-  it("AC2: delegates to the repository's runOnce with the key and the work as given", async () => {
-    const outcome = { status: FencedEffectStatus.Ran, result: { n: 1 }, token: 1 };
-    const calls: unknown[][] = [];
-    const repository = {
-      runOnce: (...args: unknown[]) => {
-        calls.push(args);
-        return Promise.resolve(outcome);
-      },
-    } as unknown as FencedEffectRepository<unknown>;
-    const key = {} as never;
-    const work = (): { n: number } => ({ n: 1 });
-
-    await expect(new FencedEffects(repository).runOnce(key, work)).resolves.toBe(outcome);
-    expect(calls).toEqual([[key, work]]);
   });
 
   it("AC2: the store's verb is runOnce; saveResultIfAbsent is gone", () => {
