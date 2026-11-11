@@ -31,9 +31,8 @@ import {
 } from "../infrastructure/fenced-effect-settings.js";
 import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
-import { a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
+import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
 import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
-import { a2aMessageStoreViolations } from "../a2a/a2a-message-store-rule.js";
 import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { keyFieldViolations } from "./key-field-rules.js";

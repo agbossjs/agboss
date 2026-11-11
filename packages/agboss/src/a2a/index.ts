@@ -91,7 +91,7 @@ export * from "../infrastructure/a2a-direct-message.repository.js";
 export {
   DIRECT_MESSAGE_CLAIM,
   directMessageClaimOf,
-} from "../infrastructure/a2a-direct-message-claims.js";
+} from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 // #859: file parts in messages and artifacts

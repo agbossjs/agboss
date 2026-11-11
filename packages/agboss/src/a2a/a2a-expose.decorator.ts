@@ -3,20 +3,10 @@ import { recordComponent } from "../components/metadata.js";
 import type { A2ASecurityScheme } from "./a2a-security.js";
 import type { A2AFileOptions } from "./files/a2a-file-options.js";
 
-/**
- * How a skill answers a message (#860): a durable task (the default) or a direct, stateless message —
- * no task, the reply kept only to answer a resend of its `messageId` (`retention.a2aMessages`).
- */
-export enum A2AReply {
-  /** One A2A task, one root execution: it may pause, it outlives its connection. */
-  Task = "task",
-  /**
-   * A direct `Message`: the skill's workflow is stateless — no pause, no fenced effect, no outbound
-   * call, no undo, no child, only `readOnly` tools (`[a2a.message-skill-*]`) — and its reply is kept
-   * in the `A2ADirectMessageRepository` for a resend.
-   */
-  Message = "message",
-}
+// #860: how a skill answers, defined beside the assembly rule that reads it (the root import
+// loads the rule, never this decorator)
+export { A2AReply } from "./a2a-message-skill-rule.js";
+import type { A2AReply } from "./a2a-message-skill-rule.js";
 
 /**
  * What the Agent Card says of one exported start (#808): its tags and examples; its files (#859);

@@ -17,15 +17,9 @@ import {
   directSaveOf,
   isExpiredAttempt,
   savedA2ADirectMessageOf,
-} from "../a2a-direct-message-claims.js";
+} from "../in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
-import {
-  answerOf,
-  MESSAGE_KEY,
-  messageKeyOf,
-  messageOf,
-  SCHEMA,
-} from "./sqlite-a2a-task-rows.js";
+import { answerOf, MESSAGE_KEY, messageKeyOf, messageOf, SCHEMA } from "./sqlite-a2a-task-rows.js";
 import {
   DIRECT_SCHEMA,
   directColumnsOf,
@@ -199,12 +193,7 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
         `INSERT INTO a2a_messages (tenant_id, owner_id, message_id, request_hash, task_id, saved_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(
-        ...messageKeyOf(claim),
-        claim.requestHash,
-        claim.taskId,
-        claim.savedAt.toISOString(),
-      );
+      .run(...messageKeyOf(claim), claim.requestHash, claim.taskId, claim.savedAt.toISOString());
   }
 }
 

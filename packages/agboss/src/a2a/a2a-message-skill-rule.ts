@@ -1,6 +1,6 @@
 import type { ApplicationOptions } from "../application/application.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
-import { questionRoleOf } from "../channels/discovery.js";
+import { channelRoleOptionsOf, isQuestionRole } from "../channels/channel-role.decorator.js";
 import type { Class, Token } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
@@ -9,7 +9,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { isThisWorkflow } from "../flow/this-workflow.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
-import { A2AReply, type A2AExposeOptions } from "./a2a-expose.decorator.js";
+import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
 
 /**
  * A skill that answers with a direct message (#860, `A2AReply.Message`) is stateless, checked at
@@ -23,6 +23,21 @@ import { A2AReply, type A2AExposeOptions } from "./a2a-expose.decorator.js";
  * (a misspelt one would answer with a task); a `defaultSkill` that is no export
  * `[a2a.unknown-skill-option]` too.
  */
+
+/**
+ * How a skill answers a message (#860): a durable task (the default) or a direct, stateless message —
+ * no task, the reply kept only to answer a resend of its `messageId` (`retention.a2aMessages`).
+ */
+export enum A2AReply {
+  /** One A2A task, one root execution: it may pause, it outlives its connection. */
+  Task = "task",
+  /**
+   * A direct `Message`: the skill's workflow is stateless — no pause, no fenced effect, no outbound
+   * call, no undo, no child, only `readOnly` tools (`[a2a.message-skill-*]`) — and its reply is kept
+   * in the `A2ADirectMessageRepository` for a resend.
+   */
+  Message = "message",
+}
 
 /** The tokens whose use changes things outside the run: a fenced effect, a call that leaves. */
 const EFFECT_TOKENS: ReadonlySet<Token> = new Set<Token>([FencedEffectRepository, OutboundCalls]);
@@ -63,8 +78,11 @@ const nameOfToken = (token: Token): string =>
 
 /** The problems of one tool of an agent. */
 function toolProblems(agent: string, tool: Class): SkillProblem[] {
-  if (questionRoleOf(tool) !== undefined)
-    return [{ code: "a2a.message-skill-pause", text: `${agent} asks ${tool.name} (a question role)` }];
+  const role = channelRoleOptionsOf(tool);
+  if (role !== undefined && isQuestionRole(role))
+    return [
+      { code: "a2a.message-skill-pause", text: `${agent} asks ${tool.name} (a question role)` },
+    ];
   const component = componentOf(tool);
   if (component?.kind === "mcp-tool")
     return [{ code: "a2a.message-skill-tool", text: `${agent} calls ${tool.name}, an @McpTool` }];
@@ -121,7 +139,9 @@ function nodeProblems(node: Class): SkillProblem[] {
 const workflowOf = (workflows: readonly Class[], start: Class): Class | undefined =>
   withChildWorkflows(workflows).find((workflow) => {
     const declared = declarationOf(workflow);
-    return declared?.kind === NodeKind.Workflow && flowClassesOf(declared.options.flow).includes(start);
+    return (
+      declared?.kind === NodeKind.Workflow && flowClassesOf(declared.options.flow).includes(start)
+    );
   });
 
 /** The problems of one direct-reply skill: its workflow's nodes, each problem once. */
@@ -130,7 +150,9 @@ function skillProblems(workflow: Class): SkillProblem[] {
   if (declared?.kind !== NodeKind.Workflow) return [];
   const problems = [...new Set(flowClassesOf(declared.options.flow))].flatMap(nodeProblems);
   const seen = new Set<string>();
-  return problems.filter(({ code, text }) => !seen.has(`${code} ${text}`) && seen.add(`${code} ${text}`));
+  return problems.filter(
+    ({ code, text }) => !seen.has(`${code} ${text}`) && seen.add(`${code} ${text}`),
+  );
 }
 
 /** The exports of an `@A2AExpose` that answer with a direct message (#860). */
