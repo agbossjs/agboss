@@ -22,7 +22,7 @@ import { z } from 'zod';
 export class A2AFileConflictError extends AGBossError {
     constructor(fileId: string);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "a2a.file-conflict";
     // (undocumented)
     readonly fileId: string;
 }
