@@ -54,11 +54,13 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
       "a2a.message-skill-compensation",
       "a2a.message-skill-effect",
       "a2a.message-skill-effect",
+      "a2a.message-skill-effect",
       "a2a.message-skill-tool",
       "a2a.message-skill-tool",
     ]);
     const text = violations.join("\n");
     expect(text).toContain("ChargeAction injects OutboundCalls");
+    expect(text).toContain("PayAction injects FencedEffects");
     // two hops down a tool's services: the readOnly flag does not hide it
     expect(text).toContain("LedgerReadTool injects FencedEffectRepository");
     expect(text).toContain("busy-agent calls PingTool, which is not @Tool({ readOnly: true })");

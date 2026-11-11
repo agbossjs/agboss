@@ -88,10 +88,6 @@ export { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "./a2a-extension-uris.j
 export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
 // #860: the direct messages' replies (`A2AReply.Message` skills), in memory and on the SQLite file
 export * from "../infrastructure/a2a-direct-message.repository.js";
-export {
-  DIRECT_MESSAGE_CLAIM,
-  directMessageClaimOf,
-} from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 // #859: file parts in messages and artifacts

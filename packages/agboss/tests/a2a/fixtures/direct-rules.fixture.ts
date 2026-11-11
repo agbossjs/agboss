@@ -3,6 +3,7 @@
 // on given stores.
 import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
 import { OutboundCalls } from "../../../src/app/outbound-calls.js";
+import { FencedEffects } from "../../../src/app/fenced-effects.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -85,6 +86,20 @@ export class ChargeAction {
   }
 }
 
+@Action({
+  name: "pay-action",
+  description: "Pays once, through FencedEffects",
+  input: { message: WorkflowStartTextDto },
+  deps: [FencedEffects],
+})
+export class PayAction {
+  constructor(readonly effects: FencedEffects) {}
+
+  execute(_input: Message): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
 @Action({ name: "refund-action", description: "Refunds", input: { message: WorkflowStartTextDto } })
 export class RefundAction {
   execute(_input: Message): Promise<void> {
@@ -129,6 +144,7 @@ export class BusyWorkflowFinish {}
     start(BusyWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeAction)
+      .toAction(PayAction)
       .toAction(ReserveAction)
       .toWorkflow(QuoteWorkflow)
       .returns(WorkflowFinishTextDto)

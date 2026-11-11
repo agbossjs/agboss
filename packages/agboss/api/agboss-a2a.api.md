@@ -972,14 +972,6 @@ export { Artifact }
 export const DEFAULT_A2A_FILE_MEDIA_TYPES: readonly string[];
 
 // @public
-export const DIRECT_MESSAGE_CLAIM = "";
-
-// Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
-//
-// @public
-export const directMessageClaimOf: (message: NewA2ADirectMessage) => A2AMessageRecord;
-
-// @public
 export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
     // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
     constructor(database: InMemoryDatabase);
@@ -1145,6 +1137,8 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     //
     // (undocumented)
     saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
     // Warning: (ae-forgotten-export) The symbol "A2AMessageKey" needs to be exported by the entry point index.d.ts

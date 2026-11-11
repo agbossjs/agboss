@@ -5,6 +5,7 @@
  */
 // the contracts a store extends (also in the root entry: an application names them in `deps`)
 export {
+  A2ADirectMessageRepository,
   A2ATaskRepository,
   ChildExecutionQueueRepository,
   CostLedgerRepository,
@@ -39,6 +40,8 @@ export type {
 
 // what the contracts' members name in turn (also in the root entry): a store needs no other import
 export {
+  A2ADirectMessageSaveStatus,
+  A2ADirectMessageState,
   A2ATaskSaveStatus,
   A2ATaskState,
   AGBossError,
@@ -80,6 +83,12 @@ export {
   ToolCallStatus,
 } from "../index.js";
 export type {
+  A2ADirectMessageAttempt,
+  A2ADirectMessageKey,
+  A2ADirectMessageRecord,
+  A2ADirectMessageReply,
+  A2ADirectMessageSave,
+  NewA2ADirectMessage,
   A2AMessageKey,
   A2AMessageRecord,
   A2ATaskKey,

@@ -1,5 +1,6 @@
 import type { ApplicationOptions } from "../application/application.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
+import { FencedEffects } from "../app/fenced-effects.js";
 import { channelRoleOptionsOf, isQuestionRole } from "../channels/channel-role.decorator.js";
 import type { Class, Token } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
@@ -15,7 +16,7 @@ import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
  * A skill that answers with a direct message (#860, `A2AReply.Message`) is stateless, checked at
  * assembly on its workflow's every node (fail closed: a node another start reaches counts too),
  * each problem once: no pause — a question step, a question role or a channel tool —
- * (`[a2a.message-skill-pause]`); no fenced effect, outbound call or A2A call in any `deps` a node or a
+ * (`[a2a.message-skill-pause]`); no fenced effect (`FencedEffects`, `FencedEffectRepository`), outbound call or A2A call in any `deps` a node or a
  * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools, no `@McpTool`
  * (`[a2a.message-skill-tool]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's
@@ -40,7 +41,11 @@ export enum A2AReply {
 }
 
 /** The tokens whose use changes things outside the run: a fenced effect, a call that leaves. */
-const EFFECT_TOKENS: ReadonlySet<Token> = new Set<Token>([FencedEffectRepository, OutboundCalls]);
+const EFFECT_TOKENS: ReadonlySet<Token> = new Set<Token>([
+  FencedEffects,
+  FencedEffectRepository,
+  OutboundCalls,
+]);
 
 /** One problem of a direct-reply skill: its code and what is wrong. */
 interface SkillProblem {
