@@ -2998,7 +2998,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     runtime/ (the StateGraph per workflow: build.ts, state.ts, scope, runners/,
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
-                    rule-error.ts, limits.ts, settings.ts, studio-graph.ts
+                    rule-error.ts + rule-codes.ts, limits.ts, settings.ts, studio-graph.ts
     llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  tracing/
     prompts/  types/
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through @agboss/core/internal)

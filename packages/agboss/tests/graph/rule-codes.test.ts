@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SRC = new URL("../../src/", import.meta.url).pathname;
-const DECLARATION = join(SRC, "graph/rule-error.ts");
+const DECLARATION = join(SRC, "graph/rule-codes.ts");
 
 /** Every `.ts` file under `dir`, recursively. */
 function sourceFiles(dir: string): readonly string[] {
