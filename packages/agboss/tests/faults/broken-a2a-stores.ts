@@ -1,6 +1,9 @@
 import {
   Clock,
+  ExecutionRecordStatus,
+  IdGenerator,
   Injectable,
+  SqliteExecutionRecordRepository,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteExecutionTreeRepository,
@@ -9,6 +12,7 @@ import {
   ApplicationContext,
   type ExecutionTree,
   type ExecutionTreeValue,
+  type Turn,
 } from "../../src/index.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import type { ExecutionIdentity } from "../../src/infrastructure/execution-lease.repository.js";
@@ -31,7 +35,10 @@ import {
  *   a cancel ended stays there;
  * - `StalePausesSqlitePausedExecutionRepository`: that store, whose read takes a pause a cancel
  *   withdrew for still waiting and whose resolve says yes to it — every fence of 18b broken (the
- *   resume's re-read before its mark, #850, too), the resume after the cancel runs.
+ *   resume's re-read before its mark, #850, too), the resume after the cancel runs;
+ * - `EndBlindSqliteExecutionRecordRepository` (#901): a record store whose read of a root by its
+ *   run id still says `running` once the root failed — a stale read of the end, so a resume's take
+ *   no longer sees that its tree is over, and 18d's late resume runs the answer a cancel ended.
  */
 
 @Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
@@ -84,5 +91,19 @@ export class StalePausesSqlitePausedExecutionRepository extends KeptRunSqlitePau
     // a pause no longer pending answered as if it were: the resume is told it won
     const found = await this.findByTenantIdAndPauseId(tenantId, pauseId);
     return found === undefined ? undefined : { ...found, status: PauseStatus.Resolved };
+  }
+}
+
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
+export class EndBlindSqliteExecutionRecordRepository extends SqliteExecutionRecordRepository {
+  override async findByTenantIdAndRunId(
+    tenantId: string,
+    runId: string,
+  ): Promise<Turn | undefined> {
+    const record = await super.findByTenantIdAndRunId(tenantId, runId);
+    const isEnded =
+      record?.status === ExecutionRecordStatus.Failed ||
+      record?.status === ExecutionRecordStatus.Guarded;
+    return isEnded ? { ...record, status: ExecutionRecordStatus.Running } : record;
   }
 }

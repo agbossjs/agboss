@@ -64,6 +64,7 @@ import {
 import {
   s18bCancelFirst,
   s18cResumedNotRun,
+  s18dDrainTookAnswer,
   s18ResumeFirst,
 } from "../../src/testing/faults/scenarios/s18-a2a-resume-vs-cancel.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
@@ -100,6 +101,9 @@ const cancelBlind = sqliteFaultTarget(
 );
 const stalePauses = sqliteFaultTarget(
   fileURLToPath(new URL("./stale-pauses.fault-stores.ts", import.meta.url)),
+);
+const endBlind = sqliteFaultTarget(
+  fileURLToPath(new URL("./end-blind.fault-stores.ts", import.meta.url)),
 );
 const killedAfterStale = sqliteFaultTarget(
   fileURLToPath(new URL("./killed-after-stale.fault-stores.ts", import.meta.url)),
@@ -323,6 +327,19 @@ describe("#811 AC4: a broken store fails the A2A scenario that targets it", () =
   it("a pause store that resolves a withdrawn pause and keeps the run: 18b fails — both the cancel and the late resume took the pause", async () => {
     await expect(runFaultScenario(s18bCancelFirst, stalePauses)).rejects.toThrow(
       /^s18b-a2a-cancel-vs-resume: the cancel was to withdraw the pause first: a's resolve \[true\], b's cancel \[true\]$/u,
+    );
+  }, 120_000);
+
+  // #901: the resume's check at its take, taken away by the store (its read of the failed root
+  // says running) — 18d's late resume runs the answer the cancel ended, as the core did before.
+  // The same blind read keeps the projection from writing CANCELED, so the invariant names the
+  // effects as past the tree's cancel request
+  it("a record store that reads a failed root as running: 18d's late resume runs the ended tree — charged and paid after the cancel", async () => {
+    const failure = await failureOf(s18dDrainTookAnswer, endBlind);
+    expect(a2aMessagesOf(failure)).toContainEqual(
+      expect.stringMatching(
+        /^task \S+ committed fencedEffect\.write by b, outboundCall\.saveIfAbsent by b more than a lease after its tree's cancel request/u,
+      ),
     );
   }, 120_000);
 });

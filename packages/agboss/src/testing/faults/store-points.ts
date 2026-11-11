@@ -44,6 +44,11 @@ export enum StoreHoldPoint {
   PauseCancel = "pause.cancel",
   /** A pause read by its id (#811: a resume reads it before it marks its root running, #850). */
   PauseFind = "pause.find",
+  /**
+   * A resolved pause marked `Taken`, keyed by the pause's id (#901): by the pass that took its
+   * answer, or by the tree's end for an answer no step took.
+   */
+  PauseMarkTaken = "pause.markTaken",
 }
 
 /** How one wrapped method is read. */
