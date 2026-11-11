@@ -37,3 +37,17 @@ export class FencedEffects {
 
 // #825: a component that reaches FencedEffects can write under a business key
 markBusinessKeyWriter(FencedEffects);
+
+/**
+ * What a component gets for `FencedEffects` outside an application's container (#890): `agboss
+ * check` builds a workflow's components and never runs them, and a workflow on its own has no
+ * infrastructure — every call is refused, since a fenced effect's store is the application's.
+ */
+export const FENCED_EFFECTS_OUTSIDE_APPLICATION = Object.freeze({
+  runOnce: (): Promise<never> =>
+    Promise.reject(
+      new TypeError(
+        "FencedEffects.runOnce: a fenced effect runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",
+      ),
+    ),
+});

@@ -16,6 +16,7 @@ import {
   type Produced,
 } from "../../src/index.js";
 import { testAction } from "../../src/testing/index.js";
+import { FENCED_EFFECTS_OUTSIDE_APPLICATION } from "../../src/app/fenced-effects.js";
 import { ChargeReceiptDto } from "./fixtures/fenced-effect.workflow.js";
 
 /** How often each order's work ran. */
@@ -69,5 +70,11 @@ describe("#890 AC2: FencedEffects.runOnce, the service an application injects", 
   it("AC2: the store's verb is runOnce; saveResultIfAbsent is gone", () => {
     expect(typeof FencedEffectRepository.prototype.runOnce).toBe("function");
     expect("saveResultIfAbsent" in FencedEffectRepository.prototype).toBe(false);
+  });
+
+  it("AC2: outside an application's container (agboss check builds, never runs) every call is refused", async () => {
+    await expect(FENCED_EFFECTS_OUTSIDE_APPLICATION.runOnce()).rejects.toThrow(
+      /a fenced effect runs in an application/u,
+    );
   });
 });
