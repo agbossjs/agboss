@@ -85,7 +85,11 @@ export const A2A_DIRECT_MESSAGE_SAVE_CASES: readonly ContractCase<A2ADirectMessa
         const save = await second.messages.saveIfAbsent(newMessage("m-1", other));
         expect(save.status).toBe(A2ADirectMessageSaveStatus.Saved);
       }
-      const none = await first.messages.findByKey({ tenantId: "default", ownerId: undefined, messageId: "m-1" });
+      const none = await first.messages.findByKey({
+        tenantId: "default",
+        ownerId: undefined,
+        messageId: "m-1",
+      });
       expect(none?.ownerId).toBeUndefined();
     },
   },

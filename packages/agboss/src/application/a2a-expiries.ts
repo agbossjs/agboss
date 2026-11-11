@@ -16,11 +16,14 @@ export interface A2ARetentions {
 
 /** The instance's tally of Unknown-cost entries (#875): its one observer manager, every workflow's. */
 export const unknownCostsOf = (
-  workflows: readonly { readonly deps: { readonly observer: { readonly unknownCosts?: UnknownCostTally | undefined } } }[],
+  workflows: readonly {
+    readonly deps: { readonly observer: { readonly unknownCosts?: UnknownCostTally | undefined } };
+  }[],
 ): UnknownCostTally | undefined => workflows[0]?.deps.observer.unknownCosts;
 
 /** The sweep of the direct messages (#860), loaded on its first look. */
-const directMessageExpiry = () => lazyLoad(import("../infrastructure/a2a-direct-message-expiry.js"));
+const directMessageExpiry = () =>
+  lazyLoad(import("../infrastructure/a2a-direct-message-expiry.js"));
 
 /**
  * What the recovery sweep removes of the A2A rows: the finished tasks (#807), their files (#859),

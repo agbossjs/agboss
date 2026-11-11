@@ -1,3 +1,4 @@
+import type { Message } from "@a2a-js/sdk";
 import { AGBossError } from "../../core/errors.js";
 
 /** A task id or context id a remote gave, as the client keeps it: a key's text of a safe charset. */
@@ -6,6 +7,11 @@ const SAFE_ID = /^[A-Za-z0-9._:@-]{1,128}$/u;
 /** `id` when it is one the client may keep and show, else `undefined` (never a free text). */
 export const safeTaskIdOf = (id: unknown): string | undefined =>
   typeof id === "string" && SAFE_ID.test(id) ? id : undefined;
+
+/** Whether a message's ids are safe ids (#860): its `messageId`, its `contextId` when it has one. */
+export const hasSafeIds = (message: Pick<Message, "messageId" | "contextId">): boolean =>
+  safeTaskIdOf(message.messageId) !== undefined &&
+  (message.contextId === "" || safeTaskIdOf(message.contextId) !== undefined);
 
 /**
  * How a remote task ended without an output, as the call fails with it (#809, design §4.2

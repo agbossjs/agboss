@@ -177,7 +177,10 @@ function recordUnreported(
   answer: Task | Message | undefined,
   taskId?: string,
 ): void {
-  const isCompleted = answer !== undefined && "status" in answer && answer.status?.state === TaskState.TASK_STATE_COMPLETED;
+  const isCompleted =
+    answer !== undefined &&
+    "status" in answer &&
+    answer.status?.state === TaskState.TASK_STATE_COMPLETED;
   if (!isCompleted || taskId === undefined) return;
   currentFrame()?.services.meshCall?.recordRemote({
     application,

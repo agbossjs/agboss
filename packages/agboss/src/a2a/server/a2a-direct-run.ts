@@ -86,7 +86,9 @@ export async function ranAttempt(
   const { signal, done } = boundedSignal(parts, caller);
   try {
     const options = optionsOf(parts, caller, attempt, signal);
-    return replyOf(await executeWithoutInputCheck(parts.app, sent.skill.start, sent.input, options));
+    return replyOf(
+      await executeWithoutInputCheck(parts.app, sent.skill.start, sent.input, options),
+    );
   } catch (error) {
     await failedAttempt(parts, attempt);
     throw error;
@@ -96,7 +98,10 @@ export async function ranAttempt(
 }
 
 /** A failed attempt: its row and its files removed, so a resend runs it again. */
-async function failedAttempt(parts: A2AServerParts, attempt: A2ADirectMessageRecord): Promise<void> {
+async function failedAttempt(
+  parts: A2AServerParts,
+  attempt: A2ADirectMessageRecord,
+): Promise<void> {
   await parts.direct.messages.deleteIfInFlight(attempt, attempt.attemptId);
   await parts.files.store.deleteByOwner({ tenantId: attempt.tenantId, ownerId: attempt.attemptId });
 }

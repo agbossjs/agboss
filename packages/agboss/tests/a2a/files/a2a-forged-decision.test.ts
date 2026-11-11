@@ -22,9 +22,10 @@ const FORGED = {
   sizeBytes: 9,
 };
 
-const codeOf = (run: () => void): string | undefined => {
+/** The code a decision is refused with; `undefined` when it is not. */
+const codeOf = (decision: unknown): string | undefined => {
   try {
-    run();
+    refuseFileDescriptorsIn(decision);
     return undefined;
   } catch (error) {
     return (error as { metadata?: Record<string, string> }).metadata?.code ?? String(error);
@@ -40,31 +41,19 @@ const nested = (depth: number): unknown => {
 describe("#900: a decision's file descriptors", () => {
   it("a descriptor at the top, in a field, deep in a list — each refused; a mediaType alone is no file", () => {
     for (const source of ["fileId", "sha256", "inline", "url"])
-      expect(
-        codeOf(() => refuseFileDescriptorsIn({ mediaType: "text/plain", [source]: "x" })),
-      ).toBe("a2a.file-field-in-data");
-    expect(codeOf(() => refuseFileDescriptorsIn({ reply: "yes", attachment: FORGED }))).toBe(
-      "a2a.file-field-in-data",
-    );
-    expect(codeOf(() => refuseFileDescriptorsIn({ a: [{ b: [[FORGED]] }] }))).toBe(
-      "a2a.file-field-in-data",
-    );
-    expect(codeOf(() => refuseFileDescriptorsIn({ mediaType: "text/plain", reply: "yes" }))).toBe(
-      undefined,
-    );
-    expect(codeOf(() => refuseFileDescriptorsIn(null))).toBeUndefined();
+      expect(codeOf({ mediaType: "text/plain", [source]: "x" })).toBe("a2a.file-field-in-data");
+    expect(codeOf({ reply: "yes", attachment: FORGED })).toBe("a2a.file-field-in-data");
+    expect(codeOf({ a: [{ b: [[FORGED]] }] })).toBe("a2a.file-field-in-data");
+    expect(codeOf({ mediaType: "text/plain", reply: "yes" })).toBe(undefined);
+    expect(codeOf(null)).toBeUndefined();
   });
 
   it("deeper than 64 levels or more than 10 000 values is refused: bounded, no stack to blow", () => {
-    expect(codeOf(() => refuseFileDescriptorsIn(nested(64)))).toBeUndefined();
-    expect(codeOf(() => refuseFileDescriptorsIn(nested(65)))).toBe("a2a.answer-shape");
-    expect(codeOf(() => refuseFileDescriptorsIn(nested(100_000)))).toBe("a2a.answer-shape");
-    expect(
-      codeOf(() => refuseFileDescriptorsIn(Array.from({ length: 9_999 }, () => 1))),
-    ).toBeUndefined();
-    expect(codeOf(() => refuseFileDescriptorsIn(Array.from({ length: 10_000 }, () => 1)))).toBe(
-      "a2a.answer-shape",
-    );
+    expect(codeOf(nested(64))).toBeUndefined();
+    expect(codeOf(nested(65))).toBe("a2a.answer-shape");
+    expect(codeOf(nested(100_000))).toBe("a2a.answer-shape");
+    expect(codeOf(Array.from({ length: 9_999 }, () => 1))).toBeUndefined();
+    expect(codeOf(Array.from({ length: 10_000 }, () => 1))).toBe("a2a.answer-shape");
   });
 });
 

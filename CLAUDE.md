@@ -1919,7 +1919,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `CostSource.Unknown` entry for a model skill (`unknown:a2a-msg:<tenantId>:<attemptId>`); the client
   trusts a resend to such a skill only within `messageIdempotencyRetention` (`callPeerOf`, 15 min by
   default); a pause's decision holding an `A2AFileDto`-shaped object at any depth is `-32602
-  a2a.file-field-in-data` (#900);
+a2a.file-field-in-data` (#900);
   `ListTasks.totalSize` counts every task its filters match, `statusTimestampAfter` keeps a status at or after
   it (`>=`, a2a.proto's words; #811); the official A2A TCK (`a2aproject/a2a-tck`, pinned) runs in CI
   (`a2a-tck`, `scripts/a2a-tck.mjs`) against the conformance agent `tests/a2a-tck/` — each requirement

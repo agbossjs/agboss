@@ -41,10 +41,16 @@ const DirectRow = z.object({
 });
 
 /** A kept reply, as written: what a corrupt column is refused by. */
-const Reply = z.object({ finish: z.string(), output: z.unknown(), spentUsd: z.number().nonnegative() });
+const Reply = z.strictObject({
+  finish: z.string(),
+  output: z.unknown(),
+  spentUsd: z.number().nonnegative(),
+});
 
 /** The reply of a row whose state says it has one, and only then (a corrupt row is refused). */
-function replyOf(row: z.infer<typeof DirectRow>): Pick<A2ADirectMessageRecord, "reply" | "completedAt"> {
+function replyOf(
+  row: z.infer<typeof DirectRow>,
+): Pick<A2ADirectMessageRecord, "reply" | "completedAt"> {
   const isCompleted = row.state === A2ADirectMessageState.Completed;
   if (isCompleted !== (row.reply !== null && row.completed_at !== null))
     throw new Error(`a2a_direct_messages row ${row.message_id}: its state and its reply disagree`);
@@ -78,7 +84,9 @@ export const directMessageOf = (row: unknown): A2ADirectMessageRecord => {
 };
 
 /** A row's columns in `INSERT` order. */
-export const directColumnsOf = (message: A2ADirectMessageRecord): readonly (string | number | null)[] => [
+export const directColumnsOf = (
+  message: A2ADirectMessageRecord,
+): readonly (string | number | null)[] => [
   message.tenantId,
   ownerColumnOf(message.ownerId),
   message.messageId,

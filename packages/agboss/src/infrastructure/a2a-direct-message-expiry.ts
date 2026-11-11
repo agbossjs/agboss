@@ -75,7 +75,8 @@ async function sweptLostAttempts(sources: A2ADirectMessageExpirySources): Promis
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const lost = await messages.findAllInFlightByExpiresAtBefore(sources.clock.now(), PAGE);
     for (const each of lost)
-      if (await messages.deleteIfInFlight(each, each.attemptId)) await settledLostAttempt(sources, each);
+      if (await messages.deleteIfInFlight(each, each.attemptId))
+        await settledLostAttempt(sources, each);
     if (lost.length < PAGE) return;
   }
 }
@@ -92,7 +93,10 @@ export const a2aDirectMessageExpiryOf = (sources: A2ADirectMessageExpirySources)
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const gone = await sources.messages.deleteByCreatedAtBefore(cutoff, PAGE);
       for (const message of gone)
-        await sources.files.deleteByOwner({ tenantId: message.tenantId, ownerId: message.attemptId });
+        await sources.files.deleteByOwner({
+          tenantId: message.tenantId,
+          ownerId: message.attemptId,
+        });
       if (gone.length < PAGE) return;
     }
   },

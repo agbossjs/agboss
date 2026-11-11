@@ -245,16 +245,8 @@ const SHARDS = {
   "a2a-direct": {
     configFile: "vitest.mutation-a2a-direct.config.ts",
     mutate: [
-      "src/a2a/server/a2a-direct-reply.ts",
-      "src/a2a/server/a2a-direct-run.ts",
-      "src/a2a/server/a2a-direct-view.ts",
-      "src/a2a/server/a2a-forged-files.ts",
-      "src/a2a/a2a-message-skill-rule.ts",
-      "src/a2a/client/a2a-call-peer.ts",
-      "src/infrastructure/in-memory-a2a-direct-message.repository.ts",
-      "src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts",
-      "src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.ts",
-      "src/infrastructure/a2a-direct-message-expiry.ts",
+      "src/a2a/**/a2a-{direct-*,forged-files,message-skill-rule,call-peer}.ts",
+      "src/infrastructure/**/*a2a-direct-message*.ts",
     ],
   },
 };

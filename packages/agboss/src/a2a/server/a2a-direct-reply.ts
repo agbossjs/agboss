@@ -35,7 +35,8 @@ const POLL_EVERY: Milliseconds = seconds(0.25);
 /** How many rounds a message is read, saved or taken over before the request fails. */
 const ROUNDS = 5;
 
-const reused = () => invalidParams("a2a.message-id-reused", "messageId reused with different content");
+const reused = () =>
+  invalidParams("a2a.message-id-reused", "messageId reused with different content");
 
 /** What one message asks, and how its input is read for an attempt. */
 interface DirectMessage {
@@ -118,7 +119,12 @@ async function retaken(
     return messages.findByKey(lost);
   }
   const { ledger } = parts.direct;
-  const sources = { ledger, files: parts.files.store, clock: parts.clock, unknownCosts: parts.mesh.unknownCosts };
+  const sources = {
+    ledger,
+    files: parts.files.store,
+    clock: parts.clock,
+    unknownCosts: parts.mesh.unknownCosts,
+  };
   await settledLostAttempt(sources, lost);
   return ran(parts, caller, held, { skill: sent.skill, input });
 }
@@ -168,7 +174,9 @@ async function directMessageOf(
     throw invalidParams(limit.code, `the message was rejected: ${limit.code}`);
   const messageId = checkedCallerKey("messageId", message.messageId);
   const contextId =
-    message.contextId === "" ? parts.ids.newThreadId() : checkedCallerKey("contextId", message.contextId);
+    message.contextId === ""
+      ? parts.ids.newThreadId()
+      : checkedCallerKey("contextId", message.contextId);
   return {
     key: { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId },
     skill,

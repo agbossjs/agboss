@@ -71,7 +71,9 @@ export const A2A_DIRECT_MESSAGE_ATTEMPT_CASES: readonly ContractCase<A2ADirectMe
       expect(kept?.state).toBe(A2ADirectMessageState.InFlight);
       expect(kept?.createdAt).toEqual(newMessage("m-1").createdAt);
       // the old attempt's reply is refused: only the new one completes it
-      expect(await first.messages.completeIfInFlight(KEY, "run-m-1", REPLY, at(40))).toBeUndefined();
+      expect(
+        await first.messages.completeIfInFlight(KEY, "run-m-1", REPLY, at(40)),
+      ).toBeUndefined();
     },
   },
   {

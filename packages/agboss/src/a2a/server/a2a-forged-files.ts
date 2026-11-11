@@ -47,6 +47,7 @@ export function refuseFileDescriptorsIn(answer: unknown): void {
     if (seen >= MAX_NODES || next.depth > MAX_DEPTH) throw tooDeep();
     if (isRecord(next.value) && isDescriptor(next.value))
       throw invalidParams("a2a.file-field-in-data", "a file is sent as a file part only");
-    for (const child of childrenOf(next.value)) pending.push({ value: child, depth: next.depth + 1 });
+    for (const child of childrenOf(next.value))
+      pending.push({ value: child, depth: next.depth + 1 });
   }
 }
