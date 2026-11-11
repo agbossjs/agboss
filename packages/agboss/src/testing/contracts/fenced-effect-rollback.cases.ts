@@ -24,10 +24,10 @@ const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
     const declined = new Error("the card was declined");
 
     const failed = await rejectionOf(
-      first.effects.saveResultIfAbsent(key, failing(first.rows, "r1", declined)),
+      first.effects.runOnce(key, failing(first.rows, "r1", declined)),
     );
     const after = await second.rows.committed();
-    const retried = await second.effects.saveResultIfAbsent(key, writing(second.rows, "r2", count));
+    const retried = await second.effects.runOnce(key, writing(second.rows, "r2", count));
 
     expect(failed).toBe(declined);
     expect(after).toEqual([]);
@@ -46,7 +46,7 @@ const rowSeenAfterCommit = <TTransaction>(): Case<TTransaction> => ({
     const write = writing(first.rows, "r1", count);
     let during: Promise<readonly string[]> = Promise.resolve(["not read"]);
 
-    await first.effects.saveResultIfAbsent(key, (transaction) => {
+    await first.effects.runOnce(key, (transaction) => {
       const receipt = write(transaction);
       during = second.rows.committed();
       return receipt;
@@ -64,8 +64,8 @@ const twoInstancesOneKey = <TTransaction>(): Case<TTransaction> => ({
     const key = keyOf(await leaseOf(first));
 
     const outcomes = await Promise.all([
-      first.effects.saveResultIfAbsent(key, writing(first.rows, "r1", count)),
-      second.effects.saveResultIfAbsent(key, writing(second.rows, "r2", count)),
+      first.effects.runOnce(key, writing(first.rows, "r1", count)),
+      second.effects.runOnce(key, writing(second.rows, "r2", count)),
     ]);
 
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([
@@ -84,8 +84,8 @@ const oneInstanceJoins = <TTransaction>(): Case<TTransaction> => ({
     const key = keyOf(await leaseOf(first));
 
     const outcomes = await Promise.all([
-      first.effects.saveResultIfAbsent(key, writing(first.rows, "r1", count)),
-      first.effects.saveResultIfAbsent(key, writing(first.rows, "r2", count)),
+      first.effects.runOnce(key, writing(first.rows, "r1", count)),
+      first.effects.runOnce(key, writing(first.rows, "r2", count)),
     ]);
 
     expect(outcomes).toEqual([
@@ -104,8 +104,8 @@ const joinedGetsError = <TTransaction>(): Case<TTransaction> => ({
     const declined = new Error("the card was declined");
 
     const errors = await Promise.all([
-      rejectionOf(first.effects.saveResultIfAbsent(key, failing(first.rows, "r1", declined))),
-      rejectionOf(first.effects.saveResultIfAbsent(key, writing(first.rows, "r2", count))),
+      rejectionOf(first.effects.runOnce(key, failing(first.rows, "r1", declined))),
+      rejectionOf(first.effects.runOnce(key, writing(first.rows, "r2", count))),
     ]);
 
     expect(errors).toEqual([declined, declined]);

@@ -7,7 +7,7 @@ import {
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
-import type { Tern } from "../../src/terns/index.js";
+import type { Turn } from "../../src/terns/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { kill, resetRecovery, stores } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -72,7 +72,7 @@ async function both(apps: readonly TestApp[]): Promise<readonly [TestApp, TestAp
 }
 
 /** The root's record of the thread. */
-async function recordOf(): Promise<Tern | undefined> {
+async function recordOf(): Promise<Turn | undefined> {
   const records = await stores.records?.lastTerns("default", THREAD.threadId, 5);
   return records?.[0];
 }

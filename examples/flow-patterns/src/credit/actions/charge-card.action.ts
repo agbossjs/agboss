@@ -1,9 +1,10 @@
+import type { DatabaseSync } from "node:sqlite";
 import {
   Action,
   ExecutionContext,
   effectKeyOf,
+  FencedEffects,
   optional,
-  SqliteFencedEffectRepository,
   type ActionHandler,
   type InputOf,
   type OutputOf,
@@ -20,8 +21,10 @@ import { PaymentLedgerRepository } from "../repositories/payment-ledger.reposito
  * lease. It is keyed by the credit application (#508, `credit:<applicationId>`), not the step: a
  * step run again (a crash before its checkpoint) and a second execution for the same application
  * (another request, another thread) get the first receipt; the same application with another
- * customer or total is refused (`IdempotencyKeyConflictError`) and charges nothing; an instance
- * that lost the lease is refused (`ExecutionFencedError`, a hand-over) and writes nothing.
+ * customer or total is refused (`BusinessKeyConflictError`) and charges nothing; an instance
+ * that lost the lease is refused (`ExecutionFencedError`, a hand-over) and writes nothing. It
+ * injects the application's `FencedEffects` (#890), never the store: the store is the one the
+ * application lists (`SqliteFencedEffectRepository`), whose transaction is a `DatabaseSync`.
  */
 @Action({
   name: "charge-card-action",
@@ -31,12 +34,12 @@ import { PaymentLedgerRepository } from "../repositories/payment-ledger.reposito
     approval: optional(CreditApprovalDto), // present after ApprovalAgent
   },
   output: ChargeResultDto,
-  deps: [ExecutionContext, SqliteFencedEffectRepository, PaymentLedgerRepository],
+  deps: [ExecutionContext, FencedEffects, PaymentLedgerRepository],
 })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly sqliteFencedEffectRepository: SqliteFencedEffectRepository,
+    private readonly fencedEffects: FencedEffects,
     private readonly paymentLedgerRepository: PaymentLedgerRepository,
   ) {}
 
@@ -46,7 +49,7 @@ export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
       businessKey: `credit:${applicationId}`,
       fingerprint: { customerId, total },
     });
-    const { result } = await this.sqliteFencedEffectRepository.saveResultIfAbsent(key, (database) =>
+    const { result } = await this.fencedEffects.runOnce(key, (database: DatabaseSync) =>
       this.paymentLedgerRepository.recordCharge(database, { customerId, total }),
     );
     return { chargeId: result.chargeId };

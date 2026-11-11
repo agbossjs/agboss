@@ -3,7 +3,7 @@ import { buildCostReport, totalCost } from "../finops/usage.js";
 import { finishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
-import type { TernOutcome } from "../terns/index.js";
+import type { TurnOutcome } from "../terns/index.js";
 import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
@@ -12,12 +12,12 @@ import { unrecordedOf } from "../finops/record-stream.js";
 import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
 import type { AgentExecutionOutput, AgentExecutionDeps, ExecutionData } from "./types.js";
 
-/** The Tern of an execution: a finished one's finish line (S8), a paused one waits. */
+/** The Turn of an execution: a finished one's finish line (S8), a paused one waits. */
 function outcomeOf(
   state: ExecutionStateType,
   usage: readonly UsageRecord[],
   paused: boolean,
-): TernOutcome {
+): TurnOutcome {
   const finished = !paused && state.finish !== "";
   return {
     replyWith: finished ? finishLine(state.finish, state.output) : "",
@@ -72,7 +72,7 @@ const originDataOf = (state: ExecutionStateType): Pick<ExecutionData, "origin"> 
   return origin === undefined ? {} : { origin };
 };
 
-/** Writes (or completes) the Tern and shapes the result: finished or paused. */
+/** Writes (or completes) the Turn and shapes the result: finished or paused. */
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
   state: ExecutionStateType,

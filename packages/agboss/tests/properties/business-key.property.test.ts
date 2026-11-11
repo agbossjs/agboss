@@ -4,7 +4,7 @@
  * one), a key's identity and the key sent with a call are one-to-one with their parts, and the
  * fenced effect under a business key gives, for any sequence of calls of two executions: `Ran` the
  * first time, `Replayed` with the first result and the step that made it for the same fingerprint,
- * `IdempotencyKeyConflictError` for another, and `Joined` for a call of the same instance in flight.
+ * `BusinessKeyConflictError` for another, and `Joined` for a call of the same instance in flight.
  * Seeds are logged (FC_SEED replays a run).
  */
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
@@ -16,7 +16,7 @@ import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
   effectKeyIdentityOf,
   fingerprintsUnder,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
   FencedEffectStatus,
@@ -170,7 +170,7 @@ async function outcomesOf(
     });
     expected.push(expectedOf(call, first));
     const write = (): Promise<FencedEffectOutcome<{ request: string }>> =>
-      stores.effects.saveResultIfAbsent(key, (transaction) => {
+      stores.effects.runOnce(key, (transaction) => {
         void stores.rows.insert(transaction, `${tree}:${call.request}`);
         return { request: call.request };
       });
@@ -189,9 +189,7 @@ function outcomeText(
   }>,
 ): string {
   if (result.status === "rejected")
-    return result.reason instanceof IdempotencyKeyConflictError
-      ? "conflict"
-      : String(result.reason);
+    return result.reason instanceof BusinessKeyConflictError ? "conflict" : String(result.reason);
   const { status, replayedFrom } = result.value;
   if (status === FencedEffectStatus.Replayed)
     return replayedFrom === undefined ? "replayed" : `replayed@${replayedFrom.executionId}`;

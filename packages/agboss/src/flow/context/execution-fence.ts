@@ -108,7 +108,7 @@ export function fenceOver(leaseOf: (member: string) => FrameLease): ExecutionFen
     },
     fencedError(observedToken?: number): ExecutionFencedError {
       const held = leaseOf("fencedError");
-      return new ExecutionFencedError({
+      return ExecutionFencedError.of({
         scopeKey: held.scopeKey,
         token: tokenOf(held),
         observedToken,

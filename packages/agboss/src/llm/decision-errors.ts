@@ -8,13 +8,13 @@ export class DecisionError extends AGBossError {
 
 /** A decision request the Decisions API would refuse: too many questions, a bad image, no options. */
 export class DecisionRequestError extends DecisionError {
-  static override readonly code: string = "model.decision.invalid-request";
+  static override readonly code = "model.decision.invalid-request" as const;
   override name = "DecisionRequestError";
 }
 
 /** A Decisions API answer that is unknown or malformed (a missing answer, an option never asked). */
 export class DecisionResponseError extends DecisionError {
-  static override readonly code: string = "model.decision.invalid-response";
+  static override readonly code = "model.decision.invalid-response" as const;
   override name = "DecisionResponseError";
 }
 
@@ -29,7 +29,7 @@ export enum ModelKind {
  * (`openai/gpt-6-luna-decisions`, `typesafe/jev-1.13`, …).
  */
 export class ModelKindError extends AGBossError {
-  static override readonly code: string = "model.wrong-kind";
+  static override readonly code = "model.wrong-kind" as const;
   override name = "ModelKindError";
 
   constructor(model: string, kind: ModelKind, call: "invoke" | "decide") {

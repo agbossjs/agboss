@@ -2,7 +2,7 @@ import type { FrameLease } from "../flow/context/frame.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runningOutcome } from "../run/execute.js";
-import type { Tern, TernOutcome } from "../terns/index.js";
+import type { Turn, TurnOutcome } from "../terns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { cancelledRecordOutcome } from "./live-runs.js";
 import { executionEventAt } from "./run-events.js";
@@ -28,13 +28,13 @@ export type EndedTreeParts = Pick<TreeMoveParts, "deps" | "paused" | "trees" | "
  * The root's record, by its id (#808: however many later turns its thread has); `undefined` when it
  * has none on its thread.
  */
-export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tern | undefined> {
+export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Turn | undefined> {
   const record = await deps.terns.findByTenantIdAndRunId(state.tenantId, state.runId);
   return record?.threadId === state.threadId ? record : undefined;
 }
 
 /** The record's outcome for the tree's final error: a cancel, or what ended it. */
-function endedOutcomeOf(record: Tern, error: Error): TernOutcome {
+function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
   const outcome = cancelledRecordOutcome(record.route, record.costUsd);
   return error instanceof ExecutionCancelledError
     ? outcome
@@ -42,7 +42,7 @@ function endedOutcomeOf(record: Tern, error: Error): TernOutcome {
 }
 
 /** Fails a `running` or `paused` record; `true` when this call did (it is the one). */
-async function failedRecord(deps: AppDeps, record: Tern, error: Error): Promise<boolean> {
+async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<boolean> {
   const outcome = endedOutcomeOf(record, error);
   return (
     (await deps.terns.completeIfStatus(record.id, ExecutionRecordStatus.Running, outcome)) ||

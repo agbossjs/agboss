@@ -110,7 +110,7 @@ export class A2ACallerRejectedError extends AGBossError {
     constructor(
     httpStatus: number,
     wireCode: string, reason: string);
-    static readonly code: string;
+    static readonly code: "a2a.caller-rejected";
     readonly httpStatus: number;
     name: string;
     readonly wireCode: string;

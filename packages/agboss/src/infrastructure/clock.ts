@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
 import {
   DuplicateExecutionIdError,
-  DuplicateThreadIdError,
+  ThreadIdsExhaustedError,
   InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
@@ -190,7 +190,7 @@ export class CheckedIdGenerator extends IdGenerator {
     // a JavaScript project's generator may return anything: no text is no key's length
     const rule = typeof id === "string" ? keyTextRuleOf(id) : KeyTextRule.Length;
     if (rule === undefined) return id as string;
-    throw new InvalidMintedIdError(this.minting.constructor.name, method, rule);
+    throw new InvalidMintedIdError({ generator: this.minting.constructor.name, method, rule });
   }
 }
 
@@ -223,10 +223,11 @@ export interface MintedThreadIds {
   exhausted(tries: number): Error;
 }
 
-/** `idGenerator`'s thread ids for a record store: `DuplicateThreadIdError` once every try is taken. */
+/** `idGenerator`'s thread ids for a record store: `ThreadIdsExhaustedError` once every try is taken. */
 export const mintedThreadIdsOf = (idGenerator: IdGenerator): MintedThreadIds => ({
   newThreadId: () => idGenerator.newThreadId(),
-  exhausted: (tries) => new DuplicateThreadIdError(idGeneratorNameOf(idGenerator), tries),
+  exhausted: (tries) =>
+    new ThreadIdsExhaustedError({ generator: idGeneratorNameOf(idGenerator), tries }),
 });
 
 /** The ids of an application instance: minted by `idGenerator`, kept in `leases`. */

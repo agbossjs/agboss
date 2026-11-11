@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { storedTextOf } from "./schema.js";
-import type { PauseAnswerEntry, Tern, TernOutcome, TernStore } from "./types.js";
+import type { PauseAnswerEntry, Turn, TurnOutcome, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -10,7 +10,7 @@ type Now = () => Date;
 const COMPLETE = `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, route = ?, steps = ?,
   cost_usd = ? WHERE id = ?`;
 
-const outcomeParams = (o: TernOutcome): SQLInputValue[] => [
+const outcomeParams = (o: TurnOutcome): SQLInputValue[] => [
   storedTextOf(o.replyWith),
   o.status,
   storedTextOf(o.stopReason),
@@ -45,7 +45,7 @@ export function pauseAnswerWrites(
   };
 }
 
-/** Appending a Tern and completing it — unconditionally, or only from an expected status (#265 S66 h). */
+/** Appending a Turn and completing it — unconditionally, or only from an expected status (#265 S66 h). */
 export function ternWrites(
   db: DatabaseSync,
   now: Now,
@@ -63,7 +63,7 @@ export function ternWrites(
       return Promise.resolve(Number(changes) === 1);
     },
     append: (tern) => {
-      const t: Tern = { ...tern, id: randomUUID(), createdAt: now().toISOString() };
+      const t: Turn = { ...tern, id: randomUUID(), createdAt: now().toISOString() };
       db.prepare(
         `INSERT INTO terns (id, thread_id, bundle, created_at, task, replyWith, status, stop_reason,
            route, steps, cost_usd, prompt_version, model_version, replay_of, config_version,
@@ -99,7 +99,7 @@ interface KeptPauseAnswer {
   readonly askedAt: string;
 }
 
-/** A pause answer as a Tern store keeps it: by its tree and its step key, the record as JSON. */
+/** A pause answer as a Turn store keeps it: by its tree and its step key, the record as JSON. */
 export const pauseAnswerEntryOf = (
   tenantId: string,
   rootExecutionId: string,

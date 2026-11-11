@@ -11,7 +11,7 @@ import { ComponentKind } from "./records.js";
  * `.onJoinError(…)` catch it by this class or by the cause (codes match through the cause chain).
  */
 export class ChildExecutionFailedError extends StepFailedError {
-  static override readonly code: string = "step.child";
+  static override readonly code = "step.child" as const;
   override name = "ChildExecutionFailedError";
   /** The failed child's own execution id. */
   readonly childExecutionId: string;

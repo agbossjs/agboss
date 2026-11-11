@@ -32,7 +32,7 @@ const writeBy = (run: ExplorerRun, instance: number, token: number): Promise<unk
   if (effects === undefined || rows === undefined) throw new TypeError("no fenced-effect store");
   const row = `race:instance-${String(instance)}`;
   return effects
-    .saveResultIfAbsent(effectKeyOf("tree-1", token), (transaction) => {
+    .runOnce(effectKeyOf("tree-1", token), (transaction) => {
       const inserted = rows.insert(transaction, row);
       return inserted === undefined ? row : inserted.then(() => row);
     })

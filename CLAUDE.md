@@ -1441,8 +1441,12 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (#511): every store call of a target is tracked on the case's `VirtualClock` (`clock.track`), so
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
-  every type a contract's members name is exported by the root entry (`Tern`, `ExecutionData`, …,
-  `tests/public-api/contract-types.test.ts`), with `totalCost(records)`, the sum a ledger adds
+  every type a contract's members name is exported by the root entry (`Turn`, `ExecutionData`, …;
+  #890: `Turn*`, the deprecated `Tern*` aliases kept one minor) or `@agboss/core/stores` (#890: the
+  store-implementer entry — the contracts, every type they name, the rows at a store's boundary
+  (`OutboundCallIntent`, …) and the core's store helpers (`assertEffectName`, `remainingOf`,
+  `assertLedgerEntries`, …), none of which the root has; its report `api/agboss-stores.api.md`;
+  `tests/public-api/contract-types.test.ts`, `stores-entry.test.ts`), with `totalCost(records)`, the sum a ledger adds
   (#521); every text and JSON value a store is handed comes back unchanged, a NUL character
   (U+0000) included — a NUL case in each JSON-storing suite (#521: the SQLite record store keeps
   free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
@@ -1488,8 +1492,9 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
   (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
   launch failed before it starts; a resume or a recovery is not a create. A minted thread id the
-  tenant has is minted again (#550), 100 times at most, then `DuplicateThreadIdError`
-  (`run.duplicate-thread-id`: `generator`, `tries`, never an id, #613; `idGeneratorNameOf` names
+  tenant has is minted again (#550), 100 times at most, then `ThreadIdsExhaustedError`
+  (`run.thread-ids-exhausted`: `generator`, `tries`, never an id, #613 — #890: was
+  `DuplicateThreadIdError`; `idGeneratorNameOf`, `@agboss/core/stores`, names
   the project's class for a store of your own). Never a `pauseId`
   (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
@@ -1583,7 +1588,7 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
-  (`step.question`, `question` the step; `new QuestionFailedError({ question }, cause)`) for `.onError` right after it; a tool naming a question role is
+  (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it; a tool naming a question role is
   `[channel.wrong-tool]`; `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
   `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitQuestion] })` — its model sees a tool named the role (input = `ask`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `answer` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `question`; no tool interceptors), `result.pending[i].step` the asking agent, the record's `kind` `question` and its `component` the role; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; an approval role there is `[channel.approval-role-as-tool]`; `callTool(Role, ask)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
@@ -1680,7 +1685,7 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   (`recordedHandOver`, `src/app/handed-over.ts`), its row written before the lease is released;
   `onFencedEffect` (#501, `FencedEffectEvent`, a node event: `name`, `scopeKey`, `token`, `outcome:
 FencedEffectEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `writtenToken?`,
-  `observedToken?`, never the result) once per call of `FencedEffectRepository.saveResultIfAbsent`
+  `observedToken?`, never the result) once per call of `FencedEffectRepository.runOnce`
   from a step, in the lease's order (a refusal before the hand-over it causes).
 - **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
   line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
@@ -2220,8 +2225,10 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `rootExecutionId` and step key, #676), the permanent history; the pause records are
   operational state, never read for it. A resolved pause record (`Taken`,
   `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`), then removed by
-  the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a
-  late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  the recovery sweep (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): a
+  late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
+  `Resolved` pause no step took when its tree ends (finished, failed, cancelled — an answer a cancel
+  won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890). `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn). The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
@@ -2355,7 +2362,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   warns `[application.lease-check-not-atomic]`; rate limits, the queue and the audit log are on any
   backend; a unit runner holds its lease in the lease store of the store's backend (its own, a listed one, the core's SQLite one); the
   unlisted default beside SQLite leases fails its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
-  `saveResultIfAbsent(effectKeyOf(executionContext, name), work)` (the key marked by a private member, #825: `effectKeyOf` its only maker for an application — a literal or a spread copy does not compile, a key the framework did not make is refused at run time —, `effectKeyForTesting(fields, changes?)` in `/testing/contracts` for a store's tests) → `FencedEffectOutcome {
+  `runOnce(effectKeyOf(executionContext, name), work)` (the key marked by a private member, #825: `effectKeyOf` its only maker for an application — a literal or a spread copy does not compile, a key the framework did not make is refused at run time —, `effectKeyForTesting(fields, changes?)` in `/testing/contracts` for a store's tests) → `FencedEffectOutcome {
 status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one transaction — the
   key's lease (not its epoch, released, expired → `ExecutionFencedError`, a hand-over), the scope's
   high-water mark (a lower token refused before any key is read), the key (written → the stored
@@ -2364,11 +2371,13 @@ status: FencedEffectStatus.Ran | Replayed | Joined, result, token }`, in one tra
   `FencedEffectResultTooLargeError`); a throw rolls everything back; concurrent calls on one key of
   one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
   `work` gets the connection's `DatabaseSync` and must be synchronous (a promise →
-  `FencedEffectAsyncWorkError`, rolled back). Results and marks are removed by the recovery sweep
+  `SyncWorkRequiredError`, rolled back). Results and marks are removed by the recovery sweep
   after `retention.fencedEffects` (default `hours(24)`, above the lease: `[application.retention-invalid]`).
-  Inject the listed store's own class for a typed transaction; unit runners hold their lease in the
+  A component injects the application's `FencedEffects` (#890: a core service over the listed store,
+  never a store's class — `runOnce(key, work)`, `work`'s transaction typed by the component,
+  `(database: DatabaseSync) => …` on SQLite); unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
-  its key's rules are exported (#526 AC5): `assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf` (#825), `replayedFromOf` (a row's `null`s
+  its key's rules are exported by `@agboss/core/stores` (#526 AC5, #890): `assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf` (#825), `replayedFromOf` (a row's `null`s
   taken, a stored step checked), `storedKeyFactsOf`, `effectKeyIdentityOf`, `pendingOutboundCallOf`.
   A store's connection (`SqliteConnection`, `PostgresConnection`) need not be listed (#526 AC8): the
   workflow graph check takes an unlisted class under an infrastructure implementation as its own
@@ -2458,7 +2467,7 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   the previous field is removed what was stored under it fails closed (a conflict); `testWith` and the
   unit runners give both a test key (`tests/app/idempotency-key-rotation.test.ts`). The same key and fingerprint →
   `Replayed` with the first result and `replayedFrom` (`FencedEffectOrigin`: the execution, node and
-  visit that made it); another fingerprint (any text, `""` too, is one and none is none, #574) → `IdempotencyKeyConflictError` (`fenced-effect.key-conflict`:
+  visit that made it); another fingerprint (any text, `""` too, is one and none is none, #574) → `BusinessKeyConflictError` (`fenced-effect.business-key-conflict`:
   `effect`, `businessKeyHash?` — a handle, HMAC-SHA256 of `business-key\0<key>` under a subkey of the execution's PII key (`HMAC(piiKey, "agboss/business-key-handle/v1")`: every other use of the PII key than its tokens derives a subkey of its own), none without one; never the key), nothing run or sent, also for a concurrent call of
   this instance (never joined). A pending call is in flight while its attempt's owner lives — sending in
   this instance, whatever the key (joined, `Joined`; a joiner shares only a success or the other

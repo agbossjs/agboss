@@ -8,7 +8,6 @@ import {
   FencedEffectRepository,
   FencedEffectStatus,
   InMemoryFencedEffectRepository,
-  InMemoryFencedEffectTransaction,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -16,6 +15,7 @@ import {
   type BudgetHandler,
   type Produced,
 } from "../../../src/index.js";
+import { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
@@ -121,7 +121,7 @@ export class ChargeOrderAction {
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects
-      .saveResultIfAbsent(key, (transaction): Receipt => {
+      .runOnce(key, (transaction): Receipt => {
         const chargeId = `charge-${order}-${String(key.token)}${"x".repeat(charging.padding)}`;
         transaction.onCommit(() => book.charges.push({ order, token: key.token, chargeId }));
         return { chargeId };
@@ -165,8 +165,8 @@ export class DoubleChargeAction {
       return { chargeId: order };
     };
     const outcomes = await Promise.all([
-      this.fencedEffects.saveResultIfAbsent(key, charge),
-      this.fencedEffects.saveResultIfAbsent(key, charge),
+      this.fencedEffects.runOnce(key, charge),
+      this.fencedEffects.runOnce(key, charge),
     ]);
     for (const outcome of outcomes) book.runs.push({ token: key.token, status: outcome.status });
     return { chargeId: outcomes[1].result.chargeId };

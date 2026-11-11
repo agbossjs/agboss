@@ -21,7 +21,7 @@ export interface InterruptedRun {
  * (its start input was never saved), so its record is completed as failed.
  */
 export class NothingToRecoverError extends AGBossError {
-  static override readonly code: string = "execution.nothing-to-recover";
+  static override readonly code = "execution.nothing-to-recover" as const;
   override name = "NothingToRecoverError";
 }
 

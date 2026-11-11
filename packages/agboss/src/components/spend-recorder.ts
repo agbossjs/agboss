@@ -22,7 +22,7 @@ export abstract class SpendRecorder {
 
 /** `spendRecorder.record(…)` outside a step or a tool call: nothing to bill it to. */
 export class SpendOutsideStepError extends AGBossError {
-  static override readonly code: string = "spend.outside-step";
+  static override readonly code = "spend.outside-step" as const;
   override name = "SpendOutsideStepError";
 }
 

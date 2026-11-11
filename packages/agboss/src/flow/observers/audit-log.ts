@@ -106,7 +106,7 @@ export interface FencedEffectEvent extends NodeEvent {
  * log is written first; a throw is only a warning and never reaches the effect or its step.
  */
 export interface OnFencedEffect {
-  /** Called once per call of `saveResultIfAbsent`, after its outcome is known. */
+  /** Called once per call of `runOnce`, after its outcome is known. */
   onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 

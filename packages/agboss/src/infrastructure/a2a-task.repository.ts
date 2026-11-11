@@ -183,7 +183,7 @@ export interface A2ATaskPage {
 
 /** A page token that no `list` of this store gave. */
 export class InvalidA2APageTokenError extends AGBossError {
-  static override readonly code: string = "a2a.invalid-page-token";
+  static override readonly code = "a2a.invalid-page-token" as const;
 
   constructor() {
     super("the page token is not one a list of these tasks gave");

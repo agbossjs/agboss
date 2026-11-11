@@ -14,7 +14,7 @@ export const FTS_SCHEMA_VERSION = 1;
 
 /** An index file of a later version than this connector knows: it is never rewritten. */
 export class RagIndexVersionError extends AGBossError {
-  static override readonly code: string = "rag.index-version";
+  static override readonly code = "rag.index-version" as const;
   override name = "RagIndexVersionError";
 }
 

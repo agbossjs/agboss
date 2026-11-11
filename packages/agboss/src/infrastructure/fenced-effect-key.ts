@@ -14,7 +14,7 @@ import type { OutboundCallIntent, OutboundCallRecord } from "./outbound-call-rec
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import {
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
 } from "./fenced-effect-errors.js";
@@ -57,7 +57,7 @@ export function businessKeyErrorOf(
   key: Pick<EffectKeyFields, "name" | "businessKey">,
 ): InvalidBusinessKeyError | undefined {
   const rule = key.businessKey === undefined ? undefined : keyTextRuleOf(key.businessKey);
-  return rule === undefined ? undefined : new InvalidBusinessKeyError({ name: key.name, rule });
+  return rule === undefined ? undefined : new InvalidBusinessKeyError({ effect: key.name, rule });
 }
 
 /** Whether `name` is an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, a letter or digit first. */
@@ -202,7 +202,7 @@ function storedOriginOf(value: unknown): FencedEffectOrigin | undefined {
  * The replay rule of a row found for `key` (#508, exported for stores outside the core, #526):
  * under a business key, another fingerprint — a `null` and a missing one are the same, none; `""`
  * is a fingerprint, not none (#574); during a rotation the previous key's is the same one (#825) — is
- * `IdempotencyKeyConflictError` (never a replay, the key not named); a row another step or
+ * `BusinessKeyConflictError` (never a replay, the key not named); a row another step or
  * execution wrote is named as `replayedFrom`. `undefined` for a step's own key, a row of the key's
  * own step, or one without its step.
  */
@@ -213,7 +213,7 @@ export function replayedFromOf(
   if (key.businessKey === undefined) return undefined;
   // #825: under the current idempotency key, or the previous one during a rotation
   if (!isKeyFingerprint(key, stored.fingerprint))
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
+    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
   const origin = storedOriginOf(stored.origin);
   return origin === undefined || sameOrigin(origin, key.origin) ? undefined : origin;
 }
@@ -288,9 +288,10 @@ export {
 } from "./fenced-effect-fingerprint.js";
 export {
   FingerprintNotJsonError,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
-  type IdempotencyKeyConflictErrorOptions,
+  type BusinessKeyConflictErrorOptions,
+  type FingerprintNotJsonErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-errors.js";

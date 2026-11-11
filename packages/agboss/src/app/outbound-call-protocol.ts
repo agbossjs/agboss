@@ -28,6 +28,7 @@ import {
   OutboundCallVerdict,
   type OutboundCallSendOptions,
   type OutboundCallOutcome,
+  type OutboundCallUnreconciledReason,
 } from "./outbound-calls.js";
 
 import {
@@ -66,7 +67,7 @@ const MAX_READS = 3;
 
 /** Another call holds the key: nothing sent. */
 const inFlight = <TRequest, TResult>(run: CallRun<TRequest, TResult>): OutboundCallInFlightError =>
-  new OutboundCallInFlightError({ ...run.options, name: run.key.name });
+  new OutboundCallInFlightError({ ...run.options, call: run.key.name });
 
 /**
  * Sends attempt `attempt` of `owner`: the lease renewed first, nothing sent once the step aborted;
@@ -135,8 +136,8 @@ async function reconciled<TRequest, TResult>(
   found: OutboundCallRecord,
   readStarted: number,
 ): Promise<OutboundCallOutcome<TResult> | undefined> {
-  const unreconciled = (reason: string, cause?: unknown) =>
-    unreconciledOf(run, found, reason, cause);
+  const unreconciled = (reason: OutboundCallUnreconciledReason, detail: string, cause?: unknown) =>
+    unreconciledOf(run, found, { reason, detail, cause });
   const ages = {
     attemptStartedAt: attemptStartedAtOf(found),
     keyAge: keyAgeOf(run, found, readStarted),
@@ -145,17 +146,25 @@ async function reconciled<TRequest, TResult>(
   try {
     verdict = await run.options.reconcile(lookupOf(run, found, ages));
   } catch (error) {
-    throw await unreconciled(`reconcile threw: ${errorRecordOf(error).message}`, error);
+    throw await unreconciled(
+      "reconcile.threw",
+      `reconcile threw: ${errorRecordOf(error).message}`,
+      error,
+    );
   }
   if (!isReconciliation(verdict))
-    throw await unreconciled("reconcile gave no OutboundCallReconciliation verdict");
+    throw await unreconciled(
+      "reconcile.no-verdict",
+      "reconcile gave no OutboundCallReconciliation verdict",
+    );
   if (verdict.verdict === OutboundCallVerdict.NotSent) {
     // the key aged while reconcile ran too: measured again, now
     const refusal = keyRetentionRefusalOf(run, keyAgeOf(run, found, readStarted));
-    if (refusal !== undefined) throw await unreconciled(refusal);
+    if (refusal !== undefined) throw await unreconciled("key-retention.passed", refusal);
     return movedAndSent(run, found, true);
   }
-  if (verdict.verdict === OutboundCallVerdict.Unknown) throw await unreconciled(verdict.reason);
+  if (verdict.verdict === OutboundCallVerdict.Unknown)
+    throw await unreconciled("reconcile.unknown", verdict.reason);
   const stored = await storedResultOf(run, verdict.result);
   // settled for its owner, which is gone; one that moved it on meanwhile wins: read again
   if (!(await run.parts.repository.markCompleted(run.key, found.attemptOwner, stored)))

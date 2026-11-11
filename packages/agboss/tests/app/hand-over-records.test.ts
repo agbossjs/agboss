@@ -147,7 +147,7 @@ const reportOf = (error: HandOverReport["error"]): HandOverReport => ({
 
 describe("#501: why a step was handed over, and the tokens its event names", () => {
   it("a fenced write: Fenced, the refused write's own scope and token and the token it met", () => {
-    const fenced = new ExecutionFencedError({
+    const fenced = ExecutionFencedError.of({
       scopeKey: "acme:execution-9",
       token: 1,
       observedToken: 2,
@@ -166,7 +166,7 @@ describe("#501: why a step was handed over, and the tokens its event names", () 
   });
 
   it("a fenced write that does not say what it met has no observedToken", () => {
-    const fenced = new ExecutionFencedError({ scopeKey: "acme:execution-9", token: 1 });
+    const fenced = ExecutionFencedError.of({ scopeKey: "acme:execution-9", token: 1 });
 
     expect(handOverEventOf(reportOf(fenced), HELD)).not.toHaveProperty("observedToken");
   });

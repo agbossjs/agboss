@@ -10,18 +10,20 @@ import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import {
-  assertEffectName,
-  effectKeyIdentityOf,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   InvalidFencedEffectNameError,
   OutboundCallStatus,
+  type EffectKey,
+} from "../../src/index.js";
+import {
+  assertEffectName,
+  effectKeyIdentityOf,
   pendingOutboundCallOf,
   replayedFromOf,
   storedKeyFactsOf,
-  type EffectKey,
   type OutboundCallIntent,
   type StoredKeyFacts,
-} from "../../src/index.js";
+} from "../../src/stores/index.js";
 
 const STEP: EffectKey = effectKeyForTesting({
   scopeKey: "default:root-1",
@@ -115,7 +117,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
     ["none stored, one given", {}],
     ["a null stored, one given", { fingerprint: null }],
   ] as const)(
-    "%s under one business key is IdempotencyKeyConflictError, with the handle and never the key",
+    "%s under one business key is BusinessKeyConflictError, with the handle and never the key",
     (_case, stored: StoredKeyFacts) => {
       let thrown: unknown;
       try {
@@ -124,7 +126,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
         thrown = error;
       }
 
-      expect(thrown).toBeInstanceOf(IdempotencyKeyConflictError);
+      expect(thrown).toBeInstanceOf(BusinessKeyConflictError);
       expect(thrown).toMatchObject({ effect: "charge", businessKeyHash: "a1b2c3d4e5f6" });
       expect((thrown as Error).message).not.toContain("order:42");
     },
@@ -135,9 +137,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
 
     expect(replayedFromOf(bare, { fingerprint: null, origin: OTHER_STEP })).toEqual(OTHER_STEP);
     expect(replayedFromOf(bare, {})).toBeUndefined();
-    expect(() => replayedFromOf(bare, { fingerprint: "f-10" })).toThrow(
-      IdempotencyKeyConflictError,
-    );
+    expect(() => replayedFromOf(bare, { fingerprint: "f-10" })).toThrow(BusinessKeyConflictError);
   });
 
   it.each([

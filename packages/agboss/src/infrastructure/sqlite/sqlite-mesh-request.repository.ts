@@ -79,7 +79,7 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve();
   }
 
-  deleteCreatedBefore(cutoff: Date): Promise<void> {
+  deleteByCreatedAtBefore(cutoff: Date): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM mesh_requests WHERE created_at < ?")
       .run(cutoff.toISOString());

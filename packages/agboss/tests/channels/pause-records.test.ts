@@ -309,3 +309,30 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
     expect(assembled.pauseRecordRetention).toBe(hours(24));
   });
 });
+
+describe("#890 AC5: an unconsumed Resolved pause of an ended tree is Taken, then swept", () => {
+  testWith(BriefTreasuryApplication)(
+    "AC5: a pause answered while a cancel wins is marked Taken, its answer kept, and removed after retention.pauseRecords",
+    async ({ app, clock, mockLlm }) => {
+      mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
+      const waiting = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
+      const pauseId = waiting.pending[0]?.pauseId ?? "";
+      const pauses = treasuryPauses();
+      // a resume recorded its answer and the cancel won before its pass took it (#811 s18c)
+      const answer = { decision: { approved: true }, answerer: undefined };
+      await pauses.resolveByTenantIdAndPauseId(waiting.tenantId, pauseId, answer, clock.now());
+
+      await app.cancel(waiting.threadId, { tenantId: waiting.tenantId });
+
+      expect(await pauses.findByTenantIdAndPauseId(waiting.tenantId, pauseId)).toMatchObject({
+        status: PauseStatus.Taken,
+        resolution: PauseResolution.Replied,
+        answer,
+      });
+      await clock.advance(minutes(6));
+      await expect(app.resume({ pauseId, decision: { approved: true } })).rejects.toBeInstanceOf(
+        UnknownPauseError,
+      );
+    },
+  );
+});

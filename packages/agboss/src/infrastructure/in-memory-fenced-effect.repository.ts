@@ -164,9 +164,9 @@ export function checkInMemoryFence(
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))
-    throw new ExecutionFencedError({ scopeKey, token, observedToken: row?.lease.token });
+    throw ExecutionFencedError.of({ scopeKey, token, observedToken: row?.lease.token });
   const highest = database.fencedEffectMarks.get(scopeKey)?.highestToken ?? 0;
-  if (token < highest) throw new ExecutionFencedError({ scopeKey, token, observedToken: highest });
+  if (token < highest) throw ExecutionFencedError.of({ scopeKey, token, observedToken: highest });
 }
 
 /**
@@ -229,7 +229,7 @@ export interface FencedEffectStoreMismatchErrorOptions {
  * the lease store's database (`SqliteFencedEffectRepository` beside `SqliteExecutionLeaseRepository`).
  */
 export class FencedEffectStoreMismatchError extends AGBossError {
-  static override readonly code: string = "fenced-effect.store-mismatch";
+  static override readonly code = "fenced-effect.store-mismatch" as const;
   override name = "FencedEffectStoreMismatchError";
   readonly fencedEffectRepository: string;
   readonly leaseRepository: string;

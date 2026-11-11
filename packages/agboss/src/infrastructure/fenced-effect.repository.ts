@@ -98,7 +98,7 @@ const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unk
 /**
  * The calls one leader is joined by: the same scope, identity and token — and the same fingerprint
  * (#508), so a call with other parameters under a business key never gets another call's result: it
- * reaches the transaction, which refuses it (`IdempotencyKeyConflictError`). No fingerprint is
+ * reaches the transaction, which refuses it (`BusinessKeyConflictError`). No fingerprint is
  * `null` and every text, `""` too, is itself (#574): as `replayedFromOf` tells them apart.
  */
 const joinKeyOf = (key: EffectKey): string =>
@@ -138,7 +138,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    * run again, as on MongoDB, #730): only the last attempt's writes are kept. Concurrent calls on one key of this instance share the first's
    * outcome (`Joined`); across instances the transaction serializes them (`Replayed`).
    */
-  saveResultIfAbsent<TResult>(
+  runOnce<TResult>(
     key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
@@ -294,7 +294,7 @@ export {
   FingerprintNotJsonError,
   FingerprintPolicy,
   FingerprintRequiredError,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   IdempotencyKeyMissingError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
@@ -304,7 +304,8 @@ export {
   type FingerprintKeys,
   type UnfingerprintedKeyOptions,
   type OutboundCallKeyOptions,
-  type IdempotencyKeyConflictErrorOptions,
+  type BusinessKeyConflictErrorOptions,
+  type FingerprintNotJsonErrorOptions,
   type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-key.js";
 export {

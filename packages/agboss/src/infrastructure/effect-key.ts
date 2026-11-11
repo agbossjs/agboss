@@ -27,7 +27,7 @@ export interface EffectKeyFields {
   readonly businessKey?: string;
   /**
    * What the effect does, as a keyed digest (#825: an HMAC of canonical JSON under the application's
-   * idempotency key): another one under the same business key is `IdempotencyKeyConflictError`,
+   * idempotency key): another one under the same business key is `BusinessKeyConflictError`,
    * never a replay. Any text is a fingerprint, the empty one too (#574): `""` and none are two
    * requests — refused against each other, in flight or stored, so a store keeps `""` as `""`, never
    * as `NULL`. A store keeps this one only — never `previousFingerprint`.

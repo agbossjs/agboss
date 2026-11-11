@@ -15,7 +15,7 @@ import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
 
 /** `resume` of a run that is not waiting for a decision. */
 export class NotPausedError extends AGBossError {
-  static override readonly code: string = "run.not-paused";
+  static override readonly code = "run.not-paused" as const;
   override name = "NotPausedError";
 }
 
@@ -64,7 +64,7 @@ async function pausedRun<TName extends string>(
 
 /**
  * Continues a paused run with the answers its pauses have (`TreeResume`, #267 S35) — same run id,
- * same Tern, same budget. Spend recorded before the pause is not recorded again.
+ * same Turn, same budget. Spend recorded before the pause is not recorded again.
  */
 export async function resumeAgent<TName extends string>(
   paused: AgentExecutionOutput,

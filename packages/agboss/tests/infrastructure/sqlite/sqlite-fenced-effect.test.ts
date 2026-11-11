@@ -1,6 +1,6 @@
 /**
  * #500 — what `SqliteFencedEffectRepository` does beyond the published contract: a work that
- * returns a promise is rolled back with `FencedEffectAsyncWorkError` (nothing written, its
+ * returns a promise is rolled back with `SyncWorkRequiredError` (nothing written, its
  * rejection not left unhandled), the scope's mark refuses a lower token even when the lease's epoch
  * matches it, the sweep removes the marks too, and the store creates the leases' table it reads.
  */
@@ -13,7 +13,7 @@ import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.re
 import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
-  FencedEffectAsyncWorkError,
+  SyncWorkRequiredError,
   SqliteFencedEffectRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
@@ -52,19 +52,19 @@ const count = (stores: ReturnType<typeof storesOn>, table: string): number =>
   Number(stores.connection.database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n);
 
 describe("#500: SqliteFencedEffectRepository", () => {
-  it("a work that returns a promise rolls back: FencedEffectAsyncWorkError, no row, no mark", async () => {
+  it("a work that returns a promise rolls back: SyncWorkRequiredError, no row, no mark", async () => {
     const stores = storesOn();
     stores.connection.database.exec("CREATE TABLE rows (row TEXT)");
     const key = keyOf(await held(stores.leases));
 
-    const call = stores.effects.saveResultIfAbsent(key, async (database) => {
+    const call = stores.effects.runOnce(key, async (database) => {
       database.prepare("INSERT INTO rows VALUES ('r1')").run();
       return Promise.reject(new Error("an API call inside the transaction"));
     });
 
-    await expect(call).rejects.toBeInstanceOf(FencedEffectAsyncWorkError);
+    await expect(call).rejects.toBeInstanceOf(SyncWorkRequiredError);
     await expect(call).rejects.toMatchObject({
-      code: "fenced-effect.async-work",
+      code: "fenced-effect.sync-work-required",
       effect: "charge",
     });
     await expect(call).rejects.toThrow(/do the I\/O before or after the call/);
@@ -83,7 +83,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
       .run();
     const again = await held(stores.leases);
 
-    const refused = stores.effects.saveResultIfAbsent(keyOf(again), () => ({ receipt: "r1" }));
+    const refused = stores.effects.runOnce(keyOf(again), () => ({ receipt: "r1" }));
 
     await expect(refused).rejects.toBeInstanceOf(ExecutionFencedError);
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
@@ -91,12 +91,9 @@ describe("#500: SqliteFencedEffectRepository", () => {
 
   it("the sweep's deletion removes a scope's mark stored before the cutoff, and keeps a later one", async () => {
     const stores = storesOn();
-    await stores.effects.saveResultIfAbsent(keyOf(await held(stores.leases)), () => "a");
+    await stores.effects.runOnce(keyOf(await held(stores.leases)), () => "a");
     await stores.clock.advance(seconds(60));
-    await stores.effects.saveResultIfAbsent(
-      keyOf(await held(stores.leases, "execution-2")),
-      () => "b",
-    );
+    await stores.effects.runOnce(keyOf(await held(stores.leases, "execution-2")), () => "b");
 
     await stores.effects.deleteByStoredAtBefore(
       new Date(stores.clock.now().getTime() - seconds(30)),
@@ -126,7 +123,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
       }),
     );
 
-    await expect(effects.saveResultIfAbsent(key, () => null)).rejects.toMatchObject({
+    await expect(effects.runOnce(key, () => null)).rejects.toMatchObject({
       observedToken: undefined,
     });
     await expect(effects.ping()).resolves.toBeUndefined();
@@ -136,9 +133,9 @@ describe("#500: SqliteFencedEffectRepository", () => {
     const stores = storesOn();
     const lease = await held(stores.leases);
 
-    const ran = await stores.effects.saveResultIfAbsent(keyOf(lease, "text"), () => "receipt-1");
-    const replayed = await stores.effects.saveResultIfAbsent(keyOf(lease, "text"), () => "other");
-    const nothing = await stores.effects.saveResultIfAbsent(keyOf(lease, "none"), () => null);
+    const ran = await stores.effects.runOnce(keyOf(lease, "text"), () => "receipt-1");
+    const replayed = await stores.effects.runOnce(keyOf(lease, "text"), () => "other");
+    const nothing = await stores.effects.runOnce(keyOf(lease, "none"), () => null);
 
     expect(ran).toEqual({ status: FencedEffectStatus.Ran, result: "receipt-1", token: 1 });
     expect(replayed.result).toBe("receipt-1");

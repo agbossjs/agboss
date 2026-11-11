@@ -14,7 +14,6 @@ export {
   type ExecutionAuditEventRecord,
   type FencedEffectRecord,
   OutboundCallEventOutcome,
-  OutboundCallLeaseState,
   type OutboundCallEventRecord,
   type OutboundCallClosedLease,
   type AuditEventStep,
@@ -32,15 +31,7 @@ export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js"
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 export type { LedgerKey } from "../finops/ledger-mark.js";
-// the store helpers of the ledger (#817): what a save refuses and what it adds, what a prune
-// refuses (#869) — a later wave
-// moves them to `@agboss/core/stores`
-export {
-  assertLedgerCutoff,
-  assertLedgerEntries,
-  expiredEntriesOf,
-  unrecordedEntriesOf,
-} from "../infrastructure/cost-ledger.repository.js";
+// the store helpers of the ledger (#817, #869) are in `@agboss/core/stores` (#890)
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";
 export { SqliteExecutionAuditLogRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -56,7 +47,9 @@ export type { SecretFieldOf } from "../application/application.js";
 // what a store class declares (#526, #825): its backend and how it checks the lease
 export type { StoreDescriptor } from "../infrastructure/execution-lease.repository.js";
 export type { EffectKeyMark, OutboundCallKeyMark } from "../infrastructure/effect-key.js";
-// the fenced effect (#500): the contract, its key and outcome, the in-memory store, its settings
+// the fenced effect (#500): the service an app injects (#890), the contract, its key and outcome,
+// the in-memory store, its settings
+export { FencedEffects } from "../app/fenced-effects.js";
 export {
   effectKeyOf,
   FencedEffectRepository,
@@ -80,26 +73,13 @@ export {
   type JsonPrimitive,
   type JsonValue,
 } from "../infrastructure/fenced-effect.repository.js";
-// the rules of a key a store outside the core keeps with the core's own helpers (#526 AC5): the
-// name rule, the business key's text (#538), the replay and conflict rule, where its row is, the
-// record of an outbound call's intent
+// what a business key's missing fingerprint decision is (#825); the store helpers of a key (#526
+// AC5) are in `@agboss/core/stores` (#890)
 export {
-  assertBusinessKey,
-  assertEffectName,
-  effectKeyIdentityOf,
-  fingerprintErrorOf,
   FingerprintProblem,
-  isKeyFingerprint,
   type FingerprintRequiredErrorOptions,
-  pendingOutboundCallOf,
-  replayedFromOf,
-  storedKeyFactsOf,
-  type StoredKeyFacts,
 } from "../infrastructure/fenced-effect-key.js";
-export {
-  InMemoryFencedEffectRepository,
-  InMemoryFencedEffectTransaction,
-} from "../infrastructure/in-memory-fenced-effect.repository.js";
+export { InMemoryFencedEffectRepository } from "../infrastructure/in-memory-fenced-effect.repository.js";
 export {
   FencedEffectSettings,
   type FencedEffectOptions,
@@ -110,14 +90,16 @@ export {
 export type {
   ConfigSnapshot,
   NewSummary,
-  NewTern,
+  NewTurn,
   Summary,
-  Tern,
-  TernOutcome,
-  TernStatus,
-  TernStep,
+  Turn,
+  TurnOutcome,
+  TurnStatus,
+  TurnStep,
   VersionScore,
 } from "../terns/index.js";
+// the names before #890, deprecated: removed in 0.2 (by `export *`, so no module of the core names them)
+export type * from "./turn-deprecated.js";
 export {
   CostCategory,
   CostSource,
@@ -145,18 +127,13 @@ export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export type { Brand } from "../types/brand.js";
 // calls that leave the system (#505): the store's contract, its in-memory default, the service,
 // its verdicts and outcome, its settings
+// (the rows at its store's boundary — intent, claim, lease, … — are in `@agboss/core/stores`, #890)
 export {
   OutboundCallRepository,
   OutboundCallStatus,
-  type OutboundCallClaim,
   type OutboundCallFailure,
-  type OutboundCallIntent,
-  type OutboundCallLease,
   type OutboundCallPage,
   type OutboundCallRecord,
-  type OutboundCallState,
-  type OutboundCallStatusQuery,
-  type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 export { NotSentTrust } from "../app/outbound-call-contract.js";
@@ -185,8 +162,6 @@ export {
   type OutboundCallOptions,
   type OutboundCallSettingsOptions,
 } from "../infrastructure/fenced-effect-settings.js";
-// the class a refusal of minted ids names, for a store of your own (#613)
-export { idGeneratorNameOf } from "../infrastructure/clock.js";
 // #807: the A2A tasks an application serves (infrastructure, listed in `@Application({ providers })`)
 export {
   A2ATaskRepository,

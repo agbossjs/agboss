@@ -4,11 +4,11 @@ import {
   pauseAnswerEntryOf,
   type ConfigSnapshot,
   type NewSummary,
-  type NewTern,
+  type NewTurn,
   type NewThread,
   type Summary,
-  type Tern,
-  type TernOutcome,
+  type Turn,
+  type TurnOutcome,
   type TernStore,
   type VersionScore,
 } from "../terns/index.js";
@@ -47,7 +47,7 @@ export enum ExecutionRecordStatus {
 
 /**
  * Infrastructure (#261, S28): the records of the application's executions — threads and their
- * owners — keyed by tenant + thread (#261) — one record per execution (a Tern until #268 renames
+ * owners — keyed by tenant + thread (#261) — one record per execution (a Turn until #268 renames
  * it, carrying its `tenantId`), quality scores, conversation
  * summaries and config snapshots. One per application, listed only in `@Application({ providers })`;
  * the built-in default is in memory. Your own `extends ExecutionRecordRepository`.
@@ -75,9 +75,9 @@ export abstract class ExecutionRecordRepository {
     tenantId: string,
     threadId: string,
   ): Promise<{ readonly owner: string | undefined } | undefined>;
-  abstract append(tern: NewTern): Promise<Tern>;
+  abstract append(tern: NewTurn): Promise<Turn>;
   /** Completes a paused record (same id) with its final outcome. */
-  abstract complete(ternId: string, outcome: TernOutcome): Promise<void>;
+  abstract complete(ternId: string, outcome: TurnOutcome): Promise<void>;
   /**
    * Compare-and-set (#265 S66 h): writes the outcome only while the record's status is `expected`,
    * atomically; `true` when it did. A resume marks its paused record `running` this way, so its
@@ -86,11 +86,11 @@ export abstract class ExecutionRecordRepository {
   abstract completeIfStatus(
     ternId: string,
     expected: ExecutionRecordStatus,
-    outcome: TernOutcome,
+    outcome: TurnOutcome,
   ): Promise<boolean>;
   /** The last `limit` records of a thread, oldest first. */
-  abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]>;
-  abstract byIds(ids: readonly string[]): Promise<Tern[]>;
+  abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
+  abstract byIds(ids: readonly string[]): Promise<Turn[]>;
   /**
    * A page of the records with `status`, oldest first: up to `limit`, after the record `after`
    * (the last id of the previous page). Recovery reads `ExecutionRecordStatus.Running` (#265 S30).
@@ -99,21 +99,21 @@ export abstract class ExecutionRecordRepository {
     status: ExecutionRecordStatus,
     limit: number,
     after?: string,
-  ): Promise<Tern[]>;
+  ): Promise<Turn[]>;
   /**
    * The record an execution of the tenant wrote (#808), by its id (`runId`, a root's: its A2A task
    * id) — the latest one if it wrote several —, however many later records its thread has;
    * `undefined` when it wrote none. Read repair finds a task's root record this way.
    */
-  abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Tern | undefined>;
+  abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
   /** Original (non-replay) records of a prompt version, oldest first; `running` ones left out. */
-  abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
+  abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
   /** Answered records without a score, oldest first. */
   abstract unscored(
     workflow: string,
     promptVersion: string | undefined,
     limit: number,
-  ): Promise<Tern[]>;
+  ): Promise<Turn[]>;
   abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
   abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
   /** Mean score and cost per prompt version; `running` records left out (a run in flight is no result). */
@@ -127,16 +127,16 @@ export abstract class ExecutionRecordRepository {
   ): Promise<{ readonly drift: boolean }>;
   abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
   /** The latest `limit` original answered records of a workflow, oldest first. */
-  abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
+  abstract recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
   /** Records of the thread after the compaction's last summary, oldest first (#120 PR 3). */
-  abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Tern[]>;
+  abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
   /** Up to `limit` records right before `ternId`, oldest first. */
   abstract before(
     tenantId: string,
     threadId: string,
     ternId: string,
     limit: number,
-  ): Promise<Tern[]>;
+  ): Promise<Turn[]>;
   /** 1-based position of a record in its thread. */
   abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
   /** A summary of a thread: it carries the thread's `tenantId` and `threadId`. */
@@ -168,7 +168,7 @@ export abstract class ExecutionRecordRepository {
   ): Promise<PauseAnswerRecord[]>;
 }
 
-/** The records in a Tern store (internal): what the built-in default and the SQLite ones build on. */
+/** The records in a Turn store (internal): what the built-in default and the SQLite ones build on. */
 export class TernStoreRecordRepository extends ExecutionRecordRepository {
   readonly #store: TernStore;
 
@@ -190,35 +190,35 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   threadOwner(...args: Parameters<TernStore["threadOwner"]>): ReturnType<TernStore["threadOwner"]> {
     return this.#store.threadOwner(...args);
   }
-  append(tern: NewTern): Promise<Tern> {
+  append(tern: NewTurn): Promise<Turn> {
     return this.#store.append(tern);
   }
-  complete(ternId: string, outcome: TernOutcome): Promise<void> {
+  complete(ternId: string, outcome: TurnOutcome): Promise<void> {
     return this.#store.complete(ternId, outcome);
   }
   completeIfStatus(
     ternId: string,
     expected: ExecutionRecordStatus,
-    outcome: TernOutcome,
+    outcome: TurnOutcome,
   ): Promise<boolean> {
     return this.#store.completeIfStatus(ternId, expected, outcome);
   }
-  lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]> {
+  lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
     return this.#store.lastTerns(tenantId, threadId, limit);
   }
-  byIds(ids: readonly string[]): Promise<Tern[]> {
+  byIds(ids: readonly string[]): Promise<Turn[]> {
     return this.#store.byIds(ids);
   }
-  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]> {
+  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]> {
     return this.#store.byStatus(status, limit, after);
   }
-  findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Tern | undefined> {
+  findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined> {
     return this.#store.findByTenantIdAndRunId(tenantId, runId);
   }
-  byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]> {
+  byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]> {
     return this.#store.byVersion(workflow, promptVersion, limit);
   }
-  unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Tern[]> {
+  unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]> {
     return this.#store.unscored(workflow, promptVersion, limit);
   }
   saveScore(ternId: string, judge: string, score: number): Promise<void> {
@@ -236,13 +236,13 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]> {
     return this.#store.configSnapshots(workflow, version);
   }
-  recentOriginals(workflow: string, limit: number): Promise<Tern[]> {
+  recentOriginals(workflow: string, limit: number): Promise<Turn[]> {
     return this.#store.recentOriginals(workflow, limit);
   }
-  uncovered(tenantId: string, threadId: string, compaction: string): Promise<Tern[]> {
+  uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]> {
     return this.#store.uncovered(tenantId, threadId, compaction);
   }
-  before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Tern[]> {
+  before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Turn[]> {
     return this.#store.before(tenantId, threadId, ternId, limit);
   }
   turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number> {

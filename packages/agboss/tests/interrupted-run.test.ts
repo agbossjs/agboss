@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 describe("interrupted runs", () => {
-  it("an aborted signal stops the run and stores an interrupted Tern", async () => {
+  it("an aborted signal stops the run and stores an interrupted Turn", async () => {
     const deps = await fakeDeps({
       "test/router": [routeTo("alpha-agent")],
       "test/alpha": ["ok"],

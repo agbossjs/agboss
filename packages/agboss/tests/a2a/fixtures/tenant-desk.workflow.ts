@@ -135,7 +135,12 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as c
 export class TenantDeskWorkflow {}
 
 /** What the tenant desk serves over A2A (#398 PR 3). */
-@A2AExpose({ name: "tenant-desk-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [TenantAskStart] })
+@A2AExpose({
+  name: "tenant-desk-a2a-expose",
+  description: "Served over A2A",
+  version: "1.0.0",
+  exports: [TenantAskStart],
+})
 export class TenantDeskA2AExpose {}
 
 @Application({
@@ -170,7 +175,12 @@ export class ListedAskStart {}
 })
 export class ListedDeskWorkflow {}
 
-@A2AExpose({ name: "listed-desk-a2a-expose", description: "Served over A2A", version: "1.0.0", exports: [ListedAskStart] })
+@A2AExpose({
+  name: "listed-desk-a2a-expose",
+  description: "Served over A2A",
+  version: "1.0.0",
+  exports: [ListedAskStart],
+})
 export class ListedDeskA2AExpose {}
 
 @Application({

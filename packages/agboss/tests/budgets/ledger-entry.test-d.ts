@@ -4,13 +4,12 @@ import {
   CostLedgerRepository,
   CostSource,
   LedgerState,
-  expiredEntriesOf,
-  unrecordedEntriesOf,
   type CostCounter,
   type LedgerEntry,
   type LedgerMark,
   type UsageRecord,
 } from "../../src/index.js";
+import { expiredEntriesOf, unrecordedEntriesOf } from "../../src/stores/index.js";
 import type { Usd } from "../../src/units/index.js";
 
 /**

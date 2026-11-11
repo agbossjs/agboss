@@ -34,7 +34,7 @@ export interface BusinessKeyOptions {
 /**
  * A business key with what the effect does (#508, #825): plain JSON, digested under the
  * application's idempotency key — another value under the same business key is
- * `IdempotencyKeyConflictError`, never a replay.
+ * `BusinessKeyConflictError`, never a replay.
  */
 export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
   readonly fingerprint: JsonValue<TFingerprint>;
@@ -96,7 +96,8 @@ export function fingerprintsOf(value: unknown, name: string): KeyFingerprints {
     return fingerprintsUnder(keys, value);
   } catch (error) {
     // #825: named by its effect — a DTO instance or a Date is no fingerprint
-    if (error instanceof NonJsonValueError) throw new FingerprintNotJsonError(name, error);
+    if (error instanceof NonJsonValueError)
+      throw new FingerprintNotJsonError({ effect: name, path: error.path, reason: error.reason });
     throw error;
   }
 }
@@ -164,7 +165,7 @@ export interface FingerprintRequiredErrorOptions {
  * caller or a key built by hand.
  */
 export class FingerprintRequiredError extends AGBossError {
-  static override readonly code: string = "fenced-effect.fingerprint-required";
+  static override readonly code = "fenced-effect.fingerprint-required" as const;
   override name = "FingerprintRequiredError";
   readonly effect: string;
   readonly reason: FingerprintProblem;
@@ -211,16 +212,16 @@ export function fingerprintErrorOf(
  * unkeyed digest: a stored fingerprint of a low-entropy request would give the request away.
  */
 export class IdempotencyKeyMissingError extends AGBossError {
-  static override readonly code: string = "fenced-effect.idempotency-key-missing";
+  static override readonly code = "fenced-effect.idempotency-key-missing" as const;
   override name = "IdempotencyKeyMissingError";
   readonly effect: string;
 
-  constructor(name: string) {
+  constructor(effect: string) {
     super(
-      `"${name}" is under a business key, whose fingerprint is keyed by the application's idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step`,
-      { details: { effect: name } },
+      `"${effect}" is under a business key, whose fingerprint is keyed by the application's idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step`,
+      { details: { effect } },
     );
-    this.effect = name;
+    this.effect = effect;
   }
 }
 

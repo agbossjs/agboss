@@ -177,7 +177,7 @@ export class ModelCallError extends AGBossError {
     // (undocumented)
     readonly code: ModelCallErrorCode;
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "model";
     // (undocumented)
     name: string;
     // (undocumented)
@@ -292,7 +292,7 @@ export class ModelProviderError extends Error {
 export class ModelProviderFailureError extends AGBossError {
     constructor(failure: ModelFailure, options?: ModelProviderFailureOptions);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "model.provider-failure";
     // (undocumented)
     readonly failure: ModelFailure;
     // (undocumented)

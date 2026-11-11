@@ -206,7 +206,7 @@ describe("#633: a call waiting for a tree's lease", () => {
 
 describe("#633: hand-overs", () => {
   const fenced = (token: number) =>
-    new ExecutionFencedError({
+    ExecutionFencedError.of({
       scopeKey: scopeKeyOf("acme", "root-1"),
       token,
       observedToken: token + 1,

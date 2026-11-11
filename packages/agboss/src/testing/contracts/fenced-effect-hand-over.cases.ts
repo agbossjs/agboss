@@ -70,7 +70,7 @@ export const handOverDuringWrite = <TTransaction>(): Case<TTransaction> => ({
     const seen: Seen = { isHandedOverDuringWork: false, handOver: undefined };
 
     const outcome = await first.effects
-      .saveResultIfAbsent(keyOf(lease), writingThroughHandOver({ first, second }, lease, seen))
+      .runOnce(keyOf(lease), writingThroughHandOver({ first, second }, lease, seen))
       .then(
         () => "landed",
         (error: unknown) => (error instanceof ExecutionFencedError ? "refused" : error),

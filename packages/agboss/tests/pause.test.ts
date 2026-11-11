@@ -88,7 +88,7 @@ describe("pause seam", () => {
     expect((await deps.terns.byIds([paused.ternId]))[0]?.status).toBe(ExecutionStatus.Paused);
   });
 
-  it("resumes after approval: the tool runs once, same run and Tern", async () => {
+  it("resumes after approval: the tool runs once, same run and Turn", async () => {
     const { deps } = await setup([callSend, "Sent it to your boss."]);
     const paused = await runText(task, deps);
 
@@ -159,7 +159,7 @@ describe("pause seam", () => {
     await expect(resumeWith(done, { approved: true }, deps)).rejects.toBeInstanceOf(NotPausedError);
   });
 
-  it("records a failure after resume on the same Tern", async () => {
+  it("records a failure after resume on the same Turn", async () => {
     const { deps: base } = await setup([callSend]);
     const paused = await runText(task, base);
     const deps = base;

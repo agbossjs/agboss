@@ -172,7 +172,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 describe("#626: an attempt's fenced end", () => {
   it("a write the lease refused is logged as an answer after the hand-over, then thrown", async () => {
     const { run, entries } = endingRun(() => Promise.resolve(undefined));
-    const fenced = new ExecutionFencedError({ scopeKey: "default:execution-1", token: 2 });
+    const fenced = ExecutionFencedError.of({ scopeKey: "default:execution-1", token: 2 });
 
     await expect(fencedEnd(run, 1, () => Promise.reject(fenced))).rejects.toBe(fenced);
 
@@ -206,12 +206,16 @@ describe("#626: a call reconcile could not settle", () => {
     const { run, moves } = endingRun(() => Promise.resolve(undefined));
     const found = { status: OutboundCallStatus.Pending, attempt: 3 } as never;
 
-    const error = await unreconciledOf(run, found, "the gateway does not know it");
+    const why = { reason: "reconcile.unknown", detail: "the gateway does not know it" } as const;
+    const error = await unreconciledOf(run, found, why);
 
     expect(movedOf(moves)).toEqual([
       { outcome: OutboundCallEventOutcome.Unknown, status: OutboundCallStatus.Pending, attempt: 3 },
     ]);
-    expect(error).toMatchObject({ reason: "the gateway does not know it" });
+    expect(error).toMatchObject({
+      reason: "reconcile.unknown",
+      detail: "the gateway does not know it",
+    });
   });
 });
 

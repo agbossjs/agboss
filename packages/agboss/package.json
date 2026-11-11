@@ -84,6 +84,10 @@
       "types": "./dist/testing/faults/index.d.ts",
       "import": "./dist/testing/faults/index.js"
     },
+    "./stores": {
+      "types": "./dist/stores/index.d.ts",
+      "import": "./dist/stores/index.js"
+    },
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"

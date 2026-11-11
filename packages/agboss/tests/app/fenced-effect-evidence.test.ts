@@ -1,5 +1,5 @@
 /**
- * #501 PR 3 — the fenced effect (#500) in the audit log: every call of `saveResultIfAbsent` from a
+ * #501 PR 3 — the fenced effect (#500) in the audit log: every call of `runOnce` from a
  * step is a `FencedEffect` row and an `onFencedEffect` — ran, replayed, joined or refused, never its
  * result. With the takeover (PR 1) and the hand-over (PR 2) they let a verifier tell, from
  * `app.auditLogOf` alone, a zombie refused at its protected write from one that never reached it

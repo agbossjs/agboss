@@ -48,7 +48,7 @@ export class KeyedRefundAction {
       businessKey,
       fingerprint: { bookingId },
     });
-    await this.fencedEffectRepository.saveResultIfAbsent(booked, () => {
+    await this.fencedEffectRepository.runOnce(booked, () => {
       keyedUndoSeen.booked.push(bookingId);
       return { bookingId };
     });

@@ -57,7 +57,7 @@ export interface RerankFailedErrorOptions {
 
 /** A reranking that failed under `RerankFailurePolicy.FailStep`: the agent's step fails. */
 export class RerankFailedError extends StepFailedError {
-  static override readonly code: string = RERANK_FAILED_CODE;
+  static override readonly code = RERANK_FAILED_CODE;
   override name = "RerankFailedError";
   /** The knowledge base whose reranking failed. */
   readonly rag: string;

@@ -107,7 +107,7 @@ export class SqliteArtifactLedger {
         const found = database.prepare(HIGHEST).get(row.scopeKey);
         database.exec("ROLLBACK");
         ledger.refused.push({ scopeKey: row.scopeKey, token: row.token });
-        throw new ExecutionFencedError({
+        throw ExecutionFencedError.of({
           scopeKey: row.scopeKey,
           token: row.token,
           observedToken: Number(found?.highest),

@@ -1222,8 +1222,10 @@ back with `findPauseAnswersByTenantIdAndRootExecutionId` — the permanent histo
 below never changes it; the pause records are operational state. A resolved pause
 record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
-(`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): within it a late answer
-is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed.
+(`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): within it a late answer
+is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed. An answered
+(`Resolved`) pause no step took when its tree ended — a cancel that won over the answer — is marked
+`Taken` then, its answer kept, and goes the same way (#890).
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an

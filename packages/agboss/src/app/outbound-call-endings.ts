@@ -20,6 +20,7 @@ import {
   OutboundCallResultNotStoredError,
   OutboundCallUnreconciledError,
   type OutboundCallOutcome,
+  type OutboundCallUnreconciledReason,
 } from "./outbound-calls.js";
 
 /**
@@ -68,13 +69,10 @@ export async function supersededErrorOf<TRequest, TResult>(
   const supersededBy = await superseded(run, attempt);
   const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
   const { target, operation } = run.options;
-  return new OutboundCallSupersededError(
-    {
-      ...{ name: run.key.name, target, operation, idempotencyKey },
-      ...{ attempt, supersededBy },
-    },
-    cause,
-  );
+  return new OutboundCallSupersededError({
+    ...{ call: run.key.name, target, operation, idempotencyKey },
+    ...{ attempt, supersededBy, cause },
+  });
 }
 
 /**
@@ -118,23 +116,31 @@ export function leaseClosed<TRequest, TResult>(
   run.parts.log.warn("outbound-call.lease-closed", text, subjectOf(run));
 }
 
+/** Why `reconcile` could not settle a call: its code, what was said, what it threw. */
+export interface Unreconciled {
+  readonly reason: OutboundCallUnreconciledReason;
+  readonly detail: string;
+  readonly cause?: unknown;
+}
+
 /**
- * `reconcile` could not settle `found` (#505): told `Unknown`, and the error to throw — its reason
+ * `reconcile` could not settle `found` (#505): told `Unknown`, and the error to throw — its detail
  * masked by the frame's mask (#508), its key named by its handle only.
  */
 export async function unreconciledOf<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
-  reason: string,
-  cause?: unknown,
+  why: Unreconciled,
 ): Promise<OutboundCallUnreconciledError> {
   told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
   const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
-  const masked = await maskedTextOf(run, reason);
-  return new OutboundCallUnreconciledError(
-    { ...run.options, name: run.key.name, idempotencyKey, reason: masked },
-    cause,
-  );
+  const detail = await maskedTextOf(run, why.detail);
+  const { target, operation } = run.options;
+  const { reason, cause } = why;
+  return new OutboundCallUnreconciledError({
+    ...{ call: run.key.name, target, operation, idempotencyKey },
+    ...{ reason, detail, cause },
+  });
 }
 
 /**
@@ -149,7 +155,12 @@ export function replayed<TRequest, TResult>(
   // answered, its result not stored (#508): no result to give, never the marker as one
   const notStored = notStoredOf(stored);
   if (notStored !== undefined)
-    throw new OutboundCallResultNotStoredError({ ...run.options, name: run.key.name }, notStored);
+    throw new OutboundCallResultNotStoredError({
+      call: run.key.name,
+      target: run.options.target,
+      operation: run.options.operation,
+      reason: notStored,
+    });
   const replayedFrom = replayedFromOf(run.key, found);
   const moved = [OutboundCallStatus.Completed, found.attempt] as const;
   told(run, OutboundCallEventOutcome.Replayed, moved, { replayedFrom });

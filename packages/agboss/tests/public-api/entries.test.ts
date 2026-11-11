@@ -12,6 +12,7 @@ import * as memory from "../../src/memory/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
 import * as router from "../../src/router/index.js";
+import * as stores from "../../src/stores/index.js";
 import * as testing from "../../src/testing/index.js";
 import * as tool from "../../src/tool/index.js";
 import * as testingVitest from "../../src/testing/vitest.js";
@@ -30,6 +31,7 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./a2a": a2a,
   "./memory": memory,
   "./eval": evals,
+  "./stores": stores,
   "./internal": internal,
   "./core": core,
   "./graph": graph,

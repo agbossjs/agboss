@@ -28,7 +28,7 @@ export type ModelCallErrorCode = "model.circuit-open";
 
 /** A model call the framework failed itself; `code` on the instance says why (`model.circuit-open`). */
 export class ModelCallError extends AGBossError {
-  static override readonly code: string = "model";
+  static override readonly code = "model" as const;
   override name = "ModelCallError";
   constructor(
     override readonly code: ModelCallErrorCode,

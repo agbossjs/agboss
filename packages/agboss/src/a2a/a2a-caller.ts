@@ -186,7 +186,7 @@ export const A2A_CALLER_CODES = {
  */
 export class A2ACallerRejectedError extends AGBossError {
   /** `a2a.caller-rejected`. */
-  static override readonly code: string = "a2a.caller-rejected";
+  static override readonly code = "a2a.caller-rejected" as const;
   /** `A2ACallerRejectedError`. */
   override name = "A2ACallerRejectedError";
 

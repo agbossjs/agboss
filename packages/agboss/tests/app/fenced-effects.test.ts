@@ -1,0 +1,90 @@
+/**
+ * #890 AC2 — the app-facing service of the fenced effect: `FencedEffects.runOnce(key, work)` over
+ * the listed `FencedEffectRepository`, injected without being listed (a core service, as
+ * `OutboundCalls`), so business code never names a store; the store's own verb is `runOnce` too.
+ * Through an application on SQLite: tests/app/fenced-effect-sqlite.test.ts (its action injects
+ * `FencedEffects<DatabaseSync>`).
+ */
+import { describe, expect, it } from "vitest";
+import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import {
+  Action,
+  ExecutionContext,
+  FencedEffectRepository,
+  FencedEffects,
+  FencedEffectStatus,
+  effectKeyOf,
+  type Produced,
+} from "../../src/index.js";
+import { testAction } from "../../src/testing/index.js";
+import { ChargeReceiptDto } from "./fixtures/fenced-effect.workflow.js";
+
+/** How often each order's work ran. */
+const worked: string[] = [];
+
+@Action({
+  name: "fenced-receipt-action",
+  description: "Gives the order's receipt once, through the application's fenced effects",
+  input: { message: WorkflowStartTextDto },
+  output: ChargeReceiptDto,
+  deps: [ExecutionContext, FencedEffects],
+})
+class FencedReceiptAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly fencedEffects: FencedEffects,
+  ) {}
+
+  async execute(input: {
+    readonly message: Produced<WorkflowStartTextDto, unknown>;
+  }): Promise<ChargeReceiptDto> {
+    const order = input.message.value.text;
+    const { result } = await this.fencedEffects.runOnce(
+      effectKeyOf(this.executionContext, "receipt"),
+      () => {
+        worked.push(order);
+        return { chargeId: `receipt-${order}` };
+      },
+    );
+    return result;
+  }
+}
+
+describe("#890 AC2: FencedEffects.runOnce, the service an application injects", () => {
+  const order = { message: { value: { text: "order-1" } } } as never;
+
+  it("AC2: runs the work once per key on the store the container gives, then replays its result", async () => {
+    const run = testAction(FencedReceiptAction);
+    worked.length = 0;
+
+    const first = await run(order);
+    const second = await run(order);
+
+    expect([first.output, second.output]).toEqual([
+      { chargeId: "receipt-order-1" },
+      { chargeId: "receipt-order-1" },
+    ]);
+    expect(worked).toEqual(["order-1"]);
+  });
+
+  it("AC2: delegates to the repository's runOnce with the key and the work as given", async () => {
+    const outcome = { status: FencedEffectStatus.Ran, result: { n: 1 }, token: 1 };
+    const calls: unknown[][] = [];
+    const repository = {
+      runOnce: (...args: unknown[]) => {
+        calls.push(args);
+        return Promise.resolve(outcome);
+      },
+    } as unknown as FencedEffectRepository<unknown>;
+    const key = {} as never;
+    const work = (): { n: number } => ({ n: 1 });
+
+    await expect(new FencedEffects(repository).runOnce(key, work)).resolves.toBe(outcome);
+    expect(calls).toEqual([[key, work]]);
+  });
+
+  it("AC2: the store's verb is runOnce; saveResultIfAbsent is gone", () => {
+    expect(typeof FencedEffectRepository.prototype.runOnce).toBe("function");
+    expect("saveResultIfAbsent" in FencedEffectRepository.prototype).toBe(false);
+  });
+});

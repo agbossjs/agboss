@@ -1,5 +1,5 @@
 import {
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   effectKeyIdentityOf,
 } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
@@ -31,7 +31,7 @@ async function joinedTo<TRequest, TResult>(
   const { key } = run;
   // a step's key has no fingerprint, the call it joins neither: only a business key can differ
   if (joined.fingerprint !== key.fingerprint)
-    throw new IdempotencyKeyConflictError({ name: key.name, businessKeyHash: key.businessKeyHash });
+    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
   const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);

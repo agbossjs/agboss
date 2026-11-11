@@ -132,7 +132,7 @@ function heldWait(): { readonly wait: () => Promise<void>; readonly end: () => v
 }
 
 const fencedAt = (token: number): ExecutionFencedError =>
-  new ExecutionFencedError({ scopeKey: SCOPE, token, observedToken: token + 1 });
+  ExecutionFencedError.of({ scopeKey: SCOPE, token, observedToken: token + 1 });
 
 /** Whether `promise` has settled after the event loop ran a few turns. */
 async function isSettled(promise: Promise<unknown>): Promise<boolean> {

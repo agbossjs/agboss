@@ -10,12 +10,12 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import {
-  assertBusinessKey,
   FencedEffectStatus,
   FingerprintPolicy,
   InvalidBusinessKeyError,
   type EffectKey,
 } from "../../src/index.js";
+import { assertBusinessKey } from "../../src/stores/index.js";
 import {
   keyOf,
   leaseOf,
@@ -152,7 +152,7 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
         else {
           expect(error).toBeInstanceOf(InvalidBusinessKeyError);
           expect((error as Error).message).toBe(
-            new InvalidBusinessKeyError({ name: "charge", rule }).message,
+            new InvalidBusinessKeyError({ effect: "charge", rule }).message,
           );
         }
       }),
@@ -298,14 +298,14 @@ function effectsProperty<TTransaction>(
           });
         const count = { runs: 0 };
         for (const [index, businessKey] of keys.entries()) {
-          const ran = await first.effects.saveResultIfAbsent(
+          const ran = await first.effects.runOnce(
             keyed(businessKey),
             writing(first.rows, `r${String(index)}`, count),
           );
           expect(ran.status).toBe(FencedEffectStatus.Ran);
         }
         for (const [index, businessKey] of keys.entries()) {
-          const replayed = await second.effects.saveResultIfAbsent(
+          const replayed = await second.effects.runOnce(
             keyed(businessKey),
             writing(second.rows, "never", count),
           );

@@ -76,11 +76,11 @@ AGBoss runs a step **at least once**: when an instance dies after a step did its
 step's checkpoint is saved, another instance continues the execution from the last checkpoint and
 runs that step again — with the same `executionContext.step.idempotencyKey`
 (`<executionId>:charge-card-action:1`) under the next lease token. The charge is a **fenced effect**
-(#500): `ChargeCardAction` calls `SqliteFencedEffectRepository.saveResultIfAbsent(effectKeyOf(
+(#500): `ChargeCardAction` calls the application's `FencedEffects.runOnce(effectKeyOf(
 executionContext, "charge", { businessKey, fingerprint: { customerId, total } }), (database) => …)` with
 the business key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
 same application, on another thread, gets the first receipt too, and the same application with another
-total is `IdempotencyKeyConflictError`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
+total is `BusinessKeyConflictError`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
 one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 

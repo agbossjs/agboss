@@ -146,7 +146,7 @@ export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
 export class RerankFailedError extends StepFailedError {
     constructor(input: RerankFailedErrorOptions);
     // (undocumented)
-    static readonly code: string;
+    static readonly code = "step.rerank-failed";
     // (undocumented)
     name: string;
     readonly rag: string;

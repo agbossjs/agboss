@@ -28,7 +28,7 @@ export class AGBossError extends Error {
 
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {
-  static override readonly code: string = "execution.cancelled";
+  static override readonly code = "execution.cancelled" as const;
   override name = "ExecutionCancelledError";
   constructor(message = "the execution was cancelled externally") {
     super(message);
@@ -41,7 +41,7 @@ export class ExecutionCancelledError extends AGBossError {
  * request is refused before an execution starts (`onRunRejected` with `app.stopping`).
  */
 export class ApplicationStoppingError extends AGBossError {
-  static override readonly code: string = "app.stopping";
+  static override readonly code = "app.stopping" as const;
   override name = "ApplicationStoppingError";
 }
 
@@ -172,6 +172,13 @@ export function keyTextRuleOf(text: string): KeyTextRule | undefined {
   return BREACHES.find(([, breaks]) => breaks(text))?.[0];
 }
 
+/** What `InvalidMintedIdError` names (#890: one options bag, its keys its fields). */
+export interface InvalidMintedIdErrorOptions {
+  readonly generator: string;
+  readonly method: "newThreadId" | "newExecutionId";
+  readonly rule: KeyTextRule;
+}
+
 /**
  * An id the application's `IdGenerator` minted that is no key's text (#578): a thread id or an
  * execution id keys threads, leases, the audit log and fenced effects like an id that comes in, so
@@ -179,7 +186,7 @@ export function keyTextRuleOf(text: string): KeyTextRule | undefined {
  * the method and the rule, never the id (a non-string is `length`).
  */
 export class InvalidMintedIdError extends AGBossError {
-  static override readonly code: string = "run.invalid-minted-id";
+  static override readonly code = "run.invalid-minted-id" as const;
   override name = "InvalidMintedIdError";
   /** The generator's class name. */
   readonly generator: string;
@@ -188,7 +195,8 @@ export class InvalidMintedIdError extends AGBossError {
   /** The first rule the id breaks. */
   readonly rule: KeyTextRule;
 
-  constructor(generator: string, method: "newThreadId" | "newExecutionId", rule: KeyTextRule) {
+  constructor(options: InvalidMintedIdErrorOptions) {
+    const { generator, method, rule } = options;
     super(
       `${generator}.${method}() minted an id that is no key (${rule}): ${KEY_TEXT_RULE_TEXT[rule]} — fix the IdGenerator`,
       { details: { generator, method, rule } },
@@ -208,7 +216,7 @@ export class InvalidMintedIdError extends AGBossError {
  */
 export class DuplicateExecutionIdError extends AGBossError {
   /** `run.duplicate-execution-id`. */
-  static override readonly code: string = "run.duplicate-execution-id";
+  static override readonly code = "run.duplicate-execution-id" as const;
   /** `DuplicateExecutionIdError`. */
   override name = "DuplicateExecutionIdError";
   /** The generator's class name. */
@@ -223,23 +231,33 @@ export class DuplicateExecutionIdError extends AGBossError {
   }
 }
 
+/** What `ThreadIdsExhaustedError` names. */
+export interface ThreadIdsExhaustedErrorOptions {
+  /** The generator's class name. */
+  readonly generator: string;
+  /** How many minted ids were tried. */
+  readonly tries: number;
+}
+
 /**
  * A new thread for which the application's `IdGenerator` minted only ids the tenant already has
  * (#613, after #550): each taken one is skipped and the next minted, up to `tries`, then this — a
  * generator stuck on one id, or a sequential one restarted on a kept database. No thread is shared
- * and none is written. Names the generator's class and the tries, never an id.
+ * and none is written. Names the generator's class and the tries, never an id (#890: it was
+ * `DuplicateThreadIdError`, but it is raised after `tries` duplicates, never on one).
  */
-export class DuplicateThreadIdError extends AGBossError {
-  /** `run.duplicate-thread-id`. */
-  static override readonly code: string = "run.duplicate-thread-id";
-  /** `DuplicateThreadIdError`. */
-  override name = "DuplicateThreadIdError";
+export class ThreadIdsExhaustedError extends AGBossError {
+  /** `run.thread-ids-exhausted`. */
+  static override readonly code = "run.thread-ids-exhausted" as const;
+  /** `ThreadIdsExhaustedError`. */
+  override name = "ThreadIdsExhaustedError";
   /** The generator's class name. */
   readonly generator: string;
   /** How many minted ids were tried. */
   readonly tries: number;
 
-  constructor(generator: string, tries: number) {
+  constructor(options: ThreadIdsExhaustedErrorOptions) {
+    const { generator, tries } = options;
     super(
       `${generator}.newThreadId() minted ${String(tries)} ids in a row that are threads the tenant has — an IdGenerator never repeats an id over the life of the application's stores`,
       { details: { generator, method: "newThreadId", tries } },

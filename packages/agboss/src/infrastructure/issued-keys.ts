@@ -1,6 +1,6 @@
 /**
  * The keys this process made (#825): `effectKeyOf`, a call's key with its request's fingerprint, and
- * `effectKeyForTesting` — what `saveResultIfAbsent` and `OutboundCalls.send` take. The type's mark
+ * `effectKeyForTesting` — what `runOnce` and `OutboundCalls.send` take. The type's mark
  * keeps a forged key (`{ ...key, token: key.token + 1 }`) from compiling; this keeps one from a
  * JavaScript caller or a cast from running.
  */

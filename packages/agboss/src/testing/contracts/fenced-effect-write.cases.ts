@@ -27,7 +27,7 @@ const unseenKeyRuns = <TTransaction>(): Case<TTransaction> => ({
     const count: WriteCount = { runs: 0 };
     const key = keyOf(await leaseOf(first));
 
-    const outcome = await first.effects.saveResultIfAbsent(key, writing(first.rows, "r1", count));
+    const outcome = await first.effects.runOnce(key, writing(first.rows, "r1", count));
 
     expect(outcome).toEqual({
       status: FencedEffectStatus.Ran,
@@ -44,9 +44,9 @@ const sameKeyReplays = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     const key = keyOf(await leaseOf(first));
-    await first.effects.saveResultIfAbsent(key, writing(first.rows, "r1", count));
+    await first.effects.runOnce(key, writing(first.rows, "r1", count));
 
-    const again = await second.effects.saveResultIfAbsent(key, writing(second.rows, "r2", count));
+    const again = await second.effects.runOnce(key, writing(second.rows, "r2", count));
 
     expect(again).toEqual({
       status: FencedEffectStatus.Replayed,
@@ -63,14 +63,11 @@ const newerLeaseReplays = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
     const old = await leaseOf(first, "execution-1", SHORT);
-    await first.effects.saveResultIfAbsent(keyOf(old), writing(first.rows, "r1", count));
+    await first.effects.runOnce(keyOf(old), writing(first.rows, "r1", count));
     await clock.advance(seconds(31));
     const taken = await leaseOf(second, "execution-1", SHORT);
 
-    const replay = await second.effects.saveResultIfAbsent(
-      keyOf(taken),
-      writing(second.rows, "r2", count),
-    );
+    const replay = await second.effects.runOnce(keyOf(taken), writing(second.rows, "r2", count));
 
     expect(taken.token).toBe(2);
     expect(replay).toEqual({
@@ -87,13 +84,13 @@ const lowerTokenRefused = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
     const old = await leaseOf(first, "execution-1", SHORT);
-    await first.effects.saveResultIfAbsent(keyOf(old), writing(first.rows, "r1", count));
+    await first.effects.runOnce(keyOf(old), writing(first.rows, "r1", count));
     await clock.advance(seconds(31));
     const taken = await leaseOf(second, "execution-1", SHORT);
-    await second.effects.saveResultIfAbsent(keyOf(taken), writing(second.rows, "r2", count));
+    await second.effects.runOnce(keyOf(taken), writing(second.rows, "r2", count));
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(keyOf(old), writing(first.rows, "r3", count)),
+      first.effects.runOnce(keyOf(old), writing(first.rows, "r3", count)),
     );
 
     expect(refused).toBeInstanceOf(ExecutionFencedError);
@@ -116,9 +113,9 @@ const zombieFirstRefused = <TTransaction>(): Case<TTransaction> => ({
     const taken = await leaseOf(second, "execution-1", SHORT);
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(keyOf(old), writing(first.rows, "zombie", count)),
+      first.effects.runOnce(keyOf(old), writing(first.rows, "zombie", count)),
     );
-    const written = await second.effects.saveResultIfAbsent(
+    const written = await second.effects.runOnce(
       keyOf(taken),
       writing(second.rows, "holder", count),
     );
@@ -137,7 +134,7 @@ const releasedLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
     await first.leases.release(lease);
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(keyOf(lease), writing(first.rows, "r1", count)),
+      first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count)),
     );
 
     expect(refused).toMatchObject({ token: 1, observedToken: 1 });
@@ -156,7 +153,7 @@ const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
     });
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(stranger, writing(first.rows, "r1", count)),
+      first.effects.runOnce(stranger, writing(first.rows, "r1", count)),
     );
 
     expect(refused).toBeInstanceOf(ExecutionFencedError);

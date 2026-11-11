@@ -17,7 +17,7 @@ import { ComponentKind, type ComponentRecord } from "./records.js";
 
 /** A visit past a router's or an agent's `maxVisits` — refused before the node runs (#272 AC14). */
 export class VisitsLimitExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.visits";
+  static override readonly code = "limit.visits" as const;
   override name = "VisitsLimitExceededError";
   /** The router or the agent (no class: the error is kept on a plain record). */
   readonly component: ComponentRecord;
@@ -46,7 +46,7 @@ export class VisitsLimitExceededError extends LimitExceededError {
 
 /** An agent's answers stayed invalid after its retries (S9): 3 attempts, then this. */
 export class AgentAnswerInvalidError extends AgentFailedError {
-  static override readonly code: string = "step.agent.invalid-answer";
+  static override readonly code = "step.agent.invalid-answer" as const;
   override name = "AgentAnswerInvalidError";
   readonly attempts: number;
 
@@ -63,7 +63,7 @@ export class AgentAnswerInvalidError extends AgentFailedError {
  * error as the `cause`, so `.onError` can take either.
  */
 export class ActionFailedError extends StepFailedError {
-  static override readonly code: string = "step.action";
+  static override readonly code = "step.action" as const;
   override name = "ActionFailedError";
 
   constructor(action: string, cause: unknown) {
@@ -88,8 +88,8 @@ export class QuestionFailedError extends StepFailedError {
   /** The question step that failed: its node (the role's name). */
   readonly question: string;
 
-  constructor(options: QuestionFailedErrorOptions, cause: unknown) {
-    const { question } = options;
+  constructor(options: QuestionFailedErrorOptions) {
+    const { question, cause } = options;
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(
       `Question "${question}" failed: ${reason}`,
@@ -106,6 +106,8 @@ export class QuestionFailedError extends StepFailedError {
 export interface QuestionFailedErrorOptions {
   /** The question step that failed: its node (the role's name). */
   readonly question: string;
+  /** What the channel's `send` threw, or why its decision was refused. */
+  readonly cause: unknown;
 }
 
 /**
@@ -129,7 +131,7 @@ export interface GuardrailHit {
  * `guardrails.<name>.threshold`). The execution fails; `refusal` is the text to send instead.
  */
 export class GuardrailBlockedError extends PaidStepError {
-  static override readonly code: string = "guardrail.blocked";
+  static override readonly code = "guardrail.blocked" as const;
   override name = "GuardrailBlockedError";
   /** The guardrail's `name`. */
   readonly guard: string;
@@ -160,6 +162,6 @@ export class GuardrailBlockedError extends PaidStepError {
 
 /** A node returned a value its `output` does not allow (an action, a finish). */
 export class OutputInvalidError extends AGBossError {
-  static override readonly code: string = "step.output-invalid";
+  static override readonly code = "step.output-invalid" as const;
   override name = "OutputInvalidError";
 }

@@ -6,7 +6,7 @@ import { runConfig } from "../run/paused.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import { InvalidThreadIdError } from "../run/thread.js";
-import type { Tern } from "../terns/index.js";
+import type { Turn } from "../terns/index.js";
 import { CANCEL_REQUEST_KEY, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
 import { currentOutputOf } from "./current-output.js";
@@ -52,7 +52,7 @@ async function checkedTree<T>(tree: ExecutionTreeOfThread, read: () => Promise<T
  * Whether a failed record says its execution was cancelled — by the reasons the framework writes
  * itself (`cancelledErrorOf`, `cancelledRecordOutcome`), never by reading free text.
  */
-function isCancelledRecord(record: Tern, threadId: string): boolean {
+function isCancelledRecord(record: Turn, threadId: string): boolean {
   const reasons = [cancelledErrorOf(threadId).message, CANCELLED_STOP_REASON];
   return reasons.includes(record.stopReason);
 }
@@ -65,7 +65,7 @@ async function hasCheckpoint(parts: CancelParts, runId: string): Promise<boolean
 
 /** What a tree's own record says when it runs or failed; `undefined` for any other record. */
 function recordStateOf(
-  record: Tern | undefined,
+  record: Turn | undefined,
   threadId: string,
 ): DurableExecutionState | undefined {
   if (record?.status === ExecutionRecordStatus.Running)
@@ -85,7 +85,7 @@ function recordStateOf(
  * else (its record gone with the thread's window) its last checkpoint's.
  */
 export const finishedSpendOf = (
-  record: Pick<Tern, "status" | "costUsd"> | undefined,
+  record: Pick<Turn, "status" | "costUsd"> | undefined,
   checkpointed: number,
 ): number => (record?.status === ExecutionRecordStatus.Answered ? record.costUsd : checkpointed);
 
@@ -93,7 +93,7 @@ export const finishedSpendOf = (
 async function restStateOf(
   parts: CancelParts,
   state: TreeState,
-  record: Tern | undefined,
+  record: Turn | undefined,
 ): Promise<DurableExecutionState | undefined> {
   try {
     const output = await currentOutputOf(parts.deps, parts.paused, state);

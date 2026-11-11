@@ -22,7 +22,7 @@
       "entry": [
         "src/index.ts",
         "src/internal.ts",
-        "src/{dto,units,models,testing,mcp,rag,a2a,memory,eval,eslint}/index.ts",
+        "src/{dto,units,models,testing,mcp,rag,a2a,memory,eval,eslint,stores}/index.ts",
         "src/testing/contracts/index.ts",
         // the fault suite (#484) and the pod's entry, which the suite spawns by path
         "src/testing/faults/index.ts",

@@ -10,7 +10,7 @@ import type { SummaryMaxTokens } from "./compaction.decorator.js";
  * compaction's (#382): its `compact()` threw (as `cause`) or gave no summaries, or an empty one.
  */
 export class CompactionError extends AGBossError {
-  static override readonly code: string = "compaction";
+  static override readonly code = "compaction" as const;
   override name = "CompactionError";
   /** The `@Compaction`'s name. */
   readonly compaction: string;

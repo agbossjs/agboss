@@ -17,7 +17,7 @@ import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
-/** Graph dependencies plus the application's budgets and the Tern store. */
+/** Graph dependencies plus the application's budgets and the Turn store. */
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
   /**
    * The application's budgets and their ledger (#261): every execution is checked and counted
@@ -40,7 +40,7 @@ export type ExecutionStreamEvent =
 export interface AgentExecutionOptions {
   /** The execution's id, made once by the app (its observer events use it too); default: a new one. */
   readonly executionId?: string;
-  /** Id of the Tern this run replays (eval). */
+  /** Id of the Turn this run replays (eval). */
   readonly replayOf?: string;
   /** Aborts the run (graph and in-flight model calls), e.g. when the user presses Esc. */
   readonly signal?: AbortSignal | undefined;
@@ -101,7 +101,7 @@ export interface AgentExecutionOutput {
   readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */
   readonly traceUrl?: string;
-  /** The run's id (observer events, `executionContext.executionId`, its Tern, its checkpoint — a resume keeps it). */
+  /** The run's id (observer events, `executionContext.executionId`, its Turn, its checkpoint — a resume keeps it). */
   readonly runId: string;
   /** What a paused execution waits for: every pending pause of its tree (#267 AC1); empty otherwise. */
   readonly pending: readonly WaitingPause[];

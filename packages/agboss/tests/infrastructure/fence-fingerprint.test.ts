@@ -1,6 +1,6 @@
 /**
  * #825 AC1 — the fingerprint decision is checked in the transaction every core store runs, not only
- * at `saveResultIfAbsent`'s entry: a subclass whose entry skips it, and the outbound-call store,
+ * at `runOnce`'s entry: a subclass whose entry skips it, and the outbound-call store,
  * refuse a business key without a fingerprint or `FingerprintPolicy.None` before anything is written.
  */
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ const application = applicationContextOf({
   ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
 });
 
-/** A store whose entry skips every check of `saveResultIfAbsent`: straight to its transaction. */
+/** A store whose entry skips every check of `runOnce`: straight to its transaction. */
 class EntrylessEffects extends InMemoryFencedEffectRepository {
   write<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>) {
     return this.runInTransaction(key, work);

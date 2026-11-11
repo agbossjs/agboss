@@ -39,7 +39,7 @@ import type { AnsweredRootParts } from "./paused-runs.js";
 
 /** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
 export class UnknownPauseError extends AGBossError {
-  static override readonly code: string = "pause.unknown";
+  static override readonly code = "pause.unknown" as const;
   override name = "UnknownPauseError";
 }
 
@@ -48,7 +48,7 @@ export class UnknownPauseError extends AGBossError {
  * `Channel` pause with `ownerId`, or a `Channel` pause without a non-empty `answeredBy`.
  */
 export class PauseAnswererError extends AGBossError {
-  static override readonly code: string = "pause.wrong-answerer";
+  static override readonly code = "pause.wrong-answerer" as const;
   override name = "PauseAnswererError";
 }
 

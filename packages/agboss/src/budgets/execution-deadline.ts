@@ -18,7 +18,7 @@ export interface ExecutionDeadline {
 
 /** An execution ran past its deadline: it fails before its next step or model call. */
 export class DeadlineExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.deadline";
+  static override readonly code = "limit.deadline" as const;
   override name = "DeadlineExceededError";
   /** The duration it was given. */
   readonly deadline: Milliseconds;

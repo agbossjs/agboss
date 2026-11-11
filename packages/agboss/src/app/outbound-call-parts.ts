@@ -25,6 +25,7 @@ import {
   type OutboundCallSendOptions,
   type OutboundCallOutcome,
   type OutboundCallSendStatus,
+  type OutboundCallResultNotStoredReason,
   OutboundCallPart,
 } from "./outbound-calls.js";
 
@@ -137,11 +138,23 @@ export const subjectOf = <TRequest, TResult>(run: CallRun<TRequest, TResult>): L
 /** The key of what a completed attempt stores in place of a result it could not store (#508). */
 export const RESULT_NOT_STORED = "agboss:result-not-stored";
 
+/** The codes a marker may name (#890): what kept a result from being stored. */
+const NOT_STORED_REASONS: readonly OutboundCallResultNotStoredReason[] = [
+  "outbound-call.payload-too-large",
+  "outbound-call.unmasked",
+  "outbound-call.result-unstorable",
+];
+
+/** Why a failure to store a result kept it from being stored: its code, else `result-unstorable`. */
+function notStoredReasonOf(code: unknown): OutboundCallResultNotStoredReason {
+  return NOT_STORED_REASONS.find((reason) => reason === code) ?? "outbound-call.result-unstorable";
+}
+
 /** The code a stored result's marker names, when `stored` is one (#508). */
-export function notStoredOf(stored: unknown): string | undefined {
+export function notStoredOf(stored: unknown): OutboundCallResultNotStoredReason | undefined {
   if (typeof stored !== "object" || stored === null || !(RESULT_NOT_STORED in stored))
     return undefined;
-  return String((stored as Record<string, unknown>)[RESULT_NOT_STORED]);
+  return notStoredReasonOf(Reflect.get(stored, RESULT_NOT_STORED));
 }
 
 /**
@@ -159,7 +172,7 @@ export async function storedResultOf<TRequest, TResult>(
     const { code } = errorRecordOf(error);
     const why = `the result of outbound call "${run.key.name}" (${run.options.operation} on ${run.options.target}) was not stored (${code}): its intent is completed without it — a replay fails with OutboundCallResultNotStoredError`;
     run.parts.log.warn("outbound-call.result-not-stored", why, subjectOf(run));
-    return JSON.stringify({ [RESULT_NOT_STORED]: code });
+    return JSON.stringify({ [RESULT_NOT_STORED]: notStoredReasonOf(code) });
   }
 }
 

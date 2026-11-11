@@ -87,7 +87,7 @@ async function chargedOnce(
     businessKey: `order:${orderId}`,
     fingerprint: { amountUsd },
   });
-  const outcome = await fencedEffects.saveResultIfAbsent(key, (transaction) => {
+  const outcome = await fencedEffects.runOnce(key, (transaction) => {
     transaction.onCommit(() => ledger.charges.push({ orderId, amountUsd }));
     return { chargeId: `charge-${orderId}-${String(ledger.charges.length + 1)}` };
   });

@@ -219,7 +219,7 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
     expect(OutboundCallSupersededError.code).toBe("outbound-call.superseded");
     expect(Object.values(OutboundCallSendStatus)).not.toContain("superseded");
     const error = new OutboundCallSupersededError({
-      name: "charge",
+      call: "charge",
       target: "payments",
       operation: "charge",
       idempotencyKey: "k-1",
@@ -254,7 +254,7 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
 
   it("the newer attempt unknown: supersededBy is undefined, never a guess", () => {
     const error = new OutboundCallSupersededError({
-      name: "charge",
+      call: "charge",
       target: "payments",
       operation: "charge",
       idempotencyKey: "k-1",

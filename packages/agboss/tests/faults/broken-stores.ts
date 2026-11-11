@@ -14,8 +14,8 @@ import {
   type EffectKey,
   type FencedEffectOutcome,
   type FencedEffectWork,
-  type OutboundCallIntent,
 } from "../../src/index.js";
+import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
@@ -77,11 +77,11 @@ export const FORGED_TOKEN_OFFSET = 1_000_000;
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
 export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
-  override saveResultIfAbsent<TResult>(
+  override runOnce<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
-    return super.saveResultIfAbsent(
+    return super.runOnce(
       effectKeyForTesting(key, { token: key.token + FORGED_TOKEN_OFFSET }),
       work,
     );

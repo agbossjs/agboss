@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { IdempotencyKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
+import { BusinessKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -28,9 +28,9 @@ const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
     const count: WriteCount = { runs: 0 };
     const one = await leaseOf(first, "execution-1");
     const other = await leaseOf(second, "execution-2");
-    await first.effects.saveResultIfAbsent(businessKeyOf(one), writing(first.rows, "r1", count));
+    await first.effects.runOnce(businessKeyOf(one), writing(first.rows, "r1", count));
 
-    const again = await second.effects.saveResultIfAbsent(
+    const again = await second.effects.runOnce(
       businessKeyOf(other),
       writing(second.rows, "r2", count),
     );
@@ -51,9 +51,9 @@ const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
     const key = businessKeyOf(await leaseOf(first));
-    await first.effects.saveResultIfAbsent(key, writing(first.rows, "r1", count));
+    await first.effects.runOnce(key, writing(first.rows, "r1", count));
 
-    const again = await first.effects.saveResultIfAbsent(key, writing(first.rows, "r2", count));
+    const again = await first.effects.runOnce(key, writing(first.rows, "r2", count));
 
     expect(again).toEqual({
       status: FencedEffectStatus.Replayed,
@@ -64,22 +64,22 @@ const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
 });
 
 const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
-  name: "#508 AC3: another fingerprint under one business key is IdempotencyKeyConflictError: nothing runs, nothing is written",
+  name: "#508 AC3: another fingerprint under one business key is BusinessKeyConflictError: nothing runs, nothing is written",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
-    await first.effects.saveResultIfAbsent(
+    await first.effects.runOnce(
       businessKeyOf(await leaseOf(first, "execution-1")),
       writing(first.rows, "r1", count),
     );
 
     const refused = await rejectionOf(
-      second.effects.saveResultIfAbsent(
+      second.effects.runOnce(
         businessKeyOf(await leaseOf(second, "execution-2"), "fingerprint-b"),
         writing(second.rows, "r2", count),
       ),
     );
 
-    expect(refused).toBeInstanceOf(IdempotencyKeyConflictError);
+    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
     expect(JSON.stringify(refused)).not.toContain("order:42");
     // a key made outside an execution has no handle: the error shows none, never a plain hash
     expect(refused).not.toHaveProperty("businessKeyHash");
@@ -93,22 +93,22 @@ const noFingerprintIsOne = <TTransaction>(): Case<TTransaction> => ({
   name: "#508: a business key with no fingerprint replays one with none, and conflicts with one that has one",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
-    await first.effects.saveResultIfAbsent(
+    await first.effects.runOnce(
       businessKeyOf(await leaseOf(first, "execution-1"), null),
       writing(first.rows, "r1", count),
     );
     const other = await leaseOf(second, "execution-2");
 
-    const replay = await second.effects.saveResultIfAbsent(
+    const replay = await second.effects.runOnce(
       businessKeyOf(other, null),
       writing(second.rows, "r2", count),
     );
     const refused = await rejectionOf(
-      second.effects.saveResultIfAbsent(businessKeyOf(other), writing(second.rows, "r3", count)),
+      second.effects.runOnce(businessKeyOf(other), writing(second.rows, "r3", count)),
     );
 
     expect(replay.status).toBe(FencedEffectStatus.Replayed);
-    expect(refused).toBeInstanceOf(IdempotencyKeyConflictError);
+    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
     expect(count.runs).toBe(1);
   },
 });
@@ -121,13 +121,10 @@ const staleRefused = <TTransaction>(): Case<TTransaction> => ({
     const old = await leaseOf(first, "execution-1", seconds(30));
     await clock.advance(seconds(31));
     const taken = await leaseOf(second, "execution-1", seconds(30));
-    await second.effects.saveResultIfAbsent(
-      businessKeyOf(taken),
-      writing(second.rows, "r1", count),
-    );
+    await second.effects.runOnce(businessKeyOf(taken), writing(second.rows, "r1", count));
 
     const refused = await rejectionOf(
-      first.effects.saveResultIfAbsent(businessKeyOf(old), writing(first.rows, "zombie", count)),
+      first.effects.runOnce(businessKeyOf(old), writing(first.rows, "zombie", count)),
     );
 
     expect(refused).toBeInstanceOf(ExecutionFencedError);
@@ -146,8 +143,8 @@ const racingOnce = <TTransaction>(): Case<TTransaction> => ({
     ];
 
     const outcomes = await Promise.all([
-      first.effects.saveResultIfAbsent(businessKeyOf(one), writing(first.rows, "r1", count)),
-      second.effects.saveResultIfAbsent(businessKeyOf(other), writing(second.rows, "r2", count)),
+      first.effects.runOnce(businessKeyOf(one), writing(first.rows, "r1", count)),
+      second.effects.runOnce(businessKeyOf(other), writing(second.rows, "r2", count)),
     ]);
 
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([
@@ -166,8 +163,8 @@ const concurrentConflict = <TTransaction>(): Case<TTransaction> => ({
     const lease = await leaseOf(first);
 
     const outcomes = await Promise.allSettled([
-      first.effects.saveResultIfAbsent(businessKeyOf(lease), writing(first.rows, "r1", count)),
-      first.effects.saveResultIfAbsent(
+      first.effects.runOnce(businessKeyOf(lease), writing(first.rows, "r1", count)),
+      first.effects.runOnce(
         businessKeyOf(lease, "fingerprint-b"),
         writing(first.rows, "r2", count),
       ),
@@ -179,7 +176,7 @@ const concurrentConflict = <TTransaction>(): Case<TTransaction> => ({
     });
     expect(outcomes[1]).toMatchObject({
       status: "rejected",
-      reason: expect.any(IdempotencyKeyConflictError) as unknown,
+      reason: expect.any(BusinessKeyConflictError) as unknown,
     });
     expect(count.runs).toBe(1);
   },
@@ -191,8 +188,8 @@ const stepKeysApart = <TTransaction>(): Case<TTransaction> => ({
     const count: WriteCount = { runs: 0 };
     const lease = await leaseOf(first);
 
-    await first.effects.saveResultIfAbsent(keyOf(lease), writing(first.rows, "step", count));
-    const business = await first.effects.saveResultIfAbsent(
+    await first.effects.runOnce(keyOf(lease), writing(first.rows, "step", count));
+    const business = await first.effects.runOnce(
       businessKeyOf(lease),
       writing(first.rows, "business", count),
     );

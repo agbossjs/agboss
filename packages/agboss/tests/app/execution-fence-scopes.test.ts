@@ -107,13 +107,31 @@ describe("#471: scopeKey", () => {
     expect(scopeOfKey("no-colon")).toBeUndefined();
     expect(scopeOfKey("a:b:c")).toBeUndefined();
     expect(scopeOfKey("%E0%A4%A:x")).toBeUndefined();
-    expect(() => new ExecutionFencedError({ scopeKey: "a:b:c", token: 1 })).toThrow(
+    expect(() => ExecutionFencedError.of({ scopeKey: "a:b:c", token: 1 })).toThrow(
       /is not a scope key/,
     );
   });
 
+  it("#890 AC3: the constructor takes every fact as is and never throws, a malformed scope key too", () => {
+    const build = () =>
+      new ExecutionFencedError({
+        scopeKey: "a:b:c",
+        tenantId: "a",
+        leaseExecutionId: "b",
+        token: 2,
+      });
+
+    expect(build).not.toThrow();
+    expect(build()).toMatchObject({
+      scopeKey: "a:b:c",
+      tenantId: "a",
+      leaseExecutionId: "b",
+      token: 2,
+    });
+  });
+
   it("an ExecutionFencedError built from a scope key names its tenant, execution and tokens", () => {
-    const error = new ExecutionFencedError({
+    const error = ExecutionFencedError.of({
       scopeKey: scopeKeyOf("acme:eu", "root:1"),
       token: 1,
       observedToken: 3,
@@ -128,7 +146,7 @@ describe("#471: scopeKey", () => {
       observedToken: 3,
     });
     expect(error.message).toMatch(/token 1 was refused: the external system saw token 3/);
-    expect(new ExecutionFencedError({ scopeKey: "a:b", token: 2 }).message).toMatch(
+    expect(ExecutionFencedError.of({ scopeKey: "a:b", token: 2 }).message).toMatch(
       /named no newer token — the lease is over/,
     );
   });

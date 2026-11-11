@@ -59,7 +59,7 @@ describe("#267 S107: a SQLite file written before the pause answer records", () 
       );
 
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
-    await pauses.deleteResolvedBefore(new Date("2100-01-01T00:00:00.000Z"));
+    await pauses.deleteByResolvedAtBefore(new Date("2100-01-01T00:00:00.000Z"));
 
     expect(await pauses.findByTenantIdAndPauseId("default", "taken-pause")).toMatchObject({
       status: PauseStatus.Taken,

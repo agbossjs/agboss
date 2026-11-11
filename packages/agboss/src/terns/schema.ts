@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { TERN_STATUSES, type Tern } from "./types.js";
+import { TURN_STATUSES, type Turn } from "./types.js";
 
 /** Ordered schema migrations; `PRAGMA user_version` = how many are applied. */
 const MIGRATIONS: readonly string[] = [
@@ -37,7 +37,7 @@ const MIGRATIONS: readonly string[] = [
   // 7 — a thread belongs to the owner it was created for (#202); older threads have none
   `CREATE TABLE IF NOT EXISTS thread_owners (thread_id TEXT PRIMARY KEY REFERENCES threads(id),
      owner TEXT NOT NULL);`,
-  // 8 — a Tern names the run that wrote it (#238); older Terns have none
+  // 8 — a Turn names the run that wrote it (#238); older Terns have none
   `ALTER TABLE terns ADD COLUMN run_id TEXT;`,
   // 9 — recovery looks up the records still running (#265 S30)
   `CREATE INDEX IF NOT EXISTS terns_status ON terns(status);`,
@@ -120,7 +120,7 @@ const TernRow = z.object({
   created_at: z.string(),
   task: z.string(),
   replyWith: z.string(),
-  status: z.enum(TERN_STATUSES),
+  status: z.enum(TURN_STATUSES),
   stop_reason: z.string(),
   route: z.string(),
   steps: z.string(),
@@ -144,8 +144,8 @@ export const storedTextOf = (text: string): string => JSON.stringify(text);
 /** The free text a column keeps (`storedTextOf`). */
 export const textOf = (stored: string): string => z.string().parse(JSON.parse(stored));
 
-/** A database row → a typed Tern; rows are validated, never trusted. */
-export function toTern(row: unknown): Tern {
+/** A database row → a typed Turn; rows are validated, never trusted. */
+export function toTern(row: unknown): Turn {
   const r = TernRow.parse(row);
   return {
     id: r.id,
@@ -209,7 +209,7 @@ function migrateInTransaction(db: DatabaseSync): void {
   }
 }
 
-/** Migrates the Tern tables of an open database (a connection shared with other stores, #265). */
+/** Migrates the Turn tables of an open database (a connection shared with other stores, #265). */
 export const migrateTernDatabase = (db: DatabaseSync): void => {
   migrate(db);
 };

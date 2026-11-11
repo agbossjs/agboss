@@ -215,8 +215,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return Promise.resolve();
   }
 
-  deleteResolvedBefore(cutoff: Date): Promise<void> {
-    this.#pauses.deleteResolvedBefore(cutoff);
+  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
+    this.#pauses.deleteByResolvedAtBefore(cutoff);
     return Promise.resolve();
   }
 }

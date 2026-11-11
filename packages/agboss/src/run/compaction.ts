@@ -9,7 +9,7 @@ import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
 import { SHORTER_SUMMARY_REQUEST } from "../prompts/compaction.js";
-import type { Summary, Tern } from "../terns/index.js";
+import type { Summary, Turn } from "../terns/index.js";
 import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
 import { summaryInputTextOf } from "./compaction-input.js";
 
@@ -61,7 +61,7 @@ export interface CompactionOutcome {
   readonly compacted: readonly Compacted[];
 }
 
-const asTurns = (terns: readonly Tern[]): string =>
+const asTurns = (terns: readonly Turn[]): string =>
   toTurns(terns)
     .map((turn) => `${turn.start}\n${turn.finish}`)
     .join("\n\n");
@@ -74,8 +74,8 @@ const callerOf = (compaction: ModelCompactionInUse): string => `compaction:${com
  */
 function dueOf(
   compaction: Pick<CompactionInUse, "window" | "turnsBetweenCompactions">,
-  records: readonly Tern[],
-): readonly Tern[] {
+  records: readonly Turn[],
+): readonly Turn[] {
   if (compaction.window === TurnLimit.ALL) return [];
   const uncovered = records.filter(isTurn);
   const due = uncovered.slice(0, Math.max(0, uncovered.length - compaction.window));
@@ -87,7 +87,7 @@ async function inputOf<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   compaction: ModelCompactionInUse,
   run: CompactionRun,
-  due: readonly Tern[],
+  due: readonly Turn[],
 ): Promise<{ readonly text: string; readonly current?: Summary }> {
   const [first] = due;
   const { tenantId, threadId } = run;
@@ -164,7 +164,7 @@ async function compactWithModel<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   compaction: ModelCompactionInUse,
   run: CompactionRun,
-  due: readonly Tern[],
+  due: readonly Turn[],
 ): Promise<CompactedOne> {
   const binding = deps.registry.compactions.get(compaction.name);
   if (binding === undefined) return { usage: [] };

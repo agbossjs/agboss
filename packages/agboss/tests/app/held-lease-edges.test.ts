@@ -203,7 +203,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       const lease = await heldOn(store, clock);
       // a fenced write found anywhere stops the holder of its token (#471)
       handedOverOf(
-        new ExecutionFencedError({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
+        ExecutionFencedError.of({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
         undefined,
       );
       expect(lease.signal.aborted).toBe(true);

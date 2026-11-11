@@ -9,7 +9,7 @@ import type { WorkflowRecord } from "../context/execution-context.js";
  * never meets it: on the last level its recursive choices are not offered (the soft stop).
  */
 export class DepthLimitExceededError extends LimitExceededError {
-  static override readonly code: string = "limit.depth";
+  static override readonly code = "limit.depth" as const;
   override name = "DepthLimitExceededError";
   /** The recursive workflow, by `name` and versions. */
   readonly workflow: WorkflowRecord;

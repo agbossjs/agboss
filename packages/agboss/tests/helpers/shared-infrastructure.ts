@@ -135,8 +135,8 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return database.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
   }
 
-  deleteResolvedBefore(cutoff: Date): Promise<void> {
-    return database.pauses.deleteResolvedBefore(cutoff);
+  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
+    return database.pauses.deleteByResolvedAtBefore(cutoff);
   }
 }
 

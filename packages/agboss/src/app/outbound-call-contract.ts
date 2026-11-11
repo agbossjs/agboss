@@ -121,27 +121,26 @@ export class OutboundCallSupersededError extends StepFailedError {
   /** The newer attempt that took the intent over; `undefined` when the intent could not be read. */
   readonly supersededBy: number | undefined;
 
-  /** `cause`: what the late attempt itself answered when that was an error (a definite failure). */
-  constructor(options: OutboundCallSupersededErrorOptions, cause?: unknown) {
-    const { name, target, operation, idempotencyKey, attempt, supersededBy } = options;
+  constructor(options: OutboundCallSupersededErrorOptions) {
+    const { call, target, operation, idempotencyKey, attempt, supersededBy, cause } = options;
     const by =
       supersededBy === undefined
         ? "a newer attempt (which one is unknown)"
         : `attempt ${String(supersededBy)}`;
     super(
-      `outbound call "${name}" (${operation} on ${target}, key ${idempotencyKey}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — its answer is not stored; check ${target} before going on`,
+      `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — its answer is not stored; check ${target} before going on`,
       [],
       cause,
-      stepCoordinatesOf(name, ComponentKind.Action),
+      stepCoordinatesOf(call, ComponentKind.Action),
       {
-        call: name,
+        call,
         target,
         operation,
         attempt,
         ...(supersededBy === undefined ? {} : { supersededBy }),
       },
     );
-    this.call = name;
+    this.call = call;
     this.target = target;
     this.operation = operation;
     this.idempotencyKey = idempotencyKey;

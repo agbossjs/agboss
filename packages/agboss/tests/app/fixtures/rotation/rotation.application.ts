@@ -74,7 +74,7 @@ export class BookOrderAction {
       businessKey: `order:${orderId}`,
       fingerprint: { amountUsd },
     });
-    const outcome = await this.fencedEffects.saveResultIfAbsent(key, (database) => {
+    const outcome = await this.fencedEffects.runOnce(key, (database) => {
       database.exec("CREATE TABLE IF NOT EXISTS rotation_bookings (order_id TEXT)");
       database.prepare("INSERT INTO rotation_bookings VALUES (?)").run(orderId);
       return { receipt: `booking-${orderId}` };

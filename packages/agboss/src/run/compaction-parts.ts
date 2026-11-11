@@ -1,7 +1,7 @@
 import type { UsageRecord } from "../finops/usage.js";
 import { DetectionMode } from "../pii/runtime-policy.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
-import type { Summary, Tern } from "../terns/index.js";
+import type { Summary, Turn } from "../terns/index.js";
 import type { Compacted, CompactionRun } from "./compaction.js";
 import type { AgentExecutionDeps } from "./types.js";
 
@@ -36,7 +36,7 @@ export async function maskedTextOf<TName extends string>(
 /** What one compaction wrote, to store: the records it covers, its text and its cost. */
 export interface CompactionWrite {
   readonly compaction: string;
-  readonly due: readonly Tern[];
+  readonly due: readonly Turn[];
   /** The summary it rewrites (a single summary, a custom one): it covers the thread from its start. */
   readonly current?: Summary | undefined;
   readonly text: string;

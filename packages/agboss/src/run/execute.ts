@@ -6,14 +6,14 @@ import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PaidStepError } from "../graph/errors.js";
 import { LimitExceededError } from "../graph/limits.js";
-import type { NewTern, TernOutcome } from "../terns/index.js";
+import type { NewTurn, TurnOutcome } from "../terns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { AgentExecutionDeps } from "./types.js";
 import type { Compacted } from "./compaction.js";
 import type { RootUnwind } from "../flow/runtime/compensation/registry.js";
 
 export type TernBase = Pick<
-  NewTern,
+  NewTurn,
   | "runId"
   | "threadId"
   | "tenantId"
@@ -26,14 +26,14 @@ export type TernBase = Pick<
   | "configHash"
 >;
 
-/** What finishing a run needs: its deps, graph, Tern base, id, budget and spend so far. */
+/** What finishing a run needs: its deps, graph, Turn base, id, budget and spend so far. */
 export interface FinishContext<TName extends string> {
   readonly deps: AgentExecutionDeps<TName>;
   readonly graph: ExecutionGraph;
   readonly base: TernBase;
   readonly runId: string;
   readonly budgetUsd: number;
-  /** Where spend goes as it happens: the Tern's list and the budgets' counters. */
+  /** Where spend goes as it happens: the Turn's list and the budgets' counters. */
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
   /** The run's usage records already in the ledger (this pass's and the passes before). */
   readonly recorded: readonly UsageRecord[];
@@ -83,7 +83,7 @@ export async function recordFailure(
  * The record of an execution while its tree moves (#265 S30): `running`, what it visited and spent
  * so far — what recovery continues when its instance dies.
  */
-export const runningOutcome = (route: readonly string[], costUsd: number): TernOutcome => ({
+export const runningOutcome = (route: readonly string[], costUsd: number): TurnOutcome => ({
   replyWith: "",
   status: "running",
   stopReason: "",
@@ -92,7 +92,7 @@ export const runningOutcome = (route: readonly string[], costUsd: number): TernO
   costUsd,
 });
 
-export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TernOutcome => ({
+export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TurnOutcome => ({
   replyWith: "",
   status: "failed",
   stopReason: errorMessage(error),

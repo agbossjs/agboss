@@ -28,7 +28,7 @@ const ownRows = <TTransaction>(): Case<TTransaction> => ({
       effectKeyForTesting(keyOf(lease), { businessKey, fingerprintPolicy: FingerprintPolicy.None });
 
     for (const [index, businessKey] of ROUND_TRIP_KEYS.entries()) {
-      const ran = await first.effects.saveResultIfAbsent(
+      const ran = await first.effects.runOnce(
         keyed(businessKey),
         writing(first.rows, `r${String(index)}`, count),
       );
@@ -38,7 +38,7 @@ const ownRows = <TTransaction>(): Case<TTransaction> => ({
       });
     }
     for (const [index, businessKey] of ROUND_TRIP_KEYS.entries()) {
-      const replayed = await second.effects.saveResultIfAbsent(
+      const replayed = await second.effects.runOnce(
         keyed(businessKey),
         writing(second.rows, "never", count),
       );
@@ -60,7 +60,7 @@ const refusedByHand = <TTransaction>(): Case<TTransaction> => ({
 
     for (const [rule, businessKey] of REFUSED_BUSINESS_KEYS) {
       const refused = await rejectionOf(
-        first.effects.saveResultIfAbsent(
+        first.effects.runOnce(
           effectKeyForTesting(keyOf(lease), { businessKey, fingerprint: "f" }),
           writing(first.rows, "r1", count),
         ),

@@ -39,18 +39,13 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
       const stale = effectKeyForTesting(valid, { token: lease.token + 7 });
       for (const key of [valid, stale])
         expect(
-          await rejectionOf(
-            first.effects.saveResultIfAbsent(key, writing(first.rows, name, count)),
-          ),
+          await rejectionOf(first.effects.runOnce(key, writing(first.rows, name, count))),
         ).toBeInstanceOf(InvalidFencedEffectNameError);
     }
 
     expect(count.runs).toBe(0);
     expect(await second.rows.committed()).toEqual([]);
-    const ran = await second.effects.saveResultIfAbsent(
-      keyOf(lease),
-      writing(second.rows, "r1", count),
-    );
+    const ran = await second.effects.runOnce(keyOf(lease), writing(second.rows, "r1", count));
     expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
   },
 });
@@ -74,13 +69,10 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
         await first.leases.release(lease);
         const taken = await leaseOf(second, executionId);
         const key = keyOf(taken);
-        return second.effects.saveResultIfAbsent(
-          key,
-          writing(second.rows, `holder-${String(round)}`, count),
-        );
+        return second.effects.runOnce(key, writing(second.rows, `holder-${String(round)}`, count));
       };
 
-      const late = first.effects.saveResultIfAbsent(
+      const late = first.effects.runOnce(
         keyOf(lease),
         writing(first.rows, `zombie-${String(round)}`, count),
       );

@@ -42,7 +42,7 @@ async function booked(
   key: EffectKey,
   kind: string,
 ): Promise<ReceiptDto> {
-  const outcome = await fencedEffects.saveResultIfAbsent(key, () => {
+  const outcome = await fencedEffects.runOnce(key, () => {
     books.ran.push(kind);
     return { receipt: `${kind}-${String(books.ran.length)}` };
   });

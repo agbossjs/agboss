@@ -207,7 +207,7 @@ const guardrailModels = (guardrails: readonly LoadedModelGuardrail[]): object =>
     ? {}
     : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
 
-/** Prompt and model versions of the current configuration — stored with every Tern. */
+/** Prompt and model versions of the current configuration — stored with every Turn. */
 export function executionVersions<TName extends string>(
   deps: AgentExecutionDeps<TName>,
 ): {

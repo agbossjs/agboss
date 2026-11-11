@@ -31,33 +31,38 @@ import {
 } from "../../src/app/outbound-calls.js";
 import { storeClockOf } from "../helpers/store-clock.js";
 
-const CALL = { name: "charge", target: "payments", operation: "charge" };
+const CALL = { call: "charge", target: "payments", operation: "charge" };
 
 describe("#626: the outbound call's errors", () => {
   it("OutboundCallUnreconciledError", () => {
     const cause = new Error("lookup failed");
-    const error = new OutboundCallUnreconciledError(
-      { ...CALL, idempotencyKey: "default:order%3A42:charge", reason: "the lookup timed out" },
+    const error = new OutboundCallUnreconciledError({
+      ...CALL,
+      idempotencyKey: "default:order%3A42:charge",
+      reason: "reconcile.unknown",
+      detail: "the lookup timed out",
       cause,
-    );
+    });
 
     expect(error).toMatchObject({
       name: "OutboundCallUnreconciledError",
       code: "outbound-call.unreconciled",
       message:
-        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled: the lookup timed out — nothing was sent; an operator decides (app.pendingOutboundCallsOf)',
+        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled (reconcile.unknown): the lookup timed out — nothing was sent; an operator decides (app.pendingOutboundCallsOf)',
       call: "charge",
       target: "payments",
       operation: "charge",
       idempotencyKey: "default:order%3A42:charge",
-      reason: "the lookup timed out",
+      reason: "reconcile.unknown",
+      detail: "the lookup timed out",
       usage: [],
       cause,
       details: {
         call: "charge",
         target: "payments",
         operation: "charge",
-        reason: "the lookup timed out",
+        reason: "reconcile.unknown",
+        detail: "the lookup timed out",
       },
     });
     expect(error.usage).toEqual([]);
@@ -110,7 +115,10 @@ describe("#626: the outbound call's errors", () => {
   });
 
   it("OutboundCallResultNotStoredError", () => {
-    const error = new OutboundCallResultNotStoredError(CALL, "outbound-call.payload-too-large");
+    const error = new OutboundCallResultNotStoredError({
+      ...CALL,
+      reason: "outbound-call.payload-too-large",
+    });
 
     expect(error).toMatchObject({
       name: "OutboundCallResultNotStoredError",

@@ -2,9 +2,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore, type NewTern } from "../../src/terns/index.js";
+import { createSqliteTernStore, type NewTurn } from "../../src/terns/index.js";
 
-const tern = (overrides: Partial<NewTern> = {}): NewTern => ({
+const tern = (overrides: Partial<NewTurn> = {}): NewTurn => ({
   runId: "run-1",
   threadId: "t",
   tenantId: "default",
@@ -24,7 +24,7 @@ const tern = (overrides: Partial<NewTern> = {}): NewTern => ({
   ...overrides,
 });
 
-describe("SQLite Tern store", () => {
+describe("SQLite Turn store", () => {
   it("#265: a run in flight is no result — summary and byVersion leave out running Terns", async () => {
     const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });

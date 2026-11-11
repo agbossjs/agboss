@@ -124,7 +124,7 @@ export interface JudgeRejection {
 
 /** An agent's reply still failed its judges after `maxRetries` retries. */
 export class QualityGateError extends AgentFailedError {
-  static override readonly code: string = "step.agent.quality-gate";
+  static override readonly code = "step.agent.quality-gate" as const;
   override name = "QualityGateError";
   /** The judges that rejected the last reply, each with its reason. */
   readonly rejections: readonly JudgeRejection[];
@@ -146,7 +146,7 @@ export class QualityGateError extends AgentFailedError {
 
 /** A guard could not routeTo — the run fails closed instead of letting content through. */
 export class GuardFailedError extends StepFailedError {
-  static override readonly code: string = "step.guard";
+  static override readonly code = "step.guard" as const;
   override name = "GuardFailedError";
   readonly guard: string;
 

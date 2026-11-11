@@ -8,7 +8,7 @@ import { StepFailedError, stepCoordinatesOf } from "./errors.js";
  * `.onError(ToolBlockedError, …)` (or `StepFailedError`) after the agent takes it.
  */
 export class ToolBlockedError extends StepFailedError {
-  static override readonly code: string = "step.tool-blocked";
+  static override readonly code = "step.tool-blocked" as const;
   override name = "ToolBlockedError";
   /** The agent whose call was blocked. */
   readonly agent: string;

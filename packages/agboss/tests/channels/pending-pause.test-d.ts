@@ -69,11 +69,11 @@ describe("AC3: the pause's step, and the base of a pending pause", () => {
 });
 
 describe("AC3: QuestionFailedError names its question", () => {
-  it("takes an options object; its code is a literal", () => {
+  it("takes one options object, its cause in it (#890); its code is a literal", () => {
     expectTypeOf(QuestionFailedError.code).toEqualTypeOf<"step.question">();
     expectTypeOf<QuestionFailedError["question"]>().toEqualTypeOf<string>();
     expectTypeOf(QuestionFailedError).constructorParameters.toEqualTypeOf<
-      [options: { readonly question: string }, cause: unknown]
+      [options: { readonly question: string; readonly cause: unknown }]
     >();
   });
 });

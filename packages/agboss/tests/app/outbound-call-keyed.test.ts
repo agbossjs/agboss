@@ -10,7 +10,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
-  IdempotencyKeyConflictError,
+  BusinessKeyConflictError,
   NotSentTrust,
   OutboundCallRepository,
   OutboundCalls,
@@ -102,7 +102,7 @@ describe("#626: a call's fingerprint", () => {
     await run(order);
     next.amountUsd = 12;
 
-    await expect(run(order)).rejects.toBeInstanceOf(IdempotencyKeyConflictError);
+    await expect(run(order)).rejects.toBeInstanceOf(BusinessKeyConflictError);
     expect(gateway.calls).toHaveLength(1);
   });
 });

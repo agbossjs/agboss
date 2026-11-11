@@ -9,7 +9,7 @@ import { summaryTextsOf } from "../compaction/stored-summaries.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { mappedStringsAsync } from "../pii/strings.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
-import type { Tern } from "../terns/index.js";
+import type { Turn } from "../terns/index.js";
 import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
 import type { CompactedOne, CompactionRun } from "./compaction.js";
 import type { AgentExecutionDeps } from "./types.js";
@@ -40,7 +40,7 @@ function partsOf(line: string): { readonly name: string; readonly value: unknown
 }
 
 /** A turn of the thread as `compact()` reads it. */
-function turnOf(tern: Tern): CompactionTurn {
+function turnOf(tern: Turn): CompactionTurn {
   const start = partsOf(tern.task);
   const finish = partsOf(tern.replyWith);
   return {
@@ -135,7 +135,7 @@ export async function compactWithHandler<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   compaction: CustomCompactionInUse,
   run: CompactionRun,
-  due: readonly Tern[],
+  due: readonly Turn[],
 ): Promise<CompactedOne> {
   const { tenantId, threadId } = run;
   const [current] = await deps.terns.latestSummaries(tenantId, threadId, compaction.name, 1);
