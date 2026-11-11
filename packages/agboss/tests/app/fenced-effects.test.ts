@@ -17,6 +17,7 @@ import {
 } from "../../src/index.js";
 import { testAction } from "../../src/testing/index.js";
 import { FENCED_EFFECTS_OUTSIDE_APPLICATION } from "../../src/app/fenced-effects.js";
+import { lifecycleOf } from "../../src/app/workflow-lifecycle.js";
 import { ChargeReceiptDto } from "./fixtures/fenced-effect.workflow.js";
 
 /** How often each order's work ran. */
@@ -76,5 +77,27 @@ describe("#890 AC2: FencedEffects.runOnce, the service an application injects", 
     await expect(FENCED_EFFECTS_OUTSIDE_APPLICATION.runOnce()).rejects.toThrow(
       /a fenced effect runs in an application/u,
     );
+  });
+});
+
+describe("#890 AC2: a workflow on its own (eval, replay, Studio) runs FencedEffects on its infrastructure", () => {
+  const fencedEffects = { store: "the infrastructure's" };
+  const infrastructure = { fencedEffects } as never;
+
+  it("AC2: no application's container: the fenced-effect store is the infrastructure's, a test's override over it", () => {
+    const own = lifecycleOf(undefined, infrastructure).options.overrides;
+    const overridden = lifecycleOf(
+      { overrides: new Map([[FencedEffectRepository, "the test's"]]) },
+      infrastructure,
+    ).options.overrides;
+
+    expect(own?.get(FencedEffectRepository)).toBe(fencedEffects);
+    expect(overridden?.get(FencedEffectRepository)).toBe("the test's");
+  });
+
+  it("AC2: inside an application's container nothing is added: the application's store is found as listed", () => {
+    const application = {} as never;
+
+    expect(lifecycleOf({ application }, infrastructure).options.overrides).toBeUndefined();
   });
 });
