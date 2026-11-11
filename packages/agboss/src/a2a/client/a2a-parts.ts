@@ -2,6 +2,12 @@ import type { Artifact, Message, Part, Task } from "@a2a-js/sdk";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import type { DtoClass } from "../../dto/types.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import {
+  fileInputPartsOf,
+  fileOutputOf,
+  hasFileFieldInData,
+  type StoredFileReader,
+} from "./a2a-client-files.js";
 
 /**
  * What a message carries and what an answer gives (#809, design §3 and §4.2): one `data` part
@@ -41,10 +47,17 @@ const extendsClass = (dto: DtoClass, base: DtoClass): boolean =>
   dto === base || dto.prototype instanceof base;
 
 /**
- * The parts of a typed input: `text` for a `WorkflowStartTextDto` that holds only its text, else
- * one `data` part of the (validated) DTO.
+ * The parts of a typed input: `text` for a `WorkflowStartTextDto` that holds only its text, its
+ * file parts and the rest as one `data` part for a DTO with file fields (#859; a stored file read
+ * through `read`), else one `data` part of the (validated) DTO.
  */
-export function inputPartsOf(dto: DtoClass, input: object): Part[] {
+export async function inputPartsOf(
+  dto: DtoClass,
+  input: object,
+  read: StoredFileReader,
+): Promise<Part[]> {
+  const withFiles = await fileInputPartsOf(dto, input, read, dataPartOf);
+  if (withFiles !== undefined) return withFiles;
   if (extendsClass(dto, WorkflowStartTextDto)) {
     const { text, ...rest } = input as { readonly text?: unknown };
     const isTextOnly =
@@ -101,6 +114,10 @@ export function rawOutputOf(
   parts: readonly Part[],
 ): { readonly value: unknown } | undefined {
   const data = dataOf(parts);
+  // #859: a DTO with file fields takes the file parts into them — never a descriptor of the data
+  if (hasFileFieldInData(dto, data)) return undefined;
+  const withFiles = fileOutputOf(dto, parts, data);
+  if (withFiles !== undefined) return withFiles;
   if (data !== undefined) return data;
   if (!extendsClass(dto, WorkflowFinishTextDto)) return undefined;
   const text = textOf(parts);

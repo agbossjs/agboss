@@ -1879,7 +1879,18 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   handler refuses a decoded request that is not the admitted one (`-32602 a2a.request-mismatch`). A
   message names its skill in `metadata[A2A_SKILLS_EXTENSION].skill` (optional with one export) and
   carries text parts (a `WorkflowStartTextDto` start) or one `data` part, checked before anything is
-  kept (`-32602`; files `-32005`). One task = one root execution under the task's id (P1's reserved
+  kept (`-32602`; files `-32005` — unless the start's input DTO holds `A2AFileDto` fields, #859:
+  `raw` / `url` parts fill them (each in the field its `metadata[A2A_SKILLS_EXTENSION].field` names,
+  else in order; never from the data part, `a2a.file-field-in-data`), bounded by
+  `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`, each file's bytes
+  checked against its media type, a url fetched once at the admission — `https:` on
+  `allowedFileOrigins`, manual redirects ≤ 3, no private address, `fileFetchTimeout`, the request's
+  end —; a finish with file fields answers with file parts; steps use `A2AFiles` (`read` / `save` /
+  `fromUrl`); bytes ride inline with no `A2AFileRepository` listed (`[a2a.inline-files-without-store]`
+  above 64 KB, `[a2a.file-store-required]` above 256 KB) or in the store under the task
+  (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository`, `S3A2AFileRepository`;
+  `a2aFileContract`; `[a2a.file-store-not-shared]`), removed `retention.a2aFiles` after the task is over, never while it
+  waits; the client's `A2AClientFile.fromBytes` / `.fromUrl`, `downloadFile`). One task = one root execution under the task's id (P1's reserved
   id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
   other content `-32602` — on every instance, as the store declares its `static store` backend (#824, #825): an
   application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
@@ -2175,7 +2186,7 @@ passed (a skipped one fails it, S2 Q6).
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks } })` (#834,
+auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles } })` (#834,
   `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
   refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,

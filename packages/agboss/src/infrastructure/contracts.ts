@@ -24,6 +24,7 @@ import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.r
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
 import { A2ATaskRepository } from "./a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "./in-memory-a2a-task.repository.js";
+import { A2AFileRepository, InlineA2AFileRepository } from "./a2a-file.repository.js";
 import {
   ExecutionHistoryRepository,
   InMemoryExecutionHistoryRepository,
@@ -42,6 +43,7 @@ import { OutboundCallRepository } from "./outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
+import { A2AFiles } from "../a2a/files/a2a-files.service.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 
 /**
@@ -73,6 +75,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [A2ATaskRepository, InMemoryA2ATaskRepository],
+  [A2AFileRepository, InlineA2AFileRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
@@ -93,7 +96,11 @@ export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<C
  * The framework's services a component injects without listing them (#505: `OutboundCalls`),
  * created by the application's container over its infrastructure — never infrastructure itself.
  */
-const CORE_SERVICES: readonly (readonly [Class, Class])[] = [[OutboundCalls, OutboundCalls]];
+const CORE_SERVICES: readonly (readonly [Class, Class])[] = [
+  [OutboundCalls, OutboundCalls],
+  // #859: what a step reads and keeps its A2A task's files with
+  [A2AFiles, A2AFiles],
+];
 
 /** What an application's container creates when nothing listed provides it. */
 export const CONTAINER_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
@@ -133,6 +140,8 @@ export interface Infrastructure {
   readonly meshRequests: MeshRequestRepository;
   /** The A2A tasks the application serves (#807): one per root execution, ever. */
   readonly a2aTasks: A2ATaskRepository;
+  /** The A2A tasks' files (#859); the built-in default keeps none (they ride inline). */
+  readonly a2aFiles: A2AFileRepository;
   /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
   readonly executionHistory: ExecutionHistoryRepository;
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
@@ -180,6 +189,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   a2aTasks: resolve(A2ATaskRepository) as A2ATaskRepository,
+  a2aFiles: resolve(A2AFileRepository) as A2AFileRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,

@@ -85,3 +85,37 @@ export { A2ASecurity, A2ASecuritySchemeKind, type A2ASecurityScheme } from "./a2
 export { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "./a2a-extension-uris.js";
 // #807: the A2A task store on the application's SQLite file (`@Application({ providers })`)
 export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
+// #859: file parts in messages and artifacts
+export {
+  A2AFileDto,
+  A2AFileSource,
+  WorkflowFinishFileDto,
+  WorkflowFinishFilesDto,
+  type A2AFileField,
+} from "./files/a2a-file.dto.js";
+export { A2AFiles, type A2AFileContent, type A2AFileReference } from "./files/a2a-files.service.js";
+export {
+  A2AFileRefusal,
+  A2AFileRefusedError,
+  A2AFileUnavailableError,
+  A2AFileUnavailableReason,
+  type A2AFileRefusedErrorOptions,
+} from "./files/a2a-file-errors.js";
+export { DEFAULT_A2A_FILE_MEDIA_TYPES, type A2AFileOptions } from "./files/a2a-file-options.js";
+export {
+  A2AClientFile,
+  type A2AClientFileOptions,
+  type A2AReceivedFile,
+} from "./client/a2a-client-files.js";
+export type { A2ADownloadOptions } from "./client/a2a-download.js";
+export {
+  A2AFileConflictError,
+  A2AFileRepository,
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "../infrastructure/a2a-file.repository.js";
+export { InMemoryA2AFileRepository } from "../infrastructure/in-memory-a2a-file.repository.js";
+export { LocalDiskA2AFileRepository } from "../infrastructure/local-disk-a2a-file.repository.js";
+export { S3A2AFileRepository } from "../infrastructure/s3/s3-a2a-file.repository.js";

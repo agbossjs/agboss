@@ -13,6 +13,8 @@ import { encodeRunReport } from "../../mesh/mesh-report.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
+import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import { fileOutputPartsOf } from "./a2a-output-parts.js";
 
 /**
  * A kept task as A2A v1.0 shows it (#808, design §3): its state, its status message — the pauses a
@@ -95,18 +97,28 @@ function outputPartsOf(status: A2ATaskStatus, skill: ServedSkill | undefined): P
 export const outputArtifactIdOf = (taskId: string): string => `${taskId}:output`;
 
 /** A completed task's artifact: the finish's output, named by the finish; none before. */
-export function outputArtifactOf(
+export async function outputArtifactOf(
   task: A2ATaskRecord,
   skill: ServedSkill | undefined,
-): Artifact | undefined {
+  files: A2AFileRepository,
+): Promise<Artifact | undefined> {
   const { status } = task;
   if (status.state !== A2ATaskState.Completed || status.finish === undefined) return undefined;
+  const served = skill?.outputs.find((entry) => entry.finish === status.finish);
+  const withFiles =
+    served === undefined || served.fileFields.length === 0
+      ? undefined
+      : await fileOutputPartsOf(task, served, files, dataPart);
+  const missing =
+    withFiles === undefined || withFiles.missingFiles === 0
+      ? {}
+      : { missingFiles: withFiles.missingFiles };
   return {
     artifactId: outputArtifactIdOf(task.taskId),
     name: status.finish,
     description: "",
-    parts: outputPartsOf(status, skill),
-    metadata: { [A2A_SKILLS_EXTENSION]: { finish: status.finish } },
+    parts: withFiles === undefined ? outputPartsOf(status, skill) : [...withFiles.parts],
+    metadata: { [A2A_SKILLS_EXTENSION]: { finish: status.finish, ...missing } },
     extensions: [],
   };
 }
@@ -115,6 +127,8 @@ export function outputArtifactOf(
 export interface TaskViewParts {
   readonly skills: readonly ServedSkill[];
   readonly mesh: Pick<MeshSettings, "application" | "keys">;
+  /** Where its stored output files are read (#859). */
+  readonly files: { readonly store: A2AFileRepository };
 }
 
 /**
@@ -143,12 +157,16 @@ export function taskMetadataOf(
   return { [A2A_MESH_EXTENSION]: { report: encodeRunReport(facts, key) } };
 }
 
-/** A kept task as the wire shows it. */
-export function wireTaskOf(task: A2ATaskRecord, parts: TaskViewParts): Task {
-  const artifact = outputArtifactOf(
-    task,
-    parts.skills.find((skill) => skill.id === task.skill),
-  );
+/** A kept task as the wire shows it; `withArtifacts: false` leaves its artifact (and files) out. */
+export async function wireTaskOf(
+  task: A2ATaskRecord,
+  parts: TaskViewParts,
+  withArtifacts = true,
+): Promise<Task> {
+  const skill = parts.skills.find((served) => served.id === task.skill);
+  const artifact = withArtifacts
+    ? await outputArtifactOf(task, skill, parts.files.store)
+    : undefined;
   return {
     id: task.taskId,
     contextId: task.contextId,

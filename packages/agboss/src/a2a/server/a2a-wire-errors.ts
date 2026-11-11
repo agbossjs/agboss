@@ -40,6 +40,13 @@ export const contentTypeNotSupported = (): A2AError =>
     metadata: { code: "a2a.content-type" },
   });
 
+/** `-32005` for a file of a media type the skill does not take (#859). */
+export const fileTypeNotSupported = (): A2AError =>
+  new ContentTypeNotSupportedError({
+    message: "the agent does not take files of this media type",
+    metadata: { code: "a2a.file-media-type" },
+  });
+
 /** `-32003`: no push notifications. */
 export const pushNotSupported = (): A2AError =>
   new PushNotificationNotSupportedError({ message: "push notifications are not supported" });

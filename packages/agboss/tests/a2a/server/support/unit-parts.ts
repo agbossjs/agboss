@@ -1,6 +1,9 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
+import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
+import { seconds } from "../../../../src/units/index.js";
+import { DEFAULT_A2A_FILE_LIMITS } from "../../../../src/a2a/files/a2a-file-options.js";
 import { Role, type Message } from "@a2a-js/sdk";
 import { dataPart, textPart } from "../../../../src/a2a/server/a2a-task-view.js";
 import { A2AOperation } from "../../../../src/a2a/a2a-caller.js";
@@ -46,6 +49,9 @@ export const UNIT_MESH: MeshSettings = {
   clock: new VirtualClock(NINE),
   idempotencyRetention: 0,
   a2aTaskRetention: 0,
+  a2aFileRetention: 0,
+  a2aFiles: undefined,
+  workflows: [],
   exposes: [],
   contracts: () => Promise.reject(new Error("no contracts in a unit test")),
 };
@@ -65,7 +71,17 @@ export const TEXT_SKILL: ServedSkill = {
   inputMediaType: A2AMediaType.Text,
   inputSchema: null,
   inputSchemaHash: null,
-  outputs: [{ finish: "unit-workflow-finish", mediaType: A2AMediaType.Json, schema: null }],
+  outputs: [
+    {
+      finish: "unit-workflow-finish",
+      mediaType: A2AMediaType.Json,
+      schema: null,
+      fileFields: [],
+      hasData: true,
+    },
+  ],
+  inputFiles: [],
+  fileLimits: DEFAULT_A2A_FILE_LIMITS,
 };
 
 /** What the scripted control and app were asked, and what they answer. */
@@ -122,6 +138,7 @@ export function unitParts(
     skills: [TEXT_SKILL],
     maxTaskDuration: undefined,
     mesh: UNIT_MESH,
+    files: { store: new InlineA2AFileRepository(), transport: undefined, timeout: seconds(10) },
     ids: {
       newExecutionId: () => {
         const id = `minted-${String((minted += 1))}`;

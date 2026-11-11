@@ -1,10 +1,10 @@
 import type { AgentCard, Part, Task } from "@a2a-js/sdk";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import { SystemClock, type Clock } from "../../infrastructure/clock.js";
+import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js";
 import { accept } from "./a2a-accept.js";
 import type { Accepted } from "./a2a-message.js";
-import { skillOf, type A2ARemotePeer } from "./a2a-card.js";
+import type { A2ARemotePeer } from "./a2a-card.js";
 import { CardCache, type Wire } from "./a2a-card-cache.js";
 import {
   agentNameOf,
@@ -20,8 +20,11 @@ import {
   type A2ATaskResult,
 } from "./a2a-client-options.js";
 import { A2AClientOperation } from "./a2a-client-errors.js";
-import { a2aClientServicesOf, type A2AClientServices } from "./a2a-client-services.js";
-import { A2AMesh } from "./a2a-guard-errors.js";
+import {
+  a2aClientServicesOf,
+  storedFileReaderOf,
+  type A2AClientServices,
+} from "./a2a-client-services.js";
 import {
   chargedOf,
   recordRefused,
@@ -29,11 +32,12 @@ import {
   settledChargeOf,
   settledPeerOf,
 } from "./a2a-charges.js";
-import { AGBOSS_MESH, type A2AMeshActivation } from "./a2a-mesh-seam.js";
+import { activatedMeshOf } from "./a2a-activation.js";
 import { originPolicyOf } from "./a2a-origins.js";
 import { outputOf, untypedResultOf } from "./a2a-outcome.js";
 import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
 import { waitForTask } from "./a2a-wait.js";
+import type { A2ADownloadOptions, A2AReceivedFile } from "./a2a-download.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
 
 /** One call's settled answer. */
@@ -97,7 +101,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    */
   public async execute(input: TIn, call: A2AClientCall = {}): Promise<TOut> {
     const contract = typedContractOf(this.constructor.name, this.contract);
-    const parts = inputPartsOf(contract.input, validate(contract.input, input));
+    const read = storedFileReaderOf(this.#services());
+    const parts = await inputPartsOf(contract.input, validate(contract.input, input), read);
     const { task, accepted } = await this.#call(parts, undefined, call);
     const raw = outputOf(this.#agent, contract.output, task, accepted.message);
     // the contract's output DTO is the class's `TOut` (the decorator ties them)
@@ -120,6 +125,16 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     call: A2AClientCall = {},
   ): Promise<A2ATaskResult> {
     return untypedResultOf(await this.#call(partsOf(answer), taskId, call), this.#agent);
+  }
+
+  /**
+   * The bytes of a file an answer gave (#859): inline ones as they came, one by `url` downloaded
+   * through the client's own fetch — on its origins only, with its headers — up to `maxSize`
+   * (`kilobytes(10240)` by default), each checked against its `sha256` when it names one.
+   */
+  public downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array> {
+    const loaded = lazyLoad(import("./a2a-download.js"));
+    return loaded.then((it) => it.downloadedFile(file, { ...options, fetcher: this.#cards.fetch }));
   }
 
   /** The task as the agent has it now. */
@@ -168,23 +183,6 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     return this.#cards.wireOf(this.#clock(), signal);
   }
 
-  /** The mesh of a call to the card's agent, and the skill the call names. */
-  #activated(wire: Wire): { readonly activation: A2AMeshActivation; readonly skill?: string } {
-    const { card, peer } = wire.checked;
-    const application = this.contract?.application;
-    const skill = skillOf(card, {
-      agent: this.#agent,
-      skill: this.contract?.skill,
-      input: undefined,
-      output: undefined,
-    });
-    const mesh =
-      this.contract?.mesh ?? (application === undefined ? A2AMesh.IfSupported : A2AMesh.Required);
-    const seam = this.#services()?.mesh ?? AGBOSS_MESH;
-    const activation = seam.activate(card, peer, { agent: this.#agent, application, skill, mesh });
-    return skill === undefined ? { activation } : { activation, skill };
-  }
-
   /**
    * One call: the card, the accept (its price charged then), the wait (a report's excess then) —
    * both charged on every pass under the call's own ledger identity, so a takeover that replays the
@@ -198,7 +196,11 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
   ): Promise<Settled> {
     const key = checkedCallKey(this.#agent, call.key);
     const wire = await this.#wire(call.signal);
-    const { activation, skill } = this.#activated(wire);
+    const { activation, skill } = activatedMeshOf(wire, {
+      agent: this.#agent,
+      contract: this.contract,
+      seam: this.#services()?.mesh,
+    });
     const clock = this.#clock();
     const accepted = await accept({
       agent: this.#agent,

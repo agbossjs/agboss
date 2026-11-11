@@ -74,6 +74,26 @@ describe("#811: the conformance agent answers each scenario", () => {
     expect(rejected.status?.state).toBe(TaskState.TASK_STATE_FAILED);
   });
 
+  it("#859 AC1: DM-ART-001's file variants — a raw file part, a url file part, output.txt text/plain", async () => {
+    const sut = await serveTckSut(0);
+    served.push(sut);
+    const client = await sdkClientOf(sut.url, undefined);
+
+    const raw = taskOf(await client.sendMessage(send("tck-artifact-file-0123abcd-1")));
+    const url = taskOf(await client.sendMessage(send("tck-artifact-file-url-0123abcd-2")));
+
+    expect(raw.artifacts[0]?.parts[0]).toMatchObject({
+      content: { $case: "raw", value: Buffer.from("Generated file content") },
+      filename: "output.txt",
+      mediaType: "text/plain",
+    });
+    expect(url.artifacts[0]?.parts[0]).toMatchObject({
+      content: { $case: "url", value: "https://example.com/output.txt" },
+      filename: "output.txt",
+      mediaType: "text/plain",
+    });
+  });
+
   it("a scenario header a caller sends itself is dropped: the messageId alone names it", async () => {
     const sut = await serveTckSut(0);
     served.push(sut);

@@ -1,4 +1,5 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import { isInlineFileStore } from "../infrastructure/a2a-file.repository.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
@@ -52,6 +53,10 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     [stores.rateLimits, () => stores.rateLimits.ping()],
     [stores.meshRequests, () => stores.meshRequests.ping()],
     [stores.a2aTasks, () => stores.a2aTasks.ping()],
+    // #859: the default keeps no file (they ride inline): nothing to reach
+    ...(isInlineFileStore(stores.a2aFiles)
+      ? []
+      : [[stores.a2aFiles, () => stores.a2aFiles.ping()] satisfies [object, () => Promise<void>]]),
     [stores.executionHistory, () => stores.executionHistory.ping()],
     [stores.auditLog, () => stores.auditLog.ping()],
     [saver, () => pingCheckpointSaver(saver)],

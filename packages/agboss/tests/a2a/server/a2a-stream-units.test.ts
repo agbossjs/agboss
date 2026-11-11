@@ -39,12 +39,16 @@ const SKILLS: readonly ServedSkill[] = [
   {
     ...TEXT_SKILL,
     id: "json-out",
-    outputs: [{ finish: FINISH, mediaType: A2AMediaType.Json, schema: null }],
+    outputs: [
+      { finish: FINISH, mediaType: A2AMediaType.Json, schema: null, fileFields: [], hasData: true },
+    ],
   },
   {
     ...TEXT_SKILL,
     id: "text-out",
-    outputs: [{ finish: FINISH, mediaType: A2AMediaType.Text, schema: null }],
+    outputs: [
+      { finish: FINISH, mediaType: A2AMediaType.Text, schema: null, fileFields: [], hasData: true },
+    ],
   },
 ];
 const COMPLETED: A2ATaskStatus = {
@@ -412,8 +416,10 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
       },
     ]);
     expect(ended.status.state).toBe(A2ATaskState.Completed);
-    expect(await appliedArtifacts(events)).toStrictEqual(wireTaskOf(ended, parts).artifacts);
-    expect(wireTaskOf(ended, parts).artifacts).toHaveLength(1);
+    expect(await appliedArtifacts(events)).toStrictEqual(
+      (await wireTaskOf(ended, parts)).artifacts,
+    );
+    expect((await wireTaskOf(ended, parts)).artifacts).toHaveLength(1);
     expect(artifactTextOf(await appliedArtifacts(events))).toEqual(["done"]);
   });
 

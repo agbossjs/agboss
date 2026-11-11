@@ -101,9 +101,12 @@ const statusUpdateOf = (parts: A2AServerParts, task: A2ATaskRecord): StreamRespo
 });
 
 /** The last events of a task that changed: its output artifact (completed), then its status. */
-function changeEventsOf(parts: A2AServerParts, task: A2ATaskRecord): StreamResponse[] {
+async function changeEventsOf(
+  parts: A2AServerParts,
+  task: A2ATaskRecord,
+): Promise<StreamResponse[]> {
   const skill = parts.skills.find((served) => served.id === task.skill);
-  const artifact = outputArtifactOf(task, skill);
+  const artifact = await outputArtifactOf(task, skill, parts.files.store);
   const artifactEvent: StreamResponse[] =
     artifact === undefined
       ? []
@@ -165,7 +168,7 @@ export async function* taskStream(
   };
   let stopListening = parts.runs.listen(key, hear);
   try {
-    yield { payload: { $case: "task", value: wireTaskOf(current, parts) } };
+    yield { payload: { $case: "task", value: await wireTaskOf(current, parts) } };
     while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {
       wake = new AbortController();
       if (queued.length === 0) current = await changedOrHeard(parts, current, signal, wake.signal);
@@ -175,7 +178,7 @@ export async function* taskStream(
       }
       if (current.version !== shown) {
         shown = current.version;
-        yield* changeEventsOf(parts, current);
+        yield* await changeEventsOf(parts, current);
       }
       // a run started here since (a resume): its stream is heard from now on, its text anew
       stopListening();

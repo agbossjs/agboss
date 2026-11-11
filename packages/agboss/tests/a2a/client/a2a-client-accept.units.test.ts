@@ -284,6 +284,40 @@ describe("the message and the request one SendMessage sends", () => {
     ).rejects.toBe(reason);
   });
 
+  it("#859: a raw file is stored as its fingerprint only — SHA-256, size, media type, name", () => {
+    const bytes = Buffer.from("hello, files");
+    const parts = [
+      {
+        content: { $case: "raw" as const, value: bytes },
+        metadata: undefined,
+        filename: "a.txt",
+        mediaType: "text/plain",
+      },
+      { content: undefined, metadata: undefined, filename: "", mediaType: "" },
+      {
+        content: { $case: "url" as const, value: "https://f.example/a" },
+        metadata: undefined,
+        filename: "",
+        mediaType: "text/plain",
+      },
+    ];
+
+    const stored: unknown = JSON.parse(acceptRequestOf(callOf({ parts })).parts);
+
+    expect(stored).toEqual([
+      {
+        raw: {
+          sha256: "9cd4f647ecf5ca799777561a61b5b1d54ce927d82473044d0adcde31e4c360e6",
+          sizeBytes: bytes.byteLength,
+        },
+        mediaType: "text/plain",
+        filename: "a.txt",
+      },
+      {},
+      { url: "https://f.example/a", mediaType: "text/plain" },
+    ]);
+  });
+
   it("what the intent stores of the request: the parts as wire JSON, nulls for what is not set", () => {
     expect(acceptRequestOf(callOf())).toEqual({
       agent: "desk-a2a-agent",

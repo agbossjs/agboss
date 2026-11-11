@@ -67,6 +67,9 @@ async function settled(task: Task | undefined, isTaskKnown = true) {
     clock: new VirtualClock(NOW),
     idempotencyRetention: hours(1),
     a2aTaskRetention: hours(1),
+    a2aFileRetention: hours(1),
+    a2aFiles: undefined,
+    workflows: [],
     exposes: [],
     contracts: () => Promise.reject(new Error("no contracts in a unit")),
   };

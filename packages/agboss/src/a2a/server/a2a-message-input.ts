@@ -6,6 +6,9 @@ import { versionOf } from "../../terns/index.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 import { contentTypeNotSupported, invalidParams } from "./a2a-wire-errors.js";
+import type { AdmittedFile } from "./a2a-file-admission.js";
+import { isFilePart, nonFilePartsOf, sha256Of } from "./a2a-message-files.js";
+import { withFilesOf } from "./a2a-input-files.js";
 
 /**
  * What a message asks (#808, design §4.1.3 steps 1–3 and §4.1.4 step 4): the skill it runs —
@@ -51,14 +54,33 @@ export function skillOfMessage(message: Message, skills: readonly ServedSkill[])
   return found;
 }
 
-/** The start's input of a new message, checked: text parts for a text skill, else one `data` part. */
-export function inputOfMessage(message: Message, skill: ServedSkill): unknown {
-  const parts = readableParts(message);
+/**
+ * The payload of a message's parts that are no file: its text for a text skill, else its one
+ * `data` part — `{}` for a skill that takes files when only files were sent.
+ */
+function payloadOf(message: Message, skill: ServedSkill, files: readonly AdmittedFile[]): unknown {
+  const parts = nonFilePartsOf(message.parts);
+  if (parts.length !== message.parts.length && skill.inputFiles.length === 0)
+    throw contentTypeNotSupported();
   const text = textOf(parts);
+  if (skill.inputMediaType === A2AMediaType.Text && text !== undefined) return { text };
+  if (parts.length === 0 && files.length > 0) return {};
+  return dataOf(readableParts({ ...message, parts: [...parts] }))?.value;
+}
+
+/** The start's input of a new message, checked: text parts for a text skill, else one `data` part. */
+export function inputOfMessage(
+  message: Message,
+  skill: ServedSkill,
+  files: readonly AdmittedFile[] = [],
+): unknown {
+  const data = payloadOf(message, skill, files);
+  // a skill that takes files fills its file fields from admitted file parts only — with or
+  // without any sent: a data part naming one is refused (`withFilesOf`)
   const payload: unknown =
-    skill.inputMediaType === A2AMediaType.Text && text !== undefined
-      ? { text }
-      : dataOf(parts)?.value;
+    data === undefined || skill.inputFiles.length === 0
+      ? data
+      : withFilesOf(data, skill.inputFiles, files);
   const schema: Record<string, string> =
     skill.inputSchema === null ? {} : { inputSchema: JSON.stringify(skill.inputSchema) };
   if (payload === undefined)
@@ -118,17 +140,25 @@ export function checkedCallerKey(field: string, value: string): string {
 }
 
 /**
+ * What a part adds to its message's hash: its kind, value and media type — a `raw` file's value the
+ * SHA-256 of its bytes (#859), and a file's name; a text or data part as before #859.
+ */
+function hashedPartOf(part: Part): Readonly<Record<string, unknown>> {
+  const { content } = part;
+  const value =
+    content?.$case === "raw" ? sha256Of(content.value) : ((content?.value as unknown) ?? null);
+  const hashed = { kind: content?.$case ?? "", value, mediaType: part.mediaType };
+  return isFilePart(part) ? { ...hashed, filename: part.filename } : hashed;
+}
+
+/**
  * The hash of what a message asks: its skill, parts, and the context and task it names — a resend
  * has the same one, another message under the same id another. Extension metadata is left out.
  */
 export const requestHashOf = (skill: string, message: Message): string =>
   versionOf({
     skill,
-    parts: message.parts.map((part) => ({
-      kind: part.content?.$case ?? "",
-      value: part.content?.$case === "raw" ? "" : ((part.content?.value as unknown) ?? null),
-      mediaType: part.mediaType,
-    })),
+    parts: message.parts.map(hashedPartOf),
     contextId: message.contextId,
     taskId: message.taskId,
   });

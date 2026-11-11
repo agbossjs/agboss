@@ -93,6 +93,10 @@ export type RuleCode =
   | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
   | "a2a.task-store-not-shared"
+  | "a2a.file-options-invalid"
+  | "a2a.file-store-required"
+  | "a2a.file-store-not-shared"
+  | "a2a.nested-file-field"
   | "application.outbound-calls-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"

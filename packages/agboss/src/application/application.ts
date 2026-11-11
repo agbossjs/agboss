@@ -1,4 +1,5 @@
 import type { Secret } from "../environments/secret.js";
+import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type {
   FencedEffectOptions,
   OutboundCallOptions,
@@ -92,6 +93,14 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * (`[application.expose-unlisted]`), and `agboss describe --json` lists them as exported contracts.
    */
   readonly exposes?: readonly Class[];
+  /**
+   * How much its A2A skills take as files (#859): `maxFileSize`, `maxTotalFileSize`, `maxFiles`,
+   * `allowedMediaTypes`, `allowedFileOrigins` — each skill's `@A2AExpose({ skills: { [id]: { files }
+   * } })` over it, field by field; `[a2a.file-options-invalid]`. A total above 64 KB without an
+   * `A2AFileRepository` listed warns `[a2a.inline-files-without-store]`, above 256 KB it is
+   * `[a2a.file-store-required]`. How long files are kept is `retention.a2aFiles`.
+   */
+  readonly a2aFiles?: A2AFileOptions;
   /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up
