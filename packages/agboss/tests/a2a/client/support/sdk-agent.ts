@@ -71,6 +71,8 @@ export interface SdkAgentOptions {
   /** Declare the AGBoss extensions (and dedupe by messageId): an AGBoss peer. */
   readonly agboss?: {
     readonly idempotencyRetention: number;
+    /** #860: how long its direct-reply skills deduplicate a messageId; none: not declared. */
+    readonly messageIdempotencyRetention?: number;
     readonly skills?: Record<string, unknown>;
   };
   readonly skills?: readonly string[];
@@ -261,7 +263,16 @@ export class SdkAgent {
               uri: A2A_MESH_EXTENSION,
               description: "AGBoss mesh",
               required: false,
-              params: { idempotencyRetention: isoDurationOf(options.agboss.idempotencyRetention) },
+              params: {
+                idempotencyRetention: isoDurationOf(options.agboss.idempotencyRetention),
+                ...(options.agboss.messageIdempotencyRetention === undefined
+                  ? {}
+                  : {
+                      messageIdempotencyRetention: isoDurationOf(
+                        options.agboss.messageIdempotencyRetention,
+                      ),
+                    }),
+              },
             },
             {
               uri: A2A_SKILLS_EXTENSION,

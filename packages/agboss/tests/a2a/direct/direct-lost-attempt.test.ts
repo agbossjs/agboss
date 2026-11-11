@@ -119,7 +119,7 @@ describe("#860: the sweep of the direct messages", () => {
       lostMessage({ ...younger, expiresAt: new Date(clock.now().getTime() + minutes(60)) }),
     );
 
-    await clock.advance(minutes(5) + 1);
+    await clock.advance("301s");
     await sweep();
 
     expect(await messages.findByKey(lostMessage())).toBeUndefined();

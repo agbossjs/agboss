@@ -56,7 +56,7 @@ export interface A2AMeshActivation {
    * At the task's end: what a verified run report says above the price, charged too — on every
    * pass, under its own ledger identity (#810), so a takeover that waits again charges it once.
    */
-  settle(task: Task | undefined, price: Usd | undefined, charged: A2ACharged): void;
+  settle(answer: Task | Message | undefined, price: Usd | undefined, charged: A2ACharged): void;
 }
 
 /** What makes one call's charges the same on every pass (#810): its accept as stored. */
@@ -142,7 +142,7 @@ function refuseLoop(call: A2AMeshCall): void {
  */
 function settleReport(
   call: A2AMeshCall,
-  task: Task | undefined,
+  answer: Task | Message | undefined,
   price: Usd | undefined,
   charged: A2ACharged,
 ): void {
@@ -152,13 +152,14 @@ function settleReport(
   const contract = price === undefined ? undefined : { application, price };
   const isReported = takeRunReport(
     "a2a",
-    meshReportTextOf(task),
+    // #860: a direct reply's report rides its message's metadata as a task's does
+    meshReportTextOf(answer),
     bodyHash,
     contract,
     price ?? 0,
     reportIdentityOf(charged),
   );
-  if (!isReported) recordUnreported(application, task, taskId);
+  if (!isReported) recordUnreported(application, answer, taskId);
 }
 
 /** What makes a call's report its own (#810): its ledger id, its task, the caller's window. */
@@ -171,8 +172,13 @@ const reportIdentityOf = (charged: A2ACharged): RunReportIdentity => ({
 });
 
 /** A completed task of no verified report: `remote.report: false` in the step's record (#844). */
-function recordUnreported(application: string, task: Task | undefined, taskId?: string): void {
-  if (task?.status?.state !== TaskState.TASK_STATE_COMPLETED || taskId === undefined) return;
+function recordUnreported(
+  application: string,
+  answer: Task | Message | undefined,
+  taskId?: string,
+): void {
+  const isCompleted = answer !== undefined && "status" in answer && answer.status?.state === TaskState.TASK_STATE_COMPLETED;
+  if (!isCompleted || taskId === undefined) return;
   currentFrame()?.services.meshCall?.recordRemote({
     application,
     executionId: taskId,
@@ -212,8 +218,8 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
     charge: (price, charged) => {
       chargePrice(call, price, charged);
     },
-    settle: (task, price, charged) => {
-      settleReport(call, task, price, charged);
+    settle: (answer, price, charged) => {
+      settleReport(call, answer, price, charged);
     },
   };
 }
